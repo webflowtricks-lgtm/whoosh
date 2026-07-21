@@ -37,9 +37,18 @@ function writeJSON<T>(filePath: string, data: T): void {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
   app.use(express.json({ limit: "50mb" }));
+
+  // Libera chamadas vindas de outro domínio (ex: seu front-end na Vercel)
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") return res.sendStatus(200);
+    next();
+  });
 
   // API routes
   app.get("/api/health", (req, res) => {
@@ -49,6 +58,7 @@ async function startServer() {
   // User auth api
   app.post("/api/auth/register", (req, res) => {
     const { username, password, name, photoUrl } = req.body;
+
     if (!username || !password || !name) {
       return res.status(400).json({ error: "Nome de usuário, senha e nome de exibição são obrigatórios." });
     }
@@ -76,14 +86,15 @@ async function startServer() {
 
   app.post("/api/auth/login", (req, res) => {
     const { username, password } = req.body;
+
     if (!username || !password) {
       return res.status(400).json({ error: "Usuário e senha são obrigatórios." });
     }
 
     const cleanUsername = username.trim().toLowerCase();
     const users = readJSON<any[]>(USERS_FILE, []);
-
     const user = users.find((u) => u.username === cleanUsername && u.password === password);
+
     if (!user) {
       return res.status(400).json({ error: "Usuário ou senha incorretos." });
     }
@@ -93,14 +104,15 @@ async function startServer() {
 
   app.put("/api/user/profile", (req, res) => {
     const { username, name, photoUrl } = req.body;
+
     if (!username || !name) {
       return res.status(400).json({ error: "Usuário e nome de exibição são obrigatórios." });
     }
 
     const cleanUsername = username.trim().toLowerCase();
     const users = readJSON<any[]>(USERS_FILE, []);
-
     const userIdx = users.findIndex((u) => u.username === cleanUsername);
+
     if (userIdx === -1) {
       return res.status(404).json({ error: "Usuário não encontrado." });
     }
@@ -111,7 +123,6 @@ async function startServer() {
     }
 
     writeJSON(USERS_FILE, users);
-
     res.json({ success: true, user: { username: users[userIdx].username, name: users[userIdx].name, photoUrl: users[userIdx].photoUrl } });
   });
 
@@ -148,6 +159,7 @@ async function startServer() {
   // Join Matchmaking Queue
   app.post("/api/matchmaking/join", (req, res) => {
     const { username, name, photoUrl, team } = req.body;
+
     if (!username || !team || !Array.isArray(team)) {
       return res.status(400).json({ error: "Dados inválidos para matchmaking." });
     }
@@ -177,7 +189,6 @@ async function startServer() {
       };
 
       activeRooms[roomId] = room;
-
       userMatches[opponent.username] = { roomId, playerIndex: 1, opponent: room.player2 };
       userMatches[cleanUsername] = { roomId, playerIndex: 2, opponent: room.player1 };
 
@@ -204,6 +215,7 @@ async function startServer() {
   // Get Matchmaking Status
   app.get("/api/matchmaking/status", (req, res) => {
     const username = (req.query.username as string || "").trim().toLowerCase();
+
     if (!username) {
       return res.status(400).json({ error: "Username é obrigatório." });
     }
@@ -229,6 +241,7 @@ async function startServer() {
   // Submit Turn Actions
   app.post("/api/match/submit-turn", (req, res) => {
     const { roomId, username, actions, turn } = req.body;
+
     if (!roomId || !username || typeof turn !== "number" || !Array.isArray(actions)) {
       return res.status(400).json({ error: "Dados de turno inválidos." });
     }
@@ -285,6 +298,7 @@ async function startServer() {
   // Send Battle Emoji Reaction
   app.post("/api/match/emoji", (req, res) => {
     const { roomId, username, emoji } = req.body;
+
     if (!roomId || !username || !emoji) {
       return res.status(400).json({ error: "Dados de reação inválidos." });
     }
@@ -336,7 +350,6 @@ async function startServer() {
     if (idx !== -1) {
       waitingQueue.splice(idx, 1);
     }
-
     delete userMatches[cleanUsername];
 
     if (roomId && activeRooms[roomId]) {
@@ -371,6 +384,7 @@ async function startServer() {
 
   app.post("/api/characters", (req, res) => {
     const { characters } = req.body;
+
     if (!Array.isArray(characters)) {
       return res.status(400).json({ error: "Lista de personagens inválida." });
     }
