@@ -21,6 +21,8 @@ interface CharacterSelectProps {
   user: UserProfile;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
 export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, user }: CharacterSelectProps) {
   const [charList, setCharList] = useState<Character[]>(() => getCharacters());
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -188,11 +190,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
     try {
       // Join matchmaking queue
-      const joinRes = await fetch('/api/matchmaking/join', {
+      const joinRes = await fetch(`${API_BASE_URL}/api/matchmaking/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: user.username,
+          playerKey: user.username.trim().toLowerCase(),
           name: user.name,
           photoUrl: user.photoUrl,
           team: playerTeam
@@ -207,7 +210,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         // Start polling for matchmaking status
         matchmakingPollRef.current = setInterval(async () => {
           try {
-            const statusRes = await fetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`);
+            const statusRes = await fetch(`${API_BASE_URL}/api/matchmaking/status?username=${encodeURIComponent(user.username)}&playerKey=${encodeURIComponent(user.username.trim().toLowerCase())}`);
             const statusData = await statusRes.json();
 
             if (statusData.status === 'matched') {
@@ -276,10 +279,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     setIsMatchmaking(false);
 
     try {
-      await fetch('/api/matchmaking/quit', {
+      await fetch(`${API_BASE_URL}/api/matchmaking/quit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user.username })
+        body: JSON.stringify({ username: user.username, playerKey: user.username.trim().toLowerCase() })
       });
     } catch (err) {
       console.error('Error quitting matchmaking:', err);

@@ -7,6 +7,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile } from '../types';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface BattleBoardProps {
@@ -153,7 +155,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     setActiveEmojis(prev => [...prev, { id, emoji, xOffset, rotation }]);
 
     if (onlineParams?.isOnline) {
-      fetch('/api/match/emoji', {
+      fetch(`${API_BASE_URL}/api/match/emoji`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -227,7 +229,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/match/emojis?roomId=${onlineParams.roomId}&since=${lastPolledEmojiTimestamp.current}`);
+        const res = await fetch(`${API_BASE_URL}/api/match/emojis?roomId=${onlineParams.roomId}&since=${lastPolledEmojiTimestamp.current}`);
         const data = await res.json();
         if (data.success && data.emojis.length > 0) {
           data.emojis.forEach((e: any) => {
@@ -255,10 +257,10 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   useEffect(() => {
     return () => {
       if (onlineParams?.isOnline) {
-        fetch('/api/matchmaking/quit', {
+        fetch(`${API_BASE_URL}/api/matchmaking/quit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: user.username, roomId: onlineParams.roomId })
+          body: JSON.stringify({ username: user.username, playerKey: user.username.trim().toLowerCase(), roomId: onlineParams.roomId })
         }).catch(() => {});
       }
     };
@@ -711,7 +713,7 @@ const handleTradeChakra = () => {
       setIsWaitingForOpponent(true);
       
       // Submit our turn to the matchmaking backend
-      fetch('/api/match/submit-turn', {
+      fetch(`${API_BASE_URL}/api/match/submit-turn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -732,7 +734,7 @@ const handleTradeChakra = () => {
       // Poll until both players have submitted actions for this turn
       const pollInterval = setInterval(async () => {
         try {
-          const statusRes = await fetch(`/api/match/room-state?roomId=${onlineParams.roomId}`);
+          const statusRes = await fetch(`${API_BASE_URL}/api/match/room-state?roomId=${onlineParams.roomId}`);
           const statusData = await statusRes.json();
 
           if (statusData.success && statusData.room) {

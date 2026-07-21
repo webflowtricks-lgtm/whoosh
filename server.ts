@@ -35,6 +35,10 @@ function writeJSON<T>(filePath: string, data: T): void {
   }
 }
 
+function normalizeUsername(value: string | undefined): string {
+  return (value || "").trim().toLowerCase();
+}
+
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -131,6 +135,7 @@ async function startServer() {
   // ==========================================
 
   interface WaitingPlayer {
+    playerKey: string;
     username: string;
     name: string;
     photoUrl: string;
@@ -158,23 +163,25 @@ async function startServer() {
 
   // Join Matchmaking Queue
   app.post("/api/matchmaking/join", (req, res) => {
-    const { username, name, photoUrl, team } = req.body;
+    const { username, name, photoUrl, team, playerKey } = req.body;
 
     if (!username || !team || !Array.isArray(team)) {
       return res.status(400).json({ error: "Dados inválidos para matchmaking." });
     }
 
-    const cleanUsername = username.trim().toLowerCase();
+    const cleanUsername = normalizeUsername(username);
+    const normalizedPlayerKey = normalizeUsername(playerKey || username);
 
     // Clean up older searches for this user
-    const existingIdx = waitingQueue.findIndex(p => p.username === cleanUsername);
+    const existingIdx = waitingQueue.findIndex(p => p.playerKey === normalizedPlayerKey || p.username === cleanUsername);
     if (existingIdx !== -1) {
       waitingQueue.splice(existingIdx, 1);
     }
+    delete userMatches[normalizedPlayerKey];
     delete userMatches[cleanUsername];
 
     // Check for another waiting player in queue
-    const otherPlayerIdx = waitingQueue.findIndex(p => p.username !== cleanUsername);
+    const otherPlayerIdx = waitingQueue.findIndex(p => p.playerKey !== normalizedPlayerKey);
     if (otherPlayerIdx !== -1) {
       const opponent = waitingQueue.splice(otherPlayerIdx, 1)[0];
       const roomId = "room_" + Math.random().toString(36).substring(2, 11);
@@ -189,8 +196,8 @@ async function startServer() {
       };
 
       activeRooms[roomId] = room;
-      userMatches[opponent.username] = { roomId, playerIndex: 1, opponent: room.player2 };
-      userMatches[cleanUsername] = { roomId, playerIndex: 2, opponent: room.player1 };
+      userMatches[opponent.playerKey] = { roomId, playerIndex: 1, opponent: room.player2 };
+      userMatches[normalizedPlayerKey] = { roomId, playerIndex: 2, opponent: room.player1 };
 
       return res.json({
         status: "matched",
@@ -202,6 +209,7 @@ async function startServer() {
 
     // No opponent found yet, add to queue
     waitingQueue.push({
+      playerKey: normalizedPlayerKey,
       username: cleanUsername,
       name: name || "Shinobi",
       photoUrl: photoUrl || "",
@@ -214,13 +222,14 @@ async function startServer() {
 
   // Get Matchmaking Status
   app.get("/api/matchmaking/status", (req, res) => {
-    const username = (req.query.username as string || "").trim().toLowerCase();
+    const username = normalizeUsername(req.query.username as string);
+    const playerKey = normalizeUsername(req.query.playerKey as string || username);
 
-    if (!username) {
+    if (!username && !playerKey) {
       return res.status(400).json({ error: "Username é obrigatório." });
     }
 
-    const match = userMatches[username];
+    const match = userMatches[playerKey] || userMatches[username];
     if (match) {
       return res.json({
         status: "matched",
@@ -230,7 +239,7 @@ async function startServer() {
       });
     }
 
-    const isWaiting = waitingQueue.some(p => p.username === username);
+    const isWaiting = waitingQueue.some(p => p.playerKey === playerKey || p.username === username);
     if (isWaiting) {
       return res.json({ status: "searching" });
     }
@@ -252,7 +261,7 @@ async function startServer() {
     }
 
     room.lastActivity = Date.now();
-    const cleanUsername = username.trim().toLowerCase();
+    const cleanUsername = normalizeUsername(username);
 
     if (!room.turns[turn]) {
       room.turns[turn] = { player1Actions: null, player2Actions: null };
@@ -309,7 +318,7 @@ async function startServer() {
     }
 
     room.emojis.push({
-      username: username.trim().toLowerCase(),
+      username: normalizeUsername(username),
       emoji,
       timestamp: Date.now()
     });
@@ -342,14 +351,16 @@ async function startServer() {
 
   // Quit/Finish Battle
   app.post("/api/matchmaking/quit", (req, res) => {
-    const { username, roomId } = req.body;
-    const cleanUsername = (username || "").trim().toLowerCase();
+    const { username, roomId, playerKey } = req.body;
+    const cleanUsername = normalizeUsername(username);
+    const normalizedPlayerKey = normalizeUsername(playerKey || username);
 
     // Remove from matchmaking queue
-    const idx = waitingQueue.findIndex(p => p.username === cleanUsername);
+    const idx = waitingQueue.findIndex(p => p.playerKey === normalizedPlayerKey || p.username === cleanUsername);
     if (idx !== -1) {
       waitingQueue.splice(idx, 1);
     }
+    delete userMatches[normalizedPlayerKey];
     delete userMatches[cleanUsername];
 
     if (roomId && activeRooms[roomId]) {
