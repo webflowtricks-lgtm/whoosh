@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Remix: Naruto Unison",
+  "description": "An authentic 3v3 Naruto Arena tactical clone featuring draft character selection, dynamic chakra pools, custom skill interactions, floating combat status effects, retro game sounds, and an intelligent tactical AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
