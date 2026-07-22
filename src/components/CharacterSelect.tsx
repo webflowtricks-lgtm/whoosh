@@ -4,8 +4,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, Loader2, AlertTriangle } from 'lucide-react';
-import { Character, ChakraType, UserProfile } from '../types';
+import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, Loader2, AlertTriangle, Shirt } from 'lucide-react';
+import { Character, ChakraType, UserProfile, Quest } from '../types';
 import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -19,11 +19,11 @@ interface CharacterSelectProps {
   playClickSound: () => void;
   playScrollSound: () => void;
   user: UserProfile;
+  activeQuest?: Quest | null;
+  onBack?: () => void;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-
-export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, user }: CharacterSelectProps) {
+export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, user, activeQuest, onBack }: CharacterSelectProps) {
   const [charList, setCharList] = useState<Character[]>(() => getCharacters());
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sandboxPlayerTeam, setSandboxPlayerTeam] = useState<Character[] | null>(null);
@@ -133,16 +133,39 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     }
   };
 
+  // Skins state
+  const [showSkinsTab, setShowSkinsTab] = useState(false);
+  const [equippedSkins, setEquippedSkins] = useState<Record<string, string>>({});
+
+  const attachSkinsToTeam = (team: Character[]) => {
+    return team.map(char => {
+      const skinId = equippedSkins[char.id];
+      let selectedSkinUrl: string | undefined = char.selectedSkinUrl;
+      if (skinId && char.skins && char.skins.length > 0) {
+        const skinObj = char.skins.find(s => s.id === skinId);
+        if (skinObj) selectedSkinUrl = skinObj.image;
+      } else if (!selectedSkinUrl && char.skins && char.skins.length > 0) {
+        selectedSkinUrl = char.skins[0].image;
+      }
+      return {
+        ...char,
+        selectedSkinId: skinId,
+        selectedSkinUrl: selectedSkinUrl
+      };
+    });
+  };
+
   const handleConfirm = () => {
     if (selectedIds.length !== 3) return;
     playClickSound();
 
-    const playerTeam = charList.filter(c => selectedIds.includes(c.id));
+    const rawPlayerTeam = charList.filter(c => selectedIds.includes(c.id));
+    const playerTeam = attachSkinsToTeam(rawPlayerTeam);
     
     // Select 3 random unique characters for the enemy team
     const remaining = charList.filter(c => !selectedIds.includes(c.id));
     const shuffled = [...remaining].sort(() => 0.5 - Math.random());
-    const enemyTeam = shuffled.slice(0, 3);
+    const enemyTeam = attachSkinsToTeam(shuffled.slice(0, 3));
 
     onConfirmTeams(playerTeam, enemyTeam);
   };
@@ -150,7 +173,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const handleStartSandboxPhase = () => {
     if (selectedIds.length !== 3) return;
     playClickSound();
-    const playerTeam = charList.filter(c => selectedIds.includes(c.id));
+    const rawPlayerTeam = charList.filter(c => selectedIds.includes(c.id));
+    const playerTeam = attachSkinsToTeam(rawPlayerTeam);
     setSandboxPlayerTeam(playerTeam);
     setSelectedIds([]); // clear for enemy team selection
   };
@@ -166,7 +190,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const handleConfirmSandboxMatch = () => {
     if (selectedIds.length !== 3 || !sandboxPlayerTeam) return;
     playClickSound();
-    const enemyTeam = charList.filter(c => selectedIds.includes(c.id));
+    const rawEnemyTeam = charList.filter(c => selectedIds.includes(c.id));
+    const enemyTeam = attachSkinsToTeam(rawEnemyTeam);
     onConfirmTeams(sandboxPlayerTeam, enemyTeam, undefined, true);
   };
 
@@ -175,7 +200,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     if (selectedIds.length !== 3) return;
     playClickSound();
 
-    const playerTeam = charList.filter(c => selectedIds.includes(c.id));
+    const playerTeam = attachSkinsToTeam(charList.filter(c => selectedIds.includes(c.id)));
 
     setIsMatchmaking(true);
     setMatchmakingStatus('searching');
@@ -190,12 +215,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
     try {
       // Join matchmaking queue
-      const joinRes = await fetch(`${API_BASE_URL}/api/matchmaking/join`, {
+      const joinRes = await fetch('/api/matchmaking/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: user.username,
-          playerKey: user.username.trim().toLowerCase(),
           name: user.name,
           photoUrl: user.photoUrl,
           team: playerTeam
@@ -210,7 +234,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         // Start polling for matchmaking status
         matchmakingPollRef.current = setInterval(async () => {
           try {
-            const statusRes = await fetch(`${API_BASE_URL}/api/matchmaking/status?username=${encodeURIComponent(user.username)}&playerKey=${encodeURIComponent(user.username.trim().toLowerCase())}`);
+            const statusRes = await fetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`);
             const statusData = await statusRes.json();
 
             if (statusData.status === 'matched') {
@@ -279,10 +303,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     setIsMatchmaking(false);
 
     try {
-      await fetch(`${API_BASE_URL}/api/matchmaking/quit`, {
+      await fetch('/api/matchmaking/quit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user.username, playerKey: user.username.trim().toLowerCase() })
+        body: JSON.stringify({ username: user.username })
       });
     } catch (err) {
       console.error('Error quitting matchmaking:', err);
@@ -401,6 +425,19 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               </>
             ) : (
               <>
+                {onBack && (
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      onBack();
+                    }}
+                    className="px-4 py-3 rounded-lg font-bold flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800 shadow-lg"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Voltar
+                  </button>
+                )}
+
                 <button
                   onClick={handleConfirm}
                   disabled={selectedIds.length !== 3}
@@ -626,7 +663,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             <div className="flex gap-4">
               <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 flex-shrink-0">
                 <img
-                  src={previewCharacter.portrait}
+                  src={
+                    (equippedSkins[previewCharacter.id] && previewCharacter.skins?.find(s => s.id === equippedSkins[previewCharacter.id])?.image) ||
+                    previewCharacter.portrait
+                  }
                   alt={previewCharacter.name}
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -638,7 +678,25 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               </div>
 
               <div className="space-y-1.5 flex-1">
-                <h3 className="text-xl font-bold tracking-tight text-slate-100 uppercase">{previewCharacter.name}</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xl font-black tracking-tight text-slate-100 uppercase font-mono">{previewCharacter.name}</h3>
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      setShowSkinsTab(prev => !prev);
+                    }}
+                    className={`px-3 py-1 rounded-lg font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-md font-mono ${
+                      showSkinsTab
+                        ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-105'
+                        : 'bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 hover:brightness-110'
+                    }`}
+                    title="Galeria de Skins"
+                  >
+                    <Shirt className="w-3.5 h-3.5 stroke-[2.5]" />
+                    SKINS
+                  </button>
+                </div>
+
                 <div className="flex flex-wrap gap-1.5">
                   {previewCharacter.tags.map((tag, idx) => (
                     <span
@@ -652,9 +710,76 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               </div>
             </div>
 
-            <p className="text-slate-400 text-xs leading-relaxed border-b border-slate-800/80 pb-4">
-              {previewCharacter.description}
-            </p>
+            {showSkinsTab ? (
+              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
+                  <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Shirt className="w-4 h-4 text-amber-400" />
+                    Skins Disponíveis
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    Clique para equipar no card do personagem
+                  </span>
+                </div>
+
+                <div className="flex gap-4 overflow-x-auto pb-2 pt-1 items-center justify-start min-h-[140px] max-h-[180px]">
+                  {(() => {
+                    const skinsList = previewCharacter.skins && previewCharacter.skins.length > 0 
+                      ? previewCharacter.skins 
+                      : [
+                          { id: 'default', name: 'Padrão', image: previewCharacter.portrait }
+                        ];
+                    
+                    return skinsList.map((skin) => {
+                      const isEquipped = (equippedSkins[previewCharacter.id] || skinsList[0]?.id) === skin.id;
+
+                      return (
+                        <div
+                          key={skin.id}
+                          onClick={() => {
+                            playClickSound();
+                            setEquippedSkins(prev => ({
+                              ...prev,
+                              [previewCharacter.id]: skin.id
+                            }));
+                          }}
+                          className={`relative group flex-shrink-0 w-28 h-36 rounded-xl border-2 overflow-hidden bg-slate-900/90 flex flex-col items-center justify-between p-2 cursor-pointer transition-all ${
+                            isEquipped
+                              ? 'border-amber-500 ring-2 ring-amber-500/50 shadow-lg shadow-amber-500/20 bg-amber-500/10'
+                              : 'border-slate-800 hover:border-slate-600 bg-slate-900/60'
+                          }`}
+                        >
+                          {isEquipped && (
+                            <div className="absolute top-1 right-1 bg-amber-500 text-slate-950 text-[8px] font-black font-mono px-1.5 py-0.5 rounded shadow z-10">
+                              EQUIPADA
+                            </div>
+                          )}
+
+                          <div className="w-full h-24 flex items-center justify-center overflow-hidden">
+                            <img
+                              src={skin.image}
+                              alt={skin.name}
+                              className="max-h-full max-w-full object-contain filter drop-shadow transition-transform group-hover:scale-105"
+                              onError={(e) => {
+                                const img = e.currentTarget; img.onerror = null; img.src = previewCharacter.portrait;
+                              }}
+                            />
+                          </div>
+
+                          <span className="text-[10px] font-bold text-slate-200 truncate w-full text-center">
+                            {skin.name}
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            ) : (
+              <p className="text-slate-400 text-xs leading-relaxed border-b border-slate-800/80 pb-4">
+                {previewCharacter.description}
+              </p>
+            )}
 
             {/* Skills List */}
             <div className="space-y-4">
@@ -840,7 +965,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 <div className="col-span-2 text-center space-y-2">
                   <div className="w-16 h-16 mx-auto rounded-xl border-2 border-dashed border-slate-700 overflow-hidden bg-slate-950 flex items-center justify-center">
                     {opponent ? (
-                      <img src={opponent.photoUrl} alt={opponent.name} className="w-full h-full object-cover" />
+                      <img src={opponent.photoUrl} alt={opponent.name} className="w-full h-full object-cover scale-x-[-1]" />
                     ) : (
                       <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
                     )}

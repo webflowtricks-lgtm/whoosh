@@ -6,11 +6,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Lock, Unlock, Shield, Plus, Trash2, Edit3, Save, 
-  Database, RefreshCw, AlertTriangle, CheckCircle, Sparkles, User, HelpCircle 
+  Database, RefreshCw, AlertTriangle, CheckCircle, Sparkles, User, HelpCircle, Shirt 
 } from 'lucide-react';
-import { Character, Skill, ChakraType } from '../types';
+import { Character, Skill, ChakraType, CharacterSkin } from '../types';
 import { getCharacters, saveCharacters, resetToDefaultCharacters } from '../lib/characterStorage';
 import { motion, AnimatePresence } from 'motion/react';
+import QuestAdmin from './QuestAdmin';
+import ShopAdmin from './ShopAdmin';
+import EventAdmin from './EventAdmin';
 
 const TARGET_OPTIONS = [
   { value: 'Target', label: 'Alvo Principal' },
@@ -36,6 +39,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events'>('ninjas');
 
   // Character list state loaded from storage
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -49,6 +53,31 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   const [editingChar, setEditingChar] = useState<Character | null>(null);
   const [editingSkillIndex, setEditingSkillIndex] = useState<number | null>(null);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const requestConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
   const getEffectNameSuggestions = (): string[] => {
     const names = new Set<string>();
 
@@ -194,35 +223,43 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     const char = characters.find(c => c.id === charId);
     if (!char) return;
 
-    if (confirm(`Tem certeza de que deseja excluir o personagem "${char.name}" permanentemente?`)) {
-      const updatedList = characters.filter(c => c.id !== charId);
-      setCharacters(updatedList);
-      saveCharacters(updatedList);
-      
-      if (updatedList.length > 0) {
-        setSelectedCharacterId(updatedList[0].id);
-      } else {
-        setSelectedCharacterId('');
-        setEditingChar(null);
+    requestConfirm(
+      'Excluir Personagem',
+      `Tem certeza de que deseja excluir o personagem "${char.name}" permanentemente?`,
+      () => {
+        const updatedList = characters.filter(c => c.id !== charId);
+        setCharacters(updatedList);
+        saveCharacters(updatedList);
+        
+        if (updatedList.length > 0) {
+          setSelectedCharacterId(updatedList[0].id);
+        } else {
+          setSelectedCharacterId('');
+          setEditingChar(null);
+        }
+        triggerSuccess(`Personagem "${char.name}" removido.`);
       }
-      triggerSuccess(`Personagem "${char.name}" removido.`);
-    }
+    );
   };
 
   // Reset to default characters
   const handleResetDefaults = () => {
     playClickSound();
-    if (confirm('Atenção: Isso redefinirá todos os personagens e habilidades para as configurações padrão originais do jogo. Deseja continuar?')) {
-      const defaults = resetToDefaultCharacters();
-      setCharacters(defaults);
-      if (defaults.length > 0) {
-        setSelectedCharacterId(defaults[0].id);
-        setEditingChar(JSON.parse(JSON.stringify(defaults[0])));
+    requestConfirm(
+      'Redefinir Personagens',
+      'Atenção: Isso redefinirá todos os personagens e habilidades para as configurações padrão originais do jogo. Deseja continuar?',
+      () => {
+        const defaults = resetToDefaultCharacters();
+        setCharacters(defaults);
+        if (defaults.length > 0) {
+          setSelectedCharacterId(defaults[0].id);
+          setEditingChar(JSON.parse(JSON.stringify(defaults[0])));
+        }
+        setEditingSkillIndex(null);
+        setEditingSkill(null);
+        triggerSuccess('Personagens restaurados para os padrões com sucesso!');
       }
-      setEditingSkillIndex(null);
-      setEditingSkill(null);
-      triggerSuccess('Personagens restaurados para os padrões com sucesso!');
-    }
+    );
   };
 
   // Helper to pre-populate legacy skill attributes based on description/name if they are not explicitly set
@@ -249,6 +286,17 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
       s.invisible !== undefined ||
       s.invisibleDuration !== undefined;
 
+    if (s.name === 'Rasengan') {
+      s.damage = 45;
+      s.stunTurns = 1;
+      s.stunType = ['physical', 'mental', 'affliction', 'chakra'];
+      return s;
+    }
+
+    if (s.stunTurns && (!s.stunType || s.stunType.length === 0)) {
+      s.stunType = ['physical', 'mental', 'affliction', 'chakra'];
+    }
+
     if (hasCustomValue) {
       return s;
     }
@@ -261,7 +309,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
       case 'Rasengan':
         s.damage = 45;
         s.stunTurns = 1;
-        s.stunType = ['physical'];
+        s.stunType = ['physical', 'mental', 'affliction', 'chakra'];
         break;
       case 'Shadow Clones':
         s.damageReductionVal = 15;
@@ -440,16 +488,20 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     }
 
     const skillName = editingChar.skills[idx].name;
-    if (confirm(`Tem certeza de que deseja remover a habilidade "${skillName}"?`)) {
-      const updatedSkills = editingChar.skills.filter((_, i) => i !== idx);
-      setEditingChar({
-        ...editingChar,
-        skills: updatedSkills
-      });
-      setEditingSkillIndex(null);
-      setEditingSkill(null);
-      triggerSuccess(`Habilidade "${skillName}" removida.`);
-    }
+    requestConfirm(
+      'Excluir Habilidade',
+      `Tem certeza de que deseja remover a habilidade "${skillName}"?`,
+      () => {
+        const updatedSkills = editingChar.skills.filter((_, i) => i !== idx);
+        setEditingChar({
+          ...editingChar,
+          skills: updatedSkills
+        });
+        setEditingSkillIndex(null);
+        setEditingSkill(null);
+        triggerSuccess(`Habilidade "${skillName}" removida.`);
+      }
+    );
   };
 
   // Update a field inside the selected skill
@@ -637,6 +689,50 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
             </div>
           </div>
 
+          {/* TAB SWITCH */}
+          <div className="flex bg-slate-950 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto">
+            <button
+              onClick={() => { playClickSound(); setActiveTab('ninjas'); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'ninjas'
+                  ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                  : 'text-slate-400 hover:text-slate-200 font-bold'
+              }`}
+            >
+              Ninjas
+            </button>
+            <button
+              onClick={() => { playClickSound(); setActiveTab('quests'); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'quests'
+                  ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                  : 'text-slate-400 hover:text-slate-200 font-bold'
+              }`}
+            >
+              Missões
+            </button>
+            <button
+              onClick={() => { playClickSound(); setActiveTab('shop'); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'shop'
+                  ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                  : 'text-slate-400 hover:text-slate-200 font-bold'
+              }`}
+            >
+              Loja
+            </button>
+            <button
+              onClick={() => { playClickSound(); setActiveTab('events'); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'events'
+                  ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                  : 'text-slate-400 hover:text-slate-200 font-bold'
+              }`}
+            >
+              Eventos
+            </button>
+          </div>
+
           <div className="flex items-center gap-3">
             <button
               onClick={handleResetDefaults}
@@ -658,7 +754,14 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
       </header>
 
       {/* Main dashboard work area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 z-10">
+      {activeTab === 'quests' ? (
+        <QuestAdmin onBack={onBack} playClickSound={playClickSound} />
+      ) : activeTab === 'shop' ? (
+        <ShopAdmin playClickSound={playClickSound} />
+      ) : activeTab === 'events' ? (
+        <EventAdmin playClickSound={playClickSound} />
+      ) : (
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 z-10">
         
         {/* Toast Feedbacks */}
         <AnimatePresence>
@@ -855,6 +958,101 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                     placeholder="Escreva sobre o histórico do ninja..."
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all leading-normal"
                   />
+                </div>
+
+                {/* Character Skins Gallery Management */}
+                <div className="md:col-span-2 bg-slate-950/60 border border-slate-800 p-4 rounded-xl space-y-3 mt-2">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <div>
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-amber-400 font-mono flex items-center gap-1.5">
+                        <Shirt className="w-4 h-4 text-amber-400" />
+                        Galeria de Skins do Personagem
+                      </h3>
+                      <p className="text-[10px] text-slate-500 font-mono">
+                        Adicione, edite ou remova artes e skins em formato PNG sem fundo para este ninja.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentSkins = editingChar.skins || [];
+                        const newSkin: CharacterSkin = {
+                          id: 'skin-' + Date.now(),
+                          name: 'Nova Skin',
+                          image: ''
+                        };
+                        handleUpdateCharDetails('skins', [...currentSkins, newSkin]);
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/40 hover:bg-amber-500/20 text-amber-400 font-bold transition-all flex items-center gap-1 cursor-pointer text-[10px] uppercase tracking-wider"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Adicionar Skin
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                    {(editingChar.skins || []).map((skin, skinIdx) => (
+                      <div key={skin.id || skinIdx} className="flex gap-3 items-center bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                        <div className="w-12 h-12 rounded border border-slate-800 bg-slate-950 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {skin.image ? (
+                            <img src={skin.image} alt={skin.name} className="w-full h-full object-contain" />
+                          ) : (
+                            <span className="text-[8px] text-slate-600 font-mono text-center">Sem Imagem</span>
+                          )}
+                        </div>
+
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[8px] font-mono text-slate-400 uppercase">Nome da Skin</label>
+                            <input
+                              type="text"
+                              value={skin.name}
+                              onChange={(e) => {
+                                const updatedSkins = [...(editingChar.skins || [])];
+                                updatedSkins[skinIdx] = { ...updatedSkins[skinIdx], name: e.target.value };
+                                handleUpdateCharDetails('skins', updatedSkins);
+                              }}
+                              placeholder="Ex: Sasuke Hebi"
+                              className="w-full px-2 py-1 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded text-xs text-white outline-none font-mono"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[8px] font-mono text-slate-400 uppercase">URL Imagem (PNG sem fundo)</label>
+                            <input
+                              type="text"
+                              value={skin.image}
+                              onChange={(e) => {
+                                const updatedSkins = [...(editingChar.skins || [])];
+                                updatedSkins[skinIdx] = { ...updatedSkins[skinIdx], image: e.target.value };
+                                handleUpdateCharDetails('skins', updatedSkins);
+                              }}
+                              placeholder="Ex: https://.../sasuke_skin.png"
+                              className="w-full px-2 py-1 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded text-xs text-white outline-none font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedSkins = (editingChar.skins || []).filter((_, idx) => idx !== skinIdx);
+                            handleUpdateCharDetails('skins', updatedSkins);
+                          }}
+                          className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded transition-all flex-shrink-0 cursor-pointer"
+                          title="Remover Skin"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {(!editingChar.skins || editingChar.skins.length === 0) && (
+                      <div className="text-center py-4 text-xs font-mono text-slate-500 italic">
+                        Nenhuma skin cadastrada para este personagem. Clique em "Adicionar Skin" acima.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1239,163 +1437,236 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                           </div>
 
                           {/* 2. counter attack */}
-                          <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
-                            <div>
-                              <label className="block text-[10px] font-bold uppercase tracking-wider text-red-400 font-mono">Contra-ataque/refletir</label>
-                              <div className="flex items-center gap-2">
+                          <div className="space-y-3 bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                            <div className="space-y-2.5">
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-red-400 font-mono">Contra-ataque (Anular)</label>
+                              <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
                                 <input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  value={editingSkill.counterAttack || 0}
-                                  onChange={(e) => handleUpdateSkillField('counterAttack', parseInt(e.target.value) || 0)}
-                                  className="w-16 px-2 py-1 bg-slate-900 border border-red-900/60 focus:border-red-500 rounded text-red-400 font-mono text-xs text-center font-bold"
+                                  type="checkbox"
+                                  checked={editingSkill.counterAttack || false}
+                                  onChange={(e) => handleUpdateSkillField('counterAttack', e.target.checked)}
+                                  className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0 w-3.5 h-3.5"
                                 />
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={10}
-                                  value={editingSkill.counterAttackDuration || 1}
-                                  onChange={(e) => handleUpdateSkillField('counterAttackDuration', parseInt(e.target.value) || 1)}
-                                  placeholder="Turnos"
-                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
-                                />
-                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <span className="text-[9px] text-red-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
-                                <select
-                                  value={editingSkill.counterAttackTarget || 'Target'}
-                                  onChange={(e) => handleUpdateSkillField('counterAttackTarget', e.target.value)}
-                                  className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-red-300 focus:border-red-600 outline-none w-full max-w-[150px]"
+                                Ativar Contra-ataque / Anulação
+                              </label>
+
+                              {editingSkill.counterAttack && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="space-y-2 pt-1"
                                 >
-                                  {TARGET_OPTIONS.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                  ))}
-                                </select>
-                              </div>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={10}
+                                      value={editingSkill.counterAttackDuration || 1}
+                                      onChange={(e) => handleUpdateSkillField('counterAttackDuration', parseInt(e.target.value) || 1)}
+                                      className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                    />
+                                    <span className="text-[9px] text-slate-500 font-mono">Turnos ativo</span>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] text-red-400 font-mono uppercase font-bold block">Tipo de Anulação:</span>
+                                    <select
+                                      value={editingSkill.counterAttackType || 'defender'}
+                                      onChange={(e) => handleUpdateSkillField('counterAttackType', e.target.value)}
+                                      className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-red-300 outline-none w-full"
+                                    >
+                                      <option value="attacker">Anular o próximo ataque do inimigo alvo</option>
+                                      <option value="defender">Anular o primeiro ataque recebido pelo aliado alvo</option>
+                                    </select>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] text-red-400 font-mono uppercase font-bold block">🎯 Aplicar em:</span>
+                                    <select
+                                      value={editingSkill.counterAttackTarget || 'Target'}
+                                      onChange={(e) => handleUpdateSkillField('counterAttackTarget', e.target.value)}
+                                      className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-red-300 outline-none w-full"
+                                    >
+                                      {TARGET_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </motion.div>
+                              )}
                             </div>
-                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
-                              <div className="flex items-center justify-between gap-2">
-                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                            <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-3">
+                              <div className="grid grid-cols-1 gap-2">
+                                <label className="text-[10px] text-slate-300 font-mono flex items-center gap-2 cursor-pointer select-none">
                                   <input
                                     type="checkbox"
                                     checked={editingSkill.counterAttackIrremovable || false}
                                     onChange={(e) => handleUpdateSkillField('counterAttackIrremovable', e.target.checked)}
-                                    className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0 w-3 h-3"
+                                    className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0 w-3.5 h-3.5"
                                   />
                                   🔒 Nunca Remover
                                 </label>
-                                <div className="flex items-center gap-1">
-                                <div className="space-y-2">
-
-<label className="flex items-center gap-2 text-[10px]">
-
-<input
-type="checkbox"
-checked={editingSkill.counterAttackCannotBeCountered || false}
-onChange={(e)=>
-handleUpdateSkillField(
-"counterAttackCannotBeCountered",
-e.target.checked
-)
-}
-/>
-
-Não pode ser contra-atacado
-
-</label>
-
-<label className="flex items-center gap-2 text-[10px]">
-
-<input
-type="checkbox"
-checked={editingSkill.counterAttackCannotBeReflected || false}
-onChange={(e)=>
-handleUpdateSkillField(
-"counterAttackCannotBeReflected",
-e.target.checked
-)
-}
-/>
-
-Não pode ser refletido
-
-</label>
-
-</div>
-                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
-                                  <select
-                                    value={editingSkill.counterAttackRemoveType || 'none'}
-                                    onChange={(e) => handleUpdateSkillField('counterAttackRemoveType', e.target.value)}
-                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
-                                  >
-                                    <option value="none">Nenhum</option>
-                                    <option value="all">Todos</option>
-                                    <option value="buff">Buffs</option>
-                                    <option value="debuff">Debuffs</option>
-                                    <option value="stun">Stuns</option>
-                                    <option value="dot">DoTs</option>
-                                    <option value="bleeding">Sangra</option>
-                                    <option value="affliction">Aflição</option>
-                                    <option value="shield">Escudo</option>
-                                  </select>
-                                </div>
+                                <label className="text-[10px] text-slate-300 font-mono flex items-center gap-2 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.counterAttackCannotBeCountered || false}
+                                    onChange={(e) => handleUpdateSkillField('counterAttackCannotBeCountered', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0 w-3.5 h-3.5"
+                                  />
+                                  🚫 Não pode ser contra-atacado
+                                </label>
+                                <label className="text-[10px] text-slate-300 font-mono flex items-center gap-2 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.counterAttackCannotBeReflected || false}
+                                    onChange={(e) => handleUpdateSkillField('counterAttackCannotBeReflected', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0 w-3.5 h-3.5"
+                                  />
+                                  🛡️ Não pode ser refletido
+                                </label>
+                              </div>
+                              <div className="flex items-center justify-between border-t border-slate-800/30 pt-2 gap-2">
+                                <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">Limpar:</span>
+                                <select
+                                  value={editingSkill.counterAttackRemoveType || 'none'}
+                                  onChange={(e) => handleUpdateSkillField('counterAttackRemoveType', e.target.value)}
+                                  className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600 min-w-[100px]"
+                                >
+                                  <option value="none">Nenhum</option>
+                                  <option value="all">Todos</option>
+                                  <option value="buff">Buffs</option>
+                                  <option value="debuff">Debuffs</option>
+                                  <option value="stun">Stuns</option>
+                                  <option value="dot">DoTs</option>
+                                  <option value="bleeding">Sangra</option>
+                                  <option value="affliction">Aflição</option>
+                                  <option value="shield">Escudo</option>
+                                </select>
                               </div>
                             </div>
                           </div>
 
                           {/* 2b. Reflect */}
-<div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
-  <div>
-    <label className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">Refletir</label>
-    <label className="flex items-center gap-2 text-[10px] mt-1">
-      <input type="checkbox" checked={editingSkill.reflect || false}
-        onChange={(e) => handleUpdateSkillField('reflect', e.target.checked)} />
-      Ativar Reflect nesta habilidade
-    </label>
-    <div className="flex items-center gap-2 mt-1">
-      <input type="number" min={1} max={10} value={editingSkill.reflectDuration || 1}
-        onChange={(e) => handleUpdateSkillField('reflectDuration', parseInt(e.target.value) || 1)}
-        className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white" />
-      <span className="text-[9px] text-slate-500 font-mono">Turnos ativo</span>
-    </div>
-    <div className="flex items-center gap-1.5 mt-1">
-      <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold">Modo:</span>
-      <select value={editingSkill.reflectMode || 'Caster'}
-        onChange={(e) => handleUpdateSkillField('reflectMode', e.target.value)}
-        className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-cyan-300 outline-none w-full max-w-[150px]">
-        <option value="Caster">Volta pro atacante</option>
-        <option value="RandomAlly">Aliado aleatório do atacante</option>
-      </select>
-    </div>
-    <div className="flex items-center gap-1.5 mt-1">
-      <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
-      <select value={editingSkill.reflectTarget || 'Target'}
-        onChange={(e) => handleUpdateSkillField('reflectTarget', e.target.value)}
-        className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-cyan-300 outline-none w-full max-w-[150px]">
-        {TARGET_OPTIONS.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-      </select>
-    </div>
-  </div>
-  <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
-    <label className="flex items-center gap-2 text-[10px]">
-      <input type="checkbox" checked={editingSkill.reflectIrremovable || false}
-        onChange={(e) => handleUpdateSkillField('reflectIrremovable', e.target.checked)} />
-      🔒 Nunca Remover
-    </label>
-    <label className="flex items-center gap-2 text-[10px]">
-      <input type="checkbox" checked={editingSkill.reflectCannotBeCountered || false}
-        onChange={(e) => handleUpdateSkillField('reflectCannotBeCountered', e.target.checked)} />
-      Não pode ser contra-atacado
-    </label>
-    <label className="flex items-center gap-2 text-[10px]">
-      <input type="checkbox" checked={editingSkill.reflectCannotBeReflected || false}
-        onChange={(e) => handleUpdateSkillField('reflectCannotBeReflected', e.target.checked)} />
-      Não pode ser refletido
-    </label>
-  </div>
-</div>
+                          <div className="space-y-3 bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                            <div className="space-y-2.5">
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">Refletir</label>
+                              <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
+                                <input
+                                  type="checkbox"
+                                  checked={editingSkill.reflect || false}
+                                  onChange={(e) => handleUpdateSkillField('reflect', e.target.checked)}
+                                  className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3.5 h-3.5"
+                                />
+                                Ativar Reflect nesta habilidade
+                              </label>
+                              {editingSkill.reflect && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="space-y-3 pt-1 border-t border-slate-800/40 mt-2"
+                                >
+                                  {/* Reflect Type Select */}
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold block">Tipo de Habilidade:</span>
+                                    <select
+                                      value={editingSkill.reflectType || 'active'}
+                                      onChange={(e) => {
+                                        handleUpdateSkillField('reflectType', e.target.value as 'active' | 'passive');
+                                        if (e.target.value === 'passive' && editingSkill.reflectCharges === undefined) {
+                                          handleUpdateSkillField('reflectCharges', 1);
+                                        }
+                                      }}
+                                      className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-cyan-300 outline-none w-full"
+                                    >
+                                      <option value="active">Refletir Ativo (Dura todo o tempo)</option>
+                                      <option value="passive">Refletir Passivo (Consome por ativações)</option>
+                                    </select>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={10}
+                                      value={editingSkill.reflectDuration || 1}
+                                      onChange={(e) => handleUpdateSkillField('reflectDuration', parseInt(e.target.value) || 1)}
+                                      className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                    />
+                                    <span className="text-[9px] text-slate-500 font-mono">Turnos ativo</span>
+                                  </div>
+
+                                  {/* Passive Charges Input (Only visible for passive type) */}
+                                  {editingSkill.reflectType === 'passive' && (
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={10}
+                                        value={editingSkill.reflectCharges !== undefined ? editingSkill.reflectCharges : 1}
+                                        onChange={(e) => handleUpdateSkillField('reflectCharges', parseInt(e.target.value) || 1)}
+                                        className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                      />
+                                      <span className="text-[9px] text-slate-500 font-mono">Qtd. de Ativações (Cargas)</span>
+                                    </div>
+                                  )}
+
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold block">Destino do Reflexo:</span>
+                                    <select
+                                      value={editingSkill.reflectMode || 'Caster'}
+                                      onChange={(e) => handleUpdateSkillField('reflectMode', e.target.value)}
+                                      className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-cyan-300 outline-none w-full"
+                                    >
+                                      <option value="Caster">Atacante (quem tentou atacar)</option>
+                                      <option value="RandomAlly">Aliado do atacante (aleatório)</option>
+                                    </select>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold block">🎯 Aplicar em:</span>
+                                    <select
+                                      value={editingSkill.reflectTarget || 'Target'}
+                                      onChange={(e) => handleUpdateSkillField('reflectTarget', e.target.value)}
+                                      className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-cyan-300 outline-none w-full"
+                                    >
+                                      {TARGET_OPTIONS.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                    </select>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-2">
+                              <div className="grid grid-cols-1 gap-2">
+                                <label className="flex items-center gap-2 text-[10px] text-slate-300 font-mono cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.reflectIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('reflectIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3.5 h-3.5"
+                                  />
+                                  🔒 Nunca Remover
+                                </label>
+                                <label className="flex items-center gap-2 text-[10px] text-slate-300 font-mono cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.reflectCannotBeCountered || false}
+                                    onChange={(e) => handleUpdateSkillField('reflectCannotBeCountered', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3.5 h-3.5"
+                                  />
+                                  🚫 Não pode ser contra-atacado
+                                </label>
+                                <label className="flex items-center gap-2 text-[10px] text-slate-300 font-mono cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.reflectCannotBeReflected || false}
+                                    onChange={(e) => handleUpdateSkillField('reflectCannotBeReflected', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3.5 h-3.5"
+                                  />
+                                  🛡️ Não pode ser refletido
+                                </label>
+                              </div>
+                            </div>
+                          </div>
 
                           {/* 3. Cura */}
                           <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
@@ -1493,7 +1764,7 @@ Não pode ser refletido
                                     const val = parseInt(e.target.value) || 0;
                                     handleUpdateSkillField('stunTurns', val);
                                     if (val > 0 && (!editingSkill.stunType || editingSkill.stunType.length === 0)) {
-                                      handleUpdateSkillField('stunType', ['physical']);
+                                      handleUpdateSkillField('stunType', ['physical', 'mental', 'affliction', 'chakra']);
                                     }
                                   }}
                                   className="w-20 px-2 py-1.5 bg-slate-900 border border-purple-900/60 focus:border-purple-500 rounded-lg text-purple-400 font-mono text-xs text-center font-bold"
@@ -1516,7 +1787,20 @@ Não pode ser refletido
 
                               {(editingSkill.stunTurns || 0) > 0 && (
                                 <div className="space-y-2 pt-1 border-t border-purple-900/20 mt-2">
-                                  <span className="block text-[9px] text-slate-400 font-mono uppercase font-bold">Tipo de Atordoamento:</span>
+                                  <div className="flex items-center justify-between">
+                                    <span className="block text-[9px] text-slate-400 font-mono uppercase font-bold">Tipo de Atordoamento:</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const allTypes: ('physical' | 'mental' | 'affliction' | 'chakra')[] = ['physical', 'mental', 'affliction', 'chakra'];
+                                        const isAllSelected = (editingSkill.stunType || []).length >= 4;
+                                        handleUpdateSkillField('stunType', isAllSelected ? ['physical'] : allTypes);
+                                      }}
+                                      className="text-[9px] px-2 py-0.5 rounded bg-purple-900/50 hover:bg-purple-800 text-purple-300 font-mono font-bold border border-purple-700/60 transition-all cursor-pointer select-none"
+                                    >
+                                      {(editingSkill.stunType || []).length >= 4 ? '❌ Desmarcar Todos' : '⚡ Stun Completo (Todos)'}
+                                    </button>
+                                  </div>
                                   <div className="grid grid-cols-2 gap-1.5">
                                     {[
                                       { value: 'physical', label: '⚔️ Stun Físico', desc: 'Impacto marcial / corporal' },
@@ -2404,11 +2688,79 @@ Não pode ser refletido
           )}
         </section>
       </main>
+      )}
 
       {/* Footnote */}
       <footer className="bg-slate-950 border-t border-slate-900 px-6 py-4 text-center text-[10px] text-slate-500 font-mono z-10">
         Desenvolvido com o Unison Engine. As customizações são salvas no servidor em tempo real e sincronizadas com todos os dispositivos!
       </footer>
+
+      {/* Custom Confirmation Modal */}
+      <AnimatePresence>
+        {confirmModal.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                playClickSound();
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+              }}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 15 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative rounded-3xl overflow-hidden shadow-2xl max-w-md w-full min-h-[250px] flex flex-col justify-between p-8 sm:p-10 z-10"
+            >
+              {/* Background Pergaminho Image */}
+              <img
+                src="/static/img/ui/pergaminho.webp"
+                alt="Pergaminho Shinobi"
+                className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
+              />
+
+              <div className="relative z-10 flex flex-col items-center justify-between text-center space-y-6 h-full">
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <AlertTriangle className="w-6 h-6 text-red-800 shrink-0" />
+                    <h3 className="text-xl font-black uppercase tracking-tight text-stone-950 font-sans">
+                      {confirmModal.title}
+                    </h3>
+                  </div>
+                  <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
+                    {confirmModal.message}
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full pt-1">
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                    }}
+                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-[#d3ad75]/90 hover:bg-[#c49a5d] text-stone-950 font-black text-xs uppercase tracking-wider border-2 border-[#7a4e25] shadow-md transition cursor-pointer active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      confirmModal.onConfirm();
+                    }}
+                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95"
+                  >
+                    Confirmar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -115,6 +115,7 @@ reflectRemoveType?: string;
 
 counterAttack?: boolean;
 counterAttackDuration?: number;
+counterAttackType?: 'attacker' | 'defender';
 counterAttackTarget?: TargetOverride;
 
 counterAttackIrremovable?: boolean;
@@ -136,6 +137,9 @@ reflectTarget?: TargetOverride;
 reflectIrremovable?: boolean;
 reflectCannotBeCountered?: boolean;
 reflectCannotBeReflected?: boolean;
+
+reflectType?: 'active' | 'passive';
+reflectCharges?: number;
 
 
 // ==============================
@@ -161,6 +165,12 @@ export type TargetOverride =
   | 'OneInvulnerableAlly'
   | 'SelfAndAllEnemies';
 
+export interface CharacterSkin {
+  id: string;
+  name: string;
+  image: string; // PNG transparent artwork URL
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -169,6 +179,9 @@ export interface Character {
   skills: Skill[];
   portrait: string;
   folder: string; // original folder name in public/static/img/ninja/
+  skins?: CharacterSkin[];
+  selectedSkinId?: string;
+  selectedSkinUrl?: string;
 }
 
 export interface ActiveEffect {
@@ -197,9 +210,16 @@ export interface ActiveEffect {
   stunType?: ('mental' | 'physical' | 'affliction' | 'chakra')[];
   irremovable?: boolean;
   cannotBeCountered?: boolean;
-cannotBeReflected?: boolean;
+  cannotBeReflected?: boolean;
 
-reflectMode?: 'Caster' | 'RandomAlly';
+  casterId?: string;
+  casterSide?: 'player' | 'enemy';
+  isInvisible?: boolean;
+  targetId?: string;
+  reflectMode?: 'Caster' | 'RandomAlly';
+  reflectType?: 'active' | 'passive';
+  reflectCharges?: number;
+  counterAttackType?: 'attacker' | 'defender';
 }
 
 export interface CombatCharacter {
@@ -210,6 +230,7 @@ export interface CombatCharacter {
   shield: number;
   activeEffects: ActiveEffect[];
   isDead: boolean;
+  lastTurnStatus?: 'ANULADO' | 'REFLETIDO' | 'CONTRA-ATAQUE' | null;
 }
 
 export interface CombatLog {
@@ -235,6 +256,104 @@ export interface UserProfile {
   username: string;
   name: string;
   photoUrl: string;
+  completedQuestIds?: string[];
+  unlockedCharacterNames?: string[];
+  title?: string;
+  unlockedTitles?: string[];
+  ryos?: number;
+  gems?: number;
+  unlockedSkins?: string[];
+  unlockedFrames?: string[];
+  unlockedFrameUrls?: string[];
+  equippedFrame?: string;
+  equippedFrameUrl?: string;
+  unlockedBanners?: string[];
+  unlockedBannerUrls?: string[];
+  equippedBannerUrl?: string;
+  claimedEventRewardIds?: string[];
 }
 
-export type GameScreen = 'main-menu' | 'character-select' | 'battle' | 'victory' | 'defeat' | 'admin';
+export interface ShopItem {
+  id: string;
+  name: string;
+  category: 'title' | 'skin' | 'frame' | 'bundle';
+  description: string;
+  currency: 'ryos' | 'gems';
+  price: number;
+  icon?: string;
+  frameStyle?: string;
+  frameImageUrl?: string;
+  skinImageUrl?: string;
+  characterName?: string;
+  badge?: string;
+  bundleGrant?: {
+    type: 'ryos' | 'gems';
+    amount: number;
+  };
+}
+
+export interface NinjaEventObjective {
+  id: string;
+  description: string;
+  current: number;
+  target: number;
+  rewardType: 'ryos' | 'gems' | 'title' | 'frame' | 'skin';
+  rewardValue: string | number;
+  rewardLabel: string;
+  rewardFrameImageUrl?: string;
+}
+
+export interface NinjaEvent {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  bannerUrl: string;
+  badge: string;
+  timeLeft: string;
+  featured: boolean;
+  objectives: NinjaEventObjective[];
+}
+
+export type GameScreen = 'main-menu' | 'character-select' | 'battle' | 'victory' | 'defeat' | 'admin' | 'quests';
+
+export interface QuestGoal {
+  id: string;
+  type:
+    | 'win_battles_with_chars'          // Ganhar batalhas utilizando personagens específicos
+    | 'win_consecutive_battles_with_chars' // Ganhar batalhas consecutivas com personagens específicos (reseta se perder)
+    | 'use_skill'                          // Usar habilidade N vezes (com opção de acumulativo ou partida única, e não pode ser refletido/contra-atacado)
+    | 'heal'                               // Recuperar pontos de vida
+    | 'kill_with_skill'                    // Matar um inimigo com uma habilidade específica
+    | 'shield'                             // Gerar escudo
+    | 'damage_received'                    // Receber dano
+    | 'damage_dealt'                       // Infligir dano
+    | 'stun_enemy';                        // Atordoar um inimigo N vezes
+
+  targetCharacters?: string[]; // Lista de nomes de personagens (autocomplete)
+  targetSkill?: string;        // Nome da habilidade (autocomplete)
+  targetValue: number;         // Valor alvo
+  currentValue: number;        // Valor atual de progresso
+  singleMatch?: boolean;       // Se é em uma única partida ou acumulativo
+  consecutive?: boolean;       // Se é em sequência
+  currentStreak?: number;      // Contador de sequência atual
+}
+
+export interface QuestReward {
+  type: 'title' | 'unlock_character' | 'frame' | 'banner';
+  value: string; // Título, nome do personagem, ou nome/descrição da moldura ou banner
+  imageUrl?: string; // URL da imagem da moldura ou banner de fundo do perfil
+}
+
+export interface Quest {
+  id: string;
+  title: string;
+  desc: string;
+  coverUrl: string; // Capa de foto da missão
+  minRank: 'Estudante de Academia' | 'Genin' | 'Chunin' | 'Jonin' | 'ANBU' | 'Hokage'; // Requisitos
+  requiredQuestIds: string[]; // Missões necessárias para estar liberada
+  goals: QuestGoal[];
+  rewards: QuestReward[];
+  completed: boolean;
+}
+

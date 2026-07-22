@@ -5,11 +5,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy } from 'lucide-react';
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile } from '../types';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 import { motion, AnimatePresence } from 'motion/react';
+import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
 
 interface BattleBoardProps {
   playerTeam: Character[];
@@ -29,12 +28,211 @@ interface BattleBoardProps {
     opponentProfile: UserProfile;
   } | null;
   isSandbox?: boolean;
+  restoredState?: {
+    turn: number;
+    playerCombatants: CombatCharacter[];
+    enemyCombatants: CombatCharacter[];
+    playerChakra: ChakraPool;
+    enemyChakra: ChakraPool;
+  } | null;
+  onBattleEnd?: (victory: boolean, stats: {
+    damageDealt: number;
+    damageReceived: number;
+    healingDone: number;
+    shieldGenerated: number;
+    stunsApplied: number;
+    skillsUsed: { [skillName: string]: number };
+    killsWithSkill: { [skillName: string]: number };
+    playerCharactersUsed: string[];
+  }) => void;
 }
 
 interface CuedAction {
   sourceId: string; // 'player-0', etc.
   skillIndex: number;
   targetId: string; // 'player-1', 'enemy-0', etc.
+}
+
+interface BattleChatMessage {
+  id: string;
+  senderName: string;
+  senderTitle?: string;
+  text: string;
+  timestamp: number;
+  isSelf: boolean;
+}
+
+// Client Sanitization Function (Blocks emojis, HTML, URLs, media links)
+function sanitizeBattleChatMessage(rawText: string): string {
+  if (!rawText) return '';
+  let text = String(rawText).trim();
+
+  // Strip HTML / XML tags
+  text = text.replace(/<[^>]*>/g, '');
+
+  // Strip Emojis
+  text = text.replace(
+    /([\u{1F300}-\u{1F9FF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F1E6}-\u{1F1FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F004}]|[\u{1F0CF}]|[\u{1F170}-\u{1F251}]|[\u{2B50}]|[\u{2B55}]|[\u{3030}]|[\u{303D}]|[\u{3297}]|[\u{3299}]|[\u{FE00}-\u{FE0F}])/gu,
+    ''
+  );
+
+  // Replace web URLs & domain patterns
+  const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.(com|net|org|io|br|edu|gov|xyz|app|dev)(\/[^\s]*)?)/gi;
+  text = text.replace(urlPattern, '[link removido]');
+
+  // Replace media file references (.png, .jpg, .gif, .mp4, etc.)
+  const mediaPattern = /[a-zA-Z0-9_.-]+\.(png|jpg|jpeg|gif|webp|mp4|webm|mov|avi|mkv)/gi;
+  text = text.replace(mediaPattern, '[mídia removida]');
+
+  if (text.length > 100) {
+    text = text.substring(0, 100);
+  }
+
+  return text.trim();
+}
+
+interface EffectDisplayItem {
+  effect: ActiveEffect;
+  stacks: number;
+  description: string;
+}
+
+function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveEffect[]): boolean {
+  const stunEffects = activeEffects.filter(e => e.type === 'stun');
+  if (stunEffects.length === 0) return false;
+  if (!skill) return true;
+
+  for (const eff of stunEffects) {
+    if (!eff.stunType || eff.stunType.length === 0 || eff.stunType.length >= 4) {
+      return true; // Complete stun
+    }
+    const skillClasses = (skill.classes || []).map(c => c.toLowerCase());
+    for (const st of eff.stunType) {
+      if (st === 'physical' && (skillClasses.includes('physical') || skillClasses.includes('físico') || skillClasses.includes('melee') || skillClasses.includes('corpo a corpo') || skillClasses.includes('taijutsu'))) {
+        return true;
+      }
+      if (st === 'mental' && (skillClasses.includes('mental') || skillClasses.includes('genjutsu'))) {
+        return true;
+      }
+      if (st === 'affliction' && (skillClasses.includes('affliction') || skillClasses.includes('aflição') || skillClasses.includes('dot'))) {
+        return true;
+      }
+      if (st === 'chakra' && (skillClasses.includes('chakra') || skillClasses.includes('ninjutsu') || skillClasses.includes('ranged') || skillClasses.includes('à distância'))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export function isEffectVisibleToViewer(eff: ActiveEffect, viewerSide: 'player' | 'enemy' = 'player'): boolean {
+  if (eff.isInvisible || eff.type === 'invisible') {
+    if (eff.casterSide) {
+      return eff.casterSide === viewerSide;
+    }
+    return true;
+  }
+  return true;
+}
+
+function getGroupedActiveEffects(effects: ActiveEffect[], viewerSide: 'player' | 'enemy' = 'player'): EffectDisplayItem[] {
+  if (!effects || effects.length === 0) return [];
+
+  const visibleEffects = effects.filter(eff => isEffectVisibleToViewer(eff, viewerSide));
+  if (visibleEffects.length === 0) return [];
+
+  const map = new Map<string, { effect: ActiveEffect; stacks: number }>();
+
+  for (const eff of visibleEffects) {
+    const key = `${eff.name}_${eff.type}`;
+    const existing = map.get(key);
+    const effStacks = (eff as any).stacks || (eff.reflectCharges && eff.reflectCharges > 1 ? eff.reflectCharges : 1);
+
+    if (existing) {
+      existing.stacks += effStacks;
+      if (eff.duration > existing.effect.duration) {
+        existing.effect = eff;
+      }
+    } else {
+      map.set(key, { effect: eff, stacks: effStacks });
+    }
+  }
+
+  return Array.from(map.values()).map(({ effect, stacks }) => {
+    let desc = (effect as any).description || '';
+    if (!desc) {
+      const durText = effect.duration === 1 ? '1 turno' : `${effect.duration} turnos`;
+      const val = effect.value || 0;
+
+      switch (effect.type) {
+        case 'stun': {
+          const typesMap: Record<string, string> = {
+            physical: 'Físicas (Corpo a Corpo/Ataque)',
+            mental: 'Mentais (Genjutsu/Ilusão)',
+            affliction: 'Aflição (Sangramento/Veneno/Efeito)',
+            chakra: 'Chakra (Ninjutsu/Energia/Distância)'
+          };
+          const resolvedTypes = (!effect.stunType || effect.stunType.length === 0 || effect.stunType.length >= 4)
+            ? ['physical', 'mental', 'affliction', 'chakra']
+            : effect.stunType;
+
+          const isComplete = resolvedTypes.length >= 4;
+          const stTypes = resolvedTypes.map(t => typesMap[t] || t).join(', ');
+
+          if (isComplete) {
+            desc = `🚫 DEBUFF (Atordoado Completo): Unidade completamente atordoada! Não pode usar QUALQUER habilidade (Físicas, Mentais, Aflição ou Chakra) por ${durText}.`;
+          } else {
+            desc = `🚫 DEBUFF (Atordoado Parcial): Unidade atordoada! Não pode usar habilidades das categorias: ${stTypes} por ${durText}.`;
+          }
+          break;
+        }
+        case 'damage_buff':
+          desc = val > 0 ? `Aumenta o ataque de todas as suas habilidades em ${val}` : `Aumenta o ataque das habilidades por ${durText}`;
+          break;
+        case 'damage_reduction':
+          desc = val > 0 ? `Redução de ${val} de dano por ${durText}` : `Redução de dano por ${durText}`;
+          break;
+        case 'shield':
+          desc = val > 0 ? `Escudo protetor absorvendo ${val} de dano por ${durText}` : `Escudo protetor por ${durText}`;
+          break;
+        case 'dot':
+        case 'bleeding':
+        case 'damage':
+        case 'direct_damage':
+        case 'affliction':
+          desc = val > 0 ? `Recebe ${val} de dano contínuo por turno por ${durText}` : `Efeito de dano contínuo por ${durText}`;
+          break;
+        case 'heal':
+          desc = val > 0 ? `Regenera ${val} de vida por turno por ${durText}` : `Efeito de cura por ${durText}`;
+          break;
+        case 'invulnerable':
+          desc = `Inviolável - Imune a todos os danos por ${durText}`;
+          break;
+        case 'counter':
+        case 'counter_attack':
+          desc = `Pronto para contra-atacar por ${durText}`;
+          break;
+        case 'reflect':
+          desc = `Reflete habilidades do oponente por ${durText}`;
+          break;
+        case 'paralyze_cooldown':
+          desc = `Recargas de habilidades paralisadas por ${durText}`;
+          break;
+        case 'invisible':
+          desc = `Invisível / Imune a ser alvejado por ${durText}`;
+          break;
+        default:
+          desc = val > 0 ? `${effect.name}: valor ${val} por ${durText}` : `${effect.name}: ativo por ${durText}`;
+          break;
+      }
+    }
+
+    return {
+      effect,
+      stacks,
+      description: desc
+    };
+  });
 }
 
 export default function BattleBoard({
@@ -50,9 +248,33 @@ export default function BattleBoard({
   user,
   onlineParams,
   isSandbox,
+  restoredState,
+  onBattleEnd,
 }: BattleBoardProps) {
+  // Stats tracking for Quests
+  const matchStatsRef = useRef({
+    damageDealt: 0,
+    damageReceived: 0,
+    healingDone: 0,
+    shieldGenerated: 0,
+    stunsApplied: 0,
+    skillsUsed: {} as { [skillName: string]: number },
+    killsWithSkill: {} as { [skillName: string]: number },
+    playerCharactersUsed: playerTeam.map(c => c.name),
+  });
+
+  const handleQuit = () => {
+    if (gameOver && onBattleEnd) {
+      onBattleEnd(gameOver === 'victory', matchStatsRef.current);
+    }
+    onQuit();
+  };
+
   // Turn count
   const [turn, setTurn] = useState(1);
+
+  // Profile Card Modal Viewer State
+  const [viewingProfile, setViewingProfile] = useState<{ profile: ProfileCardData; isSelf: boolean } | null>(null);
 
   // Combatants
   const [playerCombatants, setPlayerCombatants] = useState<CombatCharacter[]>([]);
@@ -107,7 +329,107 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const COOLDOWN_MS = 3000;
   const GLOBAL_COOLDOWN_MS = 1000;
 
-  const [activeEmojis, setActiveEmojis] = useState<{ id: string; emoji: string; xOffset: number; rotation: number }[]>([]);
+  // Transient Battle Chat State
+  const [chatMessages, setChatMessages] = useState<BattleChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const lastChatTimestampRef = useRef<number>(0);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, isChatOpen]);
+
+  // Online Chat Polling Effect
+  useEffect(() => {
+    if (!onlineParams?.isOnline || !onlineParams.roomId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/match/chat/messages?roomId=${onlineParams.roomId}&since=${lastChatTimestampRef.current}`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.messages) && data.messages.length > 0) {
+          const newMsgs: BattleChatMessage[] = data.messages.map((m: any) => {
+            if (m.timestamp > lastChatTimestampRef.current) {
+              lastChatTimestampRef.current = m.timestamp;
+            }
+            return {
+              id: m.id,
+              senderName: m.senderName,
+              senderTitle: m.senderTitle,
+              text: m.text,
+              timestamp: m.timestamp,
+              isSelf: m.username === user.username.trim().toLowerCase()
+            };
+          });
+
+          setChatMessages(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const filtered = newMsgs.filter(m => !existingIds.has(m.id));
+            if (filtered.length === 0) return prev;
+            if (!isChatOpen) {
+              setUnreadCount(c => c + filtered.length);
+            }
+            return [...prev, ...filtered];
+          });
+        }
+      } catch (e) {
+        // silent catch
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [onlineParams, user.username, isChatOpen]);
+
+  // Handle Sending Chat Message
+  const handleSendChatMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setChatError(null);
+
+    const cleanText = sanitizeBattleChatMessage(chatInput);
+    if (!cleanText) {
+      setChatError("Emojis, links ou mídias não são permitidos.");
+      setTimeout(() => setChatError(null), 3500);
+      return;
+    }
+
+    setChatInput('');
+
+    if (onlineParams?.isOnline && onlineParams.roomId) {
+      try {
+        await fetch('/api/match/chat/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomId: onlineParams.roomId,
+            username: user.username,
+            text: cleanText,
+            title: user.title
+          })
+        });
+      } catch (err) {
+        console.error("Erro ao enviar mensagem no chat:", err);
+      }
+    } else {
+      // Offline / Sandbox / Vs Bot match
+      const newMsg: BattleChatMessage = {
+        id: "msg_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
+        senderName: user.name || user.username,
+        senderTitle: user.title,
+        text: cleanText,
+        timestamp: Date.now(),
+        isSelf: true
+      };
+      setChatMessages(prev => [...prev, newMsg]);
+    }
+  };
+
+  const [activeEmojis, setActiveEmojis] = useState<{ id: string; emoji: string; xOffset: number; rotation: number; senderName?: string }[]>([]);
   const [lastEmojiClicked, setLastEmojiClicked] = useState<Record<string, number>>({});
   const [globalEmojiCooldownUntil, setGlobalEmojiCooldownUntil] = useState<number>(0);
 
@@ -152,10 +474,11 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     const id = Math.random().toString();
     const xOffset = Math.random() * 200 - 100; // random drift width
     const rotation = Math.random() * 60 - 30; // random rotation angle
-    setActiveEmojis(prev => [...prev, { id, emoji, xOffset, rotation }]);
+    const ourName = user.name || user.username;
+    setActiveEmojis(prev => [...prev, { id, emoji, xOffset, rotation, senderName: ourName }]);
 
     if (onlineParams?.isOnline) {
-      fetch(`${API_BASE_URL}/api/match/emoji`, {
+      fetch('/api/match/emoji', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -169,6 +492,31 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
   // Initial setup on mount
   useEffect(() => {
+    if (restoredState) {
+      setTurn(restoredState.turn);
+      setPlayerCombatants(restoredState.playerCombatants);
+      setEnemyCombatants(restoredState.enemyCombatants);
+      setPlayerChakra(restoredState.playerChakra);
+      setEnemyChakra(restoredState.enemyChakra);
+      setCuedActions([]);
+      setSelectedSkill(null);
+      setGameOver(null);
+
+      const pCombat = restoredState.playerCombatants;
+      if (pCombat.length > 0 && pCombat[0].character.skills.length > 0) {
+        setInspectedSkill({
+          skill: pCombat[0].character.skills[0],
+          ownerName: pCombat[0].character.name,
+          isEnemy: false,
+        });
+      }
+
+      setLogs([
+        { id: Math.random().toString(), turn: restoredState.turn, message: '⚔️ BATALHA RECUPERADA! Retornando ao confronto.', type: 'system' }
+      ]);
+      return;
+    }
+
     // Reset all battle-related states to fresh start
     setPlayerChakra({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
     setEnemyChakra({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
@@ -176,6 +524,10 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     setCuedActions([]);
     setSelectedSkill(null);
     setGameOver(null);
+
+    const startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
+    setActivePlanner(startingPlanner);
+    setPassedPlayersThisTurn([]);
 
     const pCombat: CombatCharacter[] = playerTeam.map((c, idx) => ({
       id: `player-${idx}`,
@@ -208,10 +560,13 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
       });
     }
 
-    // Initial logs
+    // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
       { id: '1', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
-      { id: '2', turn: 1, message: 'Gere seus chakras e escolha suas táticas!', type: 'system' },
+      { id: '2', turn: 1, message: startingPlanner === 'player'
+          ? '🎲 [INICIATIVA] Você ganhou o sorteio e joga PRIMEIRO no Turno 1!'
+          : '🎲 [INICIATIVA] O Oponente ganhou o sorteio e joga PRIMEIRO no Turno 1!', type: 'system' },
+      { id: '3', turn: 1, message: 'Gere seus chakras e escolha suas táticas!', type: 'system' },
     ];
     setLogs(initialLogs);
 
@@ -221,7 +576,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     // Trigger initial chakra roll banner (Turn 1 gets 1 random chakra each)
     rollChakraForTurn(true, 1);
     rollChakraForTurn(false, 1);
-  }, [playerTeam, enemyTeam]);
+  }, [playerTeam, enemyTeam, restoredState]);
 
   // Poll for opponent emojis in an online match
   useEffect(() => {
@@ -229,7 +584,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/match/emojis?roomId=${onlineParams.roomId}&since=${lastPolledEmojiTimestamp.current}`);
+        const res = await fetch(`/api/match/emojis?roomId=${onlineParams.roomId}&since=${lastPolledEmojiTimestamp.current}`);
         const data = await res.json();
         if (data.success && data.emojis.length > 0) {
           data.emojis.forEach((e: any) => {
@@ -238,7 +593,13 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
               const id = Math.random().toString();
               const xOffset = Math.random() * 200 - 100;
               const rotation = Math.random() * 60 - 30;
-              setActiveEmojis(prev => [...prev, { id, emoji: e.emoji, xOffset, rotation }]);
+              setActiveEmojis(prev => [...prev, {
+                id,
+                emoji: e.emoji,
+                xOffset,
+                rotation,
+                senderName: e.senderName || e.username
+              }]);
             }
             if (e.timestamp > lastPolledEmojiTimestamp.current) {
               lastPolledEmojiTimestamp.current = e.timestamp;
@@ -257,10 +618,10 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   useEffect(() => {
     return () => {
       if (onlineParams?.isOnline) {
-        fetch(`${API_BASE_URL}/api/matchmaking/quit`, {
+        fetch('/api/matchmaking/quit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: user.username, playerKey: user.username.trim().toLowerCase(), roomId: onlineParams.roomId })
+          body: JSON.stringify({ username: user.username, roomId: onlineParams.roomId })
         }).catch(() => {});
       }
     };
@@ -475,9 +836,15 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
     if (combatant.isDead) return;
 
+    if (activePlanner === 'player' && isEnemyChar) {
+      return;
+    }
+    if (activePlanner === 'enemy' && !isEnemyChar) {
+      return;
+    }
+
     // Stun check
-    const isStunned = combatant.activeEffects.some(e => e.type === 'stun');
-    if (isStunned) {
+    if (isSkillBlockedByStun(skill, combatant.activeEffects)) {
       addFloatingText(charId, 'ATORDOADO!', 'stun');
       return;
     }
@@ -611,222 +978,675 @@ const handleTradeChakra = () => {
   setTradeTarget(null);
   setShowChakraTrade(false);
 };
-  
 
-  // AI Decision & Turn Execution
-  const handleEndTurn = () => {
-    playCustomSound('NextTurn');
+  // Who is currently selecting their actions / whose planning turn it is
+  const [activePlanner, setActivePlanner] = useState<'player' | 'enemy'>('player');
+  const [passedPlayersThisTurn, setPassedPlayersThisTurn] = useState<('player' | 'enemy')[]>([]);
 
-    if (isSandbox) {
-      // Deduct player actions from playerChakra
-      setPlayerChakra(prev => {
-        let pool = { ...prev };
-        const playerActions = cuedActions.filter(a => a.sourceId.startsWith('player'));
-        playerActions.forEach(action => {
-          const src = playerCombatants.find(p => p.id === action.sourceId);
-          if (!src) return;
-          const skill = src.character.skills[action.skillIndex];
-          let randCost = 0;
-          skill.cost.forEach(cost => {
-            if (cost === 'Rand') randCost++;
-            else {
-              const element = cost as keyof ChakraPool;
-              if (pool[element] > 0) pool[element]--;
-            }
-          });
-          for (let i = 0; i < randCost; i++) {
-            const sorted = (Object.keys(pool) as (keyof ChakraPool)[]).sort((a, b) => pool[b] - pool[a]);
-            const highestElement = sorted[0];
-            if (pool[highestElement] > 0) pool[highestElement]--;
-          }
-        });
-        return pool;
-      });
+  const pushActiveEffect = (character: CombatCharacter, effect: ActiveEffect) => {
+    character.activeEffects.push(effect);
+  };
 
-      // Deduct enemy actions from enemyChakra
-      setEnemyChakra(prev => {
-        let pool = { ...prev };
-        const enemyActions = cuedActions.filter(a => a.sourceId.startsWith('enemy'));
-        enemyActions.forEach(action => {
-          const src = enemyCombatants.find(e => e.id === action.sourceId);
-          if (!src) return;
-          const skill = src.character.skills[action.skillIndex];
-          let randCost = 0;
-          skill.cost.forEach(cost => {
-            if (cost === 'Rand') randCost++;
-            else {
-              const element = cost as keyof ChakraPool;
-              if (pool[element] > 0) pool[element]--;
-            }
-          });
-          for (let i = 0; i < randCost; i++) {
-            const sorted = (Object.keys(pool) as (keyof ChakraPool)[]).sort((a, b) => pool[b] - pool[a]);
-            const highestElement = sorted[0];
-            if (pool[highestElement] > 0) pool[highestElement]--;
-          }
-        });
-        return pool;
-      });
+  // Helper to execute actions for a single side (Player or Enemy) immediately
+  const executeSideActions = (sideActions: CuedAction[], isPlayerSide: boolean): boolean => {
+    const newLogs: CombatLog[] = [];
+    const updatedPlayer = playerCombatants.map(c => ({ ...c, lastTurnStatus: null }));
+    const updatedEnemy = enemyCombatants.map(c => ({ ...c, lastTurnStatus: null }));
 
-      const playerActions = cuedActions.filter(a => a.sourceId.startsWith('player'));
-      const enemyActions = cuedActions.filter(a => a.sourceId.startsWith('enemy'));
-      setCuedActions([]);
-      executeTurnSimulation(playerActions, enemyActions);
-      return;
-    }
-
-    // Deduct the cued actions' costs permanently from playerChakra now!
-    setPlayerChakra(prev => {
+    // Deduct chakra cost permanently for sideActions
+    const chakraSetter = isPlayerSide ? setPlayerChakra : setEnemyChakra;
+    chakraSetter(prev => {
       let pool = { ...prev };
-      cuedActions.forEach(action => {
-        const src = playerCombatants.find(p => p.id === action.sourceId);
+      sideActions.forEach(action => {
+        const srcList = isPlayerSide ? updatedPlayer : updatedEnemy;
+        const src = srcList.find(p => p.id === action.sourceId);
         if (!src) return;
         const skill = src.character.skills[action.skillIndex];
         let randCost = 0;
-
-        // Element specific costs
         skill.cost.forEach(cost => {
-          if (cost === 'Rand') {
-            randCost++;
-          } else {
+          if (cost === 'Rand') randCost++;
+          else {
             const element = cost as keyof ChakraPool;
-            if (pool[element] > 0) {
-              pool[element]--;
-            }
+            if (pool[element] > 0) pool[element]--;
           }
         });
-
-        // Greedy random cost deduction (deducts from highest elements first)
         for (let i = 0; i < randCost; i++) {
           const sorted = (Object.keys(pool) as (keyof ChakraPool)[]).sort((a, b) => pool[b] - pool[a]);
           const highestElement = sorted[0];
-          if (pool[highestElement] > 0) {
-            pool[highestElement]--;
-          }
+          if (pool[highestElement] > 0) pool[highestElement]--;
         }
       });
       return pool;
     });
 
-    if (onlineParams?.isOnline) {
-      // ONLINE MULTIPLAYER ROUTINE
-      setIsWaitingForOpponent(true);
-      
-      // Submit our turn to the matchmaking backend
-      fetch(`${API_BASE_URL}/api/match/submit-turn`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: onlineParams.roomId,
-          username: user.username,
+    const resolveEffectTargets = (
+      targetOverride: string | undefined,
+      defaultTarget: CombatCharacter,
+      source: CombatCharacter,
+      sourceList: CombatCharacter[],
+      targetList: CombatCharacter[],
+      isBeneficial: boolean = false
+    ): CombatCharacter[] => {
+      if (!targetOverride || targetOverride === 'Target') {
+        if (isBeneficial) {
+          const sourceIsPlayer = updatedPlayer.some(p => p.id === source.id);
+          const targetIsPlayer = updatedPlayer.some(p => p.id === defaultTarget.id);
+          if (sourceIsPlayer !== targetIsPlayer) {
+            return [source];
+          }
+        }
+        return [defaultTarget];
+      }
+      if (targetOverride === 'Self') return [source];
+      if (targetOverride === 'Both') return [source, defaultTarget];
+      if (targetOverride === 'Ally') {
+        if (sourceList.some(c => c.id === defaultTarget.id)) return [defaultTarget];
+        const allies = sourceList.filter(c => c.id !== source.id && !c.isDead);
+        return allies.length > 0 ? [allies[0]] : [source];
+      }
+      if (targetOverride === 'AllAllies') return sourceList.filter(c => !c.isDead);
+      if (targetOverride === 'AllEnemies') return targetList.filter(c => !c.isDead);
+      if (targetOverride === 'AllLiving') return [...sourceList, ...targetList].filter(c => !c.isDead);
+      if (targetOverride === 'AllNonInvulnerable') return [...sourceList, ...targetList].filter(c => !c.isDead && !c.activeEffects.some(e => e.type === 'invulnerable'));
+      if (targetOverride === 'AllInvulnerable') return [...sourceList, ...targetList].filter(c => !c.isDead && c.activeEffects.some(e => e.type === 'invulnerable'));
+      if (targetOverride === 'OneInvulnerable') {
+        const invuls = [...sourceList, ...targetList].filter(c => !c.isDead && c.activeEffects.some(e => e.type === 'invulnerable'));
+        return invuls.length > 0 ? [invuls[0]] : [];
+      }
+      if (targetOverride === 'OneInvulnerableAlly') {
+        const allies = sourceList.filter(c => !c.isDead && c.activeEffects.some(e => e.type === 'invulnerable'));
+        return allies.length > 0 ? [allies[0]] : [];
+      }
+      if (targetOverride === 'SelfAndAllEnemies') {
+        return [source, ...targetList.filter(c => !c.isDead)];
+      }
+      return [defaultTarget];
+    };
+
+    const formattedActions = sideActions.map(a => ({ ...a, isPlayer: isPlayerSide }));
+
+    formattedActions.forEach(action => {
+      const sourceList = action.isPlayer ? updatedPlayer : updatedEnemy;
+      const targetList = action.isPlayer ? updatedEnemy : updatedPlayer;
+
+      const source = sourceList.find(c => c.id === action.sourceId);
+      if (!source || source.isDead) return;
+
+      const skill = source.character.skills[action.skillIndex];
+
+      // Set skill on cooldown
+      skill.currentCooldown = skill.cooldown || 1;
+
+      // Stun check
+      if (isSkillBlockedByStun(skill, source.activeEffects)) {
+        newLogs.push({
+          id: Math.random().toString(),
           turn,
-          actions: cuedActions
-        })
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (!data.success) {
-          console.error('Failed to submit turn:', data.message);
-        }
-      })
-      .catch(err => console.error('Error submitting turn:', err));
-
-      // Poll until both players have submitted actions for this turn
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusRes = await fetch(`${API_BASE_URL}/api/match/room-state?roomId=${onlineParams.roomId}`);
-          const statusData = await statusRes.json();
-
-          if (statusData.success && statusData.room) {
-            const turnActions = statusData.room.turnActions;
-            const currentTurnData = turnActions[turn];
-
-            if (currentTurnData && currentTurnData.player0 && currentTurnData.player1) {
-              clearInterval(pollInterval);
-              setIsWaitingForOpponent(false);
-
-              // Extract actions depending on our seat index
-              const ourActions = onlineParams.playerIndex === 0 ? currentTurnData.player0 : currentTurnData.player1;
-              const oppActions = onlineParams.playerIndex === 0 ? currentTurnData.player1 : currentTurnData.player0;
-
-              // Convert opponent's coordinates (invert player <-> enemy)
-              const mappedOpponentActions = oppActions.map((a: CuedAction) => ({
-                sourceId: a.sourceId.startsWith('player') ? a.sourceId.replace('player', 'enemy') : a.sourceId.replace('enemy', 'player'),
-                skillIndex: a.skillIndex,
-                targetId: a.targetId.startsWith('player') ? a.targetId.replace('player', 'enemy') : a.targetId.replace('enemy', 'player')
-              }));
-
-              // Clear local cued actions for next turn
-              setCuedActions([]);
-
-              // Execute simulation deterministically
-              executeTurnSimulation(ourActions, mappedOpponentActions);
-            }
-          }
-        } catch (err) {
-          console.error('Error polling turn resolution state:', err);
-        }
-      }, 1500);
-
-    } else {
-      // OFFLINE AI ROUTINE
-      // --- 1. AI SELECTS ACTIONS ---
-      const aiActions: CuedAction[] = [];
-      let tempAiChakra = { ...enemyChakra };
-
-      enemyCombatants.forEach(aiChar => {
-        if (aiChar.isDead) return;
-
-        // Stun check
-        const isStunned = aiChar.activeEffects.some(e => e.type === 'stun');
-        if (isStunned) return;
-
-        // Find affordable, off-cooldown skills
-        const usableSkills = aiChar.character.skills
-          .map((skill, idx) => ({ skill, idx }))
-          .filter(({ skill }) => skill.currentCooldown === 0 && canAffordSkill(skill, tempAiChakra));
-
-        // Condition check
-        const filteredSkills = usableSkills.filter(({ skill }) => {
-          if (skill.requireEffect) {
-            return aiChar.activeEffects.some(e => e.name === skill.requireEffect);
-          }
-          return true;
+          message: `🚫 ${source.character.name} tentou usar [${skill.name}], mas está ATORDOADO!`,
+          type: 'system',
         });
+        addFloatingText(source.id, 'ATORDOADO!', 'stun');
+        return;
+      }
 
-        if (filteredSkills.length > 0) {
-          const chosen = filteredSkills[Math.floor(Math.random() * filteredSkills.length)];
-          const skill = chosen.skill;
+      // Find target combatant
+      const defaultTarget = targetList.find(c => c.id === action.targetId) || sourceList.find(c => c.id === action.targetId) || source;
 
-          let targetId = '';
-          if (skill.targetType === 'Self') {
-            targetId = aiChar.id;
-          } else if (skill.targetType === 'Ally') {
-            const aliveAllies = enemyCombatants.filter(e => !e.isDead);
-            if (aliveAllies.length > 0) {
-              targetId = aliveAllies[Math.floor(Math.random() * aliveAllies.length)].id;
-            }
-          } else if (skill.targetType === 'Enemy') {
-            const alivePlayers = playerCombatants.filter(p => !p.isDead);
-            const visiblePlayers = alivePlayers.filter(p => !p.activeEffects.some(e => e.type === 'invisible'));
-            const finalCandidates = visiblePlayers.length > 0 ? visiblePlayers : alivePlayers;
-            if (finalCandidates.length > 0) {
-              targetId = finalCandidates[Math.floor(Math.random() * finalCandidates.length)].id;
+      // Invulnerability check on target
+      const isTargetInvulnerable = defaultTarget.activeEffects.some(e => e.type === 'invulnerable');
+      if (isTargetInvulnerable && skill.damage && skill.damage > 0 && !skill.ignoreInvulnerable) {
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: `🛡️ ${source.character.name} usou [${skill.name}] em ${defaultTarget.character.name}, mas o alvo está INVULNERÁVEL!`,
+          type: 'buff',
+        });
+        addFloatingText(defaultTarget.id, 'INVULNERÁVEL!', 'invulnerable');
+        return;
+      }
+
+      // Check Reflect on target
+      const reflectEffect = defaultTarget.activeEffects.find(e => e.type === 'reflect');
+      let target = defaultTarget;
+      let isReflected = false;
+
+      if (reflectEffect && skill.damage && skill.damage > 0 && !skill.cannotBeReflected) {
+        isReflected = true;
+        target = source; // Reflect back to source!
+        if (reflectEffect.reflectCharges !== undefined) {
+          reflectEffect.reflectCharges--;
+          if (reflectEffect.reflectCharges <= 0) {
+            defaultTarget.activeEffects = defaultTarget.activeEffects.filter(e => e !== reflectEffect);
+          }
+        }
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: `🔄 [REFLECT] ${defaultTarget.character.name} REFLETIL a habilidade [${skill.name}] de volta para ${source.character.name}!`,
+          type: 'buff',
+        });
+        addFloatingText(defaultTarget.id, 'REFLETIDO!', 'effect');
+        addFloatingText(source.id, 'ALVO DE REFLECT!', 'damage');
+      }
+
+      // Skill parameters
+      const baseDamage = skill.damage || 0;
+      const healAmt = skill.heal || 0;
+      const stunApplied = skill.stunDuration && skill.stunDuration > 0;
+      const stunDuration = skill.stunDuration || 1;
+      const finalStunType = skill.stunType || [];
+      const effectName = skill.effectName;
+      const effectType = skill.effectType;
+      const effectVal = skill.effectVal || 0;
+      const effectDuration = skill.effectDuration || 1;
+
+      // Helper function to cleanse effects
+      const cleanseTargetEffects = (t: CombatCharacter, removeType?: 'all' | 'debuff' | 'buff') => {
+        if (!removeType) return;
+        if (removeType === 'all') {
+          t.activeEffects = t.activeEffects.filter(e => e.irremovable);
+          addFloatingText(t.id, 'PURIFICADO (TODOS)', 'heal');
+        } else if (removeType === 'debuff') {
+          t.activeEffects = t.activeEffects.filter(e => e.irremovable || ['shield', 'damage_buff', 'damage_reduction', 'invulnerable', 'counter', 'counter_attack', 'reflect'].includes(e.type));
+          addFloatingText(t.id, 'DEBUFFS REMOVIDOS', 'heal');
+        } else if (removeType === 'buff') {
+          t.activeEffects = t.activeEffects.filter(e => e.irremovable || ['stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'paralyze_cooldown'].includes(e.type));
+          addFloatingText(t.id, 'BUFFS REMOVIDOS', 'damage');
+        }
+      };
+
+      // 0. CHAKRA GAIN / DRAIN
+      if (skill.gainChakra && skill.gainChakra > 0) {
+        const amt = skill.gainChakra;
+        const dur = skill.gainChakraDuration || 1;
+        const gainChakraTargets = resolveEffectTargets(skill.gainChakraTarget || 'Self', target, source, sourceList, targetList, true);
+
+        gainChakraTargets.forEach(t => {
+          if (t.isDead) return;
+          if (dur > 1) {
+            pushActiveEffect(t, {
+              name: `Fluxo de Chakra (${skill.name})`,
+              type: 'custom',
+              value: amt,
+              duration: dur,
+              icon: skill.icon,
+              irremovable: !!skill.gainChakraIrremovable,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `✨ [${skill.name}] de ${source.character.name} ativou ganho contínuo de +${amt} chakra elemental em ${t.character.name} por ${dur} turnos!`,
+              type: 'chakra',
+            });
+            addFloatingText(t.id, '+CHAKRA CONTÍNUO', 'effect');
+          } else {
+            const isPlayerCombatant = updatedPlayer.some(p => p.id === t.id);
+            const targetSetter = isPlayerCombatant ? setPlayerChakra : setEnemyChakra;
+            targetSetter(prev => {
+              const u = { ...prev };
+              const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
+              for (let i = 0; i < amt; i++) {
+                const randType = types[Math.floor(Math.random() * types.length)];
+                u[randType]++;
+              }
+              return u;
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `✨ [${skill.name}] de ${source.character.name} gerou +${amt} de chakra elemental para ${t.character.name}!`,
+              type: 'chakra',
+            });
+            addFloatingText(t.id, `+${amt} CHAKRA`, 'effect');
+          }
+          cleanseTargetEffects(t, skill.gainChakraRemoveType);
+        });
+      }
+
+      // 1. DAMAGE & SHIELDS
+      if (baseDamage > 0) {
+        const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        damageTargets.forEach(t => {
+          if (t.isDead) return;
+          const startingShield = t.shield;
+          const startingHealth = t.health;
+
+          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
+          const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
+          let finalDamage = baseDamage + damageBuffSum;
+
+          const targetReductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
+          const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
+          finalDamage = Math.max(0, finalDamage - reductionSum);
+
+          if (t.shield > 0) {
+            if (t.shield >= finalDamage) {
+              t.shield -= finalDamage;
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`,
+                type: 'buff',
+              });
+              addFloatingText(t.id, `-${finalDamage} ESCUDO`, 'shield');
+              finalDamage = 0;
+            } else {
+              finalDamage -= t.shield;
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `💥 ${source.character.name} quebrou o escudo de ${t.character.name}!`,
+                type: 'damage',
+              });
+              addFloatingText(t.id, 'ESCUDO QUEBRADO', 'shield');
+              t.shield = 0;
             }
           }
 
-          if (targetId) {
-            aiActions.push({ sourceId: aiChar.id, skillIndex: chosen.idx, targetId });
-            deductChakraCost(skill, false);
+          if (finalDamage > 0) {
+            t.health = Math.max(0, t.health - finalDamage);
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name}.`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
           }
+
+          const hasCounter = t.activeEffects.some(e => e.type === 'counter');
+          if (hasCounter && finalDamage > 0) {
+            source.health = Math.max(0, source.health - 15);
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⚡ ${t.character.name} contra-atacou! Causou 15 de dano de volta em ${source.character.name}.`,
+              type: 'damage',
+            });
+            addFloatingText(source.id, '-15 HP (CONTRA-ATAQUE)', 'damage');
+          }
+          cleanseTargetEffects(t, skill.damageRemoveType);
+
+          const shieldReduced = startingShield - t.shield;
+          const healthReduced = startingHealth - t.health;
+          const damageTaken = shieldReduced + healthReduced;
+          if (damageTaken > 0) {
+            if (action.isPlayer) {
+              matchStatsRef.current.damageDealt += damageTaken;
+            } else {
+              matchStatsRef.current.damageReceived += damageTaken;
+            }
+          }
+          if (t.health === 0 && startingHealth > 0 && action.isPlayer) {
+            matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
+          }
+        });
+      }
+
+      // 2. HEALING
+      if (healAmt > 0) {
+        const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
+        healTargets.forEach(t => {
+          if (t.isDead) return;
+          const startingHealth = t.health;
+          t.health = Math.min(100, t.health + healAmt);
+          const actualHealed = t.health - startingHealth;
+          if (actualHealed > 0 && action.isPlayer) {
+            matchStatsRef.current.healingDone += actualHealed;
+          }
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `💚 ${source.character.name} usou [${skill.name}] e restaurou ${healAmt} de vida de ${t.character.name}.`,
+            type: 'heal',
+          });
+          addFloatingText(t.id, `+${healAmt} HP`, 'heal');
+          cleanseTargetEffects(t, skill.healRemoveType);
+        });
+      }
+
+      // 3. STUNS
+      if (stunApplied) {
+        const stunTypeLabels: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra' };
+        const resolvedStunTypes: ('mental' | 'physical' | 'affliction' | 'chakra')[] =
+          (!finalStunType || finalStunType.length === 0 || finalStunType.length >= 4)
+            ? ['physical', 'mental', 'affliction', 'chakra']
+            : finalStunType;
+
+        const stunTypeName = resolvedStunTypes.length >= 4
+          ? 'Stun Completo'
+          : `Stun (${resolvedStunTypes.map(t => stunTypeLabels[t] || t).join(' + ')})`;
+
+        const stunTargets = resolveEffectTargets(skill.stunTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        stunTargets.forEach(t => {
+          if (t.isDead) return;
+          if (action.isPlayer) matchStatsRef.current.stunsApplied += 1;
+          pushActiveEffect(t, {
+            name: `${skill.name} (${stunTypeName})`,
+            type: 'stun',
+            duration: stunDuration,
+            icon: skill.icon || source.character.portrait,
+            stunType: resolvedStunTypes,
+            irremovable: !!skill.stunIrremovable,
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🌀 ${t.character.name} recebeu [${stunTypeName}] por [${skill.name}] de ${source.character.name} por ${stunDuration} turnos!`,
+            type: 'stun',
+          });
+          addFloatingText(t.id, `STUN (${stunDuration}T)`, 'stun');
+          cleanseTargetEffects(t, skill.stunRemoveType);
+        });
+      }
+
+      // 4. SHIELDS & BUFFS
+      if (skill.shieldVal && skill.shieldVal > 0) {
+        const shieldTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList, true);
+        shieldTargets.forEach(t => {
+          if (t.isDead) return;
+          t.shield = (t.shield || 0) + skill.shieldVal!;
+          if (action.isPlayer) matchStatsRef.current.shieldGenerated += skill.shieldVal!;
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🛡️ ${t.character.name} ganhou +${skill.shieldVal} de escudo com [${skill.name}]!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, `+${skill.shieldVal} ESCUDO`, 'shield');
+          cleanseTargetEffects(t, skill.shieldRemoveType);
+        });
+      }
+
+      // Check deaths immediately after actions
+      sourceList.forEach(c => {
+        if (c.health <= 0 && !c.isDead) {
+          c.isDead = true;
+          newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA!`, type: 'death' });
+          playCustomSound('Death');
+          addFloatingText(c.id, 'DERROTADO', 'damage');
         }
       });
+      targetList.forEach(c => {
+        if (c.health <= 0 && !c.isDead) {
+          c.isDead = true;
+          newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA!`, type: 'death' });
+          playCustomSound('Death');
+          addFloatingText(c.id, 'DERROTADO', 'damage');
+        }
+      });
+    });
 
-      // Clear local cued actions for next turn
-      setCuedActions([]);
+    // Save updated state
+    setPlayerCombatants(updatedPlayer);
+    setEnemyCombatants(updatedEnemy);
+    setLogs(prev => [...prev, ...newLogs]);
 
-      // Run simulation directly using cuedActions and local AI actions
-      executeTurnSimulation(cuedActions, aiActions);
+    // Check game over
+    const allPlayerDead = updatedPlayer.every(p => p.isDead);
+    const allEnemyDead = updatedEnemy.every(e => e.isDead);
+
+    if (allPlayerDead || allEnemyDead) {
+      if (allPlayerDead && allEnemyDead) setGameOver('defeat');
+      else if (allPlayerDead) setGameOver('defeat');
+      else setGameOver('victory');
+      return true; // Match ended
+    }
+    return false;
+  };
+
+  // Helper to execute end-of-turn effects after BOTH players have completed their action phase
+  const executeTurnEndResolution = () => {
+    const newLogs: CombatLog[] = [];
+    const updatedPlayer = playerCombatants.map(c => ({ ...c }));
+    const updatedEnemy = enemyCombatants.map(c => ({ ...c }));
+
+    const applyTurnEndUpdates = (combatantList: CombatCharacter[], name: string) => {
+      combatantList.forEach(c => {
+        if (c.isDead) return;
+
+        // Apply active DoTs
+        const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
+        dotEffects.forEach(dot => {
+          c.health = Math.max(0, c.health - (dot.value || 0));
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🔥 ${c.character.name} sofreu ${(dot.value || 0)} de dano de queima por ${dot.name}.`,
+            type: 'damage',
+          });
+          addFloatingText(c.id, `-${(dot.value || 0)} HP (QUEIMA)`, 'damage');
+        });
+
+        // Apply dynamic Healing over time
+        const activeHealEffects = c.activeEffects.filter(e => e.type === 'heal');
+        activeHealEffects.forEach(hl => {
+          c.health = Math.min(100, c.health + (hl.value || 0));
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `💚 ${c.character.name} recuperou ${(hl.value || 0)} de vida por ${hl.name}.`,
+            type: 'heal',
+          });
+          addFloatingText(c.id, `+${(hl.value || 0)} HP (REGEN)`, 'heal');
+        });
+
+        // Check if dead now
+        if (c.health <= 0) {
+          c.isDead = true;
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `💀 ${c.character.name} CAIU EM BATALHA!`,
+            type: 'death',
+          });
+          playCustomSound('Death');
+          addFloatingText(c.id, 'DERROTADO', 'damage');
+        }
+
+        // Decrement effect durations
+        c.activeEffects = c.activeEffects
+          .map(eff => ({ ...eff, duration: eff.duration - 1 }))
+          .filter(eff => eff.duration > 0);
+
+        // Decrement skill cooldowns
+        c.character.skills.forEach(s => {
+          if (s.currentCooldown > 0) s.currentCooldown--;
+        });
+      });
+    };
+
+    applyTurnEndUpdates(updatedPlayer, 'Player');
+    applyTurnEndUpdates(updatedEnemy, 'Enemy');
+
+    setPlayerCombatants(updatedPlayer);
+    setEnemyCombatants(updatedEnemy);
+
+    // Check game over
+    const allPlayerDead = updatedPlayer.every(p => p.isDead);
+    const allEnemyDead = updatedEnemy.every(e => e.isDead);
+
+    if (allPlayerDead || allEnemyDead) {
+      if (allPlayerDead && allEnemyDead) setGameOver('defeat');
+      else if (allPlayerDead) setGameOver('defeat');
+      else setGameOver('victory');
+      return;
+    }
+
+    // Advance turn
+    const alivePlayerCount = updatedPlayer.filter(c => !c.isDead).length;
+    const aliveEnemyCount = updatedEnemy.filter(c => !c.isDead).length;
+
+    const nextTurn = turn + 1;
+    setTurn(nextTurn);
+    rollChakraForTurn(true, alivePlayerCount);
+    rollChakraForTurn(false, aliveEnemyCount);
+
+    // Roll initiative for new turn (50/50 chance)
+    const newFirstPlayer: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
+    setActivePlanner(newFirstPlayer);
+    setPassedPlayersThisTurn([]);
+
+    newLogs.push({
+      id: Math.random().toString(),
+      turn: nextTurn,
+      message: newFirstPlayer === 'player'
+        ? `🎲 [INICIATIVA] Você ganhou o sorteio e joga PRIMEIRO no Turno ${nextTurn}!`
+        : `🎲 [INICIATIVA] O Oponente ganhou o sorteio e joga PRIMEIRO no Turno ${nextTurn}!`,
+      type: 'system',
+    });
+
+    setLogs(prev => [...prev, ...newLogs]);
+  };
+
+  // Main End Turn / Pass Turn handler
+  const handleEndTurn = () => {
+    playCustomSound('NextTurn');
+
+    const currentActions = [...cuedActions];
+    setCuedActions([]);
+    setSelectedSkill(null);
+
+    const isCurrentPlayer = activePlanner === 'player';
+    const isGameOver = executeSideActions(currentActions, isCurrentPlayer);
+    if (isGameOver) return;
+
+    const newPassed = [...passedPlayersThisTurn, activePlanner];
+    setPassedPlayersThisTurn(newPassed);
+
+    if (newPassed.length < 2) {
+      const nextPlanner = activePlanner === 'player' ? 'enemy' : 'player';
+      setActivePlanner(nextPlanner);
+      setLogs(prev => [
+        ...prev,
+        {
+          id: Math.random().toString(),
+          turn,
+          message: `⚔️ HABILIDADES EXECUTADAS! Vez de ${nextPlanner === 'player' ? 'VOCÊ' : 'OPONENTE'} jogar.`,
+          type: 'system',
+        }
+      ]);
+    } else {
+      executeTurnEndResolution();
+    }
+  };
+
+  // AI Turn Trigger Effect for Offline Mode
+  useEffect(() => {
+    if (gameOver || isSandbox || onlineParams?.isOnline) return;
+
+    if (activePlanner === 'enemy' && !passedPlayersThisTurn.includes('enemy')) {
+      const timer = setTimeout(() => {
+        const aiActions: CuedAction[] = [];
+        let tempAiChakra = { ...enemyChakra };
+
+        enemyCombatants.forEach(aiChar => {
+          if (aiChar.isDead) return;
+
+          const usableSkills = aiChar.character.skills
+            .map((skill, idx) => ({ skill, idx }))
+            .filter(({ skill }) => !isSkillBlockedByStun(skill, aiChar.activeEffects) && skill.currentCooldown === 0 && canAffordSkill(skill, tempAiChakra));
+
+          const filteredSkills = usableSkills.filter(({ skill }) => {
+            if (skill.requireEffect) {
+              return aiChar.activeEffects.some(e => e.name === skill.requireEffect);
+            }
+            return true;
+          });
+
+          if (filteredSkills.length > 0) {
+            const chosen = filteredSkills[Math.floor(Math.random() * filteredSkills.length)];
+            const skill = chosen.skill;
+
+            let targetId = '';
+            if (skill.targetType === 'Self') {
+              targetId = aiChar.id;
+            } else if (skill.targetType === 'Ally') {
+              const aliveAllies = enemyCombatants.filter(e => !e.isDead);
+              if (aliveAllies.length > 0) {
+                targetId = aliveAllies[Math.floor(Math.random() * aliveAllies.length)].id;
+              }
+            } else if (skill.targetType === 'Enemy') {
+              const alivePlayers = playerCombatants.filter(p => !p.isDead);
+              const visiblePlayers = alivePlayers.filter(p => !p.activeEffects.some(e => e.type === 'invisible'));
+              const finalCandidates = visiblePlayers.length > 0 ? visiblePlayers : alivePlayers;
+              if (finalCandidates.length > 0) {
+                targetId = finalCandidates[Math.floor(Math.random() * finalCandidates.length)].id;
+              }
+            }
+
+            if (targetId) {
+              aiActions.push({ sourceId: aiChar.id, skillIndex: chosen.idx, targetId });
+              let randCost = 0;
+              skill.cost.forEach(cost => {
+                if (cost === 'Rand') randCost++;
+                else {
+                  const element = cost as keyof ChakraPool;
+                  if (tempAiChakra[element] > 0) tempAiChakra[element]--;
+                }
+              });
+              for (let i = 0; i < randCost; i++) {
+                const sorted = (Object.keys(tempAiChakra) as (keyof ChakraPool)[]).sort((a, b) => tempAiChakra[b] - tempAiChakra[a]);
+                const highestElement = sorted[0];
+                if (tempAiChakra[highestElement] > 0) tempAiChakra[highestElement]--;
+              }
+            }
+          }
+        });
+
+        const isGameOver = executeSideActions(aiActions, false);
+        if (isGameOver) return;
+
+        const newPassed = [...passedPlayersThisTurn, 'enemy'];
+        setPassedPlayersThisTurn(newPassed);
+
+        if (newPassed.length < 2) {
+          setActivePlanner('player');
+          setLogs(prev => [
+            ...prev,
+            {
+              id: Math.random().toString(),
+              turn,
+              message: `⚔️ OPONENTE EXECUTOU AS HABILIDADES! Sua vez de jogar em resposta.`,
+              type: 'system',
+            }
+          ]);
+        } else {
+          executeTurnEndResolution();
+        }
+      }, 700);
+
+      return () => clearTimeout(timer);
+    }
+  }, [activePlanner, passedPlayersThisTurn, gameOver, isSandbox, onlineParams, enemyCombatants, playerCombatants, enemyChakra, turn]);
+
+  const [showSurrenderModal, setShowSurrenderModal] = useState(false);
+
+  const handleSurrender = () => {
+    playClickSound();
+    setShowSurrenderModal(true);
+  };
+
+  const confirmSurrender = async () => {
+    playClickSound();
+    setShowSurrenderModal(false);
+    localStorage.removeItem('active_match_save');
+    setGameOver('defeat');
+    playLoseSound();
+
+    if (onlineParams?.isOnline) {
+      try {
+        await fetch('/api/match/surrender', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomId: onlineParams.roomId,
+            username: user.username
+          })
+        });
+      } catch (err) {
+        console.error('Error sending surrender signal:', err);
+      }
     }
   };
 
@@ -837,6 +1657,115 @@ const handleTradeChakra = () => {
   useEffect(() => {
     handleEndTurnRef.current = handleEndTurn;
   }, [handleEndTurn]);
+
+  // Online Match Turn Initiative Polling Effect
+  useEffect(() => {
+    if (!onlineParams?.isOnline || gameOver) return;
+
+    const whoGoesFirst = (turn % 2 === 1) ? 0 : 1;
+    const isOurTurnToPlan = onlineParams.playerIndex === whoGoesFirst;
+
+    if (isOurTurnToPlan) {
+      setActivePlanner('player');
+      setIsWaitingForOpponent(false);
+    } else {
+      // We are waiting for the opponent to finish planning first!
+      setActivePlanner('enemy');
+      setIsWaitingForOpponent(true); // show wait banner
+
+      // Poll room state until the opponent has submitted their actions
+      const initPollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&turn=${turn}&username=${encodeURIComponent(user.username)}`);
+          const statusData = await statusRes.json();
+
+          if (statusData.success && statusData.room) {
+            // Check if someone surrendered or disconnected
+            if (statusData.room.surrenderedBy) {
+              const surrenderedUser = statusData.room.surrenderedBy.toLowerCase();
+              clearInterval(initPollInterval);
+              setIsWaitingForOpponent(false);
+              localStorage.removeItem('active_match_save');
+              if (surrenderedUser === user.username.toLowerCase()) {
+                setGameOver('defeat');
+                playLoseSound();
+              } else {
+                setGameOver('victory');
+                playWinSound();
+              }
+              return;
+            }
+
+            const turnActions = statusData.room.turnActions;
+            const currentTurnData = turnActions[turn];
+            
+            // Check if opponent has submitted actions (player0 for index 0, player1 for index 1)
+            const opponentIndex = 1 - onlineParams.playerIndex;
+            const oppActions = opponentIndex === 0 ? currentTurnData?.player0 : currentTurnData?.player1;
+
+            if (oppActions && oppActions.length > 0) {
+              clearInterval(initPollInterval);
+              // Opponent has finished planning! Now it's our turn!
+              playCustomSound('NextTurn');
+              setActivePlanner('player');
+              setIsWaitingForOpponent(false);
+            }
+          }
+        } catch (err) {
+          console.error('Error polling opponent planning state:', err);
+        }
+      }, 1500);
+
+      return () => clearInterval(initPollInterval);
+    }
+  }, [turn, onlineParams, gameOver]);
+
+  // Periodic background heartbeat ping
+  useEffect(() => {
+    if (!onlineParams?.isOnline || gameOver) return;
+
+    const pingInterval = setInterval(() => {
+      fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.room && data.room.surrenderedBy) {
+            const surrenderedUser = data.room.surrenderedBy.toLowerCase();
+            localStorage.removeItem('active_match_save');
+            if (surrenderedUser === user.username.toLowerCase()) {
+              setGameOver('defeat');
+              playLoseSound();
+            } else {
+              setGameOver('victory');
+              playWinSound();
+            }
+          }
+        })
+        .catch(err => console.error('Heartbeat ping failed:', err));
+    }, 10000);
+
+    return () => clearInterval(pingInterval);
+  }, [onlineParams, gameOver, user]);
+
+  // Auto-save game state to local storage on key changes, or remove it when game over
+  useEffect(() => {
+    if (gameOver) {
+      localStorage.removeItem('active_match_save');
+      return;
+    }
+
+    if (playerCombatants.length === 0 || enemyCombatants.length === 0) return;
+
+    const stateToSave = {
+      turn,
+      playerCombatants,
+      enemyCombatants,
+      playerChakra,
+      enemyChakra,
+      onlineParams,
+      isSandbox
+    };
+    localStorage.setItem('active_match_save', JSON.stringify(stateToSave));
+  }, [turn, playerCombatants, enemyCombatants, playerChakra, enemyChakra, onlineParams, isSandbox, gameOver]);
 
   useEffect(() => {
     if (gameOver) {
@@ -862,34 +1791,35 @@ const handleTradeChakra = () => {
     }, 1000);
 
     return () => clearInterval(timerInterval);
-  }, [turn, gameOver, isWaitingForOpponent]);
+  }, [turn, gameOver, isWaitingForOpponent, activePlanner]);
 
-  const executeTurnSimulation = (playerActions: CuedAction[], enemyActions: CuedAction[]) => {
-    // --- 2. BATTLE RESOLUTION SIMULATION ---
+  const executeTurnSimulation = (playerActions: CuedAction[] = [], enemyActions: CuedAction[] = []) => {
     const newLogs: CombatLog[] = [];
-    const updatedPlayer = [...playerCombatants];
-    const updatedEnemy = [...enemyCombatants];
+    const updatedPlayer = playerCombatants.map(c => ({ ...c, lastTurnStatus: null }));
+    const updatedEnemy = enemyCombatants.map(c => ({ ...c, lastTurnStatus: null }));
 
     const resolveEffectTargets = (
       targetOverride: string | undefined,
       defaultTarget: CombatCharacter,
       source: CombatCharacter,
       sourceList: CombatCharacter[],
-      targetList: CombatCharacter[]
+      targetList: CombatCharacter[],
+      isBeneficial: boolean = false
     ): CombatCharacter[] => {
       if (!targetOverride || targetOverride === 'Target') {
+        if (isBeneficial) {
+          const sourceIsPlayer = updatedPlayer.some(p => p.id === source.id);
+          const targetIsPlayer = updatedPlayer.some(p => p.id === defaultTarget.id);
+          if (sourceIsPlayer !== targetIsPlayer) {
+            return [source];
+          }
+        }
         return [defaultTarget];
       }
-      if (targetOverride === 'Self') {
-        return [source];
-      }
-      if (targetOverride === 'Both') {
-        return [source, defaultTarget];
-      }
+      if (targetOverride === 'Self') return [source];
+      if (targetOverride === 'Both') return [source, defaultTarget];
       if (targetOverride === 'Ally') {
-        if (sourceList.some(c => c.id === defaultTarget.id)) {
-          return [defaultTarget];
-        }
+        if (sourceList.some(c => c.id === defaultTarget.id)) return [defaultTarget];
         const allies = sourceList.filter(c => c.id !== source.id && !c.isDead);
         return allies.length > 0 ? [allies[0]] : [source];
       }
@@ -944,13 +1874,51 @@ const handleTradeChakra = () => {
       const source = sourceList.find(c => c.id === action.sourceId);
       if (!source || source.isDead) return;
 
-      // Stun check
-      const isStunned = source.activeEffects.some(e => e.type === 'stun');
-      if (isStunned) return;
-
       const skill = source.character.skills[action.skillIndex];
+
+      // Stun check
+      if (isSkillBlockedByStun(skill, source.activeEffects)) {
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: `🌀 [${skill.name}] de ${source.character.name} foi IMPEDIDO porque ele está ATORDOADO!`,
+          type: 'system',
+        });
+        addFloatingText(source.id, 'ATORDOADO!', 'stun');
+        source.lastTurnStatus = 'ATORDOADO';
+        return;
+      }
       // Lock cooldown
       skill.currentCooldown = skill.cooldown;
+
+      // 1. CHECK OUTGOING NEGATE (counter_attack debuff on source/attacker)
+      const isOffensive = (skill.damage && skill.damage > 0) ||
+                          (skill.directDamage && skill.directDamage > 0) ||
+                          (skill.dotVal && skill.dotVal > 0) ||
+                          (skill.bleedingVal && skill.bleedingVal > 0) ||
+                          (skill.afflictionVal && skill.afflictionVal > 0) ||
+                          (skill.stunTurns && skill.stunTurns > 0) ||
+                          skill.targetType === 'Enemy' ||
+                          skill.targetType === 'AllEnemies';
+
+      if (isOffensive) {
+        const negateAttackerEffect = source.activeEffects.find(e => e.type === 'counter_attack' && e.counterAttackType === 'attacker');
+        if (negateAttackerEffect) {
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🚫 [${skill.name}] de ${source.character.name} foi ANULADO devido ao Contra-Ataque ativo nele!`,
+            type: 'system',
+          });
+          addFloatingText(source.id, 'ANULADO', 'effect');
+          source.lastTurnStatus = 'ANULADO';
+          negateAttackerEffect.duration -= 1;
+          if (negateAttackerEffect.duration <= 0) {
+            source.activeEffects = source.activeEffects.filter(e => e !== negateAttackerEffect);
+          }
+          return; // cancel skill execution completely
+        }
+      }
 
       let target = targetList.find(c => c.id === action.targetId) || sourceList.find(c => c.id === action.targetId);
       if (!target || target.isDead) return;
@@ -968,43 +1936,100 @@ const handleTradeChakra = () => {
         return;
       }
 
+      let isReflected = false;
+
       // CHECK REFLECT / COUNTER ATTACK
-if (skill.targetType === 'Enemy') {
-  const reflectEffect = target.activeEffects.find(e => e.type === 'reflect');
-  if (reflectEffect && !skill.cannotBeReflected) {
-    let newTarget = source;
-    if (reflectEffect.reflectMode === 'RandomAlly') {
-      const allies = targetList.filter(c => !c.isDead && c.id !== target.id);
-      newTarget = allies.length > 0 ? allies[Math.floor(Math.random() * allies.length)] : target;
-    }
-    newLogs.push({
-      id: Math.random().toString(), turn,
-      message: `🔄 ${target.character.name} REFLETIU [${skill.name}] de volta para ${newTarget.character.name}!`,
-      type: 'system',
-    });
-    addFloatingText(target.id, 'REFLETIDO', 'effect');
-    reflectEffect.duration -= 1;
-    if (reflectEffect.duration <= 0) {
-      target.activeEffects = target.activeEffects.filter(e => e !== reflectEffect);
-    }
-    target = newTarget;
-  } else {
-    const counterEffect = target.activeEffects.find(e => e.type === 'counter_attack');
-    if (counterEffect && !skill.cannotBeCountered) {
-      newLogs.push({
-        id: Math.random().toString(), turn,
-        message: `🚫 ${target.character.name} CONTRA-ATACOU e anulou [${skill.name}] de ${source.character.name}!`,
-        type: 'system',
-      });
-      addFloatingText(target.id, 'ANULADO', 'effect');
-      counterEffect.duration -= 1;
-      if (counterEffect.duration <= 0) {
-        target.activeEffects = target.activeEffects.filter(e => e !== counterEffect);
+      if (isOffensive) {
+        // Look for any active reflect effect on any living member of the target team (defending team)
+        let foundReflect: { def: CombatCharacter; effect: any } | null = null;
+        for (const def of targetList) {
+          if (def.isDead) continue;
+          const eff = def.activeEffects.find(e => e.type === 'reflect');
+          if (eff) {
+            // A reflect is self-cast (protects team) if casterId matches targetId or if they are undefined
+            const isSelfCast = !eff.casterId || !eff.targetId || (eff.casterId === eff.targetId);
+            if (isSelfCast) {
+              foundReflect = { def, effect: eff };
+              break;
+            } else {
+              // Cast on specific ally - only triggers if that ally is the attacked target
+              if (def.id === target.id) {
+                foundReflect = { def, effect: eff };
+                break;
+              }
+            }
+          }
+        }
+
+        if (foundReflect && !skill.cannotBeReflected) {
+          isReflected = true;
+          let newTarget = source;
+          if (foundReflect.effect.reflectMode === 'RandomAlly') {
+            const allies = sourceList.filter(c => !c.isDead && c.id !== source.id);
+            newTarget = allies.length > 0 ? allies[Math.floor(Math.random() * allies.length)] : source;
+          }
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🔄 ${foundReflect.def.character.name} REFLETIU [${skill.name}] de volta para ${newTarget.character.name}!`,
+            type: 'system',
+          });
+          addFloatingText(foundReflect.def.id, 'REFLETIDO', 'effect');
+          
+          foundReflect.def.lastTurnStatus = 'REFLETIDO';
+
+          // Decrement charges if passive reflect
+          if (foundReflect.effect.reflectType === 'passive') {
+            const currentCharges = foundReflect.effect.reflectCharges !== undefined ? foundReflect.effect.reflectCharges : 1;
+            const newCharges = currentCharges - 1;
+            foundReflect.effect.reflectCharges = newCharges;
+            if (newCharges <= 0) {
+              foundReflect.def.activeEffects = foundReflect.def.activeEffects.filter(e => e !== foundReflect.effect);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️ O efeito passivo de Reflexão de ${foundReflect.def.character.name} foi totalmente consumido!`,
+                type: 'system',
+              });
+            } else {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️ O efeito passivo de Reflexão de ${foundReflect.def.character.name} agora possui ${newCharges} carga(s) restante(s).`,
+                type: 'system',
+              });
+            }
+          }
+
+          // Duration of reflect is NOT decremented on trigger anymore to allow full duration as requested.
+          target = newTarget;
+        } else {
+          const counterEffect = target.activeEffects.find(e => e.type === 'counter_attack' && (e.counterAttackType === 'defender' || !e.counterAttackType));
+          if (counterEffect && !skill.cannotBeCountered) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🚫 ${target.character.name} CONTRA-ATACOU e anulou [${skill.name}] de ${source.character.name}!`,
+              type: 'system',
+            });
+            addFloatingText(target.id, 'ANULADO', 'effect');
+            
+            target.lastTurnStatus = 'CONTRA-ATAQUE';
+            source.lastTurnStatus = 'ANULADO';
+
+            counterEffect.duration -= 1;
+            if (counterEffect.duration <= 0) {
+              target.activeEffects = target.activeEffects.filter(e => e !== counterEffect);
+            }
+            return; // pula toda a skill
+          }
+        }
       }
-      return; // pula toda a skill
-    }
-  }
-}
+
+      // Track successful skill usage (if action.isPlayer is true and it wasn't reflected)
+      if (action.isPlayer && !isReflected) {
+        matchStatsRef.current.skillsUsed[skill.name] = (matchStatsRef.current.skillsUsed[skill.name] || 0) + 1;
+      }
 
       // EXECUTE SKILL LOGIC
       let baseDamage = skill.damage || 0;
@@ -1013,6 +2038,13 @@ if (skill.targetType === 'Enemy') {
       let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
       let stunDuration = skill.stunTurns || 1;
       let finalStunType: ('mental' | 'physical' | 'affliction' | 'chakra')[] | undefined = skill.stunType;
+      if (skill.name === 'Rasengan') {
+        stunApplied = true;
+        stunDuration = 1;
+        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
+      } else if (stunApplied && (!finalStunType || finalStunType.length === 0)) {
+        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
+      }
       let removeShields = skill.removeShield || false;
 
       let effectName = '';
@@ -1274,22 +2306,7 @@ if (skill.targetType === 'Enemy') {
           break;
 
         default:
-          // If this skill didn't define any dynamic values, give it a small default damage ONLY if it targets an enemy
-           if (
-    baseDamage === 0 && 
-    directDamage === 0 && 
-    healAmt === 0 && 
-    !stunApplied && 
-    !effectName && 
-    !skill.removeShield && 
-    !skill.gainChakra && 
-    !skill.drainChakra &&
-    !skill.counterAttack &&
-    !skill.reflect &&
-    (skill.targetType === 'Enemy' || skill.targetType === 'AllEnemies')
-  ) {
-    baseDamage = 15;
-  }
+          break;
       }
 
       const cleanseTargetEffects = (t: CombatCharacter, removeType: string | undefined) => {
@@ -1325,6 +2342,17 @@ if (skill.targetType === 'Enemy') {
         }
       };
 
+      const isSkillInvisible = !!skill.invisible || (skill.invisibleDuration !== undefined && skill.invisibleDuration > 0);
+      const casterSide: 'player' | 'enemy' = action.isPlayer ? 'player' : 'enemy';
+
+      const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
+        targetChar.activeEffects.push({
+          ...eff,
+          isInvisible: eff.isInvisible !== undefined ? eff.isInvisible : (isSkillInvisible || eff.type === 'invisible'),
+          casterSide: eff.casterSide || casterSide,
+        });
+      };
+
       // 0.1 DESTRUIR ESCUDO (REMOVE SHIELDS)
       if (removeShields) {
         if (target.shield > 0) {
@@ -1338,7 +2366,7 @@ if (skill.targetType === 'Enemy') {
           addFloatingText(target.id, 'ESCUDO QUEBRADO', 'shield');
         }
         if (skill.removeShieldDuration && skill.removeShieldDuration > 0) {
-          target.activeEffects.push({
+          pushActiveEffect(target, {
             name: `Selamento de Escudo (${skill.name})`,
             type: 'custom',
             duration: skill.removeShieldDuration,
@@ -1358,12 +2386,12 @@ if (skill.targetType === 'Enemy') {
 
       // 0.2 DANO DIRETO (DIRECT DAMAGE)
       if (directDamage > 0) {
-        const directTargets = resolveEffectTargets(skill.directDamageTarget, target, source, sourceList, targetList);
+        const directTargets = resolveEffectTargets(skill.directDamageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         directTargets.forEach(t => {
           if (t.isDead) return;
           if (skill.directDamageDuration && skill.directDamageDuration > 1) {
             const duration = skill.directDamageDuration;
-            t.activeEffects.push({
+            pushActiveEffect(t, {
               name: `${skill.name} (Dano Direto Contínuo)`,
               type: 'direct_damage',
               value: skill.directDamage,
@@ -1379,7 +2407,20 @@ if (skill.targetType === 'Enemy') {
             });
             addFloatingText(t.id, `DANO DIRETO CONTÍNUO`, 'damage');
           } else {
+            const startingHealth = t.health;
             t.health = Math.max(0, t.health - directDamage);
+            const healthReduced = startingHealth - t.health;
+            if (healthReduced > 0) {
+              if (action.isPlayer) {
+                matchStatsRef.current.damageDealt += healthReduced;
+              } else {
+                matchStatsRef.current.damageReceived += healthReduced;
+              }
+            }
+            if (t.health === 0 && startingHealth > 0 && action.isPlayer) {
+              matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
+            }
+
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -1396,12 +2437,12 @@ if (skill.targetType === 'Enemy') {
       if (skill.gainChakra && skill.gainChakra > 0) {
         const amt = skill.gainChakra;
         const dur = skill.gainChakraDuration || 1;
-        const gainChakraTargets = resolveEffectTargets(skill.gainChakraTarget || 'Self', target, source, sourceList, targetList);
+        const gainChakraTargets = resolveEffectTargets(skill.gainChakraTarget || 'Self', target, source, sourceList, targetList, true);
 
         gainChakraTargets.forEach(t => {
           if (t.isDead) return;
           if (dur > 1) {
-            t.activeEffects.push({
+            pushActiveEffect(t, {
               name: `Fluxo de Chakra (${skill.name})`,
               type: 'custom',
               value: amt,
@@ -1443,12 +2484,12 @@ if (skill.targetType === 'Enemy') {
       if (skill.drainChakra && skill.drainChakra > 0) {
         const amt = skill.drainChakra;
         const dur = skill.drainChakraDuration || 1;
-        const drainChakraTargets = resolveEffectTargets(skill.drainChakraTarget || 'Target', target, source, sourceList, targetList);
+        const drainChakraTargets = resolveEffectTargets(skill.drainChakraTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
 
         drainChakraTargets.forEach(t => {
           if (t.isDead) return;
           if (dur > 1) {
-            t.activeEffects.push({
+            pushActiveEffect(t, {
               name: `Dreno de Chakra (${skill.name})`,
               type: 'custom',
               value: amt,
@@ -1509,7 +2550,7 @@ if (skill.targetType === 'Enemy') {
       // 0.4 INVISIBILIDADE AO OPONENTE
       if (skill.invisible && skill.invisibleDuration && skill.invisibleDuration > 0) {
         const invDuration = skill.invisibleDuration;
-        source.activeEffects.push({
+        pushActiveEffect(source, {
           name: `Invisibilidade (${skill.name})`,
           type: 'invisible',
           duration: invDuration,
@@ -1529,10 +2570,10 @@ if (skill.targetType === 'Enemy') {
       // 1. APPLY DAMAGE REDUCTION & SHIELDS FOR OFFENSE
       if (skill.damageDuration && skill.damageDuration > 1) {
         const duration = skill.damageDuration;
-        const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, sourceList, targetList);
+        const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         damageTargets.forEach(t => {
           if (t.isDead) return;
-          t.activeEffects.push({
+          pushActiveEffect(t, {
             name: `${skill.name} (Dano Contínuo)`,
             type: 'damage',
             value: skill.damage,
@@ -1550,9 +2591,11 @@ if (skill.targetType === 'Enemy') {
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
       } else if (baseDamage > 0) {
-        const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, sourceList, targetList);
+        const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         damageTargets.forEach(t => {
           if (t.isDead) return;
+          const startingShield = t.shield;
+          const startingHealth = t.health;
           // Apply damage buff from source effects
           const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
@@ -1613,16 +2656,30 @@ if (skill.targetType === 'Enemy') {
             addFloatingText(source.id, '-15 HP (CONTRA-ATAQUE)', 'damage');
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
+
+          const shieldReduced = startingShield - t.shield;
+          const healthReduced = startingHealth - t.health;
+          const damageTaken = shieldReduced + healthReduced;
+          if (damageTaken > 0) {
+            if (action.isPlayer) {
+              matchStatsRef.current.damageDealt += damageTaken;
+            } else {
+              matchStatsRef.current.damageReceived += damageTaken;
+            }
+          }
+          if (t.health === 0 && startingHealth > 0 && action.isPlayer) {
+            matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
+          }
         });
       }
 
       // 2. APPLY HEALING
       if (skill.healDuration && skill.healDuration > 1) {
         const duration = skill.healDuration;
-        const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList);
+        const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
-          t.activeEffects.push({
+          pushActiveEffect(t, {
             name: `Cura Contínua (${skill.name})`,
             type: 'heal',
             value: skill.heal,
@@ -1640,10 +2697,15 @@ if (skill.targetType === 'Enemy') {
           cleanseTargetEffects(t, skill.healRemoveType);
         });
       } else if (healAmt > 0) {
-        const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList);
+        const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
+          const startingHealth = t.health;
           t.health = Math.min(100, t.health + healAmt);
+          const actualHealed = t.health - startingHealth;
+          if (actualHealed > 0 && action.isPlayer) {
+            matchStatsRef.current.healingDone += actualHealed;
+          }
           newLogs.push({
             id: Math.random().toString(),
             turn,
@@ -1658,21 +2720,32 @@ if (skill.targetType === 'Enemy') {
       // 3. APPLY STUNS
       if (stunApplied) {
         const stunTypeLabels: Record<string, string> = {
-          physical: 'Stun Físico', mental: 'Stun Mental', affliction: 'Stun Aflição', chakra: 'Stun Chakra',
+          physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra',
         };
-        const stunTypeName = (finalStunType && finalStunType.length > 0)
-          ? finalStunType.map(t => stunTypeLabels[t]).join(' + ')
-          : 'Stun';
+        const resolvedStunTypes: ('mental' | 'physical' | 'affliction' | 'chakra')[] =
+          (!finalStunType || finalStunType.length === 0 || finalStunType.length >= 4)
+            ? ['physical', 'mental', 'affliction', 'chakra']
+            : finalStunType;
+        const isAllTypes = resolvedStunTypes.length >= 4;
 
-        const stunTargets = resolveEffectTargets(skill.stunTarget, target, source, sourceList, targetList);
+        const stunTypeName = isAllTypes
+          ? 'Stun Completo (Físico + Mental + Aflição + Chakra)'
+          : `Stun (${resolvedStunTypes.map(t => stunTypeLabels[t] || t).join(' + ')})`;
+
+        const stunTargets = resolveEffectTargets(skill.stunTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         stunTargets.forEach(t => {
           if (t.isDead) return;
-          t.activeEffects.push({
+          if (action.isPlayer) {
+            matchStatsRef.current.stunsApplied += 1;
+          }
+          const debuffIcon = skill.icon || (skill as any).image || (skill as any).portrait || source.character.portrait || 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+          
+          pushActiveEffect(t, {
             name: `${skill.name} (${stunTypeName})`,
             type: 'stun',
             duration: stunDuration,
-            icon: skill.icon,
-            stunType: finalStunType,
+            icon: debuffIcon,
+            stunType: resolvedStunTypes,
             irremovable: !!skill.stunIrremovable,
           });
           newLogs.push({
@@ -1681,14 +2754,17 @@ if (skill.targetType === 'Enemy') {
             message: `🌀 ${t.character.name} recebeu [${stunTypeName}] por [${skill.name}] de ${source.character.name} por ${stunDuration} ${stunDuration === 1 ? 'turno' : 'turnos'}!`,
             type: 'stun',
           });
-          addFloatingText(t.id, `${stunTypeName.toUpperCase()} (${stunDuration}T)`, 'stun');
+          const floatingTextStr = isAllTypes
+            ? `STUN COMPLETO (${stunDuration}T)`
+            : `STUN (${resolvedStunTypes.map(t => (stunTypeLabels[t] || t).toUpperCase()).join('+')}) (${stunDuration}T)`;
+          addFloatingText(t.id, floatingTextStr, 'stun');
           cleanseTargetEffects(t, skill.stunRemoveType);
         });
       }
 
       // 4. APPLY BUFFER SHIELDS & OTHER CUSTOM EFFECT BUFFS
       if (skill.shieldVal && skill.shieldVal > 0) {
-        const shieldTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList);
+        const shieldTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList, true);
         shieldTargets.forEach(t => {
           if (t.isDead) return;
           const isShieldSealed = t.activeEffects.some(e => e.name.startsWith('Selamento de Escudo'));
@@ -1702,6 +2778,9 @@ if (skill.targetType === 'Enemy') {
             addFloatingText(t.id, 'ESCUDO BLOQUEADO', 'shield');
           } else {
             t.shield = (t.shield || 0) + skill.shieldVal!;
+            if (action.isPlayer) {
+              matchStatsRef.current.shieldGenerated += skill.shieldVal!;
+            }
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -1711,7 +2790,7 @@ if (skill.targetType === 'Enemy') {
             addFloatingText(t.id, `+${skill.shieldVal} ESCUDO`, 'shield');
             
             if (skill.shieldDuration && skill.shieldDuration < 99) {
-              t.activeEffects.push({
+              pushActiveEffect(t, {
                 name: `${skill.name} Shield Decay`,
                 type: 'shield',
                 value: skill.shieldVal,
@@ -1726,35 +2805,38 @@ if (skill.targetType === 'Enemy') {
       }
 
       // 4.2b APPLY COUNTER ATTACK
-if (skill.counterAttack) {
-  const cTargets = resolveEffectTargets(skill.counterAttackTarget, target, source, sourceList, targetList);
-  cTargets.forEach(t => {
-    if (t.isDead) return;
-    t.activeEffects.push({
-      name: `${skill.name} Contra-Ataque`,
-      type: 'counter_attack',
-      duration: skill.counterAttackDuration || 1,
-      icon: skill.icon,
-      irremovable: !!skill.counterAttackIrremovable,
-      cannotBeCountered: !!skill.counterAttackCannotBeCountered,
-      cannotBeReflected: !!skill.counterAttackCannotBeReflected,
-    });
-    newLogs.push({
-      id: Math.random().toString(), turn,
-      message: `⚔️ ${t.character.name} ativou CONTRA-ATAQUE com [${skill.name}]!`,
-      type: 'buff',
-    });
-    addFloatingText(t.id, 'CONTRA-ATAQUE', 'effect');
-    cleanseTargetEffects(t, skill.counterAttackRemoveType);
-  });
-}
+      if (skill.counterAttack) {
+        const cTargets = resolveEffectTargets(skill.counterAttackTarget, target, source, sourceList, targetList, true);
+        cTargets.forEach(t => {
+          if (t.isDead) return;
+          pushActiveEffect(t, {
+            name: `${skill.name} Contra-Ataque`,
+            type: 'counter_attack',
+            duration: skill.counterAttackDuration || 1,
+            counterAttackType: skill.counterAttackType || 'defender',
+            icon: skill.icon,
+            irremovable: !!skill.counterAttackIrremovable,
+            cannotBeCountered: !!skill.counterAttackCannotBeCountered,
+            cannotBeReflected: !!skill.counterAttackCannotBeReflected,
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `⚔️ ${t.character.name} ativou CONTRA-ATAQUE com [${skill.name}]!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'CONTRA-ATAQUE', 'effect');
+          cleanseTargetEffects(t, skill.counterAttackRemoveType);
+        });
+      }
 
 // 4.2c APPLY REFLECT
 if (skill.reflect) {
-  const rTargets = resolveEffectTargets(skill.reflectTarget, target, source, sourceList, targetList);
+  const rTargets = resolveEffectTargets(skill.reflectTarget, target, source, sourceList, targetList, true);
   rTargets.forEach(t => {
     if (t.isDead) return;
-    t.activeEffects.push({
+    const isPassive = skill.reflectType === 'passive';
+    const charges = skill.reflectCharges !== undefined ? skill.reflectCharges : 1;
+    pushActiveEffect(t, {
       name: `${skill.name} Reflect`,
       type: 'reflect',
       duration: skill.reflectDuration || 1,
@@ -1763,24 +2845,28 @@ if (skill.reflect) {
       cannotBeCountered: !!skill.reflectCannotBeCountered,
       cannotBeReflected: !!skill.reflectCannotBeReflected,
       reflectMode: skill.reflectMode || 'Caster',
+      reflectType: skill.reflectType || 'active',
+      reflectCharges: charges,
     });
     newLogs.push({
       id: Math.random().toString(), turn,
-      message: `🔄 ${t.character.name} ativou REFLECT com [${skill.name}]!`,
+      message: isPassive 
+        ? `🔄 ${t.character.name} ativou REFLECT (PASSIVO - ${charges} cargas) com [${skill.name}]!`
+        : `🔄 ${t.character.name} ativou REFLECT (ATIVO) com [${skill.name}]!`,
       type: 'buff',
     });
-    addFloatingText(t.id, 'REFLECT', 'effect');
+    addFloatingText(t.id, isPassive ? 'REFLECT PASSIVO' : 'REFLECT ATIVO', 'effect');
     cleanseTargetEffects(t, skill.reflectRemoveType);
   });
 }
 
       // 4.2 APPLY DAMAGE REDUCTION
       if (skill.damageReductionVal && skill.damageReductionVal > 0) {
-        const shieldTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList);
+        const shieldTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList, true);
         shieldTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.damageReductionDuration || 3;
-          t.activeEffects.push({
+          pushActiveEffect(t, {
             name: `${skill.name} Guard`,
             type: 'damage_reduction',
             value: skill.damageReductionVal,
@@ -1801,11 +2887,11 @@ if (skill.reflect) {
 
       // 4.3 APPLY DAMAGE BUFF
       if (skill.damageBuffVal && skill.damageBuffVal > 0) {
-        const buffTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList);
+        const buffTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList, true);
         buffTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.damageBuffDuration || 3;
-          t.activeEffects.push({
+          pushActiveEffect(t, {
             name: `${skill.name} Power`,
             type: 'damage_buff',
             value: skill.damageBuffVal,
@@ -1826,10 +2912,10 @@ if (skill.reflect) {
 
       // 4.4 APPLY INVULNERABILITY
       if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
-        const invulTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList);
+        const invulTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList, true);
         invulTargets.forEach(t => {
           if (t.isDead) return;
-          t.activeEffects.push({
+          pushActiveEffect(t, {
             name: `${skill.name} Escape`,
             type: 'invulnerable',
             duration: skill.invulnerableDuration!,
@@ -1849,11 +2935,11 @@ if (skill.reflect) {
 
       // 4.5 APPLY DoT
       if (skill.dotVal && skill.dotVal > 0) {
-        const dotTargets = resolveEffectTargets(skill.dotTarget, target, source, sourceList, targetList);
+        const dotTargets = resolveEffectTargets(skill.dotTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         dotTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.dotDuration || 3;
-          t.activeEffects.push({
+          pushActiveEffect(t, {
             name: `${skill.name} Burn`,
             type: 'dot',
             value: skill.dotVal,
@@ -1874,11 +2960,11 @@ if (skill.reflect) {
 
       // 4.6 APPLY BLEEDING (SANGRAMENTO)
       if (skill.bleedingVal && skill.bleedingVal > 0) {
-        const bleedTargets = resolveEffectTargets(skill.bleedingTarget, target, source, sourceList, targetList);
+        const bleedTargets = resolveEffectTargets(skill.bleedingTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         bleedTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.bleedingDuration || 3;
-          t.activeEffects.push({
+          pushActiveEffect(t, {
             name: `${skill.name} Sangramento`,
             type: 'bleeding',
             value: skill.bleedingVal,
@@ -1899,11 +2985,11 @@ if (skill.reflect) {
 
       // 4.7 APPLY AFFLICTION (AFLIÇÃO)
       if (skill.afflictionVal && skill.afflictionVal > 0) {
-        const afflictionTargets = resolveEffectTargets(skill.afflictionTarget, target, source, sourceList, targetList);
+        const afflictionTargets = resolveEffectTargets(skill.afflictionTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         afflictionTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.afflictionDuration || 3;
-          t.activeEffects.push({
+          pushActiveEffect(t, {
             name: `${skill.name} Aflição`,
             type: 'affliction',
             value: skill.afflictionVal,
@@ -1924,11 +3010,11 @@ if (skill.reflect) {
 
       // 4.8 APPLY PARALYZE COOLDOWN (PARALISAR COOLDOWN)
       if (skill.paralyzeCooldownDuration && skill.paralyzeCooldownDuration > 0) {
-        const paralyzeTargets = resolveEffectTargets(skill.paralyzeCooldownTarget, target, source, sourceList, targetList);
+        const paralyzeTargets = resolveEffectTargets(skill.paralyzeCooldownTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         paralyzeTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.paralyzeCooldownDuration || 1;
-          t.activeEffects.push({
+          pushActiveEffect(t, {
             name: `${skill.name} Paralisia de Cooldown`,
             type: 'paralyze_cooldown',
             duration,
@@ -1969,7 +3055,7 @@ if (skill.reflect) {
             addFloatingText(target.id, `+${effectVal} ESCUDO`, 'shield');
           }
         } else {
-          target.activeEffects.push({
+          pushActiveEffect(target, {
             name: effectName,
             type: effectType,
             value: effectVal,
@@ -1992,6 +3078,7 @@ if (skill.reflect) {
     const applyTurnEndUpdates = (combatantList: CombatCharacter[], name: string) => {
       combatantList.forEach(c => {
         if (c.isDead) return;
+        const initialHealth = c.health;
 
         // Apply active DoTs (e.g. Amaterasu)
         const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
@@ -2151,6 +3238,20 @@ if (skill.reflect) {
           }
         });
 
+        // Track health changes from continuous effects (DoT, regeneration, self damage)
+        const healthDiff = initialHealth - c.health;
+        if (healthDiff > 0) {
+          if (name === 'Player') {
+            matchStatsRef.current.damageReceived += healthDiff;
+          } else {
+            matchStatsRef.current.damageDealt += healthDiff;
+          }
+        } else if (healthDiff < 0) {
+          if (name === 'Player') {
+            matchStatsRef.current.healingDone += Math.abs(healthDiff);
+          }
+        }
+
         // Check if dead now
         if (c.health <= 0) {
           c.isDead = true;
@@ -2214,9 +3315,21 @@ if (skill.reflect) {
       const alivePlayerCount = updatedPlayer.filter(c => !c.isDead).length;
       const aliveEnemyCount = updatedEnemy.filter(c => !c.isDead).length;
 
-      setTurn(prev => prev + 1);
+      const nextTurn = turn + 1;
+      setTurn(nextTurn);
       rollChakraForTurn(true, alivePlayerCount);
       rollChakraForTurn(false, aliveEnemyCount);
+
+      if (onlineParams?.isOnline) {
+        const whoGoesFirst = (nextTurn % 2 === 1) ? 0 : 1;
+        if (onlineParams.playerIndex === whoGoesFirst) {
+          setActivePlanner('player');
+        } else {
+          setActivePlanner('enemy');
+        }
+      } else {
+        setActivePlanner('player');
+      }
     }
 
     setLogs(prev => [...prev, ...newLogs]);
@@ -2305,9 +3418,19 @@ if (skill.reflect) {
       });
     }
     if (skill.stunTurns && skill.stunTurns > 0) {
+      const typesMap: Record<string, string> = {
+        physical: 'Físico',
+        mental: 'Mental',
+        affliction: 'Aflição',
+        chakra: 'Chakra'
+      };
+      const stunText = (skill.stunType && skill.stunType.length > 0)
+        ? (skill.stunType.length >= 4 ? 'Físico + Mental + Aflição + Chakra' : skill.stunType.map(t => typesMap[t] || t).join(' + '))
+        : 'Todos os Tipos';
+
       effects.push({
         label: 'Atordoar (Stun)',
-        value: `${skill.stunTurns} ${skill.stunTurns === 1 ? 'Turno' : 'Turnos'} (${(skill.stunType && skill.stunType.length > 0) ? skill.stunType.map(t => t === 'physical' ? 'Físico' : t === 'mental' ? 'Mental' : t === 'affliction' ? 'Aflição' : 'Chakra').join(' + ') : 'Stun'})`,
+        value: `${skill.stunTurns} ${skill.stunTurns === 1 ? 'Turno' : 'Turnos'} (${stunText})`,
         color: 'text-amber-500',
         targetLabel: getTargetLabel(skill.stunTarget, 'Alvo Principal')
       });
@@ -2426,6 +3549,21 @@ if (skill.reflect) {
   });
 }
 
+if (skill.cannotBeCountered) {
+  effects.push({
+    label: 'Incontra-atacável',
+    value: 'Esta habilidade NÃO pode ser contra-atacada ou anulada.',
+    color: 'text-rose-400 font-bold',
+  });
+}
+if (skill.cannotBeReflected) {
+  effects.push({
+    label: 'Irrefletível',
+    value: 'Esta habilidade NÃO pode ser refletida.',
+    color: 'text-cyan-400 font-bold',
+  });
+}
+
     if (effects.length === 0) return null;
 
     return (
@@ -2451,23 +3589,12 @@ if (skill.reflect) {
     className="min-h-screen text-slate-100 flex flex-col font-sans relative select-none"
     style={{ zoom: 0.75 }}
   >
-      {/* VIDEO BACKGROUND (arquivo local) — renderizado via portal fora do container com zoom */}
-      {createPortal(
-        <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none bg-slate-950">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="absolute top-1/2 left-1/2 w-[177.78vh] min-w-full h-[56.25vw] min-h-full -translate-x-1/2 -translate-y-1/2 object-cover"
-          >
-            <source src={encodeURI('/static/img/bg/Hailuo_Video_não altere nenhum detalhe da c_535795206726541317.mp4')} type="video/mp4" />
-          </video>
-          {/* Overlay para manter o texto legível sobre o vídeo */}
-          <div className="absolute inset-0" />
-        </div>,
-        document.body
-      )}
+     <div
+  className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
+  style={{
+    backgroundImage: "url('/static/img/bg/background-battle.webp')",
+  }}
+/>
 
       {/* Dynamic Chakra Roll Banner notification */}
       <AnimatePresence>
@@ -2503,71 +3630,151 @@ if (skill.reflect) {
 />
 
       {/* Battle Header (Fixed Bottom) */}
-      <header className="border-t border-slate-900 bg-slate-950/90 backdrop-blur-md fixed bottom-0 left-0 right-0 z-20 px-6 py-3 shadow-2xl">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+      <header className="fixed bottom-0 left-0 right-0 z-20 h-16 sm:h-20 shadow-2xl flex items-center select-none header-footer">
+        {/* Background Pergaminho Image */}
+        <img
+          src="/static/img/ui/pergaminho_bottom.webp"
+          alt="Pergaminho Bottom"
+          className="pergaminho-bottom-battle absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-2xl"
+        />
+
+        <div className="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-10 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <button
-              onClick={onQuit}
-              className="p-2 hover:bg-slate-900 rounded-lg border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
-              title="Sair do Combate"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
+            {gameOver && (
+              <button
+                onClick={handleQuit}
+                className="p-2 hover:bg-[#c49a5d] bg-[#d3ad75]/90 rounded-xl border border-[#7a4e25] text-stone-950 transition-all cursor-pointer shadow"
+                title="Sair do Combate"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            )}
             <div>
-              <span className="text-xs font-mono text-orange-400 font-bold uppercase tracking-wider">Arena de Combate Unison</span>
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold tracking-tight">TURNO {turn}</h2>
+              
+              <div className="flex items-center gap-2 sm:gap-3">
+                <h2 className="text-lg sm:text-xl font-black tracking-tight text-stone-950 font-sans drop-shadow-sm">
+                  TURNO {turn}
+                </h2>
                 {!isWaitingForOpponent && !gameOver && (
-                  <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-xs font-mono font-black uppercase tracking-wider transition-all duration-300 ${
-                    timeLeft <= 10
-                      ? 'bg-red-950/80 border-red-500/60 text-red-400 animate-pulse ring-1 ring-red-500/30'
-                      : 'bg-slate-900/80 border-slate-800 text-orange-400'
-                  }`}>
-                    <Clock className={`w-3.5 h-3.5 ${timeLeft <= 10 ? 'animate-bounce text-red-500' : 'text-orange-400 animate-pulse'}`} />
-                    <span>{timeLeft}s</span>
-                  </div>
+                  <>
+                    <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-xs font-black uppercase tracking-wider transition-all duration-300 shadow-sm ${
+                      timeLeft <= 10
+                        ? 'bg-red-800 border-red-950 text-amber-100 animate-pulse'
+                        : 'bg-amber-950/80 border-amber-900 text-amber-100'
+                    }`}>
+                      <Clock className={`w-3.5 h-3.5 ${timeLeft <= 10 ? 'animate-bounce text-red-300' : 'text-amber-300 animate-pulse'}`} />
+                      <span>{timeLeft}s</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-wider transition-all duration-300 shadow-sm ${
+                      activePlanner === 'player'
+                        ? 'bg-emerald-900/90 border-emerald-950 text-emerald-100'
+                        : 'bg-red-900/90 border-red-950 text-red-100 animate-pulse'
+                    }`}>
+                      {activePlanner === 'player' ? 'Sua Vez de Planejar' : 'Vez do Oponente'}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* Render-se button */}
+            {!gameOver && (
+              <button
+                onClick={handleSurrender}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition-all cursor-pointer active:scale-95"
+                title="Render-se da Partida"
+              >
+                <Flag className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Render-se</span>
+              </button>
+            )}
+
             {/* Music/Sound Toggle */}
             <button
               onClick={() => {
                 playClickSound();
                 onToggleMute();
               }}
-              className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800 transition-all cursor-pointer text-slate-300"
+              className="p-2 sm:p-2.5 rounded-xl bg-[#d3ad75]/90 hover:bg-[#c49a5d] border-2 border-[#7a4e25] text-stone-950 transition-all cursor-pointer shadow-md active:scale-95"
+              title={isMuted ? 'Ativar som' : 'Desativar som'}
             >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-orange-400" />}
+              {isMuted ? <VolumeX className="w-4 h-4 text-stone-900" /> : <Volume2 className="w-4 h-4 text-amber-950" />}
             </button>
 
             {/* End Turn Button */}
             <button
               onClick={handleEndTurn}
-              className="px-6 py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-black rounded-lg hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-orange-600/10 border border-orange-400 text-xs uppercase tracking-widest cursor-pointer flex items-center gap-2"
+              disabled={!isSandbox && activePlanner !== 'player'}
+              className={`px-4 sm:px-6 py-2 sm:py-2.5 ${
+                isSandbox
+                  ? activePlanner === 'player'
+                    ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40'
+                    : 'bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-600/50 shadow-red-950/40'
+                  : activePlanner === 'player'
+                    ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40'
+                    : 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
+              } font-black rounded-xl active:scale-95 transition-all shadow-lg text-xs uppercase tracking-widest cursor-pointer flex items-center gap-2 border`}
             >
               <Swords className="w-4 h-4" />
-              Finalizar Turno
+              {isSandbox
+                ? activePlanner === 'player'
+                  ? 'Terminar Turno Jogador'
+                  : 'Terminar Turno Oponente'
+                : activePlanner === 'player'
+                  ? 'Finalizar Turno'
+                  : 'Aguardando...'}
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Battle Grid Area */}
+
+      <div className="leaves gpu-accelerated">
+        <img src="/static/img/ui/folha.webp" className="leaf leaf1" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf2" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf3" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf4" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf5" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf6" alt="" loading="lazy" decoding="async" />
+      </div>
+
+
       <main className="max-w-7xl w-full mx-auto px-6 pt-4 pb-36 flex-1 grid lg:grid-cols-12 gap-8 items-start">
         {/* Left Side: PLAYER SQUAD (4 Columns) */}
         <section className="lg:col-span-4 space-y-6">
           {/* BEAUTIFUL COMPETITIVE GAME USER PROFILE CARD */}
-          <div className="relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/40">
+          <div
+            onClick={() => {
+              playClickSound();
+              setViewingProfile({
+                profile: {
+                  name: user.name,
+                  username: user.username,
+                  photoUrl: user.photoUrl,
+                  title: user.title,
+                  equippedFrame: user.equippedFrame,
+                  equippedFrameUrl: user.equippedFrameUrl,
+                  level: 15,
+                  wins: 28,
+                  losses: 4,
+                  village: 'Vila da Folha (Konoha)',
+                },
+                isSelf: true,
+              });
+            }}
+            className="relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer"
+            title="Clique para ver o Card do Perfil & Curtidas"
+          >
             {/* Background absolute flare */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-orange-600/5 rounded-full blur-2xl group-hover:bg-orange-600/10 transition-all pointer-events-none" />
             
-            {/* Avatar container with high fidelity glow */}
-            <div className="relative">
+            {/* Avatar container with high fidelity glow and frame overlay */}
+            <div className="relative w-14 h-14 flex-shrink-0">
               <div className="absolute inset-0 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
-              <div className="relative w-14 h-14 rounded-full border-2 border-orange-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
+              <div className="relative w-full h-full rounded-full border-2 border-orange-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
                 <img
                   src={user.photoUrl}
                   alt={user.name}
@@ -2575,21 +3782,27 @@ if (skill.reflect) {
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <div className="absolute -bottom-1.5 -right-1.5 bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 text-[8px] font-black font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-950 shadow">
-                PRO
-              </div>
+              {user.equippedFrameUrl && (
+                <img
+                  src={user.equippedFrameUrl}
+                  alt="Moldura"
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[135%] h-[135%] max-w-none pointer-events-none object-contain z-10"
+                />
+              )}
             </div>
 
             {/* Profile Info details */}
             <div className="flex-1 text-left">
-              <p className="text-xs font-mono text-orange-400 font-black uppercase tracking-wider mb-0.5">Seu Perfil</p>
-              <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center gap-1.5 font-display">
+              <p className="text-xs font-mono text-orange-400 font-black uppercase tracking-wider mb-0.5">
+                {user.title || 'Seu Perfil'}
+              </p>
+              <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center gap-1.5 font-display group-hover:text-orange-400 transition-colors">
                 {user.name}
               </h4>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] font-mono text-slate-400">@{user.username}</span>
                 <span className="w-1 h-1 bg-slate-600 rounded-full" />
-                <span className="text-[9px] font-mono font-bold text-orange-500 uppercase tracking-widest">Nível 99 • Jounin</span>
+               
               </div>
             </div>
           </div>
@@ -2598,7 +3811,7 @@ if (skill.reflect) {
               const isSelectedSource = selectedSkill?.charId === combatant.id;
               const hasCued = cuedActions.some(a => a.sourceId === combatant.id);
               const cuedAct = cuedActions.find(a => a.sourceId === combatant.id);
-              const isStunned = combatant.activeEffects.some(e => e.type === 'stun');
+              const isStunned = combatant.activeEffects.some(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player'));
               const incomingCues = cuedActions.filter(a => a.targetId === combatant.id);
 
               return (
@@ -2677,8 +3890,9 @@ if (skill.reflect) {
                         }}
                       />
                       {isStunned && (
-                        <div className="absolute inset-0 bg-amber-500/40 flex items-center justify-center font-mono text-[9px] font-black text-slate-950 tracking-wider">
-                          ATORDOADO
+                        <div className="absolute inset-0 bg-red-950/85 border border-red-500/80 flex flex-col items-center justify-center p-0.5 font-mono text-[8px] font-black text-red-300 tracking-tighter text-center leading-none uppercase animate-pulse">
+                          <span>⚡ STUN</span>
+                          <span className="text-[7px] text-red-400">DEBUFF</span>
                         </div>
                       )}
                     </div>
@@ -2707,58 +3921,124 @@ if (skill.reflect) {
                         </div>
                       </div>
 
+                      {/* Explicit Stun Debuff Banner */}
+                      {isStunned && (() => {
+                        const stunEffs = combatant.activeEffects.filter(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player'));
+                        const stunTypeLabels: Record<any, string> = {
+                          physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra',
+                        };
+                        const allStunTypes = Array.from(new Set(
+                          stunEffs.flatMap(e => (!e.stunType || e.stunType.length === 0 || e.stunType.length >= 4) ? ['physical', 'mental', 'affliction', 'chakra'] : e.stunType)
+                        ));
+                        const isCompleteStun = allStunTypes.length >= 4;
+                        const stunTypesStr = isCompleteStun
+                          ? 'Físico + Mental + Aflição + Chakra (Total)'
+                          : allStunTypes.map((t: any) => stunTypeLabels[t] || t).join(' + ');
+                        const maxDur = Math.max(...stunEffs.map(e => e.duration), 1);
+
+                        return (
+                          <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
+                            <div className="flex items-center justify-between font-bold text-red-400 text-[10px]">
+                              <span className="flex items-center gap-1">⚡ <span>DEBUFF: ATORDOADO</span></span>
+                              <span className="text-[9px] bg-red-900/90 text-red-100 px-1.5 py-0.2 rounded border border-red-700 font-black">
+                                {maxDur}T
+                              </span>
+                            </div>
+                            <p className="text-[9px] text-red-300/90 font-sans leading-tight">
+                              🚫 <strong>Impedido:</strong> {stunTypesStr}
+                            </p>
+                          </div>
+                        );
+                      })()}
+
+                      {combatant.lastTurnStatus && (
+                        <div className={`mt-1 text-[9px] font-mono font-bold px-2 py-0.5 rounded border flex items-center justify-center gap-1 animate-pulse uppercase tracking-wider ${
+                          combatant.lastTurnStatus === 'ANULADO'
+                            ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                            : combatant.lastTurnStatus === 'REFLETIDO'
+                            ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400'
+                            : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                        }`}>
+                          {combatant.lastTurnStatus === 'ANULADO' && '🚫 Anulado'}
+                          {combatant.lastTurnStatus === 'REFLETIDO' && '🔄 Refletido'}
+                          {combatant.lastTurnStatus === 'CONTRA-ATAQUE' && '🛡️ Contra-Atacou'}
+                        </div>
+                      )}
+
                       {/* Active Status Badges */}
                       {combatant.activeEffects.length > 0 && (() => {
-                        const effectsPerPage = 3;
+                        const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player');
+                        const effectsPerPage = 5;
                         const effPage = activeEffectsPages[combatant.id] || 0;
-                        const totalEffPages = Math.ceil(combatant.activeEffects.length / effectsPerPage);
-                        const paginatedEffects = combatant.activeEffects.slice(effPage * effectsPerPage, (effPage + 1) * effectsPerPage);
+                        const totalEffPages = Math.ceil(groupedEffects.length / effectsPerPage);
+                        const paginatedEffects = groupedEffects.slice(effPage * effectsPerPage, (effPage + 1) * effectsPerPage);
 
                         return (
                           <div className="flex items-center gap-1.5 pt-1.5 w-full">
-                            <div className="flex flex-wrap gap-1 items-center">
-                              {paginatedEffects.map((eff, effIdx) => {
-                                const isDebuff = eff.type === 'stun' || eff.type === 'dot' || eff.type === 'bleeding' || eff.type === 'affliction' || eff.type === 'paralyze_cooldown' || eff.type === 'damage' || eff.type === 'direct_damage' || eff.type === 'counter_attack' || eff.type === 'reflect' || eff.name.toLowerCase().includes('burn') || eff.name.toLowerCase().includes('stun') || eff.name.toLowerCase().includes('sangramento') || eff.name.toLowerCase().includes('aflição');
-                                
-                               const lockIcon = eff.irremovable ? '🔒' : '';
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                              {paginatedEffects.map((item, effIdx) => {
+                                const eff = item.effect;
+                                const isDebuff = eff.type === 'stun' || eff.type === 'dot' || eff.type === 'bleeding' || eff.type === 'affliction' || eff.type === 'paralyze_cooldown' || eff.type === 'damage' || eff.type === 'direct_damage' || eff.name.toLowerCase().includes('burn') || eff.name.toLowerCase().includes('stun') || eff.name.toLowerCase().includes('sangramento') || eff.name.toLowerCase().includes('aflição') || eff.name.toLowerCase().includes('queimadura') || eff.name.toLowerCase().includes('atordoado') || eff.name.toLowerCase().includes('atordoamento');
 
                                 return (
                                   <div
                                     key={effIdx}
-                                    className={`relative group flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-mono select-none bg-slate-950 border transition-all hover:bg-slate-900 ${
-                                      isDebuff ? 'border-red-500/50 text-red-400 shadow-md shadow-red-950/40' : 'border-slate-700/80 text-emerald-400'
+                                    className={`relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help ${
+                                      isDebuff
+                                        ? 'border-red-500/80 shadow-md shadow-red-950/60'
+                                        : 'border-emerald-500/80 shadow-md shadow-emerald-950/60'
                                     }`}
-                                    title={`${eff.name} - Duração: ${eff.duration} turnos`}
                                   >
-                                    {eff.icon ? (
-                                      <img
-                                        src={eff.icon}
-                                        alt={eff.name}
-                                        referrerPolicy="no-referrer"
-                                        className="w-4 h-4 rounded object-cover border border-slate-700/80"
-                                        onError={(e) => {
-                                          const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                                        }}
-                                      />
-                                    ) : (
-                                      <span className={`w-1.5 h-1.5 rounded-full ${isDebuff ? 'bg-red-500 animate-pulse' : 'bg-orange-500 animate-pulse'}`} />
-                                    )}
-                                   <span className="font-bold tabular-nums tracking-tight">
-  {lockIcon}{typeof eff.value === 'number' && eff.value !== 0 ? `${eff.value}·` : ''}{eff.duration}T
-</span>
-                                    
-                                    {/* Tooltip on hover */}
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block z-50 bg-slate-950 border border-slate-800 rounded-lg p-2 text-[10px] w-36 text-white shadow-xl pointer-events-none text-center">
-                                      <span className="font-bold block text-orange-400 truncate">{eff.name}</span>
-                                      <span className="text-slate-400 font-mono text-[9px] block">
-                                        Tipo: <span className="text-purple-400 font-bold uppercase">{eff.type}</span>
-                                      </span>
-                                      {eff.stunType && (
-                                        <span className="text-slate-300 font-mono text-[9px] block mt-0.5">
-                                          Stun: <span className="text-pink-400 font-bold uppercase">{eff.stunType?.join(' + ')}</span>
-                                        </span>
+                                    <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden flex items-center justify-center bg-slate-900">
+                                      {eff.icon ? (
+                                        <img
+                                          src={eff.icon}
+                                          alt={eff.name}
+                                          referrerPolicy="no-referrer"
+                                          className="w-full h-full object-cover rounded-lg"
+                                          onError={(e) => {
+                                            const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                                          }}
+                                        />
+                                      ) : (
+                                        <span className={`w-3.5 h-3.5 rounded-full ${isDebuff ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`} />
                                       )}
-                                      <span className="text-slate-400 font-mono text-[9px] block mt-0.5">Restam {eff.duration} {eff.duration === 1 ? 'turno' : 'turnos'}</span>
+                                      {eff.irremovable && (
+                                        <span className="absolute top-0 right-0 bg-slate-950/80 rounded text-[8px] p-0.5">🔒</span>
+                                      )}
+                                    </div>
+
+                                    {/* Overlay stack badge ONLY if stacks > 1 */}
+                                    {item.stacks > 1 && (
+                                      <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-amber-400 border-2 border-slate-950 text-[10px] font-mono font-black text-slate-950 shadow-md z-20">
+                                        {item.stacks}
+                                      </span>
+                                    )}
+
+                                    {/* Rich Tooltip on hover */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
+                                      <div className="bg-slate-950/95 border border-slate-700 rounded-xl p-2.5 text-center shadow-2xl backdrop-blur-md w-48 text-white">
+                                        <div className="flex items-center justify-center gap-1.5 mb-1">
+                                          <span className={`text-[8px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
+                                            isDebuff ? 'bg-red-950/80 border-red-800/80 text-red-400' : 'bg-emerald-950/80 border-emerald-800/80 text-emerald-400'
+                                          }`}>
+                                            {isDebuff ? 'DEBUFF' : 'BUFF'}
+                                          </span>
+                                          <span className="font-extrabold text-xs text-orange-300 truncate">{eff.name}</span>
+                                        </div>
+
+                                        <p className="text-xs text-slate-200 font-sans leading-snug my-1">
+                                          {item.description}
+                                        </p>
+
+                                        <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-mono text-slate-400">
+                                          <span>Duração: <strong className="text-amber-400">{eff.duration}T</strong></span>
+                                          {item.stacks > 1 && (
+                                            <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="w-2 h-2 bg-slate-950 border-r border-b border-slate-700 rotate-45 -mt-1" />
                                     </div>
                                   </div>
                                 );
@@ -2810,8 +4090,29 @@ if (skill.reflect) {
                     const paginatedSkills = combatant.character.skills.slice(skillsPage * skillsPerPage, (skillsPage + 1) * skillsPerPage);
 
                     return (
-                      <div className="space-y-2 mt-3">
-                        <div className="grid grid-cols-4 gap-2 pt-3 border-t border-slate-800/80">
+                      <div className="relative pt-3 mt-3 border-t border-slate-800/80">
+                        {/* Left side pagination arrow */}
+                        {totalSkillPages > 1 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playCustomSound('Click');
+                              setCombatantSkillPages(prev => ({
+                                ...prev,
+                                [combatant.id]: Math.max(0, skillsPage - 1)
+                              }));
+                            }}
+                            disabled={skillsPage === 0}
+                            className={`absolute -left-2 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
+                              skillsPage === 0 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
+                            }`}
+                            title="Anterior"
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        <div className="grid grid-cols-4 gap-2">
                           {paginatedSkills.map((skill, pIdx) => {
                             const sIdx = skillsPage * skillsPerPage + pIdx;
                             const isCooldown = skill.currentCooldown > 0;
@@ -2822,29 +4123,36 @@ if (skill.reflect) {
                             );
                             const canAfford = canAffordSkill(skill, simulatedChakraForThisChar);
                             const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name === skill.requireEffect);
- 
-                             return (
-                               <div
-                                 key={sIdx}
-                                 onClick={(e) => {
-                                   e.stopPropagation();
-                                   if (isRequiredEffectLocked) {
-                                     addFloatingText(combatant.id, `Requer ${skill.requireEffect}!`, 'effect');
-                                     return;
-                                   }
-                                   handleSelectSkill(combatant.id, sIdx);
-                                 }}
-                                 className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
-                                   isCued
-                                     ? 'border-orange-500 shadow shadow-orange-600/35 ring-1 ring-orange-500'
-                                     : isCooldown
-                                     ? 'border-slate-950 opacity-30 cursor-not-allowed'
-                                     : isRequiredEffectLocked
-                                     ? 'border-red-950/60 opacity-20 grayscale cursor-not-allowed hover:opacity-30'
-                                     : !canAfford
-                                     ? 'border-slate-950 opacity-20 grayscale-[60%] hover:opacity-40'
-                                     : 'border-slate-800 hover:border-slate-600'
-                                 }`}
+                            const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
+
+                            return (
+                              <div
+                                key={sIdx}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isStunBlocked) {
+                                    addFloatingText(combatant.id, `⚡ ATORDOADO! (${skill.name})`, 'stun');
+                                    return;
+                                  }
+                                  if (isRequiredEffectLocked) {
+                                    addFloatingText(combatant.id, `Requer ${skill.requireEffect}!`, 'effect');
+                                    return;
+                                  }
+                                  handleSelectSkill(combatant.id, sIdx);
+                                }}
+                                className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                                  isCued
+                                    ? 'border-orange-500 shadow shadow-orange-600/35 ring-1 ring-orange-500'
+                                    : isStunBlocked
+                                    ? 'border-red-600/90 bg-red-950/60 shadow-md shadow-red-950/60'
+                                    : isCooldown
+                                    ? 'border-slate-950 opacity-30 cursor-not-allowed'
+                                    : isRequiredEffectLocked
+                                    ? 'border-red-950/60 opacity-20 grayscale cursor-not-allowed hover:opacity-30'
+                                    : !canAfford
+                                    ? 'border-slate-950 opacity-20 grayscale-[60%] hover:opacity-40'
+                                    : 'border-slate-800 hover:border-slate-600'
+                                }`}
                               >
                                 <img 
                                   src={skill.icon} 
@@ -2855,8 +4163,6 @@ if (skill.reflect) {
                                   }}
                                 />
 
-                                
-
                                 {/* Cooldown Overlay */}
                                 {isCooldown && (
                                   <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
@@ -2866,8 +4172,16 @@ if (skill.reflect) {
                                   </div>
                                 )}
 
+                                {/* Stun Blocked Overlay */}
+                                {isStunBlocked && !isCooldown && (
+                                  <div className="absolute inset-0 bg-red-950/85 border-2 border-red-600/90 flex flex-col items-center justify-center p-0.5 text-center z-10">
+                                    <span className="text-red-400 text-xs font-black animate-pulse">⚡</span>
+                                    <span className="text-[7px] font-mono font-black text-red-300 uppercase tracking-tighter">STUN</span>
+                                  </div>
+                                )}
+
                                 {/* Required Effect Locked Overlay (🔒) */}
-                                {isRequiredEffectLocked && !isCooldown && (
+                                {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
                                   <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
                                     <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
                                   </div>
@@ -2887,6 +4201,23 @@ if (skill.reflect) {
                                   <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{skill.name}</p>
                                   <p className="text-[10px] text-slate-400 leading-normal pt-1">{skill.desc}</p>
                                   
+                                  {(skill.cannotBeCountered || skill.cannotBeReflected) && (
+                                    <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
+                                      {skill.cannotBeCountered && (
+                                        <span className="text-red-400 font-bold">🚫 Incontra-atacável</span>
+                                      )}
+                                      {skill.cannotBeReflected && (
+                                        <span className="text-cyan-400 font-bold">🚫 Irrefletível</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  
+                                  {isStunBlocked && (
+                                    <p className="text-[9px] font-bold mt-1.5 font-mono text-red-400 bg-red-950/90 p-1 rounded border border-red-800">
+                                      ⚡ BLOQUEADA POR ATORDOAMENTO (STUN)!
+                                    </p>
+                                  )}
+
                                   {skill.requireEffect && (
                                     <p className={`text-[9px] font-bold mt-1.5 font-mono ${isRequiredEffectLocked ? 'text-red-500' : 'text-emerald-500'}`}>
                                       {isRequiredEffectLocked ? '🔒 Requer: ' : '🔓 Ativo: '} {skill.requireEffect}
@@ -2907,62 +4238,25 @@ if (skill.reflect) {
                           })}
                         </div>
 
-                        {/* Pagination controls for combatant skills if more than 4 skills */}
+                        {/* Right side pagination arrow */}
                         {totalSkillPages > 1 && (
-                          <div className="flex items-center justify-between bg-slate-950/40 px-2 py-1.5 rounded-lg border border-slate-900/60 mt-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                playCustomSound('Click');
-                                setCombatantSkillPages(prev => ({
-                                  ...prev,
-                                  [combatant.id]: Math.max(0, skillsPage - 1)
-                                }));
-                              }}
-                              disabled={skillsPage === 0}
-                              className={`p-1 rounded bg-slate-900 border text-slate-400 hover:text-slate-200 transition-all cursor-pointer ${
-                                skillsPage === 0 ? 'opacity-30 cursor-not-allowed border-slate-950' : 'border-slate-800'
-                              }`}
-                            >
-                              <ChevronLeft className="w-3.5 h-3.5" />
-                            </button>
-                            
-                            <div className="flex gap-1.5 items-center justify-center">
-                              {Array.from({ length: totalSkillPages }).map((_, pageIdx) => (
-                                <button
-                                  key={pageIdx}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    playCustomSound('Click');
-                                    setCombatantSkillPages(prev => ({
-                                      ...prev,
-                                      [combatant.id]: pageIdx
-                                    }));
-                                  }}
-                                  className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${
-                                    pageIdx === skillsPage ? 'bg-orange-500 scale-125' : 'bg-slate-700 hover:bg-slate-500'
-                                  }`}
-                                />
-                              ))}
-                            </div>
-
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                playCustomSound('Click');
-                                setCombatantSkillPages(prev => ({
-                                  ...prev,
-                                  [combatant.id]: Math.min(totalSkillPages - 1, skillsPage + 1)
-                                }));
-                              }}
-                              disabled={skillsPage === totalSkillPages - 1}
-                              className={`p-1 rounded bg-slate-900 border text-slate-400 hover:text-slate-200 transition-all cursor-pointer ${
-                                skillsPage === totalSkillPages - 1 ? 'opacity-30 cursor-not-allowed border-slate-950' : 'border-slate-800'
-                              }`}
-                            >
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playCustomSound('Click');
+                              setCombatantSkillPages(prev => ({
+                                ...prev,
+                                [combatant.id]: Math.min(totalSkillPages - 1, skillsPage + 1)
+                              }));
+                            }}
+                            disabled={skillsPage === totalSkillPages - 1}
+                            className={`absolute -right-2 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
+                              skillsPage === totalSkillPages - 1 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
+                            }`}
+                            title="Próximo"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
                         )}
                       </div>
                     );
@@ -3087,7 +4381,7 @@ if (skill.reflect) {
                         <img 
                           src={inspectedSkill.skill.icon} 
                           alt={inspectedSkill.skill.name} 
-                          className="w-full h-full object-cover"
+                          className={`w-full h-full object-cover ${inspectedSkill.isEnemy ? 'scale-x-[-1]' : ''}`}
                           onError={(e) => {
                             const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
                           }}
@@ -3155,6 +4449,22 @@ if (skill.reflect) {
                             {cls}
                           </span>
                         ))}
+                      </div>
+                    )}
+
+                    {/* Protection & Immunity Tags */}
+                    {(inspectedSkill.skill.cannotBeCountered || inspectedSkill.skill.cannotBeReflected) && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {inspectedSkill.skill.cannotBeCountered && (
+                          <span className="text-[9px] font-mono bg-red-950/40 text-red-400 px-2.5 py-0.5 rounded-md border border-red-900/60 font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                            🚫 Incontra-atacável
+                          </span>
+                        )}
+                        {inspectedSkill.skill.cannotBeReflected && (
+                          <span className="text-[9px] font-mono bg-cyan-950/40 text-cyan-400 px-2.5 py-0.5 rounded-md border border-cyan-900/60 font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                            🚫 Irrefletível
+                          </span>
+                        )}
                       </div>
                     )}
 
@@ -3233,7 +4543,7 @@ if (skill.reflect) {
                         <img 
                           src={skill?.icon} 
                           alt={skill?.name} 
-                          className="w-5 h-5 rounded object-cover"
+                          className={`w-5 h-5 rounded object-cover ${isSrcEnemy ? 'scale-x-[-1]' : ''}`}
                           onError={(e) => {
                             const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
                           }}
@@ -3254,43 +4564,76 @@ if (skill.reflect) {
         {/* Right Side: ENEMY SQUAD (4 Columns) */}
         <section className="lg:col-span-4 space-y-6">
           {/* BEAUTIFUL COMPETITIVE GAME USER PROFILE CARD (ENEMY) */}
-          <div className="relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-red-500/40">
+          <div
+            onClick={() => {
+              playClickSound();
+              const isOnline = onlineParams?.isOnline;
+              const opp = isOnline ? onlineParams.opponentProfile : null;
+              setViewingProfile({
+                profile: {
+                  name: opp?.name || 'I.A. Kakashi',
+                  username: opp?.username || 'ia_kakashi',
+                  photoUrl: opp?.photoUrl || 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg',
+                  title: opp?.title || 'Renegado S-Rank',
+                  equippedFrame: opp?.equippedFrame,
+                  equippedFrameUrl: opp?.equippedFrameUrl,
+                  isBot: !isOnline,
+                  level: 20,
+                  wins: 35,
+                  losses: 12,
+                  village: isOnline ? 'Vila Oponente' : 'Vila do Som',
+                },
+                isSelf: false,
+              });
+            }}
+            className="relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer"
+            title="Clique para ver o Card do Perfil do Oponente & Curtir"
+          >
             {/* Background absolute flare */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/5 rounded-full blur-2xl group-hover:bg-red-600/10 transition-all pointer-events-none" />
             
-            {/* Avatar container with high fidelity glow */}
-            <div className="relative">
+            {/* Avatar container with high fidelity glow and frame overlay */}
+            <div className="relative w-14 h-14 flex-shrink-0">
               <div className="absolute inset-0 bg-gradient-to-tr from-red-600 to-rose-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
-              <div className="relative w-14 h-14 rounded-full border-2 border-red-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
+              <div className="relative w-full h-full rounded-full border-2 border-red-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
                 <img
                   src={onlineParams?.isOnline ? onlineParams.opponentProfile.photoUrl : 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg'}
                   alt={onlineParams?.isOnline ? onlineParams.opponentProfile.name : 'I.A. Oponente'}
-                  className="w-full h-full rounded-full object-cover"
+                  className="w-full h-full rounded-full object-cover scale-x-[-1]"
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <div className="absolute -bottom-1.5 -right-1.5 bg-gradient-to-r from-red-600 to-rose-500 text-white text-[8px] font-black font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-950 shadow">
+              {onlineParams?.isOnline && onlineParams.opponentProfile.equippedFrameUrl && (
+                <img
+                  src={onlineParams.opponentProfile.equippedFrameUrl}
+                  alt="Moldura Oponente"
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[135%] h-[135%] max-w-none pointer-events-none object-contain z-10"
+                />
+              )}
+              <div className="absolute -bottom-1.5 -right-1.5 bg-gradient-to-r from-red-600 to-rose-500 text-white text-[8px] font-black font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-950 shadow z-20">
                 {onlineParams?.isOnline ? 'LIVE' : 'BOT'}
               </div>
             </div>
 
             {/* Profile Info details */}
             <div className="flex-1 text-left">
-              <p className="text-xs font-mono text-red-400 font-black uppercase tracking-wider mb-0.5">Oponente</p>
-              <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center gap-1.5 font-display">
+              <p className="text-xs font-mono text-red-400 font-black uppercase tracking-wider mb-0.5">
+                {onlineParams?.isOnline ? (onlineParams.opponentProfile.title || 'Oponente') : 'Renegado S-Rank'}
+              </p>
+              <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center gap-1.5 font-display group-hover:text-red-400 transition-colors">
                 {onlineParams?.isOnline ? onlineParams.opponentProfile.name : 'I.A. Kakashi'}
               </h4>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] font-mono text-slate-400">@{onlineParams?.isOnline ? onlineParams.opponentProfile.username : 'treinamento'}</span>
                 <span className="w-1 h-1 bg-slate-600 rounded-full" />
-                <span className="text-[9px] font-mono font-bold text-red-500 uppercase tracking-widest font-sans">Nível 80 • Rival</span>
+                
               </div>
             </div>
           </div>
        
           <div className="space-y-4">
             {enemyCombatants.map((combatant, idx) => {
-              const isStunned = combatant.activeEffects.some(e => e.type === 'stun');
+              const isStunned = combatant.activeEffects.some(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player'));
               const incomingCues = cuedActions.filter(a => a.targetId === combatant.id);
 
               return (
@@ -3363,14 +4706,15 @@ if (skill.reflect) {
                       <img 
                         src={combatant.character.portrait} 
                         alt={combatant.character.name} 
-                        className="w-full h-full object-cover" 
+                        className="w-full h-full object-cover scale-x-[-1]" 
                         onError={(e) => {
                           const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
                         }}
                       />
                       {isStunned && (
-                        <div className="absolute inset-0 bg-amber-500/40 flex items-center justify-center font-mono text-[9px] font-black text-slate-950 tracking-wider">
-                          ATORDOADO
+                        <div className="absolute inset-0 bg-red-950/85 border border-red-500/80 flex flex-col items-center justify-center p-0.5 font-mono text-[8px] font-black text-red-300 tracking-tighter text-center leading-none uppercase animate-pulse">
+                          <span>⚡ STUN</span>
+                          <span className="text-[7px] text-red-400">DEBUFF</span>
                         </div>
                       )}
                     </div>
@@ -3399,58 +4743,133 @@ if (skill.reflect) {
                         </div>
                       </div>
 
+                      {/* Explicit Stun Debuff Banner */}
+                      {isStunned && (() => {
+                        const stunEffs = combatant.activeEffects.filter(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player'));
+                        const stunTypeLabels: Record<any, string> = {
+                          physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra',
+                        };
+                        const allStunTypes = Array.from(new Set(
+                          stunEffs.flatMap(e => (!e.stunType || e.stunType.length === 0 || e.stunType.length >= 4) ? ['physical', 'mental', 'affliction', 'chakra'] : e.stunType)
+                        ));
+                        const isCompleteStun = allStunTypes.length >= 4;
+                        const stunTypesStr = isCompleteStun
+                          ? 'Físico + Mental + Aflição + Chakra (Total)'
+                          : allStunTypes.map((t: any) => stunTypeLabels[t] || t).join(' + ');
+                        const maxDur = Math.max(...stunEffs.map(e => e.duration), 1);
+
+                        return (
+                          <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
+                            <div className="flex items-center justify-between font-bold text-red-400 text-[10px]">
+                              <span className="flex items-center gap-1">⚡ <span>DEBUFF: ATORDOADO</span></span>
+                              <span className="text-[9px] bg-red-900/90 text-red-100 px-1.5 py-0.2 rounded border border-red-700 font-black">
+                                {maxDur}T
+                              </span>
+                            </div>
+                            <p className="text-[9px] text-red-300/90 font-sans leading-tight">
+                              🚫 <strong>Impedido:</strong> {stunTypesStr}
+                            </p>
+                          </div>
+                        );
+                      })()}
+
+                      {combatant.lastTurnStatus && (
+                        <div className={`mt-1 text-[9px] font-mono font-bold px-2 py-0.5 rounded border flex items-center justify-center gap-1 animate-pulse uppercase tracking-wider ${
+                          combatant.lastTurnStatus === 'ANULADO'
+                            ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                            : combatant.lastTurnStatus === 'REFLETIDO'
+                            ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400'
+                            : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                        }`}>
+                          {combatant.lastTurnStatus === 'ANULADO' && '🚫 Anulado'}
+                          {combatant.lastTurnStatus === 'REFLETIDO' && '🔄 Refletido'}
+                          {combatant.lastTurnStatus === 'CONTRA-ATAQUE' && '🛡️ Contra-Atacou'}
+                        </div>
+                      )}
+
                       {/* Active Status Badges */}
                       {combatant.activeEffects.length > 0 && (() => {
-                        const effectsPerPage = 3;
+                        const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player');
+                        const effectsPerPage = 5;
                         const effPage = activeEffectsPages[combatant.id] || 0;
-                        const totalEffPages = Math.ceil(combatant.activeEffects.length / effectsPerPage);
-                        const paginatedEffects = combatant.activeEffects.slice(effPage * effectsPerPage, (effPage + 1) * effectsPerPage);
+                        const totalEffPages = Math.ceil(groupedEffects.length / effectsPerPage);
+                        const paginatedEffects = groupedEffects.slice(effPage * effectsPerPage, (effPage + 1) * effectsPerPage);
 
                         return (
                           <div className="flex items-center gap-1.5 pt-1.5 w-full">
-                            <div className="flex flex-wrap gap-1 items-center">
-                              {paginatedEffects.map((eff, effIdx) => {
-                                const isDebuff = eff.type === 'stun' || eff.type === 'dot' || eff.type === 'bleeding' || eff.type === 'affliction' || eff.type === 'paralyze_cooldown' || eff.type === 'damage' || eff.type === 'direct_damage' || eff.name.toLowerCase().includes('burn') || eff.name.toLowerCase().includes('stun') || eff.name.toLowerCase().includes('sangramento') || eff.name.toLowerCase().includes('aflição');
-                                
-                               const lockIcon = eff.irremovable ? '🔒' : '';
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                              {paginatedEffects.map((item, effIdx) => {
+                                const eff = item.effect;
+                                const isDebuff = eff.type === 'stun' || eff.type === 'dot' || eff.type === 'bleeding' || eff.type === 'affliction' || eff.type === 'paralyze_cooldown' || eff.type === 'damage' || eff.type === 'direct_damage' || eff.name.toLowerCase().includes('burn') || eff.name.toLowerCase().includes('stun') || eff.name.toLowerCase().includes('sangramento') || eff.name.toLowerCase().includes('aflição') || eff.name.toLowerCase().includes('queimadura') || eff.name.toLowerCase().includes('atordoado') || eff.name.toLowerCase().includes('atordoamento');
 
                                 return (
                                   <div
                                     key={effIdx}
-                                    className={`relative group flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-mono select-none bg-slate-950 border transition-all hover:bg-slate-900 ${
-                                      isDebuff ? 'border-red-500/50 text-red-400 shadow-md shadow-red-950/40' : 'border-slate-700/80 text-emerald-400'
+                                    className={`relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help ${
+                                      isDebuff
+                                        ? 'border-red-500/80 shadow-md shadow-red-950/60'
+                                        : 'border-emerald-500/80 shadow-md shadow-emerald-950/60'
                                     }`}
-                                    title={`${eff.name} - Duração: ${eff.duration} turnos`}
                                   >
-                                    {eff.icon ? (
-                                      <img
-                                        src={eff.icon}
-                                        alt={eff.name}
-                                        referrerPolicy="no-referrer"
-                                        className="w-4 h-4 rounded object-cover border border-slate-700/80"
-                                        onError={(e) => {
-                                          const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                                        }}
-                                      />
-                                    ) : (
-                                      <span className={`w-1.5 h-1.5 rounded-full ${isDebuff ? 'bg-red-500 animate-pulse' : 'bg-orange-500 animate-pulse'}`} />
-                                    )}
-                                    <span className="font-bold tabular-nums tracking-tight">
-  {lockIcon}{typeof eff.value === 'number' && eff.value !== 0 ? `${eff.value}·` : ''}{eff.duration}T
-</span>
-                                    
-                                    {/* Tooltip on hover */}
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block z-50 bg-slate-950 border border-slate-800 rounded-lg p-2 text-[10px] w-36 text-white shadow-xl pointer-events-none text-center">
-                                      <span className="font-bold block text-orange-400 truncate">{eff.name}</span>
-                                      <span className="text-slate-400 font-mono text-[9px] block">
-                                        Tipo: <span className="text-purple-400 font-bold uppercase">{eff.type}</span>
-                                      </span>
-                                      {eff.stunType && (
-                                        <span className="text-slate-300 font-mono text-[9px] block mt-0.5">
-                                          Stun: <span className="text-pink-400 font-bold uppercase">{eff.stunType}</span>
-                                        </span>
+                                    <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden flex items-center justify-center bg-slate-900">
+                                      {eff.icon ? (
+                                        <img
+                                          src={eff.icon}
+                                          alt={eff.name}
+                                          referrerPolicy="no-referrer"
+                                          className="w-full h-full object-cover rounded-lg"
+                                          onError={(e) => {
+                                            const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                                          }}
+                                        />
+                                      ) : (
+                                        <span className={`w-3.5 h-3.5 rounded-full ${isDebuff ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`} />
                                       )}
-                                      <span className="text-slate-400 font-mono text-[9px] block mt-0.5">Restam {eff.duration} {eff.duration === 1 ? 'turno' : 'turnos'}</span>
+                                      {eff.irremovable && (
+                                        <span className="absolute top-0 right-0 bg-slate-950/80 rounded text-[8px] p-0.5">🔒</span>
+                                      )}
+                                      {(eff.isInvisible || eff.type === 'invisible') && (
+                                        <span className="absolute top-0 left-0 bg-pink-950/90 text-pink-300 rounded text-[8px] p-0.5 border border-pink-700/80" title="Invisível para o oponente">👁️</span>
+                                      )}
+                                    </div>
+
+                                    {/* Overlay stack badge ONLY if stacks > 1 */}
+                                    {item.stacks > 1 && (
+                                      <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-amber-400 border-2 border-slate-950 text-[10px] font-mono font-black text-slate-950 shadow-md z-20">
+                                        {item.stacks}
+                                      </span>
+                                    )}
+
+                                    {/* Rich Tooltip on hover */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
+                                      <div className="bg-slate-950/95 border border-slate-700 rounded-xl p-2.5 text-center shadow-2xl backdrop-blur-md w-48 text-white">
+                                        <div className="flex items-center justify-center gap-1.5 mb-1">
+                                          <span className={`text-[8px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
+                                            isDebuff ? 'bg-red-950/80 border-red-800/80 text-red-400' : 'bg-emerald-950/80 border-emerald-800/80 text-emerald-400'
+                                          }`}>
+                                            {isDebuff ? 'DEBUFF' : 'BUFF'}
+                                          </span>
+                                          <span className="font-extrabold text-xs text-orange-300 truncate">{eff.name}</span>
+                                        </div>
+
+                                        {(eff.isInvisible || eff.type === 'invisible') && (
+                                          <p className="text-[9px] font-mono font-bold text-pink-400 bg-pink-950/80 px-1.5 py-0.5 rounded border border-pink-800/80 my-1">
+                                            👁️‍🗨️ INVISÍVEL PARA O OPONENTE
+                                          </p>
+                                        )}
+
+                                        <p className="text-xs text-slate-200 font-sans leading-snug my-1">
+                                          {item.description}
+                                        </p>
+
+                                        <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-mono text-slate-400">
+                                          <span>Duração: <strong className="text-amber-400">{eff.duration}T</strong></span>
+                                          {item.stacks > 1 && (
+                                            <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="w-2 h-2 bg-slate-950 border-r border-b border-slate-700 rotate-45 -mt-1" />
                                     </div>
                                   </div>
                                 );
@@ -3495,162 +4914,236 @@ if (skill.reflect) {
                   </div>
 
                   {/* Character Skills list (as previews for tactical depth) */}
-                  {!combatant.isDead && (
-                    <div className="grid grid-cols-4 gap-2 pt-3 border-t border-slate-800/80 mt-3">
-                      {combatant.character.skills.map((skill, sIdx) => {
-                        const isCooldown = skill.currentCooldown > 0;
-                        const isSkillInvisibleToOpponent = skill.invisible || (skill.invisibleDuration !== undefined && skill.invisibleDuration > 0);
+                  {!combatant.isDead && (() => {
+                    const skillsPerPage = 4;
+                    const skillsPage = combatantSkillPages[combatant.id] || 0;
+                    const totalSkillPages = Math.ceil(combatant.character.skills.length / skillsPerPage);
+                    const paginatedSkills = combatant.character.skills.slice(skillsPage * skillsPerPage, (skillsPage + 1) * skillsPerPage);
 
-                        if (isSkillInvisibleToOpponent) {
-                          return (
-                            <div
-                              key={sIdx}
-                              className="group relative aspect-square rounded-lg border border-slate-900 overflow-hidden bg-slate-950/60 flex flex-col items-center justify-center cursor-not-allowed opacity-40 hover:opacity-60 transition-all"
-                            >
-                              <span className="font-mono text-xs font-black text-slate-600">?</span>
-
-                              {/* Hover Details tooltip card */}
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-850 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
-                                <p className="font-bold text-xs text-pink-400 pb-1 border-b border-slate-800">Habilidade Oculta</p>
-                                <p className="text-[10px] text-slate-400 leading-normal pt-1">Esta é uma habilidade secreta configurada para ser invisível ao oponente.</p>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        const isCued = cuedActions.some(a => a.sourceId === combatant.id && a.skillIndex === sIdx);
-                        const simulatedChakraForThisChar = getSimulatedRemainingChakra(enemyChakra, cuedActions.filter(a => a.sourceId !== combatant.id), true);
-                        const canAfford = canAffordSkill(skill, simulatedChakraForThisChar);
-                        const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name === skill.requireEffect);
-
-                        if (isSandbox) {
-                          return (
-                            <div
-                              key={sIdx}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (isRequiredEffectLocked) {
-                                  addFloatingText(combatant.id, `Requer ${skill.requireEffect}!`, 'effect');
-                                  return;
-                                }
-                                handleSelectSkill(combatant.id, sIdx);
-                              }}
-                              className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
-                                isCued
-                                  ? 'border-emerald-500 shadow shadow-emerald-600/35 ring-1 ring-emerald-500'
-                                  : isCooldown
-                                  ? 'border-slate-950 opacity-30 cursor-not-allowed'
-                                  : isRequiredEffectLocked
-                                  ? 'border-red-950/60 opacity-20 grayscale cursor-not-allowed hover:opacity-30'
-                                  : !canAfford
-                                  ? 'border-slate-950 opacity-20 grayscale-[60%] hover:opacity-40'
-                                  : 'border-slate-800 hover:border-slate-600'
-                              }`}
-                            >
-                              <img 
-                                src={skill.icon} 
-                                alt={skill.name} 
-                                className="w-full h-full object-cover" 
-                                onError={(e) => {
-                                  const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                                }}
-                              />
-
-                              {/* Cooldown Overlay */}
-                              {isCooldown && (
-                                <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
-                                  <span className="font-mono text-xs font-black text-orange-400">
-                                    {skill.currentCooldown}
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Required Effect Locked Overlay (🔒) */}
-                              {isRequiredEffectLocked && !isCooldown && (
-                                <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                  <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
-                                </div>
-                              )}
-
-                              {/* Cued Indicator Overlay */}
-                              {isCued && (
-                                <div className="absolute inset-0 bg-emerald-600/10 border-2 border-emerald-500 flex items-center justify-center">
-                                  <div className="bg-emerald-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
-                                    PREPARADO
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Hover Details tooltip card */}
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
-                                <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{skill.name}</p>
-                                <p className="text-[10px] text-slate-400 leading-normal pt-1">{skill.desc}</p>
-                                
-                                {skill.requireEffect && (
-                                  <p className={`text-[9px] font-bold mt-1.5 font-mono ${isRequiredEffectLocked ? 'text-red-500' : 'text-emerald-500'}`}>
-                                    {isRequiredEffectLocked ? '🔒 Requer: ' : '🔓 Ativo: '} {skill.requireEffect}
-                                  </p>
-                                )}
-
-                                <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-2">
-                                  <span>Recarga: {skill.cooldown}</span>
-                                  <div className="flex gap-0.5">
-                                    {skill.cost.map((c, costIdx) => (
-                                      <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div
-                            key={sIdx}
+                    return (
+                      <div className="relative pt-3 mt-3 border-t border-slate-800/80">
+                        {/* Left side pagination arrow */}
+                        {totalSkillPages > 1 && (
+                          <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              playClickSound();
-                              setInspectedSkill({
-                                skill,
-                                ownerName: combatant.character.name,
-                                isEnemy: true,
-                              });
-                              setCenterTab('inspector');
+                              playCustomSound('Click');
+                              setCombatantSkillPages(prev => ({
+                                ...prev,
+                                [combatant.id]: Math.max(0, skillsPage - 1)
+                              }));
                             }}
-                            className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer opacity-70 hover:opacity-100 transition-all ${
-                              isCooldown ? 'border-slate-950 opacity-30' : 'border-slate-800'
+                            disabled={skillsPage === 0}
+                            className={`absolute -left-2 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
+                              skillsPage === 0 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
                             }`}
+                            title="Anterior"
                           >
-                            <img src={skill.icon} alt={skill.name} className="w-full h-full object-cover" />
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </button>
+                        )}
 
-                            {/* Cooldown Overlay */}
-                            {isCooldown && (
-                              <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
-                                <span className="font-mono text-xs font-black text-orange-400">
-                                  {skill.currentCooldown}
-                                </span>
-                              </div>
-                            )}
+                        <div className="grid grid-cols-4 gap-2">
+                          {paginatedSkills.map((skill, pIdx) => {
+                            const sIdx = skillsPage * skillsPerPage + pIdx;
+                            const isCooldown = skill.currentCooldown > 0;
+                            const isSkillInvisibleToOpponent = skill.invisible || (skill.invisibleDuration !== undefined && skill.invisibleDuration > 0);
 
-                            {/* Hover Details tooltip card */}
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
-                              <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{skill.name}</p>
-                              <p className="text-[10px] text-slate-400 leading-normal pt-1">{skill.desc}</p>
-                              <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-1">
-                                <span>Recarga: {skill.cooldown}</span>
-                                <div className="flex gap-0.5">
-                                  {skill.cost.map((c, costIdx) => (
-                                    <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
-                                  ))}
+                            if (isSkillInvisibleToOpponent) {
+                              return (
+                                <div
+                                  key={sIdx}
+                                  className="group relative aspect-square rounded-lg border border-slate-900 overflow-hidden bg-slate-950/60 flex flex-col items-center justify-center cursor-not-allowed opacity-40 hover:opacity-60 transition-all"
+                                >
+                                  <span className="font-mono text-xs font-black text-slate-600">?</span>
+
+                                  {/* Hover Details tooltip card */}
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-850 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
+                                    <p className="font-bold text-xs text-pink-400 pb-1 border-b border-slate-800">Habilidade Oculta</p>
+                                    <p className="text-[10px] text-slate-400 leading-normal pt-1">Esta é uma habilidade secreta configurada para ser invisível ao oponente.</p>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            const isCued = cuedActions.some(a => a.sourceId === combatant.id && a.skillIndex === sIdx);
+                            const simulatedChakraForThisChar = getSimulatedRemainingChakra(enemyChakra, cuedActions.filter(a => a.sourceId !== combatant.id), true);
+                            const canAfford = canAffordSkill(skill, simulatedChakraForThisChar);
+                            const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name === skill.requireEffect);
+
+                            if (isSandbox) {
+                              return (
+                                <div
+                                  key={sIdx}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (isRequiredEffectLocked) {
+                                      addFloatingText(combatant.id, `Requer ${skill.requireEffect}!`, 'effect');
+                                      return;
+                                    }
+                                    handleSelectSkill(combatant.id, sIdx);
+                                  }}
+                                  className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                                    isCued
+                                      ? 'border-emerald-500 shadow shadow-emerald-600/35 ring-1 ring-emerald-500'
+                                      : isCooldown
+                                      ? 'border-slate-950 opacity-30 cursor-not-allowed'
+                                      : isRequiredEffectLocked
+                                      ? 'border-red-950/60 opacity-20 grayscale cursor-not-allowed hover:opacity-30'
+                                      : !canAfford
+                                      ? 'border-slate-950 opacity-20 grayscale-[60%] hover:opacity-40'
+                                      : 'border-slate-800 hover:border-slate-600'
+                                  }`}
+                                >
+                                  <img 
+                                    src={skill.icon} 
+                                    alt={skill.name} 
+                                    className="w-full h-full object-cover scale-x-[-1]" 
+                                    onError={(e) => {
+                                      const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                                    }}
+                                  />
+
+                                  {/* Cooldown Overlay */}
+                                  {isCooldown && (
+                                    <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
+                                      <span className="font-mono text-xs font-black text-orange-400">
+                                        {skill.currentCooldown}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* Required Effect Locked Overlay (🔒) */}
+                                  {isRequiredEffectLocked && !isCooldown && (
+                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                      <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                    </div>
+                                  )}
+
+                                  {/* Cued Indicator Overlay */}
+                                  {isCued && (
+                                    <div className="absolute inset-0 bg-emerald-600/10 border-2 border-emerald-500 flex items-center justify-center">
+                                      <div className="bg-emerald-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
+                                        PREPARADO
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Hover Details tooltip card */}
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
+                                    <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{skill.name}</p>
+                                    <p className="text-[10px] text-slate-400 leading-normal pt-1">{skill.desc}</p>
+                                    
+                                    {(skill.cannotBeCountered || skill.cannotBeReflected) && (
+                                      <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
+                                        {skill.cannotBeCountered && (
+                                          <span className="text-red-400 font-bold">🚫 Incontra-atacável</span>
+                                        )}
+                                        {skill.cannotBeReflected && (
+                                          <span className="text-cyan-400 font-bold">🚫 Irrefletível</span>
+                                        )}
+                                      </div>
+                                    )}
+                                    
+                                    {skill.requireEffect && (
+                                      <p className={`text-[9px] font-bold mt-1.5 font-mono ${isRequiredEffectLocked ? 'text-red-500' : 'text-emerald-500'}`}>
+                                        {isRequiredEffectLocked ? '🔒 Requer: ' : '🔓 Ativo: '} {skill.requireEffect}
+                                      </p>
+                                    )}
+
+                                    <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-2">
+                                      <span>Recarga: {skill.cooldown}</span>
+                                      <div className="flex gap-0.5">
+                                        {skill.cost.map((c, costIdx) => (
+                                          <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div
+                                key={sIdx}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playClickSound();
+                                  setInspectedSkill({
+                                    skill,
+                                    ownerName: combatant.character.name,
+                                    isEnemy: true,
+                                  });
+                                  setCenterTab('inspector');
+                                }}
+                                className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer opacity-70 hover:opacity-100 transition-all ${
+                                  isCooldown ? 'border-slate-950 opacity-30' : 'border-slate-800'
+                                }`}
+                              >
+                                <img src={skill.icon} alt={skill.name} className="w-full h-full object-cover scale-x-[-1]" />
+
+                                {/* Cooldown Overlay */}
+                                {isCooldown && (
+                                  <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
+                                    <span className="font-mono text-xs font-black text-orange-400">
+                                      {skill.currentCooldown}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Hover Details tooltip card */}
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
+                                  <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{skill.name}</p>
+                                  <p className="text-[10px] text-slate-400 leading-normal pt-1">{skill.desc}</p>
+                                  
+                                  {(skill.cannotBeCountered || skill.cannotBeReflected) && (
+                                    <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
+                                      {skill.cannotBeCountered && (
+                                        <span className="text-red-400 font-bold">🚫 Incontra-atacável</span>
+                                      )}
+                                      {skill.cannotBeReflected && (
+                                        <span className="text-cyan-400 font-bold">🚫 Irrefletível</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-1">
+                                    <span>Recarga: {skill.cooldown}</span>
+                                    <div className="flex gap-0.5">
+                                      {skill.cost.map((c, costIdx) => (
+                                        <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
+                                      ))}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                            );
+                          })}
+                        </div>
+
+                        {/* Right side pagination arrow */}
+                        {totalSkillPages > 1 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playCustomSound('Click');
+                              setCombatantSkillPages(prev => ({
+                                ...prev,
+                                [combatant.id]: Math.min(totalSkillPages - 1, skillsPage + 1)
+                              }));
+                            }}
+                            disabled={skillsPage === totalSkillPages - 1}
+                            className={`absolute -right-2 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
+                              skillsPage === totalSkillPages - 1 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
+                            }`}
+                            title="Próximo"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -3720,9 +5213,16 @@ if (skill.reflect) {
               onAnimationComplete={() => {
                 setActiveEmojis(prev => prev.filter(e => e.id !== emojiObj.id));
               }}
-              className="absolute text-5xl filter drop-shadow-[0_8px_24px_rgba(249,115,22,0.45)] drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] select-none"
+              className="absolute flex flex-col items-center select-none"
             >
-              {emojiObj.emoji}
+              {emojiObj.senderName && (
+                <span className="bg-slate-950/85 border border-orange-500/40 text-orange-400 text-[9px] font-black font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-md shadow mb-1 whitespace-nowrap">
+                  {emojiObj.senderName}
+                </span>
+              )}
+              <span className="text-5xl filter drop-shadow-[0_8px_24px_rgba(249,115,22,0.45)] drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]">
+                {emojiObj.emoji}
+              </span>
             </motion.div>
           ))}
         </AnimatePresence>
@@ -3731,117 +5231,146 @@ if (skill.reflect) {
       {/* GAME OVER BANNER MODAL */}
       <AnimatePresence>
         {gameOver && (
-          <div className="fixed inset-0 bg-slate-950/90 z-50 flex items-center justify-center p-6 backdrop-blur">
+          <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="bg-slate-900 border border-slate-800/85 p-8 max-w-md w-full rounded-2xl text-center space-y-6 shadow-2xl"
+              initial={{ scale: 0.85, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 15 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative rounded-3xl overflow-hidden shadow-2xl max-w-md w-full min-h-[260px] flex flex-col justify-between p-8 sm:p-10"
             >
-              <div className="inline-block p-4 bg-orange-600/10 rounded-full border border-orange-500/30">
-                <Swords className="w-8 h-8 text-orange-400" />
-              </div>
+              {/* Background Pergaminho Image */}
+              <img
+                src="/static/img/ui/pergaminho.webp"
+                alt="Pergaminho Shinobi"
+                className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
+              />
 
-              <div className="space-y-1.5">
-                <h3 className="text-3xl font-black uppercase tracking-tight">
-                  {gameOver === 'victory' ? (
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-500">VICTORY</span>
-                  ) : (
-                    <span className="text-red-500">DEFEATED</span>
-                  )}
-                </h3>
-                <p className="text-sm text-slate-400">
-                  {gameOver === 'victory'
-                    ? 'Congratulations! You crushed the opponent squad and secured your shinobi supremacy!'
-                    : 'Your squad has fallen in combat. Recoup your strategy and try again!'}
-                </p>
-              </div>
+              <div className="relative z-10 flex flex-col items-center justify-between text-center space-y-6 h-full">
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-center gap-2">
+                    {gameOver === 'victory' ? (
+                      <Trophy className="w-8 h-8 text-amber-700 animate-bounce" />
+                    ) : (
+                      <Swords className="w-8 h-8 text-red-800 animate-pulse" />
+                    )}
+                    <h3 className="text-2xl font-black uppercase tracking-tight font-sans">
+                      {gameOver === 'victory' ? (
+                        <span className="text-emerald-900 drop-shadow">VITÓRIA!</span>
+                      ) : (
+                        <span className="text-red-900 drop-shadow">DERROTA!</span>
+                      )}
+                    </h3>
+                  </div>
+                  <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
+                    {gameOver === 'victory'
+                      ? 'Parabéns! Você derrotou o esquadrão inimigo e conquistou a supremacia shinobi!'
+                      : 'Seu esquadrão foi derrotado em combate. Reagrupe sua tática e tente novamente!'}
+                  </p>
+                </div>
 
-              <div className="flex flex-col gap-3 pt-2">
-                <button
-                  onClick={onQuit}
-                  className="w-full py-3 bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-bold rounded-lg hover:brightness-110 active:scale-95 transition-all text-sm uppercase tracking-wider cursor-pointer"
-                >
-                  Return to Menu
-                </button>
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full pt-1">
+                  <button
+                    onClick={handleQuit}
+                    className={`w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-lg border transition cursor-pointer active:scale-95 flex items-center justify-center gap-2 ${
+                      gameOver === 'victory'
+                        ? 'bg-gradient-to-r from-amber-700 to-yellow-800 hover:from-amber-600 hover:to-yellow-700 text-amber-100 shadow-amber-950/40 border-amber-500/50'
+                        : 'bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 shadow-red-950/40 border-red-600/50'
+                    }`}
+                  >
+                    <span>Voltar ao Menu</span>
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
       {/* CHAKRA TRADE MODAL */}
-<AnimatePresence>
-  {showChakraTrade && (
-    <div className="fixed inset-0 bg-slate-950/90 z-50 flex items-center justify-center p-6 backdrop-blur">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-slate-900 border border-slate-800/85 p-6 max-w-sm w-full rounded-2xl space-y-5 shadow-2xl"
-      >
-        <h3 className="text-lg font-black uppercase tracking-tight text-center text-orange-400">
-          Trocar Chakra (4 → 1)
-        </h3>
+      <AnimatePresence>
+        {showChakraTrade && (
+          <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 15 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative rounded-3xl overflow-hidden shadow-2xl max-w-sm w-full min-h-[320px] flex flex-col justify-between p-6 sm:p-8"
+            >
+              {/* Background Pergaminho Image */}
+              <img
+                src="/static/img/ui/pergaminho.webp"
+                alt="Pergaminho Shinobi"
+                className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
+              />
 
-        <div>
-          <p className="text-xs font-mono text-slate-400 mb-2">Escolha 4 chakras para gastar:</p>
-          <div className="flex justify-around">
-            {(Object.keys(playerChakra) as (keyof ChakraPool)[]).map(key => {
-              const totalSelected = (Object.keys(tradeSelection) as (keyof ChakraPool)[])
-                .reduce((sum, k) => sum + tradeSelection[k], 0);
-              const canAdd = tradeSelection[key] < playerChakra[key] && totalSelected < 4;
-              return (
-                <div key={key} className="flex flex-col items-center gap-1">
-                  {renderChakraIcon(key)}
-                  <span className="text-[10px] font-mono text-slate-300">{tradeSelection[key]} / {playerChakra[key]}</span>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setTradeSelection(prev => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }))}
-                      className="w-5 h-5 text-xs bg-slate-800 rounded hover:bg-slate-700"
-                    >-</button>
-                    <button
-                      disabled={!canAdd}
-                      onClick={() => setTradeSelection(prev => ({ ...prev, [key]: prev[key] + 1 }))}
-                      className="w-5 h-5 text-xs bg-slate-800 rounded hover:bg-slate-700 disabled:opacity-30"
-                    >+</button>
+              <div className="relative z-10 flex flex-col items-center justify-between text-center space-y-4 h-full">
+                <h3 className="text-lg font-black uppercase tracking-tight text-center text-stone-950 font-sans">
+                  Trocar Chakra (4 → 1)
+                </h3>
+
+                <div className="w-full">
+                  <p className="text-xs font-bold text-stone-800 mb-2">Escolha 4 chakras para gastar:</p>
+                  <div className="flex justify-around items-center bg-[#d3ad75]/30 p-2 rounded-xl border border-[#7a4e25]/30">
+                    {(Object.keys(playerChakra) as (keyof ChakraPool)[]).map(key => {
+                      const totalSelected = (Object.keys(tradeSelection) as (keyof ChakraPool)[])
+                        .reduce((sum, k) => sum + tradeSelection[k], 0);
+                      const canAdd = tradeSelection[key] < playerChakra[key] && totalSelected < 4;
+                      return (
+                        <div key={key} className="flex flex-col items-center gap-1">
+                          {renderChakraIcon(key)}
+                          <span className="text-[10px] font-bold text-stone-900 font-mono">{tradeSelection[key]} / {playerChakra[key]}</span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => setTradeSelection(prev => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }))}
+                              className="w-5 h-5 text-xs bg-[#7a4e25] text-amber-100 rounded hover:bg-[#5c3a1b] font-bold cursor-pointer"
+                            >-</button>
+                            <button
+                              disabled={!canAdd}
+                              onClick={() => setTradeSelection(prev => ({ ...prev, [key]: prev[key] + 1 }))}
+                              className="w-5 h-5 text-xs bg-[#7a4e25] text-amber-100 rounded hover:bg-[#5c3a1b] font-bold disabled:opacity-30 cursor-pointer"
+                            >+</button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
 
-        <div>
-          <p className="text-xs font-mono text-slate-400 mb-2">Escolha o chakra que vai receber:</p>
-          <div className="flex justify-around">
-            {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map(key => (
-              <button
-                key={key}
-                onClick={() => setTradeTarget(key)}
-                className={`p-1 rounded-lg border ${tradeTarget === key ? 'border-orange-500 bg-orange-500/10' : 'border-transparent'}`}
-              >
-                {renderChakraIcon(key)}
-              </button>
-            ))}
-          </div>
-        </div>
+                <div className="w-full">
+                  <p className="text-xs font-bold text-stone-800 mb-2">Escolha o chakra que vai receber:</p>
+                  <div className="flex justify-around items-center bg-[#d3ad75]/30 p-2 rounded-xl border border-[#7a4e25]/30">
+                    {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map(key => (
+                      <button
+                        key={key}
+                        onClick={() => setTradeTarget(key)}
+                        className={`p-1.5 rounded-lg border-2 transition cursor-pointer ${tradeTarget === key ? 'border-amber-800 bg-amber-800/20 scale-110' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                      >
+                        {renderChakraIcon(key)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-        <div className="flex gap-3 pt-2">
-          <button
-            onClick={() => { setShowChakraTrade(false); setTradeSelection({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 }); setTradeTarget(null); }}
-            className="flex-1 py-2 bg-slate-800 text-slate-300 font-bold rounded-lg text-xs uppercase tracking-wider hover:bg-slate-700"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleTradeChakra}
-            className="flex-1 py-2 bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-bold rounded-lg text-xs uppercase tracking-wider hover:brightness-110 active:scale-95"
-          >
-            Confirmar Troca
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  )}
-</AnimatePresence>
+                <div className="flex gap-3 pt-2 w-full">
+                  <button
+                    onClick={() => { setShowChakraTrade(false); setTradeSelection({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 }); setTradeTarget(null); }}
+                    className="flex-1 py-2 px-3 bg-[#d3ad75]/90 hover:bg-[#c49a5d] text-stone-950 font-black text-xs uppercase tracking-wider border-2 border-[#7a4e25] rounded-xl shadow-md transition cursor-pointer active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleTradeChakra}
+                    className="flex-1 py-2 px-3 bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-orange-950/40 border border-orange-600/50 transition cursor-pointer active:scale-95"
+                  >
+                    Confirmar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* WAITING FOR OPPONENT OVERLAY */}
       <AnimatePresence>
@@ -3883,6 +5412,231 @@ if (skill.reflect) {
           </div>
         )}
       </AnimatePresence>
+
+      {/* SURRENDER CONFIRMATION PARCHMENT MODAL */}
+      <AnimatePresence>
+        {showSurrenderModal && (
+          <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 15 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative rounded-3xl overflow-hidden shadow-2xl max-w-md w-full min-h-[250px] flex flex-col justify-between p-8 sm:p-10"
+            >
+              {/* Background Pergaminho Image */}
+              <img
+                src="/static/img/ui/pergaminho.webp"
+                alt="Pergaminho Shinobi"
+                className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
+              />
+
+              {/* Parchment Content */}
+              <div className="relative z-10 flex flex-col items-center justify-between text-center space-y-6 h-full">
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <Flag className="w-6 h-6 text-red-700 fill-red-600 animate-bounce" />
+                    <h3 className="text-xl font-black uppercase tracking-tight text-stone-950 font-sans">
+                      Render-se da Batalha?
+                    </h3>
+                  </div>
+                  <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
+                    Você realmente deseja se render e declarar derrota nesta partida?
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full pt-1">
+                  <button
+                    onClick={confirmSurrender}
+                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95"
+                  >
+                    Sim, Render-me
+                  </button>
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      setShowSurrenderModal(false);
+                    }}
+                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-[#d3ad75]/90 hover:bg-[#c49a5d] text-stone-950 font-black text-xs uppercase tracking-wider border-2 border-[#7a4e25] shadow-md transition cursor-pointer active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* TRANSIENT EPHEMERAL BATTLE CHAT WIDGET */}
+      <div className="fixed bottom-4 right-4 z-40 select-none flex flex-col items-end">
+        <AnimatePresence>
+          {isChatOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 15, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 15, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="mb-3 w-80 sm:w-96 bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md flex flex-col h-96 border-orange-500/30"
+            >
+              {/* Chat Header */}
+              <div className="bg-slate-950 p-3 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                    <img
+                      src="/static/img/ui/bubble-chat.webp"
+                      alt="Chat"
+                      className="w-5 h-5 object-contain"
+                    />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-100 flex items-center gap-1.5 font-display">
+                      Chat da Partida
+                    </h4>
+                    <p className="text-[10px] text-slate-400 font-mono"></p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    playClickSound();
+                    setIsChatOpen(false);
+                  }}
+                  className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Chat Messages Feed */}
+              <div ref={chatScrollRef} className="flex-1 p-3 overflow-y-auto space-y-2.5">
+                {chatMessages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-500 space-y-2">
+                    <img
+                      src="/static/img/ui/bubble-chat.webp"
+                      alt="Chat Vazio"
+                      className="w-10 h-10 opacity-40 object-contain"
+                    />
+                    <p className="text-xs font-medium">Nenhuma mensagem nesta partida ainda.</p>
+                    <p className="text-[10px] text-slate-600">Envie um cumprimento ninja ao seu oponente!</p>
+                  </div>
+                ) : (
+                  chatMessages.map(msg => (
+                    <div
+                      key={msg.id}
+                      className={`p-2.5 rounded-xl text-xs space-y-1 ${
+                        msg.isSelf
+                          ? 'bg-gradient-to-r from-orange-950/40 to-slate-900 border border-orange-500/30 ml-4'
+                          : 'bg-slate-800/50 border border-slate-700/40 mr-4'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {msg.senderTitle && (
+                          <span className="text-[9px] font-mono font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            [{msg.senderTitle}]
+                          </span>
+                        )}
+                        <span className={`font-bold text-xs ${msg.isSelf ? 'text-orange-400' : 'text-slate-200'}`}>
+                          {msg.senderName}
+                        </span>
+                        <span className="text-[9px] font-mono text-slate-500 ml-auto">
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-slate-300 break-words font-sans text-xs leading-relaxed">
+                        {msg.text}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Chat Form Input */}
+              <form onSubmit={handleSendChatMessage} className="p-2.5 bg-slate-950 border-t border-slate-800 space-y-1">
+                {chatError && (
+                  <p className="text-[10px] font-mono text-rose-400 px-1 animate-pulse">
+                    {chatError}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    maxLength={100}
+                    placeholder="Sua mensagem..."
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-orange-500 transition"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!chatInput.trim()}
+                    className="p-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-bold hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 transition cursor-pointer"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Chat Toggle Floating Button */}
+        <div className="relative">
+          <AnimatePresence>
+            {unreadCount > 0 && !isChatOpen && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, x: 10 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.8, x: 10 }}
+                className="absolute right-16 top-1/2 -translate-y-1/2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-3.5 py-1.5 rounded-xl shadow-xl shadow-red-600/40 flex items-center gap-2 whitespace-nowrap border border-red-400/50 pointer-events-none z-50 animate-pulse"
+              >
+                <div className="w-2 h-2 rounded-full bg-white animate-ping shrink-0" />
+                <span className="text-xs font-black uppercase tracking-wide font-mono">
+                  {unreadCount === 1 ? '1 Nova Mensagem!' : `${unreadCount} Novas Mensagens!`}
+                </span>
+                <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 border-y-4 border-y-transparent border-l-[6px] border-l-rose-600" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <button
+            onClick={() => {
+              playClickSound();
+              setIsChatOpen(!isChatOpen);
+              setUnreadCount(0);
+            }}
+            className={` ${
+              unreadCount > 0 && !isChatOpen
+                ? 'border-red-500 text-red-400 shadow-red-600/40 animate-bounce'
+                : 'border-orange-500 text-orange-400 hover:scale-105 active:scale-95'
+            }`}
+            title="Abrir Chat da Partida"
+          >
+            {unreadCount > 0 && !isChatOpen && (
+              <span className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-75 pointer-events-none" />
+            )}
+            <img
+              src="/static/img/ui/bubble-chat.webp"
+              alt="Chat"
+              className="bubble-chat object-contain group-hover:scale-110 transition-transform filter drop-shadow"
+            />
+            {unreadCount > 0 && !isChatOpen && (
+              <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white font-mono font-black text-[11px] min-w-[22px] h-[22px] px-1 rounded-full flex items-center justify-center border-2 border-slate-950 shadow-lg shadow-red-600/60 z-10">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* PROFILE CARD MODAL (VIEWING SELF OR OPPONENT) */}
+      {viewingProfile && (
+        <ProfileCardModal
+          profile={viewingProfile.profile}
+          isSelf={viewingProfile.isSelf}
+          onClose={() => setViewingProfile(null)}
+          playClickSound={playClickSound}
+        />
+      )}
     </div>
   );
 }

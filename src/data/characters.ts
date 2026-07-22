@@ -18,6 +18,18 @@ export const CHARACTERS: Character[] = [
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
     "folder": "naruto-uzumaki",
+    "skins": [
+      {
+        "id": "naruto-classic",
+        "name": "Naruto Clássico",
+        "image": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg"
+      },
+      {
+        "id": "naruto-sage",
+        "name": "Naruto Modo Sábio",
+        "image": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sage-naruto-(s)/icon.jpg"
+      }
+    ],
     "skills": [
       {
         "name": "Uzumaki Barrage",
@@ -49,7 +61,15 @@ export const CHARACTERS: Character[] = [
           "Chakra",
           "Corpo a Corpo"
         ],
-        "requireEffect": "Shadow Clones"
+        "requireEffect": "Shadow Clones",
+        "damage": 45,
+        "stunTurns": 1,
+        "stunType": [
+          "physical",
+          "mental",
+          "affliction",
+          "chakra"
+        ]
       },
       {
         "name": "Shadow Clones",
@@ -94,6 +114,18 @@ export const CHARACTERS: Character[] = [
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sasuke-uchiha/icon.jpg",
     "folder": "sasuke-uchiha",
+    "skins": [
+      {
+        "id": "sasuke-classic",
+        "name": "Sasuke Clássico",
+        "image": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sasuke-uchiha/icon.jpg"
+      },
+      {
+        "id": "sasuke-hebi",
+        "name": "Sasuke Hebi",
+        "image": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sasuke-(s)/icon.jpg"
+      }
+    ],
     "skills": [
       {
         "name": "Lions Barrage",

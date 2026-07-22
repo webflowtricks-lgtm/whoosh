@@ -1,0 +1,208 @@
+[
+  {
+    "id": "q1",
+    "title": "Caminho do Shinobi",
+    "desc": "Dê seus primeiros passos como um estudante. Vença 3 batalhas seguidas usando Uzumaki Naruto ou Uchiha Sasuke sem sofrer derrotas.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "g1_1",
+        "type": "win_consecutive_battles_with_chars",
+        "targetCharacters": [
+          "Uzumaki Naruto",
+          "Uchiha Sasuke"
+        ],
+        "targetValue": 3,
+        "currentValue": 0,
+        "consecutive": true,
+        "currentStreak": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Estudante Determinado"
+      },
+      {
+        "type": "unlock_character",
+        "value": "Yuki Haku"
+      },
+      {
+        "type": "banner",
+        "value": "Banner Fogo da Vontade",
+        "imageUrl": "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1200&auto=format&fit=crop"
+      },
+      {
+        "type": "frame",
+        "value": "Moldura Fogo Sagrado",
+        "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "q2",
+    "title": "Os Espelhos de Gelo",
+    "desc": "Aprenda a controlar o jutsu secreto de linhagem de Yuki Haku. Conclua os Espelhos Demoníacos de Haku e garanta vitórias.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/haku/portrait.jpg",
+    "minRank": "Genin",
+    "requiredQuestIds": [
+      "q1"
+    ],
+    "goals": [
+      {
+        "id": "g2_1",
+        "type": "use_skill",
+        "targetSkill": "Demonic Mirroring Ice Crystals",
+        "targetValue": 3,
+        "currentValue": 0,
+        "singleMatch": false
+      },
+      {
+        "id": "g2_2",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Yuki Haku"
+        ],
+        "targetValue": 5,
+        "currentValue": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Gênio do Gelo"
+      },
+      {
+        "type": "unlock_character",
+        "value": "Momochi Zabuza"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "q3",
+    "title": "Demônio do Nevoeiro",
+    "desc": "Ganhe batalhas usando a temível dupla Haku, Zabuza e Kakashi na mesma partida para reviver o combate na ponte.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zabuza/portrait.jpg",
+    "minRank": "Chunin",
+    "requiredQuestIds": [
+      "q2"
+    ],
+    "goals": [
+      {
+        "id": "g3_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Yuki Haku",
+          "Momochi Zabuza",
+          "Kakashi Hatake"
+        ],
+        "targetValue": 15,
+        "currentValue": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Lenda da Névoa"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "q4",
+    "title": "O Treinamento de Jiraiya",
+    "desc": "Mostre o poder de sua persistência. Finalize um inimigo com Rasengan e recupere 150 pontos de vida no total.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "minRank": "Jonin",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "g4_1",
+        "type": "kill_with_skill",
+        "targetSkill": "Rasengan",
+        "targetValue": 1,
+        "currentValue": 0
+      },
+      {
+        "id": "g4_2",
+        "type": "heal",
+        "targetValue": 150,
+        "currentValue": 0,
+        "singleMatch": false
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Herói de Konoha"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "q5",
+    "title": "Defesa Absoluta de Areia",
+    "desc": "Gaara controla a areia para criar defesas impenetráveis. Gere 1000 de escudo no total e stune um inimigo 5 vezes.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/gaara/portrait.jpg",
+    "minRank": "ANBU",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "g5_1",
+        "type": "shield",
+        "targetValue": 1000,
+        "currentValue": 0,
+        "singleMatch": false
+      },
+      {
+        "id": "g5_2",
+        "type": "stun_enemy",
+        "targetValue": 5,
+        "currentValue": 0,
+        "singleMatch": false
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Escudo Impenetrável"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "q6",
+    "title": "Desafio Final: O Despertar do Hokage",
+    "desc": "Mostre a vontade do fogo. Absorva um total de 20.000 de dano e inflija um total de 20.000 de dano nas batalhas.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "minRank": "Hokage",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "g6_1",
+        "type": "damage_received",
+        "targetValue": 20000,
+        "currentValue": 0,
+        "singleMatch": false
+      },
+      {
+        "id": "g6_2",
+        "type": "damage_dealt",
+        "targetValue": 20000,
+        "currentValue": 0,
+        "singleMatch": false
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Hokage Lendário"
+      }
+    ],
+    "completed": false
+  }
+]

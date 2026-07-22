@@ -3,11 +3,6 @@ import { User, Lock, Mail, Shield, Sparkles, UserPlus, LogIn, Swords } from 'luc
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 
-// URL base do backend. Em produção (Vercel), defina VITE_API_URL nas
-// variáveis de ambiente apontando pro backend hospedado (ex: Render).
-// Em desenvolvimento local, fica vazio e usa caminho relativo.
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-
 const AVATAR_PRESETS = [
   { name: 'Naruto Uzumaki', url: 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg' },
   { name: 'Sasuke Uchiha', url: 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sasuke-uchiha/icon.jpg' },
@@ -53,7 +48,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: loginUser, password: loginPass }),
@@ -88,7 +83,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
