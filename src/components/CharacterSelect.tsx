@@ -226,25 +226,61 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         })
       });
 
+      if (!joinRes.ok) {
+        const errData = await joinRes.json().catch(() => ({}));
+        console.error('Join queue error:', errData);
+        setMatchmakingStatus('error');
+        return;
+      }
+
       const joinData = await joinRes.json();
 
       if (joinData.status === 'matched') {
         handleMatchFound(joinData.roomId, joinData.playerIndex, joinData.opponent, playerTeam);
-      } else {
-        // Start polling for matchmaking status
-        matchmakingPollRef.current = setInterval(async () => {
-          try {
-            const statusRes = await fetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`);
-            const statusData = await statusRes.json();
-
-            if (statusData.status === 'matched') {
-              handleMatchFound(statusData.roomId, statusData.playerIndex, statusData.opponent, playerTeam);
-            }
-          } catch (err) {
-            console.error('Error polling matchmaking status:', err);
-          }
-        }, 1500);
+        return;
       }
+
+      if (joinData.status !== 'searching') {
+        console.error('Unexpected join response:', joinData);
+        setMatchmakingStatus('error');
+        return;
+      }
+
+      // Start polling for matchmaking status
+      const pollInterval = 1500;
+      let pollCount = 0;
+      matchmakingPollRef.current = setInterval(async () => {
+        try {
+          pollCount++;
+          const statusRes = await fetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`);
+          if (!statusRes.ok) {
+            if (pollCount > 60) { // 90 seconds timeout
+              setMatchmakingStatus('error');
+            }
+            return;
+          }
+          const statusData = await statusRes.json();
+
+          if (statusData.status === 'matched') {
+            handleMatchFound(statusData.roomId, statusData.playerIndex, statusData.opponent, playerTeam);
+          } else if (statusData.status === 'idle' && pollCount > 3) {
+            // Re-join queue if we got idle (might have been cleaned up)
+            fetch('/api/matchmaking/join', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: user.username,
+                name: user.name,
+                photoUrl: user.photoUrl,
+                team: playerTeam
+              })
+            }).catch(() => {});
+          }
+        } catch (err) {
+          console.error('Error polling matchmaking status:', err);
+          if (pollCount > 60) setMatchmakingStatus('error');
+        }
+      }, pollInterval);
 
     } catch (err) {
       console.error('Error joining matchmaking queue:', err);
@@ -930,9 +966,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               {/* Status Header */}
               <div className="space-y-2">
                 <h3 className="text-2xl font-black tracking-tight text-white uppercase">
-                  {matchmakingStatus === 'searching' ? 'Procurando Oponente...' : 'Oponente Encontrado!'}
+                  {matchmakingStatus === 'error' ? 'Erro no Matchmaking' : matchmakingStatus === 'matched' ? 'Oponente Encontrado!' : 'Procurando Oponente...'}
                 </h3>
-                {matchmakingStatus === 'searching' ? (
+                {matchmakingStatus === 'error' ? (
+                  <p className="text-xs font-mono text-red-400">
+                    Não foi possível encontrar um oponente. Tente novamente.
+                  </p>
+                ) : matchmakingStatus === 'searching' ? (
                   <p className="text-xs font-mono text-slate-400">
                     Tempo de espera: <span className="text-orange-400 font-bold">{matchmakingTime}s</span>
                   </p>
@@ -985,12 +1025,16 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               </div>
 
               {/* Action Buttons */}
-              {matchmakingStatus === 'searching' && (
+              {(matchmakingStatus === 'searching' || matchmakingStatus === 'error') && (
                 <button
                   onClick={handleCancelMatchmaking}
-                  className="w-full bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 rounded-lg py-2.5 text-xs font-bold font-mono tracking-wider uppercase transition-all active:scale-95 cursor-pointer"
+                  className={`w-full rounded-lg py-2.5 text-xs font-bold font-mono tracking-wider uppercase transition-all active:scale-95 cursor-pointer ${
+                    matchmakingStatus === 'error'
+                      ? 'bg-red-900/50 hover:bg-red-800/60 text-red-300 border border-red-800'
+                      : 'bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800'
+                  }`}
                 >
-                  Cancelar Matchmaking
+                  {matchmakingStatus === 'error' ? 'Voltar' : 'Cancelar Matchmaking'}
                 </button>
               )}
             </div>
