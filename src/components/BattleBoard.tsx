@@ -928,6 +928,12 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
         addFloatingText(targetId, 'ALVO INVISÍVEL!', 'stun');
         return;
       }
+      const isTargetInvulnerable = targetChar.activeEffects.some(e => e.type === 'invulnerable');
+      if (isTargetInvulnerable) {
+        playCustomSound('Error');
+        addFloatingText(targetId, 'ALVO INVULNERÁVEL!', 'invulnerable');
+        return;
+      }
     }
 
     playCustomSound('Target');
@@ -1091,7 +1097,7 @@ const handleTradeChakra = () => {
 
       // Invulnerability check on target
       const isTargetInvulnerable = defaultTarget.activeEffects.some(e => e.type === 'invulnerable');
-      if (isTargetInvulnerable && skill.damage && skill.damage > 0 && !skill.ignoreInvulnerable) {
+      if (isTargetInvulnerable && !skill.ignoreInvulnerable) {
         newLogs.push({
           id: Math.random().toString(),
           turn,
@@ -1360,229 +1366,128 @@ const handleTradeChakra = () => {
       }
 
       // 5. BUFFS & DEBUFFS (damage_reduction, damage_buff, invulnerable, dot, bleeding, affliction, counter, reflect)
-      let buffEffectName = '';
-      let buffEffectType: ActiveEffect['type'] = 'custom';
-      let buffEffectVal = 0;
-      let buffEffectDuration = 1;
+      // Helper to push a buff effect
+      const applyBuffEffect = (name: string, type: ActiveEffect['type'], duration: number, value: number = 0, isSelfTarget: boolean = true, isDebuffOnTarget: boolean = false) => {
+        if (type === 'shield') {
+          const t = isSelfTarget ? source : target;
+          t.shield = (t.shield || 0) + value;
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `🛡️ ${t.character.name} ganhou +${value} de escudo com [${skill.name}]!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, `+${value} ESCUDO`, 'shield');
+          return;
+        }
+        const t = isDebuffOnTarget ? target : (isSelfTarget ? source : target);
+        pushActiveEffect(t, {
+          name, type, value, duration, icon: skill.icon,
+          cannotBeCountered: !!skill.cannotBeCountered, cannotBeReflected: !!skill.cannotBeReflected,
+          casterId: source.id, casterSide: action.isPlayer ? 'player' : 'enemy',
+        });
+        newLogs.push({
+          id: Math.random().toString(), turn,
+          message: `✨ ${t.character.name} recebeu [${name}] por ${duration} turnos.`,
+          type: 'buff',
+        });
+        addFloatingText(t.id, name.toUpperCase(), 'effect');
+      };
 
-      // Hardcoded skill effects (legacy support for original characters)
-      // This runs first so legacy named effects take priority over generic properties
-      switch (skill.name) {
-        case 'Shadow Clones':
-          buffEffectName = 'Shadow Clones';
-          buffEffectType = 'damage_reduction';
-          buffEffectDuration = 4;
-          buffEffectVal = 15;
-          break;
-        case 'Sharingan':
-          buffEffectName = 'Sharingan';
-          buffEffectType = 'damage_buff';
-          buffEffectDuration = 4;
-          buffEffectVal = 10;
-          break;
-        case 'Sexy Technique':
-        case 'Orochimaru Block':
-        case 'Substitution':
-        case 'Underground Hide':
-        case 'Lee Guard':
-        case 'Crow Clone Escape':
-        case 'Eight Trigrams Rotation':
-        case 'Choji Block':
-          buffEffectName = skill.name;
-          buffEffectType = 'invulnerable';
-          buffEffectDuration = 1;
-          break;
-        case 'Inner Sakura':
-          buffEffectName = 'Inner Sakura';
-          buffEffectType = 'damage_reduction';
-          buffEffectDuration = 4;
-          buffEffectVal = 15;
-          break;
-        case 'Copied Sharingan':
-          buffEffectName = 'Copied Sharingan';
-          buffEffectType = 'damage_reduction';
-          buffEffectDuration = 3;
-          buffEffectVal = 10;
-          break;
-        case 'Sand Coffin':
-          buffEffectName = 'Sand Coffin';
-          buffEffectType = 'custom';
-          buffEffectDuration = 2;
-          break;
-        case 'Sand Shield':
-          buffEffectName = 'Sand Shield';
-          buffEffectType = 'invulnerable';
-          buffEffectDuration = 1;
-          break;
-        case 'Fifth Gate Opening':
-          buffEffectName = 'Fifth Gate Opening';
-          buffEffectType = 'damage_buff';
-          buffEffectDuration = 3;
-          buffEffectVal = 15;
-          break;
-        case 'Amaterasu Burn':
-          buffEffectName = 'Amaterasu Burn';
-          buffEffectType = 'dot';
-          buffEffectDuration = 3;
-          buffEffectVal = 15;
-          break;
-        case 'Mangekyo Sharingan':
-          buffEffectName = 'Mangekyo Sharingan';
-          buffEffectType = 'counter';
-          buffEffectDuration = 2;
-          break;
-        case 'Byakugan Sight':
-          buffEffectName = 'Byakugan Sight';
-          buffEffectType = 'damage_reduction';
-          buffEffectDuration = 3;
-          buffEffectVal = 15;
-          break;
-        case 'Three Colored Pills':
-          buffEffectName = 'Three Colored Pills';
-          buffEffectType = 'damage_buff';
-          buffEffectDuration = 3;
-          buffEffectVal = 15;
-          break;
-        case 'Sand Armor':
-          buffEffectName = 'Sand Armor';
-          buffEffectType = 'shield';
-          buffEffectDuration = 99;
-          buffEffectVal = 30;
-          break;
+      // Process ALL buff/debuff effects independently (supports multi-effect skills)
+
+      // 1. Shields (from generic skill data)
+      if (skill.shieldVal && skill.shieldVal > 0) {
+        applyBuffEffect(`${skill.name} Shield`, 'shield', skill.shieldDuration || 99, skill.shieldVal, true);
       }
 
-      // Generic skill properties (fallback for admin-created skills)
-      if (!buffEffectName) {
-        if (skill.damageReductionVal && skill.damageReductionVal > 0) {
-          buffEffectName = `${skill.name} Guard`;
-          buffEffectType = 'damage_reduction';
-          buffEffectDuration = skill.damageReductionDuration || 3;
-          buffEffectVal = skill.damageReductionVal;
-        } else if (skill.damageBuffVal && skill.damageBuffVal > 0) {
-          buffEffectName = `${skill.name} Power`;
-          buffEffectType = 'damage_buff';
-          buffEffectDuration = skill.damageBuffDuration || 3;
-          buffEffectVal = skill.damageBuffVal;
-        } else if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
-          buffEffectName = `${skill.name} Escape`;
-          buffEffectType = 'invulnerable';
-          buffEffectDuration = skill.invulnerableDuration;
-        } else if (skill.dotVal && skill.dotVal > 0) {
-          buffEffectName = `${skill.name} Burn`;
-          buffEffectType = 'dot';
-          buffEffectDuration = skill.dotDuration || 3;
-          buffEffectVal = skill.dotVal;
-        } else if (skill.bleedingVal && skill.bleedingVal > 0) {
-          buffEffectName = `${skill.name} Bleed`;
-          buffEffectType = 'bleeding';
-          buffEffectDuration = skill.bleedingDuration || 3;
-          buffEffectVal = skill.bleedingVal;
-        } else if (skill.afflictionVal && skill.afflictionVal > 0) {
-          buffEffectName = `${skill.name} Affliction`;
-          buffEffectType = 'affliction';
-          buffEffectDuration = skill.afflictionDuration || 3;
-          buffEffectVal = skill.afflictionVal;
-        } else if (skill.counterAttack) {
-          buffEffectName = `${skill.name} Counter`;
-          buffEffectType = 'counter';
-          buffEffectDuration = skill.counterAttackDuration || 2;
-        } else if (skill.reflect) {
-          buffEffectName = `${skill.name} Reflect`;
-          buffEffectType = 'reflect';
-          buffEffectDuration = skill.reflectDuration || 2;
+      // 2. Legacy hardcoded effects (by skill name)
+      if (!skill.shieldVal) {
+        switch (skill.name) {
+          case 'Shadow Clones':
+            applyBuffEffect('Shadow Clones', 'damage_reduction', 4, 15);
+            break;
+          case 'Sharingan':
+            applyBuffEffect('Sharingan', 'damage_buff', 4, 10);
+            break;
+          case 'Sexy Technique': case 'Orochimaru Block': case 'Substitution':
+          case 'Underground Hide': case 'Lee Guard': case 'Crow Clone Escape':
+          case 'Eight Trigrams Rotation': case 'Choji Block':
+            applyBuffEffect(skill.name, 'invulnerable', 1);
+            break;
+          case 'Inner Sakura':
+            applyBuffEffect('Inner Sakura', 'damage_reduction', 4, 15);
+            break;
+          case 'Copied Sharingan':
+            applyBuffEffect('Copied Sharingan', 'damage_reduction', 3, 10);
+            break;
+          case 'Sand Coffin':
+            applyBuffEffect('Sand Coffin', 'custom', 2, 0, false, true);
+            break;
+          case 'Sand Shield':
+            applyBuffEffect('Sand Shield', 'invulnerable', 1);
+            break;
+          case 'Fifth Gate Opening':
+            applyBuffEffect('Fifth Gate Opening', 'damage_buff', 3, 15);
+            break;
+          case 'Amaterasu Burn':
+            applyBuffEffect('Amaterasu Burn', 'dot', 3, 15, false, true);
+            break;
+          case 'Mangekyo Sharingan':
+            applyBuffEffect('Mangekyo Sharingan', 'counter', 2);
+            break;
+          case 'Byakugan Sight':
+            applyBuffEffect('Byakugan Sight', 'damage_reduction', 3, 15);
+            break;
+          case 'Three Colored Pills':
+            applyBuffEffect('Three Colored Pills', 'damage_buff', 3, 15);
+            break;
+          case 'Sand Armor':
+            applyBuffEffect('Sand Armor', 'shield', 99, 30);
+            break;
         }
       }
 
-      // Push the buff/debuff ActiveEffect
-      if (buffEffectName && !skill.shieldVal) {
-        if (buffEffectType === 'shield') {
-          target.shield = (target.shield || 0) + buffEffectVal;
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `🛡️ ${target.character.name} ativou [${skill.name}] ganhando um escudo de ${buffEffectVal}.`,
-            type: 'buff',
-          });
-          addFloatingText(target.id, `+${buffEffectVal} ESCUDO`, 'shield');
-        } else if (buffEffectType === 'dot' || buffEffectType === 'bleeding' || buffEffectType === 'affliction') {
-          pushActiveEffect(target, {
-            name: buffEffectName,
-            type: buffEffectType,
-            value: buffEffectVal,
-            duration: buffEffectDuration,
-            icon: skill.icon,
-            cannotBeCountered: !!skill.cannotBeCountered,
-            cannotBeReflected: !!skill.cannotBeReflected,
-            casterId: source.id,
-            casterSide: action.isPlayer ? 'player' : 'enemy',
-          });
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `🔥 ${target.character.name} recebeu [${buffEffectName}] de ${source.character.name} por ${buffEffectDuration} turnos!`,
-            type: 'buff',
-          });
-          addFloatingText(target.id, buffEffectName.toUpperCase(), 'effect');
-        } else if (buffEffectType === 'counter') {
-          pushActiveEffect(source, {
-            name: buffEffectName,
-            type: 'counter',
-            duration: buffEffectDuration,
-            icon: skill.icon,
-            cannotBeCountered: !!skill.cannotBeCountered,
-            casterId: source.id,
-            casterSide: action.isPlayer ? 'player' : 'enemy',
-          });
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `⚡ ${source.character.name} entrou em estado de contra-ataque com [${skill.name}] por ${buffEffectDuration} turnos!`,
-            type: 'buff',
-          });
-          addFloatingText(source.id, 'CONTRA-ATAQUE', 'effect');
-        } else if (buffEffectType === 'reflect') {
-          pushActiveEffect(source, {
-            name: buffEffectName,
-            type: 'reflect',
-            duration: buffEffectDuration,
-            icon: skill.icon,
-            cannotBeReflected: !!skill.cannotBeReflected,
-            reflectMode: skill.reflectMode,
-            reflectType: skill.reflectType,
-            reflectCharges: skill.reflectCharges,
-            casterId: source.id,
-            casterSide: action.isPlayer ? 'player' : 'enemy',
-          });
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `🔄 ${source.character.name} ativou reflexão com [${skill.name}] por ${buffEffectDuration} turnos!`,
-            type: 'buff',
-          });
-          addFloatingText(source.id, 'REFLECT', 'effect');
-        } else {
-          // Self-targeted buff (damage_reduction, damage_buff, invulnerable, custom)
-          const buffTarget = skill.targetType === 'Self' || skill.targetType === 'Ally' || skill.targetType === 'AllAllies' ? source : target;
-          pushActiveEffect(buffTarget, {
-            name: buffEffectName,
-            type: buffEffectType,
-            value: buffEffectVal,
-            duration: buffEffectDuration,
-            icon: skill.icon,
-            stunType: skill.stunType,
-            irremovable: !!skill.damageReductionIrremovable || !!skill.damageBuffIrremovable || !!skill.invulnerableIrremovable,
-            cannotBeCountered: !!skill.cannotBeCountered,
-            casterId: source.id,
-            casterSide: action.isPlayer ? 'player' : 'enemy',
-          });
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `✨ ${buffTarget.character.name} ativou [${buffEffectName}] por ${buffEffectDuration} turnos.`,
-            type: 'buff',
-          });
-          addFloatingText(buffTarget.id, buffEffectName.toUpperCase(), 'effect');
-        }
+      // 3. Generic skill properties (for admin-created multi-effect skills)
+      // Each effect is checked independently so multiple can apply
+
+      // Damage Reduction buff
+      if (skill.damageReductionVal && skill.damageReductionVal > 0 && skill.name !== 'Shadow Clones' && skill.name !== 'Inner Sakura' && skill.name !== 'Copied Sharingan' && skill.name !== 'Byakugan Sight') {
+        applyBuffEffect(`${skill.name} Guard`, 'damage_reduction', skill.damageReductionDuration || 3, skill.damageReductionVal);
+      }
+
+      // Damage Buff
+      if (skill.damageBuffVal && skill.damageBuffVal > 0 && skill.name !== 'Sharingan' && skill.name !== 'Fifth Gate Opening' && skill.name !== 'Three Colored Pills') {
+        applyBuffEffect(`${skill.name} Power`, 'damage_buff', skill.damageBuffDuration || 3, skill.damageBuffVal);
+      }
+
+      // Invulnerable
+      if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
+        applyBuffEffect(`${skill.name} Escape`, 'invulnerable', skill.invulnerableDuration);
+      }
+
+      // DoT (damage over time) - debuff on target
+      if (skill.dotVal && skill.dotVal > 0 && skill.name !== 'Amaterasu Burn') {
+        applyBuffEffect(`${skill.name} Burn`, 'dot', skill.dotDuration || 3, skill.dotVal, false, true);
+      }
+
+      // Bleeding - debuff on target
+      if (skill.bleedingVal && skill.bleedingVal > 0) {
+        applyBuffEffect(`${skill.name} Bleed`, 'bleeding', skill.bleedingDuration || 3, skill.bleedingVal, false, true);
+      }
+
+      // Affliction - debuff on target
+      if (skill.afflictionVal && skill.afflictionVal > 0) {
+        applyBuffEffect(`${skill.name} Affliction`, 'affliction', skill.afflictionDuration || 3, skill.afflictionVal, false, true);
+      }
+
+      // Counter Attack
+      if (skill.counterAttack) {
+        applyBuffEffect(`${skill.name} Counter`, 'counter', skill.counterAttackDuration || 2);
+      }
+
+      // Reflect
+      if (skill.reflect) {
+        applyBuffEffect(`${skill.name} Reflect`, 'reflect', skill.reflectDuration || 2, 0, true);
       }
 
       // Check deaths immediately after actions
@@ -1796,7 +1701,9 @@ const handleTradeChakra = () => {
             } else if (skill.targetType === 'Enemy') {
               const alivePlayers = playerCombatants.filter(p => !p.isDead);
               const visiblePlayers = alivePlayers.filter(p => !p.activeEffects.some(e => e.type === 'invisible'));
-              const finalCandidates = visiblePlayers.length > 0 ? visiblePlayers : alivePlayers;
+              const nonInvulnerablePlayers = (visiblePlayers.length > 0 ? visiblePlayers : alivePlayers)
+                .filter(p => !p.activeEffects.some(e => e.type === 'invulnerable'));
+              const finalCandidates = nonInvulnerablePlayers.length > 0 ? nonInvulnerablePlayers : alivePlayers;
               if (finalCandidates.length > 0) {
                 targetId = finalCandidates[Math.floor(Math.random() * finalCandidates.length)].id;
               }
@@ -2152,12 +2059,12 @@ const handleTradeChakra = () => {
 
       // CHECK INVULNERABILITY
       const isInvulnerable = target.activeEffects.some(e => e.type === 'invulnerable');
-      if (isInvulnerable && skill.targetType === 'Enemy') {
+      if (isInvulnerable && !skill.ignoreInvulnerable) {
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `🛡️ ${source.character.name} usou [${skill.name}] em ${target.character.name} mas ele está INVULNERÁVEL!`,
-          type: 'system',
+          message: `🛡️ ${source.character.name} usou [${skill.name}] em ${target.character.name}, mas o alvo está INVULNERÁVEL!`,
+          type: 'buff',
         });
         addFloatingText(target.id, 'INVULNERÁVEL', 'invulnerable');
         return;
