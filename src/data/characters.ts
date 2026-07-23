@@ -83,7 +83,9 @@ export const CHARACTERS: Character[] = [
         "targetType": "Self",
         "classes": [
           "Chakra"
-        ]
+        ],
+        "damageReductionVal": 15,
+        "damageReductionDuration": 4
       },
       {
         "name": "Sexy Technique",
@@ -145,7 +147,7 @@ export const CHARACTERS: Character[] = [
       },
       {
         "name": "Chidori",
-        "desc": "Sasuke canaliza chakra de relâmpago em sua mão e perfura um inimigo, causando 40 de dano de relâmpago.",
+        "desc": "Sasuke canaliza chakra de relâmpago em sua mão e perfura um inimigo, causando 40 de dano de relâmpago. Requer que [Sharingan] esteja ativo.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sasuke-uchiha/Chidori.jpg",
         "cost": [
           "Nin",
@@ -157,7 +159,9 @@ export const CHARACTERS: Character[] = [
         "classes": [
           "Chakra",
           "Corpo a Corpo"
-        ]
+        ],
+        "requireEffect": "Sharingan",
+        "damage": 40
       },
       {
         "name": "Sharingan",
@@ -171,7 +175,9 @@ export const CHARACTERS: Character[] = [
         "targetType": "Self",
         "classes": [
           "Mental"
-        ]
+        ],
+        "damageBuffVal": 10,
+        "damageBuffDuration": 4
       },
       {
         "name": "Orochimaru Block",

@@ -319,9 +319,6 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   // Skill pagination state per combatant id
   const [combatantSkillPages, setCombatantSkillPages] = useState<Record<string, number>>({});
 
-  // Active effects pagination state per combatant id
-  const [activeEffectsPages, setActiveEffectsPages] = useState<Record<string, number>>({});
-
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Interactive Emojis State
@@ -1131,14 +1128,18 @@ const handleTradeChakra = () => {
 
       // Skill parameters
       const baseDamage = skill.damage || 0;
+      const directDamage = skill.directDamage || 0;
       const healAmt = skill.heal || 0;
-      const stunApplied = skill.stunDuration && skill.stunDuration > 0;
-      const stunDuration = skill.stunDuration || 1;
-      const finalStunType = skill.stunType || [];
-      const effectName = skill.effectName;
-      const effectType = skill.effectType;
-      const effectVal = skill.effectVal || 0;
-      const effectDuration = skill.effectDuration || 1;
+      let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
+      let stunDuration = skill.stunTurns || 1;
+      let finalStunType: ('mental' | 'physical' | 'affliction' | 'chakra')[] | undefined = skill.stunType;
+      if (skill.name === 'Rasengan') {
+        stunApplied = true;
+        stunDuration = 1;
+        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
+      } else if (stunApplied && (!finalStunType || finalStunType.length === 0)) {
+        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
+      }
 
       // Helper function to cleanse effects
       const cleanseTargetEffects = (t: CombatCharacter, removeType?: 'all' | 'debuff' | 'buff') => {
@@ -1356,6 +1357,232 @@ const handleTradeChakra = () => {
           addFloatingText(t.id, `+${skill.shieldVal} ESCUDO`, 'shield');
           cleanseTargetEffects(t, skill.shieldRemoveType);
         });
+      }
+
+      // 5. BUFFS & DEBUFFS (damage_reduction, damage_buff, invulnerable, dot, bleeding, affliction, counter, reflect)
+      let buffEffectName = '';
+      let buffEffectType: ActiveEffect['type'] = 'custom';
+      let buffEffectVal = 0;
+      let buffEffectDuration = 1;
+
+      // Hardcoded skill effects (legacy support for original characters)
+      // This runs first so legacy named effects take priority over generic properties
+      switch (skill.name) {
+        case 'Shadow Clones':
+          buffEffectName = 'Shadow Clones';
+          buffEffectType = 'damage_reduction';
+          buffEffectDuration = 4;
+          buffEffectVal = 15;
+          break;
+        case 'Sharingan':
+          buffEffectName = 'Sharingan';
+          buffEffectType = 'damage_buff';
+          buffEffectDuration = 4;
+          buffEffectVal = 10;
+          break;
+        case 'Sexy Technique':
+        case 'Orochimaru Block':
+        case 'Substitution':
+        case 'Underground Hide':
+        case 'Lee Guard':
+        case 'Crow Clone Escape':
+        case 'Eight Trigrams Rotation':
+        case 'Choji Block':
+          buffEffectName = skill.name;
+          buffEffectType = 'invulnerable';
+          buffEffectDuration = 1;
+          break;
+        case 'Inner Sakura':
+          buffEffectName = 'Inner Sakura';
+          buffEffectType = 'damage_reduction';
+          buffEffectDuration = 4;
+          buffEffectVal = 15;
+          break;
+        case 'Copied Sharingan':
+          buffEffectName = 'Copied Sharingan';
+          buffEffectType = 'damage_reduction';
+          buffEffectDuration = 3;
+          buffEffectVal = 10;
+          break;
+        case 'Sand Coffin':
+          buffEffectName = 'Sand Coffin';
+          buffEffectType = 'custom';
+          buffEffectDuration = 2;
+          break;
+        case 'Sand Shield':
+          buffEffectName = 'Sand Shield';
+          buffEffectType = 'invulnerable';
+          buffEffectDuration = 1;
+          break;
+        case 'Fifth Gate Opening':
+          buffEffectName = 'Fifth Gate Opening';
+          buffEffectType = 'damage_buff';
+          buffEffectDuration = 3;
+          buffEffectVal = 15;
+          break;
+        case 'Amaterasu Burn':
+          buffEffectName = 'Amaterasu Burn';
+          buffEffectType = 'dot';
+          buffEffectDuration = 3;
+          buffEffectVal = 15;
+          break;
+        case 'Mangekyo Sharingan':
+          buffEffectName = 'Mangekyo Sharingan';
+          buffEffectType = 'counter';
+          buffEffectDuration = 2;
+          break;
+        case 'Byakugan Sight':
+          buffEffectName = 'Byakugan Sight';
+          buffEffectType = 'damage_reduction';
+          buffEffectDuration = 3;
+          buffEffectVal = 15;
+          break;
+        case 'Three Colored Pills':
+          buffEffectName = 'Three Colored Pills';
+          buffEffectType = 'damage_buff';
+          buffEffectDuration = 3;
+          buffEffectVal = 15;
+          break;
+        case 'Sand Armor':
+          buffEffectName = 'Sand Armor';
+          buffEffectType = 'shield';
+          buffEffectDuration = 99;
+          buffEffectVal = 30;
+          break;
+      }
+
+      // Generic skill properties (fallback for admin-created skills)
+      if (!buffEffectName) {
+        if (skill.damageReductionVal && skill.damageReductionVal > 0) {
+          buffEffectName = `${skill.name} Guard`;
+          buffEffectType = 'damage_reduction';
+          buffEffectDuration = skill.damageReductionDuration || 3;
+          buffEffectVal = skill.damageReductionVal;
+        } else if (skill.damageBuffVal && skill.damageBuffVal > 0) {
+          buffEffectName = `${skill.name} Power`;
+          buffEffectType = 'damage_buff';
+          buffEffectDuration = skill.damageBuffDuration || 3;
+          buffEffectVal = skill.damageBuffVal;
+        } else if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
+          buffEffectName = `${skill.name} Escape`;
+          buffEffectType = 'invulnerable';
+          buffEffectDuration = skill.invulnerableDuration;
+        } else if (skill.dotVal && skill.dotVal > 0) {
+          buffEffectName = `${skill.name} Burn`;
+          buffEffectType = 'dot';
+          buffEffectDuration = skill.dotDuration || 3;
+          buffEffectVal = skill.dotVal;
+        } else if (skill.bleedingVal && skill.bleedingVal > 0) {
+          buffEffectName = `${skill.name} Bleed`;
+          buffEffectType = 'bleeding';
+          buffEffectDuration = skill.bleedingDuration || 3;
+          buffEffectVal = skill.bleedingVal;
+        } else if (skill.afflictionVal && skill.afflictionVal > 0) {
+          buffEffectName = `${skill.name} Affliction`;
+          buffEffectType = 'affliction';
+          buffEffectDuration = skill.afflictionDuration || 3;
+          buffEffectVal = skill.afflictionVal;
+        } else if (skill.counterAttack) {
+          buffEffectName = `${skill.name} Counter`;
+          buffEffectType = 'counter';
+          buffEffectDuration = skill.counterAttackDuration || 2;
+        } else if (skill.reflect) {
+          buffEffectName = `${skill.name} Reflect`;
+          buffEffectType = 'reflect';
+          buffEffectDuration = skill.reflectDuration || 2;
+        }
+      }
+
+      // Push the buff/debuff ActiveEffect
+      if (buffEffectName && !skill.shieldVal) {
+        if (buffEffectType === 'shield') {
+          target.shield = (target.shield || 0) + buffEffectVal;
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🛡️ ${target.character.name} ativou [${skill.name}] ganhando um escudo de ${buffEffectVal}.`,
+            type: 'buff',
+          });
+          addFloatingText(target.id, `+${buffEffectVal} ESCUDO`, 'shield');
+        } else if (buffEffectType === 'dot' || buffEffectType === 'bleeding' || buffEffectType === 'affliction') {
+          pushActiveEffect(target, {
+            name: buffEffectName,
+            type: buffEffectType,
+            value: buffEffectVal,
+            duration: buffEffectDuration,
+            icon: skill.icon,
+            cannotBeCountered: !!skill.cannotBeCountered,
+            cannotBeReflected: !!skill.cannotBeReflected,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🔥 ${target.character.name} recebeu [${buffEffectName}] de ${source.character.name} por ${buffEffectDuration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(target.id, buffEffectName.toUpperCase(), 'effect');
+        } else if (buffEffectType === 'counter') {
+          pushActiveEffect(source, {
+            name: buffEffectName,
+            type: 'counter',
+            duration: buffEffectDuration,
+            icon: skill.icon,
+            cannotBeCountered: !!skill.cannotBeCountered,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⚡ ${source.character.name} entrou em estado de contra-ataque com [${skill.name}] por ${buffEffectDuration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, 'CONTRA-ATAQUE', 'effect');
+        } else if (buffEffectType === 'reflect') {
+          pushActiveEffect(source, {
+            name: buffEffectName,
+            type: 'reflect',
+            duration: buffEffectDuration,
+            icon: skill.icon,
+            cannotBeReflected: !!skill.cannotBeReflected,
+            reflectMode: skill.reflectMode,
+            reflectType: skill.reflectType,
+            reflectCharges: skill.reflectCharges,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🔄 ${source.character.name} ativou reflexão com [${skill.name}] por ${buffEffectDuration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, 'REFLECT', 'effect');
+        } else {
+          // Self-targeted buff (damage_reduction, damage_buff, invulnerable, custom)
+          const buffTarget = skill.targetType === 'Self' || skill.targetType === 'Ally' || skill.targetType === 'AllAllies' ? source : target;
+          pushActiveEffect(buffTarget, {
+            name: buffEffectName,
+            type: buffEffectType,
+            value: buffEffectVal,
+            duration: buffEffectDuration,
+            icon: skill.icon,
+            stunType: skill.stunType,
+            irremovable: !!skill.damageReductionIrremovable || !!skill.damageBuffIrremovable || !!skill.invulnerableIrremovable,
+            cannotBeCountered: !!skill.cannotBeCountered,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `✨ ${buffTarget.character.name} ativou [${buffEffectName}] por ${buffEffectDuration} turnos.`,
+            type: 'buff',
+          });
+          addFloatingText(buffTarget.id, buffEffectName.toUpperCase(), 'effect');
+        }
       }
 
       // Check deaths immediately after actions
@@ -3569,7 +3796,7 @@ if (skill.cannotBeReflected) {
     return (
       <div className="mt-2.5 pt-2 border-t border-slate-800/60 space-y-1.5 text-[10px] font-mono pointer-events-none text-left">
         <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Efeitos da Habilidade:</p>
-        <div className="grid grid-cols-1 gap-1.5 max-h-[120px] overflow-y-auto scrollbar-thin">
+        <div className="grid grid-cols-1 gap-1.5">
           {effects.map((eff, idx) => (
             <div key={idx} className="flex flex-col gap-0.5 bg-slate-950/40 p-1.5 rounded border border-slate-900/60">
               <span className={`${eff.color} font-bold`}>{eff.label}:</span>
@@ -3968,22 +4195,18 @@ if (skill.cannotBeReflected) {
                       {/* Active Status Badges */}
                       {combatant.activeEffects.length > 0 && (() => {
                         const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player');
-                        const effectsPerPage = 5;
-                        const effPage = activeEffectsPages[combatant.id] || 0;
-                        const totalEffPages = Math.ceil(groupedEffects.length / effectsPerPage);
-                        const paginatedEffects = groupedEffects.slice(effPage * effectsPerPage, (effPage + 1) * effectsPerPage);
 
                         return (
                           <div className="flex items-center gap-1.5 pt-1.5 w-full">
                             <div className="flex flex-wrap gap-1.5 items-center">
-                              {paginatedEffects.map((item, effIdx) => {
+                              {groupedEffects.map((item, effIdx) => {
                                 const eff = item.effect;
                                 const isDebuff = eff.type === 'stun' || eff.type === 'dot' || eff.type === 'bleeding' || eff.type === 'affliction' || eff.type === 'paralyze_cooldown' || eff.type === 'damage' || eff.type === 'direct_damage' || eff.name.toLowerCase().includes('burn') || eff.name.toLowerCase().includes('stun') || eff.name.toLowerCase().includes('sangramento') || eff.name.toLowerCase().includes('aflição') || eff.name.toLowerCase().includes('queimadura') || eff.name.toLowerCase().includes('atordoado') || eff.name.toLowerCase().includes('atordoamento');
 
                                 return (
                                   <div
                                     key={effIdx}
-                                    className={`relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help ${
+                                    className={`relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
                                       isDebuff
                                         ? 'border-red-500/80 shadow-md shadow-red-950/60'
                                         : 'border-emerald-500/80 shadow-md shadow-emerald-950/60'
@@ -4044,38 +4267,6 @@ if (skill.cannotBeReflected) {
                                 );
                               })}
                             </div>
-                            
-                            {totalEffPages > 1 && (
-                              <div className="flex items-center gap-1 ml-auto shrink-0 bg-slate-950/40 p-0.5 rounded border border-slate-900">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveEffectsPages(prev => ({
-                                      ...prev,
-                                      [combatant.id]: (effPage - 1 + totalEffPages) % totalEffPages
-                                    }));
-                                  }}
-                                  className="p-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-slate-400 hover:text-white transition-colors"
-                                >
-                                  <ChevronLeft className="w-2.5 h-2.5" />
-                                </button>
-                                <span className="text-[8px] font-mono text-slate-500 px-0.5">
-                                  {effPage + 1}/{totalEffPages}
-                                </span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveEffectsPages(prev => ({
-                                      ...prev,
-                                      [combatant.id]: (effPage + 1) % totalEffPages
-                                    }));
-                                  }}
-                                  className="p-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-slate-400 hover:text-white transition-colors"
-                                >
-                                  <ChevronRight className="w-2.5 h-2.5" />
-                                </button>
-                              </div>
-                            )}
                           </div>
                         );
                       })()}
@@ -4372,9 +4563,9 @@ if (skill.cannotBeReflected) {
             </div>
 
             {centerTab === 'inspector' ? (
-              <div className="bg-slate-950/80 border border-slate-950 rounded-xl p-4 min-h-[16rem] flex flex-col justify-between">
+              <div className="bg-slate-950/80 border border-slate-950 rounded-xl p-4 min-h-[16rem] max-h-[65vh] flex flex-col">
                 {inspectedSkill ? (
-                  <div className="space-y-3.5">
+                  <div className="space-y-3.5 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 pr-1">
                     {/* Top Row: Skill Icon, Name & Owner */}
                     <div className="flex gap-3 pb-3 border-b border-slate-900">
                       <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-800 flex-shrink-0 bg-slate-900">
@@ -4477,7 +4668,7 @@ if (skill.cannotBeReflected) {
                     )}
 
                     {/* Skill Detailed Description */}
-                    <div className="bg-slate-900/30 rounded-lg p-3 border border-slate-900/60 flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
+                    <div className="bg-slate-900/30 rounded-lg p-3 border border-slate-900/60">
                       <p className="text-xs text-slate-300 leading-relaxed font-sans">{inspectedSkill.skill.desc}</p>
                       {renderSkillCustomEffects(inspectedSkill.skill)}
                     </div>
@@ -4790,22 +4981,18 @@ if (skill.cannotBeReflected) {
                       {/* Active Status Badges */}
                       {combatant.activeEffects.length > 0 && (() => {
                         const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player');
-                        const effectsPerPage = 5;
-                        const effPage = activeEffectsPages[combatant.id] || 0;
-                        const totalEffPages = Math.ceil(groupedEffects.length / effectsPerPage);
-                        const paginatedEffects = groupedEffects.slice(effPage * effectsPerPage, (effPage + 1) * effectsPerPage);
 
                         return (
                           <div className="flex items-center gap-1.5 pt-1.5 w-full">
                             <div className="flex flex-wrap gap-1.5 items-center">
-                              {paginatedEffects.map((item, effIdx) => {
+                              {groupedEffects.map((item, effIdx) => {
                                 const eff = item.effect;
                                 const isDebuff = eff.type === 'stun' || eff.type === 'dot' || eff.type === 'bleeding' || eff.type === 'affliction' || eff.type === 'paralyze_cooldown' || eff.type === 'damage' || eff.type === 'direct_damage' || eff.name.toLowerCase().includes('burn') || eff.name.toLowerCase().includes('stun') || eff.name.toLowerCase().includes('sangramento') || eff.name.toLowerCase().includes('aflição') || eff.name.toLowerCase().includes('queimadura') || eff.name.toLowerCase().includes('atordoado') || eff.name.toLowerCase().includes('atordoamento');
 
                                 return (
                                   <div
                                     key={effIdx}
-                                    className={`relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help ${
+                                    className={`relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
                                       isDebuff
                                         ? 'border-red-500/80 shadow-md shadow-red-950/60'
                                         : 'border-emerald-500/80 shadow-md shadow-emerald-950/60'
@@ -4875,38 +5062,6 @@ if (skill.cannotBeReflected) {
                                 );
                               })}
                             </div>
-                            
-                            {totalEffPages > 1 && (
-                              <div className="flex items-center gap-1 ml-auto shrink-0 bg-slate-950/40 p-0.5 rounded border border-slate-900">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveEffectsPages(prev => ({
-                                      ...prev,
-                                      [combatant.id]: (effPage - 1 + totalEffPages) % totalEffPages
-                                    }));
-                                  }}
-                                  className="p-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-slate-400 hover:text-white transition-colors"
-                                >
-                                  <ChevronLeft className="w-2.5 h-2.5" />
-                                </button>
-                                <span className="text-[8px] font-mono text-slate-500 px-0.5">
-                                  {effPage + 1}/{totalEffPages}
-                                </span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveEffectsPages(prev => ({
-                                      ...prev,
-                                      [combatant.id]: (effPage + 1) % totalEffPages
-                                    }));
-                                  }}
-                                  className="p-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded text-slate-400 hover:text-white transition-colors"
-                                >
-                                  <ChevronRight className="w-2.5 h-2.5" />
-                                </button>
-                              </div>
-                            )}
                           </div>
                         );
                       })()}

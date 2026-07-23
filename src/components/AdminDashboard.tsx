@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, Lock, Unlock, Shield, Plus, Trash2, Edit3, Save, 
+  ArrowLeft, Shield, Plus, Trash2, Edit3, Save, 
   Database, RefreshCw, AlertTriangle, CheckCircle, Sparkles, User, HelpCircle, Shirt 
 } from 'lucide-react';
 import { Character, Skill, ChakraType, CharacterSkin } from '../types';
@@ -36,9 +36,7 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ onBack, playClickSound }: AdminDashboardProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events'>('ninjas');
 
   // Character list state loaded from storage
@@ -119,18 +117,6 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
       }
     }
   }, [selectedCharacterId, characters]);
-
-  // Handle password submission
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    playClickSound();
-    if (password === 'admin') {
-      setIsAuthenticated(true);
-      setLoginError('');
-    } else {
-      setLoginError('Senha incorreta! Use "admin" como senha.');
-    }
-  };
 
   // Show temporary success feedback
   const triggerSuccess = (msg: string) => {
@@ -593,80 +579,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     );
   };
 
-  // Safe login wrapper
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-orange-600/10 blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
-
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-slate-900/80 border border-slate-800 rounded-2xl p-8 backdrop-blur-md shadow-2xl relative z-10"
-        >
-          <div className="flex flex-col items-center text-center space-y-4 mb-6">
-            <div className="p-3.5 bg-orange-600/10 border border-orange-500/30 rounded-full text-orange-400">
-              <Lock className="w-8 h-8" />
-            </div>
-            <h2 className="text-2xl font-black uppercase tracking-tight text-white">Painel Administrativo</h2>
-            <p className="text-slate-400 text-xs font-mono">
-              Controle absoluto das habilidades, regras e personagens da arena.
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">Senha de Acesso</label>
-              <div className="relative">
-                <input
-                  type="password"
-                  placeholder="Digite a senha (padrão: admin)"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none font-mono text-sm tracking-widest pl-10 transition-all"
-                  autoFocus
-                />
-                <Lock className="w-4 h-4 text-slate-600 absolute left-3.5 top-3.5" />
-              </div>
-            </div>
-
-            {loginError && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2 font-mono">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                <span>{loginError}</span>
-              </div>
-            )}
-
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onBack}
-                className="flex-1 px-4 py-3 border border-slate-800 hover:bg-slate-800 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer text-slate-400"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Menu Principal
-              </button>
-
-              <button
-                type="submit"
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-slate-950 font-bold rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-orange-600/15"
-              >
-                <Unlock className="w-4 h-4" />
-                Entrar
-              </button>
-            </div>
-          </form>
-
-          <div className="mt-6 pt-5 border-t border-slate-800/60 text-center text-[10px] text-slate-500 leading-relaxed">
-            Dica: Digite <strong className="text-orange-400 font-mono">admin</strong> no campo acima para desbloquear as ferramentas de edição.
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // Dashboard layout when authenticated
+  // Dashboard layout
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between font-sans selection:bg-orange-600 selection:text-white">
       {/* Top persistent action bar */}
