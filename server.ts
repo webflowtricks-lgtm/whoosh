@@ -7,7 +7,6 @@ const USERS_FILE = path.join(process.cwd(), "src", "data", "users.json");
 const CHARACTERS_FILE = path.join(process.cwd(), "src", "data", "custom_characters.json");
 
 const QUESTS_FILE = path.join(process.cwd(), "src", "data", "quests.json");
-const MATCHMAKING_FILE = path.join(process.cwd(), "src", "data", "matchmaking.json");
 
 // Ensure data directory exists
 const dataDir = path.dirname(USERS_FILE);
@@ -148,25 +147,10 @@ async function startServer() {
     player2Ping?: number;
   }
 
-  // Load matchmaking state from file (persists across instances/restarts)
-  function loadMatchmaking() {
-    try {
-      const data = readJSON<any>(MATCHMAKING_FILE, { waitingQueue: [], activeRooms: {}, userMatches: {} });
-      return data;
-    } catch { return { waitingQueue: [], activeRooms: {}, userMatches: {} }; }
-  }
-
-  function saveMatchmaking(data: any) {
-    try {
-      writeJSON(MATCHMAKING_FILE, {
-        waitingQueue: data.waitingQueue,
-        activeRooms: data.activeRooms,
-        userMatches: data.userMatches
-      });
-    } catch (e) {
-      console.error("Failed to save matchmaking state:", e);
-    }
-  }
+  // In-memory matchmaking state (single process — ideal para Render/Railway/VPS)
+  const waitingQueue: WaitingPlayer[] = [];
+  const activeRooms: { [id: string]: MatchRoom } = {};
+  const userMatches: { [username: string]: { roomId: string; playerIndex: 1 | 2; opponent: any } } = {};
 
   // Join Matchmaking Queue
   app.post("/api/matchmaking/join", (req, res) => {
@@ -176,75 +160,48 @@ async function startServer() {
     }
 
     const cleanUsername = username.trim().toLowerCase();
-    const state = loadMatchmaking();
 
-    // Clean up older searches for this user
-    const existingIdx = state.waitingQueue.findIndex((p: any) => p.username === cleanUsername);
-    if (existingIdx !== -1) {
-      state.waitingQueue.splice(existingIdx, 1);
-    }
-    delete state.userMatches[cleanUsername];
+    // Remove previous entry for this user
+    const existingIdx = waitingQueue.findIndex(p => p.username === cleanUsername);
+    if (existingIdx !== -1) waitingQueue.splice(existingIdx, 1);
+    delete userMatches[cleanUsername];
 
-    // Check for another waiting player in queue
-    const otherPlayerIdx = state.waitingQueue.findIndex((p: any) => p.username !== cleanUsername);
+    // Check for another waiting player
+    const otherPlayerIdx = waitingQueue.findIndex(p => p.username !== cleanUsername);
     if (otherPlayerIdx !== -1) {
-      const opponent = state.waitingQueue.splice(otherPlayerIdx, 1)[0];
+      const opponent = waitingQueue.splice(otherPlayerIdx, 1)[0];
       const roomId = "room_" + Math.random().toString(36).substring(2, 11);
 
       const room: MatchRoom = {
         id: roomId,
         player1: { username: opponent.username, name: opponent.name, photoUrl: opponent.photoUrl, team: opponent.team },
         player2: { username: cleanUsername, name: name || "Shinobi", photoUrl: photoUrl || "", team },
-        turns: {},
-        emojis: [],
-        chatMessages: [],
-        lastActivity: Date.now()
+        turns: {}, emojis: [], chatMessages: [], lastActivity: Date.now()
       };
 
-      state.activeRooms[roomId] = room;
-      state.userMatches[opponent.username] = { roomId, playerIndex: 1, opponent: room.player2 };
-      state.userMatches[cleanUsername] = { roomId, playerIndex: 2, opponent: room.player1 };
+      activeRooms[roomId] = room;
+      userMatches[opponent.username] = { roomId, playerIndex: 1, opponent: room.player2 };
+      userMatches[cleanUsername] = { roomId, playerIndex: 2, opponent: room.player1 };
 
-      saveMatchmaking(state);
-
-      return res.json({
-        status: "matched",
-        roomId,
-        playerIndex: 2,
-        opponent: room.player1
-      });
+      return res.json({ status: "matched", roomId, playerIndex: 2, opponent: room.player1 });
     }
 
-    // No opponent found yet, add to queue
-    state.waitingQueue.push({
-      username: cleanUsername,
-      name: name || "Shinobi",
-      photoUrl: photoUrl || "",
-      team,
-      timestamp: Date.now()
-    });
-
-    saveMatchmaking(state);
+    // Add to queue
+    waitingQueue.push({ username: cleanUsername, name: name || "Shinobi", photoUrl: photoUrl || "", team, timestamp: Date.now() });
     res.json({ status: "searching" });
   });
 
   // Get Matchmaking Status
   app.get("/api/matchmaking/status", (req, res) => {
     const username = (req.query.username as string || "").trim().toLowerCase();
-    if (!username) {
-      return res.status(400).json({ error: "Username é obrigatório." });
-    }
+    if (!username) return res.status(400).json({ error: "Username é obrigatório." });
 
-    const state = loadMatchmaking();
-
-    const match = state.userMatches[username];
+    const match = userMatches[username];
     if (match) {
-      const room = state.activeRooms[match.roomId];
+      const room = activeRooms[match.roomId];
       if (room) {
         return res.json({
-          status: "matched",
-          roomId: match.roomId,
-          playerIndex: match.playerIndex,
+          status: "matched", roomId: match.roomId, playerIndex: match.playerIndex,
           opponent: match.opponent,
           playerTeam: match.playerIndex === 1 ? room.player1.team : room.player2.team,
           opponentTeam: match.playerIndex === 1 ? room.player2.team : room.player1.team
@@ -252,24 +209,17 @@ async function startServer() {
       }
     }
 
-    const isWaiting = state.waitingQueue.some((p: any) => p.username === username);
-    if (isWaiting) {
-      return res.json({ status: "searching" });
-    }
-
+    if (waitingQueue.some(p => p.username === username)) return res.json({ status: "searching" });
     res.json({ status: "idle" });
   });
 
-  // Helper: get room with file state fallback
+  // Helper: get room by ID (in-memory)
   function getRoom(roomId: string) {
-    const state = loadMatchmaking();
-    return state.activeRooms[roomId] || null;
+    return activeRooms[roomId] || null;
   }
 
   function saveRoom(room: any) {
-    const state = loadMatchmaking();
-    state.activeRooms[room.id] = room;
-    saveMatchmaking(state);
+    activeRooms[room.id] = room;
   }
 
   // Submit Turn Actions
@@ -527,44 +477,33 @@ async function startServer() {
   app.post("/api/matchmaking/quit", (req, res) => {
     const { username, roomId } = req.body;
     const cleanUsername = (username || "").trim().toLowerCase();
-    const state = loadMatchmaking();
 
-    // Remove from matchmaking queue
-    const idx = state.waitingQueue.findIndex((p: any) => p.username === cleanUsername);
-    if (idx !== -1) {
-      state.waitingQueue.splice(idx, 1);
+    const idx = waitingQueue.findIndex(p => p.username === cleanUsername);
+    if (idx !== -1) waitingQueue.splice(idx, 1);
+
+    delete userMatches[cleanUsername];
+
+    if (roomId && activeRooms[roomId]) {
+      const room = activeRooms[roomId];
+      delete activeRooms[roomId];
+      delete userMatches[room.player1.username];
+      delete userMatches[room.player2.username];
     }
-
-    delete state.userMatches[cleanUsername];
-
-    if (roomId && state.activeRooms[roomId]) {
-      const room = state.activeRooms[roomId];
-      delete state.activeRooms[roomId];
-      // Clean up opponent as well
-      delete state.userMatches[room.player1.username];
-      delete state.userMatches[room.player2.username];
-    }
-
-    saveMatchmaking(state);
 
     res.json({ success: true });
   });
 
   // Background Cleanup of Stale Rooms (older than 10 mins)
   setInterval(() => {
-    const state = loadMatchmaking();
     const now = Date.now();
-    let changed = false;
-    for (const id in state.activeRooms) {
-      if (now - state.activeRooms[id].lastActivity > 600000) {
-        const room = state.activeRooms[id];
-        delete state.userMatches[room.player1.username];
-        delete state.userMatches[room.player2.username];
-        delete state.activeRooms[id];
-        changed = true;
+    for (const id in activeRooms) {
+      if (now - activeRooms[id].lastActivity > 600000) {
+        const room = activeRooms[id];
+        delete userMatches[room.player1.username];
+        delete userMatches[room.player2.username];
+        delete activeRooms[id];
       }
     }
-    if (changed) saveMatchmaking(state);
   }, 60000);
 
   // Character Sync API
