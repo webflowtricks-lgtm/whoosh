@@ -4029,6 +4029,22 @@ if (skill.cannotBeReflected) {
                           <span className="text-[7px] text-red-400">DEBUFF</span>
                         </div>
                       )}
+                      {(() => {
+                        const invulnEff = combatant.activeEffects.find(e => e.type === 'invulnerable');
+                        if (!invulnEff || isStunned) return null;
+                        return (
+                          <div className="absolute inset-0 rounded-lg overflow-hidden z-10 border-2 border-cyan-400/80">
+                            {invulnEff.icon && (
+                              <img src={invulnEff.icon} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                            )}
+                            <div className="absolute inset-0 bg-cyan-950/60 flex items-center justify-center">
+                              <span className="bg-cyan-950/90 px-1 py-0.5 rounded border border-cyan-400/60 font-mono text-[7px] font-black text-cyan-300 uppercase tracking-wider text-center drop-shadow-lg">
+                                INVULNERÁVEL
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex-1 space-y-1.5">
@@ -4815,6 +4831,22 @@ if (skill.cannotBeReflected) {
                           <span className="text-[7px] text-red-400">DEBUFF</span>
                         </div>
                       )}
+                      {(() => {
+                        const invulnEff = combatant.activeEffects.find(e => e.type === 'invulnerable');
+                        if (!invulnEff || isStunned) return null;
+                        return (
+                          <div className="absolute inset-0 rounded-lg overflow-hidden z-10 border-2 border-cyan-400/80">
+                            {invulnEff.icon && (
+                              <img src={invulnEff.icon} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                            )}
+                            <div className="absolute inset-0 bg-cyan-950/60 flex items-center justify-center">
+                              <span className="bg-cyan-950/90 px-1 py-0.5 rounded border border-cyan-400/60 font-mono text-[7px] font-black text-cyan-300 uppercase tracking-wider text-center drop-shadow-lg">
+                                INVULNERÁVEL
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex-1 space-y-1.5">
