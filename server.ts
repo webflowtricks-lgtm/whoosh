@@ -7,6 +7,7 @@ const USERS_FILE = path.join(process.cwd(), "src", "data", "users.json");
 const CHARACTERS_FILE = path.join(process.cwd(), "src", "data", "custom_characters.json");
 
 const QUESTS_FILE = path.join(process.cwd(), "src", "data", "quests.json");
+const MATCHMAKING_FILE = path.join(process.cwd(), "src", "data", "matchmaking.json");
 
 // Ensure data directory exists
 const dataDir = path.dirname(USERS_FILE);
@@ -147,9 +148,25 @@ async function startServer() {
     player2Ping?: number;
   }
 
-  const waitingQueue: WaitingPlayer[] = [];
-  const activeRooms: { [id: string]: MatchRoom } = {};
-  const userMatches: { [username: string]: { roomId: string; playerIndex: 1 | 2; opponent: any } } = {};
+  // Load matchmaking state from file (persists across instances/restarts)
+  function loadMatchmaking() {
+    try {
+      const data = readJSON<any>(MATCHMAKING_FILE, { waitingQueue: [], activeRooms: {}, userMatches: {} });
+      return data;
+    } catch { return { waitingQueue: [], activeRooms: {}, userMatches: {} }; }
+  }
+
+  function saveMatchmaking(data: any) {
+    try {
+      writeJSON(MATCHMAKING_FILE, {
+        waitingQueue: data.waitingQueue,
+        activeRooms: data.activeRooms,
+        userMatches: data.userMatches
+      });
+    } catch (e) {
+      console.error("Failed to save matchmaking state:", e);
+    }
+  }
 
   // Join Matchmaking Queue
   app.post("/api/matchmaking/join", (req, res) => {
@@ -159,18 +176,19 @@ async function startServer() {
     }
 
     const cleanUsername = username.trim().toLowerCase();
+    const state = loadMatchmaking();
 
     // Clean up older searches for this user
-    const existingIdx = waitingQueue.findIndex(p => p.username === cleanUsername);
+    const existingIdx = state.waitingQueue.findIndex((p: any) => p.username === cleanUsername);
     if (existingIdx !== -1) {
-      waitingQueue.splice(existingIdx, 1);
+      state.waitingQueue.splice(existingIdx, 1);
     }
-    delete userMatches[cleanUsername];
+    delete state.userMatches[cleanUsername];
 
     // Check for another waiting player in queue
-    const otherPlayerIdx = waitingQueue.findIndex(p => p.username !== cleanUsername);
+    const otherPlayerIdx = state.waitingQueue.findIndex((p: any) => p.username !== cleanUsername);
     if (otherPlayerIdx !== -1) {
-      const opponent = waitingQueue.splice(otherPlayerIdx, 1)[0];
+      const opponent = state.waitingQueue.splice(otherPlayerIdx, 1)[0];
       const roomId = "room_" + Math.random().toString(36).substring(2, 11);
 
       const room: MatchRoom = {
@@ -183,10 +201,11 @@ async function startServer() {
         lastActivity: Date.now()
       };
 
-      activeRooms[roomId] = room;
+      state.activeRooms[roomId] = room;
+      state.userMatches[opponent.username] = { roomId, playerIndex: 1, opponent: room.player2 };
+      state.userMatches[cleanUsername] = { roomId, playerIndex: 2, opponent: room.player1 };
 
-      userMatches[opponent.username] = { roomId, playerIndex: 1, opponent: room.player2 };
-      userMatches[cleanUsername] = { roomId, playerIndex: 2, opponent: room.player1 };
+      saveMatchmaking(state);
 
       return res.json({
         status: "matched",
@@ -197,7 +216,7 @@ async function startServer() {
     }
 
     // No opponent found yet, add to queue
-    waitingQueue.push({
+    state.waitingQueue.push({
       username: cleanUsername,
       name: name || "Shinobi",
       photoUrl: photoUrl || "",
@@ -205,6 +224,7 @@ async function startServer() {
       timestamp: Date.now()
     });
 
+    saveMatchmaking(state);
     res.json({ status: "searching" });
   });
 
@@ -215,9 +235,11 @@ async function startServer() {
       return res.status(400).json({ error: "Username é obrigatório." });
     }
 
-    const match = userMatches[username];
+    const state = loadMatchmaking();
+
+    const match = state.userMatches[username];
     if (match) {
-      const room = activeRooms[match.roomId];
+      const room = state.activeRooms[match.roomId];
       if (room) {
         return res.json({
           status: "matched",
@@ -230,13 +252,25 @@ async function startServer() {
       }
     }
 
-    const isWaiting = waitingQueue.some(p => p.username === username);
+    const isWaiting = state.waitingQueue.some((p: any) => p.username === username);
     if (isWaiting) {
       return res.json({ status: "searching" });
     }
 
     res.json({ status: "idle" });
   });
+
+  // Helper: get room with file state fallback
+  function getRoom(roomId: string) {
+    const state = loadMatchmaking();
+    return state.activeRooms[roomId] || null;
+  }
+
+  function saveRoom(room: any) {
+    const state = loadMatchmaking();
+    state.activeRooms[room.id] = room;
+    saveMatchmaking(state);
+  }
 
   // Submit Turn Actions
   app.post("/api/match/submit-turn", (req, res) => {
@@ -245,7 +279,7 @@ async function startServer() {
       return res.status(400).json({ error: "Dados de turno inválidos." });
     }
 
-    const room = activeRooms[roomId];
+    const room = getRoom(roomId);
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada ou partida finalizada." });
     }
@@ -265,6 +299,7 @@ async function startServer() {
       return res.status(403).json({ error: "Você não faz parte desta sala." });
     }
 
+    saveRoom(room);
     res.json({ success: true, actionsSubmitted: true });
   });
 
@@ -275,7 +310,7 @@ async function startServer() {
       return res.status(400).json({ error: "roomId é obrigatório." });
     }
 
-    const room = activeRooms[roomId];
+    const room = getRoom(roomId);
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
@@ -313,6 +348,7 @@ async function startServer() {
       };
     }
 
+    saveRoom(room);
     res.json({
       success: true,
       room: {
@@ -332,13 +368,14 @@ async function startServer() {
       return res.status(400).json({ error: "roomId e username são obrigatórios." });
     }
 
-    const room = activeRooms[roomId];
+    const room = getRoom(roomId);
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
 
     room.surrenderedBy = username.trim().toLowerCase();
     room.lastActivity = Date.now();
+    saveRoom(room);
 
     res.json({ success: true });
   });
@@ -350,7 +387,7 @@ async function startServer() {
       return res.status(400).json({ error: "Dados de reação inválidos." });
     }
 
-    const room = activeRooms[roomId];
+    const room = getRoom(roomId);
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
@@ -375,6 +412,7 @@ async function startServer() {
       room.emojis.shift();
     }
 
+    saveRoom(room);
     res.json({ success: true });
   });
 
@@ -387,7 +425,7 @@ async function startServer() {
       return res.status(400).json({ error: "roomId é obrigatório." });
     }
 
-    const room = activeRooms[roomId];
+    const room = getRoom(roomId);
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
@@ -420,14 +458,14 @@ async function startServer() {
     return text.trim();
   }
 
-  // Send Battle Chat Message (Transient memory only)
+  // Send Battle Chat Message
   app.post("/api/match/chat/send", (req, res) => {
     const { roomId, username, text, title } = req.body;
     if (!roomId || !username || !text) {
       return res.status(400).json({ error: "Dados inválidos." });
     }
 
-    const room = activeRooms[roomId];
+    const room = getRoom(roomId);
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
@@ -462,6 +500,7 @@ async function startServer() {
       room.chatMessages.shift();
     }
 
+    saveRoom(room);
     res.json({ success: true, message: msg });
   });
 
@@ -474,7 +513,7 @@ async function startServer() {
       return res.status(400).json({ error: "roomId é obrigatório." });
     }
 
-    const room = activeRooms[roomId];
+    const room = getRoom(roomId);
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
@@ -488,37 +527,44 @@ async function startServer() {
   app.post("/api/matchmaking/quit", (req, res) => {
     const { username, roomId } = req.body;
     const cleanUsername = (username || "").trim().toLowerCase();
+    const state = loadMatchmaking();
 
     // Remove from matchmaking queue
-    const idx = waitingQueue.findIndex(p => p.username === cleanUsername);
+    const idx = state.waitingQueue.findIndex((p: any) => p.username === cleanUsername);
     if (idx !== -1) {
-      waitingQueue.splice(idx, 1);
+      state.waitingQueue.splice(idx, 1);
     }
 
-    delete userMatches[cleanUsername];
+    delete state.userMatches[cleanUsername];
 
-    if (roomId && activeRooms[roomId]) {
-      const room = activeRooms[roomId];
-      delete activeRooms[roomId];
+    if (roomId && state.activeRooms[roomId]) {
+      const room = state.activeRooms[roomId];
+      delete state.activeRooms[roomId];
       // Clean up opponent as well
-      delete userMatches[room.player1.username];
-      delete userMatches[room.player2.username];
+      delete state.userMatches[room.player1.username];
+      delete state.userMatches[room.player2.username];
     }
+
+    saveMatchmaking(state);
 
     res.json({ success: true });
   });
 
   // Background Cleanup of Stale Rooms (older than 10 mins)
   setInterval(() => {
+    const state = loadMatchmaking();
     const now = Date.now();
-    for (const id in activeRooms) {
-      if (now - activeRooms[id].lastActivity > 600000) {
-        const room = activeRooms[id];
-        delete userMatches[room.player1.username];
-        delete userMatches[room.player2.username];
-        delete activeRooms[id];
+    let changed = false;
+    for (const id in state.activeRooms) {
+      if (now - state.activeRooms[id].lastActivity > 600000) {
+        const room = state.activeRooms[id];
+        delete state.userMatches[room.player1.username];
+        delete state.userMatches[room.player2.username];
+        delete state.activeRooms[id];
+        changed = true;
       }
     }
+    if (changed) saveMatchmaking(state);
   }, 60000);
 
   // Character Sync API
