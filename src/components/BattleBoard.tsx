@@ -4242,7 +4242,7 @@ if (skill.cannotBeReflected) {
                                   isCued
                                     ? 'border-orange-500 shadow shadow-orange-600/35 ring-1 ring-orange-500'
                                     : isStunBlocked
-                                    ? 'border-red-600/90 bg-red-950/60 shadow-md shadow-red-950/60'
+                                    ? 'border-red-600 bg-red-950/80 opacity-40 grayscale shadow-md shadow-red-950/60'
                                     : isCooldown
                                     ? 'border-slate-950 opacity-30 cursor-not-allowed'
                                     : isRequiredEffectLocked
@@ -4272,9 +4272,9 @@ if (skill.cannotBeReflected) {
 
                                 {/* Stun Blocked Overlay */}
                                 {isStunBlocked && !isCooldown && (
-                                  <div className="absolute inset-0 bg-red-950/85 border-2 border-red-600/90 flex flex-col items-center justify-center p-0.5 text-center z-10">
-                                    <span className="text-red-400 text-xs font-black animate-pulse">⚡</span>
-                                    <span className="text-[7px] font-mono font-black text-red-300 uppercase tracking-tighter">STUN</span>
+                                  <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10">
+                                    <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">⚡</span>
+                                    <span className="text-[8px] font-mono font-black text-red-200 uppercase tracking-wider drop-shadow-md">STUN</span>
                                   </div>
                                 )}
 
@@ -5032,6 +5032,7 @@ if (skill.cannotBeReflected) {
                             const simulatedChakraForThisChar = getSimulatedRemainingChakra(enemyChakra, cuedActions.filter(a => a.sourceId !== combatant.id), true);
                             const canAfford = canAffordSkill(skill, simulatedChakraForThisChar);
                             const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name === skill.requireEffect);
+                            const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
 
                             if (isSandbox) {
                               return (
@@ -5039,6 +5040,10 @@ if (skill.cannotBeReflected) {
                                   key={sIdx}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    if (isStunBlocked) {
+                                      addFloatingText(combatant.id, 'ATORDOADO!', 'stun');
+                                      return;
+                                    }
                                     if (isRequiredEffectLocked) {
                                       addFloatingText(combatant.id, `Requer ${skill.requireEffect}!`, 'effect');
                                       return;
@@ -5048,6 +5053,8 @@ if (skill.cannotBeReflected) {
                                   className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
                                     isCued
                                       ? 'border-emerald-500 shadow shadow-emerald-600/35 ring-1 ring-emerald-500'
+                                      : isStunBlocked
+                                      ? 'border-red-600 bg-red-950/80 opacity-40 grayscale shadow-md shadow-red-950/60'
                                       : isCooldown
                                       ? 'border-slate-950 opacity-30 cursor-not-allowed'
                                       : isRequiredEffectLocked
@@ -5075,8 +5082,16 @@ if (skill.cannotBeReflected) {
                                     </div>
                                   )}
 
+                                  {/* Stun Blocked Overlay */}
+                                  {isStunBlocked && !isCooldown && (
+                                    <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10">
+                                      <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">⚡</span>
+                                      <span className="text-[8px] font-mono font-black text-red-200 uppercase tracking-wider drop-shadow-md">STUN</span>
+                                    </div>
+                                  )}
+
                                   {/* Required Effect Locked Overlay (🔒) */}
-                                  {isRequiredEffectLocked && !isCooldown && (
+                                  {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
                                     <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
                                       <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
                                     </div>
@@ -5107,6 +5122,12 @@ if (skill.cannotBeReflected) {
                                       </div>
                                     )}
                                     
+                                    {isStunBlocked && (
+                                      <p className="text-[9px] font-bold mt-1.5 font-mono text-red-400 bg-red-950/90 p-1 rounded border border-red-800">
+                                        ⚡ BLOQUEADA POR ATORDOAMENTO (STUN)!
+                                      </p>
+                                    )}
+
                                     {skill.requireEffect && (
                                       <p className={`text-[9px] font-bold mt-1.5 font-mono ${isRequiredEffectLocked ? 'text-red-500' : 'text-emerald-500'}`}>
                                         {isRequiredEffectLocked ? '🔒 Requer: ' : '🔓 Ativo: '} {skill.requireEffect}
