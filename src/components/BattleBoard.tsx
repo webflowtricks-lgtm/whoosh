@@ -1480,14 +1480,14 @@ const handleTradeChakra = () => {
         applyBuffEffect(`${skill.name} Affliction`, 'affliction', skill.afflictionDuration || 3, skill.afflictionVal, false, true);
       }
 
-      // Counter Attack
+      // Counter Attack (applied as debuff on the selected target)
       if (skill.counterAttack) {
-        applyBuffEffect(`${skill.name} Counter`, 'counter', skill.counterAttackDuration || 2);
+        applyBuffEffect(`${skill.name} Counter`, 'counter', skill.counterAttackDuration || 2, 0, false, true);
       }
 
-      // Reflect
+      // Reflect (applied as debuff on the selected target)
       if (skill.reflect) {
-        applyBuffEffect(`${skill.name} Reflect`, 'reflect', skill.reflectDuration || 2, 0, true);
+        applyBuffEffect(`${skill.name} Reflect`, 'reflect', skill.reflectDuration || 2, 0, false, true);
       }
 
       // Check deaths immediately after actions
@@ -5043,7 +5043,7 @@ if (skill.cannotBeReflected) {
                             const isCooldown = skill.currentCooldown > 0;
                             const isSkillInvisibleToOpponent = skill.invisible || (skill.invisibleDuration !== undefined && skill.invisibleDuration > 0);
 
-                            if (isSkillInvisibleToOpponent) {
+                            if (isSkillInvisibleToOpponent && !isSandbox) {
                               return (
                                 <div
                                   key={sIdx}
