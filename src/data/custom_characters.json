@@ -88,84 +88,6 @@
         "classes": [
           "Chakra"
         ]
-      },
-      {
-        "name": "Nova Habilidade",
-        "desc": "Causa 30 de dano de chakra a um inimigo.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ],
-        "stunType": [
-          "mental",
-          "affliction",
-          "chakra",
-          "physical"
-        ],
-        "stunTurns": 4,
-        "damage": 0,
-        "bleedingVal": 20,
-        "bleedingDuration": 4,
-        "reflect": false,
-        "reflectDuration": 4,
-        "damageBuffVal": 10,
-        "damageReductionVal": 10,
-        "shieldVal": 10,
-        "shieldDuration": 3,
-        "damageReductionDuration": 3,
-        "damageBuffDuration": 3,
-        "invulnerableDuration": 2,
-        "dotVal": 7,
-        "gainChakra": 10
-      },
-      {
-        "name": "Nova Habilidade",
-        "desc": "Causa 30 de dano de chakra a um inimigo.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
-        "cost": [
-          "Nin"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ],
-        "dotVal": 20,
-        "dotDuration": 20
-      },
-      {
-        "name": "refletir",
-        "desc": "Causa 30 de dano de chakra a um inimigo.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ],
-        "stunType": [
-          "physical",
-          "mental",
-          "affliction",
-          "chakra"
-        ],
-        "stunTurns": 0,
-        "reflect": true,
-        "reflectMode": "RandomAlly",
-        "reflectDuration": 3
       }
     ]
   },
@@ -333,6 +255,42 @@
         "classes": [
           "Chakra"
         ]
+      },
+      {
+        "name": "Nova Habilidade",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
+        "cost": [
+          "Nin"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "reflect": true
+      },
+      {
+        "name": "Nova Habilidade",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "counterAttack": true,
+        "counterAttackType": "attacker",
+        "invisibleDuration": 2,
+        "invisible": true,
+        "counterAttackDuration": 2
       }
     ],
     "skins": []
