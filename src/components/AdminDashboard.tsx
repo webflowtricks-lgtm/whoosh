@@ -45,6 +45,8 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>('');
   const [charSearch, setCharSearch] = useState('');
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [orderChanged, setOrderChanged] = useState(false);
   
   // Feedback messages
   const [successMessage, setSuccessMessage] = useState('');
@@ -914,23 +916,58 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
             />
           </div>
 
+          {orderChanged && (
+            <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
+              <span className="text-[10px] text-amber-400 font-mono">Ordem alterada</span>
+              <button
+                onClick={() => {
+                  setOrderChanged(false);
+                  saveCharacters(characters);
+                  triggerSuccess('Ordem dos ninjas salva com sucesso!');
+                }}
+                className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-lg text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Salvar Ordem
+              </button>
+            </div>
+          )}
+
           <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1 scrollbar-thin">
             {characters.filter(char =>
               char.name.toLowerCase().includes(charSearch.toLowerCase()) ||
               char.tags?.some(t => t.toLowerCase().includes(charSearch.toLowerCase()))
-            ).map((char) => {
+            ).map((char, idx) => {
               const isSelected = char.id === selectedCharacterId;
+              const realIdx = characters.indexOf(char);
               return (
                 <div
                   key={char.id}
+                  draggable
+                  onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragIndex(realIdx); }}
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragIndex === null || dragIndex === realIdx) return;
+                    const updated = [...characters];
+                    const [moved] = updated.splice(dragIndex, 1);
+                    const dropIdx = updated.findIndex(c => c.id === char.id);
+                    if (dropIdx === -1) return;
+                    updated.splice(dropIdx, 0, moved);
+                    setCharacters(updated);
+                    setDragIndex(null);
+                    setOrderChanged(true);
+                  }}
                   onClick={() => setSelectedCharacterId(char.id)}
                   className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer group ${
                     isSelected
                       ? 'bg-slate-950 border-orange-500/60 shadow shadow-orange-500/10'
                       : 'bg-slate-950/40 border-slate-800/80 hover:bg-slate-950 hover:border-slate-700'
-                  }`}
+                  } ${dragIndex === realIdx ? 'opacity-40 border-dashed border-orange-400' : ''}`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex flex-col items-center gap-0.5 text-slate-600 cursor-grab active:cursor-grabbing">
+                      <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+                    </div>
                     <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-800 bg-slate-900 flex-shrink-0">
                       <img 
                         src={char.portrait} 
@@ -938,7 +975,6 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                         className="w-full h-full object-cover" 
                         referrerPolicy="no-referrer"
                         onError={(e) => {
-                          // fallback if image not found
                           const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
                         }}
                       />
