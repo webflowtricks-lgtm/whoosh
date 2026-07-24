@@ -44,6 +44,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   // Character list state loaded from storage
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>('');
+  const [charSearch, setCharSearch] = useState('');
   
   // Feedback messages
   const [successMessage, setSuccessMessage] = useState('');
@@ -902,8 +903,22 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
             </button>
           </div>
 
-          <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1">
-            {characters.map((char) => {
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar ninja..."
+              value={charSearch}
+              onChange={(e) => setCharSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-orange-500/50 transition-all font-mono"
+            />
+          </div>
+
+          <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1 scrollbar-thin">
+            {characters.filter(char =>
+              char.name.toLowerCase().includes(charSearch.toLowerCase()) ||
+              char.tags?.some(t => t.toLowerCase().includes(charSearch.toLowerCase()))
+            ).map((char) => {
               const isSelected = char.id === selectedCharacterId;
               return (
                 <div
@@ -950,9 +965,12 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
               );
             })}
 
-            {characters.length === 0 && (
+            {characters.filter(char =>
+              char.name.toLowerCase().includes(charSearch.toLowerCase()) ||
+              char.tags?.some(t => t.toLowerCase().includes(charSearch.toLowerCase()))
+            ).length === 0 && (
               <div className="text-center py-8 text-slate-500 text-xs font-mono">
-                Nenhum personagem cadastrado. clique em "+ Novo" para começar.
+                {charSearch ? 'Nenhum ninja encontrado para esta busca.' : 'Nenhum personagem cadastrado. Clique em "+ Novo" para começar.'}
               </div>
             )}
           </div>
