@@ -1902,9 +1902,27 @@ const handleTradeChakra = () => {
                   if (skill.gainChakra || skill.damageBuffVal) {
                     score += 350;
                   }
+
+                  if (skill.damageReductionVal && skill.damageReductionVal > 0) {
+                    score += skill.damageReductionVal * 2 + 300;
+                  }
+
+                  if (skill.damageBuffVal && skill.damageBuffVal > 0) {
+                    const alreadyHasBuff = target.activeEffects.some(e => e.type === 'damage_buff');
+                    if (!alreadyHasBuff) score += skill.damageBuffVal * 3 + 400;
+                    else score += 100;
+                  }
+
+                  // Cleanse allies (remove debuffs)
+                  if (skill.stunRemoveType || skill.damageRemoveType) {
+                    const hasDebuff = target.activeEffects.some(e =>
+                      e.type === 'stun' || e.type === 'dot' || e.type === 'bleeding' || e.type === 'affliction'
+                    );
+                    if (hasDebuff) score += 800;
+                  }
                 }
 
-                if (score > bestScore && score > 0) {
+                if (score > bestScore) {
                   bestScore = score;
                   bestAction = { sourceId: aiChar.id, skillIndex: idx, targetId: target.id };
                   bestSkillCost = skill.cost;
@@ -1913,7 +1931,7 @@ const handleTradeChakra = () => {
             }
           }
 
-          if (bestAction && bestScore > 0) {
+          if (bestAction && bestScore > -5000) {
             aiActions.push(bestAction);
             actionAdded = true;
 
