@@ -53,8 +53,37 @@ export function getPngFrames(): PngFrameItem[] {
   return DEFAULT_PNG_FRAMES;
 }
 
+export async function fetchPngFramesFromServer(): Promise<PngFrameItem[]> {
+  try {
+    const res = await fetch('/api/frames');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && Array.isArray(data.frames) && data.frames.length > 0) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.frames));
+        } catch (e) {
+          console.warn("Failed to save frames to localStorage:", e);
+        }
+        return data.frames;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch frames from server:", e);
+  }
+  return getPngFrames();
+}
+
 export function savePngFrames(frames: PngFrameItem[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(frames));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(frames));
+  } catch (e) {
+    console.warn("Failed to save png frames to localStorage:", e);
+  }
+  fetch('/api/frames', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ frames }),
+  }).catch(err => console.error('Failed to sync frames to server:', err));
 }
 
 export function addPngFrame(frame: PngFrameItem): PngFrameItem[] {
@@ -79,6 +108,15 @@ export function deletePngFrame(frameId: string): PngFrameItem[] {
 }
 
 export function resetToDefaultPngFrames(): PngFrameItem[] {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PNG_FRAMES));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PNG_FRAMES));
+  } catch (e) {
+    console.warn("Failed to reset png frames in localStorage:", e);
+  }
+  fetch('/api/frames', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ frames: DEFAULT_PNG_FRAMES }),
+  }).catch(err => console.error('Failed to reset frames on server:', err));
   return DEFAULT_PNG_FRAMES;
 }

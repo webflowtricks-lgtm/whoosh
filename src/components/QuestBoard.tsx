@@ -29,6 +29,7 @@ import { Quest, UserProfile } from '../types';
 import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
 import ProfileModal from './ProfileModal';
+import { RankConfig, getRanks, getUserRankFromConfig, fetchRanksFromServer } from '../lib/rankStorage';
 
 interface QuestBoardProps {
   user: UserProfile;
@@ -40,13 +41,8 @@ interface QuestBoardProps {
   playWinSound: () => void;
 }
 
-export function getUserRank(completedCount: number): 'Estudante de Academia' | 'Genin' | 'Chunin' | 'Jonin' | 'ANBU' | 'Hokage' {
-  if (completedCount >= 5) return 'Hokage';
-  if (completedCount >= 4) return 'ANBU';
-  if (completedCount >= 3) return 'Jonin';
-  if (completedCount >= 2) return 'Chunin';
-  if (completedCount >= 1) return 'Genin';
-  return 'Estudante de Academia';
+export function getUserRank(completedCount: number, customRanks?: RankConfig[]): string {
+  return getUserRankFromConfig(completedCount, customRanks);
 }
 
 const RANK_COLORS: Record<string, string> = {

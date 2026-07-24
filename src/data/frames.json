@@ -1,0 +1,23 @@
+[
+  {
+    "id": "frame-guerra-png",
+    "name": "Moldura Guerra Shinobi (PNG)",
+    "description": "Moldura dourada com selos ninjas dourados e brilho de batalha.",
+    "imageUrl": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=300&auto=format&fit=crop&q=80",
+    "badge": "GUERRA"
+  },
+  {
+    "id": "frame-akatsuki-png",
+    "name": "Moldura Nuvens da Akatsuki (PNG)",
+    "description": "Borda com nuvens vermelhas estilizadas da Akatsuki.",
+    "imageUrl": "https://images.unsplash.com/photo-1563089145-599997674d42?w=300&auto=format&fit=crop&q=80",
+    "badge": "AKATSUKI"
+  },
+  {
+    "id": "frame-folha-png",
+    "name": "Moldura Símbolo da Folha (PNG)",
+    "description": "Moldura folhada verde com o símbolo da Vila Oculta da Folha.",
+    "imageUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&auto=format&fit=crop&q=80",
+    "badge": "KONOHA"
+  }
+]

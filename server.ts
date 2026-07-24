@@ -7,6 +7,11 @@ const USERS_FILE = path.join(process.cwd(), "src", "data", "users.json");
 const CHARACTERS_FILE = path.join(process.cwd(), "src", "data", "custom_characters.json");
 
 const QUESTS_FILE = path.join(process.cwd(), "src", "data", "quests.json");
+const RANKS_FILE = path.join(process.cwd(), "src", "data", "ranks.json");
+const SHOP_FILE = path.join(process.cwd(), "src", "data", "shop.json");
+const EVENTS_FILE = path.join(process.cwd(), "src", "data", "events.json");
+const BANNERS_FILE = path.join(process.cwd(), "src", "data", "banners.json");
+const FRAMES_FILE = path.join(process.cwd(), "src", "data", "frames.json");
 
 // Ensure data directory exists
 const dataDir = path.dirname(USERS_FILE);
@@ -147,7 +152,6 @@ async function startServer() {
     player2Ping?: number;
   }
 
-  // In-memory matchmaking state (single process — ideal para Render/Railway/VPS)
   const waitingQueue: WaitingPlayer[] = [];
   const activeRooms: { [id: string]: MatchRoom } = {};
   const userMatches: { [username: string]: { roomId: string; playerIndex: 1 | 2; opponent: any } } = {};
@@ -161,12 +165,14 @@ async function startServer() {
 
     const cleanUsername = username.trim().toLowerCase();
 
-    // Remove previous entry for this user
+    // Clean up older searches for this user
     const existingIdx = waitingQueue.findIndex(p => p.username === cleanUsername);
-    if (existingIdx !== -1) waitingQueue.splice(existingIdx, 1);
+    if (existingIdx !== -1) {
+      waitingQueue.splice(existingIdx, 1);
+    }
     delete userMatches[cleanUsername];
 
-    // Check for another waiting player
+    // Check for another waiting player in queue
     const otherPlayerIdx = waitingQueue.findIndex(p => p.username !== cleanUsername);
     if (otherPlayerIdx !== -1) {
       const opponent = waitingQueue.splice(otherPlayerIdx, 1)[0];
@@ -176,32 +182,52 @@ async function startServer() {
         id: roomId,
         player1: { username: opponent.username, name: opponent.name, photoUrl: opponent.photoUrl, team: opponent.team },
         player2: { username: cleanUsername, name: name || "Shinobi", photoUrl: photoUrl || "", team },
-        turns: {}, emojis: [], chatMessages: [], lastActivity: Date.now()
+        turns: {},
+        emojis: [],
+        chatMessages: [],
+        lastActivity: Date.now()
       };
 
       activeRooms[roomId] = room;
+
       userMatches[opponent.username] = { roomId, playerIndex: 1, opponent: room.player2 };
       userMatches[cleanUsername] = { roomId, playerIndex: 2, opponent: room.player1 };
 
-      return res.json({ status: "matched", roomId, playerIndex: 2, opponent: room.player1 });
+      return res.json({
+        status: "matched",
+        roomId,
+        playerIndex: 2,
+        opponent: room.player1
+      });
     }
 
-    // Add to queue
-    waitingQueue.push({ username: cleanUsername, name: name || "Shinobi", photoUrl: photoUrl || "", team, timestamp: Date.now() });
+    // No opponent found yet, add to queue
+    waitingQueue.push({
+      username: cleanUsername,
+      name: name || "Shinobi",
+      photoUrl: photoUrl || "",
+      team,
+      timestamp: Date.now()
+    });
+
     res.json({ status: "searching" });
   });
 
   // Get Matchmaking Status
   app.get("/api/matchmaking/status", (req, res) => {
     const username = (req.query.username as string || "").trim().toLowerCase();
-    if (!username) return res.status(400).json({ error: "Username é obrigatório." });
+    if (!username) {
+      return res.status(400).json({ error: "Username é obrigatório." });
+    }
 
     const match = userMatches[username];
     if (match) {
       const room = activeRooms[match.roomId];
       if (room) {
         return res.json({
-          status: "matched", roomId: match.roomId, playerIndex: match.playerIndex,
+          status: "matched",
+          roomId: match.roomId,
+          playerIndex: match.playerIndex,
           opponent: match.opponent,
           playerTeam: match.playerIndex === 1 ? room.player1.team : room.player2.team,
           opponentTeam: match.playerIndex === 1 ? room.player2.team : room.player1.team
@@ -209,18 +235,13 @@ async function startServer() {
       }
     }
 
-    if (waitingQueue.some(p => p.username === username)) return res.json({ status: "searching" });
+    const isWaiting = waitingQueue.some(p => p.username === username);
+    if (isWaiting) {
+      return res.json({ status: "searching" });
+    }
+
     res.json({ status: "idle" });
   });
-
-  // Helper: get room by ID (in-memory)
-  function getRoom(roomId: string) {
-    return activeRooms[roomId] || null;
-  }
-
-  function saveRoom(room: any) {
-    activeRooms[room.id] = room;
-  }
 
   // Submit Turn Actions
   app.post("/api/match/submit-turn", (req, res) => {
@@ -229,7 +250,7 @@ async function startServer() {
       return res.status(400).json({ error: "Dados de turno inválidos." });
     }
 
-    const room = getRoom(roomId);
+    const room = activeRooms[roomId];
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada ou partida finalizada." });
     }
@@ -249,7 +270,6 @@ async function startServer() {
       return res.status(403).json({ error: "Você não faz parte desta sala." });
     }
 
-    saveRoom(room);
     res.json({ success: true, actionsSubmitted: true });
   });
 
@@ -260,7 +280,7 @@ async function startServer() {
       return res.status(400).json({ error: "roomId é obrigatório." });
     }
 
-    const room = getRoom(roomId);
+    const room = activeRooms[roomId];
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
@@ -298,7 +318,6 @@ async function startServer() {
       };
     }
 
-    saveRoom(room);
     res.json({
       success: true,
       room: {
@@ -318,14 +337,13 @@ async function startServer() {
       return res.status(400).json({ error: "roomId e username são obrigatórios." });
     }
 
-    const room = getRoom(roomId);
+    const room = activeRooms[roomId];
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
 
     room.surrenderedBy = username.trim().toLowerCase();
     room.lastActivity = Date.now();
-    saveRoom(room);
 
     res.json({ success: true });
   });
@@ -337,7 +355,7 @@ async function startServer() {
       return res.status(400).json({ error: "Dados de reação inválidos." });
     }
 
-    const room = getRoom(roomId);
+    const room = activeRooms[roomId];
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
@@ -362,7 +380,6 @@ async function startServer() {
       room.emojis.shift();
     }
 
-    saveRoom(room);
     res.json({ success: true });
   });
 
@@ -375,7 +392,7 @@ async function startServer() {
       return res.status(400).json({ error: "roomId é obrigatório." });
     }
 
-    const room = getRoom(roomId);
+    const room = activeRooms[roomId];
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
@@ -408,14 +425,14 @@ async function startServer() {
     return text.trim();
   }
 
-  // Send Battle Chat Message
+  // Send Battle Chat Message (Transient memory only)
   app.post("/api/match/chat/send", (req, res) => {
     const { roomId, username, text, title } = req.body;
     if (!roomId || !username || !text) {
       return res.status(400).json({ error: "Dados inválidos." });
     }
 
-    const room = getRoom(roomId);
+    const room = activeRooms[roomId];
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
@@ -450,7 +467,6 @@ async function startServer() {
       room.chatMessages.shift();
     }
 
-    saveRoom(room);
     res.json({ success: true, message: msg });
   });
 
@@ -463,7 +479,7 @@ async function startServer() {
       return res.status(400).json({ error: "roomId é obrigatório." });
     }
 
-    const room = getRoom(roomId);
+    const room = activeRooms[roomId];
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
@@ -478,14 +494,18 @@ async function startServer() {
     const { username, roomId } = req.body;
     const cleanUsername = (username || "").trim().toLowerCase();
 
+    // Remove from matchmaking queue
     const idx = waitingQueue.findIndex(p => p.username === cleanUsername);
-    if (idx !== -1) waitingQueue.splice(idx, 1);
+    if (idx !== -1) {
+      waitingQueue.splice(idx, 1);
+    }
 
     delete userMatches[cleanUsername];
 
     if (roomId && activeRooms[roomId]) {
       const room = activeRooms[roomId];
       delete activeRooms[roomId];
+      // Clean up opponent as well
       delete userMatches[room.player1.username];
       delete userMatches[room.player2.username];
     }
@@ -520,6 +540,160 @@ async function startServer() {
 
     writeJSON(CHARACTERS_FILE, characters);
     res.json({ success: true, message: "Personagens atualizados no banco de dados com sucesso!" });
+  });
+
+  // Ranks API
+  app.get("/api/ranks", (req, res) => {
+    const defaultRanks = [
+      { id: 'rank_estudante', name: 'Estudante de Academia', requiredXp: 0, color: 'from-slate-500 to-slate-400 border-slate-500/30 text-slate-300' },
+      { id: 'rank_genin', name: 'Genin', requiredXp: 1, color: 'from-emerald-600 to-teal-500 border-emerald-500/30 text-emerald-400' },
+      { id: 'rank_chunin', name: 'Chunin', requiredXp: 2, color: 'from-blue-600 to-cyan-500 border-blue-500/30 text-blue-400' },
+      { id: 'rank_jonin', name: 'Jonin', requiredXp: 3, color: 'from-indigo-600 to-purple-500 border-indigo-500/30 text-indigo-400' },
+      { id: 'rank_anbu', name: 'ANBU', requiredXp: 4, color: 'from-red-600 to-pink-500 border-red-500/30 text-red-400' },
+      { id: 'rank_hokage', name: 'Hokage', requiredXp: 5, color: 'from-orange-600 to-amber-500 border-orange-500/30 text-orange-400' }
+    ];
+    const ranks = readJSON<any[]>(RANKS_FILE, defaultRanks);
+    res.json({ success: true, ranks });
+  });
+
+  app.post("/api/ranks", (req, res) => {
+    const { ranks } = req.body;
+    if (!Array.isArray(ranks)) {
+      return res.status(400).json({ error: "Lista de ranks inválida." });
+    }
+    writeJSON(RANKS_FILE, ranks);
+    res.json({ success: true, message: "Ranks atualizados com sucesso!" });
+  });
+
+  // Shop API
+  app.get("/api/shop", (req, res) => {
+    const defaultShop = [
+      { id: 'title-sabio-sannin', name: 'Lenda dos Sannin', category: 'title', description: 'Título exclusivo de prestígio reconhecido por todos os países ninjas.', currency: 'ryos', price: 1500, badge: 'TÍTULO' },
+      { id: 'title-akatsuki-renegado', name: 'Akatsuki Renegado', category: 'title', description: 'Título para aqueles que trilham o caminho da névoa e das sombras.', currency: 'gems', price: 60, badge: 'TÍTULO' },
+      { id: 'title-mestre-taijutsu', name: 'Mestre dos Oito Portões', category: 'title', description: 'Título honroso concedido a guerreiros que dominam a força do Taijutsu.', currency: 'ryos', price: 900, badge: 'TÍTULO' },
+      { id: 'title-deus-shinobi', name: 'Deus dos Shinobis', category: 'title', description: 'O mais alto título do mundo ninja, gravado nos monumentos da arena.', currency: 'gems', price: 120, badge: 'MÍTICO' },
+      { id: 'skin-naruto-sage', name: 'Naruto Modo Sábio', category: 'skin', characterName: 'Naruto Uzumaki', description: 'Visual lendário de Naruto vestindo a capa vermelha do Modo Sábio de Senjutsu.', currency: 'gems', price: 150, skinImageUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80', badge: 'LENDÁRIO' },
+      { id: 'skin-sasuke-hebi', name: 'Sasuke Traje Hebi', category: 'skin', characterName: 'Sasuke Uchiha', description: 'Visual de Sasuke durante a formação do esquadrão Hebi na caça a Itachi.', currency: 'ryos', price: 2500, skinImageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80', badge: 'RARO' },
+      { id: 'skin-kakashi-anbu', name: 'Kakashi Capitão ANBU', category: 'skin', characterName: 'Kakashi Hatake', description: 'Traje operacional sombrio das Forças Especiais ANBU de Konoha.', currency: 'gems', price: 100, skinImageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=800&auto=format&fit=crop&q=80', badge: 'ANBU' },
+      { id: 'frame-chama-vontade', name: 'Fogo da Vontade', category: 'frame', description: 'Moldura reluzente inspirada no fogo e determinação dos ninjas de Konoha.', currency: 'ryos', price: 800, frameStyle: 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] bg-gradient-to-tr from-amber-500 to-red-500', badge: 'POPULAR' },
+      { id: 'frame-sharingan-crimson', name: 'Sharingan Carmesim', category: 'frame', description: 'Moldura com áurea rubra misteriosa inspirada no lendário Dōjutsu do Clã Uchiha.', currency: 'gems', price: 50, frameStyle: 'border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.7)] bg-gradient-to-tr from-red-600 to-rose-950', badge: 'LENDÁRIO' },
+      { id: 'frame-anbu-operativo', name: 'Operativo ANBU', category: 'frame', description: 'Moldura prateada elegante reservada para ninjas das forças especiais de esquadrão.', currency: 'ryos', price: 1200, frameStyle: 'border-slate-300 shadow-[0_0_15px_rgba(203,213,225,0.5)] bg-gradient-to-tr from-slate-200 to-slate-500', badge: 'ANBU' },
+      { id: 'bundle-ryos-p', name: 'Bolsa de Ryos', category: 'bundle', description: 'Bolsa contendo 1.000 Ryos para desbloqueios e compras na loja.', currency: 'gems', price: 20, bundleGrant: { type: 'ryos', amount: 1000 }, badge: 'PACOTE' },
+      { id: 'bundle-ryos-g', name: 'Baú do Tesouro Ninja', category: 'bundle', description: 'Grande baú com 3.000 Ryos para expansão rápida do seu império ninja.', currency: 'gems', price: 50, bundleGrant: { type: 'ryos', amount: 3000 }, badge: 'OFERTA' }
+    ];
+    const items = readJSON<any[]>(SHOP_FILE, defaultShop);
+    res.json({ success: true, items });
+  });
+
+  app.post("/api/shop", (req, res) => {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: "Lista de itens da loja inválida." });
+    }
+    writeJSON(SHOP_FILE, items);
+    res.json({ success: true, message: "Loja atualizada no servidor com sucesso!" });
+  });
+
+  // Events API
+  app.get("/api/events", (req, res) => {
+    const defaultEvents = [
+      {
+        id: 'guerra-ninja-1',
+        title: '4ª Grande Guerra Shinobi',
+        subtitle: 'Evento de Batalha Global de Aliança',
+        description: 'A Aliança Shinobi precisa da sua força no campo de batalha! Participe das batalhas da Arena, vença com seus ninjas e ajude a proteger o mundo ninja contra a ameaça dos Edo Tensei.',
+        bannerUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
+        badge: 'EVENTO PRINCIPAL',
+        timeLeft: '4 dias 18 horas',
+        featured: true,
+        objectives: [
+          { id: 'gn1-obj1', description: 'Vença 3 partidas na Arena Tática', current: 2, target: 3, rewardType: 'ryos', rewardValue: 500, rewardLabel: '500 Ryos' },
+          { id: 'gn1-obj2', description: 'Cause 1.500 de dano total em combate', current: 1250, target: 1500, rewardType: 'gems', rewardValue: 50, rewardLabel: '50 Gemas Ninja' },
+          { id: 'gn1-obj3', description: 'Use habilidades de Ninjutsu 15 vezes', current: 15, target: 15, rewardType: 'title', rewardValue: 'Herói da Aliança', rewardLabel: 'Título: "Herói da Aliança"' },
+          { id: 'gn1-obj4', description: 'Complete 5 Missões Ninja no Quadro de Missões', current: 3, target: 5, rewardType: 'frame', rewardValue: 'Guerra Shinobi', rewardLabel: 'Moldura Exclusiva "Guerra Shinobi"' }
+        ]
+      },
+      {
+        id: 'festival-folha-2026',
+        title: 'Festival da Folha - Konoha',
+        subtitle: 'Comemoração de Outono',
+        description: 'Celebre a paz em Konohagakure! Ganhe bônus de Ryos ao jogar partidas diárias e complete desafios de suporte e cura.',
+        bannerUrl: 'https://images.unsplash.com/photo-1528164344705-47542687990d?w=800&auto=format&fit=crop&q=80',
+        badge: 'FESTIVAL',
+        timeLeft: '11 dias',
+        featured: false,
+        objectives: [
+          { id: 'ff-obj1', description: 'Recupere 800 de Vida acumulados em batalhas', current: 800, target: 800, rewardType: 'ryos', rewardValue: 300, rewardLabel: '300 Ryos' },
+          { id: 'ff-obj2', description: 'Monte um esquadrão completo de ninjas da Folha', current: 1, target: 1, rewardType: 'gems', rewardValue: 30, rewardLabel: '30 Gemas' }
+        ]
+      },
+      {
+        id: 'invasao-akatsuki',
+        title: 'Ameaça Vermelha: Caça às Bestas',
+        subtitle: 'Desafio Semanal Akatsuki',
+        description: 'Membros da Akatsuki foram avistados nas fronteiras do País do Fogo. Conclua combates usando invulnerabilidade e contra-ataque!',
+        bannerUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=800&auto=format&fit=crop&q=80',
+        badge: 'DESAFIO ESPECIAL',
+        timeLeft: '2 dias 05 horas',
+        featured: false,
+        objectives: [
+          { id: 'ak-obj1', description: 'Aplique Atordoamento ou Silêncio 5 vezes em inimigos', current: 5, target: 5, rewardType: 'title', rewardValue: 'Caçador de Renegados', rewardLabel: 'Título: "Caçador de Renegados"' },
+          { id: 'ak-obj2', description: 'Gere 600 de Escudo acumulados', current: 420, target: 600, rewardType: 'gems', rewardValue: 40, rewardLabel: '40 Gemas Ninja' }
+        ]
+      }
+    ];
+    const events = readJSON<any[]>(EVENTS_FILE, defaultEvents);
+    res.json({ success: true, events });
+  });
+
+  app.post("/api/events", (req, res) => {
+    const { events } = req.body;
+    if (!Array.isArray(events)) {
+      return res.status(400).json({ error: "Lista de eventos inválida." });
+    }
+    writeJSON(EVENTS_FILE, events);
+    res.json({ success: true, message: "Eventos atualizados no servidor com sucesso!" });
+  });
+
+  // Banners API
+  app.get("/api/banners", (req, res) => {
+    const defaultBanners = [
+      { id: 'banner-fogo-vontade', name: 'Fogo da Vontade', description: 'Chamas ardentes da vontade de fogo de Konoha.', imageUrl: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1200&auto=format&fit=crop', badge: 'DESBLOQUEADO' },
+      { id: 'banner-nevoa-sangrenta', name: 'Névoa Sangrenta', description: 'Névoa mística e densa da Vila Oculta da Névoa.', imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop', badge: 'MISSÃO' },
+      { id: 'banner-noite-akatsuki', name: 'Noite Akatsuki', description: 'Céu estrelado noturno com atmosfera dos Renegados.', imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1200&auto=format&fit=crop', badge: 'LENDÁRIO' },
+      { id: 'banner-vale-fim', name: 'Vale do Fim', description: 'Cenário épico do confronto lendário no Vale do Fim.', imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop', badge: 'ÉPICO' }
+    ];
+    const banners = readJSON<any[]>(BANNERS_FILE, defaultBanners);
+    res.json({ success: true, banners });
+  });
+
+  app.post("/api/banners", (req, res) => {
+    const { banners } = req.body;
+    if (!Array.isArray(banners)) {
+      return res.status(400).json({ error: "Lista de banners inválida." });
+    }
+    writeJSON(BANNERS_FILE, banners);
+    res.json({ success: true, message: "Banners atualizados no servidor com sucesso!" });
+  });
+
+  // Frames API
+  app.get("/api/frames", (req, res) => {
+    const defaultFrames = [
+      { id: 'frame-guerra-png', name: 'Moldura Guerra Shinobi (PNG)', description: 'Moldura dourada com selos ninjas dourados e brilho de batalha.', imageUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=300&auto=format&fit=crop&q=80', badge: 'GUERRA' },
+      { id: 'frame-akatsuki-png', name: 'Moldura Nuvens da Akatsuki (PNG)', description: 'Borda com nuvens vermelhas estilizadas da Akatsuki.', imageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=300&auto=format&fit=crop&q=80', badge: 'AKATSUKI' },
+      { id: 'frame-folha-png', name: 'Moldura Símbolo da Folha (PNG)', description: 'Moldura folhada verde com o símbolo da Vila Oculta da Folha.', imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&auto=format&fit=crop&q=80', badge: 'KONOHA' }
+    ];
+    const frames = readJSON<any[]>(FRAMES_FILE, defaultFrames);
+    res.json({ success: true, frames });
+  });
+
+  app.post("/api/frames", (req, res) => {
+    const { frames } = req.body;
+    if (!Array.isArray(frames)) {
+      return res.status(400).json({ error: "Lista de molduras inválida." });
+    }
+    writeJSON(FRAMES_FILE, frames);
+    res.json({ success: true, message: "Molduras atualizadas no servidor com sucesso!" });
   });
 
   // Quests API

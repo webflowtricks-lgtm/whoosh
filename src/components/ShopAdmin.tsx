@@ -10,7 +10,7 @@ import {
   CircleDollarSign, Shirt, Sparkles, Tag, Eye
 } from 'lucide-react';
 import { ShopItem } from '../types';
-import { getShopItems, saveShopItems, resetToDefaultShopItems } from '../lib/shopStorage';
+import { getShopItems, saveShopItems, resetToDefaultShopItems, fetchShopItemsFromServer } from '../lib/shopStorage';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ShopAdminProps {
@@ -28,12 +28,13 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
-    const loaded = getShopItems();
-    setItems(loaded);
-    if (loaded.length > 0) {
-      setSelectedItemId(loaded[0].id);
-      setEditingItem(JSON.parse(JSON.stringify(loaded[0])));
-    }
+    fetchShopItemsFromServer().then(loaded => {
+      setItems(loaded);
+      if (loaded.length > 0) {
+        setSelectedItemId(loaded[0].id);
+        setEditingItem(JSON.parse(JSON.stringify(loaded[0])));
+      }
+    });
   }, []);
 
   useEffect(() => {

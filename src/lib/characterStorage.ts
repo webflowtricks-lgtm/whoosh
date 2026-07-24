@@ -12,7 +12,7 @@ export function enrichCharacters(characters: Character[]): Character[] {
   if (!Array.isArray(characters)) return characters;
   return characters.map(char => {
     const defaultChar = DEFAULT_CHARACTERS.find(c => c.id === char.id);
-    const skins = char.skins && char.skins.length > 0 ? char.skins : (defaultChar?.skins || []);
+    const skins = char.skins || [];
     const updatedSkills = (char.skills || []).map(sk => {
       let stunType = sk.stunType;
       if (sk.name === 'Rasengan') {
@@ -70,18 +70,26 @@ export async function fetchCharactersFromServer(): Promise<Character[]> {
       const data = await res.json();
       if (data.success && Array.isArray(data.characters) && data.characters.length > 0) {
         const enriched = enrichCharacters(data.characters);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
+        } catch (e) {
+          console.warn("Failed to save characters to localStorage quota:", e);
+        }
         return enriched;
       }
     }
   } catch (error) {
-    console.error('Failed to fetch characters from server:', error);
+    // Network or server error - gracefully fallback to local storage
   }
   return getCharacters();
 }
 
 export function saveCharacters(characters: Character[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(characters));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(characters));
+  } catch (e) {
+    console.warn("Failed to save characters to localStorage quota:", e);
+  }
   // Send async request to save on server
   fetch('/api/characters', {
     method: 'POST',
@@ -93,7 +101,11 @@ export function saveCharacters(characters: Character[]): void {
 }
 
 export function resetToDefaultCharacters(): Character[] {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CHARACTERS));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CHARACTERS));
+  } catch (e) {
+    console.warn("Failed to save default characters to localStorage quota:", e);
+  }
   fetch('/api/characters', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

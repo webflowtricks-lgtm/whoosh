@@ -1,0 +1,30 @@
+[
+  {
+    "id": "banner-fogo-vontade",
+    "name": "Fogo da Vontade",
+    "description": "Chamas ardentes da vontade de fogo de Konoha.",
+    "imageUrl": "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1200&auto=format&fit=crop",
+    "badge": "DESBLOQUEADO"
+  },
+  {
+    "id": "banner-nevoa-sangrenta",
+    "name": "Névoa Sangrenta",
+    "description": "Névoa mística e densa da Vila Oculta da Névoa.",
+    "imageUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop",
+    "badge": "MISSÃO"
+  },
+  {
+    "id": "banner-noite-akatsuki",
+    "name": "Noite Akatsuki",
+    "description": "Céu estrelado noturno com atmosfera dos Renegados.",
+    "imageUrl": "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1200&auto=format&fit=crop",
+    "badge": "LENDÁRIO"
+  },
+  {
+    "id": "banner-vale-fim",
+    "name": "Vale do Fim",
+    "description": "Cenário épico do confronto lendário no Vale do Fim.",
+    "imageUrl": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop",
+    "badge": "ÉPICO"
+  }
+]

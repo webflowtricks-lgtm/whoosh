@@ -11,13 +11,6 @@
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
     "folder": "naruto-uzumaki",
-    "skins": [
-      {
-        "id": "naruto-classic",
-        "name": "Naruto Clássico",
-        "image": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg"
-      }
-    ],
     "skills": [
       {
         "name": "Uzumaki Barrage",
@@ -88,8 +81,24 @@
         "classes": [
           "Chakra"
         ]
+      },
+      {
+        "name": "Nova Habilidade",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
+        "cost": [
+          "Nin"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ]
       }
-    ]
+    ],
+    "skins": []
   },
   {
     "id": "sasuke",
@@ -104,18 +113,6 @@
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sasuke-uchiha/icon.jpg",
     "folder": "sasuke-uchiha",
-    "skins": [
-      {
-        "id": "sasuke-classic",
-        "name": "Sasuke Clássico",
-        "image": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sasuke-uchiha/icon.jpg"
-      },
-      {
-        "id": "sasuke-hebi",
-        "name": "Sasuke Hebi",
-        "image": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sasuke-(s)/icon.jpg"
-      }
-    ],
     "skills": [
       {
         "name": "Lions Barrage",
@@ -135,7 +132,7 @@
       },
       {
         "name": "Chidori",
-        "desc": "Sasuke canaliza chakra de relâmpago em sua mão e perfura um inimigo, causando 40 de dano de relâmpago. Requer que [Sharingan] esteja ativo.",
+        "desc": "Sasuke canaliza chakra de relâmpago em sua mão e perfura um inimigo, causando 40 de dano de relâmpago.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sasuke-uchiha/Chidori.jpg",
         "cost": [
           "Nin",
@@ -165,8 +162,7 @@
           "Mental"
         ],
         "damageBuffVal": 10,
-        "damageBuffDuration": 4,
-        "damageReductionVal": 10
+        "damageBuffDuration": 4
       },
       {
         "name": "Orochimaru Block",
@@ -180,10 +176,10 @@
         "targetType": "Self",
         "classes": [
           "Físico"
-        ],
-        "invulnerableDuration": 3
+        ]
       }
-    ]
+    ],
+    "skins": []
   },
   {
     "id": "sakura",
@@ -255,42 +251,6 @@
         "classes": [
           "Chakra"
         ]
-      },
-      {
-        "name": "Nova Habilidade",
-        "desc": "Causa 30 de dano de chakra a um inimigo.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
-        "cost": [
-          "Nin"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ],
-        "reflect": true
-      },
-      {
-        "name": "Nova Habilidade",
-        "desc": "Causa 30 de dano de chakra a um inimigo.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ],
-        "counterAttack": true,
-        "counterAttackType": "attacker",
-        "invisibleDuration": 2,
-        "invisible": true,
-        "counterAttackDuration": 2
       }
     ],
     "skins": []
@@ -1351,81 +1311,6 @@
         "targetType": "Self",
         "classes": [
           "Chakra"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "gaara-funk",
-    "name": "Gaara of the Funk",
-    "description": "A lenda lendária das pistas de dança, a versão mais estilosa do deserto. Ele envolve seus oponentes com batidas de discoteca pesadas, aprisionando-os no caixão de funk e dançando até a ressurreição.",
-    "tags": [
-      "Estiloso",
-      "Sons",
-      "Funk",
-      "Dançarino"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/gaara-of-the-funk/icon.jpg",
-    "folder": "gaara-of-the-funk",
-    "skills": [
-      {
-        "name": "Nchk Nchk Nchk Nchk",
-        "desc": "Gaara of the Funk solta batidas sonoras rítmicas com a cabeça, causando 20 de dano mental aos inimigos de longe.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/gaara-of-the-funk/NchkNchkNchkNchk.jpg",
-        "cost": [
-          "Gen"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Mental",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Funk Coffin",
-        "desc": "O deserto se torna uma pista de dança! Gaara of the Funk prende o inimigo sob batidas pesadas de som, causando 30 de dano e paralisando suas habilidades por 1 turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/gaara-of-the-funk/FunkCoffin.jpg",
-        "cost": [
-          "Gen",
-          "Rand"
-        ],
-        "cooldown": 2,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Mental",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Dance Dance Resurrection",
-        "desc": "Gaara of the Funk começa a dançar insanamente na pista. Restaura 30 de vida para si mesmo ou para um aliado selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/gaara-of-the-funk/DanceDanceResurrection.jpg",
-        "cost": [
-          "Gen"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Ally",
-        "classes": [
-          "Mental"
-        ]
-      },
-      {
-        "name": "The Funk Wasnt With You",
-        "desc": "Gaara realiza um espacate defensivo lendário, desviando de absolutamente todas as habilidades e obtendo invulnerabilidade total por 1 turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/gaara-of-the-funk/TheFunkWasntWithYou.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Mental"
         ]
       }
     ],

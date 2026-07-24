@@ -6,10 +6,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Shield, Plus, Trash2, Edit3, Save, 
-  Database, RefreshCw, AlertTriangle, CheckCircle, Sparkles, User, HelpCircle, Shirt 
+  Database, RefreshCw, AlertTriangle, CheckCircle, Sparkles, User, HelpCircle, Shirt,
+  Lock, Unlock, Search, Trophy, Award, X
 } from 'lucide-react';
-import { Character, Skill, ChakraType, CharacterSkin } from '../types';
+import { Character, Skill, ChakraType, CharacterSkin, Quest } from '../types';
 import { getCharacters, saveCharacters, resetToDefaultCharacters } from '../lib/characterStorage';
+import { RankConfig, getRanks, saveRanks, fetchRanksFromServer } from '../lib/rankStorage';
 import { motion, AnimatePresence } from 'motion/react';
 import QuestAdmin from './QuestAdmin';
 import ShopAdmin from './ShopAdmin';
@@ -37,7 +39,7 @@ interface AdminDashboardProps {
 
 export default function AdminDashboard({ onBack, playClickSound }: AdminDashboardProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events'>('ninjas');
+  const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events' | 'ranks'>('ninjas');
 
   // Character list state loaded from storage
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -51,6 +53,14 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   const [editingChar, setEditingChar] = useState<Character | null>(null);
   const [editingSkillIndex, setEditingSkillIndex] = useState<number | null>(null);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
+
+  // Quest Autocomplete state for character lock requirements
+  const [allQuests, setAllQuests] = useState<Quest[]>([]);
+  const [questSearchInput, setQuestSearchInput] = useState('');
+  const [showQuestSuggestions, setShowQuestSuggestions] = useState(false);
+
+  // Ranks Management state
+  const [ranksList, setRanksList] = useState<RankConfig[]>([]);
 
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -95,7 +105,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     return Array.from(names).sort();
   };
 
-  // Load characters on mount
+  // Load characters, quests and ranks on mount
   useEffect(() => {
     const loaded = getCharacters();
     setCharacters(loaded);
@@ -104,6 +114,19 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
       // Clone for editing
       setEditingChar(JSON.parse(JSON.stringify(loaded[0])));
     }
+
+    // Fetch quests for autocomplete
+    fetch('/api/quests')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.quests)) {
+          setAllQuests(data.quests);
+        }
+      })
+      .catch(() => {});
+
+    // Fetch ranks
+    fetchRanksFromServer().then(r => setRanksList(r));
   }, []);
 
   // Update editing character when selected ID changes
@@ -644,6 +667,16 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
             >
               Eventos
             </button>
+            <button
+              onClick={() => { playClickSound(); setActiveTab('ranks'); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'ranks'
+                  ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                  : 'text-slate-400 hover:text-slate-200 font-bold'
+              }`}
+            >
+              Ranks & XP
+            </button>
           </div>
 
           <div className="flex items-center gap-3">
@@ -673,6 +706,155 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
         <ShopAdmin playClickSound={playClickSound} />
       ) : activeTab === 'events' ? (
         <EventAdmin playClickSound={playClickSound} />
+      ) : activeTab === 'ranks' ? (
+        <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 z-10 space-y-6">
+          {/* Header Card */}
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Trophy className="w-5 h-5 text-amber-400" />
+                <h2 className="text-lg font-bold uppercase tracking-wider text-white font-mono">Gerenciamento de Ranks & XP</h2>
+              </div>
+              <p className="text-xs text-slate-400 font-mono">
+                Crie, edite a quantidade de missões/XP necessárias, renomeie ou remova ranks do jogo.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  playClickSound();
+                  const newRank: RankConfig = {
+                    id: 'rank_' + Date.now(),
+                    name: 'Novo Rank Ninja',
+                    requiredXp: (ranksList.length > 0 ? Math.max(...ranksList.map(r => r.requiredXp)) + 1 : 0),
+                    color: 'from-amber-600 to-yellow-500 border-amber-500/30 text-amber-400'
+                  };
+                  setRanksList([...ranksList, newRank]);
+                }}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/10"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                Adicionar Rank
+              </button>
+
+              <button
+                onClick={() => {
+                  playClickSound();
+                  saveRanks(ranksList);
+                  setSuccessMessage('Ranks e requisitos de XP salvos com sucesso!');
+                  setTimeout(() => setSuccessMessage(''), 3000);
+                }}
+                className="px-5 py-2 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-slate-950 font-extrabold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-orange-600/20"
+              >
+                <Save className="w-4 h-4 stroke-[3]" />
+                Salvar Ranks
+              </button>
+            </div>
+          </div>
+
+          {/* Toast Feedbacks */}
+          <AnimatePresence>
+            {successMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 px-4 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-2 font-mono text-xs max-w-md"
+              >
+                <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{successMessage}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Ranks List */}
+          <div className="space-y-4">
+            {ranksList.map((rank, index) => (
+              <div
+                key={rank.id}
+                className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between transition-all hover:border-slate-700"
+              >
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <div className={`px-3 py-1.5 rounded-xl border bg-gradient-to-r font-black text-xs uppercase tracking-wider flex items-center gap-1.5 flex-shrink-0 ${rank.color}`}>
+                    <Award className="w-4 h-4" />
+                    <span>{rank.name || 'Sem Nome'}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 w-full md:w-auto flex-1 max-w-2xl">
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Nome do Rank</label>
+                    <input
+                      type="text"
+                      value={rank.name}
+                      onChange={(e) => {
+                        const updated = [...ranksList];
+                        updated[index] = { ...updated[index], name: e.target.value };
+                        setRanksList(updated);
+                      }}
+                      className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-white outline-none font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">XP / Missões Necessárias</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={rank.requiredXp}
+                      onChange={(e) => {
+                        const updated = [...ranksList];
+                        updated[index] = { ...updated[index], requiredXp: Math.max(0, parseInt(e.target.value) || 0) };
+                        setRanksList(updated);
+                      }}
+                      className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-white outline-none font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Estilo de Cor</label>
+                    <select
+                      value={rank.color}
+                      onChange={(e) => {
+                        const updated = [...ranksList];
+                        updated[index] = { ...updated[index], color: e.target.value };
+                        setRanksList(updated);
+                      }}
+                      className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-slate-200 outline-none font-mono"
+                    >
+                      <option value="from-slate-500 to-slate-400 border-slate-500/30 text-slate-300">Cinza (Estudante)</option>
+                      <option value="from-emerald-600 to-teal-500 border-emerald-500/30 text-emerald-400">Verde (Genin)</option>
+                      <option value="from-blue-600 to-cyan-500 border-blue-500/30 text-blue-400">Azul (Chunin)</option>
+                      <option value="from-indigo-600 to-purple-500 border-indigo-500/30 text-indigo-400">Roxo (Jonin)</option>
+                      <option value="from-red-600 to-pink-500 border-red-500/30 text-red-400">Vermelho (ANBU)</option>
+                      <option value="from-orange-600 to-amber-500 border-orange-500/30 text-orange-400">Laranja/Dourado (Hokage)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClickSound();
+                    const updated = ranksList.filter((_, i) => i !== index);
+                    setRanksList(updated);
+                  }}
+                  className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-800/80 rounded-xl transition-all cursor-pointer flex-shrink-0"
+                  title="Remover Rank"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+
+            {ranksList.length === 0 && (
+              <div className="text-center py-12 bg-slate-900/40 border border-slate-800 rounded-2xl">
+                <p className="text-slate-500 font-mono text-sm">Nenhum rank configurado. Clique em "Adicionar Rank" para criar um novo.</p>
+              </div>
+            )}
+          </div>
+        </main>
       ) : (
         <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 z-10">
         
@@ -871,6 +1053,117 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                     placeholder="Escreva sobre o histórico do ninja..."
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all leading-normal"
                   />
+                </div>
+
+                {/* Character Lock & Required Quests with Autocomplete */}
+                <div className="md:col-span-2 bg-slate-950/60 border border-slate-800 p-4 rounded-xl space-y-3 mt-1">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <div>
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-red-400 font-mono flex items-center gap-1.5">
+                        <Lock className="w-4 h-4 text-red-400" />
+                        Bloqueio de Personagem & Missões Necessárias
+                      </h3>
+                      <p className="text-[10px] text-slate-500 font-mono">
+                        Para ter este personagem liberado na tela de seleção, o jogador precisa ter concluído as missões vinculadas.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Active Required Quests Tags */}
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {(editingChar.requiredQuestIds || []).map((req, idx) => {
+                      const questObj = allQuests.find(q => q.id === req || q.title.toLowerCase() === req.toLowerCase());
+                      const label = questObj ? questObj.title : req;
+                      return (
+                        <span
+                          key={idx}
+                          className="bg-red-950/50 border border-red-500/40 text-red-300 px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5 shadow-md"
+                        >
+                          <Lock className="w-3 h-3 text-red-400" />
+                          <span className="font-semibold">{label}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (editingChar.requiredQuestIds || []).filter((_, i) => i !== idx);
+                              handleUpdateCharDetails('requiredQuestIds', updated);
+                            }}
+                            className="hover:text-red-100 text-red-400 p-0.5 cursor-pointer rounded"
+                            title="Remover requisito"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+
+                    {(!editingChar.requiredQuestIds || editingChar.requiredQuestIds.length === 0) && (
+                      <span className="text-xs font-mono text-emerald-400/80 bg-emerald-950/30 border border-emerald-500/20 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                        <Unlock className="w-3.5 h-3.5" />
+                        Livre por Padrão (Sem Bloqueio de Missão)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Autocomplete Input */}
+                  <div className="relative mt-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
+                      <input
+                        type="text"
+                        value={questSearchInput}
+                        onChange={(e) => {
+                          setQuestSearchInput(e.target.value);
+                          setShowQuestSuggestions(true);
+                        }}
+                        onFocus={() => setShowQuestSuggestions(true)}
+                        placeholder="Digite o nome da missão para buscar e bloquear (ex: Caminho do Shinobi)..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-red-500 transition-all font-mono text-white"
+                      />
+                    </div>
+
+                    {/* Autocomplete Suggestions Dropdown */}
+                    {showQuestSuggestions && questSearchInput.trim() !== '' && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto divide-y divide-slate-800/80">
+                        {allQuests
+                          .filter(q => q.title.toLowerCase().includes(questSearchInput.toLowerCase()) || q.id.toLowerCase().includes(questSearchInput.toLowerCase()))
+                          .map(q => {
+                            const isAlreadyAdded = (editingChar.requiredQuestIds || []).includes(q.id) || (editingChar.requiredQuestIds || []).includes(q.title);
+                            return (
+                              <div
+                                key={q.id}
+                                onClick={() => {
+                                  if (!isAlreadyAdded) {
+                                    const currentReqs = editingChar.requiredQuestIds || [];
+                                    handleUpdateCharDetails('requiredQuestIds', [...currentReqs, q.title]);
+                                  }
+                                  setQuestSearchInput('');
+                                  setShowQuestSuggestions(false);
+                                }}
+                                className={`p-2.5 hover:bg-slate-800 cursor-pointer flex justify-between items-center transition-all ${isAlreadyAdded ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                <div>
+                                  <div className="text-xs font-bold text-slate-200">{q.title}</div>
+                                  <div className="text-[10px] text-slate-500 font-mono">Rank necessário: {q.minRank}</div>
+                                </div>
+                                {isAlreadyAdded ? (
+                                  <span className="text-[10px] text-slate-500 font-mono">Já Vinculado</span>
+                                ) : (
+                                  <span className="text-xs font-mono text-red-400 font-bold flex items-center gap-1">
+                                    <Plus className="w-3.5 h-3.5" /> Adicionar Requisito
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                        {allQuests.filter(q => q.title.toLowerCase().includes(questSearchInput.toLowerCase()) || q.id.toLowerCase().includes(questSearchInput.toLowerCase())).length === 0 && (
+                          <div className="p-3 text-xs text-slate-500 font-mono text-center">
+                            Nenhuma missão encontrada com esse termo.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Character Skins Gallery Management */}

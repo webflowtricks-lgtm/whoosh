@@ -94,8 +94,12 @@ export default function ProfileCardModal({
     const newLikes = likes + 1;
     setLikes(newLikes);
     setHasLikedToday(true);
-    localStorage.setItem(likesStorageKey, String(newLikes));
-    localStorage.setItem(lastLikeDateStorageKey, today);
+    try {
+      localStorage.setItem(likesStorageKey, String(newLikes));
+      localStorage.setItem(lastLikeDateStorageKey, today);
+    } catch (e) {
+      console.warn("Failed to save likes to localStorage:", e);
+    }
 
     // Trigger visual heart burst effect
     setShowHeartBurst(true);

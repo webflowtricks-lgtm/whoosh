@@ -60,8 +60,37 @@ export function getCustomBanners(): CustomBannerItem[] {
   return DEFAULT_CUSTOM_BANNERS;
 }
 
+export async function fetchCustomBannersFromServer(): Promise<CustomBannerItem[]> {
+  try {
+    const res = await fetch('/api/banners');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && Array.isArray(data.banners) && data.banners.length > 0) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.banners));
+        } catch (e) {
+          console.warn("Failed to save banners to localStorage:", e);
+        }
+        return data.banners;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch banners from server:", e);
+  }
+  return getCustomBanners();
+}
+
 export function saveCustomBanners(banners: CustomBannerItem[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(banners));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(banners));
+  } catch (e) {
+    console.warn("Failed to save custom banners in localStorage:", e);
+  }
+  fetch('/api/banners', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ banners }),
+  }).catch(err => console.error('Failed to sync banners to server:', err));
 }
 
 export function addCustomBanner(banner: CustomBannerItem): CustomBannerItem[] {
@@ -86,6 +115,15 @@ export function deleteCustomBanner(bannerId: string): CustomBannerItem[] {
 }
 
 export function resetToDefaultCustomBanners(): CustomBannerItem[] {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CUSTOM_BANNERS));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CUSTOM_BANNERS));
+  } catch (e) {
+    console.warn("Failed to reset custom banners in localStorage:", e);
+  }
+  fetch('/api/banners', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ banners: DEFAULT_CUSTOM_BANNERS }),
+  }).catch(err => console.error('Failed to reset banners on server:', err));
   return DEFAULT_CUSTOM_BANNERS;
 }

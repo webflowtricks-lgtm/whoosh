@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, Loader2, AlertTriangle, Shirt } from 'lucide-react';
+import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, Loader2, AlertTriangle, Shirt, Lock, X } from 'lucide-react';
 import { Character, ChakraType, UserProfile, Quest } from '../types';
 import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
 import { motion, AnimatePresence } from 'motion/react';
@@ -31,6 +31,57 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const [currentPage, setCurrentPage] = useState(1);
   const [previewSkillsPage, setPreviewSkillsPage] = useState(0);
 
+  // Quests & Character Lock State
+  const [questsList, setQuestsList] = useState<Quest[]>([]);
+  const [lockedNotice, setLockedNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/quests')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.quests)) {
+          setQuestsList(data.quests);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Helper to check if a character is locked based on missing quest requirements
+  const checkCharacterLocked = (char: Character): { isLocked: boolean; reason?: string } => {
+    if (!char.requiredQuestIds || char.requiredQuestIds.length === 0) {
+      return { isLocked: false };
+    }
+    // Check if explicitly unlocked for user profile
+    if (user?.unlockedCharacterNames?.some(n => n.toLowerCase() === char.name.toLowerCase() || n.toLowerCase() === char.id.toLowerCase())) {
+      return { isLocked: false };
+    }
+    
+    const completed = user?.completedQuestIds || [];
+    const missing: string[] = [];
+
+    for (const req of char.requiredQuestIds) {
+      const isDone = completed.some(cid => {
+        if (cid.toLowerCase() === req.toLowerCase()) return true;
+        const q = questsList.find(quest => quest.id === cid);
+        if (q && q.title.toLowerCase() === req.toLowerCase()) return true;
+        return false;
+      });
+
+      if (!isDone) {
+        const q = questsList.find(quest => quest.id === req);
+        missing.push(q ? q.title : req);
+      }
+    }
+
+    if (missing.length > 0) {
+      return {
+        isLocked: true,
+        reason: `Bloqueado! Requer a missão "${missing.join(', ')}"`
+      };
+    }
+    return { isLocked: false };
+  };
+
   // Sync with server on mount
   useEffect(() => {
     let active = true;
@@ -44,7 +95,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           return updated[0];
         });
       }
-    });
+    }).catch(() => {});
     return () => { active = false; };
   }, []);
 
@@ -114,6 +165,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   const handleSelectCharacter = (character: Character) => {
     playClickSound();
+    const { isLocked, reason } = checkCharacterLocked(character);
+    if (isLocked) {
+      setLockedNotice(reason || 'Este personagem está bloqueado!');
+      setTimeout(() => setLockedNotice(null), 3500);
+      return;
+    }
+
     if (selectedIds.includes(character.id)) {
       setSelectedIds(selectedIds.filter(id => id !== character.id));
     } else {
@@ -138,18 +196,36 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const [equippedSkins, setEquippedSkins] = useState<Record<string, string>>({});
 
   const attachSkinsToTeam = (team: Character[]) => {
-    return team.map(char => {
+    return (team || []).map(char => {
+      if (!char) return char;
       const skinId = equippedSkins[char.id];
       let selectedSkinUrl: string | undefined = char.selectedSkinUrl;
-      if (skinId && char.skins && char.skins.length > 0) {
-        const skinObj = char.skins.find(s => s.id === skinId);
-        if (skinObj) selectedSkinUrl = skinObj.image;
-      } else if (!selectedSkinUrl && char.skins && char.skins.length > 0) {
-        selectedSkinUrl = char.skins[0].image;
+      const charSkins = Array.isArray(char.skins) ? char.skins : [];
+
+      if (skinId) {
+        if (skinId === 'default') {
+          selectedSkinUrl = char.portrait;
+        } else if (charSkins.length > 0) {
+          const skinObj = charSkins.find(s => s && s.id === skinId);
+          if (skinObj && skinObj.image) {
+            selectedSkinUrl = skinObj.image;
+          }
+        }
       }
+
+      if (!selectedSkinUrl) {
+        if (charSkins.length > 0 && charSkins[0]?.image) {
+          selectedSkinUrl = charSkins[0].image;
+        } else {
+          selectedSkinUrl = char.portrait;
+        }
+      }
+
       return {
         ...char,
-        selectedSkinId: skinId,
+        skins: charSkins,
+        skills: Array.isArray(char.skills) ? char.skills : [],
+        selectedSkinId: skinId || 'default',
         selectedSkinUrl: selectedSkinUrl
       };
     });
@@ -563,31 +639,53 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             </div>
           </div>
 
+          {/* Toast Notification for Locked Character */}
+          <AnimatePresence>
+            {lockedNotice && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-red-950/90 border border-red-500/60 text-red-200 px-4 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-3 font-mono text-xs max-w-md"
+              >
+                <Lock className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <span className="flex-1 font-semibold">{lockedNotice}</span>
+                <button onClick={() => setLockedNotice(null)} className="text-red-400 hover:text-white p-0.5 cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
             {paginatedCharacters.map(char => {
               const isSelected = selectedIds.includes(char.id);
               const isFull = selectedIds.length >= 3 && !isSelected;
+              const { isLocked, reason } = checkCharacterLocked(char);
 
               return (
                 <motion.div
                   key={char.id}
-                  whileHover={{ scale: isFull ? 1 : 1.02 }}
-                  onClick={() => !isFull && handleSelectCharacter(char)}
+                  whileHover={{ scale: isFull || isLocked ? 1 : 1.02 }}
+                  onClick={() => handleSelectCharacter(char)}
                   onMouseEnter={() => handleHoverCharacter(char)}
                   className={`group relative rounded-xl border p-2.5 cursor-pointer transition-all ${
-                    isSelected
+                    isLocked
+                      ? 'bg-slate-950/80 border-red-950/60 opacity-80 hover:border-red-600/60'
+                      : isSelected
                       ? 'bg-orange-950/20 border-orange-500 shadow-md shadow-orange-600/10'
                       : isFull
                       ? 'border-slate-900 bg-slate-950/40 opacity-40 cursor-not-allowed'
                       : 'bg-slate-900/40 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900'
                   }`}
+                  title={isLocked ? reason : char.name}
                 >
                   <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-slate-950 mb-2 border border-slate-800">
                     <img
                       src={char.portrait}
                       alt={char.name}
                       referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className={`w-full h-full object-cover transition-transform duration-300 ${isLocked ? 'grayscale opacity-50' : 'group-hover:scale-105'}`}
                       onError={(e) => {
                         const img = e.currentTarget;
                         img.onerror = null;
@@ -603,14 +701,24 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                         </div>
                       </div>
                     )}
+
+                    {/* Locked Badge */}
+                    {isLocked && (
+                      <div className="absolute inset-0 bg-slate-950/70 border border-red-500/30 flex flex-col items-center justify-center rounded-lg gap-1">
+                        <Lock className="w-5 h-5 text-red-400 animate-pulse" />
+                        <span className="text-[7px] font-mono font-bold text-red-300 uppercase tracking-widest px-1 py-0.5 bg-red-950/80 rounded border border-red-500/40">
+                          BLOQUEADO
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-0.5">
-                    <h4 className={`font-bold tracking-tight text-xs truncate ${isSelected ? 'text-orange-400' : 'text-slate-100'}`}>
+                    <h4 className={`font-bold tracking-tight text-xs truncate ${isLocked ? 'text-red-400/90' : isSelected ? 'text-orange-400' : 'text-slate-100'}`}>
                       {char.name}
                     </h4>
                     <p className="text-[9px] font-mono text-slate-500 truncate">
-                      {char.tags[0]}
+                      {isLocked ? 'Requer Missão' : char.tags[0]}
                     </p>
                   </div>
                 </motion.div>
@@ -747,20 +855,20 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             </div>
 
             {showSkinsTab ? (
-              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+              <div className="bg-slate-950/90 border border-slate-800/80 rounded-2xl p-4 space-y-3 shadow-2xl">
                 <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
                   <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                     <Shirt className="w-4 h-4 text-amber-400" />
-                    Skins Disponíveis
+                    GALERIA DE SKINS DO PERSONAGEM
                   </span>
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    Clique para equipar no card do personagem
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Clique na skin para equipar
                   </span>
                 </div>
 
-                <div className="flex gap-4 overflow-x-auto pb-2 pt-1 items-center justify-start min-h-[140px] max-h-[180px]">
+                <div className="flex gap-4 overflow-x-auto pb-2 pt-2 items-center justify-center min-h-[160px] max-h-[220px] bg-slate-900/60 rounded-xl border border-slate-800/60 p-3">
                   {(() => {
-                    const skinsList = previewCharacter.skins && previewCharacter.skins.length > 0 
+                    const skinsList = (previewCharacter.skins && previewCharacter.skins.length > 0)
                       ? previewCharacter.skins 
                       : [
                           { id: 'default', name: 'Padrão', image: previewCharacter.portrait }
@@ -779,30 +887,31 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                               [previewCharacter.id]: skin.id
                             }));
                           }}
-                          className={`relative group flex-shrink-0 w-28 h-36 rounded-xl border-2 overflow-hidden bg-slate-900/90 flex flex-col items-center justify-between p-2 cursor-pointer transition-all ${
+                          className={`relative group flex-shrink-0 w-32 h-44 rounded-xl border-2 overflow-hidden flex flex-col items-center justify-between p-2 cursor-pointer transition-all ${
                             isEquipped
-                              ? 'border-amber-500 ring-2 ring-amber-500/50 shadow-lg shadow-amber-500/20 bg-amber-500/10'
-                              : 'border-slate-800 hover:border-slate-600 bg-slate-900/60'
+                              ? 'border-amber-500 ring-2 ring-amber-500/50 shadow-xl shadow-amber-500/20 bg-amber-500/10 scale-102'
+                              : 'border-slate-800/90 hover:border-slate-600 bg-slate-950/80 hover:bg-slate-900/80'
                           }`}
                         >
                           {isEquipped && (
-                            <div className="absolute top-1 right-1 bg-amber-500 text-slate-950 text-[8px] font-black font-mono px-1.5 py-0.5 rounded shadow z-10">
+                            <div className="absolute top-1.5 right-1.5 bg-amber-500 text-slate-950 text-[8px] font-black font-mono px-1.5 py-0.5 rounded shadow z-10 uppercase tracking-wider">
                               EQUIPADA
                             </div>
                           )}
 
-                          <div className="w-full h-24 flex items-center justify-center overflow-hidden">
+                          <div className="w-full h-32 flex items-center justify-center overflow-hidden p-1">
                             <img
                               src={skin.image}
                               alt={skin.name}
-                              className="max-h-full max-w-full object-contain filter drop-shadow transition-transform group-hover:scale-105"
+                              referrerPolicy="no-referrer"
+                              className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)] transition-transform group-hover:scale-105"
                               onError={(e) => {
                                 const img = e.currentTarget; img.onerror = null; img.src = previewCharacter.portrait;
                               }}
                             />
                           </div>
 
-                          <span className="text-[10px] font-bold text-slate-200 truncate w-full text-center">
+                          <span className="text-[10px] font-bold text-slate-200 truncate w-full text-center font-mono uppercase tracking-tight">
                             {skin.name}
                           </span>
                         </div>

@@ -6,7 +6,18 @@
   --font-display: "Space Grotesk", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
- 
+
+/* Force Desktop Layout on all devices */
+html, body {
+  min-width: 1080px;
+  overflow-x: auto;
+}
+
+#root {
+  min-width: 1080px;
+  width: 100%;
+}
+
  /* FOLHAS */
 
 .bubble-chat {
@@ -30,6 +41,11 @@
     overflow:hidden;
     pointer-events:none;
     z-index:9999;
+}
+
+.main-area {
+  padding-left: 60px;
+  padding-right: 60px;
 }
 
 /* GPU Performance Acceleration */

@@ -151,11 +151,49 @@ export function getShopItems(): ShopItem[] {
   return DEFAULT_SHOP_ITEMS;
 }
 
+export async function fetchShopItemsFromServer(): Promise<ShopItem[]> {
+  try {
+    const res = await fetch('/api/shop');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.items));
+        } catch (e) {
+          console.warn("Failed to save shop items to localStorage:", e);
+        }
+        return data.items;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch shop items from server:", e);
+  }
+  return getShopItems();
+}
+
 export function saveShopItems(items: ShopItem[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  } catch (e) {
+    console.warn("Failed to save shop items in localStorage:", e);
+  }
+  fetch('/api/shop', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  }).catch(err => console.error('Failed to sync shop items to server:', err));
 }
 
 export function resetToDefaultShopItems(): ShopItem[] {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_SHOP_ITEMS));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_SHOP_ITEMS));
+  } catch (e) {
+    console.warn("Failed to reset shop items in localStorage:", e);
+  }
+  fetch('/api/shop', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: DEFAULT_SHOP_ITEMS }),
+  }).catch(err => console.error('Failed to reset shop items on server:', err));
   return DEFAULT_SHOP_ITEMS;
 }

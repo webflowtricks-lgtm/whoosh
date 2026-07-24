@@ -6,6 +6,11 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { GameScreen, Character, UserProfile, Quest } from './types';
 import { fetchCharactersFromServer } from './lib/characterStorage';
+import { fetchRanksFromServer } from './lib/rankStorage';
+import { fetchShopItemsFromServer } from './lib/shopStorage';
+import { fetchEventsFromServer } from './lib/eventStorage';
+import { fetchCustomBannersFromServer } from './lib/bannerStorage';
+import { fetchPngFramesFromServer } from './lib/frameStorage';
 import { motion, AnimatePresence } from 'motion/react';
 import { Swords, Flag } from 'lucide-react';
 
@@ -15,6 +20,7 @@ import BattleBoard from './components/BattleBoard';
 import AdminDashboard from './components/AdminDashboard';
 import AuthScreen from './components/AuthScreen';
 import QuestBoard from './components/QuestBoard';
+import RotateOverlay from './components/RotateOverlay';
 
 function ScreenLoadingFallback() {
   return (
@@ -66,11 +72,14 @@ export default function App() {
     return null;
   });
 
-  // Sync characters from database server on startup
+  // Sync all configurations (characters, ranks, shop, events, banners, frames) from server on startup
   useEffect(() => {
-    fetchCharactersFromServer().catch(err => {
-      console.error('Failed initial character sync:', err);
-    });
+    fetchCharactersFromServer().catch(() => {});
+    fetchRanksFromServer().catch(() => {});
+    fetchShopItemsFromServer().catch(() => {});
+    fetchEventsFromServer().catch(() => {});
+    fetchCustomBannersFromServer().catch(() => {});
+    fetchPngFramesFromServer().catch(() => {});
   }, []);
 
   // Check for active match/reconnection on load
@@ -90,7 +99,9 @@ export default function App() {
                   setReconnectData(parsed);
                 } else {
                   // Server match is no longer active
-                  localStorage.removeItem('active_match_save');
+                  try {
+                    localStorage.removeItem('active_match_save');
+                  } catch {}
                 }
               })
               .catch(() => {
@@ -137,7 +148,9 @@ export default function App() {
         console.error('Error surrendering on decline reconnect:', err);
       }
     }
-    localStorage.removeItem('active_match_save');
+    try {
+      localStorage.removeItem('active_match_save');
+    } catch {}
     setReconnectData(null);
   };
 
@@ -300,13 +313,17 @@ export default function App() {
 
   const handleLoginSuccess = (profile: UserProfile) => {
     setUser(profile);
-    localStorage.setItem('naruto_user_profile', JSON.stringify(profile));
+    try {
+      localStorage.setItem('naruto_user_profile', JSON.stringify(profile));
+    } catch {}
   };
 
   const handleLogout = () => {
     playClickSound();
     setUser(null);
-    localStorage.removeItem('naruto_user_profile');
+    try {
+      localStorage.removeItem('naruto_user_profile');
+    } catch {}
     setScreen('main-menu');
   };
 
@@ -324,6 +341,7 @@ export default function App() {
 
   return (
     <div className={`relative z-10 min-h-screen text-slate-100 flex flex-col justify-between selection:bg-orange-600 selection:text-white ${screen === 'battle' ? '' : 'bg-slate-950'}`}>
+      <RotateOverlay />
       {/* RECONNECTION / RECOVERY MODAL */}
       <AnimatePresence>
         {reconnectData && (

@@ -7,8 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, User, Shield, Award, Sparkles, Check, Image as ImageIcon, Camera, Upload, Save, RefreshCw } from 'lucide-react';
 import { UserProfile } from '../types';
-import { getPngFrames, PngFrameItem } from '../lib/frameStorage';
-import { getCustomBanners, CustomBannerItem } from '../lib/bannerStorage';
+import { getPngFrames, PngFrameItem, fetchPngFramesFromServer } from '../lib/frameStorage';
+import { getCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
 
 interface ProfileModalProps {
   user: UserProfile;
@@ -40,8 +40,8 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
-    setPngFrames(getPngFrames());
-    setCustomBanners(getCustomBanners());
+    fetchPngFramesFromServer().then(setPngFrames);
+    fetchCustomBannersFromServer().then(setCustomBanners);
   }, []);
 
   const unlockedFrames = user.unlockedFrames || ['Padrão', 'Fogo da Vontade', 'Operativo ANBU', 'Guerra Shinobi'];

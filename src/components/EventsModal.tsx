@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Calendar, Gift, Trophy, CheckCircle, Clock, Zap, Star, ShieldAlert, Sparkles, Award } from 'lucide-react';
 import { UserProfile, NinjaEvent } from '../types';
-import { getEvents } from '../lib/eventStorage';
+import { getEvents, fetchEventsFromServer } from '../lib/eventStorage';
 
 interface EventsModalProps {
   user: UserProfile;
@@ -25,12 +25,13 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
   const [claimToast, setClaimToast] = useState<string | null>(null);
 
   useEffect(() => {
-    const loaded = getEvents();
-    setEvents(loaded);
-    if (loaded.length > 0 && !selectedEventId) {
-      setSelectedEventId(loaded[0].id);
-    }
-  }, [selectedEventId]);
+    fetchEventsFromServer().then(loaded => {
+      setEvents(loaded);
+      if (loaded.length > 0 && !selectedEventId) {
+        setSelectedEventId(loaded[0].id);
+      }
+    });
+  }, []);
 
   const claimedIds = user.claimedEventRewardIds || [];
   const selectedEvent = events.find(e => e.id === selectedEventId) || events[0] || getEvents()[0];

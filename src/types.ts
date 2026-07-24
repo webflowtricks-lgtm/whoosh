@@ -46,6 +46,7 @@ export interface Skill {
   drainChakraDuration?: number;
   invisible?: boolean;
   invisibleDuration?: number;
+  ignoreInvulnerable?: boolean;
 
   // New custom dynamic effects (Bleeding, Affliction, Paralyze Cooldown)
   bleedingVal?: number;
@@ -182,6 +183,7 @@ export interface Character {
   skins?: CharacterSkin[];
   selectedSkinId?: string;
   selectedSkinUrl?: string;
+  requiredQuestIds?: string[]; // IDs/Nomes de missões necessárias para desbloquear o personagem
 }
 
 export interface ActiveEffect {
@@ -297,7 +299,7 @@ export interface NinjaEventObjective {
   description: string;
   current: number;
   target: number;
-  rewardType: 'ryos' | 'gems' | 'title' | 'frame' | 'skin';
+  rewardType: 'ryos' | 'gems' | 'title' | 'frame' | 'skin' | 'banner';
   rewardValue: string | number;
   rewardLabel: string;
   rewardFrameImageUrl?: string;

@@ -7,12 +7,13 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Plus, Trash2, Edit3, Save, RefreshCw, 
   CheckCircle, AlertTriangle, Search, Trophy, Gift, 
-  Clock, Sparkles, Tag, Eye, Star, Target, Shield, Upload, ImageIcon
+  Clock, Sparkles, Tag, Eye, Star, Target, Shield, Upload, ImageIcon, Shirt, User
 } from 'lucide-react';
-import { NinjaEvent, NinjaEventObjective } from '../types';
-import { getEvents, saveEvents, resetToDefaultEvents } from '../lib/eventStorage';
-import { getPngFrames, addPngFrame, deletePngFrame, PngFrameItem, resetToDefaultPngFrames } from '../lib/frameStorage';
-import { getCustomBanners, addCustomBanner, deleteCustomBanner, resetToDefaultCustomBanners, CustomBannerItem } from '../lib/bannerStorage';
+import { NinjaEvent, NinjaEventObjective, Character, CharacterSkin } from '../types';
+import { getEvents, saveEvents, resetToDefaultEvents, fetchEventsFromServer } from '../lib/eventStorage';
+import { getPngFrames, addPngFrame, deletePngFrame, PngFrameItem, resetToDefaultPngFrames, fetchPngFramesFromServer } from '../lib/frameStorage';
+import { getCustomBanners, addCustomBanner, deleteCustomBanner, resetToDefaultCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
+import { getCharacters, saveCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface EventAdminProps {
@@ -20,7 +21,7 @@ interface EventAdminProps {
 }
 
 export default function EventAdmin({ playClickSound }: EventAdminProps) {
-  const [activeTab, setActiveTab] = useState<'events' | 'png-frames' | 'banners'>('events');
+  const [activeTab, setActiveTab] = useState<'events' | 'png-frames' | 'banners' | 'skins'>('events');
 
   // Events State
   const [events, setEvents] = useState<NinjaEvent[]>([]);
@@ -47,19 +48,35 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
   const [newBannerBadge, setNewBannerBadge] = useState('EVENTO');
   const [newBannerUrl, setNewBannerUrl] = useState('');
 
+  // Character Skins State
+  const [charactersList, setCharactersList] = useState<Character[]>([]);
+  const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
+  const [newSkinCharId, setNewSkinCharId] = useState<string>('');
+  const [newSkinName, setNewSkinName] = useState<string>('');
+  const [newSkinImage, setNewSkinImage] = useState<string>('');
+  const [editingSkinInfo, setEditingSkinInfo] = useState<{ charId: string; skinIdx: number; name: string; image: string } | null>(null);
+
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
-    const loaded = getEvents();
-    setEvents(loaded);
-    if (loaded.length > 0) {
-      setSelectedEventId(loaded[0].id);
-      setEditingEvent(JSON.parse(JSON.stringify(loaded[0])));
-    }
+    fetchEventsFromServer().then(loaded => {
+      setEvents(loaded);
+      if (loaded.length > 0) {
+        setSelectedEventId(loaded[0].id);
+        setEditingEvent(JSON.parse(JSON.stringify(loaded[0])));
+      }
+    });
 
-    setPngFrames(getPngFrames());
-    setCustomBanners(getCustomBanners());
+    fetchPngFramesFromServer().then(setPngFrames);
+    fetchCustomBannersFromServer().then(setCustomBanners);
+
+    fetchCharactersFromServer().then(loadedChars => {
+      setCharactersList(loadedChars);
+      if (loadedChars.length > 0) {
+        setNewSkinCharId(loadedChars[0].id);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -226,6 +243,117 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
       showSuccess('Galeria de banners restaurada para os padrões!');
     }
   };
+
+  // --- SKINS GALLERY HANDLERS ---
+  const handleSkinFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setNewSkinImage(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddOrUpdateSkin = () => {
+    playClickSound();
+    if (!newSkinCharId) {
+      showError('Selecione o ninja para cadastrar a skin.');
+      return;
+    }
+    if (!newSkinName.trim()) {
+      showError('Informe o nome da skin.');
+      return;
+    }
+    if (!newSkinImage.trim()) {
+      showError('Envie um arquivo PNG da skin ou informe a URL.');
+      return;
+    }
+
+    if (editingSkinInfo) {
+      const { charId, skinIdx } = editingSkinInfo;
+      const updatedChars = charactersList.map(char => {
+        if (char.id === charId && char.skins) {
+          const updatedSkins = [...char.skins];
+          updatedSkins[skinIdx] = {
+            ...updatedSkins[skinIdx],
+            name: newSkinName.trim(),
+            image: newSkinImage.trim()
+          };
+          return { ...char, skins: updatedSkins };
+        }
+        return char;
+      });
+
+      setCharactersList(updatedChars);
+      saveCharacters(updatedChars);
+      setEditingSkinInfo(null);
+      setNewSkinName('');
+      setNewSkinImage('');
+      showSuccess('Skin do personagem atualizada com sucesso!');
+    } else {
+      const targetChar = charactersList.find(c => c.id === newSkinCharId);
+      const updatedChars = charactersList.map(char => {
+        if (char.id === newSkinCharId) {
+          const currentSkins = char.skins || [];
+          const newSkinItem: CharacterSkin = {
+            id: `${char.id}-skin-${Date.now().toString().slice(-4)}`,
+            name: newSkinName.trim(),
+            image: newSkinImage.trim()
+          };
+          return { ...char, skins: [...currentSkins, newSkinItem] };
+        }
+        return char;
+      });
+
+      setCharactersList(updatedChars);
+      saveCharacters(updatedChars);
+      setNewSkinName('');
+      setNewSkinImage('');
+      showSuccess(`Nova skin adicionada para ${targetChar?.name || 'Ninja'}!`);
+    }
+  };
+
+  const handleEditSkin = (charId: string, skinIdx: number, skin: CharacterSkin) => {
+    playClickSound();
+    setEditingSkinInfo({ charId, skinIdx, name: skin.name, image: skin.image });
+    setNewSkinCharId(charId);
+    setNewSkinName(skin.name);
+    setNewSkinImage(skin.image);
+  };
+
+  const handleCancelEditSkin = () => {
+    playClickSound();
+    setEditingSkinInfo(null);
+    setNewSkinName('');
+    setNewSkinImage('');
+  };
+
+  const handleDeleteSkin = (charId: string, skinIdx: number, skinName: string) => {
+    playClickSound();
+    if (!confirm(`Tem certeza que deseja remover a skin "${skinName}"?`)) return;
+
+    const updatedChars = charactersList.map(char => {
+      if (char.id === charId) {
+        const currentSkins = char.skins || [];
+        const updatedSkins = currentSkins.filter((_, idx) => idx !== skinIdx);
+        return { ...char, skins: updatedSkins };
+      }
+      return char;
+    });
+
+    setCharactersList(updatedChars);
+    saveCharacters(updatedChars);
+    if (editingSkinInfo?.charId === charId && editingSkinInfo?.skinIdx === skinIdx) {
+      handleCancelEditSkin();
+    }
+    showSuccess('Skin removida com sucesso!');
+  };
+
+  const totalSkinsCount = charactersList.reduce((acc, c) => acc + (c.skins?.length || 0), 0);
 
   // --- EVENT HANDLERS ---
   const handleCreateNewEvent = () => {
@@ -432,8 +560,8 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
         )}
       </AnimatePresence>
 
-      {/* Top Submenu: Events vs PNG Frames Gallery vs Banners Gallery */}
-      <div className="flex bg-slate-900/80 border border-slate-800 p-1.5 rounded-2xl max-w-xl flex-wrap sm:flex-nowrap gap-1">
+      {/* Top Submenu: Events vs PNG Frames Gallery vs Banners Gallery vs Skins Gallery */}
+      <div className="flex bg-slate-900/80 border border-slate-800 p-1.5 rounded-2xl max-w-3xl flex-wrap gap-1">
         <button
           onClick={() => { playClickSound(); setActiveTab('events'); }}
           className={`flex-1 py-2 px-3 rounded-xl text-xs font-mono uppercase tracking-wider font-extrabold transition flex items-center justify-center gap-2 cursor-pointer ${
@@ -468,6 +596,18 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
         >
           <ImageIcon className="w-4 h-4" />
           Galeria de Banners ({customBanners.length})
+        </button>
+
+        <button
+          onClick={() => { playClickSound(); setActiveTab('skins'); }}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-mono uppercase tracking-wider font-extrabold transition flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === 'skins'
+              ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Shirt className="w-4 h-4" />
+          Galeria de Skins ({totalSkinsCount})
         </button>
       </div>
 
@@ -1218,6 +1358,234 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
               </div>
             )}
           </section>
+        </div>
+      )}
+
+      {/* TAB 4: SKINS GALLERY MANAGEMENT */}
+      {activeTab === 'skins' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Add / Edit Skin Form (5 cols) */}
+          <div className="lg:col-span-5 bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shirt className="w-4 h-4 text-amber-400" />
+                <h3 className="text-xs font-mono uppercase tracking-wider text-slate-200 font-extrabold">
+                  {editingSkinInfo ? 'Editar Skin de Ninja' : 'Cadastrar Skin de Ninja'}
+                </h3>
+              </div>
+              <span className="text-[9px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 uppercase">
+                ARTE PNG
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">
+                  Selecione o Ninja *
+                </label>
+                <select
+                  disabled={!!editingSkinInfo}
+                  value={newSkinCharId}
+                  onChange={(e) => setNewSkinCharId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none font-mono disabled:opacity-60"
+                >
+                  {charactersList.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.skins?.length || 0} skins)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">
+                  Nome da Skin *
+                </label>
+                <input
+                  type="text"
+                  value={newSkinName}
+                  onChange={(e) => setNewSkinName(e.target.value)}
+                  placeholder="Ex: Sasuke Hebi, Naruto Modo Sábio"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">
+                  Imagem PNG da Skin (URL ou Arquivo) *
+                </label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newSkinImage}
+                      onChange={(e) => setNewSkinImage(e.target.value)}
+                      placeholder="Ex: https://.../skin.png"
+                      className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none font-mono"
+                    />
+                    <label className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-bold rounded-xl border border-slate-700 cursor-pointer flex items-center gap-1.5 flex-shrink-0">
+                      <Upload className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Upload</span>
+                      <input type="file" accept="image/*" onChange={handleSkinFileUpload} className="hidden" />
+                    </label>
+                  </div>
+                  <p className="text-[9px] text-slate-500 font-mono">
+                    Recomendado imagem em formato PNG com fundo transparente do ninja em pé.
+                  </p>
+                </div>
+              </div>
+
+              {/* Preview Box */}
+              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden">
+                <span className="text-[9px] font-mono text-slate-500 uppercase mb-2">PRÉ-VISUALIZAÇÃO DA SKIN</span>
+                {newSkinImage ? (
+                  <img
+                    src={newSkinImage}
+                    alt="Preview"
+                    referrerPolicy="no-referrer"
+                    className="max-h-36 object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)]"
+                    onError={(e) => {
+                      const img = e.currentTarget; img.onerror = null; img.src = 'https://via.placeholder.com/150?text=Erro+PNG';
+                    }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center text-slate-600 space-y-1">
+                    <Shirt className="w-8 h-8 opacity-40" />
+                    <span className="text-[10px] font-mono">Nenhuma imagem carregada</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Submit / Cancel Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleAddOrUpdateSkin}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-mono font-black text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  {editingSkinInfo ? 'Atualizar Skin' : 'Salvar e Adicionar Skin'}
+                </button>
+
+                {editingSkinInfo && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEditSkin}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono font-bold text-xs uppercase transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Skins Gallery List (7 cols) */}
+          <div className="lg:col-span-7 bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col">
+            <div className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div>
+                <h3 className="text-xs font-mono uppercase tracking-wider text-slate-200 font-extrabold flex items-center gap-2">
+                  <Shirt className="w-4 h-4 text-amber-400" /> Skins Cadastradas ({totalSkinsCount})
+                </h3>
+                <p className="text-[10px] font-mono text-slate-500">
+                  Abaixo estão todas as skins disponíveis por personagem para seleção nos cards de batalha.
+                </p>
+              </div>
+
+              {/* Ninja Filter */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-mono text-slate-400 uppercase">Filtrar:</span>
+                <select
+                  value={selectedCharFilter}
+                  onChange={(e) => setSelectedCharFilter(e.target.value)}
+                  className="px-2 py-1 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-200 rounded-lg text-xs outline-none font-mono"
+                >
+                  <option value="all">Todos os Ninjas ({totalSkinsCount})</option>
+                  {charactersList.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.skins?.length || 0})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Skins Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto max-h-[550px] pr-1">
+              {charactersList
+                .filter(c => selectedCharFilter === 'all' || c.id === selectedCharFilter)
+                .flatMap(char => 
+                  (char.skins || []).map((skin, skinIdx) => ({
+                    char,
+                    skin,
+                    skinIdx
+                  }))
+                )
+                .map(({ char, skin, skinIdx }) => (
+                  <div
+                    key={`${char.id}-${skin.id || skinIdx}`}
+                    className="bg-slate-950/80 border border-slate-800 hover:border-slate-700 rounded-xl p-3 flex gap-3 items-center relative group transition-all shadow-md"
+                  >
+                    {/* Skin PNG Preview Card */}
+                    <div className="w-20 h-24 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center p-1 relative flex-shrink-0 overflow-hidden">
+                      <img
+                        src={skin.image}
+                        alt={skin.name}
+                        referrerPolicy="no-referrer"
+                        className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]"
+                        onError={(e) => {
+                          const img = e.currentTarget; img.onerror = null; img.src = char.portrait;
+                        }}
+                      />
+                    </div>
+
+                    {/* Skin Details */}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <img src={char.portrait} alt={char.name} className="w-4 h-4 rounded-full border border-amber-500/50" />
+                        <span className="text-[10px] font-mono text-amber-400 font-extrabold uppercase truncate">
+                          {char.name}
+                        </span>
+                      </div>
+
+                      <h4 className="text-xs font-mono font-bold text-slate-100 truncate uppercase">
+                        {skin.name}
+                      </h4>
+
+                      <p className="text-[9px] font-mono text-slate-500 truncate">
+                        ID: {skin.id || `skin-${skinIdx}`}
+                      </p>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEditSkin(char.id, skinIdx, skin)}
+                          className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-400 font-mono text-[9px] font-bold uppercase transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Edit3 className="w-3 h-3" /> Editar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSkin(char.id, skinIdx, skin.name)}
+                          className="px-2 py-1 rounded bg-slate-800 hover:bg-red-950 text-red-400 font-mono text-[9px] font-bold uppercase transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3" /> Excluir
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+              {charactersList
+                .filter(c => selectedCharFilter === 'all' || c.id === selectedCharFilter)
+                .reduce((acc, c) => acc + (c.skins?.length || 0), 0) === 0 && (
+                <div className="col-span-full py-12 text-center text-slate-500 font-mono text-xs italic bg-slate-950/40 rounded-xl border border-slate-800/60">
+                  Nenhuma skin encontrada para este filtro. Cadastre uma nova skin no formulário ao lado!
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

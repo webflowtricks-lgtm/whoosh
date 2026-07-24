@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ShoppingBag, Sparkles, Check, Lock, Award, Shield, CircleDollarSign, Gem, Star, Tag, UserCheck, Shirt } from 'lucide-react';
 import { UserProfile, ShopItem } from '../types';
-import { getShopItems } from '../lib/shopStorage';
+import { getShopItems, fetchShopItemsFromServer } from '../lib/shopStorage';
 
 interface ShopModalProps {
   user: UserProfile;
@@ -17,12 +17,12 @@ interface ShopModalProps {
 }
 
 export default function ShopModal({ user, onClose, onUpdateUser, playClickSound }: ShopModalProps) {
-  const [items, setItems] = useState<ShopItem[]>([]);
+  const [items, setItems] = useState<ShopItem[]>(() => getShopItems());
   const [activeTab, setActiveTab] = useState<'all' | 'skin' | 'title' | 'frame' | 'bundle'>('all');
   const [purchaseToast, setPurchaseToast] = useState<string | null>(null);
 
   useEffect(() => {
-    setItems(getShopItems());
+    fetchShopItemsFromServer().then(setItems);
   }, []);
 
   const ryos = user.ryos ?? 1500;

@@ -133,11 +133,49 @@ export function getEvents(): NinjaEvent[] {
   return DEFAULT_NINJA_EVENTS;
 }
 
+export async function fetchEventsFromServer(): Promise<NinjaEvent[]> {
+  try {
+    const res = await fetch('/api/events');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.events));
+        } catch (e) {
+          console.warn("Failed to save events to localStorage:", e);
+        }
+        return data.events;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch events from server:", e);
+  }
+  return getEvents();
+}
+
 export function saveEvents(events: NinjaEvent[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+  } catch (e) {
+    console.warn("Failed to save events to localStorage:", e);
+  }
+  fetch('/api/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ events }),
+  }).catch(err => console.error('Failed to sync events to server:', err));
 }
 
 export function resetToDefaultEvents(): NinjaEvent[] {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_NINJA_EVENTS));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_NINJA_EVENTS));
+  } catch (e) {
+    console.warn("Failed to reset events in localStorage:", e);
+  }
+  fetch('/api/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ events: DEFAULT_NINJA_EVENTS }),
+  }).catch(err => console.error('Failed to reset events on server:', err));
   return DEFAULT_NINJA_EVENTS;
 }
