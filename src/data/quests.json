@@ -1,9 +1,9 @@
 [
   {
     "id": "quest_1784869393005",
-    "title": "Nova Missão Lendária",
+    "title": "O Último Espelho de Gelo",
     "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
-    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "coverUrl": "https://wallpapercat.com/w/full/6/0/8/2150088-1920x1080-desktop-1080p-haku-wallpaper-photo.jpg",
     "minRank": "Estudante de Academia",
     "requiredQuestIds": [],
     "goals": [
@@ -11,7 +11,8 @@
         "id": "goal_1784869393005_1",
         "type": "win_battles_with_chars",
         "targetCharacters": [
-          "Uzumaki Naruto"
+          "Uzumaki Naruto",
+          "Sasuke Uchiha"
         ],
         "targetValue": 5,
         "currentValue": 0
@@ -19,8 +20,8 @@
     ],
     "rewards": [
       {
-        "type": "title",
-        "value": "Guerreiro do Amanhecer"
+        "type": "unlock_character",
+        "value": "Haku"
       }
     ],
     "completed": false

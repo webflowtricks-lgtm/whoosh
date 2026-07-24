@@ -18,8 +18,108 @@ html, body {
   width: 100%;
 }
 
+.rank-board-name {
+     left: 42px;
+    top: 11px;
+}
+
+.reward-char-icon {
+
+}
+
+.electric-border {
+  position: relative;
+  padding: 3px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #332800;
+}
+
+/* Energia percorrendo a borda */
+.electric-border::before {
+  content: "";
+  position: absolute;
+  width: 45%;
+  height: 250%;
+  left: 27%;
+  top: -75%;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #fffde7,
+    #ffd400,
+    #fffde7,
+    transparent
+  );
+
+  filter: blur(2px);
+  animation: electricMove 1.2s linear infinite;
+}
+
+/* Núcleo brilhante */
+.electric-border::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid #ffd400;
+  border-radius: inherit;
+  box-shadow:
+    0 0 5px #ffd400,
+    0 0 12px rgba(255, 212, 0, 0.8);
+  pointer-events: none;
+}
+
+.electric-content {
+  position: relative;
+  z-index: 1;
+  background: #111;
+  border-radius: 7px;
+  height: 100%;
+}
+
+@keyframes electricMove {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}.electric-border {
+  animation: electricFlash 2s infinite;
+}
+
+@keyframes electricFlash {
+  0%, 100% {
+    filter: brightness(1);
+  }
+
+  48% {
+    filter: brightness(1);
+  }
+
+  50% {
+    filter: brightness(1.8);
+  }
+
+  52% {
+    filter: brightness(1);
+  }
+
+  76% {
+    filter: brightness(1.4);
+  }
+
+  78% {
+    filter: brightness(1);
+  }
+}
+
 .rank-bg-img {
-  width: 200px
+    max-width: 223px;
+    top: -7px;
+
 }
 
 
@@ -197,5 +297,11 @@ e-squad-name {
     display: flex;
   align-items: center;      /* centraliza vertical */
   justify-content: center;  /* centraliza horizontal */
+}
+
+@keyframes borderGlow {
+  0% { border-color: #fbbf24; box-shadow: 0 0 5px rgba(251,191,36,0.4), 0 0 10px rgba(251,191,36,0.1); }
+  50% { border-color: #f59e0b; box-shadow: 0 0 12px rgba(251,191,36,0.8), 0 0 25px rgba(245,158,11,0.4); }
+  100% { border-color: #d97706; box-shadow: 0 0 8px rgba(251,191,36,0.6), 0 0 18px rgba(217,119,6,0.3); }
 }
 

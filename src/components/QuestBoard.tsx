@@ -30,6 +30,7 @@ import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
 import ProfileModal from './ProfileModal';
 import { RankConfig, getRanks, getUserRankFromConfig, fetchRanksFromServer } from '../lib/rankStorage';
+import { getCharacters } from '../lib/characterStorage';
 
 interface QuestBoardProps {
   user: UserProfile;
@@ -513,7 +514,7 @@ export default function QuestBoard({
                       </div>
 
                       {/* Rank requirement label (fora do overflow-hidden para transbordar) */}
-                      <div className="absolute -top-2 -left-2 bg-slate-950/80 backdrop-blur-md border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-mono uppercase tracking-wider font-bold shadow-md z-20">
+                      <div className="absolute -top-2 -left-2 px-2.5 py-1 rounded-lg text-[10px] font-mono uppercase tracking-wider font-bold shadow-md z-20">
                         <div className="relative flex items-center gap-1.5 rounded-lg">
                           {(() => {
                             const allRanks = getRanks();
@@ -521,7 +522,7 @@ export default function QuestBoard({
                             if (r?.imageUrl) return <img src={r.imageUrl} alt="" className="rank-bg-img absolute" />;
                             return null;
                           })()}
-                          <span className="relative z-10" style={{ color: (() => { const r = getRanks().find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase()); return r?.fontColor || '#fbbf24'; })() }}>{quest.minRank}</span>
+                          <span className="relative z-10 rank-board-name" style={{ color: (() => { const r = getRanks().find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase()); return r?.fontColor || '#fbbf24'; })() }}>{quest.minRank}</span>
                         </div>
                       </div>
 
@@ -604,12 +605,28 @@ export default function QuestBoard({
                                 {quest.rewards.map((r, rIdx) => (
                                   <div 
                                     key={rIdx} 
-                                    className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-bold text-amber-400 flex items-center gap-1.5 shadow-sm"
+                                    className={`px-2.5 py-1 text-[11px] font-bold flex items-center gap-1.5 shadow-sm ${
+                                      r.type === 'unlock_character'
+                                        ? 'border-amber-400/80 text-amber-300'
+                                        : 'border-slate-800 text-amber-400'
+                                    }`}
                                   >
-                                    <Award className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                                    {r.type === 'unlock_character' ? (
+                                      (() => {
+                                        const allChars = getCharacters();
+                                        const ch = allChars.find(c => c.name === r.value || c.id === r.value);
+                                        return ch ? (
+                                          <div className=" electric-border relative w-10 h-10 overflow-hidden  flex-shrink-0 bg-slate-900 rounded-md">
+                                            <img src={ch.portrait} alt={r.value} className=" electric-content w-full h-full object-cover" />
+                                          </div>
+                                        ) : <Award className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />;
+                                      })()
+                                    ) : (
+                                      <Award className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                                    )}
                                     <span>
                                       {r.type === 'title' ? `Título: « ${r.value} »` : 
-                                       r.type === 'unlock_character' ? `Personagem: ${r.value}` :
+                                       r.type === 'unlock_character' ? r.value :
                                        r.type === 'banner' ? `🖼️ Banner: ${r.value}` :
                                        `🖼️ Moldura: ${r.value}`}
                                     </span>

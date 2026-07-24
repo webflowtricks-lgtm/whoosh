@@ -1314,7 +1314,10 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "requiredQuestIds": [
+      "O Último Espelho de Gelo"
+    ]
   },
   {
     "id": "temari",
