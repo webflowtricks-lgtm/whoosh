@@ -4,13 +4,15 @@
     "name": "Estudante de Academia",
     "requiredXp": 0,
     "color": "from-slate-500 to-slate-400 border-slate-500/30 text-slate-300",
-    "imageUrl": "https://i.ibb.co/Hp7T3f4h/bandeira-academia.webp"
+    "imageUrl": "https://i.ibb.co/Hp7T3f4h/bandeira-academia.webp",
+    "fontColor": "#ffffff"
   },
   {
     "id": "rank_genin",
     "name": "Genin",
     "requiredXp": 1,
-    "color": "from-emerald-600 to-teal-500 border-emerald-500/30 text-emerald-400"
+    "color": "from-emerald-600 to-teal-500 border-emerald-500/30 text-emerald-400",
+    "fontColor": "#ffffff"
   },
   {
     "id": "rank_chunin",

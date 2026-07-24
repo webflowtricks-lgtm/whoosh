@@ -853,6 +853,33 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                       className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-white outline-none font-mono"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Cor da Fonte (hex)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        value={rank.fontColor || '#fbbf24'}
+                        onChange={(e) => {
+                          const updated = [...ranksList];
+                          updated[index] = { ...updated[index], fontColor: e.target.value };
+                          setRanksList(updated);
+                        }}
+                        className="w-9 h-9 p-0.5 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={rank.fontColor || '#fbbf24'}
+                        onChange={(e) => {
+                          const updated = [...ranksList];
+                          updated[index] = { ...updated[index], fontColor: e.target.value || undefined };
+                          setRanksList(updated);
+                        }}
+                        placeholder="#fbbf24"
+                        className="flex-1 px-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-white outline-none font-mono"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <button

@@ -9,6 +9,7 @@ export interface RankConfig {
   requiredXp: number;
   color: string;
   imageUrl?: string;
+  fontColor?: string;
 }
 
 export const DEFAULT_RANKS: RankConfig[] = [

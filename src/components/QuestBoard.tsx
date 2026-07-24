@@ -513,14 +513,15 @@ export default function QuestBoard({
                       </div>
 
                       {/* Rank requirement label (fora do overflow-hidden para transbordar) */}
-                      <div className="absolute -top-2 -left-2 bg-slate-950/80 backdrop-blur-md border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold shadow-md z-20">
+                      <div className="absolute -top-2 -left-2 bg-slate-950/80 backdrop-blur-md border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-mono uppercase tracking-wider font-bold shadow-md z-20">
                         <div className="relative flex items-center gap-1.5 rounded-lg">
                           {(() => {
                             const allRanks = getRanks();
                             const r = allRanks.find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase());
-                            return r?.imageUrl ? <img src={r.imageUrl} alt="" className="rank-bg-img absolute" /> : null;
+                            if (r?.imageUrl) return <img src={r.imageUrl} alt="" className="rank-bg-img absolute" />;
+                            return null;
                           })()}
-                          <span className="relative z-10">{quest.minRank}</span>
+                          <span className="relative z-10" style={{ color: (() => { const r = getRanks().find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase()); return r?.fontColor || '#fbbf24'; })() }}>{quest.minRank}</span>
                         </div>
                       </div>
 
@@ -724,7 +725,7 @@ export default function QuestBoard({
                       const r = allRanks.find(rr => rr.name === currentRank || rr.name.toLowerCase() === currentRank.toLowerCase());
                       return r?.imageUrl ? <img src={r.imageUrl} alt="" className="rank-bg-img absolute inset-0 w-full h-full object-cover opacity-40" /> : null;
                     })()}
-                    <span className="relative z-10">{currentRank}</span>
+                    <span className="relative z-10" style={{ color: (() => { const r = getRanks().find(rr => rr.name === currentRank || rr.name.toLowerCase() === currentRank.toLowerCase()); return r?.fontColor || '#000'; })() }}>{currentRank}</span>
                   </div>
                   <span className="text-xs font-bold text-stone-800 tracking-wide">
                     Rank Atual
