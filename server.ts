@@ -545,7 +545,7 @@ async function startServer() {
   // Ranks API
   app.get("/api/ranks", (req, res) => {
     const defaultRanks = [
-      { id: 'rank_estudante', name: 'Estudante de Academia', requiredXp: 0, color: 'from-slate-500 to-slate-400 border-slate-500/30 text-slate-300' },
+      { id: 'rank_estudante', name: 'Estudante da Academia', requiredXp: 0, color: 'from-slate-500 to-slate-400 border-slate-500/30 text-slate-300' },
       { id: 'rank_genin', name: 'Genin', requiredXp: 1, color: 'from-emerald-600 to-teal-500 border-emerald-500/30 text-emerald-400' },
       { id: 'rank_chunin', name: 'Chunin', requiredXp: 2, color: 'from-blue-600 to-cyan-500 border-blue-500/30 text-blue-400' },
       { id: 'rank_jonin', name: 'Jonin', requiredXp: 3, color: 'from-indigo-600 to-purple-500 border-indigo-500/30 text-indigo-400' },
@@ -705,7 +705,7 @@ async function startServer() {
         title: "Caminho do Shinobi",
         desc: "Dê seus primeiros passos como um estudante. Vença 3 batalhas seguidas usando Uzumaki Naruto ou Uchiha Sasuke sem sofrer derrotas.",
         coverUrl: "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
-        minRank: "Estudante de Academia",
+        minRank: "Estudante da Academia",
         requiredQuestIds: [],
         goals: [
           {

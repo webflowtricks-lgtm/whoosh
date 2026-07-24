@@ -46,7 +46,7 @@ export function getUserRank(completedCount: number, customRanks?: RankConfig[]):
 }
 
 const RANK_COLORS: Record<string, string> = {
-  'Estudante de Academia': 'from-slate-500 to-slate-400 border-slate-500/30 text-slate-300',
+  'Estudante da Academia': 'from-slate-500 to-slate-400 border-slate-500/30 text-slate-300',
   'Genin': 'from-emerald-600 to-teal-500 border-emerald-500/30 text-emerald-400',
   'Chunin': 'from-blue-600 to-cyan-500 border-blue-500/30 text-blue-400',
   'Jonin': 'from-indigo-600 to-purple-500 border-indigo-500/30 text-indigo-400',
@@ -55,7 +55,7 @@ const RANK_COLORS: Record<string, string> = {
 };
 
 const RANK_XP_REQUIREMENTS = {
-  'Estudante de Academia': 0,
+  'Estudante da Academia': 0,
   'Genin': 1,
   'Chunin': 2,
   'Jonin': 3,
@@ -113,7 +113,7 @@ export default function QuestBoard({
 
   // Check if a quest is locked based on minRank and requiredQuestIds
   const isQuestLocked = (quest: Quest): { locked: boolean; reason?: string } => {
-    const ranks = ['Estudante de Academia', 'Genin', 'Chunin', 'Jonin', 'ANBU', 'Hokage'];
+    const ranks = ['Estudante da Academia', 'Genin', 'Chunin', 'Jonin', 'ANBU', 'Hokage'];
     const playerRankIndex = ranks.indexOf(currentRank);
     const requiredRankIndex = ranks.indexOf(quest.minRank);
 
@@ -470,7 +470,7 @@ export default function QuestBoard({
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ duration: 0.25 }}
-                      className={`bg-slate-900/80 rounded-2xl overflow-hidden border flex flex-col justify-between relative shadow-xl backdrop-blur-md ${
+                      className={`bg-slate-900/80 rounded-2xl border flex flex-col justify-between relative shadow-xl backdrop-blur-md ${
                         isCompleted
                           ? 'border-emerald-500/30 shadow-emerald-950/10'
                           : lockCheck.locked
@@ -489,16 +489,6 @@ export default function QuestBoard({
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
                         
-                        {/* Rank requirement label */}
-                        <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold shadow-md flex items-center gap-1.5 overflow-hidden">
-                          {(() => {
-                            const allRanks = getRanks();
-                            const r = allRanks.find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase());
-                            return r?.imageUrl ? <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" /> : null;
-                          })()}
-                          <span className="relative z-10">Rank: {quest.minRank}</span>
-                        </div>
-
                         {/* Status badge top right */}
                         <div className="absolute top-3 right-3">
                           {isCompleted ? (
@@ -519,6 +509,18 @@ export default function QuestBoard({
                           <h3 className="font-extrabold text-lg text-slate-100 leading-snug drop-shadow-md">
                             {quest.title}
                           </h3>
+                        </div>
+                      </div>
+
+                      {/* Rank requirement label (fora do overflow-hidden para transbordar) */}
+                      <div className="absolute -top-2 -left-2 bg-slate-950/80 backdrop-blur-md border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold shadow-md z-20">
+                        <div className="relative flex items-center gap-1.5 rounded-lg">
+                          {(() => {
+                            const allRanks = getRanks();
+                            const r = allRanks.find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase());
+                            return r?.imageUrl ? <img src={r.imageUrl} alt="" className="rank-bg-img absolute" /> : null;
+                          })()}
+                          <span className="relative z-10">{quest.minRank}</span>
                         </div>
                       </div>
 
@@ -716,11 +718,11 @@ export default function QuestBoard({
               {/* Middle Section: Rank Box */}
               <div className="my-2 pt-2 border-t border-stone-900/20">
                 <div className="flex items-center gap-3">
-                  <div className="relative px-3 py-1 bg-[#d3ad75]/80 border-2 border-[#7a4e25] rounded-md text-stone-950 font-black text-xs uppercase tracking-wider shadow-sm overflow-hidden">
+                  <div className="relative px-3 py-1 bg-[#d3ad75]/80 border-2 border-[#7a4e25] rounded-md text-stone-950 font-black text-xs uppercase tracking-wider shadow-sm">
                     {(() => {
                       const allRanks = getRanks();
                       const r = allRanks.find(rr => rr.name === currentRank || rr.name.toLowerCase() === currentRank.toLowerCase());
-                      return r?.imageUrl ? <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" /> : null;
+                      return r?.imageUrl ? <img src={r.imageUrl} alt="" className="rank-bg-img absolute inset-0 w-full h-full object-cover opacity-40" /> : null;
                     })()}
                     <span className="relative z-10">{currentRank}</span>
                   </div>
