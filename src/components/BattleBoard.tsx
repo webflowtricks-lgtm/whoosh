@@ -277,9 +277,11 @@ export default function BattleBoard({
   // Profile Card Modal Viewer State
   const [viewingProfile, setViewingProfile] = useState<{ profile: ProfileCardData; isSelf: boolean } | null>(null);
 
-  // Combatants
+  // Combatants (with refs para acesso mutavel sem depender de re-render)
   const [playerCombatants, setPlayerCombatants] = useState<CombatCharacter[]>([]);
   const [enemyCombatants, setEnemyCombatants] = useState<CombatCharacter[]>([]);
+  const playerRef = useRef<CombatCharacter[]>([]);
+  const enemyRef = useRef<CombatCharacter[]>([]);
 
   // Chakra Pools (start at 0, first turn rolls 1 random element)
   const [playerChakra, setPlayerChakra] = useState<ChakraPool>({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
@@ -1315,7 +1317,9 @@ const handleTradeChakra = () => {
           }
 
           if (finalDamage > 0) {
+            const before = t.health;
             t.health = Math.max(0, t.health - finalDamage);
+            console.log(`[DMG] ${source.character.name} -> ${t.character.name}: -${finalDamage} HP (${before} -> ${t.health}) shield:${t.shield} dead:${t.isDead}`);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -1459,11 +1463,6 @@ const handleTradeChakra = () => {
 
       // Process ALL buff/debuff effects independently (supports multi-effect skills)
 
-      // 1. Shields (from generic skill data)
-      if (skill.shieldVal && skill.shieldVal > 0) {
-        applyBuffEffect(`${skill.name} Shield`, 'shield', skill.shieldDuration || 99, skill.shieldVal, true);
-      }
-
       // 2. Legacy hardcoded effects (by skill name)
       if (!skill.shieldVal) {
         switch (skill.name) {
@@ -1574,6 +1573,8 @@ const handleTradeChakra = () => {
     });
 
     // Save updated state
+    playerRef.current = updatedPlayer;
+    enemyRef.current = updatedEnemy;
     setPlayerCombatants(updatedPlayer);
     setEnemyCombatants(updatedEnemy);
     setLogs(prev => [...prev, ...newLogs]);
@@ -1655,6 +1656,8 @@ const handleTradeChakra = () => {
     applyTurnEndUpdates(updatedPlayer, 'Player');
     applyTurnEndUpdates(updatedEnemy, 'Enemy');
 
+    playerRef.current = updatedPlayer;
+    enemyRef.current = updatedEnemy;
     setPlayerCombatants(updatedPlayer);
     setEnemyCombatants(updatedEnemy);
 
@@ -3738,6 +3741,8 @@ if (skill.reflect) {
     applyTurnEndUpdates(updatedEnemy, 'Enemy');
 
     // Save state
+    playerRef.current = updatedPlayer;
+    enemyRef.current = updatedEnemy;
     setPlayerCombatants(updatedPlayer);
     setEnemyCombatants(updatedEnemy);
     setCuedActions([]);
@@ -4118,7 +4123,7 @@ if (skill.cannotBeReflected) {
             {/* End Turn Button */}
             <button
               onClick={handleEndTurn}
-              disabled={!isSandbox && activePlanner !== 'player'}
+              disabled={isPreparing || (!isSandbox && activePlanner !== 'player')}
               className={`px-4 sm:px-6 py-2 sm:py-2.5 ${
                 isSandbox
                   ? activePlanner === 'player'

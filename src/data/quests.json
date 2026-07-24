@@ -10,12 +10,13 @@
       {
         "id": "goal_1784869393005_1",
         "type": "win_battles_with_chars",
+        "targetValue": 3,
+        "currentValue": 3,
+        "singleMatch": false,
         "targetCharacters": [
-          "Uzumaki Naruto",
+          "Naruto Uzumaki",
           "Sasuke Uchiha"
         ],
-        "targetValue": 5,
-        "currentValue": 0,
         "currentStreak": 0
       }
     ],
@@ -25,11 +26,11 @@
         "value": "Haku"
       }
     ],
-    "completed": false
+    "completed": true
   },
   {
     "id": "quest_1784869393597",
-    "title": "Nova Missão Lendária",
+    "title": "Nova Missão Lendária 2",
     "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
     "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
     "minRank": "Estudante de Academia",
@@ -39,7 +40,8 @@
         "id": "goal_1784869393597_1",
         "type": "win_battles_with_chars",
         "targetCharacters": [
-          "Uzumaki Naruto"
+          "Uzumaki Naruto",
+          "Sasuke Uchiha"
         ],
         "targetValue": 5,
         "currentValue": 0,

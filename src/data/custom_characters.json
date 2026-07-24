@@ -21,11 +21,12 @@
         ],
         "cooldown": 0,
         "currentCooldown": 0,
-        "targetType": "Enemy",
+        "targetType": "AllEnemies",
         "classes": [
           "Físico",
           "Corpo a Corpo"
-        ]
+        ],
+        "damage": 20
       },
       {
         "name": "Rasengan",
