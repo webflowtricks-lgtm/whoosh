@@ -126,7 +126,23 @@
           "Sakura Haruno"
         ],
         "targetValue": 5,
-        "currentValue": 0,
+        "currentValue": 3,
+        "currentStreak": 0
+      },
+      {
+        "id": "goal_1784889181561_2",
+        "type": "shield",
+        "targetValue": 500,
+        "currentValue": 60,
+        "singleMatch": false,
+        "currentStreak": 0
+      },
+      {
+        "id": "goal_1784889202714_3",
+        "type": "damage_dealt",
+        "targetValue": 500,
+        "currentValue": 500,
+        "singleMatch": false,
         "currentStreak": 0
       }
     ],

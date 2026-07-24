@@ -263,10 +263,10 @@ export default function BattleBoard({
     playerCharactersUsed: playerTeam.map(c => c.name),
   });
 
-  const handleQuit = () => {
+  const handleQuit = async () => {
     console.log('handleQuit gameOver:', gameOver, 'has onBattleEnd:', !!onBattleEnd, 'playerChars:', matchStatsRef.current.playerCharactersUsed);
     if (gameOver && onBattleEnd) {
-      onBattleEnd(gameOver === 'victory', matchStatsRef.current);
+      await onBattleEnd(gameOver === 'victory', matchStatsRef.current);
     }
     onQuit();
   };
@@ -1439,6 +1439,7 @@ const handleTradeChakra = () => {
         if (type === 'shield') {
           const t = isSelfTarget ? source : target;
           t.shield = (t.shield || 0) + value;
+          if (action.isPlayer) matchStatsRef.current.shieldGenerated += value;
           newLogs.push({
             id: Math.random().toString(), turn,
             message: `🛡️ ${t.character.name} ganhou +${value} de escudo com [${skill.name}]!`,
