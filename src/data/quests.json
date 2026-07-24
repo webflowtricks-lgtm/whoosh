@@ -15,7 +15,8 @@
           "Sasuke Uchiha"
         ],
         "targetValue": 5,
-        "currentValue": 0
+        "currentValue": 0,
+        "currentStreak": 0
       }
     ],
     "rewards": [

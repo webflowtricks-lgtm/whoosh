@@ -264,6 +264,7 @@ export default function BattleBoard({
   });
 
   const handleQuit = () => {
+    console.log('handleQuit gameOver:', gameOver, 'has onBattleEnd:', !!onBattleEnd, 'playerChars:', matchStatsRef.current.playerCharactersUsed);
     if (gameOver && onBattleEnd) {
       onBattleEnd(gameOver === 'victory', matchStatsRef.current);
     }
@@ -1023,6 +1024,7 @@ const handleTradeChakra = () => {
 
   // Who is currently selecting their actions / whose planning turn it is
   const [activePlanner, setActivePlanner] = useState<'player' | 'enemy'>('player');
+  const [isPreparing, setIsPreparing] = useState(false);
   const [passedPlayersThisTurn, setPassedPlayersThisTurn] = useState<('player' | 'enemy')[]>([]);
 
   const pushActiveEffect = (character: CombatCharacter, effect: ActiveEffect) => {
@@ -1176,7 +1178,18 @@ const handleTradeChakra = () => {
       }
 
       // Skill parameters
-      const baseDamage = skill.damage || 0;
+      let baseDamage = skill.damage || 0;
+      if (!skill.damage && !skill.directDamage) {
+        const legacyDmg: Record<string, number> = {
+          'Uzumaki Barrage': 20, 'Lions Barrage': 30, 'Chidori': 40, 'KO Punch': 20,
+          'Lightning Blade': 40, 'Sand Coffin': 15, 'Sand Burial': 35, 'Shadow Strangle': 40,
+          'Mind Destruction': 35, 'Amaterasu': 35, 'Blazing Arrow': 25, 'Curse Mark': 35,
+          'Dark Void': 30, 'Dark Genjutsu': 25, 'Rasengan': 45, 'Ninja Hounds': 15,
+          'Golpe Básico': 20, 'Golpe Rápido': 15, 'Golpe Sombrio': 25,
+          'Golpe Sombrio (S)': 30, 'Ataque Sombrio': 25, 'Ataque Sombrio (S)': 30,
+        };
+        baseDamage = legacyDmg[skill.name] || 0;
+      }
       const directDamage = skill.directDamage || 0;
       const healAmt = skill.heal || 0;
       let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
@@ -1256,6 +1269,7 @@ const handleTradeChakra = () => {
       // 1. DAMAGE & SHIELDS
       if (baseDamage > 0) {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        if (damageTargets.length === 0) return;
         damageTargets.forEach(t => {
           if (t.isDead) return;
           const startingShield = t.shield;
@@ -1675,15 +1689,18 @@ const handleTradeChakra = () => {
   };
 
   // Main End Turn / Pass Turn handler
-  const handleEndTurn = () => {
+  const handleEndTurn = async () => {
     playCustomSound('NextTurn');
 
+    setIsPreparing(true);
+    await new Promise(r => setTimeout(r, 50));
     const currentActions = [...cuedActions];
     setCuedActions([]);
     setSelectedSkill(null);
 
     const isCurrentPlayer = activePlanner === 'player';
     const isGameOver = executeSideActions(currentActions, isCurrentPlayer);
+    setIsPreparing(false);
     if (isGameOver) return;
 
     if (onlineParams?.isOnline) {
@@ -1728,7 +1745,10 @@ const handleTradeChakra = () => {
     if (gameOver || isSandbox || onlineParams?.isOnline) return;
 
     if (activePlanner === 'enemy' && !passedPlayersThisTurn.includes('enemy')) {
-      const timer = setTimeout(() => {
+        const timer = setTimeout(async () => {
+        setIsPreparing(true);
+        await new Promise(r => setTimeout(r, 5000));
+        await new Promise(r => setTimeout(r, 50));
         const aiActions: CuedAction[] = [];
         let tempAiChakra = { ...enemyChakra };
 
@@ -1953,6 +1973,7 @@ const handleTradeChakra = () => {
         }
 
         const isGameOver = executeSideActions(aiActions, false);
+        setIsPreparing(false);
         if (isGameOver) return;
 
         const newPassed: ('player' | 'enemy')[] = [...passedPlayersThisTurn, 'enemy'];
@@ -5816,6 +5837,15 @@ if (skill.cannotBeReflected) {
 
       {/* WAITING FOR OPPONENT OVERLAY */}
       <AnimatePresence>
+        {isPreparing && (
+          <div className="fixed inset-0 bg-slate-950/60 z-45 flex items-center justify-center p-6 backdrop-blur-sm select-none">
+            <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-2xl px-6 py-4 shadow-2xl">
+              <div className="w-5 h-5 rounded-full border-2 border-orange-500/30 border-t-orange-500 animate-spin" />
+              <span className="text-xs font-mono text-slate-300 font-bold uppercase tracking-wider">Preparando habilidades...</span>
+            </div>
+          </div>
+        )}
+
         {isWaitingForOpponent && (
           <div className="fixed inset-0 bg-slate-950/80 z-45 flex items-center justify-center p-6 backdrop-blur-sm select-none">
             <motion.div

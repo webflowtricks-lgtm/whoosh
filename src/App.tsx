@@ -207,7 +207,7 @@ export default function App() {
         case 'win_battles_with_chars':
           if (victory) {
             const hasRequiredChars = goal.targetCharacters?.every(name => 
-              stats.playerCharactersUsed.includes(name)
+              stats.playerCharactersUsed.some((pn: string) => pn.toLowerCase().includes(name.toLowerCase()))
             );
             if (hasRequiredChars) {
               valueToAdd = 1;
@@ -217,7 +217,7 @@ export default function App() {
 
         case 'win_consecutive_battles_with_chars':
           const hasStreakChars = goal.targetCharacters?.every(name => 
-            stats.playerCharactersUsed.includes(name)
+            stats.playerCharactersUsed.some((pn: string) => pn.toLowerCase().includes(name.toLowerCase()))
           );
           if (hasStreakChars) {
             if (victory) {
@@ -284,16 +284,18 @@ export default function App() {
 
     try {
       const res = await fetch('/api/quests');
+      if (!res.ok) { console.error('GET quests failed:', res.status); return; }
       const data = await res.json();
       if (data.success) {
         const updatedQuestsList = data.quests.map((q: any) => 
           q.id === updatedQuest.id ? updatedQuest : q
         );
-        await fetch('/api/quests', {
+        const saveRes = await fetch('/api/quests', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ quests: updatedQuestsList })
         });
+        if (!saveRes.ok) console.error('POST quests failed:', saveRes.status);
       }
     } catch (err) {
       console.error('Failed to sync updated quest on battle end:', err);
