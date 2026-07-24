@@ -152,6 +152,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
 
   // Show temporary error feedback
   const triggerError = (msg: string) => {
+    playClickSound();
     setErrorMessage(msg);
     setTimeout(() => setErrorMessage(''), 4000);
   };

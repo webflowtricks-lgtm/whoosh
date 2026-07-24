@@ -154,18 +154,17 @@ export default function App() {
     setReconnectData(null);
   };
 
-  // Global sound effect triggers
+  // Global sound effect triggers (tenta OGG, fallback MP3)
   const playSound = (soundName: string) => {
     if (isMuted) return;
-    try {
-      const audio = new Audio(`/static/audio/${soundName}.ogg`);
-      audio.volume = 0.45;
-      audio.play().catch(e => {
-        console.log('Audio autoplay prevented:', e);
-      });
-    } catch (err) {
-      console.error('Audio playback error:', err);
-    }
+    const tryExt = (ext: string) => {
+      try {
+        const a = new Audio(`/static/audio/${soundName}.${ext}`);
+        a.volume = 0.45;
+        return a.play();
+      } catch { return Promise.reject(); }
+    };
+    tryExt('ogg').catch(() => tryExt('mp3')).catch(() => {});
   };
 
   const playClickSound = () => playSound('Click');

@@ -656,16 +656,17 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
-  // Audio utility helper
+  // Audio utility helper (tenta OGG, fallback MP3)
   const playCustomSound = (soundName: string) => {
     if (isMuted) return;
-    try {
-      const audio = new Audio(`/static/audio/${soundName}.ogg`);
-      audio.volume = 0.4;
-      audio.play().catch(e => console.log('Audio playback prevented:', e));
-    } catch (err) {
-      console.error(err);
-    }
+    const tryExt = (ext: string) => {
+      try {
+        const a = new Audio(`/static/audio/${soundName}.${ext}`);
+        a.volume = 0.4;
+        return a.play();
+      } catch { return Promise.reject(); }
+    };
+    tryExt('ogg').catch(() => tryExt('mp3')).catch(() => {});
   };
 
   // Play Victory / Defeat sound when game finishes
@@ -1981,6 +1982,7 @@ const handleTradeChakra = () => {
 
   const handleSurrender = () => {
     playClickSound();
+    playScrollSound();
     setShowSurrenderModal(true);
   };
 

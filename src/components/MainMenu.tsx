@@ -177,6 +177,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             <button
               onClick={() => {
                 playClickSound();
+                playScrollSound();
                 setShowProfileCardModal(true);
               }}
               className="p-3.5 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/80 hover:bg-slate-900 text-slate-200 transition-all cursor-pointer flex items-center gap-3 shadow-xl group relative"
@@ -221,6 +222,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             <button
               onClick={() => {
                 playClickSound();
+                playScrollSound();
                 setShowEventsModal(true);
               }}
               className="p-3.5 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/80 hover:bg-slate-900 text-slate-200 hover:text-orange-400 transition-all cursor-pointer flex items-center gap-3 shadow-xl group relative overflow-hidden"
@@ -242,6 +244,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             <button
               onClick={() => {
                 playClickSound();
+                playScrollSound();
                 setShowShopModal(true);
               }}
               className="p-3.5 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/80 hover:bg-slate-900 text-slate-200 hover:text-amber-400 transition-all cursor-pointer flex items-center gap-3 shadow-xl group"
