@@ -209,6 +209,11 @@
         "classes": [
           "Físico",
           "Corpo a Corpo"
+        ],
+        "damage": 20,
+        "stunTurns": 1,
+        "stunType": [
+          "physical"
         ]
       },
       {
@@ -237,7 +242,9 @@
         "targetType": "Self",
         "classes": [
           "Mental"
-        ]
+        ],
+        "damageReductionVal": 15,
+        "damageReductionDuration": 4
       },
       {
         "name": "Substitution",
@@ -330,7 +337,10 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "requiredQuestIds": [
+      "kakashi"
+    ]
   },
   {
     "id": "gaara",
@@ -358,7 +368,8 @@
         "classes": [
           "Chakra",
           "À Distância"
-        ]
+        ],
+        "damage": 15
       },
       {
         "name": "Sand Burial",

@@ -1595,8 +1595,10 @@ const handleTradeChakra = () => {
   // Helper to execute end-of-turn effects after BOTH players have completed their action phase
   const executeTurnEndResolution = () => {
     const newLogs: CombatLog[] = [];
-    const updatedPlayer = playerCombatants.map(c => ({ ...c }));
-    const updatedEnemy = enemyCombatants.map(c => ({ ...c }));
+    const srcPlayer = playerRef.current.length ? playerRef.current : playerCombatants;
+    const srcEnemy = enemyRef.current.length ? enemyRef.current : enemyCombatants;
+    const updatedPlayer = srcPlayer.map(c => ({ ...c }));
+    const updatedEnemy = srcEnemy.map(c => ({ ...c }));
 
     const applyTurnEndUpdates = (combatantList: CombatCharacter[], name: string) => {
       combatantList.forEach(c => {
@@ -1699,18 +1701,15 @@ const handleTradeChakra = () => {
   };
 
   // Main End Turn / Pass Turn handler
-  const handleEndTurn = async () => {
+  const handleEndTurn = () => {
     playCustomSound('NextTurn');
 
-    setIsPreparing(true);
-    await new Promise(r => setTimeout(r, 50));
     const currentActions = [...cuedActions];
     setCuedActions([]);
     setSelectedSkill(null);
 
     const isCurrentPlayer = activePlanner === 'player';
     const isGameOver = executeSideActions(currentActions, isCurrentPlayer);
-    setIsPreparing(false);
     if (isGameOver) return;
 
     if (onlineParams?.isOnline) {
@@ -1755,10 +1754,7 @@ const handleTradeChakra = () => {
     if (gameOver || isSandbox || onlineParams?.isOnline) return;
 
     if (activePlanner === 'enemy' && !passedPlayersThisTurn.includes('enemy')) {
-        const timer = setTimeout(async () => {
-        setIsPreparing(true);
-        await new Promise(r => setTimeout(r, 5000));
-        await new Promise(r => setTimeout(r, 50));
+        const timer = setTimeout(() => {
         const aiActions: CuedAction[] = [];
         let tempAiChakra = { ...enemyChakra };
 
@@ -1983,7 +1979,6 @@ const handleTradeChakra = () => {
         }
 
         const isGameOver = executeSideActions(aiActions, false);
-        setIsPreparing(false);
         if (isGameOver) return;
 
         const newPassed: ('player' | 'enemy')[] = [...passedPlayersThisTurn, 'enemy'];
