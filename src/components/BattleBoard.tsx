@@ -631,7 +631,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
             }
           });
         }
-      } catch (err) {
+        } catch (err) {
         console.error('Error polling emojis:', err);
       }
     }, 1500);
@@ -1187,7 +1187,15 @@ const handleTradeChakra = () => {
           'Dark Void': 30, 'Dark Genjutsu': 25, 'Rasengan': 45, 'Ninja Hounds': 15,
           'Golpe Básico': 20, 'Golpe Rápido': 15, 'Golpe Sombrio': 25,
           'Golpe Sombrio (S)': 30, 'Ataque Sombrio': 25, 'Ataque Sombrio (S)': 30,
+          'Golpe Feroz': 25, 'Golpe Preciso': 20, 'Rajada de Golpes': 30,
+          'Golpe Sombrio Lendário': 40, 'Ataque Sombrio Lendário': 40,
+          'Investida': 20, 'Corte Rápido': 25, 'Lâmina Sombria': 35,
+          'Explosão de Chakra': 30, 'Esfera de Chakra': 35, 'Raio de Chakra': 40,
         };
+        if (!baseDamage && skill.name) {
+          const match = Object.keys(legacyDmg).find(k => skill.name.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(skill.name.toLowerCase()));
+          if (match) baseDamage = legacyDmg[match];
+        }
         baseDamage = legacyDmg[skill.name] || 0;
       }
       const directDamage = skill.directDamage || 0;
@@ -1269,7 +1277,6 @@ const handleTradeChakra = () => {
       // 1. DAMAGE & SHIELDS
       if (baseDamage > 0) {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
-        if (damageTargets.length === 0) return;
         damageTargets.forEach(t => {
           if (t.isDead) return;
           const startingShield = t.shield;
@@ -4213,6 +4220,7 @@ if (skill.cannotBeReflected) {
           </div>
           <div className="space-y-4">
             {playerCombatants.map((combatant, idx) => {
+              const isMyTurn = activePlanner === 'player' || isSandbox;
               const isSelectedSource = selectedSkill?.charId === combatant.id;
               const hasCued = cuedActions.some(a => a.sourceId === combatant.id);
               const cuedAct = cuedActions.find(a => a.sourceId === combatant.id);
@@ -4250,6 +4258,8 @@ if (skill.cannotBeReflected) {
                     className={`flex-1 relative p-4 rounded-xl border bg-slate-900/60 transition-all ${
                       combatant.isDead
                         ? 'border-slate-950 bg-slate-950/40 opacity-40 pointer-events-none'
+                        : !isMyTurn
+                        ? 'border-slate-800/50 opacity-50'
                         : selectedSkill && selectedSkill.charId !== combatant.id
                         ? 'border-blue-500/40 hover:border-blue-500 bg-blue-950/5 cursor-pointer shadow-lg shadow-blue-500/5'
                         : 'border-slate-800'
@@ -5838,11 +5848,9 @@ if (skill.cannotBeReflected) {
       {/* WAITING FOR OPPONENT OVERLAY */}
       <AnimatePresence>
         {isPreparing && (
-          <div className="fixed inset-0 bg-slate-950/60 z-45 flex items-center justify-center p-6 backdrop-blur-sm select-none">
-            <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-2xl px-6 py-4 shadow-2xl">
-              <div className="w-5 h-5 rounded-full border-2 border-orange-500/30 border-t-orange-500 animate-spin" />
-              <span className="text-xs font-mono text-slate-300 font-bold uppercase tracking-wider">Preparando habilidades...</span>
-            </div>
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-full px-4 py-2 shadow-lg backdrop-blur-sm select-none">
+            <div className="w-4 h-4 rounded-full border-2 border-orange-500/30 border-t-orange-500 animate-spin" />
+            <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">Preparando...</span>
           </div>
         )}
 

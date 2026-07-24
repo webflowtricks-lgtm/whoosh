@@ -195,110 +195,62 @@ export default function App() {
   };
 
   const handleBattleEnd = async (victory: boolean, stats: any) => {
-    if (!activeQuest || !user) return;
-
-    // Update goals based on battle stats
-    const updatedGoals = activeQuest.goals.map(goal => {
-      let valueToAdd = 0;
-      let newStreak = goal.currentStreak || 0;
-      let currentVal = goal.singleMatch ? 0 : goal.currentValue;
-
-      switch (goal.type) {
-        case 'win_battles_with_chars':
-          if (victory) {
-            const hasRequiredChars = goal.targetCharacters?.every(name => 
-              stats.playerCharactersUsed.some((pn: string) => pn.toLowerCase().includes(name.toLowerCase()))
-            );
-            if (hasRequiredChars) {
-              valueToAdd = 1;
-            }
-          }
-          break;
-
-        case 'win_consecutive_battles_with_chars':
-          const hasStreakChars = goal.targetCharacters?.every(name => 
-            stats.playerCharactersUsed.some((pn: string) => pn.toLowerCase().includes(name.toLowerCase()))
-          );
-          if (hasStreakChars) {
-            if (victory) {
-              newStreak += 1;
-              valueToAdd = 1;
-            } else {
-              newStreak = 0;
-              currentVal = 0;
-            }
-          }
-          break;
-
-        case 'use_skill':
-          if (goal.targetSkill && stats.skillsUsed[goal.targetSkill]) {
-            valueToAdd = stats.skillsUsed[goal.targetSkill];
-          }
-          break;
-
-        case 'heal':
-          valueToAdd = stats.healingDone;
-          break;
-
-        case 'kill_with_skill':
-          if (goal.targetSkill && stats.killsWithSkill[goal.targetSkill]) {
-            valueToAdd = stats.killsWithSkill[goal.targetSkill];
-          }
-          break;
-
-        case 'shield':
-          valueToAdd = stats.shieldGenerated;
-          break;
-
-        case 'damage_received':
-          valueToAdd = stats.damageReceived;
-          break;
-
-        case 'damage_dealt':
-          valueToAdd = stats.damageDealt;
-          break;
-
-        case 'stun_enemy':
-          valueToAdd = stats.stunsApplied;
-          break;
-      }
-
-      const nextVal = Math.min(goal.targetValue, currentVal + valueToAdd);
-
-      return {
-        ...goal,
-        currentValue: nextVal,
-        currentStreak: newStreak
-      };
-    });
-
-    const isNowFinished = updatedGoals.every(g => g.currentValue >= g.targetValue);
-
-    const updatedQuest: Quest = {
-      ...activeQuest,
-      goals: updatedGoals,
-      completed: isNowFinished ? true : activeQuest.completed
-    };
-
-    setActiveQuest(updatedQuest);
+    if (!user) return;
 
     try {
       const res = await fetch('/api/quests');
-      if (!res.ok) { console.error('GET quests failed:', res.status); return; }
+      if (!res.ok) return;
       const data = await res.json();
-      if (data.success) {
-        const updatedQuestsList = data.quests.map((q: any) => 
-          q.id === updatedQuest.id ? updatedQuest : q
-        );
-        const saveRes = await fetch('/api/quests', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quests: updatedQuestsList })
+      if (!data.success || !Array.isArray(data.quests)) return;
+
+      const updatedList = data.quests.map((q: Quest) => {
+        const updatedGoals = q.goals.map(goal => {
+          let valueToAdd = 0;
+          let newStreak = goal.currentStreak || 0;
+          let currentVal = goal.singleMatch ? 0 : goal.currentValue;
+
+          switch (goal.type) {
+            case 'win_battles_with_chars':
+              if (victory) {
+                const hasChars = goal.targetCharacters?.every((name: string) =>
+                  stats.playerCharactersUsed.some((pn: string) => pn.toLowerCase().includes(name.toLowerCase()))
+                );
+                if (hasChars) valueToAdd = 1;
+              }
+              break;
+            case 'win_consecutive_battles_with_chars':
+              if (goal.targetCharacters?.every((name: string) => stats.playerCharactersUsed.some((pn: string) => pn.toLowerCase().includes(name.toLowerCase())))) {
+                if (victory) { newStreak += 1; valueToAdd = 1; }
+                else { newStreak = 0; currentVal = 0; }
+              }
+              break;
+            case 'use_skill':
+              if (goal.targetSkill && stats.skillsUsed[goal.targetSkill]) valueToAdd = stats.skillsUsed[goal.targetSkill];
+              break;
+            case 'heal': valueToAdd = stats.healingDone; break;
+            case 'kill_with_skill':
+              if (goal.targetSkill && stats.killsWithSkill[goal.targetSkill]) valueToAdd = stats.killsWithSkill[goal.targetSkill];
+              break;
+            case 'shield': valueToAdd = stats.shieldGenerated; break;
+            case 'damage_received': valueToAdd = stats.damageReceived; break;
+            case 'damage_dealt': valueToAdd = stats.damageDealt; break;
+            case 'stun_enemy': valueToAdd = stats.stunsApplied; break;
+          }
+
+          return { ...goal, currentValue: Math.min(goal.targetValue, currentVal + valueToAdd), currentStreak: newStreak };
         });
-        if (!saveRes.ok) console.error('POST quests failed:', saveRes.status);
-      }
+
+        const isNowFinished = updatedGoals.every(g => g.currentValue >= g.targetValue);
+        return { ...q, goals: updatedGoals, completed: isNowFinished ? true : q.completed };
+      });
+
+      await fetch('/api/quests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quests: updatedList })
+      });
     } catch (err) {
-      console.error('Failed to sync updated quest on battle end:', err);
+      console.error('Failed to sync quests on battle end:', err);
     }
   };
 

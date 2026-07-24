@@ -42,7 +42,8 @@
           "Uzumaki Naruto"
         ],
         "targetValue": 5,
-        "currentValue": 0
+        "currentValue": 0,
+        "currentStreak": 0
       }
     ],
     "rewards": [
@@ -68,7 +69,8 @@
           "Uzumaki Naruto"
         ],
         "targetValue": 5,
-        "currentValue": 0
+        "currentValue": 0,
+        "currentStreak": 0
       }
     ],
     "rewards": [
@@ -94,7 +96,8 @@
           "Uzumaki Naruto"
         ],
         "targetValue": 5,
-        "currentValue": 0
+        "currentValue": 0,
+        "currentStreak": 0
       }
     ],
     "rewards": [
