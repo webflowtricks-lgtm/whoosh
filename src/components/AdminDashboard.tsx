@@ -780,9 +780,12 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                 className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between transition-all hover:border-slate-700"
               >
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                  <div className={`px-3 py-1.5 rounded-xl border bg-gradient-to-r font-black text-xs uppercase tracking-wider flex items-center gap-1.5 flex-shrink-0 ${rank.color}`}>
-                    <Award className="w-4 h-4" />
-                    <span>{rank.name || 'Sem Nome'}</span>
+                  <div className={`relative px-3 py-1.5 rounded-xl border bg-gradient-to-r font-black text-xs uppercase tracking-wider flex items-center gap-1.5 flex-shrink-0 overflow-hidden ${rank.color}`}>
+                    {rank.imageUrl && (
+                      <img src={rank.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                    )}
+                    <Award className="w-4 h-4 relative z-10" />
+                    <span className="relative z-10">{rank.name || 'Sem Nome'}</span>
                   </div>
                 </div>
 
@@ -834,6 +837,21 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                       <option value="from-red-600 to-pink-500 border-red-500/30 text-red-400">Vermelho (ANBU)</option>
                       <option value="from-orange-600 to-amber-500 border-orange-500/30 text-orange-400">Laranja/Dourado (Hokage)</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Imagem de Fundo (URL)</label>
+                    <input
+                      type="text"
+                      value={rank.imageUrl || ''}
+                      onChange={(e) => {
+                        const updated = [...ranksList];
+                        updated[index] = { ...updated[index], imageUrl: e.target.value || undefined };
+                        setRanksList(updated);
+                      }}
+                      placeholder="https://exemplo.com/imagem.jpg"
+                      className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-white outline-none font-mono"
+                    />
                   </div>
                 </div>
 

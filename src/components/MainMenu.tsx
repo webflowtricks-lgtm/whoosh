@@ -17,13 +17,14 @@ interface MainMenuProps {
   isMuted: boolean;
   onToggleMute: () => void;
   playClickSound: () => void;
+  playScrollSound: () => void;
   onOpenAdmin: () => void;
   user: UserProfile;
   onLogout: () => void;
   onUpdateUser?: (updatedUser: UserProfile) => void;
 }
 
-export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClickSound, onOpenAdmin, user, onLogout, onUpdateUser }: MainMenuProps) {
+export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClickSound, playScrollSound, onOpenAdmin, user, onLogout, onUpdateUser }: MainMenuProps) {
   const [showRules, setShowRules] = useState(false);
   const [showEventsModal, setShowEventsModal] = useState(false);
   const [showShopModal, setShowShopModal] = useState(false);

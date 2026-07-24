@@ -6,8 +6,9 @@
 export interface RankConfig {
   id: string;
   name: string;
-  requiredXp: number; // Quantidade de missões concluídas ou XP
-  color: string; // Tailwind CSS gradient / color classes
+  requiredXp: number;
+  color: string;
+  imageUrl?: string;
 }
 
 export const DEFAULT_RANKS: RankConfig[] = [

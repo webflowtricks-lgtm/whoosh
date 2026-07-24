@@ -1,1 +1,106 @@
-[]
+[
+  {
+    "id": "quest_1784869393005",
+    "title": "Nova Missão Lendária",
+    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1784869393005_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Uzumaki Naruto"
+        ],
+        "targetValue": 5,
+        "currentValue": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Guerreiro do Amanhecer"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "quest_1784869393597",
+    "title": "Nova Missão Lendária",
+    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1784869393597_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Uzumaki Naruto"
+        ],
+        "targetValue": 5,
+        "currentValue": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Guerreiro do Amanhecer"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "quest_1784869394116",
+    "title": "Nova Missão Lendária",
+    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1784869394116_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Uzumaki Naruto"
+        ],
+        "targetValue": 5,
+        "currentValue": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Guerreiro do Amanhecer"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "quest_1784869394404",
+    "title": "Nova Missão Lendária",
+    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1784869394404_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Uzumaki Naruto"
+        ],
+        "targetValue": 5,
+        "currentValue": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Guerreiro do Amanhecer"
+      }
+    ],
+    "completed": false
+  }
+]

@@ -402,6 +402,7 @@ export default function App() {
             isMuted={isMuted}
             onToggleMute={() => setIsMuted(!isMuted)}
             playClickSound={playClickSound}
+            playScrollSound={playScrollSound}
             onOpenAdmin={() => setScreen('admin')}
             user={user}
             onLogout={handleLogout}

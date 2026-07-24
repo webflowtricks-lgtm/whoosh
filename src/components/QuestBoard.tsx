@@ -490,8 +490,13 @@ export default function QuestBoard({
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
                         
                         {/* Rank requirement label */}
-                        <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold shadow-md">
-                          Rank: {quest.minRank}
+                        <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold shadow-md flex items-center gap-1.5 overflow-hidden">
+                          {(() => {
+                            const allRanks = getRanks();
+                            const r = allRanks.find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase());
+                            return r?.imageUrl ? <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" /> : null;
+                          })()}
+                          <span className="relative z-10">Rank: {quest.minRank}</span>
                         </div>
 
                         {/* Status badge top right */}
@@ -711,8 +716,13 @@ export default function QuestBoard({
               {/* Middle Section: Rank Box */}
               <div className="my-2 pt-2 border-t border-stone-900/20">
                 <div className="flex items-center gap-3">
-                  <div className="px-3 py-1 bg-[#d3ad75]/80 border-2 border-[#7a4e25] rounded-md text-stone-950 font-black text-xs uppercase tracking-wider shadow-sm">
-                    {currentRank}
+                  <div className="relative px-3 py-1 bg-[#d3ad75]/80 border-2 border-[#7a4e25] rounded-md text-stone-950 font-black text-xs uppercase tracking-wider shadow-sm overflow-hidden">
+                    {(() => {
+                      const allRanks = getRanks();
+                      const r = allRanks.find(rr => rr.name === currentRank || rr.name.toLowerCase() === currentRank.toLowerCase());
+                      return r?.imageUrl ? <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" /> : null;
+                    })()}
+                    <span className="relative z-10">{currentRank}</span>
                   </div>
                   <span className="text-xs font-bold text-stone-800 tracking-wide">
                     Rank Atual
