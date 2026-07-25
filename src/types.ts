@@ -445,9 +445,11 @@ export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter
       if (!rule.activeSkillName) continue;
       const targetNameLower = rule.activeSkillName.trim().toLowerCase();
 
+      const otherCombatants = (allCombatants || []).filter(c => c.id !== sourceChar.id);
+      console.log(`[CostRule] Verificando "${rule.activeSkillName}" em ${sourceChar.activeEffects.length} efeitos do source + ${otherCombatants.length} combatentes`);
       const allActiveEffects = [
         ...sourceChar.activeEffects,
-        ...(allCombatants || []).filter(c => c.id !== sourceChar.id).flatMap(c => c.activeEffects),
+        ...otherCombatants.flatMap(c => c.activeEffects),
       ];
 
       const isReqActive = allActiveEffects.some(e => {
@@ -459,6 +461,10 @@ export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter
           eNameLower.includes(targetNameLower)
         );
       });
+      if (isReqActive) {
+        const matched = allActiveEffects.find(e => e.name && e.name.toLowerCase().includes(targetNameLower));
+        console.log(`[CostRule] "${rule.activeSkillName}" ativo via "${matched?.name}" - custo reduzido`);
+      }
 
       if (isReqActive) {
         const typeToReduce: ChakraType | 'Any' =

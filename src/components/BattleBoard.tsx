@@ -5642,8 +5642,8 @@ if (skill.cannotBeReflected) {
                               playerChakra,
                               cuedActions.filter(a => a.sourceId !== combatant.id)
                             );
-                            const canAfford = canAffordSkill(skill, simulatedChakraForThisChar, combatant);
-                            const effectiveCost = getEffectiveSkillCost(skill, combatant);
+                            const canAfford = canAffordSkill(skill, simulatedChakraForThisChar, combatant, [...playerCombatants, ...enemyCombatants]);
+                            const effectiveCost = getEffectiveSkillCost(skill, combatant, [...playerCombatants, ...enemyCombatants]);
                             const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name === skill.requireEffect);
                             const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
 
@@ -6563,8 +6563,8 @@ if (skill.cannotBeReflected) {
 
                             const isCued = cuedActions.some(a => a.sourceId === combatant.id && a.skillIndex === sIdx);
                             const simulatedChakraForThisChar = getSimulatedRemainingChakra(enemyChakra, cuedActions.filter(a => a.sourceId !== combatant.id), true);
-                            const canAfford = canAffordSkill(skill, simulatedChakraForThisChar, combatant);
-                            const effectiveCost = getEffectiveSkillCost(skill, combatant);
+                            const canAfford = canAffordSkill(skill, simulatedChakraForThisChar, combatant, [...playerCombatants, ...enemyCombatants]);
+                            const effectiveCost = getEffectiveSkillCost(skill, combatant, [...playerCombatants, ...enemyCombatants]);
                             const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name === skill.requireEffect);
                             const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
 
