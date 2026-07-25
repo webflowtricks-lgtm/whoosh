@@ -21,12 +21,19 @@ export interface SkillCostRule {
   reduceSpecificAmount?: number; // Legacy compatibility
 }
 
+export interface SkillDamageRule {
+  activeSkillName: string; // Active skill/effect required on character
+  damageBoost: number; // Extra damage when condition is active
+  icon?: string; // Icon of the boosting skill
+}
+
 export interface Skill {
   name: string;
   desc: string;
   icon: string;
   cost: ChakraType[];
   costRules?: SkillCostRule[];
+  damageRules?: SkillDamageRule[];
   costRuleActiveSkill?: string;
   costRuleReduceRand?: number;
   costRuleReduceSpecificType?: ChakraType;
@@ -49,8 +56,11 @@ export interface Skill {
   damageReductionDuration?: number;
   damageBuffVal?: number;
   damageBuffDuration?: number;
+  damageDebuffVal?: number;
+  damageDebuffDuration?: number;
   dotVal?: number;
   dotDuration?: number;
+  dotInstant?: number;
   removeShield?: boolean;
   removeShieldDuration?: number;
   invulnerableDuration?: number;
@@ -58,6 +68,11 @@ export interface Skill {
   gainChakraDuration?: number;
   drainChakra?: number;
   drainChakraDuration?: number;
+  removeChakra?: number;
+  removeChakraDuration?: number;
+  removeChakraMode?: 'choice' | 'random';
+  stealChakra?: number;
+  stealChakraDuration?: number;
   invisible?: boolean;
   invisibleDuration?: number;
   ignoreInvulnerable?: boolean;
@@ -67,8 +82,10 @@ export interface Skill {
   // New custom dynamic effects (Bleeding, Affliction, Paralyze Cooldown, Cannot Reduce Damage, Cannot Be Invulnerable)
   bleedingVal?: number;
   bleedingDuration?: number;
+  bleedingInstant?: number;
   afflictionVal?: number;
   afflictionDuration?: number;
+  afflictionInstant?: number;
   paralyzeCooldownDuration?: number;
   cannotReduceDamageDuration?: number;
   cannotBeInvulnerableDuration?: number;
@@ -93,6 +110,8 @@ export interface Skill {
   invulnerableTarget?: TargetOverride;
   gainChakraTarget?: TargetOverride;
   drainChakraTarget?: TargetOverride;
+  removeChakraTarget?: TargetOverride;
+  stealChakraTarget?: TargetOverride;
 
   // Remove effect types overrides (cleanse)
   damageRemoveType?: string;
@@ -102,6 +121,7 @@ export interface Skill {
   shieldRemoveType?: string;
   damageReductionRemoveType?: string;
   damageBuffRemoveType?: string;
+  damageDebuffRemoveType?: string;
   dotRemoveType?: string;
   bleedingRemoveType?: string;
   afflictionRemoveType?: string;
@@ -111,6 +131,8 @@ export interface Skill {
   invulnerableRemoveType?: string;
   gainChakraRemoveType?: string;
   drainChakraRemoveType?: string;
+  removeChakraRemoveType?: string;
+  stealChakraRemoveType?: string;
   removeShieldRemoveType?: string;
   invisibleRemoveType?: string;
   counterAttackRemoveType?: string;
@@ -124,6 +146,7 @@ export interface Skill {
   shieldIrremovable?: boolean;
   damageReductionIrremovable?: boolean;
   damageBuffIrremovable?: boolean;
+  damageDebuffIrremovable?: boolean;
   dotIrremovable?: boolean;
   bleedingIrremovable?: boolean;
   afflictionIrremovable?: boolean;
@@ -132,6 +155,8 @@ export interface Skill {
   cannotBeInvulnerableIrremovable?: boolean;
   gainChakraIrremovable?: boolean;
   drainChakraIrremovable?: boolean;
+  removeChakraIrremovable?: boolean;
+  stealChakraIrremovable?: boolean;
   removeShieldIrremovable?: boolean;
   invulnerableIrremovable?: boolean;
   invisibleIrremovable?: boolean;
@@ -236,7 +261,8 @@ export interface ActiveEffect {
 | 'direct_damage'
 | 'heal'
 | 'cannot_reduce_damage'
-| 'cannot_be_invulnerable';
+| 'cannot_be_invulnerable'
+| 'damage_debuff';
   value?: number; // magnitude of shield, reduction, damage, etc.
   duration: number; // remaining turns
   icon?: string; // Icon of the skill that caused this effect/debuff
@@ -395,7 +421,7 @@ export interface Quest {
   completed: boolean;
 }
 
-export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter): ChakraType[] {
+export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter, allCombatants?: CombatCharacter[]): ChakraType[] {
   if (!skill) return [];
   if (skill.noChakraCost || !skill.cost || skill.cost.length === 0) {
     return [];
@@ -419,7 +445,12 @@ export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter
       if (!rule.activeSkillName) continue;
       const targetNameLower = rule.activeSkillName.trim().toLowerCase();
 
-      const isReqActive = sourceChar.activeEffects.some(e => {
+      const allActiveEffects = [
+        ...sourceChar.activeEffects,
+        ...(allCombatants || []).filter(c => c.id !== sourceChar.id).flatMap(c => c.activeEffects),
+      ];
+
+      const isReqActive = allActiveEffects.some(e => {
         if (!e.name) return false;
         const eNameLower = e.name.toLowerCase();
         return (
@@ -472,4 +503,3 @@ export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter
 
   return currentCost;
 }
-

@@ -307,7 +307,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               <div className="space-y-2">
                 <p className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800 pb-1">2. Rolagem de Chakra por Turno</p>
                 <p className="text-slate-400 leading-relaxed text-xs">
-                  A cada turno, você gera <strong className="text-orange-400">3 pontos aleatórios de chakra</strong> dos tipos: Taijutsu, Ninjutsu, Genjutsu ou Linhagem Sanguínea.
+                  A cada turno, você gera <strong className="text-orange-400">1 chakra aleatório por aliado vivo</strong> dos tipos: Taijutsu, Ninjutsu, Genjutsu ou Linhagem Sanguínea. Se tiver 2 aliados vivos, gera 2 chakras.
                 </p>
               </div>
               <div className="space-y-2">

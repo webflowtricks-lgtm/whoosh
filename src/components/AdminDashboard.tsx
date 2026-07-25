@@ -1251,7 +1251,8 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                     updated.splice(dropIdx, 0, moved);
                     setCharacters(updated);
                     setDragIndex(null);
-                    setOrderChanged(true);
+                    saveCharacters(updated);
+                    triggerSuccess('Ordem salva no banco de exportação!');
                   }}
                   onClick={() => setSelectedCharacterId(char.id)}
                   className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer group ${
@@ -1869,7 +1870,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                               ⚡ Regras de Redução de Custo de Chakra
                             </span>
                             <p className="text-[9px] text-slate-400">
-                              Permite que esta habilidade custe menos Chakra quando uma outra habilidade (buff/transformação) do personagem estiver ativa.
+                              Permite que esta habilidade custe menos Chakra quando uma outra habilidade (buff/transformação) estiver ativa em qualquer personagem (aliado ou inimigo).
                             </p>
                           </div>
                           <button
@@ -1954,6 +1955,73 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                     handleUpdateSkillField('costRules', updated.length > 0 ? updated : undefined);
                                   }}
                                   className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-[9px] font-bold uppercase tracking-wider text-rose-400 font-mono">Regras de Dano (Damage Rules)</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = editingSkill.damageRules || [];
+                            handleUpdateSkillField('damageRules', [
+                              ...current,
+                              { activeSkillName: '', damageBoost: 5 }
+                            ]);
+                          }}
+                          className="mt-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          + Adicionar Regra de Dano
+                        </button>
+                        {(!editingSkill.damageRules || editingSkill.damageRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic mt-1.5">
+                            Nenhuma regra de dano configurada.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1.5">
+                            {editingSkill.damageRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-slate-400 font-bold">Quando ativo:</span>
+                                <input
+                                  type="text"
+                                  list="activeSkill-suggestions"
+                                  value={rule.activeSkillName}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.damageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                    handleUpdateSkillField('damageRules', updated);
+                                  }}
+                                  placeholder="Ex: Sharingan"
+                                  className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-slate-400 font-bold">Dano+:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={50}
+                                  value={rule.damageBoost}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 1;
+                                    const updated = [...(editingSkill.damageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damageBoost: val };
+                                    handleUpdateSkillField('damageRules', updated);
+                                  }}
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.damageRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('damageRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer"
                                   title="Remover Regra"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -2964,7 +3032,53 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                             </div>
                           </div>
 
-                          {/* 11. Dano por Turno (DoT) */}
+                          {/* 11. Reduzir Dano das Skills (Debuff) */}
+                          <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono">Reduzir Dano das Skills (Debuff)</label>
+                              <div className="flex items-center gap-2">
+                                <input type="number" min={0} max={100}
+                                  value={editingSkill.damageDebuffVal || 0}
+                                  onChange={(e) => handleUpdateSkillField('damageDebuffVal', parseInt(e.target.value) || 0)}
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white font-bold" />
+                                <input type="number" min={1} max={10}
+                                  value={editingSkill.damageDebuffDuration || 0}
+                                  onChange={(e) => handleUpdateSkillField('damageDebuffDuration', parseInt(e.target.value) || 0)}
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white" />
+                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                              </div>
+                              <p className="text-[8px] text-slate-500 font-mono">Usa o mesmo alvo configurado em "Adicionar Escudo"</p>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input type="checkbox"
+                                    checked={editingSkill.damageDebuffIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('damageDebuffIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-rose-500 focus:ring-0 w-3 h-3" />
+                                  🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                  <select value={editingSkill.damageDebuffRemoveType || 'none'}
+                                    onChange={(e) => handleUpdateSkillField('damageDebuffRemoveType', e.target.value)}
+                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600">
+                                    <option value="none">Nenhum</option>
+                                    <option value="all">Todos</option>
+                                    <option value="buff">Buffs</option>
+                                    <option value="debuff">Debuffs</option>
+                                    <option value="stun">Stuns</option>
+                                    <option value="dot">DoTs</option>
+                                    <option value="bleeding">Sangra</option>
+                                    <option value="affliction">Aflição</option>
+                                    <option value="shield">Escudo</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 12. Dano por Turno (DoT) */}
                           <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
                             <div>
                               <label className="block text-[10px] font-bold uppercase tracking-wider text-orange-400 font-mono">Dano por Turno (DoT)</label>
@@ -2975,8 +3089,8 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   max={50}
                                   value={editingSkill.dotVal || 0}
                                   onChange={(e) => handleUpdateSkillField('dotVal', parseInt(e.target.value) || 0)}
-                                  placeholder="Valor"
-                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white font-bold"
+                                  placeholder="Val"
+                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white font-bold"
                                 />
                                 <input
                                   type="number"
@@ -2984,10 +3098,23 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   max={10}
                                   value={editingSkill.dotDuration || 0}
                                   onChange={(e) => handleUpdateSkillField('dotDuration', parseInt(e.target.value) || 0)}
-                                  placeholder="Turnos"
-                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                  placeholder="Dur"
+                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
-                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                                <span className="text-[9px] text-slate-500 font-mono">por turno</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={editingSkill.dotInstant || 0}
+                                  onChange={(e) => handleUpdateSkillField('dotInstant', parseInt(e.target.value) || 0)}
+                                  placeholder="Inst"
+                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-amber-700/60 rounded text-center text-xs font-mono text-amber-400 font-bold"
+                                  title="Dano instantâneo de queima"
+                                />
+                                <span className="text-[9px] text-amber-400 font-mono">instantâneo</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] text-orange-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
@@ -3096,8 +3223,8 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   max={100}
                                   value={editingSkill.bleedingVal || 0}
                                   onChange={(e) => handleUpdateSkillField('bleedingVal', parseInt(e.target.value) || 0)}
-                                  placeholder="Valor"
-                                  className="w-16 px-2 py-1 bg-slate-900 border border-red-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                  placeholder="Val"
+                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-red-900/60 rounded text-center text-xs font-mono text-white font-bold"
                                 />
                                 <input
                                   type="number"
@@ -3105,10 +3232,23 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   max={10}
                                   value={editingSkill.bleedingDuration || 0}
                                   onChange={(e) => handleUpdateSkillField('bleedingDuration', parseInt(e.target.value) || 0)}
-                                  placeholder="Turnos"
-                                  className="w-16 px-2 py-1 bg-slate-900 border border-red-900/60 rounded text-center text-xs font-mono text-white"
+                                  placeholder="Dur"
+                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-red-900/60 rounded text-center text-xs font-mono text-white"
                                 />
-                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                                <span className="text-[9px] text-slate-500 font-mono">por turno</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={editingSkill.bleedingInstant || 0}
+                                  onChange={(e) => handleUpdateSkillField('bleedingInstant', parseInt(e.target.value) || 0)}
+                                  placeholder="Inst"
+                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-red-700/60 rounded text-center text-xs font-mono text-red-400 font-bold"
+                                  title="Dano instantâneo de sangramento"
+                                />
+                                <span className="text-[9px] text-red-400 font-mono">instantâneo</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] text-red-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
@@ -3167,8 +3307,8 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   max={100}
                                   value={editingSkill.afflictionVal || 0}
                                   onChange={(e) => handleUpdateSkillField('afflictionVal', parseInt(e.target.value) || 0)}
-                                  placeholder="Valor"
-                                  className="w-16 px-2 py-1 bg-slate-900 border border-purple-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                  placeholder="Val"
+                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-purple-900/60 rounded text-center text-xs font-mono text-white font-bold"
                                 />
                                 <input
                                   type="number"
@@ -3176,10 +3316,23 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   max={10}
                                   value={editingSkill.afflictionDuration || 0}
                                   onChange={(e) => handleUpdateSkillField('afflictionDuration', parseInt(e.target.value) || 0)}
-                                  placeholder="Turnos"
-                                  className="w-16 px-2 py-1 bg-slate-900 border border-purple-900/60 rounded text-center text-xs font-mono text-white"
+                                  placeholder="Dur"
+                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-purple-900/60 rounded text-center text-xs font-mono text-white"
                                 />
-                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                                <span className="text-[9px] text-slate-500 font-mono">por turno</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={editingSkill.afflictionInstant || 0}
+                                  onChange={(e) => handleUpdateSkillField('afflictionInstant', parseInt(e.target.value) || 0)}
+                                  placeholder="Inst"
+                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-purple-700/60 rounded text-center text-xs font-mono text-purple-400 font-bold"
+                                  title="Dano instantâneo de aflição"
+                                />
+                                <span className="text-[9px] text-purple-400 font-mono">instantâneo</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] text-purple-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>

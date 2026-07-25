@@ -357,6 +357,103 @@
     "skins": []
   },
   {
+    "id": "shino",
+    "name": "Shino Aburame",
+    "description": "O reservado genin mestre de insetos do Time 8. Shino comanda insetos parasitas Kikaichu que drenam o chakra do oponente lentamente até que sequem.",
+    "tags": [
+      "Vila da Folha",
+      "Time 8",
+      "Aburame",
+      "Insetos"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/icon.jpg",
+    "folder": "shino-aburame",
+    "skills": [
+      {
+        "name": "Chakra Leech",
+        "desc": "Os insetos de Shino drenam o oponente, causando 15 de dano e roubando 1 chakra aleatório da equipe inimiga para adicioná-lo à sua equipe.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/ChakraLeech.jpg",
+        "cost": [
+          "Rand",
+          "Blood"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "afflictionVal": 0,
+        "afflictionDuration": 0,
+        "drainChakra": 1,
+        "afflictionInstant": 20,
+        "damageRules": [
+          {
+            "activeSkillName": "Parasite",
+            "damageBoost": 25
+          }
+        ],
+        "costRules": [
+          {
+            "activeSkillName": "Parasite",
+            "reduceType": "Rand",
+            "reduceAmount": 1
+          }
+        ]
+      },
+      {
+        "name": "Parasite",
+        "desc": "Shino infiltra insetos destrutivos na pele do oponente, reduzindo o dano causado por ele em 5 por 4 turnos.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/Parasite.jpg",
+        "cost": [],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "damageDebuffVal": 5,
+        "damageDebuffDuration": 4,
+        "doNotApplyIfActive": true
+      },
+      {
+        "name": "Wall of Insects",
+        "desc": "Shino cria um enxame espesso e denso de insetos protetores ao seu redor, obtendo 25 de Escudo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/WallofInsects.jpg",
+        "cost": [
+          "Blood",
+          "Rand"
+        ],
+        "cooldown": 3,
+        "currentCooldown": 0,
+        "targetType": "AllAllies",
+        "classes": [
+          "Chakra"
+        ],
+        "shieldVal": 25,
+        "shieldIrremovable": true
+      },
+      {
+        "name": "Insect Clone",
+        "desc": "Shino se substitui por um clone de insetos tático, ficando invulnerável a todo tipo de ataque por 1 turno.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/InsectClone.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 3,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Chakra"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
     "id": "kakashi",
     "name": "Kakashi Hatake",
     "description": "O líder Jonin de elite do Time 7. Conhecido mundialmente como o Ninja Copiador, Kakashi usa seu Sharingan para antecipar movimentos, se esconde no subsolo e desfere sua icônica Espada Relâmpago.",
@@ -1564,81 +1661,6 @@
         "targetType": "Self",
         "classes": [
           "Mental"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "shino",
-    "name": "Shino Aburame",
-    "description": "O reservado genin mestre de insetos do Time 8. Shino comanda insetos parasitas Kikaichu que drenam o chakra do oponente lentamente até que sequem.",
-    "tags": [
-      "Vila da Folha",
-      "Time 8",
-      "Aburame",
-      "Insetos"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/icon.jpg",
-    "folder": "shino-aburame",
-    "skills": [
-      {
-        "name": "Chakra Leech",
-        "desc": "Os insetos de Shino drenam o oponente, causando 15 de dano e roubando 1 chakra aleatório da equipe inimiga para adicioná-lo à sua equipe.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/ChakraLeech.jpg",
-        "cost": [
-          "Nin"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Parasite",
-        "desc": "Shino infiltra insetos destrutivos na pele do oponente, causando 15 de dano por turno por 3 turnos.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/Parasite.jpg",
-        "cost": [
-          "Nin",
-          "Rand"
-        ],
-        "cooldown": 2,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Wall of Insects",
-        "desc": "Shino cria um enxame espesso e denso de insetos protetores ao seu redor, obtendo 25 de Escudo.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/WallofInsects.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Chakra"
-        ]
-      },
-      {
-        "name": "Insect Clone",
-        "desc": "Shino se substitui por um clone de insetos tático, ficando invulnerável a todo tipo de ataque por 1 turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/InsectClone.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Chakra"
         ]
       }
     ],
