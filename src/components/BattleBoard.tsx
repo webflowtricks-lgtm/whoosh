@@ -5964,7 +5964,7 @@ if (skill.cannotBeReflected) {
                         <span className="text-slate-500 uppercase tracking-wide">Custo</span>
                         <div className="flex flex-wrap gap-0.5 mt-1 items-center">
                           {(() => {
-                            const effectiveCost = getEffectiveSkillCost(inspectedSkill.skill, inspectedSkill.combatant);
+                            const effectiveCost = getEffectiveSkillCost(inspectedSkill.skill, inspectedSkill.combatant, [...playerCombatants, ...enemyCombatants]);
                             if (inspectedSkill.skill.noChakraCost || effectiveCost.length === 0) {
                               return <span className="text-emerald-400 text-[9px] font-bold">Sem Custo</span>;
                             }
