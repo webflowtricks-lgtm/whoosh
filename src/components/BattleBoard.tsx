@@ -1257,7 +1257,7 @@ const handleTradeChakra = () => {
         const src = srcList.find(p => p.id === action.sourceId);
         if (!src) return;
         const skill = src.character.skills[action.skillIndex];
-        const effectiveCost = getEffectiveSkillCost(skill, src);
+        const effectiveCost = getEffectiveSkillCost(skill, src, [...updatedPlayer, ...updatedEnemy]);
         let randCost = 0;
         effectiveCost.forEach(cost => {
           if (cost === 'Rand') randCost++;
@@ -1603,16 +1603,19 @@ const handleTradeChakra = () => {
       // INSTANT DOT / BLEEDING / AFFLICTION
       if (dotInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - dotInstant);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += dotInstant;
         newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${target.character.name}: -${dotInstant} HP (QUEIMA)`, type: 'damage' });
         addFloatingText(target.id, `-${dotInstant} HP (QUEIMA)`, 'damage');
       }
       if (bleedingInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - bleedingInstant);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += bleedingInstant;
         newLogs.push({ id: Math.random().toString(), turn, message: `🩸 [${skill.name}] → ${target.character.name}: -${bleedingInstant} HP (SANGRAMENTO)`, type: 'damage' });
         addFloatingText(target.id, `-${bleedingInstant} HP (SANGRAMENTO)`, 'damage');
       }
       if (afflictionInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - afflictionInstant);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += afflictionInstant;
         newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${afflictionInstant} HP (AFLICAO)`, type: 'damage' });
         addFloatingText(target.id, `-${afflictionInstant} HP (AFLICAO)`, 'damage');
       }
@@ -3704,16 +3707,19 @@ const handleTradeChakra = () => {
       // INSTANT DOT / BLEEDING / AFFLICTION
       if (dotInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - dotInstant);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += dotInstant;
         newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${target.character.name}: -${dotInstant} HP (QUEIMA)`, type: 'damage' });
         addFloatingText(target.id, `-${dotInstant} HP (QUEIMA)`, 'damage');
       }
       if (bleedingInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - bleedingInstant);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += bleedingInstant;
         newLogs.push({ id: Math.random().toString(), turn, message: `🩸 [${skill.name}] → ${target.character.name}: -${bleedingInstant} HP (SANGRAMENTO)`, type: 'damage' });
         addFloatingText(target.id, `-${bleedingInstant} HP (SANGRAMENTO)`, 'damage');
       }
       if (afflictionInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - afflictionInstant);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += afflictionInstant;
         newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${afflictionInstant} HP (AFLICAO)`, type: 'damage' });
         addFloatingText(target.id, `-${afflictionInstant} HP (AFLICAO)`, 'damage');
       }
