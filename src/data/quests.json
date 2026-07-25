@@ -1,0 +1,157 @@
+[
+  {
+    "id": "quest_1784869393005",
+    "title": "O Último Espelho de Gelo",
+    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
+    "coverUrl": "https://wallpapercat.com/w/full/6/0/8/2150088-1920x1080-desktop-1080p-haku-wallpaper-photo.jpg",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1784869393005_1",
+        "type": "win_battles_with_chars",
+        "targetValue": 3,
+        "currentValue": 3,
+        "singleMatch": false,
+        "targetCharacters": [
+          "Naruto Uzumaki",
+          "Sasuke Uchiha"
+        ],
+        "currentStreak": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "unlock_character",
+        "value": "Haku"
+      }
+    ],
+    "completed": true
+  },
+  {
+    "id": "quest_1784869393597",
+    "title": "Nova Missão Lendária 2",
+    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1784869393597_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Uzumaki Naruto",
+          "Sasuke Uchiha"
+        ],
+        "targetValue": 5,
+        "currentValue": 0,
+        "currentStreak": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Guerreiro do Amanhecer"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "quest_1784869394116",
+    "title": "Nova Missão Lendária",
+    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1784869394116_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Uzumaki Naruto"
+        ],
+        "targetValue": 5,
+        "currentValue": 0,
+        "currentStreak": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Guerreiro do Amanhecer"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "quest_1784869394404",
+    "title": "Nova Missão Lendária",
+    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1784869394404_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Uzumaki Naruto"
+        ],
+        "targetValue": 5,
+        "currentValue": 0,
+        "currentStreak": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Guerreiro do Amanhecer"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "quest_1784887518979",
+    "title": "kakashi",
+    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
+    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1784887518979_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Sasuke Uchiha",
+          "Sakura Haruno"
+        ],
+        "targetValue": 5,
+        "currentValue": 3,
+        "currentStreak": 0
+      },
+      {
+        "id": "goal_1784889181561_2",
+        "type": "shield",
+        "targetValue": 500,
+        "currentValue": 60,
+        "singleMatch": false,
+        "currentStreak": 0
+      },
+      {
+        "id": "goal_1784889202714_3",
+        "type": "damage_dealt",
+        "targetValue": 500,
+        "currentValue": 500,
+        "singleMatch": false,
+        "currentStreak": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "title",
+        "value": "Guerreiro do Amanhecer"
+      }
+    ],
+    "completed": false
+  }
+]

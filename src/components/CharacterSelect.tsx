@@ -1,0 +1,1155 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, Loader2, AlertTriangle, Shirt, Lock, X } from 'lucide-react';
+import { Character, ChakraType, UserProfile, Quest } from '../types';
+import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
+import { motion, AnimatePresence } from 'motion/react';
+
+interface CharacterSelectProps {
+  onConfirmTeams: (
+    playerTeam: Character[],
+    enemyTeam: Character[],
+    online?: { isOnline: boolean; roomId: string; playerIndex: number; opponentProfile: UserProfile },
+    sandbox?: boolean
+  ) => void;
+  playClickSound: () => void;
+  playScrollSound: () => void;
+  user: UserProfile;
+  activeQuest?: Quest | null;
+  onBack?: () => void;
+}
+
+export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, user, activeQuest, onBack }: CharacterSelectProps) {
+  const [charList, setCharList] = useState<Character[]>(() => getCharacters());
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [sandboxPlayerTeam, setSandboxPlayerTeam] = useState<Character[] | null>(null);
+  const [previewCharacter, setPreviewCharacter] = useState<Character>(() => charList[0] || null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [previewSkillsPage, setPreviewSkillsPage] = useState(0);
+
+  // Quests & Character Lock State
+  const [questsList, setQuestsList] = useState<Quest[]>([]);
+  const [lockedNotice, setLockedNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/quests')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.quests)) {
+          setQuestsList(data.quests);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Helper to check if a character is locked based on missing quest requirements
+  const checkCharacterLocked = (char: Character): { isLocked: boolean; reason?: string } => {
+    if (!char.requiredQuestIds || char.requiredQuestIds.length === 0) {
+      return { isLocked: false };
+    }
+    // Check if explicitly unlocked for user profile
+    if (user?.unlockedCharacterNames?.some(n => n.toLowerCase() === char.name.toLowerCase() || n.toLowerCase() === char.id.toLowerCase())) {
+      return { isLocked: false };
+    }
+    
+    const completed = user?.completedQuestIds || [];
+    const missing: string[] = [];
+
+    for (const req of char.requiredQuestIds) {
+      const isDone = completed.some(cid => {
+        if (cid.toLowerCase() === req.toLowerCase()) return true;
+        const q = questsList.find(quest => quest.id === cid);
+        if (q && q.title.toLowerCase() === req.toLowerCase()) return true;
+        return false;
+      });
+
+      if (!isDone) {
+        const q = questsList.find(quest => quest.id === req);
+        missing.push(q ? q.title : req);
+      }
+    }
+
+    if (missing.length > 0) {
+      return {
+        isLocked: true,
+        reason: `Bloqueado! Requer a missão "${missing.join(', ')}"`
+      };
+    }
+    return { isLocked: false };
+  };
+
+  // Sync with server on mount
+  useEffect(() => {
+    let active = true;
+    fetchCharactersFromServer().then(updated => {
+      if (!active) return;
+      if (updated && updated.length > 0) {
+        setCharList(updated);
+        // Set preview character if current preview isn't in list or as default
+        setPreviewCharacter(prev => {
+          if (prev && updated.some(c => c.id === prev.id)) return prev;
+          return updated[0];
+        });
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  // Matchmaking State
+  const [isMatchmaking, setIsMatchmaking] = useState(false);
+  const [matchmakingTime, setMatchmakingTime] = useState(0);
+  const [matchmakingStatus, setMatchmakingStatus] = useState<'searching' | 'matched' | 'error'>('searching');
+  const [opponent, setOpponent] = useState<UserProfile | null>(null);
+  const [countdown, setCountdown] = useState(5);
+  const [lobbyTip, setLobbyTip] = useState('Dica: Acumule chakra de linhagem (Blood) para liberar jutsus supremos.');
+
+  const matchmakingPollRef = useRef<any | null>(null);
+  const timeIntervalRef = useRef<any | null>(null);
+  const countdownIntervalRef = useRef<any | null>(null);
+
+  const tips = [
+    'Dica: Acumule chakra de linhagem (Blood) para liberar os jutsus supremos.',
+    'Dica: Mantenha seus oponentes atordoados para controlar o ritmo de batalha.',
+    'Dica: Habilidades de fuga te deixam totalmente invulnerável por alguns turnos.',
+    'Dica: Converta 4 chakras quaisquer em 1 chakra de sua escolha no painel inferior.',
+    'Dica: Os efeitos de Sangramento causam dano constante a cada final de turno.',
+    'Dica: Purifique seus aliados usando habilidades de suporte para remover efeitos negativos.',
+    'Dica: Personagens invisíveis não podem ser alvos diretos de ataques inimigos.',
+    'Dica: O escudo protege sua vida, mas pode ser desfeito por habilidades destruidoras de escudo.'
+  ];
+
+  // Rotate tips
+  useEffect(() => {
+    if (!isMatchmaking) return;
+    const interval = setInterval(() => {
+      const randTip = tips[Math.floor(Math.random() * tips.length)];
+      setLobbyTip(randTip);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [isMatchmaking]);
+
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTag, setSelectedTag] = useState('Todos');
+
+  const handleSearchChange = (val: string) => {
+    setSearchTerm(val);
+    setCurrentPage(1);
+  };
+
+  const handleTagChange = (val: string) => {
+    setSelectedTag(val);
+    setCurrentPage(1);
+  };
+
+  // Tag list for filtering
+  const FILTER_TAGS = ['Todos', 'Clássico', 'Shippuden', 'Reencarnado', 'Akatsuki', 'Vila da Folha', 'Vila da Areia', 'Vila da Névoa', 'Vila da Nuvem', 'Vila da Pedra'];
+
+  // Apply search and tag filters
+  const filteredCharacters = charList.filter(char => {
+    const matchesSearch = char.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          char.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTag = selectedTag === 'Todos' || char.tags.includes(selectedTag);
+    return matchesSearch && matchesTag;
+  });
+
+  const ITEMS_PER_PAGE = 20;
+  const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
+  const activePage = Math.min(currentPage, Math.max(totalPages, 1));
+  const startIndex = (activePage - 1) * ITEMS_PER_PAGE;
+  const paginatedCharacters = filteredCharacters.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const handleSelectCharacter = (character: Character) => {
+    playClickSound();
+    const { isLocked, reason } = checkCharacterLocked(character);
+    if (isLocked) {
+      setLockedNotice(reason || 'Este personagem está bloqueado!');
+      setTimeout(() => setLockedNotice(null), 3500);
+      return;
+    }
+
+    if (selectedIds.includes(character.id)) {
+      setSelectedIds(selectedIds.filter(id => id !== character.id));
+    } else {
+      if (selectedIds.length < 3) {
+        setSelectedIds([...selectedIds, character.id]);
+        setPreviewCharacter(character);
+        setPreviewSkillsPage(0);
+      }
+    }
+  };
+
+  const handleHoverCharacter = (character: Character) => {
+    if (previewCharacter.id !== character.id) {
+      playScrollSound();
+      setPreviewCharacter(character);
+      setPreviewSkillsPage(0);
+    }
+  };
+
+  // Skins state
+  const [showSkinsTab, setShowSkinsTab] = useState(false);
+  const [equippedSkins, setEquippedSkins] = useState<Record<string, string>>({});
+
+  const attachSkinsToTeam = (team: Character[]) => {
+    return (team || []).map(char => {
+      if (!char) return char;
+      const skinId = equippedSkins[char.id];
+      let selectedSkinUrl: string | undefined = char.selectedSkinUrl;
+      const charSkins = Array.isArray(char.skins) ? char.skins : [];
+
+      if (skinId) {
+        if (skinId === 'default') {
+          selectedSkinUrl = char.portrait;
+        } else if (charSkins.length > 0) {
+          const skinObj = charSkins.find(s => s && s.id === skinId);
+          if (skinObj && skinObj.image) {
+            selectedSkinUrl = skinObj.image;
+          }
+        }
+      }
+
+      if (!selectedSkinUrl) {
+        if (charSkins.length > 0 && charSkins[0]?.image) {
+          selectedSkinUrl = charSkins[0].image;
+        } else {
+          selectedSkinUrl = char.portrait;
+        }
+      }
+
+      return {
+        ...char,
+        skins: charSkins,
+        skills: Array.isArray(char.skills) ? char.skills : [],
+        selectedSkinId: skinId || 'default',
+        selectedSkinUrl: selectedSkinUrl
+      };
+    });
+  };
+
+  const handleConfirm = () => {
+    if (selectedIds.length !== 3) return;
+    playClickSound();
+
+    const rawPlayerTeam = charList.filter(c => selectedIds.includes(c.id));
+    const playerTeam = attachSkinsToTeam(rawPlayerTeam);
+    
+    // Select 3 random unique characters for the enemy team
+    const remaining = charList.filter(c => !selectedIds.includes(c.id));
+    const shuffled = [...remaining].sort(() => 0.5 - Math.random());
+    const enemyTeam = attachSkinsToTeam(shuffled.slice(0, 3));
+
+    onConfirmTeams(playerTeam, enemyTeam);
+  };
+
+  const handleStartSandboxPhase = () => {
+    if (selectedIds.length !== 3) return;
+    playClickSound();
+    const rawPlayerTeam = charList.filter(c => selectedIds.includes(c.id));
+    const playerTeam = attachSkinsToTeam(rawPlayerTeam);
+    setSandboxPlayerTeam(playerTeam);
+    setSelectedIds([]); // clear for enemy team selection
+  };
+
+  const handleBackToPlayerSelect = () => {
+    playClickSound();
+    if (sandboxPlayerTeam) {
+      setSelectedIds(sandboxPlayerTeam.map(c => c.id));
+      setSandboxPlayerTeam(null);
+    }
+  };
+
+  const handleConfirmSandboxMatch = () => {
+    if (selectedIds.length !== 3 || !sandboxPlayerTeam) return;
+    playClickSound();
+    const rawEnemyTeam = charList.filter(c => selectedIds.includes(c.id));
+    const enemyTeam = attachSkinsToTeam(rawEnemyTeam);
+    onConfirmTeams(sandboxPlayerTeam, enemyTeam, undefined, true);
+  };
+
+  // Handle Online Matchmaking Flow
+  const handleStartMatchmaking = async () => {
+    if (selectedIds.length !== 3) return;
+    playClickSound();
+
+    const playerTeam = attachSkinsToTeam(charList.filter(c => selectedIds.includes(c.id)));
+
+    setIsMatchmaking(true);
+    setMatchmakingStatus('searching');
+    setMatchmakingTime(0);
+    setCountdown(5);
+    setOpponent(null);
+
+    // Increment searching timer
+    timeIntervalRef.current = setInterval(() => {
+      setMatchmakingTime(prev => prev + 1);
+    }, 1000);
+
+    try {
+      // Join matchmaking queue
+      const joinRes = await fetch('/api/matchmaking/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user.username,
+          name: user.name,
+          photoUrl: user.photoUrl,
+          team: playerTeam
+        })
+      });
+
+      if (!joinRes.ok) {
+        const errData = await joinRes.json().catch(() => ({}));
+        console.error('Join queue error:', errData);
+        setMatchmakingStatus('error');
+        return;
+      }
+
+      const joinData = await joinRes.json();
+
+      if (joinData.status === 'matched') {
+        handleMatchFound(joinData.roomId, joinData.playerIndex, joinData.opponent, playerTeam);
+        return;
+      }
+
+      if (joinData.status !== 'searching') {
+        console.error('Unexpected join response:', joinData);
+        setMatchmakingStatus('error');
+        return;
+      }
+
+      // Start polling for matchmaking status
+      const pollInterval = 1500;
+      let pollCount = 0;
+      matchmakingPollRef.current = setInterval(async () => {
+        try {
+          pollCount++;
+          const statusRes = await fetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`);
+          if (!statusRes.ok) {
+            if (pollCount > 60) { // 90 seconds timeout
+              setMatchmakingStatus('error');
+            }
+            return;
+          }
+          const statusData = await statusRes.json();
+
+          if (statusData.status === 'matched') {
+            handleMatchFound(statusData.roomId, statusData.playerIndex, statusData.opponent, playerTeam);
+          } else if (statusData.status === 'idle' && pollCount > 3) {
+            // Re-join queue if we got idle (might have been cleaned up)
+            fetch('/api/matchmaking/join', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: user.username,
+                name: user.name,
+                photoUrl: user.photoUrl,
+                team: playerTeam
+              })
+            }).catch(() => {});
+          }
+        } catch (err) {
+          console.error('Error polling matchmaking status:', err);
+          if (pollCount > 60) setMatchmakingStatus('error');
+        }
+      }, pollInterval);
+
+    } catch (err) {
+      console.error('Error joining matchmaking queue:', err);
+      setMatchmakingStatus('error');
+    }
+  };
+
+  const handleMatchFound = (roomId: string, playerIndex: number, opponentData: any, playerTeam: Character[]) => {
+    // Clear queue timers
+    if (matchmakingPollRef.current) clearInterval(matchmakingPollRef.current);
+    if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+
+    setMatchmakingStatus('matched');
+    setOpponent(opponentData);
+
+    // Audio cue
+    try {
+      const audio = new Audio('/static/audio/NextTurn.ogg');
+      audio.volume = 0.55;
+      audio.play().catch(() => {});
+    } catch (e) {}
+
+    // Start 5 second countdown before starting battle
+    let currentCountdown = 5;
+    countdownIntervalRef.current = setInterval(() => {
+      currentCountdown--;
+      setCountdown(currentCountdown);
+
+      if (currentCountdown <= 0) {
+        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+        
+        // Finalize selection and start!
+        setIsMatchmaking(false);
+        onConfirmTeams(playerTeam, opponentData.team, {
+          isOnline: true,
+          roomId,
+          playerIndex,
+          opponentProfile: {
+            username: opponentData.username,
+            name: opponentData.name,
+            photoUrl: opponentData.photoUrl
+          }
+        });
+      }
+    }, 1000);
+  };
+
+  const handleCancelMatchmaking = async () => {
+    playClickSound();
+    
+    // Clear all interval timers
+    if (matchmakingPollRef.current) clearInterval(matchmakingPollRef.current);
+    if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+
+    setIsMatchmaking(false);
+
+    try {
+      await fetch('/api/matchmaking/quit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username })
+      });
+    } catch (err) {
+      console.error('Error quitting matchmaking:', err);
+    }
+  };
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (matchmakingPollRef.current) clearInterval(matchmakingPollRef.current);
+      if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    };
+  }, []);
+
+  const renderChakraCosts = (costs: ChakraType[]) => {
+    return (
+      <div className="flex items-center gap-1">
+        {costs.map((cost, idx) => {
+          let bgClass = 'bg-slate-600';
+          if (cost === 'Tai') bgClass = 'bg-red-600 border border-red-400';
+          else if (cost === 'Nin') bgClass = 'bg-blue-600 border border-blue-400';
+          else if (cost === 'Gen') bgClass = 'bg-emerald-600 border border-emerald-400';
+          else if (cost === 'Blood') bgClass = 'bg-purple-600 border border-purple-400';
+          else if (cost === 'Rand') bgClass = 'bg-slate-500 border border-slate-400';
+
+          return (
+            <span
+              key={idx}
+              className={`w-3.5 h-3.5 rounded-full ${bgClass} shadow-inner flex items-center justify-center`}
+              title={`${cost} Chakra`}
+            >
+              <span className="text-[9px] font-bold text-white leading-none scale-90">
+                {cost[0]}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative selection:bg-orange-600 selection:text-white">
+      {/* Visual background accents */}
+      <div className="absolute top-[10%] right-[10%] w-[40%] h-[40%] rounded-full bg-orange-600/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[15%] left-[5%] w-[40%] h-[40%] rounded-full bg-blue-600/5 blur-[120px] pointer-events-none" />
+
+      {/* Draft Status Header */}
+      <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+          <div>
+            <span className="text-xs font-mono text-orange-400 font-semibold tracking-wider uppercase">
+              {sandboxPlayerTeam ? "Fase 02: Oponente Sandbox" : "Fase 01: Escolha dos Shinobis"}
+            </span>
+            <h2 className="text-2xl font-bold tracking-tight">
+              {sandboxPlayerTeam ? "ESCOLHA O ESQUADRÃO ADVERSÁRIO" : "ESCOLHA SEU ESQUADRÃO"}
+            </h2>
+          </div>
+
+          {/* Player Selection Status Indicator */}
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2.5">
+              {[0, 1, 2].map(idx => {
+                const charId = selectedIds[idx];
+                const char = charList.find(c => c.id === charId);
+
+                return (
+                  <div
+                    key={idx}
+                    className={`w-14 h-14 rounded-lg border-2 overflow-hidden flex items-center justify-center transition-all ${
+                      char ? 'border-orange-500 bg-slate-900 shadow-md shadow-orange-600/10' : 'border-dashed border-slate-800 bg-slate-950'
+                    }`}
+                  >
+                    {char ? (
+                      <img 
+                        src={char.portrait} 
+                        alt={char.name} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          img.onerror = null;
+                          img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
+                        }}
+                      />
+                    ) : (
+                      <span className="text-slate-700 text-xs font-semibold font-mono">Slot</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {sandboxPlayerTeam ? (
+              <>
+                <button
+                  onClick={handleBackToPlayerSelect}
+                  className="px-4 py-3 rounded-lg font-bold flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700 shadow-lg"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Voltar (Time A)
+                </button>
+
+                <button
+                  onClick={handleConfirmSandboxMatch}
+                  disabled={selectedIds.length !== 3}
+                  className={`px-5 py-3 rounded-lg font-bold flex items-center gap-2 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all ${
+                    selectedIds.length === 3
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 text-slate-950 border-emerald-400 shadow-lg shadow-emerald-600/10'
+                      : 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed font-medium'
+                  }`}
+                >
+                  <Swords className="w-4 h-4 animate-pulse" />
+                  Iniciar Sandbox
+                </button>
+              </>
+            ) : (
+              <>
+                {onBack && (
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      onBack();
+                    }}
+                    className="px-4 py-3 rounded-lg font-bold flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800 shadow-lg"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Voltar
+                  </button>
+                )}
+
+                <button
+                  onClick={handleConfirm}
+                  disabled={selectedIds.length !== 3}
+                  className={`px-4 py-3 rounded-lg font-bold flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all ${
+                    selectedIds.length === 3
+                      ? 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700 shadow-lg'
+                      : 'bg-slate-950 text-slate-600 border-slate-900 cursor-not-allowed font-medium'
+                  }`}
+                >
+                  <Swords className="w-4 h-4" />
+                  Treino (I.A.)
+                </button>
+
+                <button
+                  onClick={handleStartSandboxPhase}
+                  disabled={selectedIds.length !== 3}
+                  className={`px-4 py-3 rounded-lg font-bold flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all ${
+                    selectedIds.length === 3
+                      ? 'bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-slate-950 border-orange-400 shadow-lg shadow-orange-600/10'
+                      : 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed font-medium'
+                  }`}
+                >
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Eu vs Eu Mesmo (Sandbox)
+                </button>
+
+                <button
+                  onClick={handleStartMatchmaking}
+                  disabled={selectedIds.length !== 3}
+                  className={`px-5 py-3 rounded-lg font-bold flex items-center gap-2 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all ${
+                    selectedIds.length === 3
+                      ? 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700 shadow-lg'
+                      : 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed font-medium'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 animate-pulse" />
+                  Partida Rápida (Online)
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Draft Area */}
+      <main className="max-w-7xl w-full mx-auto px-6 py-8 grid lg:grid-cols-12 gap-8 flex-1 items-start">
+        {/* Roster Grid (Left Side) */}
+        <div className="lg:col-span-7 space-y-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-mono uppercase tracking-wider text-slate-400 font-bold">
+                Shinobis Disponíveis ({filteredCharacters.length})
+              </h3>
+              <span className="text-xs bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full text-slate-400 flex items-center gap-1 font-mono">
+                <Sparkles className="w-3.5 h-3.5 text-orange-400" /> Escolha exatamente 3
+              </span>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="grid sm:grid-cols-2 gap-3 bg-slate-900/30 p-3 rounded-xl border border-slate-900">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Buscar ninja pelo nome..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-orange-500 transition-all font-sans"
+                />
+              </div>
+
+              {/* Tag Selection */}
+              <div className="relative">
+                <Filter className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                <select
+                  value={selectedTag}
+                  onChange={(e) => handleTagChange(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-orange-500 transition-all font-sans text-slate-300 appearance-none cursor-pointer"
+                >
+                  {FILTER_TAGS.map(tag => (
+                    <option key={tag} value={tag}>{tag}</option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-3 pointer-events-none border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-500 w-0 h-0" />
+              </div>
+            </div>
+          </div>
+
+          {/* Toast Notification for Locked Character */}
+          <AnimatePresence>
+            {lockedNotice && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-red-950/90 border border-red-500/60 text-red-200 px-4 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-3 font-mono text-xs max-w-md"
+              >
+                <Lock className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <span className="flex-1 font-semibold">{lockedNotice}</span>
+                <button onClick={() => setLockedNotice(null)} className="text-red-400 hover:text-white p-0.5 cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            {paginatedCharacters.map(char => {
+              const isSelected = selectedIds.includes(char.id);
+              const isFull = selectedIds.length >= 3 && !isSelected;
+              const { isLocked, reason } = checkCharacterLocked(char);
+
+              return (
+                <motion.div
+                  key={char.id}
+                  whileHover={{ scale: isFull || isLocked ? 1 : 1.02 }}
+                  onClick={() => handleSelectCharacter(char)}
+                  onMouseEnter={() => handleHoverCharacter(char)}
+                  className={`group relative rounded-xl border p-2.5 cursor-pointer transition-all ${
+                    isLocked
+                      ? 'bg-slate-950/80 border-red-950/60 opacity-80 hover:border-red-600/60'
+                      : isSelected
+                      ? 'bg-orange-950/20 border-orange-500 shadow-md shadow-orange-600/10'
+                      : isFull
+                      ? 'border-slate-900 bg-slate-950/40 opacity-40 cursor-not-allowed'
+                      : 'bg-slate-900/40 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900'
+                  }`}
+                  title={isLocked ? reason : char.name}
+                >
+                  <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-slate-950 mb-2 border border-slate-800">
+                    <img
+                      src={char.portrait}
+                      alt={char.name}
+                      referrerPolicy="no-referrer"
+                      className={`w-full h-full object-cover transition-transform duration-300 ${isLocked ? 'grayscale opacity-50' : 'group-hover:scale-105'}`}
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        img.onerror = null;
+                        img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
+                      }}
+                    />
+
+                    {/* Active Selected Badge */}
+                    {isSelected && (
+                      <div className="absolute inset-0 bg-orange-600/15 border-2 border-orange-500 flex items-center justify-center rounded-lg">
+                        <div className="bg-orange-500 text-slate-950 text-[8px] font-mono font-black uppercase px-1 py-0.5 rounded shadow-md">
+                          EQUIPE
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Locked Badge */}
+                    {isLocked && (
+                      <div className="absolute inset-0 bg-slate-950/70 border border-red-500/30 flex flex-col items-center justify-center rounded-lg gap-1">
+                        <Lock className="w-5 h-5 text-red-400 animate-pulse" />
+                        <span className="text-[7px] font-mono font-bold text-red-300 uppercase tracking-widest px-1 py-0.5 bg-red-950/80 rounded border border-red-500/40">
+                          BLOQUEADO
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-0.5">
+                    <h4 className={`font-bold tracking-tight text-xs truncate ${isLocked ? 'text-red-400/90' : isSelected ? 'text-orange-400' : 'text-slate-100'}`}>
+                      {char.name}
+                    </h4>
+                    <p className="text-[9px] font-mono text-slate-500 truncate">
+                      {isLocked ? 'Requer Missão' : char.tags[0]}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between bg-slate-900/40 border border-slate-800/80 p-2.5 rounded-xl mt-4">
+              <button
+                onClick={() => {
+                  playClickSound();
+                  setCurrentPage(prev => Math.max(prev - 1, 1));
+                }}
+                disabled={activePage === 1}
+                className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
+                  activePage === 1
+                    ? 'border-slate-800 bg-slate-950/40 text-slate-600 cursor-not-allowed'
+                    : 'border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300'
+                }`}
+                title="Página Anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-1.5">
+                {(() => {
+                  const maxButtons = 5;
+                  let startPage = Math.max(1, activePage - Math.floor(maxButtons / 2));
+                  let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+                  if (endPage - startPage + 1 < maxButtons) {
+                    startPage = Math.max(1, endPage - maxButtons + 1);
+                  }
+                  
+                  const buttons = [];
+                  for (let i = startPage; i <= endPage; i++) {
+                    buttons.push(i);
+                  }
+                  
+                  return buttons.map(pageNum => {
+                    const isActive = activePage === pageNum;
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => {
+                          playClickSound();
+                          setCurrentPage(pageNum);
+                        }}
+                        className={`w-7 h-7 rounded-lg text-xs font-mono font-bold flex items-center justify-center transition-all cursor-pointer border ${
+                          isActive
+                            ? 'bg-orange-600 border-orange-500 text-slate-950 shadow-md shadow-orange-600/10'
+                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-900'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+
+              <button
+                onClick={() => {
+                  playClickSound();
+                  setCurrentPage(prev => Math.min(prev + 1, totalPages));
+                }}
+                disabled={activePage === totalPages}
+                className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
+                  activePage === totalPages
+                    ? 'border-slate-800 bg-slate-950/40 text-slate-600 cursor-not-allowed'
+                    : 'border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300'
+                }`}
+                title="Próxima Página"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Detailed Inspection sidebar (Right Side) */}
+        <div className="lg:col-span-5 sticky top-28">
+          <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 space-y-6">
+            {/* Header Portrait + Description */}
+            <div className="flex gap-4">
+              <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 flex-shrink-0">
+                <img
+                  src={
+                    (equippedSkins[previewCharacter.id] && previewCharacter.skins?.find(s => s.id === equippedSkins[previewCharacter.id])?.image) ||
+                    previewCharacter.portrait
+                  }
+                  alt={previewCharacter.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    img.onerror = null;
+                    img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
+                  }}
+                />
+              </div>
+
+              <div className="space-y-1.5 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xl font-black tracking-tight text-slate-100 uppercase font-mono">{previewCharacter.name}</h3>
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      setShowSkinsTab(prev => !prev);
+                    }}
+                    className={`px-3 py-1 rounded-lg font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-md font-mono ${
+                      showSkinsTab
+                        ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-105'
+                        : 'bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 hover:brightness-110'
+                    }`}
+                    title="Galeria de Skins"
+                  >
+                    <Shirt className="w-3.5 h-3.5 stroke-[2.5]" />
+                    SKINS
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {previewCharacter.tags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="text-[9px] font-mono font-medium px-2 py-0.5 bg-slate-950 border border-slate-800 text-slate-400 rounded-md"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {showSkinsTab ? (
+              <div className="bg-slate-950/90 border border-slate-800/80 rounded-2xl p-4 space-y-3 shadow-2xl">
+                <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
+                  <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Shirt className="w-4 h-4 text-amber-400" />
+                    GALERIA DE SKINS DO PERSONAGEM
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Clique na skin para equipar
+                  </span>
+                </div>
+
+                <div className="flex gap-4 overflow-x-auto pb-2 pt-2 items-center justify-center min-h-[160px] max-h-[220px] bg-slate-900/60 rounded-xl border border-slate-800/60 p-3">
+                  {(() => {
+                    const skinsList = (previewCharacter.skins && previewCharacter.skins.length > 0)
+                      ? previewCharacter.skins 
+                      : [
+                          { id: 'default', name: 'Padrão', image: previewCharacter.portrait }
+                        ];
+                    
+                    return skinsList.map((skin) => {
+                      const isEquipped = (equippedSkins[previewCharacter.id] || skinsList[0]?.id) === skin.id;
+
+                      return (
+                        <div
+                          key={skin.id}
+                          onClick={() => {
+                            playClickSound();
+                            setEquippedSkins(prev => ({
+                              ...prev,
+                              [previewCharacter.id]: skin.id
+                            }));
+                          }}
+                          className={`relative group flex-shrink-0 w-32 h-44 rounded-xl border-2 overflow-hidden flex flex-col items-center justify-between p-2 cursor-pointer transition-all ${
+                            isEquipped
+                              ? 'border-amber-500 ring-2 ring-amber-500/50 shadow-xl shadow-amber-500/20 bg-amber-500/10 scale-102'
+                              : 'border-slate-800/90 hover:border-slate-600 bg-slate-950/80 hover:bg-slate-900/80'
+                          }`}
+                        >
+                          {isEquipped && (
+                            <div className="absolute top-1.5 right-1.5 bg-amber-500 text-slate-950 text-[8px] font-black font-mono px-1.5 py-0.5 rounded shadow z-10 uppercase tracking-wider">
+                              EQUIPADA
+                            </div>
+                          )}
+
+                          <div className="w-full h-32 flex items-center justify-center overflow-hidden p-1">
+                            <img
+                              src={skin.image}
+                              alt={skin.name}
+                              referrerPolicy="no-referrer"
+                              className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)] transition-transform group-hover:scale-105"
+                              onError={(e) => {
+                                const img = e.currentTarget; img.onerror = null; img.src = previewCharacter.portrait;
+                              }}
+                            />
+                          </div>
+
+                          <span className="text-[10px] font-bold text-slate-200 truncate w-full text-center font-mono uppercase tracking-tight">
+                            {skin.name}
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            ) : (
+              <p className="text-slate-400 text-xs leading-relaxed border-b border-slate-800/80 pb-4">
+                {previewCharacter.description}
+              </p>
+            )}
+
+            {/* Skills List */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-mono uppercase tracking-wider text-slate-500 font-bold flex justify-between items-center">
+                <span>Habilidades</span>
+                {previewCharacter.skills.length > 3 && (
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    Pág. {previewSkillsPage + 1} de {Math.ceil(previewCharacter.skills.length / 3)}
+                  </span>
+                )}
+              </h4>
+              
+              <div className="space-y-3.5">
+                {(() => {
+                  const skillsPerPage = 3;
+                  const paginated = previewCharacter.skills.slice(previewSkillsPage * skillsPerPage, (previewSkillsPage + 1) * skillsPerPage);
+                  return paginated.map((skill, sIdx) => (
+                    <div
+                      key={sIdx}
+                      className="flex gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-slate-700 transition-all"
+                    >
+                      <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-800 bg-slate-900 flex-shrink-0">
+                        <img 
+                          src={skill.icon} 
+                          alt={skill.name} 
+                          className="w-full h-full object-cover" 
+                          onError={(e) => {
+                            const img = e.currentTarget;
+                            img.onerror = null;
+                            img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="font-semibold text-xs text-slate-200">{skill.name}</span>
+                          {renderChakraCosts(skill.cost)}
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-normal">{skill.desc}</p>
+                        <div className="flex items-center gap-3 pt-0.5 text-[9px] font-mono text-slate-500">
+                          {skill.cooldown > 0 && (
+                            <span>Recarga: {skill.cooldown} turnos</span>
+                          )}
+                          <span>
+                            Alvo: {' '}
+                            {skill.targetType === 'Enemy' && 'Inimigo Único'}
+                            {skill.targetType === 'Self' && 'Próprio'}
+                            {skill.targetType === 'Ally' && 'Aliado Único'}
+                            {skill.targetType === 'AllEnemies' && 'Todos os Inimigos'}
+                            {skill.targetType === 'AllAllies' && 'Todos os Aliados'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+
+              {/* Skills list pagination buttons */}
+              {previewCharacter.skills.length > 3 && (() => {
+                const totalPages = Math.ceil(previewCharacter.skills.length / 3);
+                return (
+                  <div className="flex items-center justify-between bg-slate-950/40 p-2 rounded-xl border border-slate-800 mt-3">
+                    <button
+                      onClick={() => {
+                        playClickSound();
+                        setPreviewSkillsPage(prev => Math.max(prev - 1, 0));
+                      }}
+                      disabled={previewSkillsPage === 0}
+                      className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
+                        previewSkillsPage === 0
+                          ? 'border-slate-800 bg-slate-950/40 text-slate-600 cursor-not-allowed'
+                          : 'border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300'
+                      }`}
+                      title="Habilidades Anteriores"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="flex gap-1.5">
+                      {Array.from({ length: totalPages }).map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            playClickSound();
+                            setPreviewSkillsPage(idx);
+                          }}
+                          className={`w-5 h-5 rounded-md text-[10px] font-mono font-bold flex items-center justify-center transition-all cursor-pointer border ${
+                            idx === previewSkillsPage
+                              ? 'bg-orange-600 border-orange-500 text-slate-950 shadow-md'
+                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-900'
+                          }`}
+                        >
+                          {idx + 1}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        playClickSound();
+                        setPreviewSkillsPage(prev => Math.min(prev + 1, totalPages - 1));
+                      }}
+                      disabled={previewSkillsPage === totalPages - 1}
+                      className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
+                        previewSkillsPage === totalPages - 1
+                          ? 'border-slate-800 bg-slate-950/40 text-slate-600 cursor-not-allowed'
+                          : 'border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300'
+                      }`}
+                      title="Próximas Habilidades"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Matchmaking Overlay */}
+      <AnimatePresence>
+        {isMatchmaking && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 select-none"
+          >
+            {/* Ambient Red glow background */}
+            <div className="absolute top-[25%] left-[25%] w-[50%] h-[50%] rounded-full bg-orange-600/10 blur-[150px] pointer-events-none" />
+
+            <div className="max-w-md w-full text-center space-y-8 z-10">
+              {/* Spinning Logo / Matchmaking Status indicator */}
+              <div className="relative w-28 h-28 mx-auto">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
+                  className="absolute inset-0 rounded-full border-4 border-t-orange-500 border-r-transparent border-b-amber-500 border-l-transparent"
+                />
+                <div className="absolute inset-2 bg-slate-900 rounded-full flex items-center justify-center border border-slate-800">
+                  <Swords className="w-10 h-10 text-orange-500 animate-pulse" />
+                </div>
+              </div>
+
+              {/* Status Header */}
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black tracking-tight text-white uppercase">
+                  {matchmakingStatus === 'error' ? 'Erro no Matchmaking' : matchmakingStatus === 'matched' ? 'Oponente Encontrado!' : 'Procurando Oponente...'}
+                </h3>
+                {matchmakingStatus === 'error' ? (
+                  <p className="text-xs font-mono text-red-400">
+                    Não foi possível encontrar um oponente. Tente novamente.
+                  </p>
+                ) : matchmakingStatus === 'searching' ? (
+                  <p className="text-xs font-mono text-slate-400">
+                    Tempo de espera: <span className="text-orange-400 font-bold">{matchmakingTime}s</span>
+                  </p>
+                ) : (
+                  <p className="text-sm font-mono text-emerald-400 font-black tracking-wide animate-pulse">
+                    INICIANDO COMBATE EM {countdown}s...
+                  </p>
+                )}
+              </div>
+
+              {/* Matchmaking Lobby Display (Players comparison) */}
+              <div className="grid grid-cols-5 items-center gap-2 bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 shadow-2xl">
+                {/* Current Player Profile Card */}
+                <div className="col-span-2 text-center space-y-2">
+                  <div className="w-16 h-16 mx-auto rounded-xl border-2 border-orange-500 overflow-hidden bg-slate-950">
+                    <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="text-xs font-black truncate text-orange-400 uppercase font-mono">{user.name}</div>
+                  <div className="text-[9px] font-mono text-slate-500">SEU TIME</div>
+                </div>
+
+                {/* VS Badge */}
+                <div className="col-span-1 flex flex-col items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-slate-950 border border-slate-800 flex items-center justify-center font-black text-xs text-orange-500 font-mono shadow-md">
+                    VS
+                  </div>
+                </div>
+
+                {/* Opponent Profile Card */}
+                <div className="col-span-2 text-center space-y-2">
+                  <div className="w-16 h-16 mx-auto rounded-xl border-2 border-dashed border-slate-700 overflow-hidden bg-slate-950 flex items-center justify-center">
+                    {opponent ? (
+                      <img src={opponent.photoUrl} alt={opponent.name} className="w-full h-full object-cover scale-x-[-1]" />
+                    ) : (
+                      <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
+                    )}
+                  </div>
+                  <div className="text-xs font-black truncate text-slate-300 uppercase font-mono">
+                    {opponent ? opponent.name : 'PROCURANDO...'}
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500">OPONENTE</div>
+                </div>
+              </div>
+
+              {/* Game Tips Scroll */}
+              <div className="bg-slate-900/30 border border-slate-900 p-4 rounded-xl text-center min-h-[70px] flex items-center justify-center">
+                <p className="text-xs text-slate-400 italic font-medium leading-relaxed">
+                  {lobbyTip}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              {(matchmakingStatus === 'searching' || matchmakingStatus === 'error') && (
+                <button
+                  onClick={handleCancelMatchmaking}
+                  className={`w-full rounded-lg py-2.5 text-xs font-bold font-mono tracking-wider uppercase transition-all active:scale-95 cursor-pointer ${
+                    matchmakingStatus === 'error'
+                      ? 'bg-red-900/50 hover:bg-red-800/60 text-red-300 border border-red-800'
+                      : 'bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800'
+                  }`}
+                >
+                  {matchmakingStatus === 'error' ? 'Voltar' : 'Cancelar Matchmaking'}
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
