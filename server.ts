@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
+import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
 
 const USERS_FILE = path.join(process.cwd(), "src", "data", "users.json");
 const CHARACTERS_FILE = path.join(process.cwd(), "src", "data", "custom_characters.json");
@@ -528,7 +529,11 @@ async function startServer() {
 
   // Character Sync API
   app.get("/api/characters", (req, res) => {
-    const characters = readJSON<any[]>(CHARACTERS_FILE, []);
+    let characters = readJSON<any[]>(CHARACTERS_FILE, []);
+    if (!Array.isArray(characters) || characters.length === 0) {
+      characters = DEFAULT_CHARACTERS;
+      writeJSON(CHARACTERS_FILE, DEFAULT_CHARACTERS);
+    }
     res.json({ success: true, characters });
   });
 

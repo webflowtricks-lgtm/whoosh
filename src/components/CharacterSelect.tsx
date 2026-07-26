@@ -91,7 +91,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         setCharList(updated);
         // Set preview character if current preview isn't in list or as default
         setPreviewCharacter(prev => {
-          if (prev && updated.some(c => c.id === prev.id)) return prev;
+          if (prev) {
+            const found = updated.find(c => c.id === prev.id);
+            if (found) return found;
+          }
           return updated[0];
         });
       }
@@ -439,11 +442,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       <div className="flex items-center gap-1">
         {costs.map((cost, idx) => {
           let bgClass = 'bg-slate-600';
-          if (cost === 'Tai') bgClass = 'bg-red-600 border border-red-400';
+          if (cost === 'Tai') bgClass = 'bg-green-600 border border-green-400';
           else if (cost === 'Nin') bgClass = 'bg-blue-600 border border-blue-400';
-          else if (cost === 'Gen') bgClass = 'bg-emerald-600 border border-emerald-400';
-          else if (cost === 'Blood') bgClass = 'bg-purple-600 border border-purple-400';
-          else if (cost === 'Rand') bgClass = 'bg-slate-500 border border-slate-400';
+          else if (cost === 'Gen') bgClass = 'bg-white border border-white/60';
+          else if (cost === 'Blood') bgClass = 'bg-red-600 border border-red-400';
+          else if (cost === 'Rand') bgClass = 'bg-slate-600 border border-slate-500';
 
           return (
             <span

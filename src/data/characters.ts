@@ -1625,23 +1625,39 @@ export const CHARACTERS: Character[] = [
         "classes": [
           "Chakra",
           "À Distância"
+        ],
+        "damage": 15,
+        "drainChakra": 1,
+        "stealChakra": 1,
+        "damageRules": [
+          {
+            "activeSkillName": "Parasite",
+            "damageBoost": 25
+          }
+        ],
+        "costRules": [
+          {
+            "activeSkillName": "Parasite",
+            "reduceType": "Rand",
+            "reduceAmount": 1
+          }
         ]
       },
       {
         "name": "Parasite",
-        "desc": "Shino infiltra insetos destrutivos na pele do oponente, causando 15 de dano por turno por 3 turnos.",
+        "desc": "Shino infiltra insetos destrutivos na pele do oponente, reduzindo o dano causado por ele em 5 por 4 turnos.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/Parasite.jpg",
-        "cost": [
-          "Nin",
-          "Rand"
-        ],
-        "cooldown": 2,
+        "cost": [],
+        "cooldown": 1,
         "currentCooldown": 0,
         "targetType": "Enemy",
         "classes": [
           "Chakra",
           "À Distância"
-        ]
+        ],
+        "damageDebuffVal": 5,
+        "damageDebuffDuration": 4,
+        "doNotApplyIfActive": true
       },
       {
         "name": "Wall of Insects",
@@ -1655,7 +1671,8 @@ export const CHARACTERS: Character[] = [
         "targetType": "Self",
         "classes": [
           "Chakra"
-        ]
+        ],
+        "shieldVal": 25
       },
       {
         "name": "Insect Clone",
@@ -1669,7 +1686,8 @@ export const CHARACTERS: Character[] = [
         "targetType": "Self",
         "classes": [
           "Chakra"
-        ]
+        ],
+        "invulnerableDuration": 1
       }
     ]
   },
@@ -12040,53 +12058,23 @@ export const CHARACTERS: Character[] = [
     "skills": [
       {
         "name": "Barricaded",
-        "desc": "Shino Aburame (S) executa [Barricaded], desferindo um golpe poderoso que causa 40 de dano ao oponente selecionado.",
+        "desc": "Shino Aburame (S) se defende com um enxame denso de Kikaichu, obtendo 25 de Escudo por 2 turnos.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame-(s)/Barricaded.jpg",
         "cost": [
-          "Gen"
+          "Nin"
         ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Mental",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Chakra Leech",
-        "desc": "Shino Aburame (S) ativa [Chakra Leech], concentrando seu chakra para ganhar 20 de Escudo por 3 turnos ou obter vantagens táticas no combate.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame-(s)/ChakraLeech.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
+        "cooldown": 2,
         "currentCooldown": 0,
         "targetType": "Self",
         "classes": [
           "Chakra"
-        ]
-      },
-      {
-        "name": "Gigantic Beetle Infestation",
-        "desc": "Shino Aburame (S) executa [Gigantic Beetle Infestation], desferindo um golpe poderoso que causa 40 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame-(s)/GiganticBeetleInfestation.jpg",
-        "cost": [
-          "Gen",
-          "Rand"
         ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
+        "shieldVal": 25
       },
       {
-        "name": "Insect Barricade",
-        "desc": "Shino Aburame (S) executa [Insect Barricade], desferindo um golpe poderoso que causa 40 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame-(s)/InsectBarricade.jpg",
+        "name": "Chakra Leech",
+        "desc": "Shino Aburame (S) envia seus insetos para drenar o oponente, causando 20 de dano e roubando 1 chakra da equipe inimiga para sua equipe.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame-(s)/ChakraLeech.jpg",
         "cost": [
           "Nin"
         ],
@@ -12095,8 +12083,44 @@ export const CHARACTERS: Character[] = [
         "targetType": "Enemy",
         "classes": [
           "Chakra",
-          "Corpo a Corpo"
-        ]
+          "À Distância"
+        ],
+        "damage": 20,
+        "drainChakra": 1,
+        "stealChakra": 1
+      },
+      {
+        "name": "Gigantic Beetle Infestation",
+        "desc": "Shino Aburame (S) envia um besouro gigante para infestar o oponente, causando 30 de dano e removendo 1 chakra do oponente.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame-(s)/GiganticBeetleInfestation.jpg",
+        "cost": [
+          "Nin",
+          "Rand"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "damage": 30,
+        "removeChakra": 1
+      },
+      {
+        "name": "Insect Barricade",
+        "desc": "Shino Aburame (S) invoca uma parede massiva de insetos protetores, obtendo 35 de Escudo por 2 turnos.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame-(s)/InsectBarricade.jpg",
+        "cost": [
+          "Nin"
+        ],
+        "cooldown": 2,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Chakra"
+        ],
+        "shieldVal": 35
       }
     ]
   },
@@ -12946,54 +12970,61 @@ export const CHARACTERS: Character[] = [
     "skills": [
       {
         "name": "Jarof Poison",
-        "desc": "Torune Aburame (S) executa [Jarof Poison], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
+        "desc": "Torune Aburame (S) lança um jarro com veneno Rinkaichu, causando 20 de dano direto e 10 de dano por aflição por 2 turnos.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/torune-aburame-(s)/JarofPoison.jpg",
         "cost": [
           "Tai",
           "Rand"
         ],
-        "cooldown": 0,
+        "cooldown": 1,
         "currentCooldown": 0,
         "targetType": "Enemy",
         "classes": [
           "Chakra",
           "Corpo a Corpo"
-        ]
+        ],
+        "damage": 20,
+        "afflictionVal": 10,
+        "afflictionDuration": 2
       },
       {
         "name": "Nano Sized Venom Beetles",
-        "desc": "Torune Aburame (S) executa [Nano Sized Venom Beetles], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
+        "desc": "Torune envia besouros venenosos microscópicos que causam 20 de dano e roubam 1 chakra do oponente.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/torune-aburame-(s)/NanoSizedVenomBeetles.jpg",
         "cost": [
           "Nin"
         ],
-        "cooldown": 0,
+        "cooldown": 1,
         "currentCooldown": 0,
         "targetType": "Enemy",
         "classes": [
           "Chakra",
           "À Distância"
-        ]
+        ],
+        "damage": 20,
+        "stealChakra": 1
       },
       {
         "name": "Venom Beetle",
-        "desc": "Torune Aburame (S) executa [Venom Beetle], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
+        "desc": "Torune infecta o oponente com insetos venenosos, causando 25 de dano e removendo 1 chakra do oponente.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/torune-aburame-(s)/VenomBeetle.jpg",
         "cost": [
           "Tai",
           "Rand"
         ],
-        "cooldown": 0,
+        "cooldown": 1,
         "currentCooldown": 0,
         "targetType": "Enemy",
         "classes": [
           "Chakra",
           "Corpo a Corpo"
-        ]
+        ],
+        "damage": 25,
+        "removeChakra": 1
       },
       {
         "name": "Venom Explosion",
-        "desc": "Torune Aburame (S) executa [Venom Explosion], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
+        "desc": "Torune libera uma explosão massiva de besouros venenosos, causando 35 de dano devastador ao oponente.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/torune-aburame-(s)/VenomExplosion.jpg",
         "cost": [
           "Tai"
@@ -13004,7 +13035,8 @@ export const CHARACTERS: Character[] = [
         "classes": [
           "Mental",
           "À Distância"
-        ]
+        ],
+        "damage": 35
       }
     ]
   },

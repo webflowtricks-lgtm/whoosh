@@ -15,14 +15,6 @@ export function enrichCharacters(characters: Character[]): Character[] {
     const skins = char.skins || [];
     const updatedSkills = (char.skills || []).map(sk => {
       let stunType = sk.stunType;
-      if (sk.name === 'Rasengan') {
-        return {
-          ...sk,
-          damage: 45,
-          stunTurns: 1,
-          stunType: ['physical', 'mental', 'affliction', 'chakra'],
-        };
-      }
       
       let baseSk = sk;
       if (defaultChar) {

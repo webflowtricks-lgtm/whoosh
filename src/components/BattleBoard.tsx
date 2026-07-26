@@ -185,7 +185,7 @@ export function getSkillBaseName(eff: ActiveEffect): string {
   const trailingKeywords = [
     'Burn', 'Sangramento', 'Aflição', 'Paralisia de Cooldown',
     'Guard', 'Power', 'Escape', 'Shield Decay', 'Contra-Ataque',
-    'Reflect', 'Counter', 'Shield'
+    'Reflect', 'Counter', 'Shield', 'Weakness', 'Fraqueza'
   ];
   const regex = new RegExp(`\\s+(?:${trailingKeywords.join('|')})$`, 'i');
   name = name.replace(regex, '');
@@ -221,6 +221,8 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
         return `🚫 Atordoado Parcial: Não pode usar habilidades das categorias (${stTypes}) por ${durText}.`;
       }
     }
+    case 'damage_debuff':
+      return val > 0 ? `🌫️ Fraqueza: Reduz o dano causado pelo alvo em ${val} por ${durText}` : `🌫️ Fraqueza por ${durText}`;
     case 'damage_buff':
       return val > 0 ? `⚔️ Aumenta o ataque de todas as suas habilidades em ${val}` : `⚔️ Aumenta o ataque das habilidades por ${durText}`;
     case 'damage_reduction':
@@ -920,6 +922,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const isSkillActiveOnTarget = (targetChar: CombatCharacter, skillName: string): boolean => {
     if (!targetChar || !targetChar.activeEffects) return false;
     return targetChar.activeEffects.some(e =>
+      e.sourceSkillName === skillName ||
       e.name === skillName ||
       e.name.startsWith(skillName) ||
       e.name.includes(`(${skillName})`) ||
@@ -1027,7 +1030,8 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
     // Condition check (e.g. Rasengan requires Shadow Clones)
     if (skill.requireEffect) {
-      const hasReq = combatant.activeEffects.some(e => e.name === skill.requireEffect);
+      const reqLower = skill.requireEffect.toLowerCase();
+      const hasReq = combatant.activeEffects.some(e => e.name && (e.name.toLowerCase() === reqLower || e.name.toLowerCase().startsWith(reqLower) || e.name.toLowerCase().includes(reqLower)));
       if (!hasReq) {
         addFloatingText(charId, `Requer ${skill.requireEffect}!`, 'effect');
         return;
@@ -1054,7 +1058,8 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     const simulatedChakraAfterCancel = getSimulatedRemainingChakra(baseChakra, currentActionsAfterCancel, isEnemyChar);
 
     // Affordability check using simulatedChakraAfterCancel
-    if (!canAffordSkill(skill, simulatedChakraAfterCancel)) {
+    const allCombatantsList = [...playerCombatants, ...enemyCombatants];
+    if (!canAffordSkill(skill, simulatedChakraAfterCancel, combatant, allCombatantsList)) {
       addFloatingText(charId, 'Sem Chakra!', 'effect');
       return;
     }
@@ -1242,38 +1247,160 @@ const handleTradeChakra = () => {
     });
   };
 
+  // Helper for drain, steal, or remove chakra actions safely
+  const performChakraAction = (
+    victimIsPlayer: boolean,
+    amount: number,
+    sourceName: string,
+    targetName: string,
+    skillName: string,
+    isPlayerAction: boolean,
+    actionType: 'drain' | 'steal' | 'remove',
+    sourceId: string,
+    targetId: string,
+    logsList: CombatLog[],
+    playerPool?: ChakraPool,
+    enemyPool?: ChakraPool
+  ) => {
+    const currentVictimPool = victimIsPlayer ? (playerPool || playerChakra) : (enemyPool || enemyChakra);
+    const currentThiefPool = victimIsPlayer ? (enemyPool || enemyChakra) : (playerPool || playerChakra);
+
+    const affectedTypes: (keyof ChakraPool)[] = [];
+
+    for (let i = 0; i < amount; i++) {
+      const nonZero = (Object.keys(currentVictimPool) as (keyof ChakraPool)[]).filter(k => currentVictimPool[k] > 0);
+      if (nonZero.length > 0) {
+        const randType = nonZero[Math.floor(Math.random() * nonZero.length)];
+        currentVictimPool[randType]--;
+        affectedTypes.push(randType);
+      }
+    }
+
+    // For steal/drain, if victim didn't have enough chakra to lose, thief still gains stolen random chakra
+    const stolenGainedTypes: (keyof ChakraPool)[] = [...affectedTypes];
+    if (actionType !== 'remove' && stolenGainedTypes.length < amount) {
+      const missing = amount - stolenGainedTypes.length;
+      const allTypes: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
+      for (let i = 0; i < missing; i++) {
+        const randType = allTypes[Math.floor(Math.random() * allTypes.length)];
+        stolenGainedTypes.push(randType);
+      }
+    }
+
+    if (affectedTypes.length > 0 || (actionType !== 'remove' && stolenGainedTypes.length > 0)) {
+      if (actionType !== 'remove') {
+        stolenGainedTypes.forEach(k => {
+          currentThiefPool[k] = (currentThiefPool[k] || 0) + 1;
+        });
+      }
+
+      if (!playerPool && !enemyPool) {
+        const victimSetter = victimIsPlayer ? setPlayerChakra : setEnemyChakra;
+        const thiefSetter = victimIsPlayer ? setEnemyChakra : setPlayerChakra;
+        victimSetter({ ...currentVictimPool });
+        if (actionType !== 'remove') {
+          thiefSetter({ ...currentThiefPool });
+        }
+      }
+
+      const affectedStr = affectedTypes.map(k => getChakraName(k)).join(', ');
+      const gainedStr = stolenGainedTypes.map(k => getChakraName(k)).join(', ');
+
+      if (actionType === 'remove') {
+        logsList.push({
+          id: Math.random().toString(),
+          turn,
+          message: `🔥 [${skillName}] de ${sourceName} REMOVEU ${affectedTypes.length} chakra (${affectedStr}) do estoque de chakra de ${victimIsPlayer ? 'seu time' : 'oponente'}!`,
+          type: 'chakra',
+        });
+        addFloatingText(targetId, `-${affectedTypes.length} CHAKRA REMOVIDO`, 'effect');
+        if (victimIsPlayer) {
+          triggerChakraToast(`🔥 ${sourceName} removeu ${affectedTypes.length} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
+        } else {
+          triggerChakraToast(`🔥 CHAKRA REMOVIDO: ${sourceName} removeu ${affectedTypes.length} chakra (${affectedStr}) do estoque do oponente!`, 'removed');
+        }
+      } else {
+        if (isPlayerAction && !victimIsPlayer) {
+          matchStatsRef.current.chakraStolen += stolenGainedTypes.length;
+          matchStatsRef.current.chakraGenerated += stolenGainedTypes.length;
+        }
+        const victimNote = affectedTypes.length > 0 ? `(${affectedStr})` : `(oponente sem chakra no estoque)`;
+        logsList.push({
+          id: Math.random().toString(),
+          turn,
+          message: `🌀 [${skillName}] de ${sourceName} ${actionType === 'drain' ? 'drenou' : 'roubou'} ${stolenGainedTypes.length} chakra (${gainedStr}) para a sua equipe! ${victimNote}`,
+          type: 'chakra',
+        });
+        addFloatingText(sourceId, `+${stolenGainedTypes.length} CHAKRA ROUBADO`, 'effect');
+        if (affectedTypes.length > 0) {
+          addFloatingText(targetId, `-${affectedTypes.length} CHAKRA ${actionType === 'drain' ? 'DRENADO' : 'ROUBADO'}`, 'effect');
+        }
+        if (victimIsPlayer) {
+          triggerChakraToast(`⚠️ ${sourceName} roubou ${stolenGainedTypes.length} chakra (${gainedStr}) do estoque!`, 'lost');
+        } else {
+          triggerChakraToast(`⚡ ROUBO CONFIRMADO: ${sourceName} roubou ${stolenGainedTypes.length} chakra (${gainedStr}) para seu time!`, 'stolen');
+        }
+      }
+    } else {
+      logsList.push({
+        id: Math.random().toString(),
+        turn,
+        message: `🌀 [${skillName}] de ${sourceName} tentou remover chakra, mas o ${victimIsPlayer ? 'seu time' : 'oponente'} não tinha chakra no estoque!`,
+        type: 'chakra',
+      });
+      if (!victimIsPlayer) {
+        triggerChakraToast(`ℹ️ [${skillName}] tentou remover chakra, mas o oponente estava sem chakra no estoque!`, 'info');
+      } else {
+        triggerChakraToast(`ℹ️ [${skillName}] tentou remover chakra, mas seu time estava sem chakra no estoque!`, 'info');
+      }
+    }
+  };
+
   // Helper to execute actions for a single side (Player or Enemy) immediately
-  const executeSideActions = (sideActions: CuedAction[], isPlayerSide: boolean): boolean => {
+  const executeSideActions = (sideActions: CuedAction[], isPlayerSide: boolean, customRandAllocation?: ChakraPool): boolean => {
     const newLogs: CombatLog[] = [];
     const updatedPlayer = playerCombatants.map(c => ({ ...c, lastTurnStatus: null }));
     const updatedEnemy = enemyCombatants.map(c => ({ ...c, lastTurnStatus: null }));
 
+    const localPlayerChakra = { ...playerChakra };
+    const localEnemyChakra = { ...enemyChakra };
+
     // Deduct chakra cost permanently for sideActions
-    const chakraSetter = isPlayerSide ? setPlayerChakra : setEnemyChakra;
-    chakraSetter(prev => {
-      let pool = { ...prev };
+    const currentSideChakra = isPlayerSide ? localPlayerChakra : localEnemyChakra;
+    sideActions.forEach(action => {
+      const srcList = isPlayerSide ? updatedPlayer : updatedEnemy;
+      const src = srcList.find(p => p.id === action.sourceId);
+      if (!src) return;
+      const skill = src.character.skills[action.skillIndex];
+      const effectiveCost = getEffectiveSkillCost(skill, src, [...updatedPlayer, ...updatedEnemy]);
+      effectiveCost.forEach(cost => {
+        if (cost !== 'Rand') {
+          const element = cost as keyof ChakraPool;
+          if (currentSideChakra[element] > 0) currentSideChakra[element]--;
+        }
+      });
+    });
+
+    if (isPlayerSide && customRandAllocation) {
+      (Object.keys(customRandAllocation) as (keyof ChakraPool)[]).forEach(k => {
+        const deduct = customRandAllocation[k] || 0;
+        currentSideChakra[k] = Math.max(0, currentSideChakra[k] - deduct);
+      });
+    } else {
       sideActions.forEach(action => {
         const srcList = isPlayerSide ? updatedPlayer : updatedEnemy;
         const src = srcList.find(p => p.id === action.sourceId);
         if (!src) return;
         const skill = src.character.skills[action.skillIndex];
         const effectiveCost = getEffectiveSkillCost(skill, src, [...updatedPlayer, ...updatedEnemy]);
-        let randCost = 0;
-        effectiveCost.forEach(cost => {
-          if (cost === 'Rand') randCost++;
-          else {
-            const element = cost as keyof ChakraPool;
-            if (pool[element] > 0) pool[element]--;
-          }
-        });
+        let randCost = effectiveCost.filter(c => c === 'Rand').length;
         for (let i = 0; i < randCost; i++) {
-          const sorted = (Object.keys(pool) as (keyof ChakraPool)[]).sort((a, b) => pool[b] - pool[a]);
+          const sorted = (Object.keys(currentSideChakra) as (keyof ChakraPool)[]).sort((a, b) => currentSideChakra[b] - currentSideChakra[a]);
           const highestElement = sorted[0];
-          if (pool[highestElement] > 0) pool[highestElement]--;
+          if (currentSideChakra[highestElement] > 0) currentSideChakra[highestElement]--;
         }
       });
-      return pool;
-    });
+    }
 
     const resolveEffectTargets = (
       targetOverride: string | undefined,
@@ -1381,7 +1508,19 @@ const handleTradeChakra = () => {
         return;
       }
 
-      // Invulnerability check on target
+      const isOffensiveSkill = !!(
+        (skill.damage && skill.damage > 0) ||
+        (skill.directDamage && skill.directDamage > 0) ||
+        (skill.drainChakra && skill.drainChakra > 0) ||
+        (skill.stealChakra && skill.stealChakra > 0) ||
+        (skill.removeChakra && skill.removeChakra > 0) ||
+        (skill.stunTurns && skill.stunTurns > 0) ||
+        (skill.dotVal && skill.dotVal > 0) ||
+        (skill.bleedingVal && skill.bleedingVal > 0) ||
+        (skill.afflictionVal && skill.afflictionVal > 0)
+      );
+
+      // Invulnerability check on target (logs notification, but does not abort non-damage effects like chakra steal)
       if (skill.targetType === 'AllEnemies') {
         const livingTargets = targetList.filter(c => !c.isDead);
         const allInvulnerable = livingTargets.length > 0 && livingTargets.every(c => checkCombatantInvulnerable(c));
@@ -1393,7 +1532,6 @@ const handleTradeChakra = () => {
             type: 'buff',
           });
           addFloatingText(defaultTarget.id, 'TODOS INVULNERÁVEIS!', 'invulnerable');
-          return;
         }
       } else {
         const isTargetInvulnerable = checkCombatantInvulnerable(defaultTarget);
@@ -1405,16 +1543,35 @@ const handleTradeChakra = () => {
             type: 'buff',
           });
           addFloatingText(defaultTarget.id, 'INVULNERÁVEL!', 'invulnerable');
-          return;
         }
       }
 
-      // Check Reflect on target
+      // Check Counter-Attack on target (only counter-attack cancels the skill)
+      const counterEffect = defaultTarget.activeEffects.find(e => e.type === 'counter_attack' || (e.type === 'counter' && e.counterAttackType === 'defender'));
+      if (counterEffect && isOffensiveSkill && !skill.cannotBeCountered) {
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: `🚫 ${defaultTarget.character.name} CONTRA-ATACOU e anulou [${skill.name}] de ${source.character.name}!`,
+          type: 'system',
+        });
+        addFloatingText(defaultTarget.id, 'CONTRA-ATAQUE!', 'effect');
+        addFloatingText(source.id, 'HABILIDADE ANULADA!', 'damage');
+        defaultTarget.lastTurnStatus = 'CONTRA-ATAQUE';
+        source.lastTurnStatus = 'ANULADO';
+        counterEffect.duration = (counterEffect.duration || 1) - 1;
+        if (counterEffect.duration <= 0) {
+          defaultTarget.activeEffects = defaultTarget.activeEffects.filter(e => e !== counterEffect);
+        }
+        return; // Skill is cancelled due to counter-attack
+      }
+
+      // Check Reflect on target (reflects any offensive skill, including chakra steal/drain/removal)
       const reflectEffect = defaultTarget.activeEffects.find(e => e.type === 'reflect');
       let target = defaultTarget;
       let isReflected = false;
 
-      if (reflectEffect && skill.damage && skill.damage > 0 && !skill.cannotBeReflected) {
+      if (reflectEffect && isOffensiveSkill && !skill.cannotBeReflected) {
         isReflected = true;
         target = source; // Reflect back to source!
         if (reflectEffect.reflectCharges !== undefined) {
@@ -1426,7 +1583,7 @@ const handleTradeChakra = () => {
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `🔄 [REFLECT] ${defaultTarget.character.name} REFLETIL a habilidade [${skill.name}] de volta para ${source.character.name}!`,
+          message: `🔄 [REFLECT] ${defaultTarget.character.name} REFLETIU a habilidade [${skill.name}] de volta para ${source.character.name}!`,
           type: 'buff',
         });
         addFloatingText(defaultTarget.id, 'REFLETIDO!', 'effect');
@@ -1449,10 +1606,13 @@ const handleTradeChakra = () => {
           'Explosão de Chakra': 30, 'Esfera de Chakra': 35, 'Raio de Chakra': 40,
         };
         if (!baseDamage && skill.name) {
-          const match = Object.keys(legacyDmg).find(k => skill.name.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(skill.name.toLowerCase()));
-          if (match) baseDamage = legacyDmg[match];
+          if (legacyDmg[skill.name]) {
+            baseDamage = legacyDmg[skill.name];
+          } else {
+            const match = Object.keys(legacyDmg).find(k => skill.name.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(skill.name.toLowerCase()));
+            if (match) baseDamage = legacyDmg[match];
+          }
         }
-        baseDamage = legacyDmg[skill.name] || 0;
       }
       const directDamage = skill.directDamage || 0;
       const dotInstant = skill.dotInstant || 0;
@@ -1511,16 +1671,12 @@ const handleTradeChakra = () => {
             addFloatingText(t.id, '+CHAKRA CONTÍNUO', 'effect');
           } else {
             const isPlayerCombatant = updatedPlayer.some(p => p.id === t.id);
-            const targetSetter = isPlayerCombatant ? setPlayerChakra : setEnemyChakra;
-            targetSetter(prev => {
-              const u = { ...prev };
-              const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
-              for (let i = 0; i < amt; i++) {
-                const randType = types[Math.floor(Math.random() * types.length)];
-                u[randType]++;
-              }
-              return u;
-            });
+            const targetPool = isPlayerCombatant ? localPlayerChakra : localEnemyChakra;
+            const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
+            for (let i = 0; i < amt; i++) {
+              const randType = types[Math.floor(Math.random() * types.length)];
+              targetPool[randType] = (targetPool[randType] || 0) + 1;
+            }
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -1620,32 +1776,296 @@ const handleTradeChakra = () => {
         addFloatingText(target.id, `-${afflictionInstant} HP (AFLICAO)`, 'damage');
       }
 
+      // GAIN CHAKRA
+      if (skill.gainChakra && skill.gainChakra > 0) {
+        const amt = skill.gainChakra;
+        const gainChakraTargets = resolveEffectTargets(skill.gainChakraTarget || 'Self', target, source, sourceList, targetList, true);
+        gainChakraTargets.forEach(t => {
+          if (t.isDead) return;
+          const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
+          const pool = tIsPlayer ? localPlayerChakra : localEnemyChakra;
+          const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
+          const randType = types[Math.floor(Math.random() * types.length)];
+          pool[randType] = (pool[randType] || 0) + amt;
+          newLogs.push({ id: Math.random().toString(), turn, message: `✨ [${skill.name}] → ${t.character.name}: +${amt} chakra (${randType})`, type: 'chakra' });
+          addFloatingText(t.id, `+${amt} CHAKRA (${randType.toUpperCase()})`, 'effect');
+        });
+      }
+
+      // DRAIN CHAKRA
+      if (skill.drainChakra && skill.drainChakra > 0) {
+        const amt = skill.drainChakra;
+        const dur = skill.drainChakraDuration || 1;
+        const drainChakraTargets = resolveEffectTargets(skill.drainChakraTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        drainChakraTargets.forEach(t => {
+          if (t.isDead) return;
+          if (dur > 1) {
+            pushActiveEffect(t, {
+              name: `Dreno de Chakra (${skill.name})`,
+              type: 'custom', value: amt, duration: dur, icon: skill.icon,
+              irremovable: !!skill.drainChakraIrremovable,
+            });
+            newLogs.push({ id: Math.random().toString(), turn, message: `🌀 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por ${dur}T`, type: 'chakra' });
+            addFloatingText(t.id, 'DRENO CHAKRA CONTINUO', 'effect');
+          } else {
+            const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
+            performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'drain', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
+          }
+          cleanseTargetEffects(t, skill.drainChakraRemoveType);
+        });
+      }
+
+      // REMOVE CHAKRA
+      if (skill.removeChakra && skill.removeChakra > 0) {
+        const amt = skill.removeChakra;
+        const dur = skill.removeChakraDuration || 1;
+        const removeChakraTargets = resolveEffectTargets(skill.removeChakraTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        removeChakraTargets.forEach(t => {
+          if (t.isDead) return;
+          if (dur > 1) {
+            pushActiveEffect(t, {
+              name: `Remoção de Chakra (${skill.name})`,
+              type: 'custom', value: amt, duration: dur, icon: skill.icon,
+              irremovable: !!skill.removeChakraIrremovable,
+            });
+            newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por ${dur}T`, type: 'chakra' });
+            addFloatingText(t.id, 'REMOCAO CHAKRA CONTINUA', 'effect');
+          } else {
+            const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
+            performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'remove', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
+          }
+          cleanseTargetEffects(t, skill.removeChakraRemoveType);
+        });
+      }
+
+      // STEAL CHAKRA
+      if (skill.stealChakra && skill.stealChakra > 0) {
+        const amt = skill.stealChakra;
+        const dur = skill.stealChakraDuration || 1;
+        const stealChakraTargets = resolveEffectTargets(skill.stealChakraTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        stealChakraTargets.forEach(t => {
+          if (t.isDead) return;
+          if (dur > 1) {
+            pushActiveEffect(t, {
+              name: `Roubo de Chakra (${skill.name})`,
+              type: 'custom', value: amt, duration: dur, icon: skill.icon,
+              irremovable: !!skill.stealChakraIrremovable,
+            });
+            newLogs.push({ id: Math.random().toString(), turn, message: `💰 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por ${dur}T`, type: 'chakra' });
+            addFloatingText(t.id, 'ROUBO CHAKRA CONTINUO', 'effect');
+          } else {
+            const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
+            performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'steal', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
+          }
+          cleanseTargetEffects(t, skill.stealChakraRemoveType);
+        });
+      }
+
+      // CHAKRA REMOVE RULES (conditional remove chakra when an ability is active)
+      if (skill.chakraRemoveRules && skill.chakraRemoveRules.length > 0) {
+        for (const rule of skill.chakraRemoveRules) {
+          if (!rule.activeSkillName || rule.removeAmount <= 0) continue;
+          const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+          const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+          const isReqActive = allActiveEffects.some(e => {
+            if (!e.name) return false;
+            const eNameLower = e.name.toLowerCase();
+            return (
+              eNameLower === targetNameLower ||
+              eNameLower.startsWith(targetNameLower) ||
+              eNameLower.includes(targetNameLower)
+            );
+          });
+          if (isReqActive) {
+            const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
+            const livingTargets = targetSide.filter(c => !c.isDead && !checkCombatantInvulnerable(c));
+            if (livingTargets.length > 0) {
+              const t = livingTargets[0];
+              const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
+              performChakraAction(tIsPlayer, rule.removeAmount, source.character.name, t.character.name, skill.name, action.isPlayer, 'remove', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `🔥 [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e removeu ${rule.removeAmount} chakra aleatório do estoque inimigo!`,
+                type: 'chakra',
+              });
+            }
+          }
+        }
+      }
+
+      // INVISIBILITY TO OPPONENT
+      if (skill.invisible && skill.invisibleDuration && skill.invisibleDuration > 0) {
+        const invDuration = skill.invisibleDuration;
+        pushActiveEffect(source, {
+          name: `Invisibilidade (${skill.name})`,
+          type: 'invisible',
+          duration: invDuration,
+          icon: skill.icon,
+          irremovable: !!skill.invisibleIrremovable,
+        });
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: `👥 ${source.character.name} ativou [${skill.name}] ficando INVISÍVEL ao oponente por ${invDuration} turnos!`,
+          type: 'buff',
+        });
+        addFloatingText(source.id, 'INVISÍVEL', 'effect');
+        cleanseTargetEffects(source, skill.invisibleRemoveType);
+      }
+
+      // PARALYZE COOLDOWN
+      if (skill.paralyzeCooldownDuration && skill.paralyzeCooldownDuration > 0) {
+        const paralyzeTargets = resolveEffectTargets(skill.paralyzeCooldownTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        paralyzeTargets.forEach(t => {
+          if (t.isDead) return;
+          const duration = skill.paralyzeCooldownDuration || 1;
+          pushActiveEffect(t, {
+            name: `${skill.name} Paralisia de Cooldown`,
+            type: 'paralyze_cooldown',
+            duration,
+            icon: skill.icon,
+            irremovable: !!skill.paralyzeCooldownIrremovable,
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⏳ Cooldowns de ${t.character.name} foram PARALISADOS por [${skill.name}] por ${duration} turnos!`,
+            type: 'system',
+          });
+          addFloatingText(t.id, 'COOLDOWNS PARALISADOS', 'stun');
+          cleanseTargetEffects(t, skill.paralyzeCooldownRemoveType);
+        });
+      }
+
+      // REMOVE SHIELD
+      if (skill.removeShield) {
+        const removeShieldTargets = resolveEffectTargets(skill.shieldTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        removeShieldTargets.forEach(t => {
+          if (t.isDead) return;
+          t.shield = 0;
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🛡️❌ [${skill.name}] de ${source.character.name} DESTRUIU todo o escudo de ${t.character.name}!`,
+            type: 'damage',
+          });
+          addFloatingText(t.id, 'ESCUDO DESTRUÍDO', 'shield');
+          if (skill.removeShieldDuration && skill.removeShieldDuration > 0) {
+            pushActiveEffect(t, {
+              name: `Selamento de Escudo (${skill.name})`,
+              type: 'custom',
+              duration: skill.removeShieldDuration,
+              icon: skill.icon,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🛡️⛔ ${t.character.name} está IMPEDIDO de ganhar escudo por ${skill.removeShieldDuration} turnos!`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, 'ESCUDO SELADO', 'shield');
+          }
+        });
+      }
+
       // 1. DAMAGE & SHIELDS
       if (skill.damageDuration && skill.damageDuration > 1) {
         const duration = skill.damageDuration;
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         damageTargets.forEach(t => {
           if (t.isDead) return;
-          pushActiveEffect(t, {
-            name: `${skill.name} (Dano Contínuo)`,
-            type: 'damage',
-            value: baseDamage,
-            duration,
-            icon: skill.icon,
-            irremovable: !!skill.damageIrremovable,
-            casterId: source.id,
-            casterSide: action.isPlayer ? 'player' : 'enemy',
-          });
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `💥 ${t.character.name} foi afetado por [${skill.name}] sofrendo ${baseDamage} de dano por turno por ${duration} turnos!`,
-            type: 'damage',
-          });
-          addFloatingText(t.id, `DANO CONTÍNUO (${duration}T)`, 'damage');
+          // Deal immediate first tick
+          const startingShield = t.shield;
+          const startingHealth = t.health;
+          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
+          const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
+          const sourceDebuffs = source.activeEffects.filter(e => e.type === 'damage_debuff');
+          const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
+          let costRuleDamageBoost = 0;
+          if (skill.damageRules && skill.damageRules.length > 0) {
+            for (const rule of skill.damageRules) {
+              if (rule.damageBoost > 0 && rule.activeSkillName) {
+                const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+                const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+                const hasActive = allActiveEffects.some(e => {
+                  if (!e.name) return false;
+                  const eNameLower = e.name.toLowerCase();
+                  return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
+                });
+                if (hasActive) costRuleDamageBoost += rule.damageBoost;
+              }
+            }
+          }
+          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost - damageDebuffSum;
+          const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
+          let reductionSum = 0;
+          if (!targetCannotReduce) {
+            const targetReductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
+            reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
+            if (skill.ignoreDamageReduction) reductionSum = 0;
+            else if (typeof (skill as any).ignoreDamageReductionVal === 'number' && (skill as any).ignoreDamageReductionVal > 0)
+              reductionSum = Math.max(0, reductionSum - (skill as any).ignoreDamageReductionVal);
+          }
+          finalDamage = Math.max(0, finalDamage - reductionSum);
+          if (t.shield > 0) {
+            if (t.shield >= finalDamage) {
+              t.shield -= finalDamage;
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`, type: 'buff' });
+              addFloatingText(t.id, `-${finalDamage} ESCUDO`, 'shield');
+              finalDamage = 0;
+            } else {
+              finalDamage -= t.shield;
+              newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} quebrou o escudo de ${t.character.name}!`, type: 'damage' });
+              addFloatingText(t.id, 'ESCUDO QUEBRADO', 'shield');
+              t.shield = 0;
+            }
+          }
+          if (checkCombatantInvulnerable(t) && !skill.ignoreInvulnerable) {
+            finalDamage = 0;
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
+          }
+          if (finalDamage > 0) {
+            const before = t.health;
+            t.health = Math.max(0, t.health - finalDamage);
+            newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
+            addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
+            if (action.isPlayer) {
+              matchStatsRef.current.damageDealt += finalDamage;
+              matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name, amount: finalDamage });
+            } else {
+              matchStatsRef.current.damageReceived += finalDamage;
+              matchStatsRef.current.damageReceivedRecords.push({ charName: t.character.name, tags: t.character.tags || [], amount: finalDamage });
+            }
+            if (t.health === 0 && startingHealth > 0 && action.isPlayer) {
+              matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
+              matchStatsRef.current.killRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name });
+            }
+          }
+            // Apply remaining continuous damage (duration - 1)
+          if (duration > 1 && !t.isDead) {
+            pushActiveEffect(t, {
+              name: `${skill.name} (Dano Contínuo)`,
+              type: 'damage',
+              value: baseDamage,
+              duration: duration - 1,
+              icon: skill.icon,
+              irremovable: !!skill.damageIrremovable,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💥 ${t.character.name} foi afetado por [${skill.name}] sofrendo ${baseDamage} de dano por turno por mais ${duration - 1} turnos!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `DANO CONTÍNUO (${duration - 1}T)`, 'damage');
+          }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
-      } else if (baseDamage > 0) {
+      } else if (baseDamage > 0 || (skill.damageRules && skill.damageRules.length > 0)) {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         damageTargets.forEach(t => {
           if (t.isDead) return;
@@ -1660,9 +2080,17 @@ const handleTradeChakra = () => {
           if (skill.damageRules && skill.damageRules.length > 0) {
             for (const rule of skill.damageRules) {
               if (rule.damageBoost > 0 && rule.activeSkillName) {
-                const hasActive = source.activeEffects.some(e =>
-                  e.name.toLowerCase().includes(rule.activeSkillName.toLowerCase())
-                );
+                const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+                const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+                const hasActive = allActiveEffects.some(e => {
+                  if (!e.name) return false;
+                  const eNameLower = e.name.toLowerCase();
+                  return (
+                    eNameLower === targetNameLower ||
+                    eNameLower.includes(targetNameLower) ||
+                    targetNameLower.includes(eNameLower)
+                  );
+                });
                 if (hasActive) costRuleDamageBoost += rule.damageBoost;
               }
             }
@@ -1704,6 +2132,17 @@ const handleTradeChakra = () => {
               addFloatingText(t.id, 'ESCUDO QUEBRADO', 'shield');
               t.shield = 0;
             }
+          }
+
+          if (checkCombatantInvulnerable(t) && !skill.ignoreInvulnerable) {
+            finalDamage = 0;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🛡️ ${t.character.name} está INVULNERÁVEL e não sofreu dano de HP de [${skill.name}].`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
           }
 
           if (finalDamage > 0) {
@@ -1967,11 +2406,12 @@ const handleTradeChakra = () => {
 
       // Damage Debuff (reduces damage dealt by target)
       if (skill.damageDebuffVal && skill.damageDebuffVal > 0) {
-        const targets = resolveEffectTargets(skill.shieldTarget || 'Target', target, source, sourceList, targetList, false);
+        const targets = resolveEffectTargets(skill.damageDebuffTarget || skill.shieldTarget || 'Target', target, source, sourceList, targetList, false);
         targets.forEach(t => {
           if (t.isDead) return;
           pushActiveEffect(t, {
             name: `${skill.name} Weakness`,
+            sourceSkillName: skill.name,
             type: 'damage_debuff',
             value: skill.damageDebuffVal!,
             duration: skill.damageDebuffDuration || 3,
@@ -1990,7 +2430,7 @@ const handleTradeChakra = () => {
 
       // Damage Buff
       if (skill.damageBuffVal && skill.damageBuffVal > 0 && skill.name !== 'Sharingan' && skill.name !== 'Fifth Gate Opening' && skill.name !== 'Three Colored Pills') {
-        const targets = resolveEffectTargets(skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
+        const targets = resolveEffectTargets(skill.damageBuffTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
         targets.forEach(t => {
           if (t.isDead) return;
           pushActiveEffect(t, {
@@ -2011,38 +2451,24 @@ const handleTradeChakra = () => {
         });
       }
 
-      // Damage Rule Boost Buff (visual indicator)
+      // Damage Rule Boost Buff (visual indicator & log)
       if (skill.damageRules && skill.damageRules.length > 0) {
         skill.damageRules.forEach(rule => {
           if (!rule.activeSkillName || rule.damageBoost <= 0) return;
-          const hasActiveEffect = source.activeEffects.some(e =>
-            e.name.toLowerCase().includes(rule.activeSkillName.toLowerCase())
-          );
-          const buffName = `Dano Extra (${rule.activeSkillName})`;
+          const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+          const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+          const hasActiveEffect = allActiveEffects.some(e => {
+            if (!e.name) return false;
+            const eNameLower = e.name.toLowerCase();
+            return eNameLower === targetNameLower || eNameLower.includes(targetNameLower);
+          });
           if (hasActiveEffect) {
-            const existingBoost = source.activeEffects.find(e => e.name === buffName);
-            if (!existingBoost) {
-              pushActiveEffect(source, {
-                name: buffName,
-                type: 'damage_buff',
-                value: rule.damageBoost!,
-                duration: 3,
-                icon: skill.icon,
-                casterId: source.id,
-                casterSide: action.isPlayer ? 'player' : 'enemy',
-              });
-              newLogs.push({
-                id: Math.random().toString(), turn,
-                message: `⚡ ${source.character.name} ativou Dano Extra +${rule.damageBoost} por [${rule.activeSkillName}]!`,
-                type: 'buff',
-              });
-              addFloatingText(source.id, `DANO EXTRA +${rule.damageBoost}`, 'effect');
-            }
-          } else {
-            const existingBoost = source.activeEffects.find(e => e.name === buffName);
-            if (existingBoost) {
-              source.activeEffects = source.activeEffects.filter(e => e.name !== buffName);
-            }
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `⚡ [${skill.name}] de ${source.character.name} recebeu +${rule.damageBoost} de Dano Extra por [${rule.activeSkillName}] estar ativo!`,
+              type: 'buff',
+            });
+            addFloatingText(source.id, `DANO EXTRA +${rule.damageBoost}`, 'effect');
           }
         });
       }
@@ -2244,6 +2670,8 @@ const handleTradeChakra = () => {
     });
 
     // Save updated state
+    setPlayerChakra({ ...localPlayerChakra });
+    setEnemyChakra({ ...localEnemyChakra });
     playerRef.current = updatedPlayer;
     enemyRef.current = updatedEnemy;
     setPlayerCombatants(updatedPlayer);
@@ -2391,15 +2819,90 @@ const handleTradeChakra = () => {
           })
           .filter(eff => eff.duration > 0);
 
-        // Decrement skill cooldowns
-        c.character.skills.forEach(s => {
-          if (s.currentCooldown > 0) s.currentCooldown--;
-        });
+        // Decrement skill cooldowns (unless paralyze cooldown is active)
+        const isCooldownParalyzed = c.activeEffects.some(e => e.type === 'paralyze_cooldown');
+        if (isCooldownParalyzed) {
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⏳ Cooldowns de ${c.character.name} continuam PARALISADOS!`,
+            type: 'system',
+          });
+          addFloatingText(c.id, 'COOLDOWNS PARALISADOS', 'stun');
+        } else {
+          c.character.skills.forEach(s => {
+            if (s.currentCooldown > 0) s.currentCooldown--;
+          });
+        }
       });
     };
 
     applyTurnEndUpdates(updatedPlayer, 'Player');
     applyTurnEndUpdates(updatedEnemy, 'Enemy');
+
+    // Check continuous chakra remove rules for active damage effects
+    {
+      const allCombatants = [...updatedPlayer, ...updatedEnemy];
+      const continuousTypes = new Set(['damage', 'direct_damage', 'dot', 'bleeding', 'affliction']);
+      const processedSkills = new Set<string>();
+
+      allCombatants.forEach(target => {
+        if (target.isDead) return;
+        const continuousEffects = target.activeEffects.filter(e => continuousTypes.has(e.type) && e.casterId);
+        continuousEffects.forEach(eff => {
+          const effSkillName = eff.sourceSkillName || eff.name.replace(/\s*\(Dano Contínuo\)$/, '').replace(/\s*\(.*?\)$/, '').trim();
+          const skillKey = `${eff.casterId}_${effSkillName}`;
+          if (processedSkills.has(skillKey)) return;
+          processedSkills.add(skillKey);
+
+          const caster = allCombatants.find(c => c.id === eff.casterId);
+          if (!caster || caster.isDead) return;
+          const skill = caster.character.skills.find(s => s.name === effSkillName);
+          if (!skill || !skill.chakraRemoveRules || skill.chakraRemoveRules.length === 0) return;
+
+          const targetIsPlayer = updatedPlayer.some(p => p.id === target.id);
+          for (const rule of skill.chakraRemoveRules) {
+            if (!rule.activeSkillName || rule.removeAmount <= 0) continue;
+            const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+            const isCondActive = allCombatants.some(c =>
+              c.activeEffects.some(e => {
+                if (!e.name) return false;
+                const eNameLower = e.name.toLowerCase();
+                return eNameLower === targetNameLower || eNameLower.includes(targetNameLower);
+              })
+            );
+            if (isCondActive) {
+              const victimSetter = targetIsPlayer ? setPlayerChakra : setEnemyChakra;
+              victimSetter(prev => {
+                const pool = { ...prev };
+                const types = (Object.keys(pool) as (keyof ChakraPool)[]).filter(k => pool[k] > 0);
+                let removed = 0;
+                for (let i = 0; i < rule.removeAmount; i++) {
+                  if (types.length === 0) break;
+                  const randIdx = Math.floor(Math.random() * types.length);
+                  const randType = types[randIdx];
+                  pool[randType]--;
+                  if (pool[randType] <= 0) types.splice(randIdx, 1);
+                  removed++;
+                }
+                if (removed > 0) {
+                  const affectedStr = (Object.keys(pool) as (keyof ChakraPool)[])
+                    .filter(k => pool[k] < prev[k])
+                    .map(k => k).join(', ');
+                  newLogs.push({
+                    id: Math.random().toString(), turn,
+                    message: `🔥 [CONTÍNUO] ${caster.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e removeu ${removed} chakra aleatório do estoque inimigo (${affectedStr})!`,
+                    type: 'chakra',
+                  });
+                  addFloatingText(target.id, `-${removed} CHAKRA REMOVIDO`, 'effect');
+                }
+                return pool;
+              });
+            }
+          }
+        });
+      });
+    }
 
     playerRef.current = updatedPlayer;
     enemyRef.current = updatedEnemy;
@@ -2418,13 +2921,8 @@ const handleTradeChakra = () => {
     }
 
     // Advance turn
-    const alivePlayerCount = updatedPlayer.filter(c => !c.isDead).length;
-    const aliveEnemyCount = updatedEnemy.filter(c => !c.isDead).length;
-
     const nextTurn = turn + 1;
     setTurn(nextTurn);
-    rollChakraForTurn(true, alivePlayerCount);
-    rollChakraForTurn(false, aliveEnemyCount);
 
     // Roll initiative for new turn (50/50 chance)
     const newFirstPlayer: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
@@ -2444,7 +2942,7 @@ const handleTradeChakra = () => {
   };
 
   // Main End Turn / Pass Turn handler
-  const handleEndTurn = () => {
+  const handleEndTurn = (customRandAllocation?: ChakraPool) => {
     playCustomSound('NextTurn');
 
     const currentActions = [...cuedActions];
@@ -2452,7 +2950,7 @@ const handleTradeChakra = () => {
     setSelectedSkill(null);
 
     const isCurrentPlayer = activePlanner === 'player';
-    const isGameOver = executeSideActions(currentActions, isCurrentPlayer);
+    const isGameOver = executeSideActions(currentActions, isCurrentPlayer, customRandAllocation);
     if (isGameOver) return;
 
     if (onlineParams?.isOnline) {
@@ -2472,17 +2970,24 @@ const handleTradeChakra = () => {
     setPassedPlayersThisTurn(newPassed);
 
     if (newPassed.length < 2) {
+      // Generate chakra for the next player based on alive allies
+      const alivePlayerCount = playerCombatants.filter(c => !c.isDead).length;
+      const aliveEnemyCount = enemyCombatants.filter(c => !c.isDead).length;
+      rollChakraForTurn(true, alivePlayerCount);
+      rollChakraForTurn(false, aliveEnemyCount);
+
       const nextPlanner = activePlanner === 'player' ? 'enemy' : 'player';
       setActivePlanner(nextPlanner);
       if (onlineParams?.isOnline) {
         setIsWaitingForOpponent(true);
       }
+      const passedName = activePlanner === 'player' ? 'VOCÊ' : 'OPONENTE';
       setLogs(prev => [
         ...prev,
         {
           id: Math.random().toString(),
           turn,
-          message: `⚔️ HABILIDADES EXECUTADAS! Vez de ${nextPlanner === 'player' ? 'VOCÊ' : 'OPONENTE'} jogar.`,
+          message: `⚔️ ${passedName} finalizou o turno. Gerando chakra para ambos os lados! Vez de ${nextPlanner === 'player' ? 'VOCÊ' : 'OPONENTE'} planejar.`,
           type: 'system',
         }
       ]);
@@ -2515,7 +3020,7 @@ const handleTradeChakra = () => {
                   const testPool = { ...tempAiChakra };
                   testPool[sourceElem] -= 4;
                   testPool[targetElem] += 1;
-                  if (canAffordSkill(skill, testPool)) {
+                  if (canAffordSkill(skill, testPool, aiChar, [...playerCombatants, ...enemyCombatants])) {
                     tempAiChakra = testPool;
                     break;
                   }
@@ -2555,8 +3060,12 @@ const handleTradeChakra = () => {
               .filter(({ skill, idx }) => {
                 if (skill.currentCooldown > 0) return false;
                 if (isSkillBlockedByStun(skill, aiChar.activeEffects)) return false;
-                if (!canAffordSkill(skill, tempAiChakra)) return false;
-                if (skill.requireEffect && !aiChar.activeEffects.some(e => e.name === skill.requireEffect)) return false;
+                if (!canAffordSkill(skill, tempAiChakra, aiChar, [...playerCombatants, ...enemyCombatants])) return false;
+                if (skill.requireEffect) {
+                  const reqLower = skill.requireEffect.toLowerCase();
+                  const hasReq = aiChar.activeEffects.some(e => e.name && (e.name.toLowerCase() === reqLower || e.name.toLowerCase().startsWith(reqLower) || e.name.toLowerCase().includes(reqLower)));
+                  if (!hasReq) return false;
+                }
                 if (aiActions.some(a => a.sourceId === aiChar.id && a.skillIndex === idx)) return false;
                 return true;
               });
@@ -2732,13 +3241,17 @@ const handleTradeChakra = () => {
         setPassedPlayersThisTurn(newPassed);
 
         if (newPassed.length < 2) {
+          const alivePlayerCount = playerCombatants.filter(c => !c.isDead).length;
+          const aliveEnemyCount = enemyCombatants.filter(c => !c.isDead).length;
+          rollChakraForTurn(true, alivePlayerCount);
+          rollChakraForTurn(false, aliveEnemyCount);
           setActivePlanner('player');
           setLogs(prev => [
             ...prev,
             {
               id: Math.random().toString(),
               turn,
-              message: `⚔️ OPONENTE EXECUTOU AS HABILIDADES! Sua vez de jogar em resposta.`,
+              message: `⚔️ OPONENTE EXECUTOU AS HABILIDADES! Gerando chakra para ambos. Sua vez de jogar em resposta.`,
               type: 'system',
             }
           ]);
@@ -2755,12 +3268,140 @@ const handleTradeChakra = () => {
   const [showSandboxConfirmModal, setShowSandboxConfirmModal] = useState(false);
   const [dontShowSandboxConfirmAgain, setDontShowSandboxConfirmAgain] = useState(false);
 
+  // Random Chakra Selection Modal State
+  const [showRandChakraModal, setShowRandChakraModal] = useState(false);
+  const [randModalData, setRandModalData] = useState<{
+    actions: CuedAction[];
+    isPlayerSide: boolean;
+    queuedSkillsWithRand: { charName: string; skillName: string; randCount: number; icon?: string }[];
+    totalRandRequired: number;
+    fixedCosts: ChakraPool;
+    availablePoolForRand: ChakraPool;
+  } | null>(null);
+  const [randAllocation, setRandAllocation] = useState<ChakraPool>({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
+
+  // Chakra Notification Toast State
+  const [chakraToast, setChakraToast] = useState<{
+    id: string;
+    message: string;
+    type: 'stolen' | 'removed' | 'lost' | 'info';
+  } | null>(null);
+
+  const triggerChakraToast = (message: string, type: 'stolen' | 'removed' | 'lost' | 'info') => {
+    setChakraToast({
+      id: Math.random().toString(),
+      message,
+      type,
+    });
+    try {
+      playCustomSound('StartTurn');
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (chakraToast) {
+      const timer = setTimeout(() => setChakraToast(null), 3800);
+      return () => clearTimeout(timer);
+    }
+  }, [chakraToast]);
+
+  const getChakraName = (k: keyof ChakraPool | string): string => {
+    switch (k) {
+      case 'Tai': return 'Taijutsu';
+      case 'Nin': return 'Ninjutsu';
+      case 'Gen': return 'Genjutsu';
+      case 'Blood': return 'Kekkei Genkai';
+      default: return k;
+    }
+  };
+
+  const checkAndProceedWithEndTurn = (customRandAllocation?: ChakraPool) => {
+    if (customRandAllocation) {
+      handleEndTurn(customRandAllocation);
+      return;
+    }
+
+    const isCurrentPlayer = activePlanner === 'player';
+    const sideCombatants = isCurrentPlayer ? playerCombatants : enemyCombatants;
+    const sideChakra = isCurrentPlayer ? playerChakra : enemyChakra;
+
+    const sideActions = cuedActions.filter(a => sideCombatants.some(p => p.id === a.sourceId));
+
+    const queuedSkillsWithRand: { charName: string; skillName: string; randCount: number; icon?: string }[] = [];
+    let totalRandRequired = 0;
+    const fixedCosts: ChakraPool = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
+
+    sideActions.forEach(action => {
+      const src = sideCombatants.find(p => p.id === action.sourceId);
+      if (!src) return;
+      const skill = src.character.skills[action.skillIndex];
+      const effectiveCost = getEffectiveSkillCost(skill, src, [...playerCombatants, ...enemyCombatants]);
+
+      let randCount = 0;
+      effectiveCost.forEach(cost => {
+        if (cost === 'Rand') {
+          randCount++;
+        } else {
+          const elem = cost as keyof ChakraPool;
+          fixedCosts[elem] = (fixedCosts[elem] || 0) + 1;
+        }
+      });
+
+      if (randCount > 0) {
+        queuedSkillsWithRand.push({
+          charName: src.character.name,
+          skillName: skill.name,
+          randCount,
+          icon: skill.icon,
+        });
+        totalRandRequired += randCount;
+      }
+    });
+
+    if (totalRandRequired > 0 && isCurrentPlayer) {
+      const availablePoolForRand: ChakraPool = {
+        Tai: Math.max(0, sideChakra.Tai - fixedCosts.Tai),
+        Nin: Math.max(0, sideChakra.Nin - fixedCosts.Nin),
+        Gen: Math.max(0, sideChakra.Gen - fixedCosts.Gen),
+        Blood: Math.max(0, sideChakra.Blood - fixedCosts.Blood),
+      };
+
+      const initialAllocation: ChakraPool = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
+      const tempAvail = { ...availablePoolForRand };
+      for (let i = 0; i < totalRandRequired; i++) {
+        const sorted = (Object.keys(tempAvail) as (keyof ChakraPool)[]).sort((a, b) => tempAvail[b] - tempAvail[a]);
+        const highest = sorted[0];
+        if (tempAvail[highest] > 0) {
+          tempAvail[highest]--;
+          initialAllocation[highest]++;
+        }
+      }
+
+      setRandModalData({
+        actions: sideActions,
+        isPlayerSide: isCurrentPlayer,
+        queuedSkillsWithRand,
+        totalRandRequired,
+        fixedCosts,
+        availablePoolForRand,
+      });
+      setRandAllocation(initialAllocation);
+      setShowRandChakraModal(true);
+      playClickSound();
+      return;
+    }
+
+    handleEndTurn();
+  };
+
   const handleEndTurnClick = () => {
     if (isSandbox && !dontShowSandboxConfirmAgain) {
       playClickSound();
       setShowSandboxConfirmModal(true);
     } else {
-      handleEndTurn();
+      checkAndProceedWithEndTurn();
     }
   };
 
@@ -2870,6 +3511,10 @@ const handleTradeChakra = () => {
             setPassedPlayersThisTurn(newPassed);
 
             if (newPassed.length < 2) {
+              const alivePlayerCount = playerCombatants.filter(c => !c.isDead).length;
+              const aliveEnemyCount = enemyCombatants.filter(c => !c.isDead).length;
+              rollChakraForTurn(true, alivePlayerCount);
+              rollChakraForTurn(false, aliveEnemyCount);
               // Opponent played first; now it's our turn to plan
               playCustomSound('NextTurn');
               setActivePlanner('player');
@@ -2997,6 +3642,8 @@ const handleTradeChakra = () => {
 
   const executeTurnSimulation = (playerActions: CuedAction[] = [], enemyActions: CuedAction[] = []) => {
     const newLogs: CombatLog[] = [];
+    const localPlayerChakra = { ...playerChakra };
+    const localEnemyChakra = { ...enemyChakra };
     const updatedPlayer = playerCombatants.map(c => ({ ...c, lastTurnStatus: null }));
     const updatedEnemy = enemyCombatants.map(c => ({ ...c, lastTurnStatus: null }));
 
@@ -3064,9 +3711,6 @@ const handleTradeChakra = () => {
         }
       }
 
-      if (currentSkill?.doNotApplyIfActive && currentSkill.name) {
-        return resultTargets.filter(c => !isSkillActiveOnTarget(c, currentSkill.name));
-      }
       return resultTargets;
     };
 
@@ -3167,7 +3811,6 @@ const handleTradeChakra = () => {
             type: 'buff',
           });
           addFloatingText(target.id, 'TODOS INVULNERÁVEIS', 'invulnerable');
-          return;
         }
       } else {
         const isInvulnerable = checkCombatantInvulnerable(target);
@@ -3179,7 +3822,6 @@ const handleTradeChakra = () => {
             type: 'buff',
           });
           addFloatingText(target.id, 'INVULNERÁVEL', 'invulnerable');
-          return;
         }
       }
 
@@ -3797,42 +4439,7 @@ const handleTradeChakra = () => {
             addFloatingText(t.id, 'DRENO DE CHAKRA CONTÍNUO', 'effect');
           } else {
             const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
-            const enemySetter = tIsPlayer ? setPlayerChakra : setEnemyChakra;
-            const targetSetter = tIsPlayer ? setEnemyChakra : setPlayerChakra;
-            let actualDrained = 0;
-            enemySetter(prev => {
-              const u = { ...prev };
-              const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
-              for (let i = 0; i < amt; i++) {
-                const nonZero = types.filter(k => u[k] > 0);
-                if (nonZero.length > 0) {
-                  const randType = nonZero[Math.floor(Math.random() * nonZero.length)];
-                  u[randType]--;
-                  actualDrained++;
-                }
-              }
-              return u;
-            });
-
-            if (actualDrained > 0) {
-              targetSetter(prev => {
-                const u = { ...prev };
-                const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
-                for (let i = 0; i < actualDrained; i++) {
-                  const randType = types[Math.floor(Math.random() * types.length)];
-                  u[randType]++;
-                }
-                return u;
-              });
-              newLogs.push({
-                id: Math.random().toString(),
-                turn,
-                message: `🌀 [${skill.name}] de ${source.character.name} drenou ${actualDrained} de chakra de ${t.character.name}!`,
-                type: 'chakra',
-              });
-              addFloatingText(source.id, `+${actualDrained} CHAKRA ROUBADO`, 'effect');
-              addFloatingText(t.id, `-${actualDrained} CHAKRA DRENADO`, 'effect');
-            }
+            performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'drain', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
           }
           cleanseTargetEffects(t, skill.drainChakraRemoveType);
         });
@@ -3855,21 +4462,7 @@ const handleTradeChakra = () => {
             addFloatingText(t.id, 'REMOCAO CHAKRA CONTINUA', 'effect');
           } else {
             const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
-            const targetChakraSetter = tIsPlayer ? setPlayerChakra : setEnemyChakra;
-            let actualRemoved = 0;
-            targetChakraSetter(prev => {
-              const u = { ...prev };
-              const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
-              for (let i = 0; i < amt; i++) {
-                const nonZero = types.filter(k => u[k] > 0);
-                if (nonZero.length > 0) { const r = nonZero[Math.floor(Math.random() * nonZero.length)]; u[r]--; actualRemoved++; }
-              }
-              return u;
-            });
-            if (actualRemoved > 0) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${t.character.name}: ${actualRemoved} chakra removido`, type: 'chakra' });
-              addFloatingText(t.id, `-${actualRemoved} CHAKRA`, 'effect');
-            }
+            performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'remove', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
           }
           cleanseTargetEffects(t, skill.removeChakraRemoveType);
         });
@@ -3892,33 +4485,42 @@ const handleTradeChakra = () => {
             addFloatingText(t.id, 'ROUBO CHAKRA CONTINUO', 'effect');
           } else {
             const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
-            const victimSetter = tIsPlayer ? setPlayerChakra : setEnemyChakra;
-            const thiefSetter = tIsPlayer ? setEnemyChakra : setPlayerChakra;
-            let actualStolen = 0;
-            victimSetter(prev => {
-              const u = { ...prev };
-              const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
-              for (let i = 0; i < amt; i++) {
-                const nonZero = types.filter(k => u[k] > 0);
-                if (nonZero.length > 0) { const r = nonZero[Math.floor(Math.random() * nonZero.length)]; u[r]--; actualStolen++; }
-              }
-              return u;
-            });
-            if (actualStolen > 0) {
-              thiefSetter(prev => {
-                const u = { ...prev };
-                const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
-                for (let i = 0; i < actualStolen; i++) { u[types[Math.floor(Math.random() * types.length)]]++; }
-                return u;
-              });
-              if (action.isPlayer) { matchStatsRef.current.chakraStolen += actualStolen; matchStatsRef.current.chakraGenerated += actualStolen; }
-              newLogs.push({ id: Math.random().toString(), turn, message: `💰 [${skill.name}] → ${t.character.name}: ${actualStolen} chakra roubado`, type: 'chakra' });
-              addFloatingText(source.id, `+${actualStolen} CHAKRA ROUBADO`, 'effect');
-              addFloatingText(t.id, `-${actualStolen} CHAKRA`, 'effect');
-            }
+            performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'steal', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
           }
           cleanseTargetEffects(t, skill.stealChakraRemoveType);
         });
+      }
+
+      // CHAKRA REMOVE RULES (conditional remove chakra when an ability is active)
+      if (skill.chakraRemoveRules && skill.chakraRemoveRules.length > 0) {
+        for (const rule of skill.chakraRemoveRules) {
+          if (!rule.activeSkillName || rule.removeAmount <= 0) continue;
+          const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+          const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+          const isReqActive = allActiveEffects.some(e => {
+            if (!e.name) return false;
+            const eNameLower = e.name.toLowerCase();
+            return (
+              eNameLower === targetNameLower ||
+              eNameLower.startsWith(targetNameLower) ||
+              eNameLower.includes(targetNameLower)
+            );
+          });
+          if (isReqActive) {
+            const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
+            const livingTargets = targetSide.filter(c => !c.isDead && !checkCombatantInvulnerable(c));
+            if (livingTargets.length > 0) {
+              const t = livingTargets[0];
+              const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
+              performChakraAction(tIsPlayer, rule.removeAmount, source.character.name, t.character.name, skill.name, action.isPlayer, 'remove', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `🔥 [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e removeu ${rule.removeAmount} chakra aleatório do estoque inimigo!`,
+                type: 'chakra',
+              });
+            }
+          }
+        }
       }
 
       // 0.4 INVISIBILIDADE AO OPONENTE
@@ -3944,27 +4546,99 @@ const handleTradeChakra = () => {
       // 1. APPLY DAMAGE REDUCTION & SHIELDS FOR OFFENSE
       if (skill.damageDuration && skill.damageDuration > 1) {
         const duration = skill.damageDuration;
+        const dmgVal = skill.damage || baseDamage;
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         damageTargets.forEach(t => {
           if (t.isDead) return;
-          pushActiveEffect(t, {
-            name: `${skill.name} (Dano Contínuo)`,
-            type: 'damage',
-            value: skill.damage,
-            duration,
-            icon: skill.icon,
-            irremovable: !!skill.damageIrremovable,
-          });
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `💥 ${t.character.name} está sob efeito de [${skill.name}] sofrendo ${skill.damage} de dano por turno por ${duration} turnos!`,
-            type: 'damage',
-          });
-          addFloatingText(t.id, `DANO CONTÍNUO (-${skill.damage} HP)`, 'damage');
+          // Deal immediate first tick
+          const startingShield = t.shield;
+          const startingHealth = t.health;
+          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
+          const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
+          const sourceDebuffs = source.activeEffects.filter(e => e.type === 'damage_debuff');
+          const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
+          let costRuleDamageBoost = 0;
+          if (skill.damageRules && skill.damageRules.length > 0) {
+            for (const rule of skill.damageRules) {
+              if (rule.damageBoost > 0 && rule.activeSkillName) {
+                const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+                const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+                const hasActive = allActiveEffects.some(e => {
+                  if (!e.name) return false;
+                  const eNameLower = e.name.toLowerCase();
+                  return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
+                });
+                if (hasActive) costRuleDamageBoost += rule.damageBoost;
+              }
+            }
+          }
+          let finalDamage = dmgVal + damageBuffSum + costRuleDamageBoost - damageDebuffSum;
+          const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
+          let reductionSum = 0;
+          if (!targetCannotReduce) {
+            const targetReductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
+            reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
+            if (skill.ignoreDamageReduction) reductionSum = 0;
+            else if (typeof (skill as any).ignoreDamageReductionVal === 'number' && (skill as any).ignoreDamageReductionVal > 0)
+              reductionSum = Math.max(0, reductionSum - (skill as any).ignoreDamageReductionVal);
+          }
+          finalDamage = Math.max(0, finalDamage - reductionSum);
+          if (t.shield > 0) {
+            if (t.shield >= finalDamage) {
+              t.shield -= finalDamage;
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`, type: 'buff' });
+              addFloatingText(t.id, `-${finalDamage} ESCUDO`, 'shield');
+              finalDamage = 0;
+            } else {
+              finalDamage -= t.shield;
+              newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} quebrou o escudo de ${t.character.name}!`, type: 'damage' });
+              addFloatingText(t.id, 'ESCUDO QUEBRADO', 'shield');
+              t.shield = 0;
+            }
+          }
+          if (checkCombatantInvulnerable(t) && !skill.ignoreInvulnerable) {
+            finalDamage = 0;
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
+          }
+          if (finalDamage > 0) {
+            const before = t.health;
+            t.health = Math.max(0, t.health - finalDamage);
+            newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
+            addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
+            if (action.isPlayer) {
+              matchStatsRef.current.damageDealt += finalDamage;
+              matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name, amount: finalDamage });
+            }
+            if (t.health === 0 && startingHealth > 0 && action.isPlayer) {
+              matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
+              matchStatsRef.current.killRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name });
+            }
+          }
+          // Apply remaining continuous damage (duration - 1)
+          if (duration > 1 && !t.isDead) {
+            pushActiveEffect(t, {
+              name: `${skill.name} (Dano Contínuo)`,
+              type: 'damage',
+              value: dmgVal,
+              duration: duration - 1,
+              icon: skill.icon,
+              irremovable: !!skill.damageIrremovable,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💥 ${t.character.name} está sob efeito de [${skill.name}] sofrendo ${dmgVal} de dano por turno por mais ${duration - 1} turnos!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `DANO CONTÍNUO (${duration - 1}T)`, 'damage');
+          }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
-      } else if (baseDamage > 0) {
+      } else if (baseDamage > 0 || (skill.damageRules && skill.damageRules.length > 0)) {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         damageTargets.forEach(t => {
           if (t.isDead) return;
@@ -3979,9 +4653,17 @@ const handleTradeChakra = () => {
           if (skill.damageRules && skill.damageRules.length > 0) {
             for (const rule of skill.damageRules) {
               if (rule.damageBoost > 0 && rule.activeSkillName) {
-                const hasActive = source.activeEffects.some(e =>
-                  e.name.toLowerCase().includes(rule.activeSkillName.toLowerCase())
-                );
+                const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+                const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+                const hasActive = allActiveEffects.some(e => {
+                  if (!e.name) return false;
+                  const eNameLower = e.name.toLowerCase();
+                  return (
+                    eNameLower === targetNameLower ||
+                    eNameLower.includes(targetNameLower) ||
+                    targetNameLower.includes(eNameLower)
+                  );
+                });
                 if (hasActive) costRuleDamageBoost += rule.damageBoost;
               }
             }
@@ -4275,12 +4957,13 @@ if (skill.reflect) {
 
       // 4.3 APPLY DAMAGE DEBUFF
       if (skill.damageDebuffVal && skill.damageDebuffVal > 0) {
-        const debuffTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList, false);
+        const debuffTargets = resolveEffectTargets(skill.damageDebuffTarget || skill.shieldTarget || 'Target', target, source, sourceList, targetList, false);
         debuffTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.damageDebuffDuration || 3;
           pushActiveEffect(t, {
             name: `${skill.name} Weakness`,
+            sourceSkillName: skill.name,
             type: 'damage_debuff',
             value: skill.damageDebuffVal,
             duration,
@@ -4299,7 +4982,7 @@ if (skill.reflect) {
 
       // 4.4 APPLY DAMAGE BUFF
       if (skill.damageBuffVal && skill.damageBuffVal > 0) {
-        const buffTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList, true);
+        const buffTargets = resolveEffectTargets(skill.damageBuffTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
         buffTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.damageBuffDuration || 3;
@@ -4673,48 +5356,58 @@ if (skill.reflect) {
           addFloatingText(c.id, `+${amt} CHAKRA (FLUXO)`, 'effect');
         });
 
-        // Apply continuous Chakra Drain effects
-        const drainChakraEffects = c.activeEffects.filter(e => e.name.startsWith('Dreno de Chakra'));
+        // Apply continuous Chakra Drain effects (Dreno, Roubo, Remoção)
+        const drainChakraEffects = c.activeEffects.filter(e =>
+          e.name.startsWith('Dreno de Chakra') ||
+          e.name.startsWith('Roubo de Chakra') ||
+          e.name.startsWith('Remoção de Chakra')
+        );
+
         drainChakraEffects.forEach(effect => {
           const amt = effect.value || 0;
-          // The carrier of the drain effect is the TARGET (victim). So we drain from c (carrier) and give to opponent!
-          const targetSetterOfVictim = name === 'Player' ? setPlayerChakra : setEnemyChakra;
-          const targetSetterOfThief = name === 'Player' ? setEnemyChakra : setPlayerChakra;
-          
-          let actualDrained = 0;
-          targetSetterOfVictim(victimChakra => {
-            const u = { ...victimChakra };
-            const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
+          const isRemov = effect.name.startsWith('Remoção');
+          const victimSetter = name === 'Player' ? setPlayerChakra : setEnemyChakra;
+          const thiefSetter = name === 'Player' ? setEnemyChakra : setPlayerChakra;
+
+          victimSetter(prevVictim => {
+            const uVictim = { ...prevVictim };
+            const affectedTypes: (keyof ChakraPool)[] = [];
             for (let i = 0; i < amt; i++) {
-              const nonZero = types.filter(k => u[k] > 0);
+              const nonZero = (Object.keys(uVictim) as (keyof ChakraPool)[]).filter(k => uVictim[k] > 0);
               if (nonZero.length > 0) {
                 const randType = nonZero[Math.floor(Math.random() * nonZero.length)];
-                u[randType]--;
-                actualDrained++;
+                uVictim[randType]--;
+                affectedTypes.push(randType);
               }
             }
-            if (actualDrained > 0) {
-              targetSetterOfThief(thiefChakra => {
-                const tu = { ...thiefChakra };
-                for (let j = 0; j < actualDrained; j++) {
-                  const randType = types[Math.floor(Math.random() * types.length)];
-                  tu[randType]++;
-                }
-                return tu;
-              });
-            }
-            return u;
-          });
 
-          if (actualDrained > 0) {
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🌀 ${c.character.name} teve ${actualDrained} chakra drenado pelo efeito [${effect.name}]!`,
-              type: 'chakra',
-            });
-            addFloatingText(c.id, `-${actualDrained} CHAKRA (DRENADO)`, 'effect');
-          }
+            if (affectedTypes.length > 0) {
+              if (!isRemov) {
+                thiefSetter(prevThief => {
+                  const uThief = { ...prevThief };
+                  affectedTypes.forEach(k => { uThief[k] = (uThief[k] || 0) + 1; });
+                  return uThief;
+                });
+              }
+
+              const affectedStr = affectedTypes.map(k => getChakraName(k)).join(', ');
+              const actionName = isRemov ? 'removido' : 'drenado';
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🌀 [${effect.name}] no estoque de ${name === 'Player' ? 'seu time' : 'oponente'}: ${affectedTypes.length} chakra (${affectedStr}) ${actionName}!`,
+                type: 'chakra',
+              });
+              addFloatingText(c.id, `-${affectedTypes.length} CHAKRA (${isRemov ? 'REMOVIDO' : 'DRENADO'})`, 'effect');
+
+              if (name === 'Player') {
+                triggerChakraToast(`⚠️ [${effect.name}] drenou ${affectedTypes.length} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
+              } else {
+                triggerChakraToast(`⚡ [${effect.name}] roubou ${affectedTypes.length} chakra (${affectedStr}) do estoque do oponente!`, 'stolen');
+              }
+            }
+            return uVictim;
+          });
         });
 
         // Track health changes from continuous effects (DoT, regeneration, self damage)
@@ -4744,13 +5437,15 @@ if (skill.reflect) {
           addFloatingText(c.id, 'DERROTADO', 'damage');
         }
 
+        // Check paralyze cooldown BEFORE decrementing durations
+        const isCooldownParalyzed = c.activeEffects.some(e => e.type === 'paralyze_cooldown');
+
         // Decrement effect durations
         c.activeEffects = c.activeEffects
           .map(eff => ({ ...eff, duration: eff.duration - 1 }))
           .filter(eff => eff.duration > 0);
 
         // Decrement cooldowns (unless paralisia de cooldown is active)
-        const isCooldownParalyzed = c.activeEffects.some(e => e.type === 'paralyze_cooldown');
         if (isCooldownParalyzed) {
           newLogs.push({
             id: Math.random().toString(),
@@ -4810,6 +5505,8 @@ if (skill.reflect) {
       }
     }
 
+    setPlayerChakra(localPlayerChakra);
+    setEnemyChakra(localEnemyChakra);
     setLogs(prev => [...prev, ...newLogs]);
   };
 
@@ -4824,19 +5521,19 @@ if (skill.reflect) {
     let color = '';
     let name = '';
     if (type === 'Tai') {
-      color = 'bg-red-600 border-red-400';
+      color = 'bg-green-600 border-green-400';
       name = 'Taijutsu';
     } else if (type === 'Nin') {
       color = 'bg-blue-600 border-blue-400';
       name = 'Ninjutsu';
     } else if (type === 'Gen') {
-      color = 'bg-emerald-600 border-emerald-400';
+      color = 'bg-white border-white/60';
       name = 'Genjutsu';
     } else if (type === 'Blood') {
-      color = 'bg-purple-600 border-purple-400';
+      color = 'bg-red-600 border-red-400';
       name = 'Bloodline';
     } else {
-      color = 'bg-slate-500 border-slate-400';
+      color = 'bg-slate-600 border-slate-500';
       name = 'Qualquer Chakra (Rand)';
     }
     return (
@@ -4972,6 +5669,17 @@ if (skill.reflect) {
         targetLabel: getTargetLabel(skill.afflictionTarget, 'Alvo Principal')
       });
     }
+
+    // Informação: Skill reduz dano do inimigo (damageDebuff) - Ex: Parasite do Shino
+    if (skill.damageDebuffVal && skill.damageDebuffVal > 0) {
+      effects.push({
+        label: 'Reduz Dano do Inimigo',
+        value: `Reduz o dano causado pelo inimigo em ${skill.damageDebuffVal} por ${skill.damageDebuffDuration || 1} ${skill.damageDebuffDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-rose-400',
+        targetLabel: getTargetLabel(skill.damageDebuffTarget, 'Alvo Principal')
+      });
+    }
+
     if (skill.paralyzeCooldownDuration && skill.paralyzeCooldownDuration > 0) {
       effects.push({
         label: 'Paralisar Cooldown',
@@ -5044,6 +5752,16 @@ if (skill.reflect) {
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
     }
+
+    // Informação de redução de dano do inimigo (damageDebuff)
+    if (skill.damageDebuffVal && skill.damageDebuffVal > 0) {
+      effects.push({
+        label: 'Reduz Dano do Inimigo',
+        value: `Reduz o dano causado pelo inimigo em ${skill.damageDebuffVal} por ${skill.damageDebuffDuration || 1} ${skill.damageDebuffDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-rose-400',
+        targetLabel: getTargetLabel(skill.damageDebuffTarget || 'Target', 'Alvo Principal')
+      });
+    }
     if (skill.invisible && skill.invisibleDuration && skill.invisibleDuration > 0) {
       effects.push({
         label: 'Invisibilidade',
@@ -5062,15 +5780,44 @@ if (skill.reflect) {
   });
 }
 if (skill.reflect) {
-  effects.push({
-    label: 'Reflect',
-    value: `Reflete a próxima habilidade recebida (${skill.reflectMode === 'RandomAlly' ? 'para um aliado aleatório' : 'de volta pro atacante'}) por ${skill.reflectDuration || 1} ${skill.reflectDuration === 1 ? 'Turno' : 'Turnos'}`,
-    color: 'text-cyan-400',
-    targetLabel: getTargetLabel(skill.reflectTarget, 'Conjurador (Mim)')
-  });
-}
+    effects.push({
+      label: 'Reflect',
+      value: `Reflete a próxima habilidade recebida (${skill.reflectMode === 'RandomAlly' ? 'para um aliado aleatório' : 'de volta pro atacante'}) por ${skill.reflectDuration || 1} ${skill.reflectDuration === 1 ? 'Turno' : 'Turnos'}`,
+      color: 'text-cyan-400',
+      targetLabel: getTargetLabel(skill.reflectTarget, 'Conjurador (Mim)')
+    });
+  }
 
-if (skill.cannotBeCountered) {
+  // Informação de redução de custo quando Parasite estiver ativo (costRules)
+  if (skill.costRules && skill.costRules.length > 0) {
+    skill.costRules.forEach(rule => {
+      if (rule.activeSkillName && rule.reduceAmount && rule.reduceAmount > 0) {
+        const chakraType = rule.reduceType || rule.reduceSpecificType || 'Rand';
+        const chakraLabel = chakraType === 'Rand' ? 'Chakra Aleatório' : chakraType;
+        effects.push({
+          label: `Custo Reduzido (${rule.activeSkillName})`,
+          value: `Custa ${rule.reduceAmount} ${chakraType === 'Rand' ? 'Chakra Aleatório' : chakraType} a menos enquanto ${rule.activeSkillName} estiver ativo no alvo`,
+          color: 'text-emerald-400',
+          targetLabel: 'Condicional'
+        });
+      }
+    });
+  }
+
+  // Informação de remoção de chakra condicional (chakraRemoveRules)
+  if (skill.chakraRemoveRules && skill.chakraRemoveRules.length > 0) {
+    skill.chakraRemoveRules.forEach(rule => {
+      if (!rule.activeSkillName || rule.removeAmount <= 0) return;
+      effects.push({
+        label: `Remover Chakra (${rule.activeSkillName})`,
+        value: `Remove ${rule.removeAmount} chakra aleatório do estoque inimigo quando ${rule.activeSkillName} estiver ativo`,
+        color: 'text-purple-400',
+        targetLabel: 'Condicional'
+      });
+    });
+  }
+
+  if (skill.cannotBeCountered) {
   effects.push({
     label: 'Incontra-atacável',
     value: 'Esta habilidade NÃO pode ser contra-atacada ou anulada.',
@@ -5292,7 +6039,9 @@ if (skill.cannotBeReflected) {
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] font-mono text-slate-400">@{user.username}</span>
                 <span className="w-1 h-1 bg-slate-600 rounded-full" />
-               
+                <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-full flex items-center gap-1 shadow">
+                  ⚡ Chakra: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
+                </span>
               </div>
             </div>
           </div>
@@ -5644,7 +6393,7 @@ if (skill.cannotBeReflected) {
                             );
                             const canAfford = canAffordSkill(skill, simulatedChakraForThisChar, combatant, [...playerCombatants, ...enemyCombatants]);
                             const effectiveCost = getEffectiveSkillCost(skill, combatant, [...playerCombatants, ...enemyCombatants]);
-                            const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name === skill.requireEffect);
+                            const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name && (e.name.toLowerCase() === skill.requireEffect!.toLowerCase() || e.name.toLowerCase().startsWith(skill.requireEffect!.toLowerCase()) || e.name.toLowerCase().includes(skill.requireEffect!.toLowerCase())));
                             const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
 
                             return (
@@ -5830,9 +6579,23 @@ if (skill.cannotBeReflected) {
             {/* Active Player Chakra Pool */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
-                  Estoque de Chakra:
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
+                    Estoque de Chakra:
+                  </span>
+                  <span className="text-[11px] font-mono font-black text-amber-300 bg-amber-950/80 border border-amber-500/50 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-md">
+                    TOTAL: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
+                    {(() => {
+                      const sim = getSimulatedRemainingChakra(playerChakra, cuedActions);
+                      const simTotal = Object.values(sim).reduce((a, b) => a + b, 0);
+                      const currentTotal = Object.values(playerChakra).reduce((a, b) => a + b, 0);
+                      if (simTotal !== currentTotal) {
+                        return <span className="text-orange-400 text-[10px] ml-1">({simTotal})</span>;
+                      }
+                      return null;
+                    })()}
+                  </span>
+                </div>
                 <button
                   onClick={() => setShowChakraTrade(true)}
                   className="text-[10px] font-mono uppercase tracking-wider text-orange-400 border border-orange-500/40 rounded px-2 py-0.5 hover:bg-orange-500/10 cursor-pointer transition-colors"
@@ -5844,25 +6607,25 @@ if (skill.cannotBeReflected) {
               <div className="flex justify-around items-center bg-slate-950/60 border border-slate-900 rounded-xl py-2 px-3">
                 {(() => {
                   const simulatedChakra = getSimulatedRemainingChakra(playerChakra, cuedActions);
-                  return (Object.keys(playerChakra) as (keyof ChakraPool)[]).map(key => {
+                  const chakraElements = (Object.keys(playerChakra) as (keyof ChakraPool)[]).map(key => {
                     let dotColorClass = '';
                     let labelColorClass = '';
                     let desc = '';
                     if (key === 'Tai') {
-                      dotColorClass = 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.75)]';
-                      labelColorClass = 'text-red-400';
+                      dotColorClass = 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.75)]';
+                      labelColorClass = 'text-green-400';
                       desc = 'Taijutsu';
                     } else if (key === 'Nin') {
                       dotColorClass = 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.75)]';
                       labelColorClass = 'text-blue-400';
                       desc = 'Ninjutsu';
                     } else if (key === 'Gen') {
-                      dotColorClass = 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.75)]';
-                      labelColorClass = 'text-emerald-400';
+                      dotColorClass = 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.75)]';
+                      labelColorClass = 'text-white';
                       desc = 'Genjutsu';
                     } else if (key === 'Blood') {
-                      dotColorClass = 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.75)]';
-                      labelColorClass = 'text-purple-400';
+                      dotColorClass = 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.75)]';
+                      labelColorClass = 'text-red-400';
                       desc = 'Bloodline';
                     }
 
@@ -5888,6 +6651,31 @@ if (skill.cannotBeReflected) {
                       </div>
                     );
                   });
+
+                  const currentTotal = Object.values(playerChakra).reduce((a, b) => a + b, 0);
+                  const simTotal = Object.values(simulatedChakra).reduce((a, b) => a + b, 0);
+                  const totalHasChange = simTotal !== currentTotal;
+
+                  return (
+                    <>
+                      {chakraElements}
+                      <div className="flex flex-col items-center gap-0.5 pl-2 border-l border-slate-800/80 group relative">
+                        <div className="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.75)] transition-transform group-hover:scale-110" />
+                        <span className="font-mono text-sm font-black text-amber-300 mt-0.5 flex items-center">
+                          {currentTotal}
+                          {totalHasChange && (
+                            <span className="text-orange-400 text-xs ml-1 font-bold animate-pulse">
+                              ({simTotal})
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-[8px] font-mono font-bold uppercase tracking-wider text-amber-400">TOTAL</span>
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-950 border border-slate-850 rounded px-2 py-1 text-[9px] text-white z-50 whitespace-nowrap pointer-events-none shadow-lg">
+                          Chakra Total {totalHasChange ? `(Previsão: ${simTotal})` : ''}
+                        </div>
+                      </div>
+                    </>
+                  );
                 })()}
               </div>
             </div>
@@ -6193,7 +6981,9 @@ if (skill.cannotBeReflected) {
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] font-mono text-slate-400">@{onlineParams?.isOnline ? onlineParams.opponentProfile.username : 'treinamento'}</span>
                 <span className="w-1 h-1 bg-slate-600 rounded-full" />
-                
+                <span className="text-[10px] font-mono font-bold text-red-400 bg-red-950/60 border border-red-500/40 px-2 py-0.5 rounded-full flex items-center gap-1 shadow">
+                  ⚡ Chakra: {Object.values(enemyChakra).reduce((a, b) => a + b, 0)}
+                </span>
               </div>
             </div>
           </div>
@@ -6565,7 +7355,7 @@ if (skill.cannotBeReflected) {
                             const simulatedChakraForThisChar = getSimulatedRemainingChakra(enemyChakra, cuedActions.filter(a => a.sourceId !== combatant.id), true);
                             const canAfford = canAffordSkill(skill, simulatedChakraForThisChar, combatant, [...playerCombatants, ...enemyCombatants]);
                             const effectiveCost = getEffectiveSkillCost(skill, combatant, [...playerCombatants, ...enemyCombatants]);
-                            const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name === skill.requireEffect);
+                            const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name && (e.name.toLowerCase() === skill.requireEffect!.toLowerCase() || e.name.toLowerCase().startsWith(skill.requireEffect!.toLowerCase()) || e.name.toLowerCase().includes(skill.requireEffect!.toLowerCase())));
                             const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
 
                             if (isSandbox) {
@@ -7187,7 +7977,7 @@ if (skill.cannotBeReflected) {
                 <button
                   onClick={() => {
                     setShowSandboxConfirmModal(false);
-                    handleEndTurn();
+                    checkAndProceedWithEndTurn();
                   }}
                   className={`flex-1 py-2 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-amber-100 shadow-md transition active:scale-95 cursor-pointer border ${
                     activePlanner === 'player'
@@ -7196,6 +7986,180 @@ if (skill.cannotBeReflected) {
                   }`}
                 >
                   Passar Turno
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* RANDOM CHAKRA SELECTION MODAL */}
+      <AnimatePresence>
+        {showRandChakraModal && randModalData && (
+          <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 10 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className="relative bg-slate-900 border-2 border-amber-600/50 rounded-2xl p-5 max-w-md w-full shadow-2xl text-slate-100 space-y-4"
+            >
+              <div className="flex items-start justify-between border-b border-amber-900/40 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm sm:text-base text-amber-100 uppercase tracking-wide">
+                      Substituir Chakra Aleatório
+                    </h3>
+                    <p className="text-[11px] font-semibold text-slate-400">
+                      Escolha quais chakras usar para o custo genérico (Rand)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClickSound();
+                    setShowRandChakraModal(false);
+                  }}
+                  className="text-slate-400 hover:text-amber-200 transition p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Queued Skills requiring Rand */}
+              <div className="space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                <p className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Swords className="w-3.5 h-3.5" /> Habilidades com Custo Aleatório:
+                </p>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                  {randModalData.queuedSkillsWithRand.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-xs bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800">
+                      <div className="flex items-center gap-2">
+                        {item.icon && (
+                          <img src={item.icon} alt="" className="w-5 h-5 rounded border border-amber-600/40 object-cover" />
+                        )}
+                        <span className="font-semibold text-slate-200">
+                          <span className="text-amber-400">{item.charName}</span> - {item.skillName}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700 flex items-center gap-1">
+                        {item.randCount}x {renderChakraIcon('Rand')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Selection Progress Counter */}
+              {(() => {
+                const currentSelected = (Object.keys(randAllocation) as (keyof ChakraPool)[])
+                  .reduce((sum, key) => sum + (randAllocation[key] || 0), 0);
+                const isComplete = currentSelected === randModalData.totalRandRequired;
+
+                return (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center bg-amber-950/30 border border-amber-600/30 p-2.5 rounded-xl">
+                      <span className="text-xs font-bold text-amber-200">Total de Chakras Aleatórios Necessários:</span>
+                      <span className={`text-xs font-black font-mono px-2 py-0.5 rounded ${
+                        isComplete ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-orange-500/20 text-orange-400 border border-orange-500/40'
+                      }`}>
+                        {currentSelected} / {randModalData.totalRandRequired}
+                      </span>
+                    </div>
+
+                    {/* Chakra allocation picker */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map(key => {
+                        const available = randModalData.availablePoolForRand[key] || 0;
+                        const allocated = randAllocation[key] || 0;
+                        const canIncrease = allocated < available && currentSelected < randModalData.totalRandRequired;
+                        const canDecrease = allocated > 0;
+
+                        let elemLabel = 'Taijutsu';
+                        if (key === 'Nin') elemLabel = 'Ninjutsu';
+                        if (key === 'Gen') elemLabel = 'Genjutsu';
+                        if (key === 'Blood') elemLabel = 'Bloodline';
+
+                        return (
+                          <div key={key} className={`p-2.5 rounded-xl border flex flex-col justify-between transition-all ${
+                            allocated > 0
+                              ? 'bg-amber-950/40 border-amber-500/50 shadow-md shadow-amber-950/20'
+                              : 'bg-slate-950/50 border-slate-800'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                {renderChakraIcon(key)}
+                                <span className="text-xs font-bold text-slate-200">{elemLabel}</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono" title="Disponível após custos fixos">
+                                Disp: {available}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-800/80">
+                              <span className="text-xs font-mono font-black text-amber-300">
+                                Usar: {allocated}
+                              </span>
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  disabled={!canDecrease}
+                                  onClick={() => {
+                                    playClickSound();
+                                    setRandAllocation(prev => ({ ...prev, [key]: Math.max(0, (prev[key] || 0) - 1) }));
+                                  }}
+                                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 font-bold text-xs cursor-pointer border border-slate-700 active:scale-95 transition"
+                                >
+                                  -
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={!canIncrease}
+                                  onClick={() => {
+                                    playClickSound();
+                                    setRandAllocation(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+                                  }}
+                                  className="w-6 h-6 flex items-center justify-center rounded bg-amber-700 hover:bg-amber-600 disabled:opacity-40 text-amber-100 font-bold text-xs cursor-pointer border border-amber-600 active:scale-95 transition"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="flex items-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClickSound();
+                    setShowRandChakraModal(false);
+                  }}
+                  className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition active:scale-95 border border-slate-700 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    (Object.keys(randAllocation) as (keyof ChakraPool)[]).reduce((sum, key) => sum + (randAllocation[key] || 0), 0) !== randModalData.totalRandRequired
+                  }
+                  onClick={() => {
+                    setShowRandChakraModal(false);
+                    handleEndTurn(randAllocation);
+                  }}
+                  className="flex-1 py-2.5 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-amber-100 bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 border border-orange-600/50 shadow-md transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Confirmar e Finalizar
                 </button>
               </div>
             </motion.div>
@@ -7363,6 +8327,45 @@ if (skill.cannotBeReflected) {
         </div>
       </div>
 
+      {/* CHAKRA DRAIN / STOLEN / REMOVED NOTIFICATION BANNER */}
+      <AnimatePresence>
+        {chakraToast && (
+          <motion.div
+            key={chakraToast.id}
+            initial={{ opacity: 0, y: -25, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -25, scale: 0.9 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 350 }}
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none select-none max-w-md w-11/12"
+          >
+            <div
+              className={`px-4 py-3 rounded-2xl shadow-2xl border backdrop-blur-md flex items-center gap-3 ${
+                chakraToast.type === 'stolen'
+                  ? 'bg-emerald-950/90 border-emerald-500/80 text-emerald-100 shadow-emerald-950/60'
+                  : chakraToast.type === 'removed'
+                  ? 'bg-amber-950/90 border-amber-500/80 text-amber-100 shadow-amber-950/60'
+                  : chakraToast.type === 'lost'
+                  ? 'bg-rose-950/90 border-rose-500/80 text-rose-100 shadow-rose-950/60'
+                  : 'bg-slate-900/90 border-slate-700 text-slate-100'
+              }`}
+            >
+              <div className={`p-2 rounded-xl shrink-0 ${
+                chakraToast.type === 'stolen' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
+                chakraToast.type === 'removed' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
+                chakraToast.type === 'lost' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-slate-800 text-slate-300'
+              }`}>
+                <Sparkles className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs sm:text-sm font-extrabold tracking-wide drop-shadow">
+                  {chakraToast.message}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* PROFILE CARD MODAL (VIEWING SELF OR OPPONENT) */}
       {viewingProfile && (
         <ProfileCardModal
@@ -7372,6 +8375,6 @@ if (skill.cannotBeReflected) {
           playClickSound={playClickSound}
         />
       )}
-    </div> 
+    </div>
   );
 }

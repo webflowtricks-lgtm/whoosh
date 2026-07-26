@@ -23,9 +23,11 @@ import {
   Swords,
   Calendar,
   ShoppingBag,
-  Shield
+  Shield,
+  X,
+  Zap
 } from 'lucide-react';
-import { Quest, UserProfile } from '../types';
+import { Quest, UserProfile, Character, QuestReward } from '../types';
 import { getGoalDescription } from '../lib/questUtils';
 import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
@@ -84,6 +86,11 @@ export default function QuestBoard({
   const [showEventsModal, setShowEventsModal] = useState(false);
   const [showShopModal, setShowShopModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [rewardModalData, setRewardModalData] = useState<{
+    questTitle: string;
+    unlockedCharacters: Character[];
+    otherRewards: QuestReward[];
+  } | null>(null);
 
   useEffect(() => {
     fetchQuests();
@@ -162,12 +169,37 @@ export default function QuestBoard({
       let equippedFrameUrl = user.equippedFrameUrl;
       let equippedBannerUrl = user.equippedBannerUrl;
 
+      const allChars = getCharacters();
+      const unlockedChars: Character[] = [];
+      const otherRewardsList: QuestReward[] = [];
+
       // Process rewards
       quest.rewards.forEach(r => {
         if (r.type === 'title' && !updatedUnlockedTitles.includes(r.value)) {
           updatedUnlockedTitles.push(r.value);
-        } else if (r.type === 'unlock_character' && !updatedUnlockedChars.includes(r.value)) {
-          updatedUnlockedChars.push(r.value);
+          otherRewardsList.push(r);
+        } else if (r.type === 'unlock_character') {
+          if (!updatedUnlockedChars.includes(r.value)) {
+            updatedUnlockedChars.push(r.value);
+          }
+          const found = allChars.find(c => 
+            c.name.toLowerCase() === r.value.toLowerCase() || 
+            c.id.toLowerCase() === r.value.toLowerCase() ||
+            c.folder.toLowerCase() === r.value.toLowerCase()
+          );
+          if (found) {
+            unlockedChars.push(found);
+          } else {
+            unlockedChars.push({
+              id: r.value,
+              name: r.value,
+              description: 'Novo Shinobi desbloqueado para batalhas!',
+              tags: ['Vila da Folha', 'Shinobi Desbloqueado'],
+              skills: [],
+              portrait: '/static/img/icon/default.jpg',
+              folder: r.value
+            });
+          }
         } else if (r.type === 'frame') {
           if (!updatedUnlockedFrames.includes(r.value)) {
             updatedUnlockedFrames.push(r.value);
@@ -179,6 +211,7 @@ export default function QuestBoard({
             equippedFrame = r.value;
             equippedFrameUrl = r.imageUrl;
           }
+          otherRewardsList.push(r);
         } else if (r.type === 'banner') {
           if (!updatedUnlockedBanners.includes(r.value)) {
             updatedUnlockedBanners.push(r.value);
@@ -189,6 +222,7 @@ export default function QuestBoard({
           if (!equippedBannerUrl && r.imageUrl) {
             equippedBannerUrl = r.imageUrl;
           }
+          otherRewardsList.push(r);
         }
       });
 
@@ -224,7 +258,14 @@ export default function QuestBoard({
       }
 
       setClaimedRewardId(null);
-    }, 1200);
+
+      // Open character reward card modal
+      setRewardModalData({
+        questTitle: quest.title,
+        unlockedCharacters: unlockedChars,
+        otherRewards: otherRewardsList
+      });
+    }, 800);
   };
 
   const handleEquipTitle = (titleName: string) => {
@@ -254,6 +295,231 @@ export default function QuestBoard({
 
       {/* Interactive Modals inside the Arena/Quartel Shinobi Hub */}
       <AnimatePresence>
+        {rewardModalData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/90 backdrop-blur-xl overflow-y-auto select-none">
+            {/* Ambient Background Rays & Glow */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/25 via-orange-600/10 to-transparent pointer-events-none animate-pulse" />
+
+            {/* Floating Sparkles Particles */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              {[...Array(16)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{
+                    x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 800),
+                    y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 600),
+                    scale: Math.random() * 0.6 + 0.4,
+                    opacity: 0.1
+                  }}
+                  animate={{
+                    y: [null, '-=120px'],
+                    opacity: [0.1, 0.9, 0],
+                    scale: [null, 1.3, 0.3]
+                  }}
+                  transition={{
+                    duration: Math.random() * 3 + 2.5,
+                    repeat: Infinity,
+                    ease: "easeOut",
+                    delay: Math.random() * 2
+                  }}
+                  className="absolute w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-amber-300 via-yellow-400 to-orange-500 shadow-md shadow-amber-400/60"
+                />
+              ))}
+            </div>
+
+            {/* Main Reward Card Container */}
+            <motion.div
+              initial={{ scale: 0.15, opacity: 0, y: 70, rotate: -7 }}
+              animate={{ scale: 1, opacity: 1, y: 0, rotate: 0 }}
+              exit={{ scale: 0.2, opacity: 0, y: 50, rotate: 7 }}
+              transition={{ type: "spring", damping: 14, stiffness: 125, bounce: 0.35 }}
+              className="relative w-full max-w-lg bg-slate-900/95 border-2 border-amber-400/90 rounded-3xl p-6 sm:p-8 shadow-[0_0_70px_rgba(245,158,11,0.4)] flex flex-col items-center text-center space-y-5 z-10 my-auto"
+            >
+              {/* Outer Pulsing Glow Aura */}
+              <div className="absolute -inset-1 rounded-[26px] bg-gradient-to-r from-amber-500 via-orange-500 to-amber-300 opacity-40 blur-lg -z-10 animate-pulse" />
+
+              {/* Close button top right */}
+              <button
+                onClick={() => {
+                  playClickSound();
+                  setRewardModalData(null);
+                }}
+                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-full transition cursor-pointer z-20"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Top Badge */}
+              <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/30 to-amber-500/20 border border-amber-400/70 shadow-lg shadow-amber-500/20">
+                <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+                <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-amber-300 font-sans">
+                  {rewardModalData.unlockedCharacters.length > 0
+                    ? '✨ NOVO PERSONAGEM DESBLOQUEADO! ✨'
+                    : '✨ RECOMPENSA RESGATADA! ✨'}
+                </span>
+                <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+              </div>
+
+              {/* Character Unlocked View */}
+              {rewardModalData.unlockedCharacters.length > 0 ? (
+                <div className="w-full space-y-4">
+                  {rewardModalData.unlockedCharacters.map((char) => {
+                    const skinImg = char.skins?.[0]?.image || char.selectedSkinUrl;
+                    const displayImg = skinImg || char.portrait;
+
+                    return (
+                      <div key={char.id} className="flex flex-col items-center space-y-4">
+                        {/* BIG PHOTO / ARTWORK FRAME (Foto bem grande) */}
+                        <div className="relative w-full h-80 sm:h-96 max-w-sm mx-auto rounded-2xl overflow-hidden border-2 border-amber-400/90 shadow-[0_10px_35px_rgba(245,158,11,0.35)] bg-slate-950 flex items-center justify-center group">
+                          {/* Inner Radial Aura */}
+                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/35 via-orange-600/15 to-slate-950 z-0" />
+                          
+                          {/* Animated Lighting Rays inside Card */}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/10 via-transparent to-amber-300/10 opacity-70 animate-pulse pointer-events-none z-10" />
+
+                          {/* Large Floating Character Image */}
+                          <motion.img
+                            src={displayImg}
+                            alt={char.name}
+                            initial={{ scale: 0.7, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1, y: [0, -8, 0] }}
+                            transition={{
+                              scale: { duration: 0.5 },
+                              opacity: { duration: 0.5 },
+                              y: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+                            }}
+                            className="relative z-20 w-full h-full object-contain p-2 filter drop-shadow-[0_12px_28px_rgba(245,158,11,0.5)]"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              if (e.currentTarget.src !== char.portrait) {
+                                e.currentTarget.src = char.portrait;
+                              }
+                            }}
+                          />
+
+                          {/* Top & Bottom Dark Gradient Overlay for Typography contrast */}
+                          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent pointer-events-none z-30" />
+
+                          {/* Character Name Label over Image */}
+                          <div className="absolute bottom-3 left-0 right-0 z-40 px-3 text-center">
+                            <h2 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-100 to-orange-400 font-sans tracking-wider uppercase drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)]">
+                              {char.name}
+                            </h2>
+                          </div>
+                        </div>
+
+                        {/* Character Tags */}
+                        {char.tags && char.tags.length > 0 && (
+                          <div className="flex flex-wrap justify-center gap-1.5">
+                            {char.tags.map((tag, tIdx) => (
+                              <span
+                                key={tIdx}
+                                className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 uppercase tracking-wider shadow-sm"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Character Description */}
+                        <p className="text-xs text-slate-300 leading-relaxed max-w-md font-sans line-clamp-3">
+                          {char.description}
+                        </p>
+
+                        {/* Skills Showcase */}
+                        {char.skills && char.skills.length > 0 && (
+                          <div className="w-full bg-slate-950/90 p-3 rounded-2xl border border-amber-500/30 space-y-2 text-left">
+                            <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold flex items-center gap-1.5 justify-center">
+                              <Zap className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Habilidades Desbloqueadas</span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                              {char.skills.slice(0, 4).map((sk, skIdx) => (
+                                <div
+                                  key={skIdx}
+                                  className="bg-slate-900/90 p-2 rounded-xl border border-slate-800 flex items-center gap-2 group/sk hover:border-amber-500/50 transition"
+                                  title={sk.desc}
+                                >
+                                  <img
+                                    src={sk.icon}
+                                    alt={sk.name}
+                                    className="w-8 h-8 rounded-lg object-cover border border-amber-500/40 flex-shrink-0"
+                                  />
+                                  <div className="overflow-hidden leading-tight">
+                                    <p className="text-[10px] font-bold text-slate-200 truncate group-hover/sk:text-amber-300">
+                                      {sk.name}
+                                    </p>
+                                    <p className="text-[9px] font-mono text-amber-400/80 font-semibold">
+                                      {sk.cost?.join('/') || 'Sem Custo'}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Fallback if no character unlocked */
+                <div className="py-6 space-y-4">
+                  <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 p-1 shadow-2xl shadow-amber-500/30 flex items-center justify-center">
+                    <div className="w-full h-full bg-slate-950 rounded-full flex items-center justify-center">
+                      <Award className="w-12 h-12 text-amber-400" />
+                    </div>
+                  </div>
+                  <h2 className="text-2xl font-black text-amber-300 uppercase font-sans">
+                    Recompensas Obtidas
+                  </h2>
+                  <p className="text-xs text-slate-300">
+                    Parabéns por completar os objetivos da missão!
+                  </p>
+                </div>
+              )}
+
+              {/* Other Rewards List */}
+              {rewardModalData.otherRewards && rewardModalData.otherRewards.length > 0 && (
+                <div className="w-full bg-slate-950/80 p-3 rounded-2xl border border-slate-800 space-y-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
+                    Outras Recompensas:
+                  </span>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {rewardModalData.otherRewards.map((r, rIdx) => (
+                      <span
+                        key={rIdx}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        {r.type === 'title' ? `Título: « ${r.value} »` :
+                         r.type === 'banner' ? `Banner: ${r.value}` :
+                         `Moldura: ${r.value}`}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Confirm Button */}
+              <div className="w-full pt-2">
+                <button
+                  onClick={() => {
+                    playClickSound();
+                    setRewardModalData(null);
+                  }}
+                  className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 hover:brightness-110 active:scale-95 text-slate-950 font-black rounded-xl text-sm uppercase tracking-wider shadow-xl shadow-orange-500/30 transition cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4 text-slate-950 fill-slate-950" />
+                  <span>INCRÍVEL! EXCELENTE</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {showProfileModal && (
           <ProfileModal
             user={user}

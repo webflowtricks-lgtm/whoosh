@@ -27,6 +27,11 @@ export interface SkillDamageRule {
   icon?: string; // Icon of the boosting skill
 }
 
+export interface SkillChakraRemoveRule {
+  activeSkillName: string; // Active skill/effect required on any combatant
+  removeAmount: number; // Quantity of chakra to remove from enemy stock when condition is active
+}
+
 export interface Skill {
   name: string;
   desc: string;
@@ -34,6 +39,7 @@ export interface Skill {
   cost: ChakraType[];
   costRules?: SkillCostRule[];
   damageRules?: SkillDamageRule[];
+  chakraRemoveRules?: SkillChakraRemoveRule[];
   costRuleActiveSkill?: string;
   costRuleReduceRand?: number;
   costRuleReduceSpecificType?: ChakraType;
@@ -100,6 +106,8 @@ export interface Skill {
   directDamageTarget?: TargetOverride;
   healTarget?: TargetOverride;
   shieldTarget?: TargetOverride;
+  damageBuffTarget?: TargetOverride;
+  damageDebuffTarget?: TargetOverride;
   stunTarget?: TargetOverride;
   dotTarget?: TargetOverride;
   bleedingTarget?: TargetOverride;

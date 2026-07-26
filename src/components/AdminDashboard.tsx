@@ -10,7 +10,7 @@ import {
   Lock, Unlock, Search, Trophy, Award, X, Download, Upload, FolderArchive, FileText, Server, CheckCircle2
 } from 'lucide-react';
 import { Character, Skill, ChakraType, CharacterSkin, Quest } from '../types';
-import { getCharacters, saveCharacters, resetToDefaultCharacters } from '../lib/characterStorage';
+import { getCharacters, saveCharacters, resetToDefaultCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
 import { RankConfig, getRanks, saveRanks, fetchRanksFromServer } from '../lib/rankStorage';
 import { motion, AnimatePresence } from 'motion/react';
 import QuestAdmin from './QuestAdmin';
@@ -119,9 +119,20 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     setCharacters(loaded);
     if (loaded.length > 0) {
       setSelectedCharacterId(loaded[0].id);
-      // Clone for editing
       setEditingChar(JSON.parse(JSON.stringify(loaded[0])));
     }
+
+    fetchCharactersFromServer().then(serverLoaded => {
+      if (serverLoaded && serverLoaded.length > 0) {
+        setCharacters(serverLoaded);
+        setSelectedCharacterId(prev => {
+          const targetId = prev || serverLoaded[0].id;
+          const found = serverLoaded.find(c => c.id === targetId) || serverLoaded[0];
+          setEditingChar(JSON.parse(JSON.stringify(found)));
+          return found.id;
+        });
+      }
+    }).catch(() => {});
 
     // Fetch quests for autocomplete
     fetch('/api/quests')
@@ -392,6 +403,10 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
       s.gainChakraDuration !== undefined ||
       s.drainChakra !== undefined ||
       s.drainChakraDuration !== undefined ||
+      s.stealChakra !== undefined ||
+      s.stealChakraDuration !== undefined ||
+      s.removeChakra !== undefined ||
+      s.removeChakraDuration !== undefined ||
       s.shieldVal !== undefined ||
       s.damageReductionVal !== undefined ||
       s.damageBuffVal !== undefined ||
@@ -678,11 +693,11 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   // Render a visual tag for chakra costs
   const renderChakraButton = (type: ChakraType, isActive: boolean) => {
     const bgColors: Record<ChakraType, string> = {
-      Tai: 'bg-red-500/20 border-red-500 text-red-400',
+      Tai: 'bg-green-500/20 border-green-500 text-green-400',
       Nin: 'bg-blue-500/20 border-blue-500 text-blue-400',
-      Gen: 'bg-emerald-500/20 border-emerald-500 text-emerald-400',
-      Blood: 'bg-purple-500/20 border-purple-500 text-purple-400',
-      Rand: 'bg-slate-600/20 border-slate-500 text-slate-300'
+      Gen: 'bg-white/10 border-white/40 text-white',
+      Blood: 'bg-red-500/20 border-red-500 text-red-400',
+      Rand: 'bg-slate-700/30 border-slate-600 text-slate-400'
     };
 
     return (
@@ -697,10 +712,10 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
         }`}
       >
         <span className={`w-2 h-2 rounded-full ${
-          type === 'Tai' ? 'bg-red-500' :
+          type === 'Tai' ? 'bg-green-500' :
           type === 'Nin' ? 'bg-blue-500' :
-          type === 'Gen' ? 'bg-emerald-500' :
-          type === 'Blood' ? 'bg-purple-500' : 'bg-slate-400'
+          type === 'Gen' ? 'bg-white' :
+          type === 'Blood' ? 'bg-red-500' : 'bg-slate-600'
         }`} />
         {type}
       </button>
@@ -1662,10 +1677,10 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                             <span 
                               key={cIdx} 
                               className={`w-1.5 h-1.5 rounded-full ${
-                                cost === 'Tai' ? 'bg-red-500' :
+                                cost === 'Tai' ? 'bg-green-500' :
                                 cost === 'Nin' ? 'bg-blue-500' :
-                                cost === 'Gen' ? 'bg-emerald-500' :
-                                cost === 'Blood' ? 'bg-purple-500' : 'bg-slate-400'
+                                cost === 'Gen' ? 'bg-white' :
+                                cost === 'Blood' ? 'bg-red-500' : 'bg-slate-600'
                               }`} 
                               title={cost}
                             />
@@ -1899,7 +1914,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                 <span className="text-slate-400 font-bold">Quando ativo:</span>
                                 <input
                                   type="text"
-                                  list="activeSkill-suggestions"
+                                  list="costSkills-suggestions"
                                   value={rule.activeSkillName}
                                   onChange={(e) => {
                                     const updated = [...(editingSkill.costRules || [])];
@@ -1909,12 +1924,11 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   placeholder="Ex: Two-Headed Wolf"
                                   className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px]"
                                 />
-                                <datalist id="activeSkill-suggestions">
-                                  {editingChar.skills.map(s => (
-                                    <option key={s.name} value={s.name} />
-                                  ))}
+                                <datalist id="costSkills-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : <option value="" disabled />}
                                 </datalist>
-
                                 <span className="text-slate-400 font-bold">Reduzir Chakra:</span>
                                 <select
                                   value={rule.reduceType || rule.reduceSpecificType || 'Rand'}
@@ -1991,7 +2005,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                 <span className="text-slate-400 font-bold">Quando ativo:</span>
                                 <input
                                   type="text"
-                                  list="activeSkill-suggestions"
+                                  list="dmgSkills-suggestions"
                                   value={rule.activeSkillName}
                                   onChange={(e) => {
                                     const updated = [...(editingSkill.damageRules || [])];
@@ -2001,6 +2015,11 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   placeholder="Ex: Sharingan"
                                   className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px]"
                                 />
+                                <datalist id="dmgSkills-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : <option value="" disabled />}
+                                </datalist>
                                 <span className="text-slate-400 font-bold">Dano+:</span>
                                 <input
                                   type="number"
@@ -2022,6 +2041,90 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                     handleUpdateSkillField('damageRules', updated.length > 0 ? updated : undefined);
                                   }}
                                   className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Chakra Remove Rules (Regras de Remoção de Chakra quando condição ativa) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-purple-400 font-mono">
+                              🔥 Regras de Remoção de Chakra (Condicional)
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Remove chakra do estoque inimigo quando uma habilidade/efeito específico estiver ativo em qualquer personagem (aliado ou inimigo).
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.chakraRemoveRules || [];
+                              handleUpdateSkillField('chakraRemoveRules', [
+                                ...currentRules,
+                                { activeSkillName: '', removeAmount: 1 }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-purple-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.chakraRemoveRules || editingSkill.chakraRemoveRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de remoção de chakra configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.chakraRemoveRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-slate-400 font-bold">Quando ativo:</span>
+                                <input
+                                  type="text"
+                                  list="removeSkills-suggestions"
+                                  value={rule.activeSkillName}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.chakraRemoveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                    handleUpdateSkillField('chakraRemoveRules', updated);
+                                  }}
+                                  placeholder="Ex: Two-Headed Wolf"
+                                  className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-purple-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <datalist id="removeSkills-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : <option value="" disabled />}
+                                </datalist>
+                                <span className="text-slate-400 font-bold">Remover Chakra:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={rule.removeAmount}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 1;
+                                    const updated = [...(editingSkill.chakraRemoveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], removeAmount: val };
+                                    handleUpdateSkillField('chakraRemoveRules', updated);
+                                  }}
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-purple-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-slate-400 text-[9px]">chakra(s) aleatório(s)</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.chakraRemoveRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('chakraRemoveRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
                                   title="Remover Regra"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -2823,6 +2926,148 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   <select
                                     value={editingSkill.drainChakraRemoveType || 'none'}
                                     onChange={(e) => handleUpdateSkillField('drainChakraRemoveType', e.target.value)}
+                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
+                                  >
+                                    <option value="none">Nenhum</option>
+                                    <option value="all">Todos</option>
+                                    <option value="buff">Buffs</option>
+                                    <option value="debuff">Debuffs</option>
+                                    <option value="stun">Stuns</option>
+                                    <option value="dot">DoTs</option>
+                                    <option value="bleeding">Sangra</option>
+                                    <option value="affliction">Aflição</option>
+                                    <option value="shield">Escudo</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 7.1. Roubar Chakra */}
+                          <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-purple-400 font-mono">Roubar Chakra</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={10}
+                                  value={editingSkill.stealChakra || 0}
+                                  onChange={(e) => handleUpdateSkillField('stealChakra', parseInt(e.target.value) || 0)}
+                                  placeholder="Valor"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={editingSkill.stealChakraDuration || 1}
+                                  onChange={(e) => handleUpdateSkillField('stealChakraDuration', parseInt(e.target.value) || 1)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                />
+                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-slate-800/60">
+                                <span className="text-[9px] text-purple-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.stealChakraTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('stealChakraTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-slate-300 focus:border-slate-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.stealChakraIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('stealChakraIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-purple-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                  <select
+                                    value={editingSkill.stealChakraRemoveType || 'none'}
+                                    onChange={(e) => handleUpdateSkillField('stealChakraRemoveType', e.target.value)}
+                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
+                                  >
+                                    <option value="none">Nenhum</option>
+                                    <option value="all">Todos</option>
+                                    <option value="buff">Buffs</option>
+                                    <option value="debuff">Debuffs</option>
+                                    <option value="stun">Stuns</option>
+                                    <option value="dot">DoTs</option>
+                                    <option value="bleeding">Sangra</option>
+                                    <option value="affliction">Aflição</option>
+                                    <option value="shield">Escudo</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 7.2. Remover Chakra */}
+                          <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono">Remover Chakra (Destruir)</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={10}
+                                  value={editingSkill.removeChakra || 0}
+                                  onChange={(e) => handleUpdateSkillField('removeChakra', parseInt(e.target.value) || 0)}
+                                  placeholder="Valor"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={editingSkill.removeChakraDuration || 1}
+                                  onChange={(e) => handleUpdateSkillField('removeChakraDuration', parseInt(e.target.value) || 1)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                />
+                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-slate-800/60">
+                                <span className="text-[9px] text-rose-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.removeChakraTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('removeChakraTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-slate-300 focus:border-slate-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.removeChakraIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('removeChakraIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-rose-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                  <select
+                                    value={editingSkill.removeChakraRemoveType || 'none'}
+                                    onChange={(e) => handleUpdateSkillField('removeChakraRemoveType', e.target.value)}
                                     className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
                                   >
                                     <option value="none">Nenhum</option>
