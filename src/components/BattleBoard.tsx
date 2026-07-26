@@ -2220,13 +2220,29 @@ const handleTradeChakra = () => {
         });
       }
 
-      // 2. HEALING
+      // 2. HEALING (with heal rule boost)
       if (healAmt > 0) {
+        let healRuleBoost = 0;
+        if (skill.healRules && skill.healRules.length > 0) {
+          for (const rule of skill.healRules) {
+            if (rule.healBoost > 0 && rule.activeSkillName) {
+              const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+              const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+              const hasActive = allActiveEffects.some(e => {
+                if (!e.name) return false;
+                const eNameLower = e.name.toLowerCase();
+                return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
+              });
+              if (hasActive) healRuleBoost += rule.healBoost;
+            }
+          }
+        }
+        const totalHeal = healAmt + healRuleBoost;
         const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
           const startingHealth = t.health;
-          t.health = Math.min(100, t.health + healAmt);
+          t.health = Math.min(100, t.health + totalHeal);
           const actualHealed = t.health - startingHealth;
           if (actualHealed > 0 && action.isPlayer) {
             matchStatsRef.current.healingDone += actualHealed;
@@ -2240,10 +2256,10 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💚 ${source.character.name} usou [${skill.name}] e restaurou ${healAmt} de vida de ${t.character.name}.`,
+            message: `💚 ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}.${healRuleBoost > 0 ? ` (+${healRuleBoost} bônus)` : ''}`,
             type: 'heal',
           });
-          addFloatingText(t.id, `+${healAmt} HP`, 'heal');
+          addFloatingText(t.id, `+${totalHeal} HP`, 'heal');
           cleanseTargetEffects(t, skill.healRemoveType);
         });
       }
@@ -4793,11 +4809,27 @@ const handleTradeChakra = () => {
           cleanseTargetEffects(t, skill.healRemoveType);
         });
       } else if (healAmt > 0) {
+        let healRuleBoost = 0;
+        if (skill.healRules && skill.healRules.length > 0) {
+          for (const rule of skill.healRules) {
+            if (rule.healBoost > 0 && rule.activeSkillName) {
+              const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+              const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+              const hasActive = allActiveEffects.some(e => {
+                if (!e.name) return false;
+                const eNameLower = e.name.toLowerCase();
+                return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
+              });
+              if (hasActive) healRuleBoost += rule.healBoost;
+            }
+          }
+        }
+        const totalHeal = healAmt + healRuleBoost;
         const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
           const startingHealth = t.health;
-          t.health = Math.min(100, t.health + healAmt);
+          t.health = Math.min(100, t.health + totalHeal);
           const actualHealed = t.health - startingHealth;
           if (actualHealed > 0 && action.isPlayer) {
             matchStatsRef.current.healingDone += actualHealed;
@@ -4805,10 +4837,10 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💚 ${source.character.name} usou [${skill.name}] e restaurou ${healAmt} de vida de ${t.character.name}.`,
+            message: `💚 ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}.${healRuleBoost > 0 ? ` (+${healRuleBoost} bônus)` : ''}`,
             type: 'heal',
           });
-          addFloatingText(t.id, `+${healAmt} HP`, 'heal');
+          addFloatingText(t.id, `+${totalHeal} HP`, 'heal');
           cleanseTargetEffects(t, skill.healRemoveType);
         });
       }
@@ -5842,6 +5874,18 @@ if (skill.reflect) {
         label: `Remover Chakra (${rule.activeSkillName})`,
         value: `Remove ${rule.removeAmount} chakra aleatório do estoque inimigo quando ${rule.activeSkillName} estiver ativo`,
         color: 'text-purple-400',
+        targetLabel: 'Condicional'
+      });
+    });
+  }
+
+  if (skill.healRules && skill.healRules.length > 0) {
+    skill.healRules.forEach(rule => {
+      if (!rule.activeSkillName || rule.healBoost <= 0) return;
+      effects.push({
+        label: `Cura Extra (${rule.activeSkillName})`,
+        value: `+${rule.healBoost} de cura quando ${rule.activeSkillName} estiver ativo`,
+        color: 'text-emerald-400',
         targetLabel: 'Condicional'
       });
     });

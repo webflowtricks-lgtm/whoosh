@@ -25,6 +25,13 @@
         "classes": [
           "Físico",
           "Corpo a Corpo"
+        ],
+        "damage": 20,
+        "damageRules": [
+          {
+            "activeSkillName": "Shadow Clones",
+            "damageBoost": 15
+          }
         ]
       },
       {
@@ -35,7 +42,7 @@
           "Nin",
           "Rand"
         ],
-        "cooldown": 1,
+        "cooldown": 2,
         "currentCooldown": 0,
         "targetType": "Enemy",
         "classes": [
@@ -59,14 +66,37 @@
         "cost": [
           "Rand"
         ],
-        "cooldown": 3,
+        "cooldown": 4,
         "currentCooldown": 0,
         "targetType": "Self",
         "classes": [
           "Chakra"
         ],
         "damageReductionVal": 15,
-        "damageReductionDuration": 4
+        "damageReductionDuration": 4,
+        "gainChakra": 1
+      },
+      {
+        "name": "Chackra Boost",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://i.ibb.co/Z6PhwV5J/base-profile-1.webp",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 2,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "healRules": [
+          {
+            "activeSkillName": "Shadow Clones",
+            "healBoost": 15
+          }
+        ],
+        "gainChakra": 1
       },
       {
         "name": "Sexy Technique",
@@ -80,22 +110,8 @@
         "targetType": "Self",
         "classes": [
           "Chakra"
-        ]
-      },
-      {
-        "name": "Nova Habilidade",
-        "desc": "Causa 30 de dano de chakra a um inimigo.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
-        "cost": [
-          "Nin"
         ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
+        "invulnerableDuration": 1
       }
     ],
     "skins": []

@@ -2090,6 +2090,89 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                         )}
                       </div>
 
+                      {/* Heal Rules (Regras de Cura Extra quando condição ativa) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400 font-mono">
+                              💚 Regras de Cura Extra (Condicional)
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Adiciona cura extra quando uma habilidade/efeito específico estiver ativo em qualquer personagem.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.healRules || [];
+                              handleUpdateSkillField('healRules', [
+                                ...currentRules,
+                                { activeSkillName: '', healBoost: 5 }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.healRules || editingSkill.healRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de cura extra configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.healRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-slate-400 font-bold">Quando ativo:</span>
+                                <input
+                                  type="text"
+                                  list="healSkills-suggestions"
+                                  value={rule.activeSkillName}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.healRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                    handleUpdateSkillField('healRules', updated);
+                                  }}
+                                  placeholder="Ex: Byakugan"
+                                  className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <datalist id="healSkills-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : <option value="" disabled />}
+                                </datalist>
+                                <span className="text-slate-400 font-bold">Cura+:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={50}
+                                  value={rule.healBoost}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 1;
+                                    const updated = [...(editingSkill.healRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], healBoost: val };
+                                    handleUpdateSkillField('healRules', updated);
+                                  }}
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.healRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('healRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Chakra Remove Rules (Regras de Remoção de Chakra quando condição ativa) */}
                       <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
                         <div className="flex justify-between items-center">

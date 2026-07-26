@@ -32,6 +32,11 @@ export interface SkillChakraRemoveRule {
   removeAmount: number; // Quantity of chakra to remove from enemy stock when condition is active
 }
 
+export interface SkillHealRule {
+  activeSkillName: string; // Active skill/effect required on character
+  healBoost: number; // Extra healing when condition is active
+}
+
 export interface Skill {
   name: string;
   desc: string;
@@ -40,6 +45,7 @@ export interface Skill {
   costRules?: SkillCostRule[];
   damageRules?: SkillDamageRule[];
   chakraRemoveRules?: SkillChakraRemoveRule[];
+  healRules?: SkillHealRule[];
   costRuleActiveSkill?: string;
   costRuleReduceRand?: number;
   costRuleReduceSpecificType?: ChakraType;
