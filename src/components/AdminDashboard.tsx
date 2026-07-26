@@ -690,7 +690,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     triggerSuccess(`Habilidade "${editingSkill.name}" atualizada na lista temporária. Lembre-se de salvar o personagem!`);
   };
 
-  // Render a visual tag for chakra costs
+  // Render a visual tag for chakra costs (with +/- for multiple of same type)
   const renderChakraButton = (type: ChakraType, isActive: boolean) => {
     const bgColors: Record<ChakraType, string> = {
       Tai: 'bg-green-500/20 border-green-500 text-green-400',
@@ -699,26 +699,55 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
       Blood: 'bg-red-500/20 border-red-500 text-red-400',
       Rand: 'bg-slate-700/30 border-slate-600 text-slate-400'
     };
+    const count = editingSkill.cost.filter(c => c === type).length;
 
     return (
-      <button
-        key={type}
-        type="button"
-        onClick={() => handleToggleChakraCost(type)}
-        className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-          isActive 
-            ? bgColors[type] + ' ring-2 ring-offset-2 ring-offset-slate-950 ring-orange-500 scale-105' 
-            : 'bg-slate-900/60 border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-400'
-        }`}
-      >
-        <span className={`w-2 h-2 rounded-full ${
-          type === 'Tai' ? 'bg-green-500' :
-          type === 'Nin' ? 'bg-blue-500' :
-          type === 'Gen' ? 'bg-white' :
-          type === 'Blood' ? 'bg-red-500' : 'bg-slate-600'
-        }`} />
-        {type}
-      </button>
+      <div key={type} className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-mono font-bold transition-all ${
+        isActive ? bgColors[type] : 'bg-slate-900/60 border-slate-800 text-slate-500'
+      }`}>
+        <button
+          type="button"
+          onClick={() => {
+            if (!editingSkill) return;
+            const idx = editingSkill.cost.indexOf(type);
+            if (idx > -1) {
+              const newCost = [...editingSkill.cost];
+              newCost.splice(idx, 1);
+              handleUpdateSkillField('cost', newCost);
+            }
+          }}
+          className="opacity-60 hover:opacity-100 text-[10px] w-4 h-4 flex items-center justify-center cursor-pointer disabled:opacity-20"
+          disabled={!isActive}
+        >
+          -
+        </button>
+        <span className="flex items-center gap-1 min-w-[40px] justify-center">
+          <span className={`w-2 h-2 rounded-full ${
+            type === 'Tai' ? 'bg-green-500' :
+            type === 'Nin' ? 'bg-blue-500' :
+            type === 'Gen' ? 'bg-white' :
+            type === 'Blood' ? 'bg-red-500' : 'bg-slate-600'
+          }`} />
+          <span>{type} {count > 1 ? `×${count}` : ''}</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            if (!editingSkill) return;
+            const newCost = [...editingSkill.cost];
+            if (newCost.length >= 4) {
+              triggerError('O custo máximo é de 4 chakras por habilidade.');
+              return;
+            }
+            newCost.push(type);
+            handleUpdateSkillField('cost', newCost);
+          }}
+          className="opacity-60 hover:opacity-100 text-[10px] w-4 h-4 flex items-center justify-center cursor-pointer disabled:opacity-20"
+          disabled={count >= 4}
+        >
+          +
+        </button>
+      </div>
     );
   };
 
@@ -1811,6 +1840,20 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                         </datalist>
                         <p className="text-[8px] text-slate-500 font-mono mt-0.5">Esta skill só pode ser usada se a habilidade informada foi usada no turno anterior</p>
                       </div>
+
+                      <div>
+                        <label className="block text-[9px] font-bold uppercase tracking-wider text-red-400 mb-1 font-mono">HP Máximo para Liberar (Opcional)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={editingSkill.requireHpBelow || ''}
+                          onChange={(e) => handleUpdateSkillField('requireHpBelow', e.target.value ? parseInt(e.target.value) : undefined)}
+                          placeholder="Ex: 50"
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-red-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
+                        />
+                        <p className="text-[8px] text-slate-500 font-mono mt-0.5">Só libera esta skill se o HP do personagem estiver ≤ este valor</p>
+                      </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
@@ -2306,6 +2349,21 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-red-400 font-mono uppercase font-bold">💔 Dano = HP Perdido:</span>
+                                <select
+                                  value={editingSkill.missingHpDamageType || ''}
+                                  onChange={(e) => handleUpdateSkillField('missingHpDamageType', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-red-300 focus:border-red-600 outline-none"
+                                >
+                                  <option value="">Desativado</option>
+                                  <option value="normal">Dano Normal</option>
+                                  <option value="direct">Dano Direto</option>
+                                  <option value="dot">Queimadura (DoT)</option>
+                                  <option value="bleeding">Sangramento</option>
+                                  <option value="affliction">Aflição</option>
+                                </select>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
@@ -3310,7 +3368,18 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                 />
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
-                              <p className="text-[8px] text-slate-500 font-mono">Usa o mesmo alvo configurado em "Adicionar Escudo"</p>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.shieldTarget || 'Self'}
+                                  onChange={(e) => handleUpdateSkillField('shieldTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-slate-300 focus:border-orange-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
                             <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
                               <div className="flex items-center justify-between gap-2">

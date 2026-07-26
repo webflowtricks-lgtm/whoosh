@@ -764,20 +764,6 @@
         ]
       },
       {
-        "name": "Lee Guard",
-        "desc": "Lee entra em uma postura de guarda focada, ganhando invulnerabilidade total a todas as habilidades por 1 turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/Block.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Físico"
-        ]
-      },
-      {
         "name": "Fifth Gate Opening",
         "desc": "Causa 30 de dano de chakra a um inimigo.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/FifthGateOpening.jpg",
@@ -792,7 +778,69 @@
           "À Distância"
         ],
         "permanent": true,
-        "afflictionInstant": 10
+        "afflictionInstant": 10,
+        "damageBuffVal": 15,
+        "damageBuffDuration": 3,
+        "afflictionVal": 0,
+        "afflictionDuration": 0
+      },
+      {
+        "name": "Power of Youth",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://i.ibb.co/q3Spr50n/AS.webp",
+        "cost": [
+          "Nin"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "AllAllies",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "heal": 10,
+        "healTarget": "AllAllies",
+        "damageReductionVal": 10,
+        "damageReductionDuration": 1,
+        "shieldTarget": "AllAllies"
+      },
+      {
+        "name": "Reverse Lotus",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://i.ibb.co/1JT5Rm0z/qasd.webp",
+        "cost": [
+          "Tai",
+          "Rand",
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "damage": 0,
+        "requireHpBelow": 40,
+        "requireEffect": "Fifth Gate Opening",
+        "removeShieldDuration": 1,
+        "removeShield": true,
+        "missingHpDamageType": "direct"
+      },
+      {
+        "name": "Lee Guard",
+        "desc": "Lee entra em uma postura de guarda focada, ganhando invulnerabilidade total a todas as habilidades por 1 turno.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/Block.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 4,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Físico"
+        ],
+        "invulnerableDuration": 1
       }
     ],
     "skins": []

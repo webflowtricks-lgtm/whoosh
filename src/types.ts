@@ -56,6 +56,7 @@ export interface Skill {
   classes: string[]; // ['Physical', 'Melee', 'Chakra', etc.]
   requireEffect?: string; // e.g. "Shadow Clones"
   requirePreviousSkill?: string; // Skill name that must have been used on the previous turn
+  requireHpBelow?: number; // HP threshold below which the skill can be used (0-100)
   
   // Custom Dynamic Effects (configured from the Admin Dashboard)
   damage?: number;
@@ -91,6 +92,7 @@ export interface Skill {
   ignoreInvulnerable?: boolean;
   ignoreDamageReduction?: boolean;
   ignoreDamageReductionVal?: number;
+  missingHpDamageType?: '' | 'normal' | 'direct' | 'dot' | 'bleeding' | 'affliction'; // Damage = caster's missing HP
 
   // New custom dynamic effects (Bleeding, Affliction, Paralyze Cooldown, Cannot Reduce Damage, Cannot Be Invulnerable)
   bleedingVal?: number;

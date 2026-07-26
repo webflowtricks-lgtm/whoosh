@@ -1051,6 +1051,15 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
       }
     }
 
+    // HP threshold check (requireHpBelow)
+    if (skill.requireHpBelow && skill.requireHpBelow > 0) {
+      const hpThreshold = skill.requireHpBelow;
+      if (combatant.health > hpThreshold) {
+        addFloatingText(charId, `Requer HP ≤ ${hpThreshold}!`, 'effect');
+        return;
+      }
+    }
+
     // Check if already cued
     const alreadyCuedIdx = cuedActions.findIndex(a => a.sourceId === charId);
     let currentActionsAfterCancel = [...cuedActions];
@@ -1609,6 +1618,14 @@ const handleTradeChakra = () => {
 
       // Skill parameters
       let baseDamage = skill.damage || 0;
+      // Missing HP damage rule
+      let missingHpValue = 0;
+      if (skill.missingHpDamageType) {
+        missingHpValue = source.maxHealth - source.health;
+        if (skill.missingHpDamageType === 'normal') {
+          baseDamage += missingHpValue;
+        }
+      }
       if (!skill.damage && !skill.directDamage) {
         const legacyDmg: Record<string, number> = {
           'Uzumaki Barrage': 20, 'Lions Barrage': 30, 'Chidori': 40, 'KO Punch': 20,
@@ -1635,6 +1652,15 @@ const handleTradeChakra = () => {
       const dotInstant = skill.dotInstant || 0;
       const bleedingInstant = skill.bleedingInstant || 0;
       const afflictionInstant = skill.afflictionInstant || 0;
+      // Apply missing HP damage for non-normal types
+      let missingHpDirect = 0, missingHpDot = 0, missingHpBleed = 0, missingHpAffliction = 0;
+      if (skill.missingHpDamageType && skill.missingHpDamageType !== 'normal') {
+        const hpLoss = source.maxHealth - source.health;
+        if (skill.missingHpDamageType === 'direct') missingHpDirect = hpLoss;
+        else if (skill.missingHpDamageType === 'dot') missingHpDot = hpLoss;
+        else if (skill.missingHpDamageType === 'bleeding') missingHpBleed = hpLoss;
+        else if (skill.missingHpDamageType === 'affliction') missingHpAffliction = hpLoss;
+      }
       const healAmt = skill.heal || 0;
       let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
       let stunDuration = skill.stunTurns || 1;
@@ -1706,8 +1732,9 @@ const handleTradeChakra = () => {
         });
       }
 
-      // 0.2 DIRECT DAMAGE
-      if (directDamage > 0) {
+      // 0.2 DIRECT DAMAGE (with missing HP)
+      if (directDamage > 0 || missingHpDirect > 0) {
+        const dd = directDamage + missingHpDirect;
         const directTargets = resolveEffectTargets(skill.directDamageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         directTargets.forEach(t => {
           if (t.isDead) return;
@@ -1716,7 +1743,7 @@ const handleTradeChakra = () => {
             pushActiveEffect(t, {
               name: `${skill.name} (Dano Direto)`,
               type: 'direct_damage',
-              value: directDamage,
+              value: dd,
               duration,
               icon: skill.icon,
               irremovable: !!skill.directDamageIrremovable,
@@ -1729,7 +1756,7 @@ const handleTradeChakra = () => {
               message: `🎯 ${t.character.name} recebeu [${skill.name}] de DANO DIRETO de ${directDamage} por turno por ${duration} turnos!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO DIRETO (${duration >= 99999 ? '♾️' : duration + 'T'})`, 'damage');
+            addFloatingText(t.id, `DANO DIRETO (${duration >= 99999 ? '♾️ Permanente' : duration + 'T'})`, 'damage');
           } else {
             const startingHealth = t.health;
             t.health = Math.max(0, t.health - directDamage);
@@ -1764,33 +1791,36 @@ const handleTradeChakra = () => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🎯 [${skill.name}] de ${source.character.name} causou ${directDamage} de DANO DIRETO em ${t.character.name} (perfurando defesas).`,
+              message: `🎯 [${skill.name}] de ${source.character.name} causou ${dd} de DANO DIRETO em ${t.character.name} (perfurando defesas).${missingHpDirect > 0 ? ` (HP Perdido: ${missingHpDirect})` : ''}`,
               type: 'damage',
             });
-            addFloatingText(t.id, `-${directDamage} HP (DIRETO)`, 'damage');
+            addFloatingText(t.id, `-${dd} HP (DIRETO)`, 'damage');
           }
           cleanseTargetEffects(t, skill.directDamageRemoveType);
         });
       }
 
-      // INSTANT DOT / BLEEDING / AFFLICTION
-      if (dotInstant > 0 && target && !target.isDead) {
-        target.health = Math.max(0, target.health - dotInstant);
-        if (action.isPlayer) matchStatsRef.current.damageDealt += dotInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${target.character.name}: -${dotInstant} HP (QUEIMA)`, type: 'damage' });
-        addFloatingText(target.id, `-${dotInstant} HP (QUEIMA)`, 'damage');
+      // INSTANT DOT / BLEEDING / AFFLICTION (with missing HP)
+      const totalDotInstant = dotInstant + missingHpDot;
+      const totalBleedInstant = bleedingInstant + missingHpBleed;
+      const totalAfflictionInstant = afflictionInstant + missingHpAffliction;
+      if (totalDotInstant > 0 && target && !target.isDead) {
+        target.health = Math.max(0, target.health - totalDotInstant);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant;
+        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${target.character.name}: -${totalDotInstant} HP (QUEIMA)${missingHpDot > 0 ? ` [HP Perdido: ${missingHpDot}]` : ''}`, type: 'damage' });
+        addFloatingText(target.id, `-${totalDotInstant} HP (QUEIMA)`, 'damage');
       }
-      if (bleedingInstant > 0 && target && !target.isDead) {
-        target.health = Math.max(0, target.health - bleedingInstant);
-        if (action.isPlayer) matchStatsRef.current.damageDealt += bleedingInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `🩸 [${skill.name}] → ${target.character.name}: -${bleedingInstant} HP (SANGRAMENTO)`, type: 'damage' });
-        addFloatingText(target.id, `-${bleedingInstant} HP (SANGRAMENTO)`, 'damage');
+      if (totalBleedInstant > 0 && target && !target.isDead) {
+        target.health = Math.max(0, target.health - totalBleedInstant);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += totalBleedInstant;
+        newLogs.push({ id: Math.random().toString(), turn, message: `🩸 [${skill.name}] → ${target.character.name}: -${totalBleedInstant} HP (SANGRAMENTO)${missingHpBleed > 0 ? ` [HP Perdido: ${missingHpBleed}]` : ''}`, type: 'damage' });
+        addFloatingText(target.id, `-${totalBleedInstant} HP (SANGRAMENTO)`, 'damage');
       }
-      if (afflictionInstant > 0 && target && !target.isDead) {
-        target.health = Math.max(0, target.health - afflictionInstant);
-        if (action.isPlayer) matchStatsRef.current.damageDealt += afflictionInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${afflictionInstant} HP (AFLICAO)`, type: 'damage' });
-        addFloatingText(target.id, `-${afflictionInstant} HP (AFLICAO)`, 'damage');
+      if (totalAfflictionInstant > 0 && target && !target.isDead) {
+        target.health = Math.max(0, target.health - totalAfflictionInstant);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += totalAfflictionInstant;
+        newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${totalAfflictionInstant} HP (AFLICAO)${missingHpAffliction > 0 ? ` [HP Perdido: ${missingHpAffliction}]` : ''}`, type: 'damage' });
+        addFloatingText(target.id, `-${totalAfflictionInstant} HP (AFLICAO)`, 'damage');
       }
 
       // GAIN CHAKRA
@@ -2078,7 +2108,7 @@ const handleTradeChakra = () => {
               message: `💥 ${t.character.name} foi afetado por [${skill.name}] sofrendo ${baseDamage} de dano por turno por mais ${duration - 1} turnos!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO CONTÍNUO (${skill?.permanent ? '♾️' : (duration - 1) + 'T'})`, 'damage');
+            addFloatingText(t.id, `DANO CONTÍNUO (${skill?.permanent ? '♾️ Permanente' : (duration - 1) + 'T'})`, 'damage');
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
@@ -3091,6 +3121,7 @@ const handleTradeChakra = () => {
                   const hasPrev = prevSkills && prevSkills.has(skill.requirePreviousSkill);
                   if (!hasPrev) return false;
                 }
+                if (skill.requireHpBelow && skill.requireHpBelow > 0 && aiChar.health > skill.requireHpBelow) return false;
                 if (aiActions.some(a => a.sourceId === aiChar.id && a.skillIndex === idx)) return false;
                 return true;
               });
@@ -4349,8 +4380,10 @@ const handleTradeChakra = () => {
         cleanseTargetEffects(target, skill.removeShieldRemoveType);
       }
 
-      // 0.2 DANO DIRETO (DIRECT DAMAGE)
-      if (directDamage > 0) {
+      // 0.2 DANO DIRETO (DIRECT DAMAGE) with missing HP
+      const missingHpDirect2 = skill.missingHpDamageType === 'direct' ? source.maxHealth - source.health : 0;
+      const ddTotal = directDamage + missingHpDirect2;
+      if (ddTotal > 0) {
         const directTargets = resolveEffectTargets(skill.directDamageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         directTargets.forEach(t => {
           if (t.isDead) return;
@@ -4359,7 +4392,7 @@ const handleTradeChakra = () => {
             pushActiveEffect(t, {
               name: `${skill.name} (Dano Direto Contínuo)`,
               type: 'direct_damage',
-              value: skill.directDamage,
+              value: ddTotal,
               duration,
               icon: skill.icon,
               irremovable: !!skill.directDamageIrremovable,
@@ -4367,13 +4400,13 @@ const handleTradeChakra = () => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🎯 ${t.character.name} está sofrendo [${skill.name}] de DANO DIRETO de ${skill.directDamage} por turno por ${duration} turnos!`,
+              message: `🎯 ${t.character.name} recebeu [${skill.name}] de DANO DIRETO de ${ddTotal} por turno por ${duration} turnos!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO DIRETO CONTÍNUO`, 'damage');
+            addFloatingText(t.id, `DANO DIRETO (${duration}T)`, 'damage');
           } else {
             const startingHealth = t.health;
-            t.health = Math.max(0, t.health - directDamage);
+            t.health = Math.max(0, t.health - ddTotal);
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
               if (action.isPlayer) {
@@ -4398,24 +4431,30 @@ const handleTradeChakra = () => {
         });
       }
 
-      // INSTANT DOT / BLEEDING / AFFLICTION
-      if (dotInstant > 0 && target && !target.isDead) {
-        target.health = Math.max(0, target.health - dotInstant);
-        if (action.isPlayer) matchStatsRef.current.damageDealt += dotInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${target.character.name}: -${dotInstant} HP (QUEIMA)`, type: 'damage' });
-        addFloatingText(target.id, `-${dotInstant} HP (QUEIMA)`, 'damage');
+      // INSTANT DOT / BLEEDING / AFFLICTION (with missing HP)
+      const missDot2 = skill.missingHpDamageType === 'dot' ? source.maxHealth - source.health : 0;
+      const missBleed2 = skill.missingHpDamageType === 'bleeding' ? source.maxHealth - source.health : 0;
+      const missAffl2 = skill.missingHpDamageType === 'affliction' ? source.maxHealth - source.health : 0;
+      const totalDotInstant2 = dotInstant + missDot2;
+      const totalBleedInstant2 = bleedingInstant + missBleed2;
+      const totalAfflictionInstant2 = afflictionInstant + missAffl2;
+      if (totalDotInstant2 > 0 && target && !target.isDead) {
+        target.health = Math.max(0, target.health - totalDotInstant2);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant2;
+        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${target.character.name}: -${totalDotInstant2} HP (QUEIMA)${missDot2 > 0 ? ` [HP Perdido: ${missDot2}]` : ''}`, type: 'damage' });
+        addFloatingText(target.id, `-${totalDotInstant2} HP (QUEIMA)`, 'damage');
       }
-      if (bleedingInstant > 0 && target && !target.isDead) {
-        target.health = Math.max(0, target.health - bleedingInstant);
-        if (action.isPlayer) matchStatsRef.current.damageDealt += bleedingInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `🩸 [${skill.name}] → ${target.character.name}: -${bleedingInstant} HP (SANGRAMENTO)`, type: 'damage' });
-        addFloatingText(target.id, `-${bleedingInstant} HP (SANGRAMENTO)`, 'damage');
+      if (totalBleedInstant2 > 0 && target && !target.isDead) {
+        target.health = Math.max(0, target.health - totalBleedInstant2);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += totalBleedInstant2;
+        newLogs.push({ id: Math.random().toString(), turn, message: `🩸 [${skill.name}] → ${target.character.name}: -${totalBleedInstant2} HP (SANGRAMENTO)${missBleed2 > 0 ? ` [HP Perdido: ${missBleed2}]` : ''}`, type: 'damage' });
+        addFloatingText(target.id, `-${totalBleedInstant2} HP (SANGRAMENTO)`, 'damage');
       }
-      if (afflictionInstant > 0 && target && !target.isDead) {
-        target.health = Math.max(0, target.health - afflictionInstant);
-        if (action.isPlayer) matchStatsRef.current.damageDealt += afflictionInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${afflictionInstant} HP (AFLICAO)`, type: 'damage' });
-        addFloatingText(target.id, `-${afflictionInstant} HP (AFLICAO)`, 'damage');
+      if (totalAfflictionInstant2 > 0 && target && !target.isDead) {
+        target.health = Math.max(0, target.health - totalAfflictionInstant2);
+        if (action.isPlayer) matchStatsRef.current.damageDealt += totalAfflictionInstant2;
+        newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${totalAfflictionInstant2} HP (AFLICAO)${missAffl2 > 0 ? ` [HP Perdido: ${missAffl2}]` : ''}`, type: 'damage' });
+        addFloatingText(target.id, `-${totalAfflictionInstant2} HP (AFLICAO)`, 'damage');
       }
 
       // 0.3 DRENO / GANHO DE CHAKRA
@@ -4686,7 +4725,7 @@ const handleTradeChakra = () => {
               message: `💥 ${t.character.name} está sob efeito de [${skill.name}] sofrendo ${dmgVal} de dano por turno por mais ${duration - 1} turnos!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO CONTÍNUO (${skill?.permanent ? '♾️' : (duration - 1) + 'T'})`, 'damage');
+            addFloatingText(t.id, `DANO CONTÍNUO (${skill?.permanent ? '♾️ Permanente' : (duration - 1) + 'T'})`, 'damage');
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
@@ -6308,7 +6347,7 @@ if (skill.cannotBeReflected) {
                             <div className="flex items-center justify-between font-bold text-red-400 text-[10px]">
                               <span className="flex items-center gap-1">⚡ <span>DEBUFF: ATORDOADO</span></span>
                               <span className="text-[9px] bg-red-900/90 text-red-100 px-1.5 py-0.2 rounded border border-red-700 font-black">
-                                {maxDur >= 99999 ? '♾️' : maxDur + 'T'}
+                                {maxDur >= 99999 ? '♾️ Permanente' : maxDur + 'T'}
                               </span>
                             </div>
                             <p className="text-[9px] text-red-300/90 font-sans leading-tight">
@@ -6402,7 +6441,7 @@ if (skill.cannotBeReflected) {
                                                     {sub.effect.name}
                                                   </span>
                                                   <span className="text-[9px] font-mono text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
-                                                    {sub.effect.duration >= 99999 ? '♾️' : sub.effect.duration + 'T'}
+                                                    {sub.effect.duration >= 99999 ? '♾️ Permanente' : sub.effect.duration + 'T'}
                                                   </span>
                                                 </div>
                                                 <p className="text-[11px] text-slate-300 leading-tight">
@@ -6418,7 +6457,7 @@ if (skill.cannotBeReflected) {
                                         )}
 
                                         <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 mt-1">
-                                          <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️' : eff.duration + 'T'}</strong></span>
+                                          <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️ Permanente' : eff.duration + 'T'}</strong></span>
                                           {item.stacks > 1 && (
                                             <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
                                           )}
@@ -6551,6 +6590,13 @@ if (skill.cannotBeReflected) {
                                   </div>
                                 )}
 
+                                {/* HP Threshold Locked Overlay */}
+                                {skill.requireHpBelow && skill.requireHpBelow > 0 && combatant.health > skill.requireHpBelow && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
+                                  <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                    <span className="text-red-500 font-bold drop-shadow-md text-xs">❤️‍🩹</span>
+                                  </div>
+                                )}
+
                                 {/* Cued Indicator Overlay */}
                                 {isCued && (
                                   <div className="absolute inset-0 bg-orange-600/10 border-2 border-orange-500 flex items-center justify-center">
@@ -6592,9 +6638,14 @@ if (skill.cannotBeReflected) {
                                       {isPrevSkillLocked ? '🔒 Anterior: ' : '🔓 Anterior: '} {skill.requirePreviousSkill}
                                     </p>
                                   )}
+                                  {skill.requireHpBelow && skill.requireHpBelow > 0 && (
+                                    <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.health > skill.requireHpBelow ? 'text-red-500' : 'text-emerald-500'}`}>
+                                      {combatant.health > skill.requireHpBelow ? `🔒 HP ≤ ${skill.requireHpBelow}` : `🔓 HP ≤ ${skill.requireHpBelow}`}
+                                    </p>
+                                  )}
 
                                     <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-2">
-                                      <span>Cooldown: {skill.permanent ? '♾️' : skill.cooldown}</span>
+                                      <span>Cooldown: {skill.permanent ? '♾️ Permanente' : skill.cooldown}</span>
                                       <div className="flex gap-0.5 items-center">
                                         {effectiveCost.map((c, costIdx) => (
                                           <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
@@ -6934,6 +6985,12 @@ if (skill.cannotBeReflected) {
                         Requer uso no turno anterior: <strong className="underline">{inspectedSkill.skill.requirePreviousSkill}</strong>
                       </div>
                     )}
+                    {inspectedSkill.skill.requireHpBelow && inspectedSkill.skill.requireHpBelow > 0 && (
+                      <div className="bg-red-500/10 border border-red-500/20 p-2 rounded-lg text-[9px] font-mono text-red-400 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        Requer HP ≤ <strong className="underline">{inspectedSkill.skill.requireHpBelow}</strong>
+                      </div>
+                    )}
 
                     {/* Skill Detailed Description */}
                     <div className="bg-slate-900/30 rounded-lg p-3 border border-slate-900/60">
@@ -7265,7 +7322,7 @@ if (skill.cannotBeReflected) {
                             <div className="flex items-center justify-between font-bold text-red-400 text-[10px]">
                               <span className="flex items-center gap-1">⚡ <span>DEBUFF: ATORDOADO</span></span>
                               <span className="text-[9px] bg-red-900/90 text-red-100 px-1.5 py-0.2 rounded border border-red-700 font-black">
-                                {maxDur >= 99999 ? '♾️' : maxDur + 'T'}
+                                {maxDur >= 99999 ? '♾️ Permanente' : maxDur + 'T'}
                               </span>
                             </div>
                             <p className="text-[9px] text-red-300/90 font-sans leading-tight">
@@ -7368,7 +7425,7 @@ if (skill.cannotBeReflected) {
                                                     {sub.effect.name}
                                                   </span>
                                                   <span className="text-[9px] font-mono text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
-                                                    {sub.effect.duration >= 99999 ? '♾️' : sub.effect.duration + 'T'}
+                                                    {sub.effect.duration >= 99999 ? '♾️ Permanente' : sub.effect.duration + 'T'}
                                                   </span>
                                                 </div>
                                                 <p className="text-[11px] text-slate-300 leading-tight">
@@ -7384,7 +7441,7 @@ if (skill.cannotBeReflected) {
                                         )}
 
                                         <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 mt-1">
-                                          <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️' : eff.duration + 'T'}</strong></span>
+                                          <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️ Permanente' : eff.duration + 'T'}</strong></span>
                                           {item.stacks > 1 && (
                                             <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
                                           )}
@@ -7534,6 +7591,13 @@ if (skill.cannotBeReflected) {
                                     </div>
                                   )}
 
+                                  {/* HP Threshold Locked Overlay */}
+                                  {skill.requireHpBelow && skill.requireHpBelow > 0 && combatant.health > skill.requireHpBelow && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
+                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                      <span className="text-red-500 font-bold drop-shadow-md text-xs">❤️‍🩹</span>
+                                    </div>
+                                  )}
+
                                   {/* Cued Indicator Overlay */}
                                   {isCued && (
                                     <div className="absolute inset-0 bg-emerald-600/10 border-2 border-emerald-500 flex items-center justify-center">
@@ -7575,9 +7639,14 @@ if (skill.cannotBeReflected) {
                                         {isPrevSkillLocked ? '🔒 Anterior: ' : '🔓 Anterior: '} {skill.requirePreviousSkill}
                                       </p>
                                     )}
+                                    {skill.requireHpBelow && skill.requireHpBelow > 0 && (
+                                      <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.health > skill.requireHpBelow ? 'text-red-500' : 'text-emerald-500'}`}>
+                                        {combatant.health > skill.requireHpBelow ? `🔒 HP ≤ ${skill.requireHpBelow}` : `🔓 HP ≤ ${skill.requireHpBelow}`}
+                                      </p>
+                                    )}
 
                                     <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-2">
-                                      <span>Recarga: {skill.permanent ? '♾️' : skill.cooldown}</span>
+                                      <span>Recarga: {skill.permanent ? '♾️ Permanente' : skill.cooldown}</span>
                                       <div className="flex gap-0.5 items-center">
                                         {effectiveCost.map((c, costIdx) => (
                                           <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
@@ -7637,7 +7706,7 @@ if (skill.cannotBeReflected) {
                                     </div>
                                   )}
                                   <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-1">
-                                      <span>Recarga: {skill.permanent ? '♾️' : skill.cooldown}</span>
+                                      <span>Recarga: {skill.permanent ? '♾️ Permanente' : skill.cooldown}</span>
                                       <div className="flex gap-0.5 items-center">
                                         {effectiveCost.map((c, costIdx) => (
                                         <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
