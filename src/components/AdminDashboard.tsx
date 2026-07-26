@@ -1645,17 +1645,42 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                   </button>
                 </div>
 
-                {/* Skills Grid */}
+                {/* Skills Grid (Drag & Drop Reorder) */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {editingChar.skills.map((skill, sIdx) => {
                     const isSkillSelected = editingSkillIndex === sIdx;
+                    const isDragOver = dragIndex !== null && dragIndex !== sIdx;
                     return (
                       <div
                         key={sIdx}
+                        draggable
                         onClick={() => handleSelectSkill(sIdx)}
-                        className={`p-2 rounded-xl border cursor-pointer relative flex flex-col items-center justify-center text-center transition-all bg-slate-950 select-none group ${
+                        onDragStart={() => setDragIndex(sIdx)}
+                        onDragOver={(e) => { e.preventDefault(); }}
+                        onDragEnter={(e) => { e.preventDefault(); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (dragIndex === null || dragIndex === sIdx) return;
+                          const updated = [...editingChar.skills];
+                          const [moved] = updated.splice(dragIndex, 1);
+                          const targetIdx = dragIndex < sIdx ? sIdx - 1 : sIdx;
+                          updated.splice(targetIdx, 0, moved);
+                          setEditingChar({ ...editingChar, skills: updated });
+                          setDragIndex(null);
+                          if (editingSkillIndex === dragIndex) {
+                            setEditingSkillIndex(targetIdx);
+                          } else if (editingSkillIndex === targetIdx || editingSkillIndex === sIdx) {
+                            setEditingSkillIndex(dragIndex);
+                          }
+                        }}
+                        onDragEnd={() => setDragIndex(null)}
+                        className={`p-2 rounded-xl border cursor-grab active:cursor-grabbing relative flex flex-col items-center justify-center text-center transition-all bg-slate-950 select-none group ${
                           isSkillSelected
                             ? 'border-orange-500 ring-1 ring-orange-500 bg-orange-600/5'
+                            : dragIndex === sIdx
+                            ? 'border-blue-500/60 opacity-50'
+                            : dragIndex !== null
+                            ? 'border-slate-600/60 border-dashed'
                             : 'border-slate-800/60 hover:border-slate-700'
                         }`}
                       >
@@ -1763,15 +1788,29 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   list="requireEffect-suggestions"
   value={editingSkill.requireEffect || ''}
   onChange={(e) => handleUpdateSkillField('requireEffect', e.target.value || undefined)}
-  placeholder="E.g. Shadow Clones"
+  placeholder="Ex: Shadow Clones"
   className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
-  title="Insira o nome exato de um efeito buff ativo no ninja para poder usar esta habilidade (ex: 'Shadow Clones'). Deixe em branco se for de uso livre."
 />
 <datalist id="requireEffect-suggestions">
-  {getEffectNameSuggestions().map(name => (
-    <option key={name} value={name} />
-  ))}
+  {editingChar.skills.map(s => <option key={s.name} value={s.name} />)}
 </datalist>
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] font-bold uppercase tracking-wider text-cyan-400 mb-1 font-mono">Habilidade Anterior Requerida (Opcional)</label>
+                        <input
+                          type="text"
+                          list="requirePrevSkill-suggestions"
+                          value={editingSkill.requirePreviousSkill || ''}
+                          onChange={(e) => handleUpdateSkillField('requirePreviousSkill', e.target.value || undefined)}
+                          placeholder="Ex: Gentle Fist"
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
+                        />
+                        <datalist id="requirePrevSkill-suggestions">
+                          {editingChar.skills.map(s => <option key={s.name} value={s.name} />)}
+                        </datalist>
+                        <p className="text-[8px] text-slate-500 font-mono mt-0.5">Esta skill só pode ser usada se a habilidade informada foi usada no turno anterior</p>
+                      </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
@@ -3422,7 +3461,18 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                 />
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
-                              <p className="text-[8px] text-slate-500 font-mono">Usa o mesmo alvo configurado em "Adicionar Escudo"</p>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.invulnerableTarget || 'Self'}
+                                  onChange={(e) => handleUpdateSkillField('invulnerableTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-cyan-900/50 rounded text-[10px] font-mono text-cyan-300 focus:border-cyan-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
                             <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
                               <div className="flex items-center justify-between gap-2">
@@ -3884,8 +3934,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
 
                         </div>
                       </div>
-                    </div>
-                  </motion.div>
+                    </motion.div>
                 )}
               </div>
 

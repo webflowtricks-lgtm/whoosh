@@ -572,6 +572,122 @@
     "skins": []
   },
   {
+    "id": "neji",
+    "name": "Neji Hyuga",
+    "description": "O prodígio genial do Clã Hyuga. Usando seu Byakugan, Neji atinge as vias de chakra do oponente, bloqueando suas habilidades e desviando todo o dano com a rotação de palmas.",
+    "tags": [
+      "Vila da Folha",
+      "Time Guy",
+      "Hyuga",
+      "Byakugan"
+    ],
+    "portrait": "https://i.ibb.co/5pdTrdg/base-profile.webp",
+    "folder": "neji-hyuga",
+    "skills": [
+      {
+        "name": "Gentle Fist",
+        "desc": "Neji atinge um ponto de pressão do inimigo, causando 25 de dano por 2 turnos.",
+        "icon": "https://i.ibb.co/gb3XkTch/2.webp",
+        "cost": [
+          "Tai",
+          "Rand"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ],
+        "damage": 25,
+        "drainChakra": 0,
+        "damageDuration": 2
+      },
+      {
+        "name": "Eight Trigrams Rotation",
+        "desc": "Neji libera chakra e gira rapidamente, ganhando invulnerabilidade total por 1 turno e causando 15 de dano a qualquer inimigo que o alveje.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/neji-hyuga/EightTrigramsPalmRotation.jpg",
+        "cost": [
+          "Rand",
+          "Blood"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "AllEnemies",
+        "classes": [
+          "Chakra"
+        ],
+        "invulnerableDuration": 1,
+        "damage": 15,
+        "removeShieldDuration": 1,
+        "removeShield": true
+      },
+      {
+        "name": "Sixty-Four Palms",
+        "desc": "Neji libera as Sixty-Four Palms, causando 40 de dano e bloqueando o uso de qualquer habilidade do inimigo alvo por 1 turno.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/neji-hyuga/EightTrigramsSixtyFourPalms.jpg",
+        "cost": [
+          "Tai",
+          "Blood"
+        ],
+        "cooldown": 2,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ],
+        "damage": 40,
+        "stunTurns": 0,
+        "removeChakra": 1,
+        "costRules": [
+          {
+            "activeSkillName": "Eight Trigrams Rotation",
+            "reduceType": "Rand",
+            "reduceAmount": 1
+          }
+        ]
+      },
+      {
+        "name": "Eight Trigrams One Hundred Twenty-Eight Palms",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://i.ibb.co/v4W2CzJp/3.webp",
+        "cost": [
+          "Tai",
+          "Blood"
+        ],
+        "cooldown": 2,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "directDamage": 50,
+        "removeChakra": 1,
+        "requirePreviousSkill": "Sixty-Four Palms"
+      },
+      {
+        "name": "Byakugan Sight",
+        "desc": "Neji abre seu Byakugan, prevendo os movimentos dos inimigos. Ganha 15 de redução de dano por 3 turnos.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/neji-hyuga/ByakuganForesight.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 4,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Mental"
+        ],
+        "damageReductionVal": 15,
+        "damageReductionDuration": 3,
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
     "id": "kakashi",
     "name": "Kakashi Hatake",
     "description": "O líder Jonin de elite do Time 7. Conhecido mundialmente como o Ninja Copiador, Kakashi usa seu Sharingan para antecipar movimentos, se esconde no subsolo e desfere sua icônica Espada Relâmpago.",
@@ -869,81 +985,6 @@
         "targetType": "Self",
         "classes": [
           "Mental"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "neji",
-    "name": "Neji Hyuga",
-    "description": "O prodígio genial do Clã Hyuga. Usando seu Byakugan, Neji atinge as vias de chakra do oponente, bloqueando suas habilidades e desviando todo o dano com a rotação de palmas.",
-    "tags": [
-      "Vila da Folha",
-      "Time Guy",
-      "Hyuga",
-      "Byakugan"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/neji-hyuga/icon.jpg",
-    "folder": "neji-hyuga",
-    "skills": [
-      {
-        "name": "Gentle Fist",
-        "desc": "Neji atinge um ponto de pressão do inimigo, causando 20 de dano e drenando 1 ponto de chakra do estoque da equipe inimiga.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/neji-hyuga/GentleFist.jpg",
-        "cost": [
-          "Tai"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Sixty-Four Palms",
-        "desc": "Neji libera as Sixty-Four Palms, causando 40 de dano e bloqueando o uso de qualquer habilidade do inimigo alvo por 1 turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/neji-hyuga/EightTrigramsSixtyFourPalms.jpg",
-        "cost": [
-          "Tai",
-          "Rand"
-        ],
-        "cooldown": 2,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Byakugan Sight",
-        "desc": "Neji abre seu Byakugan, prevendo os movimentos dos inimigos. Ganha 15 de redução de dano por 3 turnos.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/neji-hyuga/ByakuganForesight.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Mental"
-        ]
-      },
-      {
-        "name": "Eight Trigrams Rotation",
-        "desc": "Neji libera chakra e gira rapidamente, ganhando invulnerabilidade total por 1 turno e causando 15 de dano a qualquer inimigo que o alveje.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/neji-hyuga/EightTrigramsPalmRotation.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Chakra"
         ]
       }
     ],

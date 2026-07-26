@@ -49,6 +49,7 @@ export interface Skill {
   targetType: 'Enemy' | 'Ally' | 'Self' | 'AllEnemies' | 'AllAllies';
   classes: string[]; // ['Physical', 'Melee', 'Chakra', etc.]
   requireEffect?: string; // e.g. "Shadow Clones"
+  requirePreviousSkill?: string; // Skill name that must have been used on the previous turn
   
   // Custom Dynamic Effects (configured from the Admin Dashboard)
   damage?: number;

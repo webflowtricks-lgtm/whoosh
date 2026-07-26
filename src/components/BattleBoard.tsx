@@ -403,6 +403,9 @@ export default function BattleBoard({
   const [enemyCombatants, setEnemyCombatants] = useState<CombatCharacter[]>([]);
   const playerRef = useRef<CombatCharacter[]>([]);
   const enemyRef = useRef<CombatCharacter[]>([]);
+  // Track skills used per character per turn (for requirePreviousSkill)
+  const currentTurnUsedSkills = useRef<Record<string, Set<string>>>({});
+  const lastTurnUsedSkills = useRef<Record<string, Set<string>>>({});
 
   // Chakra Pools (start at 0, first turn rolls 1 random element)
   const [playerChakra, setPlayerChakra] = useState<ChakraPool>({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
@@ -1038,6 +1041,16 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
       }
     }
 
+    // Previous skill check (requirePreviousSkill)
+    if (skill.requirePreviousSkill) {
+      const prevSkills = lastTurnUsedSkills.current[charId];
+      const hasPrev = prevSkills && prevSkills.has(skill.requirePreviousSkill);
+      if (!hasPrev) {
+        addFloatingText(charId, `Requer ${skill.requirePreviousSkill} no turno anterior!`, 'effect');
+        return;
+      }
+    }
+
     // Check if already cued
     const alreadyCuedIdx = cuedActions.findIndex(a => a.sourceId === charId);
     let currentActionsAfterCancel = [...cuedActions];
@@ -1492,6 +1505,10 @@ const handleTradeChakra = () => {
         addFloatingText(source.id, 'ATORDOADO!', 'stun');
         return;
       }
+
+      // Track skill usage for requirePreviousSkill
+      if (!currentTurnUsedSkills.current[source.id]) currentTurnUsedSkills.current[source.id] = new Set();
+      currentTurnUsedSkills.current[source.id].add(skill.name);
 
       // Find target combatant
       const defaultTarget = targetList.find(c => c.id === action.targetId) || sourceList.find(c => c.id === action.targetId) || source;
@@ -2717,7 +2734,7 @@ const handleTradeChakra = () => {
         });
 
         // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
-        const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage');
+        const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
         const isInvulnerable = checkCombatantInvulnerable(c);
         activeDamageEffects.forEach(dmg => {
           if (isInvulnerable) {
@@ -2920,6 +2937,10 @@ const handleTradeChakra = () => {
       return;
     }
 
+    // Save current turn skill usage for requirePreviousSkill
+    lastTurnUsedSkills.current = currentTurnUsedSkills.current;
+    currentTurnUsedSkills.current = {};
+
     // Advance turn
     const nextTurn = turn + 1;
     setTurn(nextTurn);
@@ -3065,6 +3086,11 @@ const handleTradeChakra = () => {
                   const reqLower = skill.requireEffect.toLowerCase();
                   const hasReq = aiChar.activeEffects.some(e => e.name && (e.name.toLowerCase() === reqLower || e.name.toLowerCase().startsWith(reqLower) || e.name.toLowerCase().includes(reqLower)));
                   if (!hasReq) return false;
+                }
+                if (skill.requirePreviousSkill) {
+                  const prevSkills = lastTurnUsedSkills.current[aiChar.id];
+                  const hasPrev = prevSkills && prevSkills.has(skill.requirePreviousSkill);
+                  if (!hasPrev) return false;
                 }
                 if (aiActions.some(a => a.sourceId === aiChar.id && a.skillIndex === idx)) return false;
                 return true;
@@ -5245,7 +5271,7 @@ if (skill.reflect) {
         });
 
         // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
-        const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage');
+        const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
         const isInvulnerable = checkCombatantInvulnerable(c);
         activeDamageEffects.forEach(dmg => {
           if (isInvulnerable) {
@@ -5472,6 +5498,10 @@ if (skill.reflect) {
     setEnemyCombatants(updatedEnemy);
     setCuedActions([]);
     setSelectedSkill(null);
+
+    // Save current turn skill usage for requirePreviousSkill
+    lastTurnUsedSkills.current = currentTurnUsedSkills.current;
+    currentTurnUsedSkills.current = {};
 
     // Check game over
     const allPlayerDead = updatedPlayer.every(p => p.isDead);
@@ -6394,6 +6424,8 @@ if (skill.cannotBeReflected) {
                             const canAfford = canAffordSkill(skill, simulatedChakraForThisChar, combatant, [...playerCombatants, ...enemyCombatants]);
                             const effectiveCost = getEffectiveSkillCost(skill, combatant, [...playerCombatants, ...enemyCombatants]);
                             const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name && (e.name.toLowerCase() === skill.requireEffect!.toLowerCase() || e.name.toLowerCase().startsWith(skill.requireEffect!.toLowerCase()) || e.name.toLowerCase().includes(skill.requireEffect!.toLowerCase())));
+                            const prevSkillsUsed = lastTurnUsedSkills.current[combatant.id];
+                            const isPrevSkillLocked = skill.requirePreviousSkill ? !(prevSkillsUsed && prevSkillsUsed.has(skill.requirePreviousSkill)) : false;
                             const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
 
                             return (
@@ -6458,6 +6490,13 @@ if (skill.cannotBeReflected) {
                                   </div>
                                 )}
 
+                                {/* Previous Skill Locked Overlay (🔒) */}
+                                {isPrevSkillLocked && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && (
+                                  <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                    <span className="text-cyan-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                  </div>
+                                )}
+
                                 {/* Cued Indicator Overlay */}
                                 {isCued && (
                                   <div className="absolute inset-0 bg-orange-600/10 border-2 border-orange-500 flex items-center justify-center">
@@ -6492,6 +6531,11 @@ if (skill.cannotBeReflected) {
                                   {skill.requireEffect && (
                                     <p className={`text-[9px] font-bold mt-1.5 font-mono ${isRequiredEffectLocked ? 'text-red-500' : 'text-emerald-500'}`}>
                                       {isRequiredEffectLocked ? '🔒 Requer: ' : '🔓 Ativo: '} {skill.requireEffect}
+                                    </p>
+                                  )}
+                                  {skill.requirePreviousSkill && (
+                                    <p className={`text-[9px] font-bold mt-1 font-mono ${isPrevSkillLocked ? 'text-cyan-500' : 'text-emerald-500'}`}>
+                                      {isPrevSkillLocked ? '🔒 Anterior: ' : '🔓 Anterior: '} {skill.requirePreviousSkill}
                                     </p>
                                   )}
 
@@ -6828,6 +6872,12 @@ if (skill.cannotBeReflected) {
                       <div className="bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg text-[9px] font-mono text-amber-400 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                         Requer efeito ativo: <strong className="underline">{inspectedSkill.skill.requireEffect}</strong>
+                      </div>
+                    )}
+                    {inspectedSkill.skill.requirePreviousSkill && (
+                      <div className="bg-cyan-500/10 border border-cyan-500/20 p-2 rounded-lg text-[9px] font-mono text-cyan-400 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                        Requer uso no turno anterior: <strong className="underline">{inspectedSkill.skill.requirePreviousSkill}</strong>
                       </div>
                     )}
 
@@ -7356,6 +7406,8 @@ if (skill.cannotBeReflected) {
                             const canAfford = canAffordSkill(skill, simulatedChakraForThisChar, combatant, [...playerCombatants, ...enemyCombatants]);
                             const effectiveCost = getEffectiveSkillCost(skill, combatant, [...playerCombatants, ...enemyCombatants]);
                             const isRequiredEffectLocked = skill.requireEffect && !combatant.activeEffects.some(e => e.name && (e.name.toLowerCase() === skill.requireEffect!.toLowerCase() || e.name.toLowerCase().startsWith(skill.requireEffect!.toLowerCase()) || e.name.toLowerCase().includes(skill.requireEffect!.toLowerCase())));
+                            const prevSkillsUsed = lastTurnUsedSkills.current[combatant.id];
+                            const isPrevSkillLocked = skill.requirePreviousSkill ? !(prevSkillsUsed && prevSkillsUsed.has(skill.requirePreviousSkill)) : false;
                             const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
 
                             if (isSandbox) {
@@ -7421,6 +7473,13 @@ if (skill.cannotBeReflected) {
                                     </div>
                                   )}
 
+                                  {/* Previous Skill Locked Overlay (🔒) */}
+                                  {isPrevSkillLocked && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && (
+                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                      <span className="text-cyan-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                    </div>
+                                  )}
+
                                   {/* Cued Indicator Overlay */}
                                   {isCued && (
                                     <div className="absolute inset-0 bg-emerald-600/10 border-2 border-emerald-500 flex items-center justify-center">
@@ -7455,6 +7514,11 @@ if (skill.cannotBeReflected) {
                                     {skill.requireEffect && (
                                       <p className={`text-[9px] font-bold mt-1.5 font-mono ${isRequiredEffectLocked ? 'text-red-500' : 'text-emerald-500'}`}>
                                         {isRequiredEffectLocked ? '🔒 Requer: ' : '🔓 Ativo: '} {skill.requireEffect}
+                                      </p>
+                                    )}
+                                    {skill.requirePreviousSkill && (
+                                      <p className={`text-[9px] font-bold mt-1 font-mono ${isPrevSkillLocked ? 'text-cyan-500' : 'text-emerald-500'}`}>
+                                        {isPrevSkillLocked ? '🔒 Anterior: ' : '🔓 Anterior: '} {skill.requirePreviousSkill}
                                       </p>
                                     )}
 
