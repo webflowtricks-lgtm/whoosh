@@ -216,9 +216,11 @@ cannotBeCountered?: boolean;
 
 cannotBeReflected?: boolean;
 
-noChakraCost?: boolean;
+  noChakraCost?: boolean;
 
-doNotApplyIfActive?: boolean;
+  doNotApplyIfActive?: boolean;
+
+  permanent?: boolean; // If true, skill stays forever (shows ∞ instead of turn count)
 }
 
 export type TargetOverride =

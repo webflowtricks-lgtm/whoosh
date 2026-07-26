@@ -1861,6 +1861,12 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                             className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0" />
                           🚫 Não aplicar se a habilidade já estiver ativa no alvo
                         </label>
+                        <label className="flex items-center gap-2 text-[10px] text-cyan-300 font-bold">
+                          <input type="checkbox" checked={editingSkill.permanent || false}
+                            onChange={(e) => handleUpdateSkillField('permanent', e.target.checked)}
+                            className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0" />
+                          ♾️ Esta skill não pode ser removida (efeito permanente)
+                        </label>
                       </div>
 
                       <div className="md:col-span-2">

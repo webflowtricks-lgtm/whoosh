@@ -704,6 +704,100 @@
     "skins": []
   },
   {
+    "id": "rock-lee",
+    "name": "Rock Lee",
+    "description": "Um especialista dedicado da Vila da Folha. Sem habilidades em ninjutsu, Lee treina incansavelmente em taijutsu, usando força física extrema e abrindo os portões internos para colidir com os oponentes.",
+    "tags": [
+      "Vila da Folha",
+      "Time Guy",
+      "Taijutsu",
+      "Portões"
+    ],
+    "portrait": "https://i.ibb.co/9m41tk7x/base-profile-2.webp",
+    "folder": "rock-lee",
+    "skills": [
+      {
+        "name": "Ferocious Fist",
+        "desc": "Lee ataca com um taijutsu físico rápido e de alta velocidade, causando 25 de dano físico a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/FerociousFist.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ],
+        "damage": 0,
+        "directDamage": 25,
+        "damageRules": [
+          {
+            "activeSkillName": "Fifth Gate Opening",
+            "damageBoost": 10
+          }
+        ]
+      },
+      {
+        "name": "Primary Lotus",
+        "desc": "Lee envolve um inimigo em faixas e o joga de cabeça contra o solo, causando 35 de dano físico. Causa 15 de dano extra durante [Fifth Gate Opening].",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/PrimaryLotus.jpg",
+        "cost": [
+          "Tai",
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ],
+        "damage": 0,
+        "directDamage": 35,
+        "damageRules": [
+          {
+            "activeSkillName": "Fifth Gate Opening",
+            "damageBoost": 10
+          }
+        ]
+      },
+      {
+        "name": "Lee Guard",
+        "desc": "Lee entra em uma postura de guarda focada, ganhando invulnerabilidade total a todas as habilidades por 1 turno.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/Block.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 3,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Físico"
+        ]
+      },
+      {
+        "name": "Fifth Gate Opening",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/FifthGateOpening.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "permanent": true,
+        "afflictionInstant": 10
+      }
+    ],
+    "skins": []
+  },
+  {
     "id": "kakashi",
     "name": "Kakashi Hatake",
     "description": "O líder Jonin de elite do Time 7. Conhecido mundialmente como o Ninja Copiador, Kakashi usa seu Sharingan para antecipar movimentos, se esconde no subsolo e desfere sua icônica Espada Relâmpago.",
@@ -849,81 +943,6 @@
         "targetType": "Self",
         "classes": [
           "Chakra"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "rock-lee",
-    "name": "Rock Lee",
-    "description": "Um especialista dedicado da Vila da Folha. Sem habilidades em ninjutsu, Lee treina incansavelmente em taijutsu, usando força física extrema e abrindo os portões internos para colidir com os oponentes.",
-    "tags": [
-      "Vila da Folha",
-      "Time Guy",
-      "Taijutsu",
-      "Portões"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/icon.jpg",
-    "folder": "rock-lee",
-    "skills": [
-      {
-        "name": "Ferocious Fist",
-        "desc": "Lee ataca com um taijutsu físico rápido e de alta velocidade, causando 25 de dano físico a um inimigo.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/FerociousFist.jpg",
-        "cost": [
-          "Tai"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Primary Lotus",
-        "desc": "Lee envolve um inimigo em faixas e o joga de cabeça contra o solo, causando 35 de dano físico. Causa 15 de dano extra durante [Fifth Gate Opening].",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/PrimaryLotus.jpg",
-        "cost": [
-          "Tai",
-          "Rand"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Fifth Gate Opening",
-        "desc": "Lee libera seus portões de chakra. Por 3 turnos, suas habilidades de taijutsu causam 15 de dano adicional, mas ele sofre 5 de dano auto-infligido por turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/FifthGateOpening.jpg",
-        "cost": [
-          "Tai"
-        ],
-        "cooldown": 4,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Físico"
-        ]
-      },
-      {
-        "name": "Lee Guard",
-        "desc": "Lee entra em uma postura de guarda focada, ganhando invulnerabilidade total a todas as habilidades por 1 turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/Block.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Físico"
         ]
       }
     ],

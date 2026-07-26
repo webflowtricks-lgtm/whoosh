@@ -1729,7 +1729,7 @@ const handleTradeChakra = () => {
               message: `🎯 ${t.character.name} recebeu [${skill.name}] de DANO DIRETO de ${directDamage} por turno por ${duration} turnos!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO DIRETO (${duration}T)`, 'damage');
+            addFloatingText(t.id, `DANO DIRETO (${duration >= 99999 ? '♾️' : duration + 'T'})`, 'damage');
           } else {
             const startingHealth = t.health;
             t.health = Math.max(0, t.health - directDamage);
@@ -2078,7 +2078,7 @@ const handleTradeChakra = () => {
               message: `💥 ${t.character.name} foi afetado por [${skill.name}] sofrendo ${baseDamage} de dano por turno por mais ${duration - 1} turnos!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO CONTÍNUO (${duration - 1}T)`, 'damage');
+            addFloatingText(t.id, `DANO CONTÍNUO (${skill?.permanent ? '♾️' : (duration - 1) + 'T'})`, 'damage');
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
@@ -2364,66 +2364,20 @@ const handleTradeChakra = () => {
 
       // Process ALL buff/debuff effects independently (supports multi-effect skills)
 
-      // 2. Legacy hardcoded effects (by skill name)
-      if (!skill.shieldVal) {
-        switch (skill.name) {
-          case 'Shadow Clones':
-            applyBuffEffect('Shadow Clones', 'damage_reduction', 4, 15);
-            break;
-          case 'Sharingan':
-            applyBuffEffect('Sharingan', 'damage_buff', 4, 10);
-            break;
-          case 'Sexy Technique': case 'Orochimaru Block': case 'Substitution':
-          case 'Underground Hide': case 'Lee Guard': case 'Crow Clone Escape':
-          case 'Eight Trigrams Rotation': case 'Choji Block':
-            applyBuffEffect(skill.name, 'invulnerable', 1);
-            break;
-          case 'Inner Sakura':
-            applyBuffEffect('Inner Sakura', 'damage_reduction', 4, 15);
-            break;
-          case 'Copied Sharingan':
-            applyBuffEffect('Copied Sharingan', 'damage_reduction', 3, 10);
-            break;
-          case 'Sand Coffin':
-            applyBuffEffect('Sand Coffin', 'custom', 2, 0, false, true);
-            break;
-          case 'Sand Shield':
-            applyBuffEffect('Sand Shield', 'invulnerable', 1);
-            break;
-          case 'Fifth Gate Opening':
-            applyBuffEffect('Fifth Gate Opening', 'damage_buff', 3, 15);
-            break;
-          case 'Amaterasu Burn':
-            applyBuffEffect('Amaterasu Burn', 'dot', 3, 15, false, true);
-            break;
-          case 'Mangekyo Sharingan':
-            applyBuffEffect('Mangekyo Sharingan', 'counter', 2);
-            break;
-          case 'Byakugan Sight':
-            applyBuffEffect('Byakugan Sight', 'damage_reduction', 3, 15);
-            break;
-          case 'Three Colored Pills':
-            applyBuffEffect('Three Colored Pills', 'damage_buff', 3, 15);
-            break;
-          case 'Sand Armor':
-            applyBuffEffect('Sand Armor', 'shield', 99, 30);
-            break;
-        }
-      }
-
       // 3. Generic skill properties (for admin-created multi-effect skills)
       // Each effect is checked independently so multiple can apply
 
       // Damage Reduction buff
-      if (skill.damageReductionVal && skill.damageReductionVal > 0 && skill.name !== 'Shadow Clones' && skill.name !== 'Inner Sakura' && skill.name !== 'Copied Sharingan' && skill.name !== 'Byakugan Sight') {
+      if (skill.damageReductionVal && skill.damageReductionVal > 0) {
         const targets = resolveEffectTargets(skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
         targets.forEach(t => {
           if (t.isDead) return;
+          const reducDuration = skill.permanent ? 99999 : (skill.damageReductionDuration || 3);
           pushActiveEffect(t, {
             name: `${skill.name} Guard`,
             type: 'damage_reduction',
             value: skill.damageReductionVal!,
-            duration: skill.damageReductionDuration || 3,
+            duration: reducDuration,
             icon: skill.icon,
             casterId: source.id,
             casterSide: action.isPlayer ? 'player' : 'enemy',
@@ -2462,15 +2416,16 @@ const handleTradeChakra = () => {
       }
 
       // Damage Buff
-      if (skill.damageBuffVal && skill.damageBuffVal > 0 && skill.name !== 'Sharingan' && skill.name !== 'Fifth Gate Opening' && skill.name !== 'Three Colored Pills') {
+      if (skill.damageBuffVal && skill.damageBuffVal > 0) {
         const targets = resolveEffectTargets(skill.damageBuffTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
         targets.forEach(t => {
           if (t.isDead) return;
+          const buffDuration = skill.permanent ? 99999 : (skill.damageBuffDuration || 3);
           pushActiveEffect(t, {
             name: `${skill.name} Power`,
             type: 'damage_buff',
             value: skill.damageBuffVal!,
-            duration: skill.damageBuffDuration || 3,
+            duration: buffDuration,
             icon: skill.icon,
             casterId: source.id,
             casterSide: action.isPlayer ? 'player' : 'enemy',
@@ -2683,6 +2638,34 @@ const handleTradeChakra = () => {
         applyBuffEffect(`${skill.name} Reflect`, 'reflect', skill.reflectDuration || 2, 0, false, true);
       }
 
+      // Permanent skill auto-effect: if skill is permanent and no other effect was applied, add a custom buff
+      if (skill.permanent && defaultTarget && !defaultTarget.isDead) {
+        const hasAppliedEffect = !!(skill.damage || skill.directDamage || skill.heal || skill.shieldVal ||
+          skill.damageReductionVal || skill.damageBuffVal || skill.damageDebuffVal || skill.dotVal ||
+          skill.bleedingVal || skill.afflictionVal || skill.stunTurns || skill.invulnerableDuration ||
+          skill.gainChakra || skill.drainChakra || skill.removeChakra || skill.stealChakra ||
+          skill.invisible || skill.paralyzeCooldownDuration || skill.cannotReduceDamageDuration ||
+          skill.cannotBeInvulnerableDuration || skill.counterAttack || skill.reflect ||
+          (skill.damageDuration && skill.damageDuration > 1) || skill.damageRules?.length ||
+          skill.costRules?.length || skill.chakraRemoveRules?.length || skill.healRules?.length);
+        if (!hasAppliedEffect) {
+          pushActiveEffect(defaultTarget, {
+            name: skill.name,
+            type: 'custom',
+            duration: 99999,
+            icon: skill.icon,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `♾️ [${skill.name}] de ${source.character.name} foi aplicado permanentemente em ${defaultTarget.character.name}!`,
+            type: 'buff',
+          });
+          addFloatingText(defaultTarget.id, '♾️ PERMANENTE', 'effect');
+        }
+      }
+
       // Check deaths immediately after actions
       sourceList.forEach(c => {
         if (c.health <= 0 && !c.isDead) {
@@ -2842,10 +2825,10 @@ const handleTradeChakra = () => {
           addFloatingText(c.id, 'DERROTADO', 'damage');
         }
 
-        // Decrement effect durations (skip effects cast in the current turn)
+        // Decrement effect durations (skip effects cast in the current turn, skip permanent effects)
         c.activeEffects = c.activeEffects
           .map(eff => {
-            if (eff.castTurn === turn) {
+            if (eff.castTurn === turn || eff.duration >= 99999) {
               return eff;
             }
             return { ...eff, duration: eff.duration - 1 };
@@ -4264,6 +4247,33 @@ const handleTradeChakra = () => {
           break;
       }
 
+      // If skill is permanent, make all its effects last forever
+      if (skill.permanent && effectDuration > 0) {
+        effectDuration = 99999;
+      }
+
+      // Permanent auto-effect: ensure a custom buff shows even if no effect fields are configured
+      if (skill.permanent && !effectName && target && !target.isDead) {
+        const checkFields = skill.damage || skill.directDamage || skill.heal || skill.shieldVal ||
+          skill.damageReductionVal || skill.damageBuffVal || skill.damageDebuffVal || skill.dotVal ||
+          skill.bleedingVal || skill.afflictionVal || skill.stunTurns || skill.invulnerableDuration ||
+          skill.gainChakra || skill.drainChakra || skill.removeChakra || skill.stealChakra ||
+          skill.invisible || skill.paralyzeCooldownDuration || skill.cannotReduceDamageDuration ||
+          skill.cannotBeInvulnerableDuration || skill.counterAttack || skill.reflect;
+        if (!checkFields) {
+          effectName = skill.name;
+          effectType = 'custom';
+          effectDuration = 99999;
+          effectVal = 0;
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `♾️ [${skill.name}] de ${source.character.name} foi aplicado permanentemente em ${target.character.name}!`,
+            type: 'buff',
+          });
+          addFloatingText(target.id, '♾️ PERMANENTE', 'effect');
+        }
+      }
+
       const cleanseTargetEffects = (t: CombatCharacter, removeType: string | undefined) => {
         if (!removeType || removeType === 'none' || removeType === '') return;
 
@@ -4676,7 +4686,7 @@ const handleTradeChakra = () => {
               message: `💥 ${t.character.name} está sob efeito de [${skill.name}] sofrendo ${dmgVal} de dano por turno por mais ${duration - 1} turnos!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO CONTÍNUO (${duration - 1}T)`, 'damage');
+            addFloatingText(t.id, `DANO CONTÍNUO (${skill?.permanent ? '♾️' : (duration - 1) + 'T'})`, 'damage');
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
@@ -5498,9 +5508,9 @@ if (skill.reflect) {
         // Check paralyze cooldown BEFORE decrementing durations
         const isCooldownParalyzed = c.activeEffects.some(e => e.type === 'paralyze_cooldown');
 
-        // Decrement effect durations
+        // Decrement effect durations (skip permanent effects)
         c.activeEffects = c.activeEffects
-          .map(eff => ({ ...eff, duration: eff.duration - 1 }))
+          .map(eff => eff.duration >= 99999 ? eff : { ...eff, duration: eff.duration - 1 })
           .filter(eff => eff.duration > 0);
 
         // Decrement cooldowns (unless paralisia de cooldown is active)
@@ -5683,7 +5693,7 @@ if (skill.reflect) {
     if (skill.damageReductionVal && skill.damageReductionVal > 0) {
       effects.push({
         label: 'Redução de Dano',
-        value: `-${skill.damageReductionVal}% de Dano Recebido por ${skill.damageReductionDuration || 1} ${skill.damageReductionDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `-${skill.damageReductionVal} de Dano Recebido por ${skill.damageReductionDuration || 1} ${skill.damageReductionDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-cyan-400',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -6298,7 +6308,7 @@ if (skill.cannotBeReflected) {
                             <div className="flex items-center justify-between font-bold text-red-400 text-[10px]">
                               <span className="flex items-center gap-1">⚡ <span>DEBUFF: ATORDOADO</span></span>
                               <span className="text-[9px] bg-red-900/90 text-red-100 px-1.5 py-0.2 rounded border border-red-700 font-black">
-                                {maxDur}T
+                                {maxDur >= 99999 ? '♾️' : maxDur + 'T'}
                               </span>
                             </div>
                             <p className="text-[9px] text-red-300/90 font-sans leading-tight">
@@ -6392,7 +6402,7 @@ if (skill.cannotBeReflected) {
                                                     {sub.effect.name}
                                                   </span>
                                                   <span className="text-[9px] font-mono text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
-                                                    {sub.effect.duration}T
+                                                    {sub.effect.duration >= 99999 ? '♾️' : sub.effect.duration + 'T'}
                                                   </span>
                                                 </div>
                                                 <p className="text-[11px] text-slate-300 leading-tight">
@@ -6408,7 +6418,7 @@ if (skill.cannotBeReflected) {
                                         )}
 
                                         <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 mt-1">
-                                          <span>Duração: <strong className="text-amber-400">{eff.duration}T</strong></span>
+                                          <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️' : eff.duration + 'T'}</strong></span>
                                           {item.stacks > 1 && (
                                             <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
                                           )}
@@ -6584,7 +6594,7 @@ if (skill.cannotBeReflected) {
                                   )}
 
                                     <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-2">
-                                      <span>Cooldown: {skill.cooldown}</span>
+                                      <span>Cooldown: {skill.permanent ? '♾️' : skill.cooldown}</span>
                                       <div className="flex gap-0.5 items-center">
                                         {effectiveCost.map((c, costIdx) => (
                                           <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
@@ -7255,7 +7265,7 @@ if (skill.cannotBeReflected) {
                             <div className="flex items-center justify-between font-bold text-red-400 text-[10px]">
                               <span className="flex items-center gap-1">⚡ <span>DEBUFF: ATORDOADO</span></span>
                               <span className="text-[9px] bg-red-900/90 text-red-100 px-1.5 py-0.2 rounded border border-red-700 font-black">
-                                {maxDur}T
+                                {maxDur >= 99999 ? '♾️' : maxDur + 'T'}
                               </span>
                             </div>
                             <p className="text-[9px] text-red-300/90 font-sans leading-tight">
@@ -7358,7 +7368,7 @@ if (skill.cannotBeReflected) {
                                                     {sub.effect.name}
                                                   </span>
                                                   <span className="text-[9px] font-mono text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
-                                                    {sub.effect.duration}T
+                                                    {sub.effect.duration >= 99999 ? '♾️' : sub.effect.duration + 'T'}
                                                   </span>
                                                 </div>
                                                 <p className="text-[11px] text-slate-300 leading-tight">
@@ -7374,7 +7384,7 @@ if (skill.cannotBeReflected) {
                                         )}
 
                                         <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 mt-1">
-                                          <span>Duração: <strong className="text-amber-400">{eff.duration}T</strong></span>
+                                          <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️' : eff.duration + 'T'}</strong></span>
                                           {item.stacks > 1 && (
                                             <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
                                           )}
@@ -7567,7 +7577,7 @@ if (skill.cannotBeReflected) {
                                     )}
 
                                     <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-2">
-                                      <span>Recarga: {skill.cooldown}</span>
+                                      <span>Recarga: {skill.permanent ? '♾️' : skill.cooldown}</span>
                                       <div className="flex gap-0.5 items-center">
                                         {effectiveCost.map((c, costIdx) => (
                                           <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
@@ -7627,9 +7637,9 @@ if (skill.cannotBeReflected) {
                                     </div>
                                   )}
                                   <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-1">
-                                    <span>Recarga: {skill.cooldown}</span>
-                                    <div className="flex gap-0.5 items-center">
-                                      {effectiveCost.map((c, costIdx) => (
+                                      <span>Recarga: {skill.permanent ? '♾️' : skill.cooldown}</span>
+                                      <div className="flex gap-0.5 items-center">
+                                        {effectiveCost.map((c, costIdx) => (
                                         <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
                                       ))}
                                       {effectiveCost.length < skill.cost.length && (
