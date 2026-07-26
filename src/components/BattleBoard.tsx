@@ -2942,10 +2942,10 @@ const handleTradeChakra = () => {
   };
 
   // Main End Turn / Pass Turn handler
-  const handleEndTurn = (customRandAllocation?: ChakraPool) => {
+  const handleEndTurn = (customRandAllocation?: ChakraPool, skipActions?: boolean) => {
     playCustomSound('NextTurn');
 
-    const currentActions = [...cuedActions];
+    const currentActions = skipActions ? [] : [...cuedActions];
     setCuedActions([]);
     setSelectedSkill(null);
 
@@ -3629,8 +3629,8 @@ const handleTradeChakra = () => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timerInterval);
-          // Auto-submit / auto-end turn when time runs out
-          handleEndTurnRef.current();
+          // Auto-pass turn when time runs out (does NOT execute cued skills)
+          handleEndTurnRef.current(undefined, true);
           return 0;
         }
         return prev - 1;
