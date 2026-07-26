@@ -1618,14 +1618,6 @@ const handleTradeChakra = () => {
 
       // Skill parameters
       let baseDamage = skill.damage || 0;
-      // Missing HP damage rule
-      let missingHpValue = 0;
-      if (skill.missingHpDamageType) {
-        missingHpValue = source.maxHealth - source.health;
-        if (skill.missingHpDamageType === 'normal') {
-          baseDamage += missingHpValue;
-        }
-      }
       if (!skill.damage && !skill.directDamage) {
         const legacyDmg: Record<string, number> = {
           'Uzumaki Barrage': 20, 'Lions Barrage': 30, 'Chidori': 40, 'KO Punch': 20,
@@ -1648,7 +1640,7 @@ const handleTradeChakra = () => {
           }
         }
       }
-      const directDamage = skill.directDamage || 0;
+      const directDamage = (skill.directDamage || 0) + (skill.missingHpDamageType === 'normal' ? Math.max(0, source.maxHealth - source.health) : 0);
       const dotInstant = skill.dotInstant || 0;
       const bleedingInstant = skill.bleedingInstant || 0;
       const afflictionInstant = skill.afflictionInstant || 0;
@@ -1733,9 +1725,9 @@ const handleTradeChakra = () => {
       }
 
       // 0.2 DIRECT DAMAGE (with missing HP)
-      if (directDamage > 0 || missingHpDirect > 0) {
-        const dd = directDamage + missingHpDirect;
-        const directTargets = resolveEffectTargets(skill.directDamageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+      let dd = directDamage + missingHpDirect;
+      if (dd > 0) {
+        const directTargets = resolveEffectTargets(skill.directDamageTarget || skill.damageTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         directTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.directDamageDuration || 1;
@@ -1753,13 +1745,13 @@ const handleTradeChakra = () => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🎯 ${t.character.name} recebeu [${skill.name}] de DANO DIRETO de ${directDamage} por turno por ${duration} turnos!`,
+              message: `🎯 ${t.character.name} recebeu [${skill.name}] de DANO DIRETO de ${dd} por turno por ${duration} turnos!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO DIRETO (${duration >= 99999 ? '♾️ Permanente' : duration + 'T'})`, 'damage');
+            addFloatingText(t.id, `DANO DIRETO (${duration}T)`, 'damage');
           } else {
             const startingHealth = t.health;
-            t.health = Math.max(0, t.health - directDamage);
+            t.health = Math.max(0, t.health - dd);
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
               if (action.isPlayer) {
@@ -3999,7 +3991,7 @@ const handleTradeChakra = () => {
 
       // EXECUTE SKILL LOGIC
       let baseDamage = skill.damage || 0;
-      let directDamage = skill.directDamage || 0;
+      let directDamage = (skill.directDamage || 0) + (skill.missingHpDamageType === 'normal' ? Math.max(0, source.maxHealth - source.health) : 0);
       const dotInstant = skill.dotInstant || 0;
       const bleedingInstant = skill.bleedingInstant || 0;
       const afflictionInstant = skill.afflictionInstant || 0;
@@ -4381,7 +4373,7 @@ const handleTradeChakra = () => {
       }
 
       // 0.2 DANO DIRETO (DIRECT DAMAGE) with missing HP
-      const missingHpDirect2 = skill.missingHpDamageType === 'direct' ? source.maxHealth - source.health : 0;
+      const missingHpDirect2 = skill.missingHpDamageType === 'direct' || skill.missingHpDamageType === 'normal' ? source.maxHealth - source.health : 0;
       const ddTotal = directDamage + missingHpDirect2;
       if (ddTotal > 0) {
         const directTargets = resolveEffectTargets(skill.directDamageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);

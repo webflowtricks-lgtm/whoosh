@@ -761,7 +761,9 @@
             "activeSkillName": "Fifth Gate Opening",
             "damageBoost": 10
           }
-        ]
+        ],
+        "removeShieldDuration": 1,
+        "removeShield": true
       },
       {
         "name": "Fifth Gate Opening",
