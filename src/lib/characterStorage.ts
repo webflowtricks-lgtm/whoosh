@@ -10,46 +10,23 @@ const STORAGE_KEY = 'naruto_combat_characters';
 
 export function enrichCharacters(characters: Character[]): Character[] {
   if (!Array.isArray(characters)) return characters;
-  return characters.map(char => {
-    const defaultChar = DEFAULT_CHARACTERS.find(c => c.id === char.id);
-    const skins = char.skins || [];
-    const updatedSkills = (char.skills || []).map(sk => {
-      let stunType = sk.stunType;
-
-      let baseSk = { ...sk };
-      if (defaultChar) {
-        const defaultSk = defaultChar.skills.find(s => s.name === sk.name);
-        if (defaultSk) {
-          // Fill in missing optional properties from default, but only if the
-          // saved skill didn't explicitly clear them (null = explicitly cleared)
-          for (const key of Object.keys(defaultSk)) {
-            if (!(key in sk)) {
-              (baseSk as any)[key] = (defaultSk as any)[key];
-            }
-          }
-          // Remove properties explicitly cleared (saved as null)
-          for (const key of Object.keys(baseSk)) {
-            if ((baseSk as any)[key] === null) {
-              delete (baseSk as any)[key];
-            }
-          }
-          if (!stunType || stunType.length === 0) {
-            stunType = defaultSk.stunType;
-          }
+  return characters.map(char => ({
+    ...char,
+    skins: char.skins || [],
+    skills: (char.skills || []).map(sk => {
+      const s = { ...sk };
+      if (s.stunTurns && (!s.stunType || s.stunType.length === 0)) {
+        s.stunType = ['physical', 'mental', 'affliction', 'chakra'];
+      }
+      // Remove null properties (explicitly cleared by user)
+      for (const key of Object.keys(s)) {
+        if ((s as any)[key] === null) {
+          delete (s as any)[key];
         }
       }
-
-      if (baseSk.stunTurns && (!stunType || stunType.length === 0)) {
-        stunType = ['physical', 'mental', 'affliction', 'chakra'];
-      }
-
-      return {
-        ...baseSk,
-        stunType
-      };
-    });
-    return { ...char, skins, skills: updatedSkills } as Character;
-  });
+      return s;
+    }),
+  })) as Character[];
 }
 
 export function getCharacters(): Character[] {

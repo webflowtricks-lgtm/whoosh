@@ -52,6 +52,13 @@ export interface SkillStackDamageRule {
   ignoreBaseDamage?: boolean;
 }
 
+export interface SkillSelfStackDamageRule {
+  /** Nome do stackType que será verificado em mim mesmo */
+  stackType: string;
+  /** Dano adicional por stack que eu possuo */
+  damagePerStack: number;
+}
+
 export interface SkillStackDurationRule {
   /** Nome do stackType que será verificado no alvo (ex: 'Marca', 'Veneno', 'Cortes') */
   stackType: string;
@@ -273,7 +280,8 @@ cannotBeReflected?: boolean;
   stackDamageRules?: SkillStackDamageRule[];
   /** Regras de duração extendida quando o alvo possui stacks do tipo especificado */
   stackDurationRules?: SkillStackDurationRule[];
-
+  /** Aumento de dano por stack em mim mesmo */
+  selfStackDamageRules?: SkillSelfStackDamageRule[];
 }
 
 export type TargetOverride =

@@ -2073,6 +2073,18 @@ const handleTradeChakra = () => {
           }
           // Dano por stack no alvo
           let stackDamageBonus = 0;
+          // Aumento de dano por stack em mim mesmo
+          if (skill.selfStackDamageRules && skill.selfStackDamageRules.length > 0) {
+            for (const selfRule of skill.selfStackDamageRules) {
+              if (selfRule.stackType && selfRule.damagePerStack > 0) {
+                const selfStackEffect = source.activeEffects.find(e => e.stackType === selfRule.stackType);
+                const selfStackCount = selfStackEffect?.stacks || 0;
+                if (selfStackCount > 0) {
+                  stackDamageBonus += selfStackCount * selfRule.damagePerStack;
+                }
+              }
+            }
+          }
           if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
             for (const stackRule of skill.stackDamageRules) {
               if (stackRule.stackType && stackRule.damagePerStack > 0) {
@@ -2266,6 +2278,18 @@ const handleTradeChakra = () => {
           }
           // Dano por stack no alvo
           let stackDamageBonus = 0;
+          // Aumento de dano por stack em mim mesmo
+          if (skill.selfStackDamageRules && skill.selfStackDamageRules.length > 0) {
+            for (const selfRule of skill.selfStackDamageRules) {
+              if (selfRule.stackType && selfRule.damagePerStack > 0) {
+                const selfStackEffect = source.activeEffects.find(e => e.stackType === selfRule.stackType);
+                const selfStackCount = selfStackEffect?.stacks || 0;
+                if (selfStackCount > 0) {
+                  stackDamageBonus += selfStackCount * selfRule.damagePerStack;
+                }
+              }
+            }
+          }
           if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
             for (const stackRule of skill.stackDamageRules) {
               if (stackRule.stackType && stackRule.damagePerStack > 0) {
@@ -5111,6 +5135,18 @@ const handleTradeChakra = () => {
           }
           // Dano por stack no alvo
           let stackDamageBonus = 0;
+          // Aumento de dano por stack em mim mesmo
+          if (skill.selfStackDamageRules && skill.selfStackDamageRules.length > 0) {
+            for (const selfRule of skill.selfStackDamageRules) {
+              if (selfRule.stackType && selfRule.damagePerStack > 0) {
+                const selfStackEffect = source.activeEffects.find(e => e.stackType === selfRule.stackType);
+                const selfStackCount = selfStackEffect?.stacks || 0;
+                if (selfStackCount > 0) {
+                  stackDamageBonus += selfStackCount * selfRule.damagePerStack;
+                }
+              }
+            }
+          }
           if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
             for (const stackRule of skill.stackDamageRules) {
               if (stackRule.stackType && stackRule.damagePerStack > 0) {

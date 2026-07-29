@@ -1006,7 +1006,7 @@
             "ignoreBaseDamage": true
           }
         ],
-        "requireEffect": null
+        "requireEffect": "Shadow Possession"
       },
       {
         "name": "Shadow Possession",
@@ -1048,6 +1048,104 @@
         "targetType": "Self",
         "classes": [
           "Mental"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "choji",
+    "name": "Choji Akimichi",
+    "description": "Um adorável e forte membro do clã Akimichi. Choji expande o tamanho do seu corpo para esmagar os inimigos e consome pílulas secretas para se curar e amplificar dramaticamente sua força.",
+    "tags": [
+      "Vila da Folha",
+      "Time Asuma",
+      "Akimichi",
+      "Yang"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/choji-akimichi/icon.jpg",
+    "folder": "choji-akimichi",
+    "skills": [
+      {
+        "name": "Partial Expansion",
+        "desc": "Choji expande sua mão para golpear um inimigo, causando 30 de dano. Causa 15 de dano adicional durante [Three Colored Pills].",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/choji-akimichi/PartialExpansion.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ],
+        "damage": 20,
+        "selfStackDamageRules": [
+          {
+            "stackType": "pills",
+            "damagePerStack": 15
+          }
+        ]
+      },
+      {
+        "name": "Human Boulder",
+        "desc": "Choji se expande em uma rocha rolante, atropelando um inimigo para causar 25 de dano físico.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/choji-akimichi/HumanBoulder.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 2,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ],
+        "damage": 10,
+        "selfStackDamageRules": [
+          {
+            "stackType": "pills",
+            "damagePerStack": 10
+          }
+        ],
+        "damageDuration": 2,
+        "invulnerableDuration": 2
+      },
+      {
+        "name": "Three Colored Pills",
+        "desc": "Choji consome o remédio secreto do clã. Cura instantaneamente 25 de vida e aumenta o dano de todas as suas habilidades em 15 por 3 turnos.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/choji-akimichi/ChiliPill.jpg",
+        "cost": [],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Físico"
+        ],
+        "heal": 0,
+        "damageBuffVal": 0,
+        "damageBuffDuration": 0,
+        "stackable": true,
+        "stackType": "pills",
+        "afflictionVal": 0,
+        "afflictionTarget": "Self",
+        "afflictionInstant": 15,
+        "permanent": true
+      },
+      {
+        "name": "Choji Block",
+        "desc": "Choji se encolhe defensivamente, ganhando invulnerabilidade total a todas as habilidades por 1 turno.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/choji-akimichi/Block.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 4,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Físico"
         ],
         "invulnerableDuration": 1
       }
@@ -1277,81 +1375,6 @@
         "targetType": "Self",
         "classes": [
           "Mental"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "choji",
-    "name": "Choji Akimichi",
-    "description": "Um adorável e forte membro do clã Akimichi. Choji expande o tamanho do seu corpo para esmagar os inimigos e consome pílulas secretas para se curar e amplificar dramaticamente sua força.",
-    "tags": [
-      "Vila da Folha",
-      "Time Asuma",
-      "Akimichi",
-      "Yang"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/choji-akimichi/icon.jpg",
-    "folder": "choji-akimichi",
-    "skills": [
-      {
-        "name": "Human Boulder",
-        "desc": "Choji se expande em uma rocha rolante, atropelando um inimigo para causar 25 de dano físico.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/choji-akimichi/HumanBoulder.jpg",
-        "cost": [
-          "Tai"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Partial Expansion",
-        "desc": "Choji expande sua mão para golpear um inimigo, causando 30 de dano. Causa 15 de dano adicional durante [Three Colored Pills].",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/choji-akimichi/PartialExpansion.jpg",
-        "cost": [
-          "Tai",
-          "Rand"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Three Colored Pills",
-        "desc": "Choji consome o remédio secreto do clã. Cura instantaneamente 25 de vida e aumenta o dano de todas as suas habilidades em 15 por 3 turnos.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/choji-akimichi/ChiliPill.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Físico"
-        ]
-      },
-      {
-        "name": "Choji Block",
-        "desc": "Choji se encolhe defensivamente, ganhando invulnerabilidade total a todas as habilidades por 1 turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/choji-akimichi/Block.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Físico"
         ]
       }
     ],
