@@ -124,13 +124,14 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
 
     fetchCharactersFromServer().then(serverLoaded => {
       if (serverLoaded && serverLoaded.length > 0) {
-        setCharacters(serverLoaded);
-        setSelectedCharacterId(prev => {
-          const targetId = prev || serverLoaded[0].id;
-          const found = serverLoaded.find(c => c.id === targetId) || serverLoaded[0];
-          setEditingChar(JSON.parse(JSON.stringify(found)));
-          return found.id;
-        });
+        const localIds = new Set(loaded.map(c => c.id));
+        const merged = [...loaded];
+        for (const sc of serverLoaded) {
+          if (!localIds.has(sc.id)) {
+            merged.push(sc);
+          }
+        }
+        setCharacters(merged);
       }
     }).catch(() => {});
 
@@ -270,12 +271,20 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     if (!editingChar) return;
     playClickSound();
 
-    const formattedId = editingChar.id.trim().toLowerCase().replace(/\s+/g, '-');
+    // Sync pending skill edit back to character before saving
+    let charToSave = editingChar;
+    if (editingSkillIndex !== null && editingSkill) {
+      const updatedSkills = [...editingChar.skills];
+      updatedSkills[editingSkillIndex] = editingSkill;
+      charToSave = { ...editingChar, skills: updatedSkills };
+    }
+
+    const formattedId = charToSave.id.trim().toLowerCase().replace(/\s+/g, '-');
     if (!formattedId) {
       triggerError('O ID do personagem não pode estar vazio.');
       return;
     }
-    if (!editingChar.name.trim()) {
+    if (!charToSave.name.trim()) {
       triggerError('O Nome do personagem não pode estar vazio.');
       return;
     }
@@ -287,7 +296,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
       return;
     }
 
-    const updatedChar = { ...editingChar, id: formattedId };
+    const updatedChar = { ...charToSave, id: formattedId };
 
     // Check if selected character exists in list
     const originalIndex = characters.findIndex(c => c.id === selectedCharacterId);
@@ -638,7 +647,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     if (!editingSkill) return;
     setEditingSkill({
       ...editingSkill,
-      [field]: value
+      [field]: value === undefined ? null : value
     });
   };
 
@@ -1815,9 +1824,9 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                         <input
   type="text"
   list="requireEffect-suggestions"
-  value={editingSkill.requireEffect || ''}
-  onChange={(e) => handleUpdateSkillField('requireEffect', e.target.value || undefined)}
-  placeholder="Ex: Shadow Clones"
+    value={editingSkill.requireEffect || ''}
+    onChange={(e) => handleUpdateSkillField('requireEffect', e.target.value || null)}
+    placeholder="Ex: Shadow Clones"
   className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
 />
 <datalist id="requireEffect-suggestions">
@@ -1831,7 +1840,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                           type="text"
                           list="requirePrevSkill-suggestions"
                           value={editingSkill.requirePreviousSkill || ''}
-                          onChange={(e) => handleUpdateSkillField('requirePreviousSkill', e.target.value || undefined)}
+                           onChange={(e) => handleUpdateSkillField('requirePreviousSkill', e.target.value || null)}
                           placeholder="Ex: Gentle Fist"
                           className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
                         />
@@ -2129,6 +2138,231 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                     handleUpdateSkillField('damageRules', updated.length > 0 ? updated : undefined);
                                   }}
                                   className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stack Damage Rules (Dano por Stack no alvo) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-yellow-400 font-mono">
+                              ⚡ Dano por Stack no Alvo
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Causa dano adicional baseado na quantidade de stacks que o alvo possui do tipo especificado.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.stackDamageRules || [];
+                              handleUpdateSkillField('stackDamageRules', [
+                                ...currentRules,
+                                { stackType: '', damagePerStack: 5 }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-yellow-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.stackDamageRules || editingSkill.stackDamageRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de dano por stack configurada.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.stackDamageRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-slate-400 font-bold">StackType:</span>
+                                <input
+                                  type="text"
+                                  list="stackType-suggestions"
+                                  value={rule.stackType}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.stackDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], stackType: e.target.value };
+                                    handleUpdateSkillField('stackDamageRules', updated);
+                                  }}
+                                  placeholder="Ex: Marca, Veneno, Cortes"
+                                  className="flex-1 min-w-[110px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-yellow-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <datalist id="stackType-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.filter(s => s.stackable && s.stackType).map(s => <option key={s.stackType} value={s.stackType!} />)
+                                  ) : <option value="" disabled />}
+                                </datalist>
+                                <span className="text-slate-400 font-bold">Dano/Stack:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={50}
+                                  value={rule.damagePerStack}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 1;
+                                    const updated = [...(editingSkill.stackDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damagePerStack: val };
+                                    handleUpdateSkillField('stackDamageRules', updated);
+                                  }}
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-yellow-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-slate-400 font-bold text-[9px]">Remover Stacks:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={20}
+                                  value={rule.removeStacks ?? 0}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    const updated = [...(editingSkill.stackDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], removeStacks: val > 0 ? val : undefined };
+                                    handleUpdateSkillField('stackDamageRules', updated);
+                                  }}
+                                  placeholder="0 = não remove"
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-yellow-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-slate-400 font-bold text-[9px]">Duração:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={20}
+                                  value={rule.duration ?? 0}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    const updated = [...(editingSkill.stackDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], duration: val > 0 ? val : undefined };
+                                    handleUpdateSkillField('stackDamageRules', updated);
+                                  }}
+                                  placeholder="0 = instantâneo"
+                                  className="w-10 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-yellow-500 rounded text-white outline-none text-[10px]"
+                                />
+                                {rule.duration && rule.duration > 0 ? (
+                                  <>
+                                    <span className="text-slate-400 font-bold text-[9px]">Tipo:</span>
+                                    <select
+                                      value={rule.damageType || 'dot'}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.stackDamageRules || [])];
+                                        updated[rIdx] = { ...updated[rIdx], damageType: e.target.value as any };
+                                        handleUpdateSkillField('stackDamageRules', updated);
+                                      }}
+                                      className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-yellow-500 rounded text-white outline-none text-[10px] font-mono"
+                                    >
+                                      <option value="dot">🔥 DOT</option>
+                                      <option value="bleeding">🩸 Sangramento</option>
+                                      <option value="affliction">💀 Aflição</option>
+                                      <option value="direct_damage">🎯 Direto</option>
+                                      <option value="damage">💥 Normal</option>
+                                    </select>
+                                    <label className="flex items-center gap-1 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={rule.ignoreBaseDamage || false}
+                                        onChange={(e) => {
+                                          const updated = [...(editingSkill.stackDamageRules || [])];
+                                          updated[rIdx] = { ...updated[rIdx], ignoreBaseDamage: e.target.checked };
+                                          handleUpdateSkillField('stackDamageRules', updated);
+                                        }}
+                                        className="rounded bg-slate-950 border-slate-700 text-yellow-500 focus:ring-0 w-3 h-3"
+                                      />
+                                      <span className="text-[9px] text-slate-400 font-mono">Ignorar Dano Base</span>
+                                    </label>
+                                  </>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.stackDamageRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('stackDamageRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stack Duration Rules (Duração por Stack no Alvo) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">
+                              ⏳ Duração por Stack no Alvo
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Quando usar esta skill em um alvo com stacks do tipo especificado, os efeitos dela duram mais turnos.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.stackDurationRules || [];
+                              handleUpdateSkillField('stackDurationRules', [
+                                ...currentRules,
+                                { stackType: '', durationOverride: 2 }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.stackDurationRules || editingSkill.stackDurationRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de duração por stack configurada.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.stackDurationRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-slate-400 font-bold">StackType:</span>
+                                <input
+                                  type="text"
+                                  list="stackType-suggestions"
+                                  value={rule.stackType}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.stackDurationRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], stackType: e.target.value };
+                                    handleUpdateSkillField('stackDurationRules', updated);
+                                  }}
+                                  placeholder="Ex: Marca, Veneno, Cortes"
+                                  className="flex-1 min-w-[110px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-slate-400 font-bold">Duração:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={99}
+                                  value={rule.durationOverride}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 1;
+                                    const updated = [...(editingSkill.stackDurationRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], durationOverride: val };
+                                    handleUpdateSkillField('stackDurationRules', updated);
+                                  }}
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-slate-400 font-bold text-[9px]">turnos</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.stackDurationRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('stackDurationRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
                                   title="Remover Regra"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -4086,6 +4320,112 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                     <option value="shield">Escudo</option>
                                   </select>
                                 </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 19. Imortalidade (HP ≤ X) */}
+                          <div className="space-y-1 bg-green-950/15 border border-green-800/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-green-400 font-mono">💪 Imortalidade (HP ≤ X)</label>
+                              <div className="flex items-center gap-2 mt-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={editingSkill.immortalHpThreshold || ''}
+                                  onChange={(e) => handleUpdateSkillField('immortalHpThreshold', e.target.value ? parseInt(e.target.value) : undefined)}
+                                  placeholder="HP ≤"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-green-800/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <span className="text-[10px] text-slate-500 font-mono">HP mínimo para ativar</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={editingSkill.immortalDuration || ''}
+                                  onChange={(e) => handleUpdateSkillField('immortalDuration', e.target.value ? parseInt(e.target.value) : undefined)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-green-800/60 rounded text-center text-xs font-mono text-white"
+                                />
+                                <span className="text-[10px] text-slate-500 font-mono">Duração em turnos (use ♾️ para permanente)</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 20. Stackable (Acumulável) */}
+                          <div className="space-y-1 bg-purple-950/15 border border-purple-800/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-purple-400 font-mono">📚 Stackable (Acumulável)</label>
+                              <div className="flex items-center gap-2 mt-1">
+                                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.stackable || false}
+                                    onChange={(e) => handleUpdateSkillField('stackable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-purple-800/60 text-purple-500 focus:ring-0 w-4 h-4"
+                                  />
+                                  <span className="text-xs text-purple-300 font-mono font-bold">Ativar Stacks</span>
+                                </label>
+                              </div>
+                              {editingSkill.stackable && (
+                                <>
+                                  <div className="flex items-center gap-2 mt-1.5">
+                                    <input
+                                      type="text"
+                                      value={editingSkill.stackType || ''}
+                                      onChange={(e) => handleUpdateSkillField('stackType', e.target.value)}
+                                      placeholder="Tipo (ex: Marca)"
+                                      className="w-full px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-purple-300 focus:border-purple-500 outline-none"
+                                    />
+                                    <span className="text-[10px] text-slate-500 font-mono shrink-0">Tipo de Stack</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1.5">
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={999}
+                                      value={editingSkill.stackDuration ?? ''}
+                                      onChange={(e) => handleUpdateSkillField('stackDuration', e.target.value ? parseInt(e.target.value) : undefined)}
+                                      placeholder="999"
+                                      className="w-16 px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-white"
+                                    />
+                                    <span className="text-[10px] text-slate-500 font-mono">Duração da Stack (turnos)</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 21. Splash / Dano em Área */}
+                          <div className="space-y-1 bg-orange-950/15 border border-orange-800/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-orange-400 font-mono">💥 Splash / Dano em Área</label>
+                              <div className="flex items-center gap-2 mt-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={200}
+                                  value={editingSkill.splashDamage || ''}
+                                  onChange={(e) => handleUpdateSkillField('splashDamage', e.target.value ? parseInt(e.target.value) : 0)}
+                                  placeholder="Valor"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-orange-800/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <span className="text-[10px] text-slate-500 font-mono">Dano Secundário</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-orange-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.splashTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('splashTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-orange-900/50 rounded text-[10px] font-mono text-orange-300 focus:border-orange-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
                               </div>
                             </div>
                           </div>

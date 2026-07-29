@@ -15,12 +15,24 @@ export function enrichCharacters(characters: Character[]): Character[] {
     const skins = char.skins || [];
     const updatedSkills = (char.skills || []).map(sk => {
       let stunType = sk.stunType;
-      
-      let baseSk = sk;
+
+      let baseSk = { ...sk };
       if (defaultChar) {
         const defaultSk = defaultChar.skills.find(s => s.name === sk.name);
         if (defaultSk) {
-          baseSk = { ...defaultSk, ...sk };
+          // Fill in missing optional properties from default, but only if the
+          // saved skill didn't explicitly clear them (null = explicitly cleared)
+          for (const key of Object.keys(defaultSk)) {
+            if (!(key in sk)) {
+              (baseSk as any)[key] = (defaultSk as any)[key];
+            }
+          }
+          // Remove properties explicitly cleared (saved as null)
+          for (const key of Object.keys(baseSk)) {
+            if ((baseSk as any)[key] === null) {
+              delete (baseSk as any)[key];
+            }
+          }
           if (!stunType || stunType.length === 0) {
             stunType = defaultSk.stunType;
           }
@@ -61,13 +73,7 @@ export async function fetchCharactersFromServer(): Promise<Character[]> {
     if (res.ok) {
       const data = await res.json();
       if (data.success && Array.isArray(data.characters) && data.characters.length > 0) {
-        const enriched = enrichCharacters(data.characters);
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
-        } catch (e) {
-          console.warn("Failed to save characters to localStorage quota:", e);
-        }
-        return enriched;
+        return enrichCharacters(data.characters);
       }
     }
   } catch (error) {
@@ -82,11 +88,13 @@ export function saveCharacters(characters: Character[]): void {
   } catch (e) {
     console.warn("Failed to save characters to localStorage quota:", e);
   }
-  // Send async request to save on server
+  // Send async request to save on server (fire-and-forget)
   fetch('/api/characters', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ characters }),
+  }).then(res => {
+    if (!res.ok) console.error('Failed to sync characters to server:', res.statusText);
   }).catch(err => {
     console.error('Failed to sync characters to server:', err);
   });

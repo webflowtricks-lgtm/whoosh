@@ -784,7 +784,9 @@
         "damageBuffVal": 15,
         "damageBuffDuration": 3,
         "afflictionVal": 0,
-        "afflictionDuration": 0
+        "afflictionDuration": 0,
+        "immortalHpThreshold": 40,
+        "immortalDuration": 2
       },
       {
         "name": "Power of Youth",
@@ -841,6 +843,211 @@
         "targetType": "Self",
         "classes": [
           "Físico"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "tenten",
+    "name": "Tenten",
+    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
+    "tags": [
+      "Clã Shinobi",
+      "Clássico"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/tenten/icon.jpg",
+    "folder": "tenten",
+    "skills": [
+      {
+        "name": "Rising Twin Dragons",
+        "desc": "Tenten executa [Rising Twin Dragons], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
+        "icon": "https://i.ibb.co/xq8KbnnG/sadasd.png",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "AllEnemies",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "damage": 20,
+        "damageTarget": "AllEnemies",
+        "stackable": true,
+        "stackType": "Marca",
+        "splashDamage": 10,
+        "permanent": true
+      },
+      {
+        "name": "Rising Dragon Control",
+        "desc": "Tenten executa [Rising Dragon Control], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/tenten/RisingDragonControl.jpg",
+        "cost": [
+          "Blood"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "AllEnemies",
+        "classes": [
+          "Chakra",
+          "Corpo a Corpo"
+        ],
+        "permanent": false,
+        "stackDamageRules": [
+          {
+            "stackType": "Marca",
+            "damagePerStack": 10,
+            "removeStacks": 99
+          }
+        ],
+        "damage": 5
+      },
+      {
+        "name": "Jidanda",
+        "desc": "Tenten executa [Spiked Boulder Shield], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
+        "icon": "https://static.wikia.nocookie.net/naruto/images/d/db/Tenten_usando_Jidanda.PNG/revision/latest/scale-to-width-down/1000?cb=20130911052933&path-prefix=pt-br",
+        "cost": [
+          "Rand",
+          "Tai"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "Corpo a Corpo"
+        ],
+        "damage": 35
+      },
+      {
+        "name": "Twin Dragons Defense",
+        "desc": "Tenten executa [Twin Dragons Defense], desferindo um golpe poderoso que causa 30 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/tenten/TwinDragonsDefense.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Mental",
+          "À Distância"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "shikamaru",
+    "name": "Shikamaru Nara",
+    "description": "O estrategista genial do Time 10. Shikamaru usa suas sombras para prender e estrangular os oponentes de longe, enquanto medita para recuperar chakra e planejar cada passo da batalha.",
+    "tags": [
+      "Vila da Folha",
+      "Time 10",
+      "Estrategista",
+      "Sombras",
+      "Yin"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shikamaru-nara/icon.jpg",
+    "folder": "shikamaru-nara",
+    "skills": [
+      {
+        "name": "Meditate",
+        "desc": "Shikamaru analisa a batalha de olhos fechados, concedendo 15 de redução de dano fixa para si mesmo por 2 turnos e restaurando chakra para a equipe.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shikamaru-nara/Meditate.jpg",
+        "cost": [],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Mental"
+        ],
+        "cannotBeReflected": true,
+        "cannotBeCountered": true,
+        "doNotApplyIfActive": true,
+        "stackable": true,
+        "stackType": "marca",
+        "stackDuration": 4
+      },
+      {
+        "name": "Shadow Strangle",
+        "desc": "Shikamaru usa sua sombra para apertar o pescoço do inimigo, causando 40 de dano. Requer que o alvo esteja sob efeito de [Shadow Possession].",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shikamaru-nara/ShadowStrangle.jpg",
+        "cost": [
+          "Rand",
+          "Gen"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "AllEnemies",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "damage": 20,
+        "cannotBeInvulnerableDuration": 2,
+        "cannotReduceDamageDuration": 2,
+        "stackDurationRules": [
+          {
+            "stackType": "marca",
+            "durationOverride": 2
+          }
+        ],
+        "stackDamageRules": [
+          {
+            "stackType": "marca",
+            "damagePerStack": 20,
+            "duration": 2,
+            "damageType": "damage",
+            "ignoreBaseDamage": true
+          }
+        ],
+        "requireEffect": null
+      },
+      {
+        "name": "Shadow Possession",
+        "desc": "Shikamaru estende sua sombra para conectar com um inimigo, causando 15 de dano e aplicando [Shadow Possession] por 2 turnos. Impede que o inimigo use habilidades físicas.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shikamaru-nara/ShadowPossession.jpg",
+        "cost": [
+          "Gen",
+          "Rand"
+        ],
+        "cooldown": 3,
+        "currentCooldown": 0,
+        "targetType": "AllEnemies",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "stunType": [
+          "physical",
+          "affliction",
+          "chakra"
+        ],
+        "stunTurns": 1,
+        "stackDurationRules": [
+          {
+            "stackType": "marca",
+            "durationOverride": 2
+          }
+        ]
+      },
+      {
+        "name": "Shadow Hide",
+        "desc": "Shikamaru se esconde de forma tática fundindo-se com as sombras, tornando-se completamente invulnerável por 1 turno.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shikamaru-nara/Hide.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 4,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Mental"
         ],
         "invulnerableDuration": 1
       }
@@ -1145,83 +1352,6 @@
         "targetType": "Self",
         "classes": [
           "Físico"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "shikamaru",
-    "name": "Shikamaru Nara",
-    "description": "O estrategista genial do Time 10. Shikamaru usa suas sombras para prender e estrangular os oponentes de longe, enquanto medita para recuperar chakra e planejar cada passo da batalha.",
-    "tags": [
-      "Vila da Folha",
-      "Time 10",
-      "Estrategista",
-      "Sombras",
-      "Yin"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shikamaru-nara/icon.jpg",
-    "folder": "shikamaru-nara",
-    "skills": [
-      {
-        "name": "Shadow Possession",
-        "desc": "Shikamaru estende sua sombra para conectar com um inimigo, causando 15 de dano e aplicando [Shadow Possession] por 2 turnos. Impede que o inimigo use habilidades físicas.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shikamaru-nara/ShadowPossession.jpg",
-        "cost": [
-          "Gen"
-        ],
-        "cooldown": 2,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Shadow Strangle",
-        "desc": "Shikamaru usa sua sombra para apertar o pescoço do inimigo, causando 40 de dano. Requer que o alvo esteja sob efeito de [Shadow Possession].",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shikamaru-nara/ShadowStrangle.jpg",
-        "cost": [
-          "Nin",
-          "Rand"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ],
-        "requireEffect": "Shadow Possession"
-      },
-      {
-        "name": "Meditate",
-        "desc": "Shikamaru analisa a batalha de olhos fechados, concedendo 15 de redução de dano fixa para si mesmo por 2 turnos e restaurando chakra para a equipe.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shikamaru-nara/Meditate.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Mental"
-        ]
-      },
-      {
-        "name": "Shadow Hide",
-        "desc": "Shikamaru se esconde de forma tática fundindo-se com as sombras, tornando-se completamente invulnerável por 1 turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shikamaru-nara/Hide.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Chakra"
         ]
       }
     ],
@@ -12879,84 +13009,6 @@
     "skins": []
   },
   {
-    "id": "tenten",
-    "name": "Tenten",
-    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
-    "tags": [
-      "Clã Shinobi",
-      "Clássico"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/tenten/icon.jpg",
-    "folder": "tenten",
-    "skills": [
-      {
-        "name": "Rising Dragon Control",
-        "desc": "Tenten executa [Rising Dragon Control], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/tenten/RisingDragonControl.jpg",
-        "cost": [
-          "Gen",
-          "Rand"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Rising Twin Dragons",
-        "desc": "Tenten executa [Rising Twin Dragons], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/tenten/RisingTwinDragons.jpg",
-        "cost": [
-          "Tai",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Spiked Boulder Shield",
-        "desc": "Tenten executa [Spiked Boulder Shield], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/tenten/SpikedBoulderShield.jpg",
-        "cost": [
-          "Gen",
-          "Rand"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Twin Dragons Defense",
-        "desc": "Tenten executa [Twin Dragons Defense], desferindo um golpe poderoso que causa 30 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/tenten/TwinDragonsDefense.jpg",
-        "cost": [
-          "Nin",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Mental",
-          "À Distância"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
     "id": "tenten-(s)",
     "name": "Tenten (S)",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
@@ -14563,6 +14615,50 @@
   {
     "id": "novo-ninja-1527",
     "name": "aaaaaaaaaaaaaaaaa",
+    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+    "folder": "naruto-uzumaki",
+    "skills": [
+      {
+        "name": "Golpe Básico",
+        "desc": "Causa 20 de dano físico a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
+        "cost": [],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ],
+        "counterAttack": true
+      },
+      {
+        "name": "Nova Habilidade",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "reflect": true
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "novo-ninja-3951",
+    "name": "Novo Ninja",
     "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
     "tags": [
       "Vila da Folha",

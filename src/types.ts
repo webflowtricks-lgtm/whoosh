@@ -37,6 +37,28 @@ export interface SkillHealRule {
   healBoost: number; // Extra healing when condition is active
 }
 
+export interface SkillStackDamageRule {
+  /** Nome do stackType que será verificado no alvo (ex: 'Marca', 'Veneno', 'Cortes') */
+  stackType: string;
+  /** Dano adicional por cada stack que o alvo possui (instantâneo ou por turno) */
+  damagePerStack: number;
+  /** Quantidade de stacks para remover do alvo ao usar esta skill. Se não definido, não remove. */
+  removeStacks?: number;
+  /** Se definido, aplica o dano como efeito contínuo por turno com esta duração */
+  duration?: number;
+  /** Tipo de dano contínuo (padrão: 'dot') */
+  damageType?: 'dot' | 'bleeding' | 'affliction' | 'direct_damage' | 'damage';
+  /** Se true, ignora o dano base da skill quando o alvo tiver stacks (só aplica o dano por stack) */
+  ignoreBaseDamage?: boolean;
+}
+
+export interface SkillStackDurationRule {
+  /** Nome do stackType que será verificado no alvo (ex: 'Marca', 'Veneno', 'Cortes') */
+  stackType: string;
+  /** Duração override dos efeitos desta skill quando o alvo tiver stacks desse tipo */
+  durationOverride: number;
+}
+
 export interface Skill {
   name: string;
   desc: string;
@@ -57,6 +79,8 @@ export interface Skill {
   requireEffect?: string; // e.g. "Shadow Clones"
   requirePreviousSkill?: string; // Skill name that must have been used on the previous turn
   requireHpBelow?: number; // HP threshold below which the skill can be used (0-100)
+  immortalHpThreshold?: number; // When HP ≤ this value, character becomes immortal (can't die)
+  immortalDuration?: number; // How many turns the immortality lasts
   
   // Custom Dynamic Effects (configured from the Admin Dashboard)
   damage?: number;
@@ -223,6 +247,33 @@ cannotBeReflected?: boolean;
   doNotApplyIfActive?: boolean;
 
   permanent?: boolean; // If true, skill stays forever (shows ∞ instead of turn count)
+
+  // ==============================
+  // STACK SYSTEM - Acumular efeitos
+  // ==============================
+  /** Se true, o efeito desta skill pode acumular stacks no mesmo alvo */
+  stackable?: boolean;
+  /** Nome do tipo de stack para agrupar (ex: 'Marca', 'Veneno', 'Cortes') */
+  stackType?: string;
+  /** Duração da stack em turnos no oponente (padrão: 999 = praticamente permanente) */
+  stackDuration?: number;
+
+  // ==============================
+  // SPLASH/AOE DAMAGE - Dano em área
+  // ==============================
+  /** Dano secundário aplicado aos outros alvos (splash) */
+  splashDamage?: number;
+  /** Para onde o splash dano vai (padrão: mesmo que targetType) */
+  splashTarget?: TargetOverride;
+
+  // ==============================
+  // STACK DAMAGE RULES - Dano por stack no alvo
+  // ==============================
+  /** Regras de dano adicional baseado em stacks no alvo */
+  stackDamageRules?: SkillStackDamageRule[];
+  /** Regras de duração extendida quando o alvo possui stacks do tipo especificado */
+  stackDurationRules?: SkillStackDurationRule[];
+
 }
 
 export type TargetOverride =
@@ -281,7 +332,8 @@ export interface ActiveEffect {
 | 'heal'
 | 'cannot_reduce_damage'
 | 'cannot_be_invulnerable'
-| 'damage_debuff';
+| 'damage_debuff'
+| 'immortal';
   value?: number; // magnitude of shield, reduction, damage, etc.
   duration: number; // remaining turns
   icon?: string; // Icon of the skill that caused this effect/debuff
@@ -300,6 +352,12 @@ export interface ActiveEffect {
   reflectCharges?: number;
   counterAttackType?: 'attacker' | 'defender';
   castTurn?: number;
+  /** Quantidade de stacks acumuladas */
+  stacks?: number;
+  /** Nome do tipo de stack para agrupar */
+  stackType?: string;
+  /** Se o efeito é stackable (pode acumular) */
+  stackable?: boolean;
 }
 
 export interface CombatCharacter {

@@ -255,6 +255,8 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       return `🚫 Incapaz de Reduzir Dano: Bônus de redução ignorados por ${durText}`;
     case 'cannot_be_invulnerable':
       return `🚫 Incapaz de Ficar Invulnerável: Invulnerabilidade bloqueada por ${durText}`;
+    case 'immortal':
+      return `💪 Imortal: Não pode morrer enquanto este efeito estiver ativo por ${durText}`;
     default:
       return val > 0 ? `${effect.name}: valor ${val} por ${durText}` : `${effect.name}: ativo por ${durText}`;
   }
@@ -406,6 +408,7 @@ export default function BattleBoard({
   // Track skills used per character per turn (for requirePreviousSkill)
   const currentTurnUsedSkills = useRef<Record<string, Set<string>>>({});
   const lastTurnUsedSkills = useRef<Record<string, Set<string>>>({});
+  const currentSkillRef = useRef<Skill | null>(null);
 
   // Chakra Pools (start at 0, first turn rolls 1 random element)
   const [playerChakra, setPlayerChakra] = useState<ChakraPool>({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
@@ -1263,8 +1266,40 @@ const handleTradeChakra = () => {
   const [passedPlayersThisTurn, setPassedPlayersThisTurn] = useState<('player' | 'enemy')[]>([]);
 
   const pushActiveEffect = (character: CombatCharacter, effect: ActiveEffect) => {
+    // Check stackDurationRules for duration override (skip for stack damage DOT effects)
+    if (!effect.stackable && currentSkillRef.current?.stackDurationRules && !effect.name?.includes('DOT)')) {
+      for (const rule of currentSkillRef.current.stackDurationRules) {
+        const hasStack = character.activeEffects.some(
+          e => e.stackType === rule.stackType && (e.stacks ?? 0) > 0
+        );
+        if (hasStack) {
+          effect = { ...effect, duration: rule.durationOverride };
+          break;
+        }
+      }
+    }
+
+    // Check if this effect is stackable
+    const skill = character.character.skills.find(s => s.name === effect.name || effect.name.startsWith(s.name));
+    const isStackable = effect.stackable ?? skill?.stackable ?? false;
+    const stackType = effect.stackType ?? skill?.stackType;
+
+    if (isStackable && stackType) {
+      const existing = character.activeEffects.find(
+        e => e.stackType === stackType && e.type === effect.type
+      );
+      if (existing) {
+        existing.stacks = (existing.stacks || 1) + 1;
+        existing.duration = Math.max(existing.duration, effect.duration);
+        return;
+      }
+    }
+
     character.activeEffects.push({
       ...effect,
+      stacks: effect.stacks ?? 1,
+      stackable: isStackable,
+      stackType: stackType,
       castTurn: effect.castTurn ?? turn,
     });
   };
@@ -1499,6 +1534,7 @@ const handleTradeChakra = () => {
 
       const skill = source.character.skills[action.skillIndex];
       (source as any)._executingSkill = skill;
+      currentSkillRef.current = skill;
 
       // Set skill on cooldown
       skill.currentCooldown = skill.cooldown || 1;
@@ -2035,7 +2071,61 @@ const handleTradeChakra = () => {
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost - damageDebuffSum;
+          // Dano por stack no alvo
+          let stackDamageBonus = 0;
+          if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
+            for (const stackRule of skill.stackDamageRules) {
+              if (stackRule.stackType && stackRule.damagePerStack > 0) {
+                const stackEffect = t.activeEffects.find(e => e.stackType === stackRule.stackType);
+                const stackCount = stackEffect?.stacks || 0;
+                if (stackCount > 0) {
+                  if (stackRule.duration && stackRule.duration > 0) {
+                    const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
+                    const totalDmg = stackCount * stackRule.damagePerStack;
+                    // Dano instantâneo no golpe
+                    t.health = Math.max(0, t.health - totalDmg);
+                    newLogs.push({
+                      id: Math.random().toString(),
+                      turn,
+                      message: `💥 ${t.character.name} levou ${totalDmg} de ${stackRule.stackType} instantâneo!`,
+                      type: 'damage',
+                    });
+                    addFloatingText(t.id, `-${totalDmg} ${stackRule.stackType}`, 'damage');
+                    // DOT por mais X turnos (duração 1 = só instantâneo)
+                    if (stackRule.duration > 1) {
+                      pushActiveEffect(t, {
+                        name: `${skill.name} (${stackRule.stackType} DOT)`,
+                        type: dmgType,
+                        value: totalDmg,
+                        duration: stackRule.duration - 1,
+                        icon: skill.icon,
+                        casterId: source.id,
+                        casterSide: action.isPlayer ? 'player' : 'enemy',
+                        sourceSkillName: skill.name,
+                      });
+                      newLogs.push({
+                        id: Math.random().toString(),
+                        turn,
+                        message: `🔥 ${t.character.name} sofrerá +${totalDmg} de ${dmgType} por turno por mais ${stackRule.duration - 1} turnos (${stackCount}x ${stackRule.stackType})!`,
+                        type: 'damage',
+                      });
+                      addFloatingText(t.id, `${dmgType.toUpperCase()} +${totalDmg}`, 'damage');
+                    }
+                    if (stackRule.ignoreBaseDamage) {
+                      baseDamage = 0;
+                    }
+                  } else {
+                    stackDamageBonus += stackCount * stackRule.damagePerStack;
+                  }
+                }
+                // Remove stacks after calculating damage
+                if (stackRule.removeStacks && stackRule.removeStacks > 0 && stackEffect) {
+                  stackEffect.stacks = Math.max(0, (stackEffect.stacks || 0) - stackRule.removeStacks);
+                }
+              }
+            }
+          }
+          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus - damageDebuffSum;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
           if (!targetCannotReduce) {
@@ -2066,7 +2156,7 @@ const handleTradeChakra = () => {
           }
           if (finalDamage > 0) {
             const before = t.health;
-            t.health = Math.max(0, t.health - finalDamage);
+            t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
             newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
             if (action.isPlayer) {
@@ -2104,12 +2194,52 @@ const handleTradeChakra = () => {
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
-      } else if (baseDamage > 0 || (skill.damageRules && skill.damageRules.length > 0)) {
+      } else if (baseDamage > 0 || (skill.damageRules && skill.damageRules.length > 0) || (skill.stackDamageRules && skill.stackDamageRules.length > 0)) {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
-        damageTargets.forEach(t => {
+        const splashVal = skill.splashDamage || 0;
+        const splashTgt = skill.splashTarget || 'Target';
+
+        // === Determine primary targets (take full damage) vs splash-only targets ===
+        let primaryTargets: CombatCharacter[] = [];
+        let splashOnlyTargets: CombatCharacter[] = [];
+
+        if (splashVal > 0) {
+          // When splashDamage is set, only the original selected target gets full damage
+          // All other enemies in the splash pool take splash damage only
+          primaryTargets = [target]; // only the single selected primary target
+          const splashPool = splashTgt === 'AllAllies' || splashTgt === 'AllEnemies'
+            ? (splashTgt === 'AllAllies' ? sourceList : targetList)
+            : (splashTgt === 'AllLiving' ? [...sourceList, ...targetList] : targetList);
+          splashOnlyTargets = splashPool.filter(c =>
+            c.id !== target.id && !c.isDead && !checkCombatantInvulnerable(c)
+          );
+        } else {
+          // No splash: all damageTargets get full damage as normal
+          primaryTargets = damageTargets;
+          splashOnlyTargets = [];
+        }
+
+        // Apply full damage to primary targets
+        primaryTargets.forEach(t => {
           if (t.isDead) return;
           const startingShield = t.shield;
           const startingHealth = t.health;
+
+          // Apply stack BEFORE damage calculation so stackDamageBonus works from the first hit
+          if (skill.stackable) {
+            pushActiveEffect(t, {
+              name: `${skill.stackType || skill.name} (Stack)`,
+              type: 'custom',
+              value: 0,
+              duration: skill.stackDuration ?? 999,
+              icon: skill.icon,
+              stackable: true,
+              stackType: skill.stackType || skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+          }
 
           const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
@@ -2134,7 +2264,61 @@ const handleTradeChakra = () => {
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost - damageDebuffSum;
+          // Dano por stack no alvo
+          let stackDamageBonus = 0;
+          if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
+            for (const stackRule of skill.stackDamageRules) {
+              if (stackRule.stackType && stackRule.damagePerStack > 0) {
+                const stackEffect = t.activeEffects.find(e => e.stackType === stackRule.stackType);
+                const stackCount = stackEffect?.stacks || 0;
+                if (stackCount > 0) {
+                  if (stackRule.duration && stackRule.duration > 0) {
+                    const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
+                    const totalDmg = stackCount * stackRule.damagePerStack;
+                    // Dano instantâneo no golpe
+                    t.health = Math.max(0, t.health - totalDmg);
+                    newLogs.push({
+                      id: Math.random().toString(),
+                      turn,
+                      message: `💥 ${t.character.name} levou ${totalDmg} de ${stackRule.stackType} instantâneo!`,
+                      type: 'damage',
+                    });
+                    addFloatingText(t.id, `-${totalDmg} ${stackRule.stackType}`, 'damage');
+                    // DOT por mais X turnos (duração 1 = só instantâneo)
+                    if (stackRule.duration > 1) {
+                      pushActiveEffect(t, {
+                        name: `${skill.name} (${stackRule.stackType} DOT)`,
+                        type: dmgType,
+                        value: totalDmg,
+                        duration: stackRule.duration - 1,
+                        icon: skill.icon,
+                        casterId: source.id,
+                        casterSide: action.isPlayer ? 'player' : 'enemy',
+                        sourceSkillName: skill.name,
+                      });
+                      newLogs.push({
+                        id: Math.random().toString(),
+                        turn,
+                        message: `🔥 ${t.character.name} sofrerá +${totalDmg} de ${dmgType} por turno por mais ${stackRule.duration - 1} turnos (${stackCount}x ${stackRule.stackType})!`,
+                        type: 'damage',
+                      });
+                      addFloatingText(t.id, `${dmgType.toUpperCase()} +${totalDmg}`, 'damage');
+                    }
+                    if (stackRule.ignoreBaseDamage) {
+                      baseDamage = 0;
+                    }
+                  } else {
+                    stackDamageBonus += stackCount * stackRule.damagePerStack;
+                  }
+                }
+                // Remove stacks after calculating damage
+                if (stackRule.removeStacks && stackRule.removeStacks > 0 && stackEffect) {
+                  stackEffect.stacks = Math.max(0, (stackEffect.stacks || 0) - stackRule.removeStacks);
+                }
+              }
+            }
+          }
+          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus - damageDebuffSum;
 
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
@@ -2186,7 +2370,7 @@ const handleTradeChakra = () => {
 
           if (finalDamage > 0) {
             const before = t.health;
-            t.health = Math.max(0, t.health - finalDamage);
+            t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
             console.log(`[DMG] ${source.character.name} -> ${t.character.name}: -${finalDamage} HP (${before} -> ${t.health}) shield:${t.shield} dead:${t.isDead}`);
             newLogs.push({
               id: Math.random().toString(),
@@ -2195,6 +2379,13 @@ const handleTradeChakra = () => {
               type: 'damage',
             });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
+            if (action.isPlayer) {
+              matchStatsRef.current.damageDealt += finalDamage;
+              matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name, amount: finalDamage });
+            } else {
+              matchStatsRef.current.damageReceived += finalDamage;
+              matchStatsRef.current.damageReceivedRecords.push({ charName: t.character.name, tags: t.character.tags || [], amount: finalDamage });
+            }
           }
 
           const hasCounter = t.activeEffects.some(e => e.type === 'counter');
@@ -2216,30 +2407,53 @@ const handleTradeChakra = () => {
           if (damageTaken > 0) {
             if (action.isPlayer) {
               matchStatsRef.current.damageDealt += damageTaken;
-              matchStatsRef.current.damageDealtRecords.push({
-                charName: source.character.name,
-                tags: source.character.tags || [],
-                skillName: skill.name,
-                amount: damageTaken
-              });
+              matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name, amount: damageTaken });
             } else {
               matchStatsRef.current.damageReceived += damageTaken;
-              matchStatsRef.current.damageReceivedRecords.push({
-                charName: t.character.name,
-                tags: t.character.tags || [],
-                amount: damageTaken
-              });
+              matchStatsRef.current.damageReceivedRecords.push({ charName: t.character.name, tags: t.character.tags || [], amount: damageTaken });
             }
           }
           if (t.health === 0 && startingHealth > 0 && action.isPlayer) {
             matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
-            matchStatsRef.current.killRecords.push({
-              charName: source.character.name,
-              tags: source.character.tags || [],
-              skillName: skill.name
-            });
+            matchStatsRef.current.killRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name });
           }
         });
+
+        // === Apply splash damage to splash-only targets (once, outside the primary loop) ===
+        if (splashVal > 0) {
+          splashOnlyTargets.forEach(splashT => {
+            // Apply stack to splash targets too if skill is stackable
+            if (skill.stackable) {
+              pushActiveEffect(splashT, {
+                name: `${skill.stackType || skill.name} (Stack)`,
+                type: 'custom',
+                value: 0,
+                duration: skill.stackDuration ?? 999,
+                icon: skill.icon,
+                stackable: true,
+                stackType: skill.stackType || skill.name,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                sourceSkillName: skill.name,
+              });
+            }
+            splashT.health = Math.max(0, splashT.health - splashVal);
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💥 [SPLASH] ${skill.name} causou ${splashVal} de dano em ${splashT.character.name}!`,
+              type: 'damage',
+            });
+            addFloatingText(splashT.id, `-${splashVal} HP (SPLASH)`, 'damage');
+            if (action.isPlayer) {
+              matchStatsRef.current.damageDealt += splashVal;
+              matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: `${skill.name} (Splash)`, amount: splashVal });
+            } else {
+              matchStatsRef.current.damageReceived += splashVal;
+              matchStatsRef.current.damageReceivedRecords.push({ charName: splashT.character.name, tags: splashT.character.tags || [], amount: splashVal });
+            }
+          });
+        }
       }
 
       // 2. HEALING (with heal rule boost)
@@ -2650,6 +2864,28 @@ const handleTradeChakra = () => {
         });
       }
 
+      // Immortal effect: when HP ≤ threshold, character cannot die
+      if (skill.immortalHpThreshold && skill.immortalHpThreshold > 0 && source.health <= skill.immortalHpThreshold) {
+        const immDuration = skill.permanent ? 99999 : (skill.immortalDuration || 3);
+        const alreadyImmortal = source.activeEffects.some(e => e.type === 'immortal');
+        if (!alreadyImmortal) {
+          pushActiveEffect(source, {
+            name: `${skill.name} (Imortal)`,
+            type: 'immortal',
+            duration: immDuration,
+            icon: skill.icon,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `💪 ${source.character.name} ativou IMORTALIDADE por ${skill.immortalDuration || 3} turnos (HP ≤ ${skill.immortalHpThreshold})!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, '💪 IMORTAL', 'effect');
+        }
+      }
+
       // Counter Attack (applied as debuff on the selected target)
       if (skill.counterAttack) {
         applyBuffEffect(`${skill.name} Counter`, 'counter', skill.counterAttackDuration || 2, 0, false, true);
@@ -2688,17 +2924,69 @@ const handleTradeChakra = () => {
         }
       }
 
+      // Stack-only skill: apply stack even if skill has no damage/effects
+      if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !skill.permanent) {
+        const targets = resolveEffectTargets(skill.damageTarget, target, source, sourceList, targetList);
+        targets.forEach(t => {
+          if (t.isDead) return;
+          const existing = t.activeEffects.find(e => e.stackType === skill.stackType && e.type === 'custom' && e.sourceSkillName === skill.name);
+          if (existing) {
+            existing.stacks = (existing.stacks || 1) + 1;
+            existing.duration = Math.max(existing.duration, skill.stackDuration ?? 999);
+          } else {
+            t.activeEffects.push({
+              name: `${skill.stackType || skill.name} (Stack)`,
+              type: 'custom',
+              value: 0,
+              duration: skill.stackDuration ?? 999,
+              icon: skill.icon,
+              stackable: true,
+              stackType: skill.stackType || skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+              stacks: 1,
+              castTurn: turn,
+            });
+          }
+          if (!newLogs.some(l => l.message.includes(`stack [${skill.stackType}]`))) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `📚 ${t.character.name} recebeu stack [${skill.stackType}] de ${source.character.name} via [${skill.name}]!`,
+              type: 'buff',
+            });
+          }
+          addFloatingText(t.id, `+1 ${skill.stackType.toUpperCase()}`, 'effect');
+        });
+      }
+
       // Check deaths immediately after actions
       sourceList.forEach(c => {
-        if (c.health <= 0 && !c.isDead) {
+        if (c.health <= 0 && !c.isDead && !c.activeEffects.some(e => e.type === 'immortal')) {
           c.isDead = true;
           newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA!`, type: 'death' });
           playCustomSound('Death');
           addFloatingText(c.id, 'DERROTADO', 'damage');
         }
+        // Activate immortality if HP drops below threshold
+        const immSkill = c.character.skills.find(s => s.immortalHpThreshold && s.immortalHpThreshold > 0 && c.health <= s.immortalHpThreshold);
+        if (immSkill && !c.activeEffects.some(e => e.type === 'immortal')) {
+          const immDur = immSkill.permanent ? 99999 : (immSkill.immortalDuration || 3);
+          pushActiveEffect(c, {
+            name: `${immSkill.name} (Imortal)`,
+            type: 'immortal',
+            duration: immDur,
+            icon: immSkill.icon,
+            casterId: c.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({ id: Math.random().toString(), turn, message: `💪 ${c.character.name} ativou IMORTALIDADE por ${immSkill.immortalDuration || 3} turnos (HP ≤ ${immSkill.immortalHpThreshold})!`, type: 'buff' });
+          addFloatingText(c.id, '💪 IMORTAL', 'effect');
+        }
       });
       targetList.forEach(c => {
-        if (c.health <= 0 && !c.isDead) {
+        if (c.health <= 0 && !c.isDead && !c.activeEffects.some(e => e.type === 'immortal')) {
           c.isDead = true;
           newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA!`, type: 'death' });
           playCustomSound('Death');
@@ -2835,7 +3123,7 @@ const handleTradeChakra = () => {
         });
 
         // Check if dead now
-        if (c.health <= 0) {
+        if (c.health <= 0 && !c.activeEffects.some(e => e.type === 'immortal')) {
           c.isDead = true;
           newLogs.push({
             id: Math.random().toString(),
@@ -2877,6 +3165,33 @@ const handleTradeChakra = () => {
 
     applyTurnEndUpdates(updatedPlayer, 'Player');
     applyTurnEndUpdates(updatedEnemy, 'Enemy');
+
+    // Check immortal threshold for all combatants (HP ≤ threshold triggers immortality)
+    const checkImmortalThreshold = (combatantList: CombatCharacter[], sideChar: CombatCharacter[]) => {
+      combatantList.forEach(c => {
+        if (c.isDead) return;
+        const immortalSkill = c.character.skills.find(s => s.immortalHpThreshold && s.immortalHpThreshold > 0 && c.health <= s.immortalHpThreshold);
+        if (immortalSkill && !c.activeEffects.some(e => e.type === 'immortal')) {
+          const immDuration = immortalSkill.permanent ? 99999 : (immortalSkill.immortalDuration || 3);
+          pushActiveEffect(c, {
+            name: `${immortalSkill.name} (Imortal)`,
+            type: 'immortal',
+            duration: immDuration,
+            icon: immortalSkill.icon,
+            casterId: c.id,
+            casterSide: sideChar === updatedPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `💪 ${c.character.name} ativou IMORTALIDADE por ${immortalSkill.immortalDuration || 3} turnos (HP ≤ ${immortalSkill.immortalHpThreshold})!`,
+            type: 'buff',
+          });
+          addFloatingText(c.id, '💪 IMORTAL', 'effect');
+        }
+      });
+    };
+    checkImmortalThreshold(updatedPlayer, updatedPlayer);
+    checkImmortalThreshold(updatedEnemy, updatedEnemy);
 
     // Check continuous chakra remove rules for active damage effects
     {
@@ -3787,6 +4102,7 @@ const handleTradeChakra = () => {
 
       const skill = source.character.skills[action.skillIndex];
       (source as any)._executingSkill = skill;
+      currentSkillRef.current = skill;
 
       // Stun check
       if (isSkillBlockedByStun(skill, source.activeEffects)) {
@@ -4334,6 +4650,18 @@ const handleTradeChakra = () => {
       const casterSide: 'player' | 'enemy' = action.isPlayer ? 'player' : 'enemy';
 
       const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
+        // Check stackDurationRules for duration override (skip for stack damage DOT effects)
+        if (!eff.stackable && currentSkillRef.current?.stackDurationRules && !eff.name?.includes('DOT)')) {
+          for (const rule of currentSkillRef.current.stackDurationRules) {
+            const hasStack = targetChar.activeEffects.some(
+              e => e.stackType === rule.stackType && (e.stacks ?? 0) > 0
+            );
+            if (hasStack) {
+              eff = { ...eff, duration: rule.durationOverride };
+              break;
+            }
+          }
+        }
         targetChar.activeEffects.push({
           ...eff,
           isInvisible: eff.isInvisible !== undefined ? eff.isInvisible : (isSkillInvisible || eff.type === 'invisible'),
@@ -4633,6 +4961,21 @@ const handleTradeChakra = () => {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         damageTargets.forEach(t => {
           if (t.isDead) return;
+          // Apply stack to ALL damage targets (not just primary target)
+          if (skill.stackable) {
+            pushActiveEffect(t, {
+              name: `${skill.stackType || skill.name} (Stack)`,
+              type: 'custom',
+              value: 0,
+              duration: skill.stackDuration ?? 999,
+              icon: skill.icon,
+              stackable: true,
+              stackType: skill.stackType || skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+          }
           // Deal immediate first tick
           const startingShield = t.shield;
           const startingHealth = t.health;
@@ -4686,7 +5029,7 @@ const handleTradeChakra = () => {
           }
           if (finalDamage > 0) {
             const before = t.health;
-            t.health = Math.max(0, t.health - finalDamage);
+            t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
             newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
             if (action.isPlayer) {
@@ -4721,12 +5064,27 @@ const handleTradeChakra = () => {
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
-      } else if (baseDamage > 0 || (skill.damageRules && skill.damageRules.length > 0)) {
+      } else if (baseDamage > 0 || (skill.damageRules && skill.damageRules.length > 0) || (skill.stackDamageRules && skill.stackDamageRules.length > 0)) {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         damageTargets.forEach(t => {
           if (t.isDead) return;
           const startingShield = t.shield;
           const startingHealth = t.health;
+          // Apply stack BEFORE damage calculation so stackDamageBonus works from the first hit
+          if (skill.stackable) {
+            pushActiveEffect(t, {
+              name: `${skill.stackType || skill.name} (Stack)`,
+              type: 'custom',
+              value: 0,
+              duration: skill.stackDuration ?? 999,
+              icon: skill.icon,
+              stackable: true,
+              stackType: skill.stackType || skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+          }
           // Apply damage buff from source effects
           const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
@@ -4751,7 +5109,61 @@ const handleTradeChakra = () => {
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost - damageDebuffSum;
+          // Dano por stack no alvo
+          let stackDamageBonus = 0;
+          if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
+            for (const stackRule of skill.stackDamageRules) {
+              if (stackRule.stackType && stackRule.damagePerStack > 0) {
+                const stackEffect = t.activeEffects.find(e => e.stackType === stackRule.stackType);
+                const stackCount = stackEffect?.stacks || 0;
+                if (stackCount > 0) {
+                  if (stackRule.duration && stackRule.duration > 0) {
+                    const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
+                    const totalDmg = stackCount * stackRule.damagePerStack;
+                    // Dano instantâneo no golpe
+                    t.health = Math.max(0, t.health - totalDmg);
+                    newLogs.push({
+                      id: Math.random().toString(),
+                      turn,
+                      message: `💥 ${t.character.name} levou ${totalDmg} de ${stackRule.stackType} instantâneo!`,
+                      type: 'damage',
+                    });
+                    addFloatingText(t.id, `-${totalDmg} ${stackRule.stackType}`, 'damage');
+                    // DOT por mais X turnos (duração 1 = só instantâneo)
+                    if (stackRule.duration > 1) {
+                      pushActiveEffect(t, {
+                        name: `${skill.name} (${stackRule.stackType} DOT)`,
+                        type: dmgType,
+                        value: totalDmg,
+                        duration: stackRule.duration - 1,
+                        icon: skill.icon,
+                        casterId: source.id,
+                        casterSide: action.isPlayer ? 'player' : 'enemy',
+                        sourceSkillName: skill.name,
+                      });
+                      newLogs.push({
+                        id: Math.random().toString(),
+                        turn,
+                        message: `🔥 ${t.character.name} sofrerá +${totalDmg} de ${dmgType} por turno por mais ${stackRule.duration - 1} turnos (${stackCount}x ${stackRule.stackType})!`,
+                        type: 'damage',
+                      });
+                      addFloatingText(t.id, `${dmgType.toUpperCase()} +${totalDmg}`, 'damage');
+                    }
+                    if (stackRule.ignoreBaseDamage) {
+                      baseDamage = 0;
+                    }
+                  } else {
+                    stackDamageBonus += stackCount * stackRule.damagePerStack;
+                  }
+                }
+                // Remove stacks after calculating damage
+                if (stackRule.removeStacks && stackRule.removeStacks > 0 && stackEffect) {
+                  stackEffect.stacks = Math.max(0, (stackEffect.stacks || 0) - stackRule.removeStacks);
+                }
+              }
+            }
+          }
+          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus - damageDebuffSum;
 
           // Apply flat damage reduction on target
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
@@ -4786,7 +5198,7 @@ const handleTradeChakra = () => {
 
           // Apply remaining damage to health
           if (finalDamage > 0) {
-            t.health = Math.max(0, t.health - finalDamage);
+            t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -5321,6 +5733,43 @@ if (skill.reflect) {
           addFloatingText(target.id, effectName.toUpperCase(), 'effect');
         }
       }
+
+      // Stack-only skill: apply stack even if skill has no damage/effects
+      if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !effectName) {
+        const stackTgts = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        stackTgts.forEach(t => {
+          if (t.isDead) return;
+          const existing = t.activeEffects.find(e => e.stackType === skill.stackType && e.type === 'custom' && e.sourceSkillName === skill.name);
+          if (existing) {
+            existing.stacks = (existing.stacks || 1) + 1;
+            existing.duration = Math.max(existing.duration, skill.stackDuration ?? 999);
+          } else {
+            t.activeEffects.push({
+              name: `${skill.stackType || skill.name} (Stack)`,
+              type: 'custom',
+              value: 0,
+              duration: skill.stackDuration ?? 999,
+              icon: skill.icon,
+              stackable: true,
+              stackType: skill.stackType || skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+              isInvisible: isSkillInvisible,
+              stacks: 1,
+              castTurn: turn,
+            });
+          }
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `📚 ${t.character.name} recebeu stack [${skill.stackType}] de ${source.character.name} via [${skill.name}]!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, `+1 ${skill.stackType.toUpperCase()}`, 'effect');
+        });
+      }
+
     });
 
     // --- 3. DO T TURN END EFFECTS (DoT, Self damage, and duration decays) ---
@@ -5524,7 +5973,7 @@ if (skill.reflect) {
         }
 
         // Check if dead now
-        if (c.health <= 0) {
+        if (c.health <= 0 && !c.activeEffects.some(e => e.type === 'immortal')) {
           c.isDead = true;
           newLogs.push({
             id: Math.random().toString(),
