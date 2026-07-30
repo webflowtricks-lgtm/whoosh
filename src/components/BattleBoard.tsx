@@ -3476,9 +3476,6 @@ const handleTradeChakra = () => {
 
       const nextPlanner = activePlanner === 'player' ? 'enemy' : 'player';
       setActivePlanner(nextPlanner);
-      if (onlineParams?.isOnline) {
-        setIsWaitingForOpponent(true);
-      }
       const passedName = activePlanner === 'player' ? 'VOCÊ' : 'OPONENTE';
       setLogs(prev => [
         ...prev,
@@ -3960,83 +3957,8 @@ const handleTradeChakra = () => {
       setIsWaitingForOpponent(false);
     } else {
       setActivePlanner('enemy');
-      setIsWaitingForOpponent(true);
     }
   }, [turn, onlineParams, gameOver]);
-
-  // Online Match Opponent Turn Polling Effect (runs whenever we are waiting for opponent)
-  useEffect(() => {
-    if (!onlineParams?.isOnline || gameOver || !isWaitingForOpponent) return;
-
-    const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
-    const oppOnlineIndex = 1 - myOnlineIndex;
-
-    const pollInterval = setInterval(async () => {
-      try {
-        const statusRes = await fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&turn=${turn}&username=${encodeURIComponent(user.username)}`);
-        const statusData = await statusRes.json();
-
-        if (statusData.success && statusData.room) {
-          // Handle disconnection / surrender
-          if (statusData.room.surrenderedBy) {
-            const surrenderedUser = statusData.room.surrenderedBy.toLowerCase();
-            clearInterval(pollInterval);
-            setIsWaitingForOpponent(false);
-            try {
-              localStorage.removeItem('active_match_save');
-            } catch {}
-            if (surrenderedUser === user.username.toLowerCase()) {
-              setGameOver('defeat');
-            } else {
-              setGameOver('victory');
-            }
-            return;
-          }
-
-          const turnActions = statusData.room.turnActions;
-          const currentTurnData = turnActions?.[turn];
-          const oppActions = oppOnlineIndex === 0 ? currentTurnData?.player0 : currentTurnData?.player1;
-
-          // Check if opponent has submitted actions for this turn (accepts [] if they passed with 0 skills)
-          if (oppActions !== null && oppActions !== undefined && Array.isArray(oppActions)) {
-            clearInterval(pollInterval);
-
-            // Swap player- and enemy- prefixes for opponent's actions to align with our local combatants
-            const mappedOppActions: CuedAction[] = oppActions.map((a: CuedAction) => ({
-              ...a,
-              sourceId: a.sourceId ? a.sourceId.replace('player-', 'TEMP').replace('enemy-', 'player-').replace('TEMP', 'enemy-') : a.sourceId,
-              targetId: a.targetId ? a.targetId.replace('player-', 'TEMP').replace('enemy-', 'player-').replace('TEMP', 'enemy-') : a.targetId
-            }));
-
-            // Execute opponent's actions on our local board
-            executeSideActions(mappedOppActions, false);
-
-            const newPassed: ('player' | 'enemy')[] = [...passedPlayersThisTurn, 'enemy'];
-            setPassedPlayersThisTurn(newPassed);
-
-            if (newPassed.length < 2) {
-              const alivePlayerCount = playerCombatants.filter(c => !c.isDead).length;
-              const aliveEnemyCount = enemyCombatants.filter(c => !c.isDead).length;
-              rollChakraForTurn(true, alivePlayerCount);
-              rollChakraForTurn(false, aliveEnemyCount);
-              // Opponent played first; now it's our turn to plan
-              playCustomSound('NextTurn');
-              setActivePlanner('player');
-              setIsWaitingForOpponent(false);
-            } else {
-              // Both players have completed their turns for this turn cycle
-              setIsWaitingForOpponent(false);
-              executeTurnEndResolution();
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error polling opponent planning state:', err);
-      }
-    }, 1200);
-
-    return () => clearInterval(pollInterval);
-  }, [turn, isWaitingForOpponent, onlineParams, gameOver, passedPlayersThisTurn, user.username]);
 
   // Periodic background heartbeat ping
   useEffect(() => {
