@@ -1278,7 +1278,7 @@ const handleTradeChakra = () => {
 
   const pushActiveEffect = (character: CombatCharacter, effect: ActiveEffect) => {
     // Check stackDurationRules for duration override (skip for stack damage DOT effects)
-    if (!effect.stackable && currentSkillRef.current?.stackDurationRules && !effect.name?.includes('DOT)')) {
+    if (!effect.stackable && currentSkillRef.current?.stackDurationRules && !effect.name?.includes('DOT)') && !effect.name?.includes('Imunidade a Dano')) {
       for (const rule of currentSkillRef.current.stackDurationRules) {
         const hasStack = character.activeEffects.some(
           e => e.stackType === rule.stackType && (e.stacks ?? 0) > 0
@@ -6109,6 +6109,28 @@ if (skill.reflect) {
 
         // Check paralyze cooldown BEFORE decrementing durations
         const isCooldownParalyzed = c.activeEffects.some(e => e.type === 'paralyze_cooldown');
+
+        // Reveal invisible effects that are about to expire
+        const expiringHidden = c.activeEffects.filter((e: ActiveEffect) => e.isInvisible && e.duration === 1 && e.casterSide);
+        if (expiringHidden.length > 0) {
+          c.activeEffects.push({
+            name: 'Essa skill foi usada',
+            type: 'custom',
+            value: 0,
+            duration: 2,
+            icon: '',
+            casterId: c.id,
+            casterSide: 'player',
+            isInvisible: false,
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `👁️ Uma habilidade invisível foi usada em ${c.character.name} e expirou!`,
+            type: 'buff',
+          });
+          addFloatingText(c.id, 'SKILL REVELADA', 'effect');
+        }
 
         // Decrement effect durations (skip permanent effects)
         c.activeEffects = c.activeEffects
