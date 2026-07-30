@@ -107,6 +107,8 @@ export interface EffectDisplayItem {
 }
 
 export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveEffect[]): boolean {
+  // Stun immunity: if character has ignore_stun effect, they cannot be stunned
+  if (activeEffects.some(e => e.type === 'ignore_stun')) return false;
   const stunEffects = activeEffects.filter(e => e.type === 'stun');
   if (stunEffects.length === 0) return false;
   if (!skill) return true;
@@ -255,6 +257,8 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       return `🚫 Incapaz de Reduzir Dano: Bônus de redução ignorados por ${durText}`;
     case 'cannot_be_invulnerable':
       return `🚫 Incapaz de Ficar Invulnerável: Invulnerabilidade bloqueada por ${durText}`;
+    case 'ignore_stun':
+      return `⚡ Imune a Stun: Stuns ignorados por ${durText}`;
     case 'immortal':
       return `💪 Imortal: Não pode morrer enquanto este efeito estiver ativo por ${durText}`;
     default:
@@ -1762,6 +1766,11 @@ const handleTradeChakra = () => {
 
       // 0.2 DIRECT DAMAGE (with missing HP)
       let dd = directDamage + missingHpDirect;
+      // Reduce by source's damage debuffs (qualquer tipo)
+      const srcDdReduction = source.activeEffects
+        .filter((e: ActiveEffect) => e.type === 'damage_debuff')
+        .reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+      dd = Math.max(0, dd - srcDdReduction);
       if (dd > 0) {
         const directTargets = resolveEffectTargets(skill.directDamageTarget || skill.damageTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         directTargets.forEach(t => {
@@ -1786,8 +1795,12 @@ const handleTradeChakra = () => {
             });
             addFloatingText(t.id, `DANO DIRETO (${duration}T)`, 'damage');
           } else {
+            const targetCannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage');
+            const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction');
+            const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
+            const netDd = Math.max(0, dd - reductionSum);
             const startingHealth = t.health;
-            t.health = Math.max(0, t.health - dd);
+            t.health = Math.max(0, t.health - netDd);
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
               if (action.isPlayer) {
@@ -2054,7 +2067,12 @@ const handleTradeChakra = () => {
           const startingHealth = t.health;
           const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
-          const sourceDebuffs = source.activeEffects.filter(e => e.type === 'damage_debuff');
+          const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
+            if (e.type !== 'damage_debuff') return false;
+            const types = (e as any).debuffTypes as string[] | undefined;
+            if (!types || types.length === 0) return true;
+            return types.includes('skill');
+          });
           const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           let costRuleDamageBoost = 0;
           if (skill.damageRules && skill.damageRules.length > 0) {
@@ -2255,7 +2273,12 @@ const handleTradeChakra = () => {
 
           const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
-          const sourceDebuffs = source.activeEffects.filter(e => e.type === 'damage_debuff');
+          const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
+            if (e.type !== 'damage_debuff') return false;
+            const types = (e as any).debuffTypes as string[] | undefined;
+            if (!types || types.length === 0) return true;
+            return types.includes('skill');
+          });
           const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           let costRuleDamageBoost = 0;
           if (skill.damageRules && skill.damageRules.length > 0) {
@@ -2665,6 +2688,7 @@ const handleTradeChakra = () => {
             icon: skill.icon,
             casterId: source.id,
             casterSide: action.isPlayer ? 'player' : 'enemy',
+            debuffTypes: skill.damageDebuffTypes,
           });
           newLogs.push({
             id: Math.random().toString(), turn,
@@ -2888,6 +2912,34 @@ const handleTradeChakra = () => {
         });
       }
 
+      // 4.11 APPLY IGNORE STUN (IGNORAR STUN)
+      if (skill.ignoreStunDuration && skill.ignoreStunDuration > 0) {
+        const ignoreStunTargets = resolveEffectTargets(skill.ignoreStunTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        ignoreStunTargets.forEach(t => {
+          if (t.isDead) return;
+          const duration = skill.ignoreStunDuration!;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Ignorar Stun)`,
+            type: 'ignore_stun',
+            duration,
+            icon: skill.icon,
+            irremovable: !!skill.ignoreStunIrremovable,
+            cannotBeCountered: !!skill.cannotBeCountered,
+            cannotBeReflected: !!skill.cannotBeReflected,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⚡ ${t.character.name} está imune a stuns por [${skill.name}] por ${duration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'IMUNE A STUN', 'effect');
+          cleanseTargetEffects(t, skill.ignoreStunRemoveType);
+        });
+      }
+
       // Immortal effect: when HP ≤ threshold, character cannot die
       if (skill.immortalHpThreshold && skill.immortalHpThreshold > 0 && source.health <= skill.immortalHpThreshold) {
         const immDuration = skill.permanent ? 99999 : (skill.immortalDuration || 3);
@@ -3097,11 +3149,14 @@ const handleTradeChakra = () => {
         // Apply dynamic Direct Damage over time (direct_damage)
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
-          c.health = Math.max(0, c.health - (dd.value || 0));
+          const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
+          : c.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+        const netDd = Math.max(0, (dd.value || 0) - dr);
+        c.health = Math.max(0, c.health - netDd);
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🎯 ${c.character.name} sofreu ${(dd.value || 0)} de dano direto contínuo por ${dd.name}.`,
+            message: `🎯 ${c.character.name} sofreu ${netDd} de dano direto contínuo por ${dd.name}.`,
             type: 'damage',
           });
           addFloatingText(c.id, `-${(dd.value || 0)} HP (DIRETO)`, 'damage');
@@ -4726,7 +4781,12 @@ const handleTradeChakra = () => {
 
       // 0.2 DANO DIRETO (DIRECT DAMAGE) with missing HP
       const missingHpDirect2 = skill.missingHpDamageType === 'direct' || skill.missingHpDamageType === 'normal' ? source.maxHealth - source.health : 0;
-      const ddTotal = directDamage + missingHpDirect2;
+      let ddTotal = directDamage + missingHpDirect2;
+      // Reduce by source's damage debuffs (qualquer tipo)
+      const srcDdReduction2 = source.activeEffects
+        .filter((e: ActiveEffect) => e.type === 'damage_debuff')
+        .reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+      ddTotal = Math.max(0, ddTotal - srcDdReduction2);
       if (ddTotal > 0) {
         const directTargets = resolveEffectTargets(skill.directDamageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         directTargets.forEach(t => {
@@ -4749,8 +4809,12 @@ const handleTradeChakra = () => {
             });
             addFloatingText(t.id, `DANO DIRETO (${duration}T)`, 'damage');
           } else {
+            const cannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage');
+            const reductionTotal = cannotReduce ? 0
+              : t.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+            const netDdTotal = Math.max(0, ddTotal - reductionTotal);
             const startingHealth = t.health;
-            t.health = Math.max(0, t.health - ddTotal);
+            t.health = Math.max(0, t.health - netDdTotal);
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
               if (action.isPlayer) {
@@ -4766,10 +4830,10 @@ const handleTradeChakra = () => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🎯 [${skill.name}] de ${source.character.name} causou ${directDamage} de DANO DIRETO em ${t.character.name} (perfurando defesas).`,
+              message: `🎯 [${skill.name}] de ${source.character.name} causou ${ddTotal} de DANO DIRETO em ${t.character.name} (perfurando defesas).`,
               type: 'damage',
             });
-            addFloatingText(t.id, `-${directDamage} HP (DIRETO)`, 'damage');
+            addFloatingText(t.id, `-${ddTotal} HP (DIRETO)`, 'damage');
           }
           cleanseTargetEffects(t, skill.directDamageRemoveType);
         });
@@ -5005,7 +5069,12 @@ const handleTradeChakra = () => {
           const startingHealth = t.health;
           const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
-          const sourceDebuffs = source.activeEffects.filter(e => e.type === 'damage_debuff');
+          const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
+            if (e.type !== 'damage_debuff') return false;
+            const types = (e as any).debuffTypes as string[] | undefined;
+            if (!types || types.length === 0) return true;
+            return types.includes('skill');
+          });
           const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           let costRuleDamageBoost = 0;
           if (skill.damageRules && skill.damageRules.length > 0) {
@@ -5112,7 +5181,12 @@ const handleTradeChakra = () => {
           // Apply damage buff from source effects
           const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
-          const sourceDebuffs = source.activeEffects.filter(e => e.type === 'damage_debuff');
+          const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
+            if (e.type !== 'damage_debuff') return false;
+            const types = (e as any).debuffTypes as string[] | undefined;
+            if (!types || types.length === 0) return true;
+            return types.includes('skill');
+          });
           const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           let costRuleDamageBoost = 0;
           if (skill.damageRules && skill.damageRules.length > 0) {
@@ -5855,11 +5929,14 @@ if (skill.reflect) {
         // Apply dynamic Direct Damage over time (direct_damage)
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
-          c.health = Math.max(0, c.health - (dd.value || 0));
+          const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
+          : c.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+        const netDd = Math.max(0, (dd.value || 0) - dr);
+        c.health = Math.max(0, c.health - netDd);
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🎯 ${c.character.name} sofreu ${(dd.value || 0)} de dano direto contínuo de ${dd.name}.`,
+            message: `🎯 ${c.character.name} sofreu ${netDd} de dano direto contínuo de ${dd.name}.`,
             type: 'damage',
           });
           addFloatingText(c.id, `-${(dd.value || 0)} HP (DIRETO)`, 'damage');
@@ -6292,6 +6369,14 @@ if (skill.reflect) {
         targetLabel: getTargetLabel(skill.cannotBeInvulnerableTarget, 'Alvo Principal')
       });
     }
+    if (skill.ignoreStunDuration && skill.ignoreStunDuration > 0) {
+      effects.push({
+        label: 'Ignorar Stun',
+        value: `Imune a stuns por ${skill.ignoreStunDuration} ${skill.ignoreStunDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-indigo-400',
+        targetLabel: getTargetLabel(skill.ignoreStunTarget, 'Alvo Principal')
+      });
+    }
     if (skill.gainChakra && skill.gainChakra > 0) {
       effects.push({
         label: 'Gerar Chakra',
@@ -6341,15 +6426,6 @@ if (skill.reflect) {
       });
     }
 
-    // Informação de redução de dano do inimigo (damageDebuff)
-    if (skill.damageDebuffVal && skill.damageDebuffVal > 0) {
-      effects.push({
-        label: 'Reduz Dano do Inimigo',
-        value: `Reduz o dano causado pelo inimigo em ${skill.damageDebuffVal} por ${skill.damageDebuffDuration || 1} ${skill.damageDebuffDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-rose-400',
-        targetLabel: getTargetLabel(skill.damageDebuffTarget || 'Target', 'Alvo Principal')
-      });
-    }
     if (skill.invisible && skill.invisibleDuration && skill.invisibleDuration > 0) {
       effects.push({
         label: 'Invisibilidade',

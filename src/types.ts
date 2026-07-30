@@ -103,6 +103,7 @@ export interface Skill {
   damageBuffDuration?: number;
   damageDebuffVal?: number;
   damageDebuffDuration?: number;
+  damageDebuffTypes?: ('skill' | 'dot' | 'bleeding' | 'affliction' | 'direct_damage' | 'damage')[];
   dotVal?: number;
   dotDuration?: number;
   dotInstant?: number;
@@ -135,6 +136,7 @@ export interface Skill {
   paralyzeCooldownDuration?: number;
   cannotReduceDamageDuration?: number;
   cannotBeInvulnerableDuration?: number;
+  ignoreStunDuration?: number;
 
   // New Durations
   damageDuration?: number;
@@ -155,6 +157,7 @@ export interface Skill {
   paralyzeCooldownTarget?: TargetOverride;
   cannotReduceDamageTarget?: TargetOverride;
   cannotBeInvulnerableTarget?: TargetOverride;
+  ignoreStunTarget?: TargetOverride;
   invulnerableTarget?: TargetOverride;
   gainChakraTarget?: TargetOverride;
   drainChakraTarget?: TargetOverride;
@@ -176,6 +179,7 @@ export interface Skill {
   paralyzeCooldownRemoveType?: string;
   cannotReduceDamageRemoveType?: string;
   cannotBeInvulnerableRemoveType?: string;
+  ignoreStunRemoveType?: string;
   invulnerableRemoveType?: string;
   gainChakraRemoveType?: string;
   drainChakraRemoveType?: string;
@@ -201,6 +205,7 @@ export interface Skill {
   paralyzeCooldownIrremovable?: boolean;
   cannotReduceDamageIrremovable?: boolean;
   cannotBeInvulnerableIrremovable?: boolean;
+  ignoreStunIrremovable?: boolean;
   gainChakraIrremovable?: boolean;
   drainChakraIrremovable?: boolean;
   removeChakraIrremovable?: boolean;
@@ -340,6 +345,7 @@ export interface ActiveEffect {
 | 'heal'
 | 'cannot_reduce_damage'
 | 'cannot_be_invulnerable'
+| 'ignore_stun'
 | 'damage_debuff'
 | 'immortal';
   value?: number; // magnitude of shield, reduction, damage, etc.
@@ -366,6 +372,8 @@ export interface ActiveEffect {
   stackType?: string;
   /** Se o efeito é stackable (pode acumular) */
   stackable?: boolean;
+  /** Tipos de dano que este debuff afeta (para damage_debuff) */
+  debuffTypes?: string[];
 }
 
 export interface CombatCharacter {

@@ -1005,8 +1005,7 @@
             "damageType": "damage",
             "ignoreBaseDamage": true
           }
-        ],
-        "requireEffect": "Shadow Possession"
+        ]
       },
       {
         "name": "Shadow Possession",
@@ -1146,6 +1145,187 @@
         "targetType": "Self",
         "classes": [
           "Físico"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "ino",
+    "name": "Ino Yamanaka",
+    "description": "A bela kunoichi do Time 10. Ino usa técnicas mentais de transferência de mente para controlar ou paralisar as mentes dos oponentes, deixando armadilhas de cabelo de chakra no chão para imobilizar.",
+    "tags": [
+      "Vila da Folha",
+      "Time 10",
+      "Yamanaka",
+      "Mente",
+      "Genjutsu"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/ino-yamanaka/icon.jpg",
+    "folder": "ino-yamanaka",
+    "skills": [
+      {
+        "name": "Mind Transfer",
+        "desc": "Ino projeta sua consciência na mente do oponente, prendendo-o sob [Mind Transfer] por 2 turnos. O inimigo não pode agir física ou mentalmente.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/ino-yamanaka/MindTransfer.jpg",
+        "cost": [
+          "Gen",
+          "Gen"
+        ],
+        "cooldown": 5,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Mental",
+          "À Distância"
+        ],
+        "stunType": [
+          "physical",
+          "mental",
+          "affliction",
+          "chakra"
+        ],
+        "stunTurns": 3
+      },
+      {
+        "name": "Mind Destruction",
+        "desc": "Ino enlouquece a mente do oponente de longe, causando 35 de dano mental. Requer que o alvo esteja sob efeito de [Mind Transfer] ou imobilizado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/ino-yamanaka/MindDestruction.jpg",
+        "cost": [
+          "Gen",
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Mental",
+          "À Distância"
+        ],
+        "damage": 0,
+        "directDamage": 30
+      },
+      {
+        "name": "Chakra Hair Trap",
+        "desc": "Ino corta seu próprio cabelo impregnado com chakra e espalha no chão, ganhando 20 de Escudo por 3 turnos.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/ino-yamanaka/ChakraHairTrap.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Chakra"
+        ],
+        "damage": 15
+      },
+      {
+        "name": "Flower Dodge",
+        "desc": "Ino se esquiva de forma charmosa, ficando completamente invulnerável por 1 turno.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/ino-yamanaka/Block.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 4,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Mental"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "young-yahiko",
+    "name": "Young Yahiko",
+    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://i.ibb.co/NgY7qTLF/base-profile-3.webp",
+    "folder": "Young Yahiko",
+    "skills": [
+      {
+        "name": "Kick Assault",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://i.ibb.co/V0kwfzmv/44.webp",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "damage": 20,
+        "cannotBeInvulnerableDuration": 1,
+        "cannotReduceDamageDuration": 1
+      },
+      {
+        "name": "Jet Stream of Water",
+        "desc": "Causa 20 de dano físico a um inimigo.",
+        "icon": "https://i.ibb.co/DfLJN4kd/2222.webp",
+        "cost": [
+          "Nin"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ],
+        "directDamage": 20,
+        "damageDebuffVal": 10,
+        "damageDebuffDuration": 1,
+        "damageDebuffTypes": [
+          "skill",
+          "dot",
+          "bleeding",
+          "direct_damage",
+          "damage"
+        ]
+      },
+      {
+        "name": "Helping Hand",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://i.ibb.co/j0vTkS3/33.webp",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 2,
+        "currentCooldown": 0,
+        "targetType": "Ally",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "damageReductionVal": 20,
+        "damageReductionDuration": 2,
+        "ignoreStunDuration": 2,
+        "ignoreStunTarget": "Ally",
+        "shieldTarget": "Ally"
+      },
+      {
+        "name": "Hidden Secret Technique: Frog Suit",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://i.pinimg.com/736x/d5/80/93/d580937fbd90f149fc53ec3f2421dfc9.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 4,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Chakra",
+          "À Distância"
         ],
         "invulnerableDuration": 1
       }
@@ -1906,83 +2086,6 @@
         "targetType": "Self",
         "classes": [
           "Físico"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "ino",
-    "name": "Ino Yamanaka",
-    "description": "A bela kunoichi do Time 10. Ino usa técnicas mentais de transferência de mente para controlar ou paralisar as mentes dos oponentes, deixando armadilhas de cabelo de chakra no chão para imobilizar.",
-    "tags": [
-      "Vila da Folha",
-      "Time 10",
-      "Yamanaka",
-      "Mente",
-      "Genjutsu"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/ino-yamanaka/icon.jpg",
-    "folder": "ino-yamanaka",
-    "skills": [
-      {
-        "name": "Mind Transfer",
-        "desc": "Ino projeta sua consciência na mente do oponente, prendendo-o sob [Mind Transfer] por 2 turnos. O inimigo não pode agir física ou mentalmente.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/ino-yamanaka/MindTransfer.jpg",
-        "cost": [
-          "Gen"
-        ],
-        "cooldown": 2,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Mental",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Mind Destruction",
-        "desc": "Ino enlouquece a mente do oponente de longe, causando 35 de dano mental. Requer que o alvo esteja sob efeito de [Mind Transfer] ou imobilizado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/ino-yamanaka/MindDestruction.jpg",
-        "cost": [
-          "Gen",
-          "Rand"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Mental",
-          "À Distância"
-        ],
-        "requireEffect": "Mind Transfer"
-      },
-      {
-        "name": "Chakra Hair Trap",
-        "desc": "Ino corta seu próprio cabelo impregnado com chakra e espalha no chão, ganhando 20 de Escudo por 3 turnos.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/ino-yamanaka/ChakraHairTrap.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Chakra"
-        ]
-      },
-      {
-        "name": "Flower Dodge",
-        "desc": "Ino se esquiva de forma charmosa, ficando completamente invulnerável por 1 turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/ino-yamanaka/Block.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Mental"
         ]
       }
     ],
