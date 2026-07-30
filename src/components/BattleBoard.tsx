@@ -259,6 +259,8 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       return `🚫 Incapaz de Ficar Invulnerável: Invulnerabilidade bloqueada por ${durText}`;
     case 'ignore_stun':
       return `⚡ Imune a Stun: Stuns ignorados por ${durText}`;
+    case 'damage_immunity':
+      return `🛡️ Imune a Dano: Todo dano anulado por ${durText}`;
     case 'immortal':
       return `💪 Imortal: Não pode morrer enquanto este efeito estiver ativo por ${durText}`;
     default:
@@ -413,6 +415,8 @@ export default function BattleBoard({
   const currentTurnUsedSkills = useRef<Record<string, Set<string>>>({});
   const lastTurnUsedSkills = useRef<Record<string, Set<string>>>({});
   const currentSkillRef = useRef<Skill | null>(null);
+  // Map<targetId, airBulletsIcon>
+  const airBulletsHitTargets = useRef<Map<string, string>>(new Map());
 
   // Chakra Pools (start at 0, first turn rolls 1 random element)
   const [playerChakra, setPlayerChakra] = useState<ChakraPool>({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
@@ -1269,6 +1273,9 @@ const handleTradeChakra = () => {
   const [isPreparing, setIsPreparing] = useState(false);
   const [passedPlayersThisTurn, setPassedPlayersThisTurn] = useState<('player' | 'enemy')[]>([]);
 
+  const hasDamageImmunity = (character: CombatCharacter) =>
+    character.activeEffects.some((e: ActiveEffect) => e.type === 'damage_immunity');
+
   const pushActiveEffect = (character: CombatCharacter, effect: ActiveEffect) => {
     // Check stackDurationRules for duration override (skip for stack damage DOT effects)
     if (!effect.stackable && currentSkillRef.current?.stackDurationRules && !effect.name?.includes('DOT)')) {
@@ -1287,6 +1294,7 @@ const handleTradeChakra = () => {
     const skill = character.character.skills.find(s => s.name === effect.name || effect.name.startsWith(s.name));
     const isStackable = effect.stackable ?? skill?.stackable ?? false;
     const stackType = effect.stackType ?? skill?.stackType;
+    const skillInvisible = skill?.invisible || (skill?.invisibleDuration !== undefined && skill?.invisibleDuration > 0);
 
     if (isStackable && stackType) {
       const existing = character.activeEffects.find(
@@ -1304,6 +1312,8 @@ const handleTradeChakra = () => {
       stacks: effect.stacks ?? 1,
       stackable: isStackable,
       stackType: stackType,
+      isInvisible: effect.isInvisible !== undefined ? effect.isInvisible : (skillInvisible || effect.type === 'invisible'),
+      casterSide: effect.casterSide || (effect.type === 'invisible' ? 'player' : undefined),
       castTurn: effect.castTurn ?? turn,
     });
   };
@@ -1562,6 +1572,11 @@ const handleTradeChakra = () => {
       // Find target combatant
       const defaultTarget = targetList.find(c => c.id === action.targetId) || sourceList.find(c => c.id === action.targetId) || source;
 
+      // Young Nagato: Air Bullets track target
+      if (skill.name === 'Air Bullets' && source.character.name === 'Young Nagato' && defaultTarget && !defaultTarget.isDead) {
+        airBulletsHitTargets.current.set(defaultTarget.id, skill.icon);
+      }
+
       // Do Not Apply If Active check
       if (skill.doNotApplyIfActive && isSkillActiveOnTarget(defaultTarget, skill.name)) {
         newLogs.push({
@@ -1798,7 +1813,7 @@ const handleTradeChakra = () => {
             const targetCannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage');
             const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction');
             const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
-            const netDd = Math.max(0, dd - reductionSum);
+            const netDd = hasDamageImmunity(t) ? 0 : Math.max(0, dd - reductionSum);
             const startingHealth = t.health;
             t.health = Math.max(0, t.health - netDd);
             const healthReduced = startingHealth - t.health;
@@ -2166,6 +2181,7 @@ const handleTradeChakra = () => {
               reductionSum = Math.max(0, reductionSum - (skill as any).ignoreDamageReductionVal);
           }
           finalDamage = Math.max(0, finalDamage - reductionSum);
+          if (hasDamageImmunity(t)) finalDamage = 0;
           if (t.shield > 0) {
             if (t.shield >= finalDamage) {
               t.shield -= finalDamage;
@@ -2189,6 +2205,22 @@ const handleTradeChakra = () => {
             t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
             newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
+            // Air Bullets stun check for normal damage
+            if (airBulletsHitTargets.current.has(t.id) && skill.name !== 'Air Bullets'
+              && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
+              t.activeEffects.push({
+                name: 'Air Bullets Stun',
+                type: 'stun',
+                duration: 1,
+                stunType: ['physical', 'mental', 'affliction', 'chakra'],
+                icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              newLogs.push({ id: Math.random().toString(), turn, message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`, type: 'stun' });
+              addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
+            }
             if (action.isPlayer) {
               matchStatsRef.current.damageDealt += finalDamage;
               matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name, amount: finalDamage });
@@ -2426,6 +2458,22 @@ const handleTradeChakra = () => {
               type: 'damage',
             });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
+            // Air Bullets stun check for normal damage
+            if (airBulletsHitTargets.current.has(t.id) && skill.name !== 'Air Bullets'
+              && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
+              t.activeEffects.push({
+                name: 'Air Bullets Stun',
+                type: 'stun',
+                duration: 1,
+                stunType: ['physical', 'mental', 'affliction', 'chakra'],
+                icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              newLogs.push({ id: Math.random().toString(), turn, message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`, type: 'stun' });
+              addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
+            }
             if (action.isPlayer) {
               matchStatsRef.current.damageDealt += finalDamage;
               matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name, amount: finalDamage });
@@ -2940,6 +2988,34 @@ const handleTradeChakra = () => {
         });
       }
 
+      // 4.12 APPLY DAMAGE IMMUNITY (IMUNIDADE A DANO)
+      if (skill.damageImmunityDuration && skill.damageImmunityDuration > 0) {
+        const immunityTargets = resolveEffectTargets(skill.damageImmunityTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        immunityTargets.forEach(t => {
+          if (t.isDead) return;
+          const duration = skill.damageImmunityDuration!;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Imunidade a Dano)`,
+            type: 'damage_immunity',
+            duration,
+            icon: skill.icon,
+            irremovable: !!skill.damageImmunityIrremovable,
+            cannotBeCountered: !!skill.cannotBeCountered,
+            cannotBeReflected: !!skill.cannotBeReflected,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🛡️ ${t.character.name} está imune a dano por [${skill.name}] por ${duration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'IMUNE A DANO', 'effect');
+          cleanseTargetEffects(t, skill.damageImmunityRemoveType);
+        });
+      }
+
       // Immortal effect: when HP ≤ threshold, character cannot die
       if (skill.immortalHpThreshold && skill.immortalHpThreshold > 0 && source.health <= skill.immortalHpThreshold) {
         const immDuration = skill.permanent ? 99999 : (skill.immortalDuration || 3);
@@ -3134,7 +3210,7 @@ const handleTradeChakra = () => {
             const targetCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
             const targetReductions = targetCannotReduce ? [] : c.activeEffects.filter(e => e.type === 'damage_reduction');
             const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
-            const netDmg = Math.max(0, (dmg.value || 0) - reductionSum);
+            const netDmg = hasDamageImmunity(c) ? 0 : Math.max(0, (dmg.value || 0) - reductionSum);
             c.health = Math.max(0, c.health - netDmg);
             newLogs.push({
               id: Math.random().toString(),
@@ -4661,6 +4737,13 @@ const handleTradeChakra = () => {
           effectDuration = 1;
           break;
 
+        // Young Nagato: Air Bullets marca o alvo para stunar se tomar dano
+        case 'Air Bullets':
+          if (source.character.name === 'Young Nagato' && target && !target.isDead) {
+            airBulletsHitTargets.current.set(target.id, skill.icon);
+          }
+          break;
+
         default:
           break;
       }
@@ -4812,7 +4895,7 @@ const handleTradeChakra = () => {
             const cannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage');
             const reductionTotal = cannotReduce ? 0
               : t.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
-            const netDdTotal = Math.max(0, ddTotal - reductionTotal);
+            const netDdTotal = hasDamageImmunity(t) ? 0 : Math.max(0, ddTotal - reductionTotal);
             const startingHealth = t.health;
             t.health = Math.max(0, t.health - netDdTotal);
             const healthReduced = startingHealth - t.health;
@@ -4836,6 +4919,27 @@ const handleTradeChakra = () => {
             addFloatingText(t.id, `-${ddTotal} HP (DIRETO)`, 'damage');
           }
           cleanseTargetEffects(t, skill.directDamageRemoveType);
+          // Any skill damaging an Air Bullets target triggers stun (refactored)
+          if (airBulletsHitTargets.current.has(t.id) && skill.name !== 'Air Bullets'
+            && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
+            t.activeEffects.push({
+              name: 'Air Bullets Stun',
+              type: 'stun',
+              duration: 1,
+              stunType: ['physical', 'mental', 'affliction', 'chakra'],
+              icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              castTurn: turn,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets] após sofrer dano!`,
+              type: 'stun',
+            });
+            addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
+          }
         });
       }
 
@@ -5102,6 +5206,7 @@ const handleTradeChakra = () => {
               reductionSum = Math.max(0, reductionSum - (skill as any).ignoreDamageReductionVal);
           }
           finalDamage = Math.max(0, finalDamage - reductionSum);
+          if (hasDamageImmunity(t)) finalDamage = 0;
           if (t.shield > 0) {
             if (t.shield >= finalDamage) {
               t.shield -= finalDamage;
@@ -5125,6 +5230,22 @@ const handleTradeChakra = () => {
             t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
             newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
+            // Air Bullets stun check for normal damage
+            if (airBulletsHitTargets.current.has(t.id) && skill.name !== 'Air Bullets'
+              && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
+              t.activeEffects.push({
+                name: 'Air Bullets Stun',
+                type: 'stun',
+                duration: 1,
+                stunType: ['physical', 'mental', 'affliction', 'chakra'],
+                icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              newLogs.push({ id: Math.random().toString(), turn, message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`, type: 'stun' });
+              addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
+            }
             if (action.isPlayer) {
               matchStatsRef.current.damageDealt += finalDamage;
               matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name, amount: finalDamage });
@@ -6375,6 +6496,14 @@ if (skill.reflect) {
         value: `Imune a stuns por ${skill.ignoreStunDuration} ${skill.ignoreStunDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-indigo-400',
         targetLabel: getTargetLabel(skill.ignoreStunTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.damageImmunityDuration && skill.damageImmunityDuration > 0) {
+      effects.push({
+        label: 'Imunidade a Dano',
+        value: `Imune a todo dano por ${skill.damageImmunityDuration} ${skill.damageImmunityDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-yellow-400',
+        targetLabel: getTargetLabel(skill.damageImmunityTarget, 'Alvo Principal')
       });
     }
     if (skill.gainChakra && skill.gainChakra > 0) {

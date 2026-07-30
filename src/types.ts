@@ -137,6 +137,7 @@ export interface Skill {
   cannotReduceDamageDuration?: number;
   cannotBeInvulnerableDuration?: number;
   ignoreStunDuration?: number;
+  damageImmunityDuration?: number;
 
   // New Durations
   damageDuration?: number;
@@ -158,6 +159,7 @@ export interface Skill {
   cannotReduceDamageTarget?: TargetOverride;
   cannotBeInvulnerableTarget?: TargetOverride;
   ignoreStunTarget?: TargetOverride;
+  damageImmunityTarget?: TargetOverride;
   invulnerableTarget?: TargetOverride;
   gainChakraTarget?: TargetOverride;
   drainChakraTarget?: TargetOverride;
@@ -180,6 +182,7 @@ export interface Skill {
   cannotReduceDamageRemoveType?: string;
   cannotBeInvulnerableRemoveType?: string;
   ignoreStunRemoveType?: string;
+  damageImmunityRemoveType?: string;
   invulnerableRemoveType?: string;
   gainChakraRemoveType?: string;
   drainChakraRemoveType?: string;
@@ -206,6 +209,7 @@ export interface Skill {
   cannotReduceDamageIrremovable?: boolean;
   cannotBeInvulnerableIrremovable?: boolean;
   ignoreStunIrremovable?: boolean;
+  damageImmunityIrremovable?: boolean;
   gainChakraIrremovable?: boolean;
   drainChakraIrremovable?: boolean;
   removeChakraIrremovable?: boolean;
@@ -346,6 +350,7 @@ export interface ActiveEffect {
 | 'cannot_reduce_damage'
 | 'cannot_be_invulnerable'
 | 'ignore_stun'
+| 'damage_immunity'
 | 'damage_debuff'
 | 'immortal';
   value?: number; // magnitude of shield, reduction, damage, etc.

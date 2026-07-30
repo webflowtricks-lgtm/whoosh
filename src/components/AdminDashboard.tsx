@@ -4486,7 +4486,69 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                             </div>
                           </div>
 
-                          {/* 20. Imortalidade (HP ≤ X) */}
+                          {/* 20. Imunidade a Dano */}
+                          <div className="space-y-1 bg-yellow-950/10 border border-yellow-900/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-yellow-400 font-mono">🛡️ Imunidade a Dano</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={10}
+                                  value={editingSkill.damageImmunityDuration || 0}
+                                  onChange={(e) => handleUpdateSkillField('damageImmunityDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-yellow-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-yellow-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.damageImmunityTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('damageImmunityTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-yellow-900/50 rounded text-[10px] font-mono text-yellow-300 focus:border-yellow-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageImmunityIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('damageImmunityIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-yellow-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                  <select
+                                    value={editingSkill.damageImmunityRemoveType || 'none'}
+                                    onChange={(e) => handleUpdateSkillField('damageImmunityRemoveType', e.target.value)}
+                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
+                                  >
+                                    <option value="none">Nenhum</option>
+                                    <option value="all">Todos</option>
+                                    <option value="buff">Buffs</option>
+                                    <option value="debuff">Debuffs</option>
+                                    <option value="stun">Stuns</option>
+                                    <option value="dot">DoTs</option>
+                                    <option value="bleeding">Sangra</option>
+                                    <option value="affliction">Aflição</option>
+                                    <option value="shield">Escudo</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 21. Imortalidade (HP ≤ X) */}
                           <div className="space-y-1 bg-green-950/15 border border-green-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div>
                               <label className="block text-[10px] font-bold uppercase tracking-wider text-green-400 font-mono">💪 Imortalidade (HP ≤ X)</label>

@@ -1333,6 +1333,55 @@
     "skins": []
   },
   {
+    "id": "young-nagato",
+    "name": "Young Nagato",
+    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://i.ibb.co/hTQ7VkN/base-profile-5.webp",
+    "folder": "Young Nagato",
+    "skills": [
+      {
+        "name": "Air Bullets",
+        "desc": "Causa 20 de dano físico a um inimigo.",
+        "icon": "https://i.ibb.co/tMhVgCJ5/aa.webp",
+        "cost": [
+          "Gen"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ],
+        "directDamage": 25
+      },
+      {
+        "name": "Amateur Shinra Tensei",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://i.ibb.co/CGFPNgt/ass.webp",
+        "cost": [
+          "Blood"
+        ],
+        "cooldown": 2,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "invisibleDuration": 1,
+        "invisible": true,
+        "damageImmunityDuration": 1,
+        "damageImmunityTarget": "Self"
+      }
+    ],
+    "skins": []
+  },
+  {
     "id": "kakashi",
     "name": "Kakashi Hatake",
     "description": "O líder Jonin de elite do Time 7. Conhecido mundialmente como o Ninja Copiador, Kakashi usa seu Sharingan para antecipar movimentos, se esconde no subsolo e desfere sua icônica Espada Relâmpago.",
@@ -14732,79 +14781,6 @@
         "targetType": "Enemy",
         "classes": [
           "Chakra",
-          "Corpo a Corpo"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "novo-ninja-1527",
-    "name": "aaaaaaaaaaaaaaaaa",
-    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
-    "tags": [
-      "Vila da Folha",
-      "Genin"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
-    "folder": "naruto-uzumaki",
-    "skills": [
-      {
-        "name": "Golpe Básico",
-        "desc": "Causa 20 de dano físico a um inimigo.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
-        "cost": [],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ],
-        "counterAttack": true
-      },
-      {
-        "name": "Nova Habilidade",
-        "desc": "Causa 30 de dano de chakra a um inimigo.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ],
-        "reflect": true
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "novo-ninja-3951",
-    "name": "Novo Ninja",
-    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
-    "tags": [
-      "Vila da Folha",
-      "Genin"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
-    "folder": "naruto-uzumaki",
-    "skills": [
-      {
-        "name": "Golpe Básico",
-        "desc": "Causa 20 de dano físico a um inimigo.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
-        "cost": [
-          "Tai"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
           "Corpo a Corpo"
         ]
       }
