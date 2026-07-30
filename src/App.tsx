@@ -12,6 +12,7 @@ import { fetchShopItemsFromServer } from './lib/shopStorage';
 import { fetchEventsFromServer } from './lib/eventStorage';
 import { fetchCustomBannersFromServer } from './lib/bannerStorage';
 import { fetchPngFramesFromServer } from './lib/frameStorage';
+import { preloadCommonUI, preloadCharacters } from './lib/imagePreloader';
 import { motion, AnimatePresence } from 'motion/react';
 import { Swords, Flag } from 'lucide-react';
 
@@ -75,6 +76,7 @@ export default function App() {
 
   // Sync all configurations (characters, ranks, shop, events, banners, frames) from server on startup
   useEffect(() => {
+    preloadCommonUI();
     fetchCharactersFromServer().catch(() => {});
     fetchRanksFromServer().catch(() => {});
     fetchShopItemsFromServer().catch(() => {});
@@ -124,6 +126,7 @@ export default function App() {
     playClickSound();
     const playerSquad = savedState.playerCombatants.map((c: any) => c.character);
     const enemySquad = savedState.enemyCombatants.map((c: any) => c.character);
+    preloadCharacters([...playerSquad, ...enemySquad]);
     setPlayerTeam(playerSquad);
     setEnemyTeam(enemySquad);
     setOnlineParams(savedState.onlineParams || null);
@@ -189,6 +192,7 @@ export default function App() {
     online?: { isOnline: boolean; roomId: string; playerIndex: number; opponentProfile: UserProfile },
     sandbox?: boolean
   ) => {
+    preloadCharacters([...playerSquad, ...enemySquad]);
     setPlayerTeam(playerSquad);
     setEnemyTeam(enemySquad);
     setOnlineParams(online || null);
@@ -406,3 +410,4 @@ export default function App() {
   );
 }
 
+ 

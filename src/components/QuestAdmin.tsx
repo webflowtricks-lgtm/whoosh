@@ -1168,3 +1168,4 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
     </div>
   );
 }
+  

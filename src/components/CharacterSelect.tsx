@@ -500,11 +500,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       <img 
                         src={char.portrait} 
                         alt={char.name} 
+                        decoding="async"
+                        loading="eager"
                         className="w-full h-full object-cover" 
                         onError={(e) => {
-                          const img = e.currentTarget;
-                          img.onerror = null;
-                          img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
+                          e.currentTarget.style.opacity = '0.3';
                         }}
                       />
                     ) : (
@@ -688,11 +688,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       src={char.portrait}
                       alt={char.name}
                       referrerPolicy="no-referrer"
+                      decoding="async"
+                      loading="eager"
                       className={`w-full h-full object-cover transition-transform duration-300 ${isLocked ? 'grayscale opacity-50' : 'group-hover:scale-105'}`}
                       onError={(e) => {
-                        const img = e.currentTarget;
-                        img.onerror = null;
-                        img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
+                        e.currentTarget.style.opacity = '0.3';
                       }}
                     />
 
@@ -815,11 +815,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     previewCharacter.portrait
                   }
                   alt={previewCharacter.name}
+                  decoding="async"
+                  loading="eager"
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    const img = e.currentTarget;
-                    img.onerror = null;
-                    img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
+                    e.currentTarget.style.opacity = '0.3';
                   }}
                 />
               </div>

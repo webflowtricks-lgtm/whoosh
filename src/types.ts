@@ -161,6 +161,7 @@ export interface Skill {
   ignoreStunTarget?: TargetOverride;
   damageImmunityTarget?: TargetOverride;
   invulnerableTarget?: TargetOverride;
+  invisibleTarget?: TargetOverride;
   gainChakraTarget?: TargetOverride;
   drainChakraTarget?: TargetOverride;
   removeChakraTarget?: TargetOverride;
@@ -365,6 +366,7 @@ export interface ActiveEffect {
   casterId?: string;
   casterSide?: 'player' | 'enemy';
   isInvisible?: boolean;
+  description?: string;
   targetId?: string;
   reflectMode?: 'Caster' | 'RandomAlly';
   reflectType?: 'active' | 'passive';

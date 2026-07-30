@@ -147,7 +147,7 @@ export function isEffectVisibleToViewer(eff: ActiveEffect, viewerSide: 'player' 
     if (eff.casterSide) {
       return eff.casterSide === viewerSide;
     }
-    return true;
+    return false;
   }
   return true;
 }
@@ -197,7 +197,7 @@ export function getSkillBaseName(eff: ActiveEffect): string {
 
 export function getSingleEffectDescription(effect: ActiveEffect): string {
   let desc = (effect as any).description || '';
-  if (desc) return desc;
+  if (desc && desc !== 'Efeito invisível ativo') return desc;
 
   const durText = effect.duration === 1 ? '1 turno' : `${effect.duration} turnos`;
   const val = effect.value || 0;
@@ -252,7 +252,7 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'paralyze_cooldown':
       return `⏳ Recargas de habilidades paralisadas por ${durText}`;
     case 'invisible':
-      return `👁️ Efeitos ocultos do oponente por ${durText}`;
+      return `👁️ Efeito Invisível [${effect.sourceSkillName || effect.name}] (Invisível para o oponente) por ${durText}`;
     case 'cannot_reduce_damage':
       return `🚫 Incapaz de Reduzir Dano: Bônus de redução ignorados por ${durText}`;
     case 'cannot_be_invulnerable':
@@ -351,6 +351,280 @@ function getGroupedActiveEffects(effects: ActiveEffect[], viewerSide: 'player' |
       subEffects,
     };
   });
+}
+
+// FULL SCREEN HIGH IMPACT ANIMATED OVERLAY FOR VICTORY / DEFEAT
+const OVERLAY_PARTICLES = Array.from({ length: 32 }).map((_, i) => ({
+  id: i,
+  left: (i * 17) % 100,
+  top: (i * 29) % 100,
+  size: (i % 6) + 4,
+  duration: 3 + (i % 5) * 0.8,
+  delay: (i % 8) * 0.25,
+  driftX: ((i % 3) - 1) * 30,
+}));
+
+interface GameOverOverlayProps {
+  gameOver: 'victory' | 'defeat';
+  playerCombatants: CombatCharacter[];
+  enemyCombatants: CombatCharacter[];
+  handleQuit: () => void;
+  user: UserProfile;
+  turn: number;
+}
+
+function GameOverOverlay({
+  gameOver,
+  playerCombatants,
+  enemyCombatants,
+  handleQuit,
+  turn,
+}: GameOverOverlayProps) {
+  const isVictory = gameOver === 'victory';
+  const showcaseTeam = isVictory ? playerCombatants : enemyCombatants;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/95 backdrop-blur-lg overflow-hidden select-none">
+      {/* 1. Animated Radial Background Aura */}
+      <motion.div
+        initial={{ scale: 0.2, opacity: 0 }}
+        animate={{ scale: [0.8, 1.25, 1], opacity: [0, 0.8, 0.5] }}
+        transition={{ duration: 1.2, ease: 'easeOut' }}
+        className={`absolute w-[700px] h-[700px] rounded-full blur-3xl pointer-events-none ${
+          isVictory
+            ? 'bg-gradient-to-r from-amber-500/30 via-yellow-400/20 to-emerald-500/25'
+            : 'bg-gradient-to-r from-red-700/40 via-rose-900/30 to-slate-900/60'
+        }`}
+      />
+
+      {/* 2. Diagonal Energy Slash Overlay Effect on Entrance */}
+      <motion.div
+        initial={{ x: '-120%', opacity: 1 }}
+        animate={{ x: '180%', opacity: 0 }}
+        transition={{ duration: 0.9, ease: 'easeInOut', delay: 0.1 }}
+        className={`absolute inset-y-0 w-48 -skew-x-12 pointer-events-none z-10 ${
+          isVictory
+            ? 'bg-gradient-to-r from-transparent via-amber-300/60 to-transparent shadow-[0_0_50px_#f59e0b]'
+            : 'bg-gradient-to-r from-transparent via-red-500/70 to-transparent shadow-[0_0_50px_#ef4444]'
+        }`}
+      />
+
+      {/* 3. High Impact Particle System */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        {OVERLAY_PARTICLES.map((p) => (
+          <motion.div
+            key={p.id}
+            initial={{
+              x: `${p.left}vw`,
+              y: `${p.top + 20}vh`,
+              opacity: 0,
+              scale: 0.5,
+            }}
+            animate={{
+              y: [`${p.top + 15}vh`, `${p.top - 25}vh`],
+              x: [`${p.left}vw`, `${p.left + p.driftX / 10}vw`],
+              opacity: [0, 0.9, 0],
+              scale: [0.5, 1.2, 0.4],
+              rotate: [0, 360],
+            }}
+            transition={{
+              duration: p.duration,
+              repeat: Infinity,
+              delay: p.delay,
+              ease: 'easeInOut',
+            }}
+            style={{ width: p.size, height: p.size }}
+            className={`absolute rounded-full filter ${
+              isVictory
+                ? 'bg-amber-300 shadow-[0_0_12px_#fbbf24]'
+                : 'bg-red-500 shadow-[0_0_12px_#ef4444]'
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* 4. Main Modal Content */}
+      <motion.div
+        initial={{ scale: 0.75, opacity: 0, y: 30 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.75, opacity: 0, y: 30 }}
+        transition={{ type: 'spring', damping: 22, stiffness: 280 }}
+        className="relative z-20 w-full max-w-4xl flex flex-col items-center justify-between text-center gap-4 sm:gap-6"
+      >
+        {/* Top Victory/Defeat Banner Badge */}
+        <motion.div
+          initial={{ y: -50, opacity: 0, scale: 0.6 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', damping: 18, stiffness: 300, delay: 0.15 }}
+          className="flex flex-col items-center justify-center relative"
+        >
+          {/* Outer Ring Glow */}
+          <div
+            className={`absolute -inset-4 rounded-full blur-xl opacity-60 ${
+              isVictory ? 'bg-amber-500/40' : 'bg-red-600/50'
+            }`}
+          />
+
+          <div className="relative flex items-center justify-center gap-3 px-6 sm:px-10 py-2.5 sm:py-3 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-2xl backdrop-blur-md">
+            {isVictory ? (
+              <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-amber-400 filter drop-shadow-[0_0_12px_rgba(251,191,36,0.8)] animate-bounce" />
+            ) : (
+              <Swords className="w-8 h-8 sm:w-10 sm:h-10 text-red-500 filter drop-shadow-[0_0_12px_rgba(239,68,68,0.8)] animate-pulse" />
+            )}
+
+            <h1
+              className={`text-3xl sm:text-5xl font-black uppercase tracking-tight font-display drop-shadow-2xl ${
+                isVictory
+                  ? 'bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-400 bg-clip-text text-transparent'
+                  : 'bg-gradient-to-r from-red-500 via-rose-400 to-red-600 bg-clip-text text-transparent'
+              }`}
+            >
+              {isVictory ? 'VITÓRIA SHINOBI!' : 'DERROTA EM COMBATE!'}
+            </h1>
+          </div>
+
+          <p className="mt-2 text-xs sm:text-sm font-mono uppercase tracking-widest text-slate-300 font-bold bg-slate-900/80 px-4 py-1 rounded-full border border-slate-800 shadow">
+            {isVictory ? 'Esquadrão Conquistou a Supremacia' : 'Esquadrão Foi Superado'} • Turno {turn}
+          </p>
+        </motion.div>
+
+        {/* Center Stage: Character Art Pop-Ups Lineup */}
+        <div className="w-full my-2 sm:my-4 flex items-center justify-center gap-3 sm:gap-6 flex-wrap min-h-[180px] sm:min-h-[240px]">
+          {showcaseTeam.map((combatant, idx) => {
+            const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
+            const portrait = combatant.character.portrait;
+            const isPortrait = !!(
+              rawSkin &&
+              portrait &&
+              (rawSkin.trim().toLowerCase() === portrait.trim().toLowerCase() ||
+                rawSkin.toLowerCase().endsWith('/icon.jpg') ||
+                rawSkin.toLowerCase().endsWith('/icon.png'))
+            );
+            const skinImg = rawSkin && !isPortrait ? rawSkin : null;
+
+            return (
+              <motion.div
+                key={combatant.id}
+                initial={{ opacity: 0, y: 60, scale: 0.6, rotate: idx % 2 === 0 ? -4 : 4 }}
+                animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+                transition={{
+                  type: 'spring',
+                  damping: 18,
+                  stiffness: 220,
+                  delay: 0.35 + idx * 0.15,
+                }}
+                className="relative group flex flex-col items-center"
+              >
+                {/* Aura Glow Behind Character */}
+                <div
+                  className={`absolute -inset-2 rounded-2xl blur-lg transition-all ${
+                    isVictory
+                      ? combatant.isDead
+                        ? 'bg-slate-800/40'
+                        : 'bg-amber-500/30 group-hover:bg-amber-400/50'
+                      : 'bg-red-600/30'
+                  }`}
+                />
+
+                {/* Character Box */}
+                <div
+                  className={`relative w-28 sm:w-36 h-40 sm:h-52 rounded-2xl overflow-hidden border flex flex-col items-center justify-between p-2 shadow-2xl transition-transform ${
+                    isVictory
+                      ? combatant.isDead
+                        ? 'bg-slate-950/80 border-slate-800 opacity-60 grayscale'
+                        : 'bg-gradient-to-b from-slate-900/90 via-slate-950 to-amber-950/40 border-amber-500/60 shadow-amber-950/50 ring-1 ring-amber-500/30'
+                      : 'bg-gradient-to-b from-slate-900/90 via-slate-950 to-red-950/40 border-red-500/60 shadow-red-950/50 ring-1 ring-red-500/30'
+                  }`}
+                >
+                  {/* Character Standing PNG or Portrait */}
+                  <div className="w-full h-28 sm:h-38 relative flex items-center justify-center overflow-hidden">
+                    {skinImg ? (
+                      <motion.img
+                        src={skinImg}
+                        alt={combatant.character.name}
+                        referrerPolicy="no-referrer"
+                        animate={{ y: [0, -6, 0] }}
+                        transition={{ duration: 2.8 + idx * 0.3, repeat: Infinity, ease: 'easeInOut' }}
+                        className={`h-full w-auto max-w-full object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.9)] ${
+                          combatant.isDead ? 'grayscale opacity-50' : ''
+                        }`}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-amber-400/50 shadow-lg relative bg-slate-950">
+                        <img
+                          src={portrait}
+                          alt={combatant.character.name}
+                          className={`w-full h-full object-cover ${combatant.isDead ? 'grayscale opacity-50' : ''}`}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Character Name & Status Badge */}
+                  <div className="w-full text-center z-10 bg-slate-950/90 px-1.5 py-1 rounded-xl border border-slate-800/80">
+                    <p className="text-[10px] sm:text-xs font-extrabold text-white truncate font-display">
+                      {combatant.character.name}
+                    </p>
+                    <div className="flex items-center justify-center gap-1 mt-0.5">
+                      {combatant.isDead ? (
+                        <span className="text-[9px] font-mono text-slate-400 bg-slate-900 px-1.5 py-0.2 rounded border border-slate-700">
+                          CAÍDO
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/80 px-1.5 py-0.2 rounded border border-amber-500/40 shadow">
+                          SOBREVIVENTE
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Scroll Banner Text & Action Button Card */}
+        <motion.div
+          initial={{ y: 40, opacity: 0, scale: 0.9 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', damping: 20, stiffness: 260, delay: 0.6 }}
+          className="relative max-w-lg w-full rounded-3xl overflow-hidden p-6 sm:p-8 bg-slate-950/90 border border-slate-800 shadow-2xl flex flex-col items-center gap-4"
+        >
+          {/* Background Pergaminho Image with low opacity */}
+          <img
+            src="/static/img/ui/pergaminho.webp"
+            alt="Pergaminho Shinobi"
+            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none opacity-20 filter contrast-125"
+          />
+
+          <div className="relative z-10 space-y-2">
+            <p className="text-xs sm:text-sm text-stone-200 font-bold leading-relaxed">
+              {isVictory
+                ? 'Parabéns! Você executou sua estratégia com excelência, subjugou as forças inimigas e alcançou a glória no campo de batalha!'
+                : 'Seu esquadrão combateu bravamente, mas sucumbiu às táticas adversárias. Reorganize seus jutsus e retorne para a desforra!'}
+            </p>
+          </div>
+
+          <div className="relative z-10 w-full pt-1">
+            <button
+              onClick={handleQuit}
+              className={`w-full py-3.5 px-6 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-wider shadow-2xl border transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2 group ${
+                isVictory
+                  ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 border-amber-400 shadow-amber-500/25 ring-2 ring-amber-400/40'
+                  : 'bg-gradient-to-r from-red-800 via-rose-900 to-red-950 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-500/60 shadow-red-900/40 ring-2 ring-red-500/30'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 animate-spin text-slate-950 group-hover:scale-125 transition-transform" />
+              <span>Voltar ao Menu Principal</span>
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </div>
+  );
 }
 
 export default function BattleBoard({
@@ -795,9 +1069,16 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
-  // Audio utility helper (tenta OGG, fallback MP3)
+  // Audio utility helper (tenta OGG, fallback MP3 com throttling contra sons duplos)
+  const lastSoundTimeRef = useRef<{ [key: string]: number }>({});
   const playCustomSound = (soundName: string) => {
     if (isMuted) return;
+    const now = Date.now();
+    if (lastSoundTimeRef.current[soundName] && now - lastSoundTimeRef.current[soundName] < 150) {
+      return;
+    }
+    lastSoundTimeRef.current[soundName] = now;
+
     const tryExt = (ext: string) => {
       try {
         const a = new Audio(`/static/audio/${soundName}.${ext}`);
@@ -1314,8 +1595,10 @@ const handleTradeChakra = () => {
       stacks: effect.stacks ?? 1,
       stackable: isStackable,
       stackType: stackType,
+      icon: effect.icon || execSkill?.icon || skill?.icon,
+      sourceSkillName: effect.sourceSkillName || execSkill?.name || skill?.name || effect.name,
       isInvisible: effect.isInvisible !== undefined ? effect.isInvisible : (skillInvisible || effect.type === 'invisible'),
-      casterSide: effect.casterSide || (effect.type === 'invisible' ? 'player' : undefined),
+      casterSide: effect.casterSide || (character.id.startsWith('player') ? 'player' : 'enemy'),
       castTurn: effect.castTurn ?? turn,
     });
   };
@@ -3763,7 +4046,7 @@ const handleTradeChakra = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [activePlanner, passedPlayersThisTurn, gameOver, isSandbox, onlineParams, enemyCombatants, playerCombatants, enemyChakra, turn]);
+  }, [activePlanner, passedPlayersThisTurn.includes('enemy'), gameOver, isSandbox, onlineParams?.isOnline, turn]);
 
   const [showSurrenderModal, setShowSurrenderModal] = useState(false);
   const [showSandboxConfirmModal, setShowSandboxConfirmModal] = useState(false);
@@ -3936,8 +4219,8 @@ const handleTradeChakra = () => {
     }
   };
 
-  // 30-Second Turn Timer State & Effect
-  const [timeLeft, setTimeLeft] = useState(30);
+  // 60-Second Turn Timer State & Effect
+  const [timeLeft, setTimeLeft] = useState(60);
   const handleEndTurnRef = useRef(handleEndTurn);
 
   useEffect(() => {
@@ -4048,8 +4331,8 @@ const handleTradeChakra = () => {
       return;
     }
 
-    // Reset countdown to 30 seconds for the new active turn/planning phase
-    setTimeLeft(30);
+    // Reset countdown to 60 seconds (1 minute) for the new active turn/planning phase
+    setTimeLeft(60);
 
     const timerInterval = setInterval(() => {
       setTimeLeft(prev => {
@@ -4734,6 +5017,9 @@ const handleTradeChakra = () => {
         }
         targetChar.activeEffects.push({
           ...eff,
+          sourceSkillName: eff.sourceSkillName || skill.name,
+          icon: eff.icon || skill.icon,
+          casterId: eff.casterId || source.id,
           isInvisible: eff.isInvisible !== undefined ? eff.isInvisible : (isSkillInvisible || eff.type === 'invisible'),
           casterSide: eff.casterSide || casterSide,
         });
@@ -5813,6 +6099,35 @@ if (skill.reflect) {
         });
       }
 
+      // 4.11 APPLY DAMAGE IMMUNITY (IMUNIDADE A DANO)
+      if (skill.damageImmunityDuration && skill.damageImmunityDuration > 0) {
+        const immunityTargets = resolveEffectTargets(skill.damageImmunityTarget || skill.shieldTarget || 'Self', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        immunityTargets.forEach(t => {
+          if (t.isDead) return;
+          const duration = skill.damageImmunityDuration!;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Imunidade a Dano)`,
+            sourceSkillName: skill.name,
+            type: 'damage_immunity',
+            duration,
+            icon: skill.icon,
+            irremovable: !!skill.damageImmunityIrremovable,
+            cannotBeCountered: !!skill.cannotBeCountered,
+            cannotBeReflected: !!skill.cannotBeReflected,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🛡️ ${t.character.name} está imune a dano por [${skill.name}] por ${duration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'IMUNE A DANO', 'effect');
+          cleanseTargetEffects(t, skill.damageImmunityRemoveType);
+        });
+      }
+
       // Legacy effect fallback
       if (effectName && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.invulnerableDuration && !skill.dotVal) {
         if (effectType === 'shield') {
@@ -5886,6 +6201,34 @@ if (skill.reflect) {
             type: 'buff',
           });
           addFloatingText(t.id, `+1 ${skill.stackType.toUpperCase()}`, 'effect');
+        });
+      }
+
+      // Ensure invisible skills always create an invisible active effect if none was created yet
+      if (isSkillInvisible && target) {
+        const invisTargets = resolveEffectTargets(skill.invisibleTarget || skill.shieldTarget || skill.invulnerableTarget || 'Self', target, source, sourceList, targetList, true);
+        invisTargets.forEach(t => {
+          if (t.isDead) return;
+          const hasInvisEffect = t.activeEffects.some(
+            e => (e.isInvisible || e.type === 'invisible') && (e.sourceSkillName === skill.name || e.name === skill.name)
+          );
+          if (!hasInvisEffect) {
+            pushActiveEffect(t, {
+              name: skill.name,
+              sourceSkillName: skill.name,
+              type: 'invisible',
+              value: 0,
+              duration: skill.invisibleDuration || skill.invulnerableDuration || skill.damageImmunityDuration || 1,
+              icon: skill.icon,
+              isInvisible: true,
+              irremovable: !!skill.invisibleIrremovable,
+              description: 'Efeito invisível ativo',
+              casterId: source.id,
+              casterSide,
+              castTurn: turn,
+            });
+            cleanseTargetEffects(t, skill.invisibleRemoveType);
+          }
         });
       }
 
@@ -6111,25 +6454,56 @@ if (skill.reflect) {
         const isCooldownParalyzed = c.activeEffects.some(e => e.type === 'paralyze_cooldown');
 
         // Reveal invisible effects that are about to expire
-        const expiringHidden = c.activeEffects.filter((e: ActiveEffect) => e.isInvisible && e.duration === 1 && e.casterSide);
+        const expiringHidden = c.activeEffects.filter((e: ActiveEffect) => (e.isInvisible || e.type === 'invisible') && e.duration === 1);
         if (expiringHidden.length > 0) {
-          c.activeEffects.push({
-            name: 'Essa skill foi usada',
-            type: 'custom',
-            value: 0,
-            duration: 2,
-            icon: '',
-            casterId: c.id,
-            casterSide: 'player',
-            isInvisible: false,
+          const processedSkills = new Set<string>();
+          const allCombatants = [...updatedPlayer, ...updatedEnemy];
+
+          expiringHidden.forEach(expEff => {
+            const skillName = expEff.sourceSkillName || getSkillBaseName(expEff) || expEff.name || 'Habilidade';
+            if (processedSkills.has(skillName)) return;
+            processedSkills.add(skillName);
+
+            let icon = expEff.icon || '';
+            if (!icon && c.character?.skills) {
+              const foundSkill = c.character.skills.find(s => s.name === skillName || s.name === expEff.sourceSkillName);
+              if (foundSkill?.icon) icon = foundSkill.icon;
+            }
+            if (!icon) {
+              for (const cb of allCombatants) {
+                const s = cb.character?.skills?.find(sk => sk.name === skillName || sk.name === expEff.sourceSkillName);
+                if (s?.icon) { icon = s.icon; break; }
+              }
+            }
+
+            const casterCombatant = allCombatants.find(cb => cb.id === expEff.casterId) || c;
+
+            const alreadyHasBuff = c.activeEffects.some(
+              e => (e.name === skillName || e.sourceSkillName === skillName) && !e.isInvisible && e.type !== 'invisible' && e.duration >= 1
+            );
+
+            if (!alreadyHasBuff) {
+              c.activeEffects.push({
+                name: skillName,
+                sourceSkillName: skillName,
+                type: 'custom',
+                value: 0,
+                duration: 2, // Decremented to 1 in line 6211 right below, so it remains visible for 1 full turn
+                icon: icon,
+                description: `Habilidade [${skillName}] foi usada e revelada`,
+                casterId: casterCombatant.id,
+                isInvisible: false,
+              });
+            }
+
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `👁️ [${skillName}] de ${casterCombatant.character.name} expirou e foi revelada para todos: Habilidade [${skillName}] foi usada.`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, 'SKILL REVELADA', 'effect');
           });
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `👁️ Uma habilidade invisível foi usada em ${c.character.name} e expirou!`,
-            type: 'buff',
-          });
-          addFloatingText(c.id, 'SKILL REVELADA', 'effect');
         }
 
         // Decrement effect durations (skip permanent effects)
@@ -6694,9 +7068,9 @@ if (skill.cannotBeReflected) {
       </div>
 
 
-      <main className="main-area max-w-8xl w-full mx-auto px-2 sm:px-6 pt-4 pb-36 flex-1 grid grid-cols-12 gap-3 sm:gap-8 items-start">
-        {/* Left Side: PLAYER SQUAD (4 Columns) */}
-        <section className="col-span-4 space-y-6">
+      <main className="main-area battle-arena-layout max-w-[1700px] w-full mx-auto px-2 sm:px-4 pt-4 pb-36 flex-1 items-start">
+        {/* Left Side: PLAYER SQUAD */}
+        <section className="battle-left-squad space-y-6">
           {/* BEAUTIFUL COMPETITIVE GAME USER PROFILE CARD */}
           <div
             onClick={() => {
@@ -6753,6 +7127,9 @@ if (skill.cannotBeReflected) {
               </h4>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] font-mono text-slate-400">@{user.username}</span>
+                <span className="text-[10px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-900/90 border border-amber-500/40 text-amber-300">
+                  {user.title || (user as any).rank || 'Genin'}
+                </span>
                 <span className="w-1 h-1 bg-slate-600 rounded-full" />
                 <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-full flex items-center gap-1 shadow">
                   ⚡ Chakra: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
@@ -6773,7 +7150,15 @@ if (skill.cannotBeReflected) {
                 <div key={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch">
                   {/* Standing Skin PNG Artwork (OUTSIDE card on left side) */}
                   {(() => {
-                    const skinImg = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
+                    const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
+                    const portrait = combatant.character.portrait;
+                    const isPortrait = !!(rawSkin && portrait && (
+                      rawSkin.trim().toLowerCase() === portrait.trim().toLowerCase() ||
+                      rawSkin.toLowerCase().endsWith('/icon.jpg') ||
+                      rawSkin.toLowerCase().endsWith('/icon.png')
+                    ));
+                    const skinImg = (rawSkin && !isPortrait) ? rawSkin : null;
+
                     return (
                       <div className="w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
                         {skinImg ? (
@@ -6865,9 +7250,11 @@ if (skill.cannotBeReflected) {
                       <img 
                         src={combatant.character.portrait} 
                         alt={combatant.character.name} 
+                        decoding="async"
+                        loading="eager"
                         className="w-full h-full object-cover" 
                         onError={(e) => {
-                           const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
+                           e.currentTarget.style.opacity = '0.3';
                         }}
                       />
                       {isStunned && (
@@ -6908,7 +7295,7 @@ if (skill.cannotBeReflected) {
                       {/* Health bar */}
                       <div className="space-y-1">
                         <div className="flex justify-between text-[10px] font-mono text-slate-400 leading-none">
-                          <span>Vida</span>
+                           
                           <span className="font-bold text-slate-100">{combatant.health} / {combatant.maxHealth}</span>
                         </div>
                         <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-900">
@@ -7102,6 +7489,7 @@ if (skill.cannotBeReflected) {
                             const sIdx = skillsPage * skillsPerPage + pIdx;
                             const isCooldown = skill.currentCooldown > 0;
                             const isCued = cuedAct && cuedAct.skillIndex === sIdx;
+                            const isSelected = selectedSkill?.charId === combatant.id && selectedSkill?.skillIndex === sIdx;
                             const simulatedChakraForThisChar = getSimulatedRemainingChakra(
                               playerChakra,
                               cuedActions.filter(a => a.sourceId !== combatant.id)
@@ -7129,7 +7517,9 @@ if (skill.cannotBeReflected) {
                                   handleSelectSkill(combatant.id, sIdx);
                                 }}
                                 className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
-                                  isCued
+                                  isSelected
+                                    ? 'border-amber-400 shadow-lg shadow-amber-500/50 ring-2 ring-amber-400 z-20 scale-105'
+                                    : isCued
                                     ? 'border-orange-500 shadow shadow-orange-600/35 ring-1 ring-orange-500'
                                     : isStunBlocked
                                     ? 'border-red-600 bg-red-950/80 opacity-40 grayscale shadow-md shadow-red-950/60'
@@ -7195,6 +7585,15 @@ if (skill.cannotBeReflected) {
                                     <div className="bg-orange-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
                                       PREPARADO
                                     </div>
+                                  </div>
+                                )}
+
+                                {/* Selected Target Prompt Overlay */}
+                                {isSelected && !isCued && (
+                                  <div className="absolute inset-0 bg-amber-950/90 border-2 border-amber-400 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
+                                    <span className="text-amber-300 text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md">
+                                      SELECIONE O ALVO
+                                    </span>
                                   </div>
                                 )}
 
@@ -7283,8 +7682,8 @@ if (skill.cannotBeReflected) {
         </div>
       </section>
 
-      {/* Center: ARENA CONTROL BOARD & CHAKRA (4 Columns) */}
-        <section className="col-span-4 space-y-6 bg-slate-900/40 p-3 sm:p-5 rounded-2xl border border-slate-900">
+      {/* Center: ARENA CONTROL BOARD & CHAKRA */}
+        <section className="battle-center-squad space-y-4 bg-slate-900/40 p-2 sm:p-3 rounded-2xl border border-slate-900">
           {/* TURN, TIMER, TURN STATUS & CHAKRA PANEL */}
           <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 sm:p-4 shadow-lg space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
@@ -7345,7 +7744,7 @@ if (skill.cannotBeReflected) {
                 </button>
               </div>
 
-              <div className="flex justify-around items-center bg-slate-950/60 border border-slate-900 rounded-xl py-2 px-3">
+              <div className="grid grid-cols-5 gap-1 items-center bg-slate-950/60 border border-slate-900 rounded-xl py-2 px-1 text-center">
                 {(() => {
                   const simulatedChakra = getSimulatedRemainingChakra(playerChakra, cuedActions);
                   const chakraElements = (Object.keys(playerChakra) as (keyof ChakraPool)[]).map(key => {
@@ -7424,7 +7823,7 @@ if (skill.cannotBeReflected) {
 
           {/* Central Console Area: Skill Inspector & Battle Logs Tabs */}
           <div className="space-y-4">
-            <div className="flex border-b border-slate-800">
+            <div className="hidden border-b border-slate-800">
               <button
                 onClick={() => {
                   playClickSound();
@@ -7669,8 +8068,8 @@ if (skill.cannotBeReflected) {
           </div>
         </section>
 
-        {/* Right Side: ENEMY SQUAD (4 Columns) */}
-        <section className="col-span-4 space-y-6">
+        {/* Right Side: ENEMY SQUAD */}
+        <section className="battle-right-squad space-y-6">
           {/* BEAUTIFUL COMPETITIVE GAME USER PROFILE CARD (ENEMY) */}
           <div
             onClick={() => {
@@ -7681,7 +8080,7 @@ if (skill.cannotBeReflected) {
                 profile: {
                   name: opp?.name || 'I.A. Kakashi',
                   username: opp?.username || 'ia_kakashi',
-                  photoUrl: opp?.photoUrl || 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg',
+                  photoUrl: opp?.photoUrl || 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kakashi-hatake/icon.jpg',
                   title: opp?.title || 'Renegado S-Rank',
                   equippedFrame: opp?.equippedFrame,
                   equippedFrameUrl: opp?.equippedFrameUrl,
@@ -7694,7 +8093,7 @@ if (skill.cannotBeReflected) {
                 isSelf: false,
               });
             }}
-            className="relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer"
+            className="relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer"
             title="Clique para ver o Card do Perfil do Oponente & Curtir"
           >
             {/* Background absolute flare */}
@@ -7705,10 +8104,12 @@ if (skill.cannotBeReflected) {
               <div className="absolute inset-0 bg-gradient-to-tr from-red-600 to-rose-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
               <div className="relative w-full h-full rounded-full border-2 border-red-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
                 <img
-                  src={onlineParams?.isOnline ? onlineParams.opponentProfile.photoUrl : 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg'}
+                  src={onlineParams?.isOnline ? onlineParams.opponentProfile.photoUrl : 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kakashi-hatake/icon.jpg'}
                   alt={onlineParams?.isOnline ? onlineParams.opponentProfile.name : 'I.A. Oponente'}
                   className="w-full h-full rounded-full object-cover scale-x-[-1]"
                   referrerPolicy="no-referrer"
+                  decoding="async"
+                  loading="eager"
                 />
               </div>
               {onlineParams?.isOnline && onlineParams.opponentProfile.equippedFrameUrl && (
@@ -7724,15 +8125,18 @@ if (skill.cannotBeReflected) {
             </div>
 
             {/* Profile Info details */}
-            <div className="flex-1 text-left">
+            <div className="flex-1 text-right">
               <p className="text-xs font-mono text-red-400 font-black uppercase tracking-wider mb-0.5">
                 {onlineParams?.isOnline ? (onlineParams.opponentProfile.title || 'Oponente') : 'Renegado S-Rank'}
               </p>
-              <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center gap-1.5 font-display group-hover:text-red-400 transition-colors">
+              <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center justify-end gap-1.5 font-display group-hover:text-red-400 transition-colors">
                 {onlineParams?.isOnline ? onlineParams.opponentProfile.name : 'I.A. Kakashi'}
               </h4>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center justify-end gap-2 mt-0.5">
                 <span className="text-[10px] font-mono text-slate-400">@{onlineParams?.isOnline ? onlineParams.opponentProfile.username : 'treinamento'}</span>
+                <span className="text-[10px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-900/90 border border-red-500/40 text-red-300">
+                  {onlineParams?.isOnline ? (onlineParams.opponentProfile.title || 'Genin') : 'Renegado'}
+                </span>
                 <span className="w-1 h-1 bg-slate-600 rounded-full" />
                 <span className="text-[10px] font-mono font-bold text-red-400 bg-red-950/60 border border-red-500/40 px-2 py-0.5 rounded-full flex items-center gap-1 shadow">
                   ⚡ Chakra: {Object.values(enemyChakra).reduce((a, b) => a + b, 0)}
@@ -7748,29 +8152,6 @@ if (skill.cannotBeReflected) {
 
               return (
                 <div key={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch">
-                  {/* Standing Skin PNG Artwork (OUTSIDE card on left side) */}
-                  {(() => {
-                    const skinImg = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
-                    return (
-                      <div className="w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
-                        {skinImg ? (
-                          <img
-                            src={skinImg}
-                            alt={combatant.character.name}
-                            referrerPolicy="no-referrer"
-                            className="h-full w-auto max-w-full object-contain scale-x-[-1] filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.95)]"
-                            onError={(e) => {
-                              const img = e.currentTarget;
-                              img.style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full" />
-                        )}
-                      </div>
-                    );
-                  })()}
-
                   {/* Main Combatant Card Container */}
                   <div
                     onClick={() => handleSelectTarget(combatant.id, true)}
@@ -7835,14 +8216,16 @@ if (skill.cannotBeReflected) {
                   )}
 
                   {/* Character Info */}
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 flex-row-reverse">
                     <div className="w-14 h-14 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex-shrink-0 relative">
                       <img 
                         src={combatant.character.portrait} 
                         alt={combatant.character.name} 
+                        decoding="async"
+                        loading="eager"
                         className="w-full h-full object-cover scale-x-[-1]" 
                         onError={(e) => {
-                          const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
+                          e.currentTarget.style.opacity = '0.3';
                         }}
                       />
                       {isStunned && (
@@ -7883,7 +8266,7 @@ if (skill.cannotBeReflected) {
                       {/* Health bar */}
                       <div className="space-y-1">
                         <div className="flex justify-between text-[10px] font-mono text-slate-400 leading-none">
-                          <span>Vida</span>
+                           
                           <span className="font-bold text-slate-100">{combatant.health} / {combatant.maxHealth}</span>
                         </div>
                         <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-900">
@@ -8105,6 +8488,7 @@ if (skill.cannotBeReflected) {
                             }
 
                             const isCued = cuedActions.some(a => a.sourceId === combatant.id && a.skillIndex === sIdx);
+                            const isSelected = selectedSkill?.charId === combatant.id && selectedSkill?.skillIndex === sIdx;
                             const simulatedChakraForThisChar = getSimulatedRemainingChakra(enemyChakra, cuedActions.filter(a => a.sourceId !== combatant.id), true);
                             const canAfford = canAffordSkill(skill, simulatedChakraForThisChar, combatant, [...playerCombatants, ...enemyCombatants]);
                             const effectiveCost = getEffectiveSkillCost(skill, combatant, [...playerCombatants, ...enemyCombatants]);
@@ -8130,7 +8514,9 @@ if (skill.cannotBeReflected) {
                                     handleSelectSkill(combatant.id, sIdx);
                                   }}
                                   className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
-                                    isCued
+                                    isSelected
+                                      ? 'border-amber-400 shadow-lg shadow-amber-500/50 ring-2 ring-amber-400 z-20 scale-105'
+                                      : isCued
                                       ? 'border-emerald-500 shadow shadow-emerald-600/35 ring-1 ring-emerald-500'
                                       : isStunBlocked
                                       ? 'border-red-600 bg-red-950/80 opacity-40 grayscale shadow-md shadow-red-950/60'
@@ -8196,6 +8582,15 @@ if (skill.cannotBeReflected) {
                                       <div className="bg-emerald-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
                                         PREPARADO
                                       </div>
+                                    </div>
+                                  )}
+
+                                  {/* Selected Target Prompt Overlay */}
+                                  {isSelected && !isCued && (
+                                    <div className="absolute inset-0 bg-amber-950/90 border-2 border-amber-400 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
+                                      <span className="text-amber-300 text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md">
+                                        SELECIONE O ALVO
+                                      </span>
                                     </div>
                                   )}
 
@@ -8338,6 +8733,37 @@ if (skill.cannotBeReflected) {
                     );
                   })()}
                 </div>
+
+                {/* Standing Skin PNG Artwork (OUTSIDE card on right side) */}
+                {(() => {
+                  const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
+                  const portrait = combatant.character.portrait;
+                  const isPortrait = !!(rawSkin && portrait && (
+                    rawSkin.trim().toLowerCase() === portrait.trim().toLowerCase() ||
+                    rawSkin.toLowerCase().endsWith('/icon.jpg') ||
+                    rawSkin.toLowerCase().endsWith('/icon.png')
+                  ));
+                  const skinImg = (rawSkin && !isPortrait) ? rawSkin : null;
+
+                  return (
+                    <div className="w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
+                      {skinImg ? (
+                        <img
+                          src={skinImg}
+                          alt={combatant.character.name}
+                          referrerPolicy="no-referrer"
+                          className="h-full w-auto max-w-full object-contain scale-x-[-1] filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.95)]"
+                          onError={(e) => {
+                            const img = e.currentTarget;
+                            img.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full" />
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -8422,62 +8848,17 @@ if (skill.cannotBeReflected) {
         </AnimatePresence>
       </div>
 
-      {/* GAME OVER BANNER MODAL */}
+      {/* GAME OVER BANNER MODAL OVERLAY */}
       <AnimatePresence>
         {gameOver && (
-          <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
-            <motion.div
-              initial={{ scale: 0.85, opacity: 0, y: 15 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.85, opacity: 0, y: 15 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative rounded-3xl overflow-hidden shadow-2xl max-w-md w-full min-h-[260px] flex flex-col justify-between p-8 sm:p-10"
-            >
-              {/* Background Pergaminho Image */}
-              <img
-                src="/static/img/ui/pergaminho.webp"
-                alt="Pergaminho Shinobi"
-                className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
-              />
-
-              <div className="relative z-10 flex flex-col items-center justify-between text-center space-y-6 h-full">
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-center gap-2">
-                    {gameOver === 'victory' ? (
-                      <Trophy className="w-8 h-8 text-amber-700 animate-bounce" />
-                    ) : (
-                      <Swords className="w-8 h-8 text-red-800 animate-pulse" />
-                    )}
-                    <h3 className="text-2xl font-black uppercase tracking-tight font-sans">
-                      {gameOver === 'victory' ? (
-                        <span className="text-emerald-900 drop-shadow">VITÓRIA!</span>
-                      ) : (
-                        <span className="text-red-900 drop-shadow">DERROTA!</span>
-                      )}
-                    </h3>
-                  </div>
-                  <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                    {gameOver === 'victory'
-                      ? 'Parabéns! Você derrotou o esquadrão inimigo e conquistou a supremacia shinobi!'
-                      : 'Seu esquadrão foi derrotado em combate. Reagrupe sua tática e tente novamente!'}
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center gap-3 w-full pt-1">
-                  <button
-                    onClick={handleQuit}
-                    className={`w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-lg border transition cursor-pointer active:scale-95 flex items-center justify-center gap-2 ${
-                      gameOver === 'victory'
-                        ? 'bg-gradient-to-r from-amber-700 to-yellow-800 hover:from-amber-600 hover:to-yellow-700 text-amber-100 shadow-amber-950/40 border-amber-500/50'
-                        : 'bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 shadow-red-950/40 border-red-600/50'
-                    }`}
-                  >
-                    <span>Voltar ao Menu</span>
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
+          <GameOverOverlay
+            gameOver={gameOver}
+            playerCombatants={playerCombatants}
+            enemyCombatants={enemyCombatants}
+            handleQuit={handleQuit}
+            user={user}
+            turn={turn}
+          />
         )}
       </AnimatePresence>
       {/* CHAKRA TRADE MODAL */}
@@ -9157,3 +9538,4 @@ if (skill.cannotBeReflected) {
     </div>
   );
 }
+ 

@@ -5,12 +5,13 @@
 
 import { Character } from '../types';
 import { CHARACTERS as DEFAULT_CHARACTERS } from '../data/characters';
+import { preloadCharacters } from './imagePreloader';
 
 const STORAGE_KEY = 'naruto_combat_characters';
 
 export function enrichCharacters(characters: Character[]): Character[] {
   if (!Array.isArray(characters)) return characters;
-  return characters.map(char => ({
+  const enriched = characters.map(char => ({
     ...char,
     skins: char.skins || [],
     skills: (char.skills || []).map(sk => {
@@ -27,6 +28,11 @@ export function enrichCharacters(characters: Character[]): Character[] {
       return s;
     }),
   })) as Character[];
+
+  // Trigger background image preloading for fast rendering
+  preloadCharacters(enriched);
+
+  return enriched;
 }
 
 export function getCharacters(): Character[] {

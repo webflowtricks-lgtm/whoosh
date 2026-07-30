@@ -1052,6 +1052,6 @@ export default function QuestBoard({
       )}
 
       </div>
-    </div>
+    </div> 
   );
 }

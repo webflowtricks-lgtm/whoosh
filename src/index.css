@@ -305,3 +305,37 @@ e-squad-name {
   100% { border-color: #d97706; box-shadow: 0 0 8px rgba(251,191,36,0.6), 0 0 18px rgba(217,119,6,0.3); }
 }
 
+/* =========================================================
+   ARENA BATTLE BOARD LAYOUT & COLUMN WIDTH CONFIGURATION
+   ========================================================= */
+:root {
+  /* LARGURA DA COLUNA CENTRAL (CHAKRA, LOGS E CONTROLES DE TURNO)
+     Altere o valor em pixels abaixo (ex: 280px, 300px, 320px, 350px) para ajustar a coluna central */
+  --battle-center-col-width: 290px;
+}
+
+.battle-arena-layout {
+  display: grid;
+  grid-template-columns: 1fr var(--battle-center-col-width) 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 1023px) {
+  .battle-arena-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.battle-left-squad {
+  width: 100%;
+}
+
+.battle-center-squad {
+  width: 100%;
+  min-width: 0;
+}
+
+.battle-right-squad {
+  width: 100%;
+}
