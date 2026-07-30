@@ -252,7 +252,7 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'paralyze_cooldown':
       return `⏳ Recargas de habilidades paralisadas por ${durText}`;
     case 'invisible':
-      return `👁️ Invisível / Imune a ser alvejado por ${durText}`;
+      return `👁️ Efeitos ocultos do oponente por ${durText}`;
     case 'cannot_reduce_damage':
       return `🚫 Incapaz de Reduzir Dano: Bônus de redução ignorados por ${durText}`;
     case 'cannot_be_invulnerable':
@@ -1294,7 +1294,9 @@ const handleTradeChakra = () => {
     const skill = character.character.skills.find(s => s.name === effect.name || effect.name.startsWith(s.name));
     const isStackable = effect.stackable ?? skill?.stackable ?? false;
     const stackType = effect.stackType ?? skill?.stackType;
-    const skillInvisible = skill?.invisible || (skill?.invisibleDuration !== undefined && skill?.invisibleDuration > 0);
+    // Use the executing skill's invisible flag (not the target's skill)
+    const execSkill = currentSkillRef.current;
+    const skillInvisible = execSkill?.invisible || (execSkill?.invisibleDuration !== undefined && execSkill?.invisibleDuration > 0);
 
     if (isStackable && stackType) {
       const existing = character.activeEffects.find(
@@ -1996,25 +1998,9 @@ const handleTradeChakra = () => {
         }
       }
 
-      // INVISIBILITY TO OPPONENT
-      if (skill.invisible && skill.invisibleDuration && skill.invisibleDuration > 0) {
-        const invDuration = skill.invisibleDuration;
-        pushActiveEffect(source, {
-          name: `Invisibilidade (${skill.name})`,
-          type: 'invisible',
-          duration: invDuration,
-          icon: skill.icon,
-          irremovable: !!skill.invisibleIrremovable,
-        });
-        newLogs.push({
-          id: Math.random().toString(),
-          turn,
-          message: `👥 ${source.character.name} ativou [${skill.name}] ficando INVISÍVEL ao oponente por ${invDuration} turnos!`,
-          type: 'buff',
-        });
-        addFloatingText(source.id, 'INVISÍVEL', 'effect');
-        cleanseTargetEffects(source, skill.invisibleRemoveType);
-      }
+      // INVISIBILITY TO OPPONENT (effect hiding, no targeting block)
+      // The `invisible` property now only marks effects as hidden (isInvisible), no longer creates an untargetable buff.
+      // If you want actual invisibility (untargetable), use a separate stun or invulnerable effect instead.
 
       // PARALYZE COOLDOWN
       if (skill.paralyzeCooldownDuration && skill.paralyzeCooldownDuration > 0) {
@@ -5126,26 +5112,6 @@ const handleTradeChakra = () => {
         }
       }
 
-      // 0.4 INVISIBILIDADE AO OPONENTE
-      if (skill.invisible && skill.invisibleDuration && skill.invisibleDuration > 0) {
-        const invDuration = skill.invisibleDuration;
-        pushActiveEffect(source, {
-          name: `Invisibilidade (${skill.name})`,
-          type: 'invisible',
-          duration: invDuration,
-          icon: skill.icon,
-          irremovable: !!skill.invisibleIrremovable,
-        });
-        newLogs.push({
-          id: Math.random().toString(),
-          turn,
-          message: `👥 ${source.character.name} ativou [${skill.name}] ficando INVISÍVEL ao oponente por ${invDuration} turnos!`,
-          type: 'buff',
-        });
-        addFloatingText(source.id, 'INVISÍVEL', 'effect');
-        cleanseTargetEffects(source, skill.invisibleRemoveType);
-      }
-
       // 1. APPLY DAMAGE REDUCTION & SHIELDS FOR OFFENSE
       if (skill.damageDuration && skill.damageDuration > 1) {
         const duration = skill.damageDuration;
@@ -6557,8 +6523,8 @@ if (skill.reflect) {
 
     if (skill.invisible && skill.invisibleDuration && skill.invisibleDuration > 0) {
       effects.push({
-        label: 'Invisibilidade',
-        value: `Fica invisível por ${skill.invisibleDuration} ${skill.invisibleDuration === 1 ? 'Turno' : 'Turnos'}`,
+        label: 'Efeitos Invisíveis',
+        value: `Efeitos ocultos do oponente por ${skill.invisibleDuration} ${skill.invisibleDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-pink-400',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
