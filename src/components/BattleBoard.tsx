@@ -1861,6 +1861,30 @@ const handleTradeChakra = () => {
     }
   };
 
+  // Returns the combatants whose stacks should be counted for a stack-damage rule
+  const getStackPoolForRule = (
+    rule: { stackType?: string; stackSource?: string },
+    target: CombatCharacter,
+    source: CombatCharacter,
+    sourceList: CombatCharacter[],
+    targetList: CombatCharacter[]
+  ): CombatCharacter[] => {
+    const stackSrc = rule.stackSource || 'target';
+    if (stackSrc === 'self') return [source];
+    if (stackSrc === 'enemies') return targetList.filter(c => !c.isDead);
+    if (stackSrc === 'allies') return sourceList.filter(c => !c.isDead);
+    if (stackSrc === 'all') return [...sourceList, ...targetList].filter(c => !c.isDead);
+    return [target];
+  };
+
+  // Sums stacks of a given type across a pool of combatants
+  const countStacksInPool = (pool: CombatCharacter[], stackType: string): number => {
+    return pool.reduce((acc, c) => {
+      const eff = c.activeEffects.find(e => e.stackType === stackType);
+      return acc + (eff?.stacks || 0);
+    }, 0);
+  };
+
   // Helper to execute actions for a single side (Player or Enemy) immediately
   const executeSideActions = (sideActions: CuedAction[], isPlayerSide: boolean, customRandAllocation?: ChakraPool): boolean => {
     const newLogs: CombatLog[] = [];
@@ -2578,8 +2602,8 @@ const handleTradeChakra = () => {
           if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
             for (const stackRule of skill.stackDamageRules) {
               if (stackRule.stackType && stackRule.damagePerStack > 0) {
-                const stackEffect = t.activeEffects.find(e => e.stackType === stackRule.stackType);
-                const stackCount = stackEffect?.stacks || 0;
+                const stackPool = getStackPoolForRule(stackRule, t, source, sourceList, targetList);
+                const stackCount = countStacksInPool(stackPool, stackRule.stackType);
                 if (stackCount > 0) {
                   if (stackRule.duration && stackRule.duration > 0) {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
@@ -2621,8 +2645,13 @@ const handleTradeChakra = () => {
                   }
                 }
                 // Remove stacks after calculating damage
-                if (stackRule.removeStacks && stackRule.removeStacks > 0 && stackEffect) {
-                  stackEffect.stacks = Math.max(0, (stackEffect.stacks || 0) - stackRule.removeStacks);
+                if (stackRule.removeStacks && stackRule.removeStacks > 0) {
+                  for (const poolChar of stackPool) {
+                    const poolEffect = poolChar.activeEffects.find(e => e.stackType === stackRule.stackType);
+                    if (poolEffect && poolEffect.stacks) {
+                      poolEffect.stacks = Math.max(0, (poolEffect.stacks || 0) - stackRule.removeStacks);
+                    }
+                  }
                 }
               }
             }
@@ -2791,8 +2820,8 @@ const handleTradeChakra = () => {
           if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
             for (const stackRule of skill.stackDamageRules) {
               if (stackRule.stackType && stackRule.damagePerStack > 0) {
-                const stackEffect = t.activeEffects.find(e => e.stackType === stackRule.stackType);
-                const stackCount = stackEffect?.stacks || 0;
+                const stackPool = getStackPoolForRule(stackRule, t, source, sourceList, targetList);
+                const stackCount = countStacksInPool(stackPool, stackRule.stackType);
                 if (stackCount > 0) {
                   if (stackRule.duration && stackRule.duration > 0) {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
@@ -2834,8 +2863,13 @@ const handleTradeChakra = () => {
                   }
                 }
                 // Remove stacks after calculating damage
-                if (stackRule.removeStacks && stackRule.removeStacks > 0 && stackEffect) {
-                  stackEffect.stacks = Math.max(0, (stackEffect.stacks || 0) - stackRule.removeStacks);
+                if (stackRule.removeStacks && stackRule.removeStacks > 0) {
+                  for (const poolChar of stackPool) {
+                    const poolEffect = poolChar.activeEffects.find(e => e.stackType === stackRule.stackType);
+                    if (poolEffect && poolEffect.stacks) {
+                      poolEffect.stacks = Math.max(0, (poolEffect.stacks || 0) - stackRule.removeStacks);
+                    }
+                  }
                 }
               }
             }
@@ -5865,8 +5899,8 @@ const handleTradeChakra = () => {
           if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
             for (const stackRule of skill.stackDamageRules) {
               if (stackRule.stackType && stackRule.damagePerStack > 0) {
-                const stackEffect = t.activeEffects.find(e => e.stackType === stackRule.stackType);
-                const stackCount = stackEffect?.stacks || 0;
+                const stackPool = getStackPoolForRule(stackRule, t, source, sourceList, targetList);
+                const stackCount = countStacksInPool(stackPool, stackRule.stackType);
                 if (stackCount > 0) {
                   if (stackRule.duration && stackRule.duration > 0) {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
@@ -5910,8 +5944,13 @@ const handleTradeChakra = () => {
                   }
                 }
                 // Remove stacks after calculating damage
-                if (stackRule.removeStacks && stackRule.removeStacks > 0 && stackEffect) {
-                  stackEffect.stacks = Math.max(0, (stackEffect.stacks || 0) - stackRule.removeStacks);
+                if (stackRule.removeStacks && stackRule.removeStacks > 0) {
+                  for (const poolChar of stackPool) {
+                    const poolEffect = poolChar.activeEffects.find(e => e.stackType === stackRule.stackType);
+                    if (poolEffect && poolEffect.stacks) {
+                      poolEffect.stacks = Math.max(0, (poolEffect.stacks || 0) - stackRule.removeStacks);
+                    }
+                  }
                 }
               }
             }

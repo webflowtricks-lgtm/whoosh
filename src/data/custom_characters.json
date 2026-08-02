@@ -1379,6 +1379,96 @@
         "retaliateDamage": true,
         "retaliateDamageVal": 20,
         "retaliateDamageType": "direct_damage"
+      },
+      {
+        "name": "Amateur Rinnegan",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://i.ibb.co/C5yHgj4j/base-54154.png",
+        "cost": [],
+        "cooldown": 5,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "revealInvisibleDuration": 2,
+        "revealInvisibleTarget": "AllAllies"
+      },
+      {
+        "name": "Hidden Secret Technique: Frog Suit",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://i.imgur.com/PDKc632.jpeg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 5,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "young-konan",
+    "name": "Young Konan",
+    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://i.ibb.co/7t8vsfpT/base-profile.webp",
+    "folder": "Young Konan",
+    "skills": [
+      {
+        "name": "Paper Gathering",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://w0.peakpx.com/wallpaper/271/891/HD-wallpaper-naruto-konan-naruto.jpg",
+        "cost": [],
+        "cooldown": 2,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "stackable": true,
+        "stackType": "Paper Gathering",
+        "retaliateDamage": true,
+        "retaliateDamageVal": 5,
+        "retaliateDamageDuration": 999,
+        "retaliateDamageType": "direct_damage",
+        "retaliateDamageIrremovable": true
+      },
+      {
+        "name": "Paper Shuriken",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://i.ibb.co/0jrBn3Hh/vda.webp",
+        "cost": [
+          "Blood"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ],
+        "damage": 0,
+        "directDamage": 20,
+        "stackDamageRules": [
+          {
+            "stackType": "Paper Gathering",
+            "damagePerStack": 5,
+            "stackSource": "self"
+          }
+        ],
+        "cannotReceiveFriendlyDuration": 1
       }
     ],
     "skins": []
