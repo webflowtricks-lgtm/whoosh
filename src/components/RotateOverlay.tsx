@@ -54,7 +54,7 @@ export default function RotateOverlay() {
               <Smartphone className="w-12 h-12" />
             </motion.div>
             <div className="absolute bottom-0 right-0 bg-amber-500 text-slate-950 p-1.5 rounded-full shadow-lg">
-              <RotateCw className="w-4 h-4 animate-spin" />
+              <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
             </div>
           </div>
 
@@ -70,7 +70,7 @@ export default function RotateOverlay() {
 
           <div className="flex flex-col w-full gap-2.5 pt-2">
             <div className="flex items-center justify-center gap-2 text-[11px] text-amber-300/80 bg-amber-950/40 border border-amber-500/20 px-3 py-2 rounded-xl">
-              <RotateCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+              <img src="/static/img/icon/star.webp" alt="Loading" className="w-3.5 h-3.5 animate-spin object-contain" />
               <span>Gire a tela para desaparecer esta mensagem automaticamente</span>
             </div>
 

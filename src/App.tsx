@@ -6,12 +6,15 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { GameScreen, Character, UserProfile, Quest } from './types';
 import { evaluateQuestGoal } from './lib/questUtils';
+import { safeFetchJson } from './lib/api';
 import { fetchCharactersFromServer } from './lib/characterStorage';
 import { fetchRanksFromServer } from './lib/rankStorage';
 import { fetchShopItemsFromServer } from './lib/shopStorage';
 import { fetchEventsFromServer } from './lib/eventStorage';
 import { fetchCustomBannersFromServer } from './lib/bannerStorage';
 import { fetchPngFramesFromServer } from './lib/frameStorage';
+import { calculateBattleXp } from './lib/xpSystem';
+import { getRanks, getUserRankFromConfig } from './lib/rankStorage';
 import { preloadCommonUI, preloadCharacters } from './lib/imagePreloader';
 import { motion, AnimatePresence } from 'motion/react';
 import { Swords, Flag } from 'lucide-react';
@@ -28,9 +31,7 @@ function ScreenLoadingFallback() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-100 select-none gpu-accelerated">
       <div className="relative flex items-center justify-center mb-6">
-        <div className="w-20 h-20 rounded-full border-4 border-orange-500/20 border-t-orange-500 animate-spin" />
-        <div className="absolute inset-0 w-20 h-20 rounded-full border-4 border-amber-400/10 border-b-amber-400 animate-[spin_1.5s_linear_infinite_reverse]" />
-        <Swords className="w-8 h-8 text-orange-400 absolute animate-pulse" />
+        <img src="/static/img/icon/star.webp" alt="Loading" className="w-16 h-16 animate-spin object-contain" />
       </div>
       <div className="flex flex-col items-center gap-2">
         <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-orange-400 animate-pulse">
@@ -66,7 +67,16 @@ export default function App() {
     const stored = localStorage.getItem('naruto_user_profile');
     if (stored) {
       try {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (parsed) {
+          if (typeof parsed.xp === 'number' && parsed.xp < 0) {
+            parsed.xp = 0;
+            try {
+              localStorage.setItem('naruto_user_profile', JSON.stringify(parsed));
+            } catch {}
+          }
+          return parsed;
+        }
       } catch (e) {
         return null;
       }
@@ -200,44 +210,78 @@ export default function App() {
     setScreen('battle');
   };
 
-  const handleBattleEnd = async (victory: boolean, stats: any) => {
-    if (!activeQuest || !user) return;
+  const handleBattleEnd = async (victory: boolean, stats: any, earnedXp?: number) => {
+    if (!user) return;
 
-    // Update goals based on battle stats using evaluateQuestGoal
-    const updatedGoals = activeQuest.goals.map(goal => {
-      const { nextValue, nextStreak } = evaluateQuestGoal(goal, victory, stats);
-      return {
-        ...goal,
-        currentValue: nextValue,
-        currentStreak: nextStreak
-      };
-    });
+    // Calculate XP gained
+    const turns = stats?.turn || 1;
+    const aliveCount = stats?.alivePlayerCount || (victory ? 1 : 0);
+    const damageDealt = stats?.damageDealt || 0;
+    const xpGained = earnedXp ?? calculateBattleXp(victory, turns, aliveCount, damageDealt);
 
-    const isNowFinished = updatedGoals.every(g => g.currentValue >= g.targetValue);
+    const oldXp = Math.max(0, user.xp || 0);
+    const newXp = Math.max(0, oldXp + xpGained);
+    const ranksList = getRanks();
+    const newRank = getUserRankFromConfig(newXp, ranksList);
 
-    const updatedQuest: Quest = {
-      ...activeQuest,
-      goals: updatedGoals,
-      completed: isNowFinished ? true : activeQuest.completed
+    const updatedUser: UserProfile = {
+      ...user,
+      xp: newXp,
+      rank: newRank,
+      wins: victory ? (user.wins || 0) + 1 : (user.wins || 0),
+      losses: !victory ? (user.losses || 0) + 1 : (user.losses || 0),
     };
 
-    setActiveQuest(updatedQuest);
+    setUser(updatedUser);
+    localStorage.setItem('naruto_user_profile', JSON.stringify(updatedUser));
 
+    // Sync profile updates to server
     try {
-      const res = await fetch('/api/quests');
-      const data = await res.json();
-      if (data.success) {
-        const updatedQuestsList = data.quests.map((q: any) => 
-          q.id === updatedQuest.id ? updatedQuest : q
-        );
-        await fetch('/api/quests', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quests: updatedQuestsList })
-        });
-      }
+      await safeFetchJson('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedUser)
+      });
     } catch (err) {
-      console.error('Failed to sync updated quest on battle end:', err);
+      console.error('Failed to sync profile update:', err);
+    }
+
+    // Process quests if active
+    if (activeQuest) {
+      const updatedGoals = activeQuest.goals.map((goal) => {
+        const { nextValue, nextStreak } = evaluateQuestGoal(goal, victory, stats);
+        return {
+          ...goal,
+          currentValue: nextValue,
+          currentStreak: nextStreak
+        };
+      });
+
+      const isNowFinished = updatedGoals.every((g) => g.currentValue >= g.targetValue);
+
+      const updatedQuest: Quest = {
+        ...activeQuest,
+        goals: updatedGoals,
+        completed: isNowFinished ? true : activeQuest.completed
+      };
+
+      setActiveQuest(updatedQuest);
+
+      try {
+        const data = await safeFetchJson<{ success?: boolean; quests?: Quest[] }>('/api/quests');
+        if (data && data.success && Array.isArray(data.quests)) {
+          const updatedQuestsList = data.quests.map((q: any) =>
+            q.id === updatedQuest.id ? updatedQuest : q
+          );
+          await safeFetchJson('/api/quests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quests: updatedQuestsList })
+          });
+        }
+      } catch (err) {
+        console.error('Failed to sync updated quest on battle end:', err);
+      }
     }
   };
 
@@ -248,13 +292,17 @@ export default function App() {
     setIsSandbox(false);
     setRestoredState(null);
     setActiveQuest(null); // Reset active quest on exit
-    setScreen('quests'); // Return to the Quests select board!
+    setScreen('character-select'); // Return directly to character selection!
   };
 
   const handleLoginSuccess = (profile: UserProfile) => {
-    setUser(profile);
+    const safeProfile = {
+      ...profile,
+      xp: Math.max(0, profile.xp ?? 0),
+    };
+    setUser(safeProfile);
     try {
-      localStorage.setItem('naruto_user_profile', JSON.stringify(profile));
+      localStorage.setItem('naruto_user_profile', JSON.stringify(safeProfile));
     } catch {}
   };
 
@@ -348,8 +396,9 @@ export default function App() {
             user={user}
             onLogout={handleLogout}
             onUpdateUser={(updated) => {
-              setUser(updated);
-              localStorage.setItem('naruto_user_profile', JSON.stringify(updated));
+              const safe = { ...updated, xp: Math.max(0, updated.xp ?? 0) };
+              setUser(safe);
+              localStorage.setItem('naruto_user_profile', JSON.stringify(safe));
             }}
           />
         )}
@@ -358,8 +407,9 @@ export default function App() {
           <QuestBoard
             user={user}
             onUpdateUser={(updated) => {
-              setUser(updated);
-              localStorage.setItem('naruto_user_profile', JSON.stringify(updated));
+              const safe = { ...updated, xp: Math.max(0, updated.xp ?? 0) };
+              setUser(safe);
+              localStorage.setItem('naruto_user_profile', JSON.stringify(safe));
             }}
             onSelectQuest={handleSelectQuest}
             onGoToBattle={() => setScreen('character-select')}

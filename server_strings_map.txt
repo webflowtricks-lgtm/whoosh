@@ -1,0 +1,198 @@
+# API Error Messages
+Nome de usuário, senha e nome de exibição são obrigatórios. | Username, password and display name are required.
+Este nome de usuário já está sendo utilizado. | This username is already in use.
+Usuário e senha são obrigatórios. | Username and password are required.
+Usuário ou senha incorretos. | Incorrect username or password.
+Nome de usuário é obrigatório. | Username is required.
+Usuário não encontrado. | User not found.
+Dados inválidos para matchmaking. | Invalid matchmaking data.
+Username é obrigatório. | Username is required.
+Dados de turno inválidos. | Invalid turn data.
+Sala não encontrada ou partida finalizada. | Room not found or match ended.
+Você não faz parte desta sala. | You are not part of this room.
+roomId é obrigatório. | roomId is required.
+Sala não encontrada. | Room not found.
+roomId e username são obrigatórios. | roomId and username are required.
+Dados de reação inválidos. | Invalid reaction data.
+Dados inválidos. | Invalid data.
+Mensagem inválida. Emojis, mídias e links não são permitidos. | Invalid message. Emojis, media and links are not allowed.
+Lista de personagens inválida. | Invalid character list.
+Lista de ranks inválida. | Invalid rank list.
+Lista de itens da loja inválida. | Invalid shop item list.
+Lista de eventos inválida. | Invalid event list.
+Lista de banners inválida. | Invalid banner list.
+Lista de molduras inválida. | Invalid frame list.
+Lista de missões inválida. | Invalid quest list.
+Arquivo de configuração JSON inválido. | Invalid JSON configuration file.
+Nenhum dado de configuração válido encontrado no arquivo JSON. | No valid configuration data found in the JSON file.
+
+# Chat sanitization placeholders
+[link removido] | [link removed]
+[mídia removida] | [media removed]
+
+# Success messages
+Personagens atualizados no banco de dados com sucesso! | Characters updated in the database successfully!
+Ranks atualizados com sucesso! | Ranks updated successfully!
+Loja atualizada no servidor com sucesso! | Shop updated on the server successfully!
+Eventos atualizados no servidor com sucesso! | Events updated on the server successfully!
+Banners atualizados no servidor com sucesso! | Banners updated on the server successfully!
+Molduras atualizadas no servidor com sucesso! | Frames updated on the server successfully!
+Missões atualizadas com sucesso! | Quests updated successfully!
+Configurações importadas e sincronizadas no servidor com sucesso! | Settings imported and synced to the server successfully!
+
+# Configuration import details labels
+Personagens | Characters
+Missões | Quests
+Itens da Loja | Shop Items
+Eventos | Events
+Ranks/XP | Ranks/XP
+Banners | Banners
+Molduras | Frames
+
+# Default player fallback name
+Shinobi | Shinobi
+
+# Rank names
+Estudante de Academia | Academy Student
+Genin | Genin
+Chunin | Chunin
+Jonin | Jonin
+ANBU | ANBU
+Sannin Lendário | Legendary Sannin
+Hokage | Hokage
+Lenda Shinobi | Shinobi Legend
+
+# Event titles
+4ª Grande Guerra Shinobi | 4th Great Shinobi War
+Evento de Batalha Global de Aliança | Global Alliance Battle Event
+Festival da Folha - Konoha | Leaf Festival - Konoha
+Comemoração de Outono | Autumn Celebration
+Ameaça Vermelha: Caça às Bestas | Red Threat: Beast Hunt
+Desafio Semanal Akatsuki | Weekly Akatsuki Challenge
+EVENTO PRINCIPAL | MAIN EVENT
+FESTIVAL | FESTIVAL
+DESAFIO ESPECIAL | SPECIAL CHALLENGE
+
+# Event descriptions
+A Aliança Shinobi precisa da sua força no campo de batalha! Participe das batalhas da Arena, vença com seus ninjas e ajude a proteger o mundo ninja contra a ameaça dos Edo Tensei. | The Shinobi Alliance needs your strength on the battlefield! Take part in Arena battles, win with your ninjas and help protect the ninja world against the threat of the Edo Tensei.
+Celebre a paz em Konohagakure! Ganhe bônus de Ryos ao jogar partidas diárias e complete desafios de suporte e cura. | Celebrate peace in Konohagakure! Earn Ryos bonuses by playing daily matches and complete support and healing challenges.
+Membros da Akatsuki foram avistados nas fronteiras do País do Fogo. Conclua combates usando invulnerabilidade e contra-ataque! | Akatsuki members have been sighted on the borders of the Land of Fire. Complete battles using invulnerability and counter-attack!
+
+# Event objective descriptions
+Vença 3 partidas na Arena Tática | Win 3 matches in the Tactical Arena
+Cause 1.500 de dano total em combate | Deal 1,500 total damage in combat
+Use habilidades de Ninjutsu 15 vezes | Use Ninjutsu abilities 15 times
+Complete 5 Missões Ninja no Quadro de Missões | Complete 5 Ninja Quests on the Quest Board
+Recupere 800 de Vida acumulados em batalhas | Recover 800 accumulated Life in battles
+Monte um esquadrão completo de ninjas da Folha | Assemble a full squad of Leaf ninjas
+Aplique Atordoamento ou Silêncio 5 vezes em inimigos | Apply Stun or Silence to enemies 5 times
+Gere 600 de Escudo acumulados | Generate 600 accumulated Shield
+
+# Event reward labels
+500 Ryos | 500 Ryos
+50 Gemas Ninja | 50 Ninja Gems
+Título: "Herói da Aliança" | Title: "Hero of the Alliance"
+Moldura Exclusiva "Guerra Shinobi" | Exclusive Frame "Shinobi War"
+300 Ryos | 300 Ryos
+30 Gemas | 30 Gems
+Título: "Caçador de Renegados" | Title: "Renegade Hunter"
+40 Gemas Ninja | 40 Ninja Gems
+
+# Event time labels
+4 dias 18 horas | 4 days 18 hours
+11 dias | 11 days
+2 dias 05 horas | 2 days 05 hours
+
+# Shop item names
+Lenda dos Sannin | Legend of the Sannin
+Akatsuki Renegado | Renegade Akatsuki
+Mestre dos Oito Portões | Master of the Eight Gates
+Deus dos Shinobis | God of Shinobi
+Naruto Modo Sábio | Naruto Sage Mode
+Sasuke Traje Hebi | Sasuke Hebi Outfit
+Kakashi Capitão ANBU | Kakashi ANBU Captain
+Fogo da Vontade | Fire of Will
+Sharingan Carmesim | Crimson Sharingan
+Operativo ANBU | ANBU Operative
+Bolsa de Ryos | Ryos Pouch
+Baú do Tesouro Ninja | Ninja Treasure Chest
+
+# Shop item descriptions
+Título exclusivo de prestígio reconhecido por todos os países ninjas. | Exclusive prestige title recognized by all ninja countries.
+Título para aqueles que trilham o caminho da névoa e das sombras. | Title for those who walk the path of mist and shadows.
+Título honroso concedido a guerreiros que dominam a força do Taijutsu. | Honorable title granted to warriors who master the power of Taijutsu.
+O mais alto título do mundo inf, gravado nos monumentos da arena. | The highest title of the ninja world, engraved on the arena monuments.
+Visual lendário de Naruto vestindo a capa vermelha do Modo Sábio de Senjutsu. | Legendary look of Naruto wearing the red cape of the Senjutsu Sage Mode.
+Visual de Sasuke durante a formação do esquadrão Hebi na caça a Itachi. | Sasuke's look during the formation of the Hebi squad in the hunt for Itachi.
+Traje operacional sombrio das Forças Especiais ANBU de Konoha. | Dark operational outfit of the ANBU Special Forces of Konoha.
+Moldura reluzente inspirada no fogo e determinação dos ninja de Konoha. | Gleaming frame inspired by the fire and determination of the Konoha shinobi.
+Moldura com conclusão rubra misteriosa inspirada no lendário Dōjutsu do Clã Uchiha. | Frame with mysterious crimson aura inspired by the legendary Uchiha Clan Dōjutsu.
+Moldura prateada elegante reservada para ninja das forças especiais de esquadrão. | Elegant silver frame reserved for special forces squad ninja.
+Bolsa contendo 1.000 Ryos para desbloqueios e compras na loja. | Pouch containing 1,000 Ryos for unlocks and shop purchases.
+Grande baú com 3.000 Ryos para expansão rápida do seu império ninja. | Large chest with 3,000 Ryos for rapid expansion of your ninja empire.
+
+# Shop item badges
+TÍTULO | TITLE
+MÍTICO | MYTHIC
+LENDÁRIO | LEGENDARY
+RARO | RARE
+ANBU | ANBU
+POPULAR | POPULAR
+PACOTE | PACK
+OFERTA | OFFER
+DESBLOQUEADO | UNLOCKED
+MISSÃO | MISSION
+ÉPICO | EPIC
+GUERRA | WAR
+AKATSUKI | AKATSUKI
+KONOHA | KONOHA
+
+# Banner names
+Fogo da Vontade | Fire of Will
+Névoa Selsuee | Blood Mist
+Noite Akatsuki | Akatsuki Night
+Vale do Fim | Valley of the End
+
+# Banner descriptions
+Chamas ardentes da vontade de fogo de Konoha. | Burning flames of the will of fire of Konoha.
+Névoa mística e densa da Vila Oculta da Névoa. | Mystical dense mist of the Hidden Mist Village.
+Céu estrelado noturno com atmosfera dos Renegados. | Starry night sky with atmosphere of the Renegades.
+Cenário épico do confronto lendário no Vale do Fim. | Epic scenery of the legendary confrontation at the Valley of the End.
+
+# Frame names & descriptions
+Moldura Guerra Shinobi (PNG) | Shinobi War Frame (PNG)
+Moldura dourada com selos ninja dourados e brilho de batalha. | Golden frame with golden ninja seals and battle sparkle.
+Moldura Nuvens da Akatsuki (PNG) | Akatsuki Clouds Frame (PNG)
+Borda com nuvens vermelhas estilizadas da Akatsuki. | Border with stylized red clouds of the Akatsuki.
+Moldura Símbolo da Folha (PNG) | Leaf Symbol Frame (PNG)
+Moldura folhada verde com o símbolo da Vila Oculta da Folha. | Green leaf-patterned frame with the symbol of the Hidden Leaf Village.
+
+# Quest titles
+Caminho do Shinobi | Path of the Shinobi
+Os Espelhos de Gelo | The Ice Mirrors
+Demônio do Nevoeiro | Demon of the Mist
+O Treinamento de Jiraiya | Jiraiya's Training
+Defesa Absoluta de Areia | Absolute Sand Defense
+Desafio Final: O Despertar do Hokage | Final Challenge: The Awakening of the Hokage
+
+# Quest descriptions
+Dê seus primeiros passos como um estudante. Vença 3 batalhas seguidas usando Uzumaki Naruto ou Uchiha Sasuke sem sofrer derrotas. | Take your first steps as a student. Win 3 consecutive battles using Uzumaki Naruto or Uchiha Sasuke without suffering defeats.
+Aprenda a controlar o jutsu secreto de linhagem de Yuki Haku. Conclua os Espelhos Demoníacos de Haku e garanta vitórias. | Learn to control the secret lineage jutsu of Yuki Haku. Complete Demon Demonic Mirrors of Haku and secure victories.
+Ganhe batalhas usando a temível dupla Haku, Zabuza e Kakashi na mesma partida para reviver o combate na ponte. | Win battles using the fearsome trio Haku, Zabuza and Kakashi in the same match to relive the bridge battle.
+Mostre o poder de sua persistência. Finalize um inimigo com Rasengan e recupere 150 pontos de vida no total. | Show the power of your persistence. Finish an enemy with Rasengan and recover 150 health points in total.
+Gaara controla a areia para criar defesas impenetráveis. Gere 1000 de escudo no total e stune um inimigo 5 vezes. | Gaara controls the sand to create impenetrable defenses. Generate 1000 shield in total and stun an enemy 5 times.
+Mostre a vontade do fogo. Absorva um total de 20.000 de dano e inflija um total de 20.000 de dano nas batalhas. | Show the will of fire. Absorb a total of 20,000 damage and deal a total of 20,000 damage in battles.
+
+# Quest reward titles
+Estudante Determinado | Determined Student
+Gênio do Gelo | Ice Genius
+Lenda da Névoa | Legend of the Mist
+Herói de Konoha | Hero of Konoha
+Escudo Impenetrável | Impenetrable Shield
+Hokage Lendário | Legendary Hokage
+
+# Config export app name
+Naruto Unison Combat | Naruto Unison Combat
+
+# Misc
+Gemas Ninja | Ninja Gems

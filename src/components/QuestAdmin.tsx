@@ -12,6 +12,7 @@ import {
 import { Quest, QuestGoal, QuestReward, Character } from '../types';
 import { getCharacters } from '../lib/characterStorage';
 import { getGoalDescription } from '../lib/questUtils';
+import { safeFetchJson } from '../lib/api';
 
 interface QuestAdminProps {
   onBack: () => void;
@@ -77,15 +78,12 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
 
   const fetchQuests = async () => {
     try {
-      const res = await fetch('/api/quests');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.quests)) {
-          setQuests(data.quests);
-          if (data.quests.length > 0 && !selectedQuestId) {
-            setSelectedQuestId(data.quests[0].id);
-            setEditingQuest(JSON.parse(JSON.stringify(data.quests[0])));
-          }
+      const data = await safeFetchJson<{ success?: boolean; quests?: Quest[] }>('/api/quests');
+      if (data && data.success && Array.isArray(data.quests)) {
+        setQuests(data.quests);
+        if (data.quests.length > 0 && !selectedQuestId) {
+          setSelectedQuestId(data.quests[0].id);
+          setEditingQuest(JSON.parse(JSON.stringify(data.quests[0])));
         }
       }
     } catch (err) {
@@ -95,12 +93,12 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
 
   const handleSaveQuests = async (updatedQuests: Quest[]) => {
     try {
-      const res = await fetch('/api/quests', {
+      const data = await safeFetchJson<{ success?: boolean }>('/api/quests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quests: updatedQuests }),
       });
-      if (res.ok) {
+      if (data && data.success) {
         setQuests(updatedQuests);
         triggerSuccess('Missões salvas e sincronizadas com sucesso!');
       } else {
@@ -421,7 +419,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
               >
                 <div className="flex items-center gap-2.5">
                   <img 
-                    src={q.coverUrl} 
+                    src={q.coverUrl || null} 
                     alt={q.title} 
                     className="w-10 h-10 rounded object-cover border border-slate-700/40 shadow"
                     referrerPolicy="no-referrer"
@@ -1051,7 +1049,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                               {r.imageUrl && (
                                 <div className="p-2 bg-slate-950 rounded-lg border border-slate-800 flex items-center gap-3">
                                   <div className="w-12 h-10 rounded overflow-hidden relative bg-slate-900 border border-amber-500/30 flex-shrink-0">
-                                    <img src={r.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                    <img src={r.imageUrl || null} alt="Preview" className="w-full h-full object-cover" />
                                   </div>
                                   <div className="text-[10px] text-slate-300 truncate font-mono">
                                     <span className="text-amber-400 font-bold block truncate">{r.value || 'Sem título'}</span>

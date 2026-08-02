@@ -303,7 +303,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound 
                         <div className="relative w-full h-full flex items-center justify-center">
                           {item.skinImageUrl ? (
                             <img
-                              src={item.skinImageUrl}
+                              src={item.skinImageUrl || null}
                               alt={item.name}
                               className="w-full h-full object-cover rounded-lg"
                             />
@@ -322,7 +322,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound 
                         <div className="relative">
                           <div className={`w-16 h-16 rounded-full p-1 ${item.frameStyle || 'border-2 border-orange-500'}`}>
                             <img
-                              src={user.photoUrl}
+                              src={user.photoUrl || null}
                               alt={user.name}
                               className="w-full h-full rounded-full object-cover"
                               referrerPolicy="no-referrer"

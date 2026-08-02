@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { safeFetchJson } from './api';
+
 export interface PngFrameItem {
   id: string;
   name: string;
@@ -55,17 +57,14 @@ export function getPngFrames(): PngFrameItem[] {
 
 export async function fetchPngFramesFromServer(): Promise<PngFrameItem[]> {
   try {
-    const res = await fetch('/api/frames');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && Array.isArray(data.frames) && data.frames.length > 0) {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.frames));
-        } catch (e) {
-          console.warn("Failed to save frames to localStorage:", e);
-        }
-        return data.frames;
+    const data = await safeFetchJson<{ success?: boolean; frames?: PngFrameItem[] }>('/api/frames');
+    if (data && data.success && Array.isArray(data.frames) && data.frames.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.frames));
+      } catch (e) {
+        console.warn("Failed to save frames to localStorage:", e);
       }
+      return data.frames;
     }
   } catch (e) {
     console.error("Failed to fetch frames from server:", e);

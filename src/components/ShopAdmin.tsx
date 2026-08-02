@@ -466,7 +466,7 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                   {editingItem.category === 'skin' && (
                     <div className="relative w-full h-full flex items-center justify-center">
                       {editingItem.skinImageUrl ? (
-                        <img src={editingItem.skinImageUrl} alt={editingItem.name} className="w-full h-full object-cover rounded-lg" />
+                        <img src={editingItem.skinImageUrl || null} alt={editingItem.name} className="w-full h-full object-cover rounded-lg" />
                       ) : (
                         <Shirt className="w-10 h-10 text-orange-400" />
                       )}

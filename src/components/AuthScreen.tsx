@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { User, Lock, Mail, Shield, Sparkles, UserPlus, LogIn, Swords } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
+import { useLanguage } from '../lib/i18n';
+import LanguageSelector from './LanguageSelector';
 
 const AVATAR_PRESETS = [
   { name: 'Naruto Uzumaki', url: 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg' },
@@ -18,6 +20,7 @@ interface AuthScreenProps {
 }
 
 export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScreenProps) {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   
   // Login fields
@@ -42,7 +45,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
     setSuccess('');
 
     if (!loginUser.trim() || !loginPass.trim()) {
-      setError('Por favor, preencha todos os campos.');
+      setError(t('Por favor, preencha todos os campos.', 'Please fill in all fields.'));
       return;
     }
 
@@ -56,15 +59,15 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Erro ao realizar login.');
+        throw new Error(data.error || t('Erro ao realizar login.', 'Error logging in.'));
       }
 
-      setSuccess('Conectando ao servidor...');
+      setSuccess(t('Conectando ao servidor...', 'Connecting to server...'));
       setTimeout(() => {
         onLoginSuccess(data.user);
       }, 800);
     } catch (err: any) {
-      setError(err.message || 'Falha de rede.');
+      setError(err.message || t('Falha de rede.', 'Network failure.'));
     } finally {
       setLoading(false);
     }
@@ -77,7 +80,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
     setSuccess('');
 
     if (!regUser.trim() || !regPass.trim() || !regName.trim()) {
-      setError('Por favor, preencha todos os campos do cadastro.');
+      setError(t('Por favor, preencha todos os campos do cadastro.', 'Please fill in all registration fields.'));
       return;
     }
 
@@ -96,15 +99,15 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Erro ao realizar cadastro.');
+        throw new Error(data.error || t('Erro ao realizar cadastro.', 'Error registering account.'));
       }
 
-      setSuccess('Cadastro realizado! Entrando...');
+      setSuccess(t('Cadastro realizado! Entrando...', 'Account created! Logging in...'));
       setTimeout(() => {
         onLoginSuccess(data.user);
       }, 1000);
     } catch (err: any) {
-      setError(err.message || 'Falha de rede.');
+      setError(err.message || t('Falha de rede.', 'Network failure.'));
     } finally {
       setLoading(false);
     }
@@ -116,6 +119,11 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-40">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl animate-pulse delay-700" />
+      </div>
+
+      {/* Top Language Switcher Bar */}
+      <div className="absolute top-6 right-6 z-20">
+        <LanguageSelector playClickSound={playClickSound} variant="pills" />
       </div>
 
       <motion.div
@@ -132,7 +140,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
             NARUTO UNISON
           </h1>
           <p className="text-slate-400 text-xs font-mono tracking-widest uppercase mt-1">
-            Arena de Batalha Shinobi
+            {t('Arena de Batalha Shinobi', 'Shinobi Battle Arena')}
           </p>
         </div>
 
@@ -140,25 +148,25 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
         <div className="flex bg-slate-950 border border-slate-800/60 p-1 rounded-xl mb-6">
           <button
             onClick={() => { playClickSound(); setActiveTab('login'); setError(''); setSuccess(''); }}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+            className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'login'
                 ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <LogIn className="w-3.5 h-3.5" />
-            Entrar
+            {t('Entrar', 'Log In')}
           </button>
           <button
             onClick={() => { playClickSound(); setActiveTab('register'); setError(''); setSuccess(''); }}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+            className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'register'
                 ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <UserPlus className="w-3.5 h-3.5" />
-            Cadastrar
+            {t('Cadastrar', 'Sign Up')}
           </button>
         </div>
 
@@ -181,7 +189,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
               exit={{ opacity: 0, height: 0 }}
               className="mb-4 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-center flex items-center justify-center gap-1.5"
             >
-              <Sparkles className="w-4 h-4 text-emerald-400 animate-spin" />
+              <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
               {success}
             </motion.div>
           )}
@@ -200,7 +208,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
             >
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1.5">
-                  Nome de Usuário (Username)
+                  {t('Nome de Usuário (Username)', 'Username')}
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -208,7 +216,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
                     type="text"
                     value={loginUser}
                     onChange={(e) => setLoginUser(e.target.value)}
-                    placeholder="Digite seu username"
+                    placeholder={t('Digite seu username', 'Enter your username')}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 outline-none transition"
                   />
                 </div>
@@ -216,7 +224,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
 
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1.5">
-                  Senha
+                  {t('Senha', 'Password')}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -224,7 +232,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
                     type="password"
                     value={loginPass}
                     onChange={(e) => setLoginPass(e.target.value)}
-                    placeholder="Sua senha secreta"
+                    placeholder={t('Sua senha secreta', 'Your secret password')}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 outline-none transition"
                   />
                 </div>
@@ -233,9 +241,9 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 hover:brightness-110 active:scale-[0.98] transition text-slate-950 text-xs font-bold uppercase tracking-widest rounded-xl mt-6 flex items-center justify-center gap-2 shadow-lg shadow-orange-600/15"
+                className="w-full py-3 bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 hover:brightness-110 active:scale-[0.98] transition text-slate-950 text-xs font-bold uppercase tracking-widest rounded-xl mt-6 flex items-center justify-center gap-2 shadow-lg shadow-orange-600/15 cursor-pointer"
               >
-                {loading ? 'Entrando...' : 'Entrar na Arena'}
+                {loading ? t('Entrando...', 'Logging in...') : t('Entrar na Arena', 'Enter the Arena')}
               </button>
             </motion.form>
           ) : (
@@ -249,7 +257,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
             >
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1.5">
-                  Username Único
+                  {t('Username Único', 'Unique Username')}
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -257,7 +265,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
                     type="text"
                     value={regUser}
                     onChange={(e) => setRegUser(e.target.value)}
-                    placeholder="Ex: narutinho99"
+                    placeholder={t('Ex: narutinho99', 'Ex: narutodev99')}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 outline-none transition"
                   />
                 </div>
@@ -265,7 +273,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
 
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1.5">
-                  Nome do Shinobi (Exibição)
+                  {t('Nome do Shinobi (Exibição)', 'Shinobi Name (Display)')}
                 </label>
                 <div className="relative">
                   <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -281,7 +289,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
 
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1.5">
-                  Escolha sua Senha
+                  {t('Escolha sua Senha', 'Choose your Password')}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -289,7 +297,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
                     type="password"
                     value={regPass}
                     onChange={(e) => setRegPass(e.target.value)}
-                    placeholder="Senha do ninja"
+                    placeholder={t('Senha do ninja', 'Ninja password')}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 outline-none transition"
                   />
                 </div>
@@ -298,7 +306,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
               {/* Avatar Preset selector */}
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-2">
-                  Escolha seu Avatar de Perfil
+                  {t('Escolha seu Avatar de Perfil', 'Choose your Profile Avatar')}
                 </label>
                 <div className="grid grid-cols-6 gap-2 bg-slate-950/60 p-2 border border-slate-800/85 rounded-xl">
                   {AVATAR_PRESETS.map((preset) => {
@@ -308,13 +316,13 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
                         key={preset.name}
                         type="button"
                         onClick={() => { playClickSound(); setSelectedAvatar(preset.url); }}
-                        className={`aspect-square relative rounded-lg overflow-hidden border-2 transition active:scale-90 ${
+                        className={`aspect-square relative rounded-lg overflow-hidden border-2 transition cursor-pointer active:scale-90 ${
                           isSelected ? 'border-orange-500 shadow shadow-orange-500/50' : 'border-transparent hover:border-slate-800'
                         }`}
                         title={preset.name}
                       >
                         <img
-                          src={preset.url}
+                          src={preset.url || null}
                           alt={preset.name}
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
@@ -337,21 +345,21 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
                   // Pre-set guest avatar
                   onLoginSuccess({
                     username: 'convidado',
-                    name: 'Shinobi Convidado',
+                    name: t('Shinobi Convidado', 'Guest Shinobi'),
                     photoUrl: 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg'
                   });
                 }}
-                className="w-full mt-2 text-center text-[10px] text-slate-500 font-mono hover:text-slate-300 uppercase tracking-wider"
+                className="w-full mt-2 text-center text-[10px] text-slate-500 font-mono hover:text-slate-300 uppercase tracking-wider cursor-pointer"
               >
-                Ou pular e entrar como Convidado
+                {t('Ou pular e entrar como Convidado', 'Or skip and enter as Guest')}
               </button>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 hover:brightness-110 active:scale-[0.98] transition text-slate-950 text-xs font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-orange-600/15"
+                className="w-full py-3 bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 hover:brightness-110 active:scale-[0.98] transition text-slate-950 text-xs font-bold uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-orange-600/15 cursor-pointer"
               >
-                {loading ? 'Criando Ninja...' : 'Criar Conta Shinobi'}
+                {loading ? t('Criando Ninja...', 'Creating Ninja...') : t('Criar Conta Shinobi', 'Create Shinobi Account')}
               </button>
             </motion.form>
           )}
@@ -360,3 +368,4 @@ export default function AuthScreen({ onLoginSuccess, playClickSound }: AuthScree
     </div>
   );
 }
+

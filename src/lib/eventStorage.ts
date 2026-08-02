@@ -4,6 +4,7 @@
  */
 
 import { NinjaEvent } from '../types';
+import { safeFetchJson } from './api';
 
 const STORAGE_KEY = 'naruto_ninja_events';
 
@@ -135,17 +136,14 @@ export function getEvents(): NinjaEvent[] {
 
 export async function fetchEventsFromServer(): Promise<NinjaEvent[]> {
   try {
-    const res = await fetch('/api/events');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.events));
-        } catch (e) {
-          console.warn("Failed to save events to localStorage:", e);
-        }
-        return data.events;
+    const data = await safeFetchJson<{ success?: boolean; events?: NinjaEvent[] }>('/api/events');
+    if (data && data.success && Array.isArray(data.events) && data.events.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.events));
+      } catch (e) {
+        console.warn("Failed to save events to localStorage:", e);
       }
+      return data.events;
     }
   } catch (e) {
     console.error("Failed to fetch events from server:", e);

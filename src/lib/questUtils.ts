@@ -1,4 +1,5 @@
 import { QuestGoal, Character } from '../types';
+import { getLanguage, translateGameText } from './i18n';
 
 export interface BattleStats {
   damageDealt: number;
@@ -22,15 +23,58 @@ export interface BattleStats {
 }
 
 export function getGoalDescription(goal: QuestGoal): string {
+  const lang = getLanguage();
   const charsText = goal.targetCharacters && goal.targetCharacters.length > 0 
     ? goal.targetCharacters.join(', ') 
     : '';
   
   const isMultiChar = goal.targetCharacters && goal.targetCharacters.length > 1;
-  const sameTeamNote = isMultiChar ? ' (no mesmo time)' : '';
-  const skillNote = goal.targetSkill ? ` com [${goal.targetSkill}]` : '';
-  const tagsNote = goal.targetTags && goal.targetTags.length > 0 ? ` (tag: ${goal.targetTags.join(', ')})` : '';
-  const singleNote = goal.singleMatch ? ' [Em 1 partida]' : '';
+  const sameTeamNote = isMultiChar ? (lang === 'en' ? ' (on the same team)' : ' (no mesmo time)') : '';
+  const skillNote = goal.targetSkill ? (lang === 'en' ? ` with [${goal.targetSkill}]` : ` com [${goal.targetSkill}]`) : '';
+  
+  const rawTags = goal.targetTags && goal.targetTags.length > 0 ? goal.targetTags.map(t => translateGameText(t, lang)).join(', ') : '';
+  const tagsNote = rawTags ? ` (tag: ${rawTags})` : '';
+  const singleNote = goal.singleMatch ? (lang === 'en' ? ' [In 1 match]' : ' [Em 1 partida]') : '';
+
+  if (lang === 'en') {
+    switch (goal.type) {
+      case 'win_battles_with_chars':
+        return `Win battles using ${charsText || 'specific characters'}${sameTeamNote}${tagsNote}${singleNote}`;
+
+      case 'win_consecutive_battles_with_chars':
+        return `Win consecutive battles using ${charsText || 'specific characters'}${sameTeamNote}${tagsNote}`;
+
+      case 'win_battles_with_tag':
+        return `Win battles with a full team (3 ninjas) with tag ${rawTags || 'specified'}${singleNote}`;
+
+      case 'use_skill':
+        return `Use ${goal.targetSkill ? `[${goal.targetSkill}]` : 'skill'}${charsText ? ` with ${charsText}` : ''}${tagsNote} ${goal.targetValue}x${singleNote}`;
+
+      case 'heal':
+        return `Heal ${goal.targetValue} HP${charsText ? ` with ${charsText}` : ''}${skillNote}${tagsNote}${singleNote}`;
+
+      case 'kill_with_skill':
+        return `Defeat/Kill ${goal.targetValue} enemy(ies)${charsText ? ` using ${charsText}` : ''}${skillNote}${tagsNote}${singleNote}`;
+
+      case 'shield':
+        return `Generate ${goal.targetValue} Shield${charsText ? ` with ${charsText}` : ''}${skillNote}${tagsNote}${singleNote}`;
+
+      case 'damage_received':
+        return `Receive ${goal.targetValue} Damage${charsText ? ` with ${charsText}` : ''}${tagsNote}${singleNote}`;
+
+      case 'damage_dealt':
+        return `Deal ${goal.targetValue} Damage${charsText ? ` with ${charsText}` : ''}${skillNote}${tagsNote}${singleNote}`;
+
+      case 'stun_enemy':
+        return `Stun enemies ${goal.targetValue}x${charsText ? ` with ${charsText}` : ''}${tagsNote}${singleNote}`;
+
+      case 'counter_cancel_skill':
+        return `Counter / Cancel / Reflect skills ${goal.targetValue}x${charsText ? ` with ${charsText}` : ''}${skillNote}${tagsNote}${singleNote}`;
+
+      default:
+        return `Complete goal (${goal.targetValue})${singleNote}`;
+    }
+  }
 
   switch (goal.type) {
     case 'win_battles_with_chars':

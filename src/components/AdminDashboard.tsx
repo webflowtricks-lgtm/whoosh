@@ -11,11 +11,13 @@ import {
 } from 'lucide-react';
 import { Character, Skill, ChakraType, CharacterSkin, Quest } from '../types';
 import { getCharacters, saveCharacters, resetToDefaultCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
-import { RankConfig, getRanks, saveRanks, fetchRanksFromServer } from '../lib/rankStorage';
+import { RankConfig, getRanks, saveRanks, fetchRanksFromServer, RANK_GRADIENT_PRESETS } from '../lib/rankStorage';
+import { safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import QuestAdmin from './QuestAdmin';
 import ShopAdmin from './ShopAdmin';
 import EventAdmin from './EventAdmin';
+import { useLanguage } from '../lib/i18n';
 
 const TARGET_OPTIONS = [
   { value: 'Target', label: 'Alvo Principal' },
@@ -38,6 +40,7 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ onBack, playClickSound }: AdminDashboardProps) {
+  const { t } = useLanguage();
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events' | 'ranks' | 'backup'>('ninjas');
 
@@ -69,6 +72,9 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
 
   // Ranks Management state
   const [ranksList, setRanksList] = useState<RankConfig[]>([]);
+  const [presetModalIndex, setPresetModalIndex] = useState<number | null>(null);
+  const [presetCategoryFilter, setPresetCategoryFilter] = useState<string>('Todos');
+  const [presetSearch, setPresetSearch] = useState<string>('');
 
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -135,10 +141,9 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     }).catch(() => {});
 
     // Fetch quests for autocomplete
-    fetch('/api/quests')
-      .then(res => res.json())
+    safeFetchJson<{ success?: boolean; quests?: Quest[] }>('/api/quests')
       .then(data => {
-        if (data.success && Array.isArray(data.quests)) {
+        if (data && data.success && Array.isArray(data.quests)) {
           setAllQuests(data.quests);
         }
       })
@@ -235,7 +240,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
       if (res.ok && result.success) {
         // Sync client-side local cache & states immediately
         if (Array.isArray(importedConfigData.characters)) {
-          saveCharacters(importedConfigData.characters);
+          await saveCharacters(importedConfigData.characters);
           setCharacters(getCharacters());
         }
         if (Array.isArray(importedConfigData.ranks)) {
@@ -266,7 +271,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   };
 
   // Save the current character back to the characters list and local storage
-  const handleSaveCharacter = () => {
+  const handleSaveCharacter = async () => {
     if (!editingChar) return;
     playClickSound();
 
@@ -311,14 +316,14 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     }
 
     setCharacters(updatedList);
-    saveCharacters(updatedList);
     setSelectedCharacterId(formattedId);
     setEditingChar(updatedChar);
+    await saveCharacters(updatedList);
     triggerSuccess(`Personagem "${updatedChar.name}" (${formattedId}) salvo com sucesso!`);
   };
 
   // Add a new character from scratch
-  const handleAddNewCharacter = () => {
+  const handleAddNewCharacter = async () => {
     playClickSound();
     const newId = `novo-ninja-${Date.now().toString().slice(-4)}`;
     const newChar: Character = {
@@ -344,9 +349,9 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
 
     const updatedList = [...characters, newChar];
     setCharacters(updatedList);
-    saveCharacters(updatedList);
     setSelectedCharacterId(newId);
     setEditingChar(newChar);
+    await saveCharacters(updatedList);
     triggerSuccess('Novo personagem criado! Agora você pode personalizá-lo.');
   };
 
@@ -359,10 +364,9 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     requestConfirm(
       'Excluir Personagem',
       `Tem certeza de que deseja excluir o personagem "${char.name}" permanentemente?`,
-      () => {
+      async () => {
         const updatedList = characters.filter(c => c.id !== charId);
         setCharacters(updatedList);
-        saveCharacters(updatedList);
         
         if (updatedList.length > 0) {
           setSelectedCharacterId(updatedList[0].id);
@@ -370,6 +374,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
           setSelectedCharacterId('');
           setEditingChar(null);
         }
+        await saveCharacters(updatedList);
         triggerSuccess(`Personagem "${char.name}" removido.`);
       }
     );
@@ -381,8 +386,8 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     requestConfirm(
       'Redefinir Personagens',
       'Atenção: Isso redefinirá todos os personagens e habilidades para as configurações padrão originais do jogo. Deseja continuar?',
-      () => {
-        const defaults = resetToDefaultCharacters();
+      async () => {
+        const defaults = await resetToDefaultCharacters();
         setCharacters(defaults);
         if (defaults.length > 0) {
           setSelectedCharacterId(defaults[0].id);
@@ -395,188 +400,9 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     );
   };
 
-  // Helper to pre-populate legacy skill attributes based on description/name if they are not explicitly set
+  // Helper to pre-populate skill attributes (returns exact skill object)
   const fillLegacySkillAttributes = (skill: Skill): Skill => {
-    const s = { ...skill };
-    
-    // Check if any custom dynamic value is already set
-    const hasCustomValue = 
-      s.damage !== undefined ||
-      s.directDamage !== undefined ||
-      s.heal !== undefined ||
-      s.stunTurns !== undefined ||
-      s.removeShield !== undefined ||
-      s.removeShieldDuration !== undefined ||
-      s.gainChakra !== undefined ||
-      s.gainChakraDuration !== undefined ||
-      s.drainChakra !== undefined ||
-      s.drainChakraDuration !== undefined ||
-      s.stealChakra !== undefined ||
-      s.stealChakraDuration !== undefined ||
-      s.removeChakra !== undefined ||
-      s.removeChakraDuration !== undefined ||
-      s.shieldVal !== undefined ||
-      s.damageReductionVal !== undefined ||
-      s.damageBuffVal !== undefined ||
-      s.dotVal !== undefined ||
-      s.invulnerableDuration !== undefined ||
-      s.invisible !== undefined ||
-      s.invisibleDuration !== undefined;
-
-    if (s.name === 'Rasengan') {
-      s.damage = 45;
-      s.stunTurns = 1;
-      s.stunType = ['physical', 'mental', 'affliction', 'chakra'];
-      return s;
-    }
-
-    if (s.stunTurns && (!s.stunType || s.stunType.length === 0)) {
-      s.stunType = ['physical', 'mental', 'affliction', 'chakra'];
-    }
-
-    if (hasCustomValue) {
-      return s;
-    }
-
-    // Map default/legacy skills based on their original game rules
-    switch (s.name) {
-      case 'Uzumaki Barrage':
-        s.damage = 20;
-        break;
-      case 'Rasengan':
-        s.damage = 45;
-        s.stunTurns = 1;
-        s.stunType = ['physical', 'mental', 'affliction', 'chakra'];
-        break;
-      case 'Shadow Clones':
-        s.damageReductionVal = 15;
-        s.damageReductionDuration = 4;
-        break;
-      case 'Sexy Technique':
-        s.invulnerableDuration = 1;
-        break;
-
-      case 'Lions Barrage':
-        s.damage = 30;
-        break;
-      case 'Chidori':
-        s.damage = 40;
-        break;
-      case 'Sharingan':
-        s.damageBuffVal = 10;
-        s.damageBuffDuration = 4;
-        break;
-      case 'Orochimaru Block':
-        s.invulnerableDuration = 1;
-        break;
-
-      case 'KO Punch':
-        s.damage = 20;
-        s.stunTurns = 1;
-        s.stunType = ['physical'];
-        break;
-      case 'Healing Technique':
-        s.heal = 25;
-        break;
-      case 'Inner Sakura':
-        s.damageReductionVal = 15;
-        s.damageReductionDuration = 4;
-        break;
-      case 'Substitution':
-        s.invulnerableDuration = 1;
-        break;
-
-      case 'Lightning Blade':
-        s.damage = 40;
-        break;
-      case 'Copied Sharingan':
-        s.damageReductionVal = 10;
-        s.damageReductionDuration = 3;
-        break;
-      case 'Ninja Hounds':
-        s.damage = 15;
-        s.stunTurns = 1;
-        s.stunType = ['affliction'];
-        break;
-      case 'Underground Hide':
-        s.invulnerableDuration = 1;
-        break;
-
-      case 'Sand Coffin':
-        s.damage = 15;
-        break;
-      case 'Sand Burial':
-        s.damage = 35;
-        break;
-      case 'Sand Armor':
-        s.shieldVal = 30;
-        s.shieldDuration = 99;
-        break;
-      case 'Sand Shield':
-        s.invulnerableDuration = 1;
-        break;
-
-      case 'Ferocious Fist':
-        s.damage = 25;
-        break;
-      case 'Primary Lotus':
-        s.damage = 35;
-        break;
-      case 'Fifth Gate Opening':
-        s.damageBuffVal = 15;
-        s.damageBuffDuration = 3;
-        break;
-      case 'Lee Guard':
-        s.invulnerableDuration = 1;
-        break;
-
-      case 'Amaterasu':
-        s.dotVal = 15;
-        s.dotDuration = 3;
-        break;
-      case 'Tsukuyomi':
-        s.damage = 30;
-        s.stunTurns = 1;
-        s.stunType = ['mental'];
-        break;
-      case 'Crow Clone Escape':
-        s.invulnerableDuration = 1;
-        break;
-
-      case 'Gentle Fist':
-        s.damage = 20;
-        s.drainChakra = 1;
-        break;
-      case 'Sixty-Four Palms':
-        s.damage = 40;
-        s.stunTurns = 1;
-        s.stunType = ['chakra'];
-        break;
-      case 'Byakugan Sight':
-        s.damageReductionVal = 15;
-        s.damageReductionDuration = 3;
-        break;
-      case 'Eight Trigrams Rotation':
-        s.invulnerableDuration = 1;
-        break;
-
-      case 'Human Boulder':
-        s.damage = 25;
-        break;
-      case 'Partial Expansion':
-        s.damage = 30;
-        break;
-      case 'Three Colored Pills':
-        s.heal = 25;
-        s.damageBuffVal = 15;
-        s.damageBuffDuration = 3;
-        break;
-      case 'Choji Block':
-        s.invulnerableDuration = 1;
-        break;
-    }
-
-    return s;
+    return { ...skill };
   };
 
   // Select a skill for editing
@@ -769,82 +595,84 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
             <button
               onClick={onBack}
               className="p-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 hover:text-white hover:border-slate-700 transition-all cursor-pointer"
-              title="Voltar ao Menu Principal"
+              title={t("Voltar ao Menu Principal", "Back to Main Menu")}
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-orange-400" />
-                <h1 className="text-lg font-black uppercase tracking-tight text-white">Central do Desenvolvedor</h1>
+                <h1 className="text-lg font-black uppercase tracking-tight text-white">{t("Central do Desenvolvedor", "Developer Dashboard")}</h1>
               </div>
-              <p className="text-[10px] text-slate-500 font-mono">Customize habilidades, regras e crie novos ninjas</p>
+              <p className="text-[10px] text-slate-500 font-mono">{t("Customize habilidades, regras e crie novos ninjas", "Customize skills, rules and create new ninjas")}</p>
             </div>
           </div>
 
-          {/* TAB SWITCH */}
-          <div className="flex bg-slate-950 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto">
-            <button
-              onClick={() => { playClickSound(); setActiveTab('ninjas'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'ninjas'
-                  ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
-                  : 'text-slate-400 hover:text-slate-200 font-bold'
-              }`}
-            >
-              Ninjas
-            </button>
-            <button
-              onClick={() => { playClickSound(); setActiveTab('quests'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'quests'
-                  ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
-                  : 'text-slate-400 hover:text-slate-200 font-bold'
-              }`}
-            >
-              Missões
-            </button>
-            <button
-              onClick={() => { playClickSound(); setActiveTab('shop'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'shop'
-                  ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
-                  : 'text-slate-400 hover:text-slate-200 font-bold'
-              }`}
-            >
-              Loja
-            </button>
-            <button
-              onClick={() => { playClickSound(); setActiveTab('events'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'events'
-                  ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
-                  : 'text-slate-400 hover:text-slate-200 font-bold'
-              }`}
-            >
-              Eventos
-            </button>
-            <button
-              onClick={() => { playClickSound(); setActiveTab('ranks'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'ranks'
-                  ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
-                  : 'text-slate-400 hover:text-slate-200 font-bold'
-              }`}
-            >
-              Ranks & XP
-            </button>
-            <button
-              onClick={() => { playClickSound(); setActiveTab('backup'); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                activeTab === 'backup'
-                  ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
-                  : 'text-amber-400/90 hover:text-amber-300 font-bold bg-amber-950/30 border border-amber-500/20'
-              }`}
-            >
-              <FolderArchive className="w-3.5 h-3.5" />
-              Backup & Ambientes
-            </button>
+          <div className="flex items-center gap-2">
+            {/* TAB SWITCH */}
+            <div className="flex bg-slate-950 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto">
+              <button
+                onClick={() => { playClickSound(); setActiveTab('ninjas'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'ninjas'
+                    ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                    : 'text-slate-400 hover:text-slate-200 font-bold'
+                }`}
+              >
+                {t('Ninjas', 'Ninjas')}
+              </button>
+              <button
+                onClick={() => { playClickSound(); setActiveTab('quests'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'quests'
+                    ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                    : 'text-slate-400 hover:text-slate-200 font-bold'
+                }`}
+              >
+                {t('Missões', 'Quests')}
+              </button>
+              <button
+                onClick={() => { playClickSound(); setActiveTab('shop'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'shop'
+                    ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                    : 'text-slate-400 hover:text-slate-200 font-bold'
+                }`}
+              >
+                {t('Loja', 'Shop')}
+              </button>
+              <button
+                onClick={() => { playClickSound(); setActiveTab('events'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'events'
+                    ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                    : 'text-slate-400 hover:text-slate-200 font-bold'
+                }`}
+              >
+                {t('Eventos', 'Events')}
+              </button>
+              <button
+                onClick={() => { playClickSound(); setActiveTab('ranks'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'ranks'
+                    ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                    : 'text-slate-400 hover:text-slate-200 font-bold'
+                }`}
+              >
+                {t('Ranks & XP', 'Ranks & XP')}
+              </button>
+              <button
+                onClick={() => { playClickSound(); setActiveTab('backup'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  activeTab === 'backup'
+                    ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                    : 'text-amber-400/90 hover:text-amber-300 font-bold bg-amber-950/30 border border-amber-500/20'
+                }`}
+              >
+                <FolderArchive className="w-3.5 h-3.5" />
+                {t('Backup & Ambientes', 'Backup & Environments')}
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -946,7 +774,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                 <div className="flex items-center gap-3 w-full md:w-auto">
                   <div className={`relative px-3 py-1.5 rounded-xl border bg-gradient-to-r font-black text-xs uppercase tracking-wider flex items-center gap-1.5 flex-shrink-0 overflow-hidden ${rank.color}`}>
                     {rank.imageUrl && (
-                      <img src={rank.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                      <img src={rank.imageUrl || null} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
                     )}
                     <Award className="w-4 h-4 relative z-10" />
                     <span className="relative z-10">{rank.name || 'Sem Nome'}</span>
@@ -984,7 +812,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Estilo de Cor</label>
+                    <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Estilo de Cor (Degradê)</label>
                     <select
                       value={rank.color}
                       onChange={(e) => {
@@ -994,13 +822,33 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                       }}
                       className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-slate-200 outline-none font-mono"
                     >
-                      <option value="from-slate-500 to-slate-400 border-slate-500/30 text-slate-300">Cinza (Estudante)</option>
-                      <option value="from-emerald-600 to-teal-500 border-emerald-500/30 text-emerald-400">Verde (Genin)</option>
-                      <option value="from-blue-600 to-cyan-500 border-blue-500/30 text-blue-400">Azul (Chunin)</option>
-                      <option value="from-indigo-600 to-purple-500 border-indigo-500/30 text-indigo-400">Roxo (Jonin)</option>
-                      <option value="from-red-600 to-pink-500 border-red-500/30 text-red-400">Vermelho (ANBU)</option>
-                      <option value="from-orange-600 to-amber-500 border-orange-500/30 text-orange-400">Laranja/Dourado (Hokage)</option>
+                      {Array.from(new Set(RANK_GRADIENT_PRESETS.map(p => p.category))).map(cat => (
+                        <optgroup key={cat} label={`--- ${cat.toUpperCase()} ---`}>
+                          {RANK_GRADIENT_PRESETS.filter(p => p.category === cat).map(p => (
+                            <option key={p.value} value={p.value}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                      {!RANK_GRADIENT_PRESETS.some(p => p.value === rank.color) && (
+                        <option value={rank.color}>Customizado: {rank.color}</option>
+                      )}
                     </select>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClickSound();
+                        setPresetModalIndex(index);
+                        setPresetSearch('');
+                        setPresetCategoryFilter('Todos');
+                      }}
+                      className="mt-1.5 w-full py-1.5 px-2 bg-slate-800/80 hover:bg-slate-800 text-amber-300 hover:text-amber-200 border border-slate-700 hover:border-amber-500/50 rounded-xl text-[11px] font-mono font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm active:scale-95"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Galeria de Degradês ({RANK_GRADIENT_PRESETS.length} Opções)</span>
+                    </button>
                   </div>
 
                   <div>
@@ -1067,6 +915,141 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
               </div>
             )}
           </div>
+
+          {/* Rank Gradient Gallery Modal */}
+          <AnimatePresence>
+            {presetModalIndex !== null && ranksList[presetModalIndex] && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
+                >
+                  {/* Modal Header */}
+                  <div className="p-4 md:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white uppercase font-mono tracking-wider">
+                          Galeria de Degradês — {ranksList[presetModalIndex].name}
+                        </h3>
+                        <p className="text-xs text-slate-400 font-mono">
+                          Selecione entre as {RANK_GRADIENT_PRESETS.length} combinações de degradê do jogo.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setPresetModalIndex(null)}
+                      className="p-2 text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Filter Controls */}
+                  <div className="p-4 border-b border-slate-800/80 bg-slate-900/90 flex flex-col sm:flex-row gap-3 items-center justify-between">
+                    {/* Search input */}
+                    <div className="relative w-full sm:w-64">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                      <input
+                        type="text"
+                        placeholder="Buscar degradê..."
+                        value={presetSearch}
+                        onChange={(e) => setPresetSearch(e.target.value)}
+                        className="w-full pl-9 pr-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-white outline-none font-mono"
+                      />
+                    </div>
+
+                    {/* Category Filter Pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
+                      {['Todos', 'Clássicos', 'Elementais & Natureza', 'Místicos & Lendários', 'Neon & Vibrantes', 'Metálicos & Especiais'].map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setPresetCategoryFilter(cat)}
+                          className={`px-3 py-1 rounded-xl text-[11px] font-mono font-bold whitespace-nowrap transition cursor-pointer ${
+                            presetCategoryFilter === cat
+                              ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                              : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Gallery Grid */}
+                  <div className="p-4 md:p-6 overflow-y-auto flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {RANK_GRADIENT_PRESETS.filter((p) => {
+                      const matchesCat = presetCategoryFilter === 'Todos' || p.category === presetCategoryFilter;
+                      const matchesSearch = p.name.toLowerCase().includes(presetSearch.toLowerCase()) || p.category.toLowerCase().includes(presetSearch.toLowerCase());
+                      return matchesCat && matchesSearch;
+                    }).map((preset) => {
+                      const isSelected = ranksList[presetModalIndex].color === preset.value;
+                      return (
+                        <button
+                          key={preset.name + preset.value}
+                          onClick={() => {
+                            playClickSound();
+                            const updated = [...ranksList];
+                            updated[presetModalIndex] = { ...updated[presetModalIndex], color: preset.value };
+                            setRanksList(updated);
+                            setPresetModalIndex(null);
+                          }}
+                          className={`group p-3 rounded-2xl border text-left transition cursor-pointer relative overflow-hidden flex flex-col justify-between min-h-[96px] ${
+                            isSelected
+                              ? 'border-amber-400 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.25)] ring-2 ring-amber-400/50'
+                              : 'border-slate-800 hover:border-slate-600 bg-slate-950/60 hover:bg-slate-950'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-mono font-bold uppercase text-slate-400">
+                              {preset.category}
+                            </span>
+                            {isSelected && (
+                              <span className="text-[9px] font-mono font-extrabold text-amber-400 bg-amber-950 px-2 py-0.5 rounded-full border border-amber-500/40">
+                                Selecionado
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Badge Preview */}
+                          <div className={`px-3 py-1.5 rounded-xl border bg-gradient-to-r font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md ${preset.value}`} style={{ color: ranksList[presetModalIndex].fontColor || '#ffffff' }}>
+                            <Award className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">{ranksList[presetModalIndex].name || preset.name}</span>
+                          </div>
+
+                          <div className="mt-2 text-[10px] font-mono text-slate-400 group-hover:text-amber-300 truncate">
+                            {preset.name}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex justify-between items-center">
+                    <span className="text-xs font-mono text-slate-400">
+                      Mostrando {RANK_GRADIENT_PRESETS.filter((p) => {
+                        const matchesCat = presetCategoryFilter === 'Todos' || p.category === presetCategoryFilter;
+                        const matchesSearch = p.name.toLowerCase().includes(presetSearch.toLowerCase()) || p.category.toLowerCase().includes(presetSearch.toLowerCase());
+                        return matchesCat && matchesSearch;
+                      }).length} opções de degradês
+                    </span>
+                    <button
+                      onClick={() => setPresetModalIndex(null)}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs uppercase tracking-wider transition cursor-pointer"
+                    >
+                      Fechar Galeria
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
         </main>
       ) : activeTab === 'backup' ? (
         <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 z-10 space-y-6">
@@ -1268,9 +1251,9 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
             <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
               <span className="text-[10px] text-amber-400 font-mono">Ordem alterada</span>
               <button
-                onClick={() => {
+                onClick={async () => {
                   setOrderChanged(false);
-                  saveCharacters(characters);
+                  await saveCharacters(characters);
                   triggerSuccess('Ordem dos ninjas salva com sucesso!');
                 }}
                 className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-lg text-[10px] uppercase tracking-wider transition-all cursor-pointer"
@@ -1293,7 +1276,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                   draggable
                   onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragIndex(realIdx); }}
                   onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                  onDrop={(e) => {
+                  onDrop={async (e) => {
                     e.preventDefault();
                     if (dragIndex === null || dragIndex === realIdx) return;
                     const updated = [...characters];
@@ -1303,7 +1286,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                     updated.splice(dropIdx, 0, moved);
                     setCharacters(updated);
                     setDragIndex(null);
-                    saveCharacters(updated);
+                    await saveCharacters(updated);
                     triggerSuccess('Ordem salva no banco de exportação!');
                   }}
                   onClick={() => setSelectedCharacterId(char.id)}
@@ -1319,7 +1302,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                     </div>
                     <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-800 bg-slate-900 flex-shrink-0">
                       <img 
-                        src={char.portrait} 
+                        src={char.portrait || null} 
                         alt={char.name} 
                         className="w-full h-full object-cover" 
                         referrerPolicy="no-referrer"
@@ -1604,7 +1587,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                       <div key={skin.id || skinIdx} className="flex gap-3 items-center bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
                         <div className="w-12 h-12 rounded border border-slate-800 bg-slate-950 flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {skin.image ? (
-                            <img src={skin.image} alt={skin.name} className="w-full h-full object-contain" />
+                            <img src={skin.image || null} alt={skin.name} className="w-full h-full object-contain" />
                           ) : (
                             <span className="text-[8px] text-slate-600 font-mono text-center">Sem Imagem</span>
                           )}
@@ -1723,7 +1706,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                       >
                         <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-800 bg-slate-900 mb-1.5 flex-shrink-0">
                           <img 
-                            src={skill.icon} 
+                            src={skill.icon || null} 
                             alt={skill.name} 
                             className="w-full h-full object-cover" 
                             referrerPolicy="no-referrer"
@@ -1974,14 +1957,15 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                       </div>
 
                       {/* Dynamic Cost Modification Rules (Regras de Redução de Custo de Chakra) */}
+                      {/* Cost Rules (Regras de Custo de Chakra Condicional / Substituição ou Grátis) */}
                       <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
                         <div className="flex justify-between items-center">
                           <div>
                             <span className="block text-[10px] font-bold uppercase tracking-wider text-orange-400 font-mono">
-                              ⚡ Regras de Redução de Custo de Chakra
+                              ⚡ Regras de Custo de Chakra Condicional (Substituição / Habilidade Grátis)
                             </span>
                             <p className="text-[9px] text-slate-400">
-                              Permite que esta habilidade custe menos Chakra quando uma outra habilidade (buff/transformação) estiver ativa em qualquer personagem (aliado ou inimigo).
+                              Quando a habilidade/efeito especificado estiver ativo em um combatente, substitui o custo de chakra desta habilidade pelos selecionados abaixo. Se nenhum chakra for marcado, a habilidade fica <strong>GRÁTIS (0 Custo)</strong>.
                             </p>
                           </div>
                           <button
@@ -1990,7 +1974,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                               const currentRules = editingSkill.costRules || [];
                               handleUpdateSkillField('costRules', [
                                 ...currentRules,
-                                { activeSkillName: '', reduceType: 'Rand', reduceAmount: 1 }
+                                { activeSkillName: '', overrideCost: [] }
                               ]);
                             }}
                             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-orange-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
@@ -2001,76 +1985,128 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
 
                         {(!editingSkill.costRules || editingSkill.costRules.length === 0) ? (
                           <p className="text-[9px] text-slate-500 font-mono italic">
-                            Nenhuma regra de desconto configurada para esta habilidade.
+                            Nenhuma regra de custo condicional configurada para esta habilidade.
                           </p>
                         ) : (
-                          <div className="space-y-2 pt-1">
-                            {editingSkill.costRules.map((rule, rIdx) => (
-                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
-                                <span className="text-slate-400 font-bold">Quando ativo:</span>
-                                <input
-                                  type="text"
-                                  list="costSkills-suggestions"
-                                  value={rule.activeSkillName}
-                                  onChange={(e) => {
-                                    const updated = [...(editingSkill.costRules || [])];
-                                    updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
-                                    handleUpdateSkillField('costRules', updated);
-                                  }}
-                                  placeholder="Ex: Two-Headed Wolf"
-                                  className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px]"
-                                />
-                                <datalist id="costSkills-suggestions">
-                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
-                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
-                                  ) : <option value="" disabled />}
-                                </datalist>
-                                <span className="text-slate-400 font-bold">Reduzir Chakra:</span>
-                                <select
-                                  value={rule.reduceType || rule.reduceSpecificType || 'Rand'}
-                                  onChange={(e) => {
-                                    const updated = [...(editingSkill.costRules || [])];
-                                    updated[rIdx] = { ...updated[rIdx], reduceType: e.target.value as any };
-                                    handleUpdateSkillField('costRules', updated);
-                                  }}
-                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px]"
-                                >
-                                  <option value="Rand">Rand (Aleatório)</option>
-                                  <option value="Tai">Tai (Taijutsu)</option>
-                                  <option value="Nin">Nin (Ninjutsu)</option>
-                                  <option value="Gen">Gen (Genjutsu)</option>
-                                  <option value="Blood">Blood (Kekkei Genkai)</option>
-                                  <option value="Any">Qualquer (Qualquer Custo)</option>
-                                </select>
+                          <div className="space-y-3 pt-1">
+                            {editingSkill.costRules.map((rule, rIdx) => {
+                              const overrideCost = rule.overrideCost ?? [];
+                              return (
+                                <div key={rIdx} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-[10px] font-mono space-y-2">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-slate-400 font-bold">Quando ativo:</span>
+                                    <input
+                                      type="text"
+                                      list="costSkills-suggestions"
+                                      value={rule.activeSkillName}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.costRules || [])];
+                                        updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                        handleUpdateSkillField('costRules', updated);
+                                      }}
+                                      placeholder="Ex: Two-Headed Wolf / Transformation"
+                                      className="flex-1 min-w-[150px] px-2.5 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-lg text-white outline-none text-[10px]"
+                                    />
+                                    <datalist id="costSkills-suggestions">
+                                      {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                        editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                      ) : <option value="" disabled />}
+                                    </datalist>
 
-                                <span className="text-slate-400 font-bold">Qtd:</span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={5}
-                                  value={rule.reduceAmount ?? rule.reduceSpecificAmount ?? rule.reduceRandCost ?? 1}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 1;
-                                    const updated = [...(editingSkill.costRules || [])];
-                                    updated[rIdx] = { ...updated[rIdx], reduceAmount: val, reduceRandCost: val };
-                                    handleUpdateSkillField('costRules', updated);
-                                  }}
-                                  className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px]"
-                                />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = (editingSkill.costRules || []).filter((_, i) => i !== rIdx);
+                                        handleUpdateSkillField('costRules', updated.length > 0 ? updated : undefined);
+                                      }}
+                                      className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                      title="Remover Regra"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const updated = (editingSkill.costRules || []).filter((_, i) => i !== rIdx);
-                                    handleUpdateSkillField('costRules', updated.length > 0 ? updated : undefined);
-                                  }}
-                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
-                                  title="Remover Regra"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
+                                  {/* CUSTO SUBSTITUTO / GRÁTIS */}
+                                  <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800/80 space-y-1.5">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <span className="text-slate-300 font-bold text-[9.5px]">Custo de Chakra quando ativo:</span>
+                                      {overrideCost.length === 0 ? (
+                                        <span className="px-2 py-0.5 bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 rounded text-[9px] font-bold tracking-wide animate-pulse">
+                                          ✨ HABILIDADE GRÁTIS (0 CUSTO)
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] text-amber-400 font-bold">
+                                          {overrideCost.length} Chakra(s) Requerido(s)
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* BADGES DO CUSTO ATUAL */}
+                                    <div className="flex flex-wrap items-center gap-1.5 min-h-[26px]">
+                                      {overrideCost.length === 0 ? (
+                                        <span className="text-[9px] text-slate-500 italic">Nenhum chakra marcado. A habilidade fica sem custo de chakra ao ativar.</span>
+                                      ) : (
+                                        overrideCost.map((cType, cIdx) => (
+                                          <span
+                                            key={cIdx}
+                                            className="px-2 py-0.5 bg-slate-800 text-slate-200 border border-slate-700 rounded-md text-[9px] font-bold flex items-center gap-1"
+                                          >
+                                            {cType}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const newCost = [...overrideCost];
+                                                newCost.splice(cIdx, 1);
+                                                const updated = [...(editingSkill.costRules || [])];
+                                                updated[rIdx] = { ...updated[rIdx], overrideCost: newCost };
+                                                handleUpdateSkillField('costRules', updated);
+                                              }}
+                                              className="text-slate-400 hover:text-red-400 font-bold ml-0.5"
+                                              title="Remover este chakra"
+                                            >
+                                              ×
+                                            </button>
+                                          </span>
+                                        ))
+                                      )}
+                                    </div>
+
+                                    {/* BOTOES ADICIONAR CHAKRA */}
+                                    <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-slate-800/60">
+                                      <span className="text-[9px] text-slate-400 font-bold mr-1">Adicionar Chakra:</span>
+                                      {(['Tai', 'Nin', 'Gen', 'Blood', 'Rand'] as ChakraType[]).map((cType) => (
+                                        <button
+                                          key={cType}
+                                          type="button"
+                                          onClick={() => {
+                                            const newCost = [...overrideCost, cType];
+                                            const updated = [...(editingSkill.costRules || [])];
+                                            updated[rIdx] = { ...updated[rIdx], overrideCost: newCost };
+                                            handleUpdateSkillField('costRules', updated);
+                                          }}
+                                          className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded text-[9px] font-bold cursor-pointer transition-all"
+                                        >
+                                          + {cType}
+                                        </button>
+                                      ))}
+                                      {overrideCost.length > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const updated = [...(editingSkill.costRules || [])];
+                                            updated[rIdx] = { ...updated[rIdx], overrideCost: [] };
+                                            handleUpdateSkillField('costRules', updated);
+                                          }}
+                                          className="px-2 py-0.5 bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-800/60 rounded text-[9px] font-bold cursor-pointer transition-all ml-auto"
+                                        >
+                                          Limpar (Tornar Grátis)
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -2083,7 +2119,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                             const current = editingSkill.damageRules || [];
                             handleUpdateSkillField('damageRules', [
                               ...current,
-                              { activeSkillName: '', damageBoost: 5 }
+                              { activeSkillName: '', damageBoost: 20, damageType: 'damage', ignoreBaseDamage: true }
                             ]);
                           }}
                           className="mt-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
@@ -2109,18 +2145,18 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                     handleUpdateSkillField('damageRules', updated);
                                   }}
                                   placeholder="Ex: Sharingan"
-                                  className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px]"
+                                  className="flex-1 min-w-[120px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px]"
                                 />
                                 <datalist id="dmgSkills-suggestions">
                                   {editingChar?.skills && editingChar.skills.length > 0 ? (
                                     editingChar.skills.map(s => <option key={s.name} value={s.name} />)
                                   ) : <option value="" disabled />}
                                 </datalist>
-                                <span className="text-slate-400 font-bold">Dano+:</span>
+                                <span className="text-slate-400 font-bold">Dano:</span>
                                 <input
                                   type="number"
                                   min={1}
-                                  max={50}
+                                  max={200}
                                   value={rule.damageBoost}
                                   onChange={(e) => {
                                     const val = parseInt(e.target.value) || 1;
@@ -2128,8 +2164,38 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                     updated[rIdx] = { ...updated[rIdx], damageBoost: val };
                                     handleUpdateSkillField('damageRules', updated);
                                   }}
-                                  className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px]"
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px]"
                                 />
+                                <span className="text-slate-400 font-bold">Tipo:</span>
+                                <select
+                                  value={rule.damageType || 'damage'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.damageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damageType: e.target.value as any };
+                                    handleUpdateSkillField('damageRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-amber-300 outline-none text-[10px]"
+                                >
+                                  <option value="damage">💥 Dano Normal</option>
+                                  <option value="direct_damage">🎯 Dano Direto</option>
+                                  <option value="piercing">🗡️ Dano Perfurante</option>
+                                  <option value="affliction">💀 Dano de Aflição</option>
+                                  <option value="bleeding">🩸 Dano de Sangramento</option>
+                                  <option value="dot">🔥 DoT (Turnos)</option>
+                                </select>
+                                <label className="flex items-center gap-1.5 cursor-pointer bg-slate-900/80 px-2 py-1 rounded border border-slate-800/80" title="Quando a regra estiver ativa, o dano base/direto padrão da habilidade é zerado para não acumular">
+                                  <input
+                                    type="checkbox"
+                                    checked={rule.ignoreBaseDamage !== false}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.damageRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], ignoreBaseDamage: e.target.checked };
+                                      handleUpdateSkillField('damageRules', updated);
+                                    }}
+                                    className="accent-rose-500 rounded cursor-pointer"
+                                  />
+                                  <span className="text-[9px] text-slate-300 font-bold">Ignorar Dano Base</span>
+                                </label>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -2152,10 +2218,10 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                         <div className="flex justify-between items-center">
                           <div>
                             <span className="block text-[10px] font-bold uppercase tracking-wider text-yellow-400 font-mono">
-                              ⚡ Dano por Stack no Alvo
+                              ⚡ Dano por Stack
                             </span>
                             <p className="text-[9px] text-slate-400">
-                              Causa dano adicional baseado na quantidade de stacks que o alvo possui do tipo especificado.
+                              Causa dano adicional baseado na quantidade de stacks do tipo especificado (no Alvo, em Mim, nos Inimigos, Aliados ou em Todos).
                             </p>
                           </div>
                           <button
@@ -2164,7 +2230,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                               const currentRules = editingSkill.stackDamageRules || [];
                               handleUpdateSkillField('stackDamageRules', [
                                 ...currentRules,
-                                { stackType: '', damagePerStack: 5 }
+                                { stackType: '', damagePerStack: 5, stackSource: 'target' }
                               ]);
                             }}
                             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-yellow-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
@@ -2199,6 +2265,22 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                     editingChar.skills.filter(s => s.stackable && s.stackType).map(s => <option key={s.stackType} value={s.stackType!} />)
                                   ) : <option value="" disabled />}
                                 </datalist>
+                                <span className="text-slate-400 font-bold text-[9px]">Verificar em:</span>
+                                <select
+                                  value={rule.stackSource || 'target'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.stackDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], stackSource: e.target.value as any };
+                                    handleUpdateSkillField('stackDamageRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-yellow-500 rounded text-white outline-none text-[10px] font-mono"
+                                >
+                                  <option value="target">🎯 No Alvo (Padrão)</option>
+                                  <option value="self">👤 Em Mim (Conjurador)</option>
+                                  <option value="enemies">⚔️ Todos Inimigos</option>
+                                  <option value="allies">🛡️ Todos Aliados</option>
+                                  <option value="all">🌐 Todos em Campo</option>
+                                </select>
                                 <span className="text-slate-400 font-bold">Dano/Stack:</span>
                                 <input
                                   type="number"
@@ -4300,6 +4382,68 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                             </div>
                           </div>
 
+                          {/* 16.5. Revelar Skills Invisíveis */}
+                          <div className="space-y-1 bg-cyan-950/15 border border-cyan-800/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono mb-1">👁️ Revelar Skills Invisíveis</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={10}
+                                  value={editingSkill.revealInvisibleDuration || 0}
+                                  onChange={(e) => handleUpdateSkillField('revealInvisibleDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-cyan-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.revealInvisibleTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('revealInvisibleTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-cyan-900/50 rounded text-[10px] font-mono text-cyan-300 focus:border-cyan-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.revealInvisibleIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('revealInvisibleIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                  <select
+                                    value={editingSkill.revealInvisibleRemoveType || 'none'}
+                                    onChange={(e) => handleUpdateSkillField('revealInvisibleRemoveType', e.target.value)}
+                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
+                                  >
+                                    <option value="none">Nenhum</option>
+                                    <option value="all">Todos</option>
+                                    <option value="buff">Buffs</option>
+                                    <option value="debuff">Debuffs</option>
+                                    <option value="stun">Stuns</option>
+                                    <option value="dot">DoTs</option>
+                                    <option value="bleeding">Sangra</option>
+                                    <option value="affliction">Aflição</option>
+                                    <option value="shield">Escudo</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* 17. Incapaz de Reduzir Dano */}
                           <div className="space-y-1 bg-rose-950/10 border border-rose-900/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div>
@@ -4407,6 +4551,68 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   <select
                                     value={editingSkill.cannotBeInvulnerableRemoveType || 'none'}
                                     onChange={(e) => handleUpdateSkillField('cannotBeInvulnerableRemoveType', e.target.value)}
+                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
+                                  >
+                                    <option value="none">Nenhum</option>
+                                    <option value="all">Todos</option>
+                                    <option value="buff">Buffs</option>
+                                    <option value="debuff">Debuffs</option>
+                                    <option value="stun">Stuns</option>
+                                    <option value="dot">DoTs</option>
+                                    <option value="bleeding">Sangra</option>
+                                    <option value="affliction">Aflição</option>
+                                    <option value="shield">Escudo</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 18b. Incapaz de Receber Habilidades Amigáveis */}
+                          <div className="space-y-1 bg-fuchsia-950/10 border border-fuchsia-900/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-fuchsia-400 font-mono">🚫 Incapaz de Receber Skills Amigáveis (Bloqueio de Aliados)</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={10}
+                                  value={editingSkill.cannotReceiveFriendlyDuration || 0}
+                                  onChange={(e) => handleUpdateSkillField('cannotReceiveFriendlyDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-fuchsia-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-fuchsia-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.cannotReceiveFriendlyTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('cannotReceiveFriendlyTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-fuchsia-900/50 rounded text-[10px] font-mono text-fuchsia-300 focus:border-fuchsia-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.cannotReceiveFriendlyIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('cannotReceiveFriendlyIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-fuchsia-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                  <select
+                                    value={editingSkill.cannotReceiveFriendlyRemoveType || 'none'}
+                                    onChange={(e) => handleUpdateSkillField('cannotReceiveFriendlyRemoveType', e.target.value)}
                                     className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
                                   >
                                     <option value="none">Nenhum</option>
@@ -4652,6 +4858,166 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                 </select>
                               </div>
                             </div>
+                          </div>
+
+                          {/* 22. Retaliação / Dano Reativo */}
+                          <div className="space-y-1 bg-red-950/20 border border-red-800/50 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-red-400 font-mono flex items-center gap-1">
+                                ⚡ Retaliação / Dano Reativo
+                              </label>
+                              <div className="flex items-center gap-2 mt-1">
+                                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.retaliateDamage || false}
+                                    onChange={(e) => handleUpdateSkillField('retaliateDamage', e.target.checked)}
+                                    className="rounded bg-slate-950 border-red-800/60 text-red-500 focus:ring-0 w-4 h-4"
+                                  />
+                                  <span className="text-xs text-red-300 font-mono font-bold">Ativar Retaliação</span>
+                                </label>
+                              </div>
+
+                              {editingSkill.retaliateDamage && (
+                                <div className="space-y-2 mt-2 pt-2 border-t border-red-900/30">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={500}
+                                        value={editingSkill.retaliateDamageVal || 0}
+                                        onChange={(e) => handleUpdateSkillField('retaliateDamageVal', parseInt(e.target.value) || 0)}
+                                        className="w-16 px-2 py-1 bg-slate-900 border border-red-900/60 focus:border-red-500 rounded text-red-400 font-mono text-xs text-center font-bold"
+                                      />
+                                      <span className="text-[9px] text-slate-500 font-mono">Dano</span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1">
+                                      {editingSkill.retaliateDamagePermanent || (editingSkill.retaliateDamageDuration && editingSkill.retaliateDamageDuration >= 999) ? (
+                                        <div className="w-16 px-2 py-1 bg-slate-900 border border-amber-800/60 rounded text-amber-400 font-mono text-xs text-center font-bold">
+                                          ♾️ Inf.
+                                        </div>
+                                      ) : (
+                                        <input
+                                          type="number"
+                                          min={1}
+                                          max={99}
+                                          value={editingSkill.retaliateDamageDuration || 1}
+                                          onChange={(e) => handleUpdateSkillField('retaliateDamageDuration', parseInt(e.target.value) || 1)}
+                                          placeholder="Turnos"
+                                          className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                        />
+                                      )}
+                                      <span className="text-[9px] text-slate-500 font-mono">Turnos</span>
+                                    </div>
+
+                                    <label className="flex items-center gap-1 cursor-pointer select-none ml-1 bg-slate-900/80 px-2 py-1 rounded border border-slate-800 hover:border-amber-500/50 transition-colors">
+                                      <input
+                                        type="checkbox"
+                                        checked={!!(editingSkill.retaliateDamagePermanent || (editingSkill.retaliateDamageDuration && editingSkill.retaliateDamageDuration >= 999))}
+                                        onChange={(e) => {
+                                          const isInf = e.target.checked;
+                                          handleUpdateSkillField('retaliateDamagePermanent', isInf);
+                                          handleUpdateSkillField('retaliateDamageDuration', isInf ? 99999 : 1);
+                                        }}
+                                        className="rounded bg-slate-950 border-amber-800/60 text-amber-500 focus:ring-0 w-3.5 h-3.5"
+                                      />
+                                      <span className="text-[10px] text-amber-300 font-mono font-bold flex items-center gap-0.5">♾️ Infinito</span>
+                                    </label>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] text-red-400 font-mono uppercase font-bold block">Tipo de Dano Reativo:</span>
+                                    <select
+                                      value={editingSkill.retaliateDamageType || 'damage'}
+                                      onChange={(e) => handleUpdateSkillField('retaliateDamageType', e.target.value)}
+                                      className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-red-300 outline-none w-full focus:border-red-600"
+                                    >
+                                      <option value="damage">Dano Normal (Abate Escudo)</option>
+                                      <option value="direct_damage">Dano Direto / Perfura Defesa</option>
+                                      <option value="affliction">Aflição</option>
+                                      <option value="dot">Queimadura (DoT)</option>
+                                      <option value="bleeding">Sangramento</option>
+                                      <option value="true">Dano Verdadeiro</option>
+                                    </select>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] text-red-400 font-mono uppercase font-bold block">Gatilho / Alvo Atacado:</span>
+                                    <select
+                                      value={editingSkill.retaliateTargetScope || 'self'}
+                                      onChange={(e) => handleUpdateSkillField('retaliateTargetScope', e.target.value)}
+                                      className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-red-300 outline-none w-full focus:border-red-600"
+                                    >
+                                      <option value="self">Apenas quando usar no Próprio Personagem</option>
+                                      <option value="ally">Apenas quando usar em um Aliado</option>
+                                      <option value="self_or_ally">Próprio Personagem ou Aliado</option>
+                                      <option value="team">Qualquer Membro do Time</option>
+                                    </select>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] text-red-400 font-mono uppercase font-bold block">Modo / Frequência:</span>
+                                    <select
+                                      value={editingSkill.retaliateTriggerMode || 'always'}
+                                      onChange={(e) => handleUpdateSkillField('retaliateTriggerMode', e.target.value)}
+                                      className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-red-300 outline-none w-full focus:border-red-600"
+                                    >
+                                      <option value="always">Sempre que qualquer inimigo usar skill</option>
+                                      <option value="first_only">Apenas o 1º inimigo que usar skill (outros não)</option>
+                                    </select>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    <span className="text-[9px] text-red-400 font-mono uppercase font-bold">🎯 Aplicar Buff em:</span>
+                                    <select
+                                      value={editingSkill.retaliateDamageTarget || 'Self'}
+                                      onChange={(e) => handleUpdateSkillField('retaliateDamageTarget', e.target.value)}
+                                      className="px-2 py-0.5 bg-slate-900 border border-red-900/50 rounded text-[10px] font-mono text-red-300 focus:border-red-600 outline-none w-full max-w-[150px]"
+                                    >
+                                      {TARGET_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {editingSkill.retaliateDamage && (
+                              <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={editingSkill.retaliateDamageIrremovable || false}
+                                      onChange={(e) => handleUpdateSkillField('retaliateDamageIrremovable', e.target.checked)}
+                                      className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0 w-3 h-3"
+                                    />
+                                    🔒 Nunca Remover
+                                  </label>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                    <select
+                                      value={editingSkill.retaliateDamageRemoveType || 'none'}
+                                      onChange={(e) => handleUpdateSkillField('retaliateDamageRemoveType', e.target.value)}
+                                      className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
+                                    >
+                                      <option value="none">Nenhum</option>
+                                      <option value="all">Todos</option>
+                                      <option value="buff">Buffs</option>
+                                      <option value="debuff">Debuffs</option>
+                                      <option value="stun">Stuns</option>
+                                      <option value="dot">DoTs</option>
+                                      <option value="bleeding">Sangra</option>
+                                      <option value="affliction">Aflição</option>
+                                      <option value="shield">Escudo</option>
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                         </div>

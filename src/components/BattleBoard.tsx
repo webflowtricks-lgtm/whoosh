@@ -5,10 +5,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy } from 'lucide-react';
+import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy, ShieldAlert } from 'lucide-react';
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
+import { calculateBattleXp, getRankProgress, checkRankChange } from '../lib/xpSystem';
+import { getRanks } from '../lib/rankStorage';
+import { useLanguage, translateGameText, translateSkillName, translateTargetType, getLanguage } from '../lib/i18n';
 
 interface BattleBoardProps {
   playerTeam: Character[];
@@ -44,7 +47,9 @@ interface BattleBoardProps {
     skillsUsed: { [skillName: string]: number };
     killsWithSkill: { [skillName: string]: number };
     playerCharactersUsed: string[];
-  }) => void;
+    turn?: number;
+    alivePlayerCount?: number;
+  }, gainedXp?: number) => void;
 }
 
 interface CuedAction {
@@ -142,11 +147,34 @@ export function checkCombatantInvulnerable(c: CombatCharacter): boolean {
   return c.activeEffects.some(e => e.type === 'invulnerable');
 }
 
-export function isEffectVisibleToViewer(eff: ActiveEffect, viewerSide: 'player' | 'enemy' = 'player'): boolean {
+export function isEffectVisibleToViewer(
+  eff: ActiveEffect,
+  viewerSide: 'player' | 'enemy' = 'player',
+  viewerCombatants?: CombatCharacter[],
+  targetCombatant?: CombatCharacter,
+  allCombatants?: CombatCharacter[]
+): boolean {
   if (eff.isInvisible || eff.type === 'invisible') {
-    if (eff.casterSide) {
-      return eff.casterSide === viewerSide;
+    const effectCasterSide = eff.casterSide || (eff.casterId ? (eff.casterId.startsWith('player') ? 'player' : 'enemy') : undefined);
+    if (effectCasterSide && effectCasterSide === viewerSide) {
+      return true;
     }
+
+    const combatantsToCheck = (allCombatants && allCombatants.length > 0)
+      ? allCombatants
+      : [
+          ...(viewerCombatants || []),
+          ...(targetCombatant ? [targetCombatant] : [])
+        ];
+
+    const hasActiveReveal = combatantsToCheck.some(c =>
+      c.activeEffects?.some(e => e.type === 'reveal_invisible' && (e.casterSide === viewerSide || !e.casterSide || e.casterSide === 'player'))
+    );
+
+    if (hasActiveReveal) {
+      return true;
+    }
+
     return false;
   }
   return true;
@@ -156,7 +184,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
   if (!eff) return false;
   const debuffTypes = [
     'stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown',
-    'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable'
+    'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly'
   ];
   if (debuffTypes.includes(eff.type)) return true;
   const lowerName = (eff.name || '').toLowerCase();
@@ -196,11 +224,14 @@ export function getSkillBaseName(eff: ActiveEffect): string {
 }
 
 export function getSingleEffectDescription(effect: ActiveEffect): string {
+  const lang = getLanguage();
   let desc = (effect as any).description || '';
-  if (desc && desc !== 'Efeito invisível ativo') return desc;
+  if (desc && desc !== 'Efeito invisível ativo') return translateGameText(desc, lang);
 
-  const durText = effect.duration === 1 ? '1 turno' : `${effect.duration} turnos`;
+  const durText = effect.duration === 1 ? (lang === 'en' ? '1 turn' : '1 turno') : `${effect.duration} ${lang === 'en' ? 'turns' : 'turnos'}`;
   const val = effect.value || 0;
+
+  let rawPt = '';
 
   switch (effect.type) {
     case 'stun': {
@@ -218,60 +249,106 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       const stTypes = resolvedTypes.map(t => typesMap[t] || t).join(', ');
 
       if (isComplete) {
-        return `🚫 Atordoado Completo: Não pode usar QUALQUER habilidade por ${durText}.`;
+        rawPt = `🚫 Atordoado Completo: Não pode usar QUALQUER habilidade por ${durText}.`;
       } else {
-        return `🚫 Atordoado Parcial: Não pode usar habilidades das categorias (${stTypes}) por ${durText}.`;
+        rawPt = `🚫 Atordoado Parcial: Não pode usar habilidades das categorias (${stTypes}) por ${durText}.`;
       }
+      break;
     }
     case 'damage_debuff':
-      return val > 0 ? `🌫️ Fraqueza: Reduz o dano causado pelo alvo em ${val} por ${durText}` : `🌫️ Fraqueza por ${durText}`;
+      rawPt = val > 0 ? `Fragilidade: Reduz o dano do alvo em ${val} por ${durText}` : `Fraqueza por ${durText}`;
+      break;
     case 'damage_buff':
-      return val > 0 ? `⚔️ Aumenta o ataque de todas as suas habilidades em ${val}` : `⚔️ Aumenta o ataque das habilidades por ${durText}`;
+      rawPt = val > 0 ? `Aumenta o ataque de todas as suas habilidades em ${val}` : `Aumenta o ataque das habilidades por ${durText}`;
+      break;
     case 'damage_reduction':
-      return val > 0 ? `🛡️ Redução de ${val} de dano por ${durText}` : `🛡️ Redução de dano por ${durText}`;
+      rawPt = val > 0 ? `Redução de ${val} de dano por ${durText}` : `Redução de dano por ${durText}`;
+      break;
     case 'shield':
-      return val > 0 ? `🛡️ Escudo protetor absorvendo ${val} de dano por ${durText}` : `🛡️ Escudo protetor por ${durText}`;
+      rawPt = val > 0 ? `Escudo protetor absorvendo ${val} de dano por ${durText}` : `Escudo protetor por ${durText}`;
+      break;
     case 'dot':
     case 'damage':
-      return val > 0 ? `🔥 Queimadura: Recebe ${val} de dano contínuo por turno por ${durText}` : `🔥 Dano contínuo por ${durText}`;
+      rawPt = val > 0 ? `Queimadura: Recebe ${val} de dano contínuo por turno por ${durText}` : `Dano contínuo por ${durText}`;
+      break;
     case 'bleeding':
-      return val > 0 ? `🩸 Sangramento: Recebe ${val} de dano por turno por ${durText}` : `🩸 Sangramento por ${durText}`;
+      rawPt = val > 0 ? `Sangramento: Recebe ${val} de dano por turno por ${durText}` : `Sangramento por ${durText}`;
+      break;
     case 'affliction':
-      return val > 0 ? `💜 Aflição: Recebe ${val} de dano por turno por ${durText}` : `💜 Aflição por ${durText}`;
+      rawPt = val > 0 ? `Aflição: Recebe ${val} de dano por turno por ${durText}` : `Aflição por ${durText}`;
+      break;
     case 'direct_damage':
-      return val > 0 ? `💥 Dano Direto: Sofre ${val} de dano por turno por ${durText}` : `💥 Dano direto por ${durText}`;
+      rawPt = val > 0 ? `Dano Direto: Sofre ${val} de dano por turno por ${durText}` : `Dano direto por ${durText}`;
+      break;
     case 'heal':
-      return val > 0 ? `💚 Regenera ${val} de vida por turno por ${durText}` : `💚 Efeito de cura por ${durText}`;
+      rawPt = val > 0 ? `Regenera ${val} de vida por turno por ${durText}` : `Efeito de cura por ${durText}`;
+      break;
     case 'invulnerable':
-      return `🌌 Inviolável: Imune a todos os danos por ${durText}`;
+      rawPt = `Inviolável: Imune a todos os danos por ${durText}`;
+      break;
     case 'counter':
     case 'counter_attack':
-      return `⚔️ Pronto para contra-atacar por ${durText}`;
+      rawPt = `Pronto para contra-atacar por ${durText}`;
+      break;
     case 'reflect':
-      return `🪞 Reflete habilidades do oponente por ${durText}`;
+      rawPt = `Reflete habilidades do oponente por ${durText}`;
+      break;
     case 'paralyze_cooldown':
-      return `⏳ Recargas de habilidades paralisadas por ${durText}`;
+      rawPt = `Recargas de habilidades paralisadas por ${durText}`;
+      break;
     case 'invisible':
-      return `👁️ Efeito Invisível [${effect.sourceSkillName || effect.name}] (Invisível para o oponente) por ${durText}`;
+      rawPt = `Efeito Invisível [${effect.sourceSkillName || effect.name}] (Invisível para o oponente) por ${durText}`;
+      break;
+    case 'reveal_invisible':
+      rawPt = `Revelar Habilidades Invisíveis: Habilidades e efeitos invisíveis deste personagem revelados por ${durText}`;
+      break;
     case 'cannot_reduce_damage':
-      return `🚫 Incapaz de Reduzir Dano: Bônus de redução ignorados por ${durText}`;
+      rawPt = `Incapaz de Reduzir Dano: Bônus de redução ignorados por ${durText}`;
+      break;
     case 'cannot_be_invulnerable':
-      return `🚫 Incapaz de Ficar Invulnerável: Invulnerabilidade bloqueada por ${durText}`;
+      rawPt = `Incapaz de Ficar Invulnerável: Invulnerabilidade bloqueada por ${durText}`;
+      break;
     case 'ignore_stun':
-      return `⚡ Imune a Stun: Stuns ignorados por ${durText}`;
+      rawPt = `Imune a Stun: Stuns ignorados por ${durText}`;
+      break;
     case 'damage_immunity':
-      return `🛡️ Imune a Dano: Todo dano anulado por ${durText}`;
+      rawPt = `Imune a Dano: Todo dano anulado por ${durText}`;
+      break;
     case 'immortal':
-      return `💪 Imortal: Não pode morrer enquanto este efeito estiver ativo por ${durText}`;
+      rawPt = `Imortal: Não pode morrer enquanto este efeito estiver ativo por ${durText}`;
+      break;
+    case 'cannot_receive_friendly':
+      rawPt = `Bloqueio Amigável: Não pode receber habilidades de aliados por ${durText}`;
+      break;
+    case 'retaliate_damage': {
+      const baseVal = effect.retaliateDamageVal || effect.value || 0;
+      const stacks = (effect as any).stacks || 1;
+      const rVal = baseVal * stacks;
+      const rScope = effect.retaliateTargetScope || 'self';
+      const rScopeText = rScope === 'self' ? 'nele' : rScope === 'ally' ? 'em um aliado' : rScope === 'self_or_ally' ? 'nele ou em um aliado' : 'no time';
+      const rModeText = effect.retaliateTriggerMode === 'first_only' ? ' (apenas 1º inimigo)' : '';
+      const stackText = stacks > 1 ? ` (${stacks}x stacks = ${rVal} de dano)` : '';
+      rawPt = `Retaliação: Se oponente usar skill ${rScopeText}, sofre ${rVal} de dano${rModeText}${stackText} por ${durText}`;
+      break;
+    }
     default:
-      return val > 0 ? `${effect.name}: valor ${val} por ${durText}` : `${effect.name}: ativo por ${durText}`;
+      rawPt = val > 0 ? `${effect.name}: valor ${val} por ${durText}` : `${effect.name}: ativo por ${durText}`;
+      break;
   }
+
+  return translateGameText(rawPt, lang);
 }
 
-function getGroupedActiveEffects(effects: ActiveEffect[], viewerSide: 'player' | 'enemy' = 'player'): EffectDisplayItem[] {
+function getGroupedActiveEffects(
+  effects: ActiveEffect[],
+  viewerSide: 'player' | 'enemy' = 'player',
+  viewerCombatants?: CombatCharacter[],
+  targetCombatant?: CombatCharacter,
+  allCombatants?: CombatCharacter[]
+): EffectDisplayItem[] {
   if (!effects || effects.length === 0) return [];
 
-  const visibleEffects = effects.filter(eff => isEffectVisibleToViewer(eff, viewerSide));
+  const visibleEffects = effects.filter(eff => isEffectVisibleToViewer(eff, viewerSide, viewerCombatants, targetCombatant, allCombatants));
   if (visibleEffects.length === 0) return [];
 
   const groupsMap = new Map<string, {
@@ -353,17 +430,6 @@ function getGroupedActiveEffects(effects: ActiveEffect[], viewerSide: 'player' |
   });
 }
 
-// FULL SCREEN HIGH IMPACT ANIMATED OVERLAY FOR VICTORY / DEFEAT
-const OVERLAY_PARTICLES = Array.from({ length: 32 }).map((_, i) => ({
-  id: i,
-  left: (i * 17) % 100,
-  top: (i * 29) % 100,
-  size: (i % 6) + 4,
-  duration: 3 + (i % 5) * 0.8,
-  delay: (i % 8) * 0.25,
-  driftX: ((i % 3) - 1) * 30,
-}));
-
 interface GameOverOverlayProps {
   gameOver: 'victory' | 'defeat';
   playerCombatants: CombatCharacter[];
@@ -371,6 +437,7 @@ interface GameOverOverlayProps {
   handleQuit: () => void;
   user: UserProfile;
   turn: number;
+  matchStats?: { damageDealt: number };
 }
 
 function GameOverOverlay({
@@ -378,102 +445,58 @@ function GameOverOverlay({
   playerCombatants,
   enemyCombatants,
   handleQuit,
+  user,
   turn,
+  matchStats,
 }: GameOverOverlayProps) {
+  const { t } = useLanguage();
   const isVictory = gameOver === 'victory';
   const showcaseTeam = isVictory ? playerCombatants : enemyCombatants;
 
+  const alivePlayerCount = playerCombatants.filter((p) => !p.isDead).length;
+  const damageDealt = matchStats?.damageDealt || 0;
+
+  const gainedXp = calculateBattleXp(isVictory, turn, alivePlayerCount, damageDealt);
+  const ranks = getRanks();
+  const oldXp = Math.max(0, user?.xp || 0);
+  const newXp = Math.max(0, oldXp + gainedXp);
+  const actualXpChange = newXp - oldXp;
+
+  const oldRankProgress = getRankProgress(oldXp, ranks);
+  const newRankProgress = getRankProgress(newXp, ranks);
+  const rankChangeInfo = checkRankChange(oldXp, newXp, ranks);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/95 backdrop-blur-lg overflow-hidden select-none">
-      {/* 1. Animated Radial Background Aura */}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 select-none ${
+        isVictory
+          ? 'bg-slate-950/95 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-950/40 via-slate-950 to-slate-950'
+          : 'bg-slate-950/95 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-950/40 via-slate-950 to-slate-950'
+      }`}
+    >
+      {/* Lightweight Main Modal Content */}
       <motion.div
-        initial={{ scale: 0.2, opacity: 0 }}
-        animate={{ scale: [0.8, 1.25, 1], opacity: [0, 0.8, 0.5] }}
-        transition={{ duration: 1.2, ease: 'easeOut' }}
-        className={`absolute w-[700px] h-[700px] rounded-full blur-3xl pointer-events-none ${
-          isVictory
-            ? 'bg-gradient-to-r from-amber-500/30 via-yellow-400/20 to-emerald-500/25'
-            : 'bg-gradient-to-r from-red-700/40 via-rose-900/30 to-slate-900/60'
-        }`}
-      />
-
-      {/* 2. Diagonal Energy Slash Overlay Effect on Entrance */}
-      <motion.div
-        initial={{ x: '-120%', opacity: 1 }}
-        animate={{ x: '180%', opacity: 0 }}
-        transition={{ duration: 0.9, ease: 'easeInOut', delay: 0.1 }}
-        className={`absolute inset-y-0 w-48 -skew-x-12 pointer-events-none z-10 ${
-          isVictory
-            ? 'bg-gradient-to-r from-transparent via-amber-300/60 to-transparent shadow-[0_0_50px_#f59e0b]'
-            : 'bg-gradient-to-r from-transparent via-red-500/70 to-transparent shadow-[0_0_50px_#ef4444]'
-        }`}
-      />
-
-      {/* 3. High Impact Particle System */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        {OVERLAY_PARTICLES.map((p) => (
-          <motion.div
-            key={p.id}
-            initial={{
-              x: `${p.left}vw`,
-              y: `${p.top + 20}vh`,
-              opacity: 0,
-              scale: 0.5,
-            }}
-            animate={{
-              y: [`${p.top + 15}vh`, `${p.top - 25}vh`],
-              x: [`${p.left}vw`, `${p.left + p.driftX / 10}vw`],
-              opacity: [0, 0.9, 0],
-              scale: [0.5, 1.2, 0.4],
-              rotate: [0, 360],
-            }}
-            transition={{
-              duration: p.duration,
-              repeat: Infinity,
-              delay: p.delay,
-              ease: 'easeInOut',
-            }}
-            style={{ width: p.size, height: p.size }}
-            className={`absolute rounded-full filter ${
-              isVictory
-                ? 'bg-amber-300 shadow-[0_0_12px_#fbbf24]'
-                : 'bg-red-500 shadow-[0_0_12px_#ef4444]'
-            }`}
-          />
-        ))}
-      </div>
-
-      {/* 4. Main Modal Content */}
-      <motion.div
-        initial={{ scale: 0.75, opacity: 0, y: 30 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.75, opacity: 0, y: 30 }}
-        transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-        className="relative z-20 w-full max-w-4xl flex flex-col items-center justify-between text-center gap-4 sm:gap-6"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        className="relative z-20 w-full max-w-3xl flex flex-col items-center justify-between text-center gap-4 sm:gap-6"
       >
         {/* Top Victory/Defeat Banner Badge */}
-        <motion.div
-          initial={{ y: -50, opacity: 0, scale: 0.6 }}
-          animate={{ y: 0, opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', damping: 18, stiffness: 300, delay: 0.15 }}
-          className="flex flex-col items-center justify-center relative"
-        >
-          {/* Outer Ring Glow */}
-          <div
-            className={`absolute -inset-4 rounded-full blur-xl opacity-60 ${
-              isVictory ? 'bg-amber-500/40' : 'bg-red-600/50'
-            }`}
-          />
-
-          <div className="relative flex items-center justify-center gap-3 px-6 sm:px-10 py-2.5 sm:py-3 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-2xl backdrop-blur-md">
+        <div className="flex flex-col items-center justify-center relative">
+          <div className="relative flex items-center justify-center gap-3 px-6 sm:px-10 py-2.5 sm:py-3 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
             {isVictory ? (
-              <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-amber-400 filter drop-shadow-[0_0_12px_rgba(251,191,36,0.8)] animate-bounce" />
+              <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-amber-400" />
             ) : (
-              <Swords className="w-8 h-8 sm:w-10 sm:h-10 text-red-500 filter drop-shadow-[0_0_12px_rgba(239,68,68,0.8)] animate-pulse" />
+              <Swords className="w-8 h-8 sm:w-10 sm:h-10 text-red-500" />
             )}
 
             <h1
-              className={`text-3xl sm:text-5xl font-black uppercase tracking-tight font-display drop-shadow-2xl ${
+              className={`text-2xl sm:text-4xl font-black uppercase tracking-tight font-display ${
                 isVictory
                   ? 'bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-400 bg-clip-text text-transparent'
                   : 'bg-gradient-to-r from-red-500 via-rose-400 to-red-600 bg-clip-text text-transparent'
@@ -483,14 +506,104 @@ function GameOverOverlay({
             </h1>
           </div>
 
-          <p className="mt-2 text-xs sm:text-sm font-mono uppercase tracking-widest text-slate-300 font-bold bg-slate-900/80 px-4 py-1 rounded-full border border-slate-800 shadow">
+          <p className="mt-2 text-xs sm:text-sm font-mono uppercase tracking-widest text-slate-300 font-bold bg-slate-900/90 px-4 py-1 rounded-full border border-slate-800">
             {isVictory ? 'Esquadrão Conquistou a Supremacia' : 'Esquadrão Foi Superado'} • Turno {turn}
           </p>
-        </motion.div>
+        </div>
 
-        {/* Center Stage: Character Art Pop-Ups Lineup */}
-        <div className="w-full my-2 sm:my-4 flex items-center justify-center gap-3 sm:gap-6 flex-wrap min-h-[180px] sm:min-h-[240px]">
-          {showcaseTeam.map((combatant, idx) => {
+        {/* XP REWARD & RANK PROGRESS CARD */}
+        <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 text-center shadow-xl backdrop-blur-sm space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-black uppercase text-amber-400">
+              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+              <span>Experiência da Batalha</span>
+            </div>
+            {actualXpChange >= 0 ? (
+              <span className="text-xs font-black font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-500/40 shadow">
+                +{actualXpChange} XP
+              </span>
+            ) : (
+              <span className="text-xs font-black font-mono text-rose-400 bg-rose-950/80 px-2.5 py-0.5 rounded-full border border-rose-500/40 shadow">
+                {actualXpChange} XP
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+            <span>Seu Posto:</span>
+            <span
+              className={`px-2.5 py-0.5 rounded-lg bg-gradient-to-r font-extrabold text-[11px] uppercase tracking-wider shadow ${newRankProgress.currentRank.color}`}
+              style={{ color: '#ffffff' }}
+            >
+              {newRankProgress.currentRank.name}
+            </span>
+          </div>
+
+          <div className="space-y-1">
+            <div className="relative w-full h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+              <motion.div
+                initial={{ width: `${oldRankProgress.progressPercent}%` }}
+                animate={{ width: `${newRankProgress.progressPercent}%` }}
+                transition={{ duration: 1, ease: 'easeOut' }}
+                className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400 shadow-[0_0_12px_rgba(251,191,36,0.5)]"
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+              {newRankProgress.isMaxRank ? (
+                <span className="text-amber-300 font-bold w-full text-center">
+                  🏆 Posto Máximo Alcançado! ({newXp.toLocaleString()} XP)
+                </span>
+              ) : (
+                <>
+                  <span>{newRankProgress.currentXp.toLocaleString()} XP</span>
+                  <span>
+                    Próximo: {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP ({newRankProgress.nextRank?.name})
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {rankChangeInfo.rankedUp && (
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
+              transition={{ duration: 0.5, type: 'spring' }}
+              className="bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border border-amber-400/60 p-2 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+            >
+              <div className="text-xs font-black text-amber-300 uppercase tracking-wide flex items-center justify-center gap-1">
+                <Trophy className="w-4 h-4 text-yellow-300 animate-bounce" />
+                <span>SUBIU DE RANK!</span>
+              </div>
+              <p className="text-[11px] font-bold text-white">
+                Parabéns! Você alcançou o posto de{' '}
+                <span className="text-amber-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>!
+              </p>
+            </motion.div>
+          )}
+
+          {rankChangeInfo.rankedDown && (
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
+              transition={{ duration: 0.5, type: 'spring' }}
+              className="bg-gradient-to-r from-red-500/20 via-rose-500/30 to-red-500/20 border border-red-400/60 p-2 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
+            >
+              <div className="text-xs font-black text-rose-300 uppercase tracking-wide flex items-center justify-center gap-1">
+                <ShieldAlert className="w-4 h-4 text-rose-400 animate-bounce" />
+                <span>DESCEU DE RANK!</span>
+              </div>
+              <p className="text-[11px] font-bold text-white">
+                A perda de XP rebaixou seu posto para{' '}
+                <span className="text-rose-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>.
+              </p>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Center Stage: Character Lineup */}
+        <div className="w-full my-1 sm:my-2 flex items-center justify-center gap-3 sm:gap-5 flex-wrap min-h-[140px] sm:min-h-[180px]">
+          {showcaseTeam.map((combatant) => {
             const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
             const portrait = combatant.character.portrait;
             const isPortrait = !!(
@@ -503,49 +616,28 @@ function GameOverOverlay({
             const skinImg = rawSkin && !isPortrait ? rawSkin : null;
 
             return (
-              <motion.div
+              <div
                 key={combatant.id}
-                initial={{ opacity: 0, y: 60, scale: 0.6, rotate: idx % 2 === 0 ? -4 : 4 }}
-                animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
-                transition={{
-                  type: 'spring',
-                  damping: 18,
-                  stiffness: 220,
-                  delay: 0.35 + idx * 0.15,
-                }}
                 className="relative group flex flex-col items-center"
               >
-                {/* Aura Glow Behind Character */}
-                <div
-                  className={`absolute -inset-2 rounded-2xl blur-lg transition-all ${
-                    isVictory
-                      ? combatant.isDead
-                        ? 'bg-slate-800/40'
-                        : 'bg-amber-500/30 group-hover:bg-amber-400/50'
-                      : 'bg-red-600/30'
-                  }`}
-                />
-
                 {/* Character Box */}
                 <div
-                  className={`relative w-28 sm:w-36 h-40 sm:h-52 rounded-2xl overflow-hidden border flex flex-col items-center justify-between p-2 shadow-2xl transition-transform ${
+                  className={`relative w-28 sm:w-34 h-38 sm:h-48 rounded-2xl overflow-hidden border flex flex-col items-center justify-between p-2 shadow-xl ${
                     isVictory
                       ? combatant.isDead
-                        ? 'bg-slate-950/80 border-slate-800 opacity-60 grayscale'
-                        : 'bg-gradient-to-b from-slate-900/90 via-slate-950 to-amber-950/40 border-amber-500/60 shadow-amber-950/50 ring-1 ring-amber-500/30'
-                      : 'bg-gradient-to-b from-slate-900/90 via-slate-950 to-red-950/40 border-red-500/60 shadow-red-950/50 ring-1 ring-red-500/30'
+                        ? 'bg-slate-950 border-slate-800 opacity-60 grayscale'
+                        : 'bg-slate-900 border-amber-500/50 shadow-amber-950/30'
+                      : 'bg-slate-900 border-red-500/50 shadow-red-950/30'
                   }`}
                 >
                   {/* Character Standing PNG or Portrait */}
-                  <div className="w-full h-28 sm:h-38 relative flex items-center justify-center overflow-hidden">
+                  <div className="w-full h-26 sm:h-34 relative flex items-center justify-center overflow-hidden">
                     {skinImg ? (
-                      <motion.img
-                        src={skinImg}
+                      <img
+                        src={skinImg || null}
                         alt={combatant.character.name}
                         referrerPolicy="no-referrer"
-                        animate={{ y: [0, -6, 0] }}
-                        transition={{ duration: 2.8 + idx * 0.3, repeat: Infinity, ease: 'easeInOut' }}
-                        className={`h-full w-auto max-w-full object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.9)] ${
+                        className={`h-full w-auto max-w-full object-contain ${
                           combatant.isDead ? 'grayscale opacity-50' : ''
                         }`}
                         onError={(e) => {
@@ -553,9 +645,9 @@ function GameOverOverlay({
                         }}
                       />
                     ) : (
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-amber-400/50 shadow-lg relative bg-slate-950">
+                      <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full overflow-hidden border-2 border-amber-400/50 relative bg-slate-950">
                         <img
-                          src={portrait}
+                          src={portrait || null}
                           alt={combatant.character.name}
                           className={`w-full h-full object-cover ${combatant.isDead ? 'grayscale opacity-50' : ''}`}
                         />
@@ -564,7 +656,7 @@ function GameOverOverlay({
                   </div>
 
                   {/* Character Name & Status Badge */}
-                  <div className="w-full text-center z-10 bg-slate-950/90 px-1.5 py-1 rounded-xl border border-slate-800/80">
+                  <div className="w-full text-center z-10 bg-slate-950/90 px-1.5 py-1 rounded-xl border border-slate-800">
                     <p className="text-[10px] sm:text-xs font-extrabold text-white truncate font-display">
                       {combatant.character.name}
                     </p>
@@ -574,56 +666,51 @@ function GameOverOverlay({
                           CAÍDO
                         </span>
                       ) : (
-                        <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/80 px-1.5 py-0.2 rounded border border-amber-500/40 shadow">
+                        <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/80 px-1.5 py-0.2 rounded border border-amber-500/40">
                           SOBREVIVENTE
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             );
           })}
         </div>
 
         {/* Scroll Banner Text & Action Button Card */}
-        <motion.div
-          initial={{ y: 40, opacity: 0, scale: 0.9 }}
-          animate={{ y: 0, opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', damping: 20, stiffness: 260, delay: 0.6 }}
-          className="relative max-w-lg w-full rounded-3xl overflow-hidden p-6 sm:p-8 bg-slate-950/90 border border-slate-800 shadow-2xl flex flex-col items-center gap-4"
-        >
-          {/* Background Pergaminho Image with low opacity */}
+        <div className="relative max-w-md sm:max-w-lg w-full min-h-[160px] p-5 sm:p-6 flex flex-col items-center justify-between text-center gap-3">
+          {/* Background Pergaminho Image */}
           <img
             src="/static/img/ui/pergaminho.webp"
             alt="Pergaminho Shinobi"
-            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none opacity-20 filter contrast-125"
+            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none"
           />
 
-          <div className="relative z-10 space-y-2">
-            <p className="text-xs sm:text-sm text-stone-200 font-bold leading-relaxed">
+          <div className="relative z-10 px-4 pt-1 space-y-1">
+            <p className="text-xs sm:text-sm text-stone-900 font-extrabold leading-relaxed">
               {isVictory
-                ? 'Parabéns! Você executou sua estratégia com excelência, subjugou as forças inimigas e alcançou a glória no campo de batalha!'
-                : 'Seu esquadrão combateu bravamente, mas sucumbiu às táticas adversárias. Reorganize seus jutsus e retorne para a desforra!'}
+                ? 'Parabéns! Você executou sua tática com maestria, subjugou as forças inimigas e conquistou a vitória no campo de batalha!'
+                : 'Seu esquadrão combateu bravamente, mas foi superado pelas táticas adversárias. Reorganize seus jutsus para a desforra!'}
             </p>
           </div>
 
-          <div className="relative z-10 w-full pt-1">
+          <div className="relative z-10 w-full px-4 pb-1">
             <button
               onClick={handleQuit}
-              className={`w-full py-3.5 px-6 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-wider shadow-2xl border transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2 group ${
+              className={`w-full py-3 px-6 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2 shadow-lg border ${
                 isVictory
-                  ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 border-amber-400 shadow-amber-500/25 ring-2 ring-amber-400/40'
-                  : 'bg-gradient-to-r from-red-800 via-rose-900 to-red-950 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-500/60 shadow-red-900/40 ring-2 ring-red-500/30'
+                  ? 'bg-gradient-to-r from-amber-700 via-amber-800 to-yellow-900 hover:from-amber-600 hover:to-yellow-800 text-amber-100 border-amber-600/70'
+                  : 'bg-gradient-to-r from-red-800 via-rose-900 to-red-950 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-600/70'
               }`}
             >
-              <Sparkles className="w-4 h-4 animate-spin text-slate-950 group-hover:scale-125 transition-transform" />
-              <span>Voltar ao Menu Principal</span>
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>{t("Voltar ao Menu", "Back to Selection")}</span>
             </button>
           </div>
-        </motion.div>
+        </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -643,6 +730,7 @@ export default function BattleBoard({
   restoredState,
   onBattleEnd,
 }: BattleBoardProps) {
+  const { t, language } = useLanguage();
   // Stats tracking for Quests
   const matchStatsRef = useRef({
     damageDealt: 0,
@@ -669,7 +757,12 @@ export default function BattleBoard({
   const handleQuit = async () => {
     console.log('handleQuit gameOver:', gameOver, 'has onBattleEnd:', !!onBattleEnd, 'playerChars:', matchStatsRef.current.playerCharactersUsed);
     if (gameOver && onBattleEnd) {
-      await onBattleEnd(gameOver === 'victory', matchStatsRef.current);
+      const isVictory = gameOver === 'victory';
+      const alivePlayerCount = playerCombatants.filter((p) => !p.isDead).length;
+      const damageDealt = matchStatsRef.current.damageDealt || 0;
+      const gainedXp = calculateBattleXp(isVictory, turn, alivePlayerCount, damageDealt);
+
+      await onBattleEnd(isVictory, { ...matchStatsRef.current, turn, alivePlayerCount }, gainedXp);
     }
     onQuit();
   };
@@ -685,6 +778,11 @@ export default function BattleBoard({
   const [enemyCombatants, setEnemyCombatants] = useState<CombatCharacter[]>([]);
   const playerRef = useRef<CombatCharacter[]>([]);
   const enemyRef = useRef<CombatCharacter[]>([]);
+
+  useEffect(() => {
+    if (playerCombatants.length > 0) playerRef.current = playerCombatants;
+    if (enemyCombatants.length > 0) enemyRef.current = enemyCombatants;
+  }, [playerCombatants, enemyCombatants]);
   // Track skills used per character per turn (for requirePreviousSkill)
   const currentTurnUsedSkills = useRef<Record<string, Set<string>>>({});
   const lastTurnUsedSkills = useRef<Record<string, Set<string>>>({});
@@ -710,6 +808,12 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   // Selection/Targeting State
   const [selectedSkill, setSelectedSkill] = useState<{ charId: string; skillIndex: number } | null>(null);
   const [cuedActions, setCuedActions] = useState<CuedAction[]>([]);
+
+  // Guard against rapid multi-click exploits on turn confirmation
+  const [isEndingTurn, setIsEndingTurn] = useState(false);
+  const isEndingTurnRef = useRef(false);
+  const turnActionLockedRef = useRef(false);
+  const processedOpponentTurnsRef = useRef<Set<number>>(new Set());
 
   // Last rolled chakra display
   const [lastChakraRoll, setLastChakraRoll] = useState<string[]>([]);
@@ -935,7 +1039,11 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     setSelectedSkill(null);
     setGameOver(null);
 
-    const startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
+    let startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
+    if (onlineParams?.isOnline) {
+      const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
+      startingPlanner = myOnlineIndex === 0 ? 'player' : 'enemy';
+    }
     setActivePlanner(startingPlanner);
     setPassedPlayersThisTurn([]);
 
@@ -997,8 +1105,8 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     const initialLogs: CombatLog[] = [
       { id: '1', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
-          ? '🎲 [INICIATIVA] Você ganhou o sorteio e joga PRIMEIRO no Turno 1!'
-          : '🎲 [INICIATIVA] O Oponente ganhou o sorteio e joga PRIMEIRO no Turno 1!', type: 'system' },
+          ? '🎲 [INICIATIVA] Você ganhou o sorteio e joga PRIMEIRO no Turno 1! (Inicia com 1 Chakra)'
+          : '🎲 [INICIATIVA] O Oponente ganhou o sorteio e joga PRIMEIRO no Turno 1! (Você inicia com 3 Chakras)', type: 'system' },
       { id: '3', turn: 1, message: 'Gere seus chakras e escolha suas táticas!', type: 'system' },
     ];
     setLogs(initialLogs);
@@ -1010,9 +1118,15 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
       playCustomSound('StartSecond');
     }
 
-    // Trigger initial chakra roll banner (Turn 1 gets 1 chakra per alive ally each)
-    rollChakraForTurn(true, pCombat.length);
-    rollChakraForTurn(false, eCombat.length);
+    // Trigger initial chakra generation for Turn 1:
+    // The player who starts first receives 1 chakra; the second player receives 3 chakra.
+    if (startingPlanner === 'player') {
+      rollChakraForTurn(true, 1);
+      rollChakraForTurn(false, 3);
+    } else {
+      rollChakraForTurn(true, 3);
+      rollChakraForTurn(false, 1);
+    }
   }, [playerTeam, enemyTeam, restoredState]);
 
   // Poll for opponent emojis in an online match
@@ -1198,7 +1312,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
         {
           id: Math.random().toString(),
           turn,
-          message: `🌀 Jogador gerou chakra (${count} de aliados vivos): ${rolled.map(r => `[${r}]`).join(', ')}`,
+          message: `🌀 Jogador gerou (${count > 1 ? `${count} chakras` : '1 chakra'}): ${rolled.map(r => `[${r}]`).join(', ')}`,
           type: 'chakra',
         },
       ]);
@@ -1287,6 +1401,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
   // Skill click select
   const handleSelectSkill = (charId: string, skillIdx: number) => {
+    if (isEndingTurnRef.current || isEndingTurn || gameOver) return;
     playClickSound();
 
     const isEnemyChar = charId.startsWith('enemy');
@@ -1438,6 +1553,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
   // Grid/character click targets selection
   const handleSelectTarget = (targetId: string, isEnemyTarget: boolean) => {
+    if (isEndingTurnRef.current || isEndingTurn || gameOver) return;
     if (!selectedSkill) return;
 
     const isSourceEnemy = selectedSkill.charId.startsWith('enemy');
@@ -1469,7 +1585,14 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
     // Invisible & Invulnerable checks
     const isOppositeSide = isSourceEnemy ? !isEnemyTarget : isEnemyTarget;
-    if (isOppositeSide) {
+    if (!isOppositeSide) {
+      const isBlockedFromFriendly = targetChar.activeEffects.some(e => e.type === 'cannot_receive_friendly');
+      if (isBlockedFromFriendly) {
+        playCustomSound('Error');
+        addFloatingText(targetId, 'IMPOSSIBILITADO DE RECEBER SKILLS AMIGÁVEIS!', 'stun');
+        return;
+      }
+    } else {
       if (skill.targetType === 'AllEnemies') {
         // For AllEnemies, check if ALL living targets on that side are invulnerable
         const livingTargets = targetList.filter(c => !c.isDead);
@@ -1525,12 +1648,24 @@ const handleTradeChakra = () => {
 
   if (totalSelected !== 4 || !tradeTarget) return;
 
+  const canAffordTrade = (Object.keys(tradeSelection) as (keyof ChakraPool)[]).every(
+    k => playerChakra[k] >= tradeSelection[k]
+  );
+  if (!canAffordTrade) return;
+
+  const currentSelection = { ...tradeSelection };
+  const currentTarget = tradeTarget;
+
+  setTradeSelection({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
+  setTradeTarget(null);
+  setShowChakraTrade(false);
+
   setPlayerChakra(prev => {
     const updated = { ...prev };
-    (Object.keys(tradeSelection) as (keyof ChakraPool)[]).forEach(k => {
-      updated[k] -= tradeSelection[k];
+    (Object.keys(currentSelection) as (keyof ChakraPool)[]).forEach(k => {
+      updated[k] -= currentSelection[k];
     });
-    updated[tradeTarget] += 1;
+    updated[currentTarget] += 1;
     return updated;
   });
 
@@ -1539,14 +1674,10 @@ const handleTradeChakra = () => {
     {
       id: Math.random().toString(),
       turn,
-      message: `🔄 Troca de Chakra: 4 chakras convertidos em 1 [${tradeTarget}]!`,
+      message: `🔄 Troca de Chakra: 4 chakras convertidos em 1 [${currentTarget}]!`,
       type: 'chakra',
     },
   ]);
-
-  setTradeSelection({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
-  setTradeTarget(null);
-  setShowChakraTrade(false);
 };
 
   // Who is currently selecting their actions / whose planning turn it is
@@ -1555,7 +1686,7 @@ const handleTradeChakra = () => {
   const [passedPlayersThisTurn, setPassedPlayersThisTurn] = useState<('player' | 'enemy')[]>([]);
 
   const hasDamageImmunity = (character: CombatCharacter) =>
-    character.activeEffects.some((e: ActiveEffect) => e.type === 'damage_immunity');
+    character?.activeEffects?.some((e: ActiveEffect) => e.type === 'damage_immunity' || e.type === 'invulnerable') ?? false;
 
   const pushActiveEffect = (character: CombatCharacter, effect: ActiveEffect) => {
     // Check stackDurationRules for duration override (skip for stack damage DOT effects)
@@ -1571,6 +1702,12 @@ const handleTradeChakra = () => {
       }
     }
 
+    // Check if character is blocked from receiving friendly skills
+    if (character.activeEffects.some(e => e.type === 'cannot_receive_friendly') && !isDebuffEffect(effect)) {
+      addFloatingText(character.id, 'BLOQUEADO (SKILL AMIGÁVEL)', 'stun');
+      return;
+    }
+
     // Check if this effect is stackable
     const skill = character.character.skills.find(s => s.name === effect.name || effect.name.startsWith(s.name));
     const isStackable = effect.stackable ?? skill?.stackable ?? false;
@@ -1578,6 +1715,18 @@ const handleTradeChakra = () => {
     // Use the executing skill's invisible flag (not the target's skill)
     const execSkill = currentSkillRef.current;
     const skillInvisible = execSkill?.invisible || (execSkill?.invisibleDuration !== undefined && execSkill?.invisibleDuration > 0);
+
+    if (effect.type === 'retaliate_damage') {
+      const sourceName = effect.sourceSkillName || execSkill?.name || skill?.name || effect.name;
+      const existing = character.activeEffects.find(
+        e => e.type === 'retaliate_damage' && (e.sourceSkillName === sourceName || e.name === effect.name)
+      );
+      if (existing) {
+        existing.stacks = (existing.stacks || 1) + 1;
+        existing.duration = Math.max(existing.duration, effect.duration);
+        return;
+      }
+    }
 
     if (isStackable && stackType) {
       const existing = character.activeEffects.find(
@@ -1598,7 +1747,7 @@ const handleTradeChakra = () => {
       icon: effect.icon || execSkill?.icon || skill?.icon,
       sourceSkillName: effect.sourceSkillName || execSkill?.name || skill?.name || effect.name,
       isInvisible: effect.isInvisible !== undefined ? effect.isInvisible : (skillInvisible || effect.type === 'invisible'),
-      casterSide: effect.casterSide || (character.id.startsWith('player') ? 'player' : 'enemy'),
+      casterSide: effect.casterSide || (effect.casterId ? (effect.casterId.startsWith('player') ? 'player' : 'enemy') : (character.id.startsWith('player') ? 'player' : 'enemy')),
       castTurn: effect.castTurn ?? turn,
     });
   };
@@ -1715,8 +1864,10 @@ const handleTradeChakra = () => {
   // Helper to execute actions for a single side (Player or Enemy) immediately
   const executeSideActions = (sideActions: CuedAction[], isPlayerSide: boolean, customRandAllocation?: ChakraPool): boolean => {
     const newLogs: CombatLog[] = [];
-    const updatedPlayer = playerCombatants.map(c => ({ ...c, lastTurnStatus: null }));
-    const updatedEnemy = enemyCombatants.map(c => ({ ...c, lastTurnStatus: null }));
+    const srcPlayer = playerRef.current.length ? playerRef.current : playerCombatants;
+    const srcEnemy = enemyRef.current.length ? enemyRef.current : enemyCombatants;
+    const updatedPlayer = srcPlayer.map(c => ({ ...c, lastTurnStatus: null }));
+    const updatedEnemy = srcEnemy.map(c => ({ ...c, lastTurnStatus: null }));
 
     const localPlayerChakra = { ...playerChakra };
     const localEnemyChakra = { ...enemyChakra };
@@ -1980,7 +2131,51 @@ const handleTradeChakra = () => {
           }
         }
       }
-      const directDamage = (skill.directDamage || 0) + (skill.missingHpDamageType === 'normal' ? Math.max(0, source.maxHealth - source.health) : 0);
+      let directDamage = (skill.directDamage || 0) + (skill.missingHpDamageType === 'normal' ? Math.max(0, source.maxHealth - source.health) : 0);
+
+      // Process Damage Rules (Regras de Dano)
+      let costRuleDamageBoost = 0;
+      let ruleDirectDamage = 0;
+      let ruleAfflictionDamage = 0;
+      let ruleBleedingDamage = 0;
+      let ruleDotDamage = 0;
+      let hasActiveDamageRuleIgnoreBase = false;
+
+      if (skill.damageRules && skill.damageRules.length > 0) {
+        const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+        for (const rule of skill.damageRules) {
+          if (rule.damageBoost > 0 && rule.activeSkillName) {
+            const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+            const hasActive = allActiveEffects.some(e => {
+              if (!e.name) return false;
+              const eNameLower = e.name.toLowerCase();
+              return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
+            });
+            if (hasActive) {
+              if (rule.ignoreBaseDamage !== false) {
+                hasActiveDamageRuleIgnoreBase = true;
+              }
+              const dtype = rule.damageType || 'damage';
+              if (dtype === 'direct_damage' || dtype === 'piercing') {
+                ruleDirectDamage += rule.damageBoost;
+              } else if (dtype === 'affliction') {
+                ruleAfflictionDamage += rule.damageBoost;
+              } else if (dtype === 'bleeding') {
+                ruleBleedingDamage += rule.damageBoost;
+              } else if (dtype === 'dot') {
+                ruleDotDamage += rule.damageBoost;
+              } else {
+                costRuleDamageBoost += rule.damageBoost;
+              }
+            }
+          }
+        }
+      }
+
+      if (hasActiveDamageRuleIgnoreBase) {
+        baseDamage = 0;
+        directDamage = 0;
+      }
       const dotInstant = skill.dotInstant || 0;
       const bleedingInstant = skill.bleedingInstant || 0;
       const afflictionInstant = skill.afflictionInstant || 0;
@@ -1997,11 +2192,7 @@ const handleTradeChakra = () => {
       let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
       let stunDuration = skill.stunTurns || 1;
       let finalStunType: ('mental' | 'physical' | 'affliction' | 'chakra')[] | undefined = skill.stunType;
-      if (skill.name === 'Rasengan') {
-        stunApplied = true;
-        stunDuration = 1;
-        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
-      } else if (stunApplied && (!finalStunType || finalStunType.length === 0)) {
+      if (stunApplied && (!finalStunType || finalStunType.length === 0)) {
         finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
       }
 
@@ -2064,8 +2255,8 @@ const handleTradeChakra = () => {
         });
       }
 
-      // 0.2 DIRECT DAMAGE (with missing HP)
-      let dd = directDamage + missingHpDirect;
+      // 0.2 DIRECT DAMAGE (with missing HP & rule direct damage)
+      let dd = directDamage + missingHpDirect + ruleDirectDamage;
       // Reduce by source's damage debuffs (qualquer tipo)
       const srcDdReduction = source.activeEffects
         .filter((e: ActiveEffect) => e.type === 'damage_debuff')
@@ -2129,22 +2320,33 @@ const handleTradeChakra = () => {
               });
             }
 
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🎯 [${skill.name}] de ${source.character.name} causou ${dd} de DANO DIRETO em ${t.character.name} (perfurando defesas).${missingHpDirect > 0 ? ` (HP Perdido: ${missingHpDirect})` : ''}`,
-              type: 'damage',
-            });
-            addFloatingText(t.id, `-${dd} HP (DIRETO)`, 'damage');
+            if (netDd > 0) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🎯 [${skill.name}] de ${source.character.name} causou ${netDd} de DANO DIRETO em ${t.character.name} (perfurando defesas).${missingHpDirect > 0 ? ` (HP Perdido: ${missingHpDirect})` : ''}`,
+                type: 'damage',
+              });
+              addFloatingText(t.id, `-${netDd} HP (DIRETO)`, 'damage');
+            } else if (hasDamageImmunity(t) || checkCombatantInvulnerable(t)) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu Dano Direto de [${skill.name}].`,
+                type: 'buff',
+              });
+              addFloatingText(t.id, 'IMUNE!', 'invulnerable');
+            }
           }
           cleanseTargetEffects(t, skill.directDamageRemoveType);
         });
       }
 
       // INSTANT DOT / BLEEDING / AFFLICTION (with missing HP)
-      const totalDotInstant = dotInstant + missingHpDot;
-      const totalBleedInstant = bleedingInstant + missingHpBleed;
-      const totalAfflictionInstant = afflictionInstant + missingHpAffliction;
+      const isTargetInvul1 = (checkCombatantInvulnerable(target) && !skill.ignoreInvulnerable) || hasDamageImmunity(target);
+      const totalDotInstant = isTargetInvul1 ? 0 : dotInstant + missingHpDot;
+      const totalBleedInstant = isTargetInvul1 ? 0 : bleedingInstant + missingHpBleed;
+      const totalAfflictionInstant = isTargetInvul1 ? 0 : afflictionInstant + missingHpAffliction;
       if (totalDotInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalDotInstant);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant;
@@ -2358,21 +2560,7 @@ const handleTradeChakra = () => {
             return types.includes('skill');
           });
           const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
-          let costRuleDamageBoost = 0;
-          if (skill.damageRules && skill.damageRules.length > 0) {
-            for (const rule of skill.damageRules) {
-              if (rule.damageBoost > 0 && rule.activeSkillName) {
-                const targetNameLower = rule.activeSkillName.trim().toLowerCase();
-                const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
-                const hasActive = allActiveEffects.some(e => {
-                  if (!e.name) return false;
-                  const eNameLower = e.name.toLowerCase();
-                  return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
-                });
-                if (hasActive) costRuleDamageBoost += rule.damageBoost;
-              }
-            }
-          }
+          // costRuleDamageBoost already calculated above in outer scope
           // Dano por stack no alvo
           let stackDamageBonus = 0;
           // Aumento de dano por stack em mim mesmo
@@ -2468,6 +2656,10 @@ const handleTradeChakra = () => {
             finalDamage = 0;
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
             addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
+          } else if (hasDamageImmunity(t)) {
+            finalDamage = 0;
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
+            addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           }
           if (finalDamage > 0) {
             const before = t.health;
@@ -2581,25 +2773,7 @@ const handleTradeChakra = () => {
             return types.includes('skill');
           });
           const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
-          let costRuleDamageBoost = 0;
-          if (skill.damageRules && skill.damageRules.length > 0) {
-            for (const rule of skill.damageRules) {
-              if (rule.damageBoost > 0 && rule.activeSkillName) {
-                const targetNameLower = rule.activeSkillName.trim().toLowerCase();
-                const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
-                const hasActive = allActiveEffects.some(e => {
-                  if (!e.name) return false;
-                  const eNameLower = e.name.toLowerCase();
-                  return (
-                    eNameLower === targetNameLower ||
-                    eNameLower.includes(targetNameLower) ||
-                    targetNameLower.includes(eNameLower)
-                  );
-                });
-                if (hasActive) costRuleDamageBoost += rule.damageBoost;
-              }
-            }
-          }
+          // costRuleDamageBoost already calculated above in outer scope
           // Dano por stack no alvo
           let stackDamageBonus = 0;
           // Aumento de dano por stack em mim mesmo
@@ -2841,6 +3015,16 @@ const handleTradeChakra = () => {
         const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
+          if (t.activeEffects.some(e => e.type === 'cannot_receive_friendly')) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🚫 ${t.character.name} não pôde ser curado por [${skill.name}] por estar impossibilitado de receber habilidades amigáveis!`,
+              type: 'stun',
+            });
+            addFloatingText(t.id, 'CURA BLOQUEADA', 'stun');
+            return;
+          }
           const startingHealth = t.health;
           t.health = Math.min(100, t.health + totalHeal);
           const actualHealed = t.health - startingHealth;
@@ -3064,7 +3248,7 @@ const handleTradeChakra = () => {
 
       // Invulnerable
       if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
-        const invulTargets = resolveEffectTargets(skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
+        const invulTargets = resolveEffectTargets(skill.invulnerableTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
         invulTargets.forEach(t => {
           if (t.isDead) return;
           pushActiveEffect(t, {
@@ -3229,6 +3413,62 @@ const handleTradeChakra = () => {
         });
       }
 
+      // Cannot Receive Friendly Skills - debuff on target
+      if (skill.cannotReceiveFriendlyDuration && skill.cannotReceiveFriendlyDuration > 0) {
+        const cannotFriendlyTargets = resolveEffectTargets(skill.cannotReceiveFriendlyTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        cannotFriendlyTargets.forEach(t => {
+          if (t.isDead) return;
+          const duration = skill.cannotReceiveFriendlyDuration!;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Bloqueio Amigável)`,
+            type: 'cannot_receive_friendly',
+            duration,
+            icon: skill.icon,
+            irremovable: !!skill.cannotReceiveFriendlyIrremovable,
+            cannotBeCountered: !!skill.cannotBeCountered,
+            cannotBeReflected: !!skill.cannotBeReflected,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🚫 ${t.character.name} ficou impossibilitado de receber habilidades amigáveis por [${skill.name}] por ${duration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'BLOQUEIO AMIGÁVEL', 'effect');
+          cleanseTargetEffects(t, skill.cannotReceiveFriendlyRemoveType);
+        });
+      }
+
+      // Reveal Invisible
+      if (skill.revealInvisibleDuration && skill.revealInvisibleDuration > 0) {
+        const revealTargets = resolveEffectTargets(skill.revealInvisibleTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        revealTargets.forEach(t => {
+          if (t.isDead) return;
+          const duration = skill.revealInvisibleDuration!;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Revelar Skills Invisíveis)`,
+            type: 'reveal_invisible',
+            duration,
+            icon: skill.icon,
+            irremovable: !!skill.revealInvisibleIrremovable,
+            cannotBeCountered: !!skill.cannotBeCountered,
+            cannotBeReflected: !!skill.cannotBeReflected,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `👁️ ${t.character.name} teve suas habilidades e efeitos invisíveis revelados por [${skill.name}] por ${duration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, '👁️ SKILLS REVELADAS', 'effect');
+          cleanseTargetEffects(t, skill.revealInvisibleRemoveType);
+        });
+      }
+
       // 4.11 APPLY IGNORE STUN (IGNORAR STUN)
       if (skill.ignoreStunDuration && skill.ignoreStunDuration > 0) {
         const ignoreStunTargets = resolveEffectTargets(skill.ignoreStunTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
@@ -3259,7 +3499,7 @@ const handleTradeChakra = () => {
 
       // 4.12 APPLY DAMAGE IMMUNITY (IMUNIDADE A DANO)
       if (skill.damageImmunityDuration && skill.damageImmunityDuration > 0) {
-        const immunityTargets = resolveEffectTargets(skill.damageImmunityTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        const immunityTargets = resolveEffectTargets(skill.damageImmunityTarget || skill.shieldTarget || 'Self', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         immunityTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.damageImmunityDuration!;
@@ -3317,6 +3557,38 @@ const handleTradeChakra = () => {
         applyBuffEffect(`${skill.name} Reflect`, 'reflect', skill.reflectDuration || 2, 0, false, true);
       }
 
+      // Retaliation Damage Buff
+      if (skill.retaliateDamage) {
+        const retTargets = resolveEffectTargets(skill.retaliateDamageTarget || 'Self', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, true);
+        const retDur = (skill.retaliateDamagePermanent || (skill.retaliateDamageDuration && skill.retaliateDamageDuration >= 999)) ? 99999 : (skill.retaliateDamageDuration || 1);
+        retTargets.forEach(t => {
+          if (t.isDead) return;
+          pushActiveEffect(t, {
+            name: `${skill.name} Retaliação`,
+            type: 'retaliate_damage',
+            duration: retDur,
+            value: skill.retaliateDamageVal || 0,
+            retaliateDamageVal: skill.retaliateDamageVal || 0,
+            retaliateDamageType: skill.retaliateDamageType || 'damage',
+            retaliateTargetScope: skill.retaliateTargetScope || 'self',
+            retaliateTriggerMode: skill.retaliateTriggerMode || 'always',
+            icon: skill.icon,
+            irremovable: !!skill.retaliateDamageIrremovable,
+            sourceSkillName: skill.name,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            targetId: t.id,
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `⚡ ${t.character.name} ativou RETALIAÇÃO com [${skill.name}]!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'RETALIAÇÃO', 'effect');
+          cleanseTargetEffects(t, skill.retaliateDamageRemoveType);
+        });
+      }
+
       // Permanent skill auto-effect: if skill is permanent and no other effect was applied, add a custom buff
       if (skill.permanent && defaultTarget && !defaultTarget.isDead) {
         const hasAppliedEffect = !!(skill.damage || skill.directDamage || skill.heal || skill.shieldVal ||
@@ -3324,7 +3596,7 @@ const handleTradeChakra = () => {
           skill.bleedingVal || skill.afflictionVal || skill.stunTurns || skill.invulnerableDuration ||
           skill.gainChakra || skill.drainChakra || skill.removeChakra || skill.stealChakra ||
           skill.invisible || skill.paralyzeCooldownDuration || skill.cannotReduceDamageDuration ||
-          skill.cannotBeInvulnerableDuration || skill.counterAttack || skill.reflect ||
+          skill.cannotBeInvulnerableDuration || skill.cannotReceiveFriendlyDuration || skill.counterAttack || skill.reflect || skill.retaliateDamage ||
           (skill.damageDuration && skill.damageDuration > 1) || skill.damageRules?.length ||
           skill.costRules?.length || skill.chakraRemoveRules?.length || skill.healRules?.length);
         if (!hasAppliedEffect) {
@@ -3346,7 +3618,7 @@ const handleTradeChakra = () => {
       }
 
       // Stack-only skill: apply stack even if skill has no damage/effects
-      if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !skill.permanent) {
+      if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !skill.permanent) {
         const targets = resolveEffectTargets(skill.damageTarget, target, source, sourceList, targetList);
         targets.forEach(t => {
           if (t.isDead) return;
@@ -3379,6 +3651,93 @@ const handleTradeChakra = () => {
             });
           }
           addFloatingText(t.id, `+1 ${skill.stackType.toUpperCase()}`, 'effect');
+        });
+      }
+
+      // RETALIATION / REACTIVE DAMAGE TRIGGER
+      const defendingTeam = targetList.some(c => c.id === target.id) ? targetList : sourceList;
+      const isEnemyAction = source.id.startsWith('player') !== target.id.startsWith('player') || targetList.some(c => c.id === target.id);
+
+      if (isEnemyAction) {
+        defendingTeam.forEach(defender => {
+          if (defender.isDead) return;
+          defender.activeEffects.forEach(eff => {
+            if (eff.type !== 'retaliate_damage') return;
+
+            const isSelfTargeted = defender.id === target.id;
+            const isAllyTargeted = defender.id !== target.id && defendingTeam.some(c => c.id === target.id);
+            const scope = eff.retaliateTargetScope || 'self';
+
+            let scopeMatch = false;
+            if (scope === 'self' && isSelfTargeted) scopeMatch = true;
+            else if (scope === 'ally' && isAllyTargeted) scopeMatch = true;
+            else if (scope === 'self_or_ally' && (isSelfTargeted || isAllyTargeted)) scopeMatch = true;
+            else if (scope === 'team') scopeMatch = true;
+
+            if (!scopeMatch) return;
+
+            // Check trigger mode (first_only vs always)
+            if (eff.retaliateTriggerMode === 'first_only') {
+              if ((eff.retaliateTriggeredCount || 0) > 0) return;
+              eff.retaliateTriggeredCount = 1;
+            }
+
+            // Apply Retaliation Damage to source (attacker)
+            const baseRVal = eff.retaliateDamageVal || eff.value || 0;
+            const stacks = (eff as any).stacks || 1;
+            const rVal = baseRVal * stacks;
+            const rType = eff.retaliateDamageType || 'damage';
+
+            if (rVal > 0 && !source.isDead) {
+              if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
+                newLogs.push({
+                  id: Math.random().toString(),
+                  turn,
+                  message: `⚡ [RETALIAÇÃO] ${defender.character.name} contra-atacou, mas ${source.character.name} é IMUNE A DANO!`,
+                  type: 'buff',
+                });
+                addFloatingText(source.id, 'IMUNE!', 'invulnerable');
+              } else {
+                let actualDmg = rVal;
+                if (rType === 'damage') {
+                  if (source.shield > 0) {
+                    if (source.shield >= actualDmg) {
+                      source.shield -= actualDmg;
+                      actualDmg = 0;
+                    } else {
+                      actualDmg -= source.shield;
+                      source.shield = 0;
+                    }
+                  }
+                }
+
+                if (actualDmg > 0) {
+                  source.health = source.activeEffects?.some(e => e.type === 'immortal')
+                    ? Math.max(1, source.health - actualDmg)
+                    : Math.max(0, source.health - actualDmg);
+                }
+
+                if (source.health <= 0 && !source.activeEffects?.some(e => e.type === 'immortal')) {
+                  source.isDead = true;
+                }
+
+                const typeText = rType === 'direct_damage' || rType === 'true' || rType === 'piercing' ? 'Direto' :
+                                 rType === 'affliction' ? 'Aflição' :
+                                 rType === 'dot' ? 'Queimadura' :
+                                 rType === 'bleeding' ? 'Sangramento' : 'Normal';
+
+                const stackText = stacks > 1 ? ` (${stacks}x stacks)` : '';
+
+                newLogs.push({
+                  id: Math.random().toString(),
+                  turn,
+                  message: `⚡ [RETALIAÇÃO] ${defender.character.name} causou ${rVal} de dano ${typeText}${stackText} em ${source.character.name}!`,
+                  type: 'damage',
+                });
+                addFloatingText(source.id, `-${rVal} RETALIAÇÃO`, 'damage');
+              }
+            }
+          });
         });
       }
 
@@ -3426,8 +3785,8 @@ const handleTradeChakra = () => {
     setLogs(prev => [...prev, ...newLogs]);
 
     // Check game over
-    const allPlayerDead = updatedPlayer.every(p => p.isDead);
-    const allEnemyDead = updatedEnemy.every(e => e.isDead);
+    const allPlayerDead = updatedPlayer.length > 0 && updatedPlayer.every(p => p.isDead);
+    const allEnemyDead = updatedEnemy.length > 0 && updatedEnemy.every(e => e.isDead);
 
     if (allPlayerDead || allEnemyDead) {
       if (allPlayerDead && allEnemyDead) setGameOver('defeat');
@@ -3453,33 +3812,38 @@ const handleTradeChakra = () => {
         // Apply active DoTs (e.g. Amaterasu)
         const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
         dotEffects.forEach(dot => {
-          c.health = Math.max(0, c.health - (dot.value || 0));
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `🔥 ${c.character.name} sofreu ${(dot.value || 0)} de dano de queima por ${dot.name}.`,
-            type: 'damage',
-          });
-          addFloatingText(c.id, `-${(dot.value || 0)} HP (QUEIMA)`, 'damage');
+          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
+            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+          } else {
+            c.health = Math.max(0, c.health - (dot.value || 0));
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔥 ${c.character.name} sofreu ${(dot.value || 0)} de dano de queima por ${dot.name}.`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${(dot.value || 0)} HP (QUEIMA)`, 'damage');
+          }
         });
 
         // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
         const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
-        const isInvulnerable = checkCombatantInvulnerable(c);
+        const isInvulnerable = checkCombatantInvulnerable(c) || hasDamageImmunity(c);
         activeDamageEffects.forEach(dmg => {
           if (isInvulnerable) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${c.character.name} está INVULNERÁVEL e não sofreu dano contínuo de ${dmg.name}.`,
+              message: `🛡️ ${c.character.name} é IMUNE A DANO e não sofreu dano contínuo de ${dmg.name}.`,
               type: 'buff',
             });
-            addFloatingText(c.id, 'INVULNERÁVEL', 'invulnerable');
+            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const targetCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
             const targetReductions = targetCannotReduce ? [] : c.activeEffects.filter(e => e.type === 'damage_reduction');
             const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
-            const netDmg = hasDamageImmunity(c) ? 0 : Math.max(0, (dmg.value || 0) - reductionSum);
+            const netDmg = Math.max(0, (dmg.value || 0) - reductionSum);
             c.health = Math.max(0, c.health - netDmg);
             newLogs.push({
               id: Math.random().toString(),
@@ -3494,43 +3858,58 @@ const handleTradeChakra = () => {
         // Apply dynamic Direct Damage over time (direct_damage)
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
-          const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
-          : c.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
-        const netDd = Math.max(0, (dd.value || 0) - dr);
-        c.health = Math.max(0, c.health - netDd);
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `🎯 ${c.character.name} sofreu ${netDd} de dano direto contínuo por ${dd.name}.`,
-            type: 'damage',
-          });
-          addFloatingText(c.id, `-${(dd.value || 0)} HP (DIRETO)`, 'damage');
+          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo por ${dd.name}.`, type: 'buff' });
+            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+          } else {
+            const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
+              : c.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+            const netDd = Math.max(0, (dd.value || 0) - dr);
+            c.health = Math.max(0, c.health - netDd);
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🎯 ${c.character.name} sofreu ${netDd} de dano direto contínuo por ${dd.name}.`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${netDd} HP (DIRETO)`, 'damage');
+          }
         });
 
         // Apply Bleeding (Sangramento)
         const bleedingEffects = c.activeEffects.filter(e => e.type === 'bleeding');
         bleedingEffects.forEach(bleed => {
-          c.health = Math.max(0, c.health - (bleed.value || 0));
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `🩸 ${c.character.name} sofreu ${(bleed.value || 0)} de dano por sangramento (${bleed.name}).`,
-            type: 'damage',
-          });
-          addFloatingText(c.id, `-${(bleed.value || 0)} HP (SANGRAMENTO)`, 'damage');
+          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
+            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+          } else {
+            c.health = Math.max(0, c.health - (bleed.value || 0));
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🩸 ${c.character.name} sofreu ${(bleed.value || 0)} de dano por sangramento (${bleed.name}).`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${(bleed.value || 0)} HP (SANGRAMENTO)`, 'damage');
+          }
         });
 
         // Apply Affliction (Aflição)
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
-          c.health = Math.max(0, c.health - (aff.value || 0));
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `💀 ${c.character.name} sofreu ${(aff.value || 0)} de dano por aflição (${aff.name}).`,
-            type: 'damage',
-          });
-          addFloatingText(c.id, `-${(aff.value || 0)} HP (AFLIÇÃO)`, 'damage');
+          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
+            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+          } else {
+            c.health = Math.max(0, c.health - (aff.value || 0));
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💀 ${c.character.name} sofreu ${(aff.value || 0)} de dano por aflição (${aff.name}).`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${(aff.value || 0)} HP (AFLIÇÃO)`, 'damage');
+          }
         });
 
         // Apply dynamic Healing over time
@@ -3687,8 +4066,8 @@ const handleTradeChakra = () => {
     setEnemyCombatants(updatedEnemy);
 
     // Check game over
-    const allPlayerDead = updatedPlayer.every(p => p.isDead);
-    const allEnemyDead = updatedEnemy.every(e => e.isDead);
+    const allPlayerDead = updatedPlayer.length > 0 && updatedPlayer.every(p => p.isDead);
+    const allEnemyDead = updatedEnemy.length > 0 && updatedEnemy.every(e => e.isDead);
 
     if (allPlayerDead || allEnemyDead) {
       if (allPlayerDead && allEnemyDead) setGameOver('defeat');
@@ -3710,6 +4089,12 @@ const handleTradeChakra = () => {
     setActivePlanner(newFirstPlayer);
     setPassedPlayersThisTurn([]);
 
+    // Roll chakra for the new turn (1 per alive character on each team)
+    const alivePlayerCount = updatedPlayer.filter(c => !c.isDead).length;
+    const aliveEnemyCount = updatedEnemy.filter(c => !c.isDead).length;
+    rollChakraForTurn(true, alivePlayerCount);
+    rollChakraForTurn(false, aliveEnemyCount);
+
     newLogs.push({
       id: Math.random().toString(),
       turn: nextTurn,
@@ -3722,8 +4107,20 @@ const handleTradeChakra = () => {
     setLogs(prev => [...prev, ...newLogs]);
   };
 
+  // Reset turn lock when turn or active planner updates
+  useEffect(() => {
+    isEndingTurnRef.current = false;
+    turnActionLockedRef.current = false;
+    setIsEndingTurn(false);
+  }, [turn, activePlanner]);
+
   // Main End Turn / Pass Turn handler
   const handleEndTurn = (customRandAllocation?: ChakraPool, skipActions?: boolean) => {
+    if (isEndingTurnRef.current) return;
+    isEndingTurnRef.current = true;
+    turnActionLockedRef.current = true;
+    setIsEndingTurn(true);
+
     playCustomSound('NextTurn');
 
     const currentActions = skipActions ? [] : [...cuedActions];
@@ -3751,21 +4148,18 @@ const handleTradeChakra = () => {
     setPassedPlayersThisTurn(newPassed);
 
     if (newPassed.length < 2) {
-      // Generate chakra for the next player based on alive allies
-      const alivePlayerCount = playerCombatants.filter(c => !c.isDead).length;
-      const aliveEnemyCount = enemyCombatants.filter(c => !c.isDead).length;
-      rollChakraForTurn(true, alivePlayerCount);
-      rollChakraForTurn(false, aliveEnemyCount);
-
       const nextPlanner = activePlanner === 'player' ? 'enemy' : 'player';
       setActivePlanner(nextPlanner);
+      if (onlineParams?.isOnline) {
+        setIsWaitingForOpponent(true);
+      }
       const passedName = activePlanner === 'player' ? 'VOCÊ' : 'OPONENTE';
       setLogs(prev => [
         ...prev,
         {
           id: Math.random().toString(),
           turn,
-          message: `⚔️ ${passedName} finalizou o turno. Gerando chakra para ambos os lados! Vez de ${nextPlanner === 'player' ? 'VOCÊ' : 'OPONENTE'} planejar.`,
+          message: `⚔️ ${passedName} finalizou a fase de planejamento. Vez de ${nextPlanner === 'player' ? 'VOCÊ' : 'OPONENTE'} planejar.`,
           type: 'system',
         }
       ]);
@@ -4025,17 +4419,13 @@ const handleTradeChakra = () => {
         setPassedPlayersThisTurn(newPassed);
 
         if (newPassed.length < 2) {
-          const alivePlayerCount = playerCombatants.filter(c => !c.isDead).length;
-          const aliveEnemyCount = enemyCombatants.filter(c => !c.isDead).length;
-          rollChakraForTurn(true, alivePlayerCount);
-          rollChakraForTurn(false, aliveEnemyCount);
           setActivePlanner('player');
           setLogs(prev => [
             ...prev,
             {
               id: Math.random().toString(),
               turn,
-              message: `⚔️ OPONENTE EXECUTOU AS HABILIDADES! Gerando chakra para ambos. Sua vez de jogar em resposta.`,
+              message: `⚔️ OPONENTE EXECUTOU AS HABILIDADES! Sua vez de jogar em resposta.`,
               type: 'system',
             }
           ]);
@@ -4102,6 +4492,8 @@ const handleTradeChakra = () => {
   };
 
   const checkAndProceedWithEndTurn = (customRandAllocation?: ChakraPool) => {
+    if (isEndingTurnRef.current || isEndingTurn) return;
+
     if (customRandAllocation) {
       handleEndTurn(customRandAllocation);
       return;
@@ -4173,6 +4565,7 @@ const handleTradeChakra = () => {
       });
       setRandAllocation(initialAllocation);
       setShowRandChakraModal(true);
+      turnActionLockedRef.current = false;
       playClickSound();
       return;
     }
@@ -4181,9 +4574,12 @@ const handleTradeChakra = () => {
   };
 
   const handleEndTurnClick = () => {
+    if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current) return;
+    turnActionLockedRef.current = true;
     if (isSandbox && !dontShowSandboxConfirmAgain) {
       playClickSound();
       setShowSandboxConfirmModal(true);
+      turnActionLockedRef.current = false;
     } else {
       checkAndProceedWithEndTurn();
     }
@@ -4240,18 +4636,21 @@ const handleTradeChakra = () => {
       setIsWaitingForOpponent(false);
     } else {
       setActivePlanner('enemy');
+      setIsWaitingForOpponent(true);
     }
   }, [turn, onlineParams, gameOver]);
 
-  // Periodic background heartbeat ping
+  // Periodic background online room-state polling & turn sync (1 second)
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver) return;
 
-    const pingInterval = setInterval(() => {
+    const syncInterval = setInterval(() => {
       fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}`)
         .then(r => r.json())
         .then(data => {
-          if (data.success && data.room && data.room.surrenderedBy) {
+          if (!data.success || !data.room) return;
+
+          if (data.room.surrenderedBy) {
             const surrenderedUser = data.room.surrenderedBy.toLowerCase();
             try {
               localStorage.removeItem('active_match_save');
@@ -4261,13 +4660,65 @@ const handleTradeChakra = () => {
             } else {
               setGameOver('victory');
             }
+            return;
+          }
+
+          // Check online turn state sync
+          const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
+          const oppOnlineIndex = myOnlineIndex === 0 ? 1 : 0;
+          const currentTurnActions = data.room.turnActions?.[turn];
+
+          if (currentTurnActions) {
+            const oppKey = `player${oppOnlineIndex}` as 'player0' | 'player1';
+            const oppActions = currentTurnActions[oppKey];
+
+            if (oppActions !== null && !processedOpponentTurnsRef.current.has(turn)) {
+              processedOpponentTurnsRef.current.add(turn);
+
+              // Execute opponent's actions on our screen as enemy actions
+              const mappedOppActions: CuedAction[] = (oppActions || []).map(act => ({
+                ...act,
+                sourceId: act.sourceId.startsWith('player')
+                  ? act.sourceId.replace('player', 'enemy')
+                  : act.sourceId.replace('enemy', 'player'),
+                targetId: act.targetId.startsWith('player')
+                  ? act.targetId.replace('player', 'enemy')
+                  : act.targetId.replace('enemy', 'player'),
+              }));
+
+              executeSideActions(mappedOppActions, false);
+
+              setPassedPlayersThisTurn(prev => {
+                const newPassed: ('player' | 'enemy')[] = [...prev, 'enemy'];
+                if (newPassed.length >= 2) {
+                  setIsWaitingForOpponent(false);
+                  setTimeout(() => {
+                    executeTurnEndResolution();
+                  }, 300);
+                } else {
+                  setActivePlanner('player');
+                  setIsWaitingForOpponent(false);
+                  setTimeLeft(60);
+                  setLogs(l => [
+                    ...l,
+                    {
+                      id: Math.random().toString(),
+                      turn,
+                      message: `⚔️ OPONENTE finalizou a fase de planejamento. Vez de VOCÊ planejar.`,
+                      type: 'system',
+                    }
+                  ]);
+                }
+                return newPassed;
+              });
+            }
           }
         })
-        .catch(err => console.error('Heartbeat ping failed:', err));
-    }, 10000);
+        .catch(err => console.error('Online match sync error:', err));
+    }, 1000);
 
-    return () => clearInterval(pingInterval);
-  }, [onlineParams, gameOver, user]);
+    return () => clearInterval(syncInterval);
+  }, [onlineParams, gameOver, user, turn]);
 
   // Auto-save game state to local storage on key changes, or remove it when game over
   useEffect(() => {
@@ -4651,9 +5102,140 @@ const handleTradeChakra = () => {
         });
       }
 
+      // RETALIATION / REACTIVE DAMAGE TRIGGER
+      const defendingTeam = targetList.some(c => c.id === target.id) ? targetList : sourceList;
+      const isEnemyAction = source.id.startsWith('player') !== target.id.startsWith('player') || targetList.some(c => c.id === target.id);
+
+      if (isEnemyAction) {
+        defendingTeam.forEach(defender => {
+          if (defender.isDead) return;
+          defender.activeEffects.forEach(eff => {
+            if (eff.type !== 'retaliate_damage') return;
+
+            const isSelfTargeted = defender.id === target.id;
+            const isAllyTargeted = defender.id !== target.id && defendingTeam.some(c => c.id === target.id);
+            const scope = eff.retaliateTargetScope || 'self';
+
+            let scopeMatch = false;
+            if (scope === 'self' && isSelfTargeted) scopeMatch = true;
+            else if (scope === 'ally' && isAllyTargeted) scopeMatch = true;
+            else if (scope === 'self_or_ally' && (isSelfTargeted || isAllyTargeted)) scopeMatch = true;
+            else if (scope === 'team') scopeMatch = true;
+
+            if (!scopeMatch) return;
+
+            // Check trigger mode (first_only vs always)
+            if (eff.retaliateTriggerMode === 'first_only') {
+              if ((eff.retaliateTriggeredCount || 0) > 0) return;
+              eff.retaliateTriggeredCount = 1;
+            }
+
+            // Apply Retaliation Damage to source (attacker)
+            const baseRVal = eff.retaliateDamageVal || eff.value || 0;
+            const stacks = (eff as any).stacks || 1;
+            const rVal = baseRVal * stacks;
+            const rType = eff.retaliateDamageType || 'damage';
+
+            if (rVal > 0 && !source.isDead) {
+              if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
+                newLogs.push({
+                  id: Math.random().toString(),
+                  turn,
+                  message: `⚡ [RETALIAÇÃO] ${defender.character.name} contra-atacou, mas ${source.character.name} é IMUNE A DANO!`,
+                  type: 'buff',
+                });
+                addFloatingText(source.id, 'IMUNE!', 'invulnerable');
+              } else {
+                let actualDmg = rVal;
+                if (rType === 'damage') {
+                  if (source.shield > 0) {
+                    if (source.shield >= actualDmg) {
+                      source.shield -= actualDmg;
+                      actualDmg = 0;
+                    } else {
+                      actualDmg -= source.shield;
+                      source.shield = 0;
+                    }
+                  }
+                }
+
+                if (actualDmg > 0) {
+                  source.health = source.activeEffects?.some(e => e.type === 'immortal')
+                    ? Math.max(1, source.health - actualDmg)
+                    : Math.max(0, source.health - actualDmg);
+                }
+
+                if (source.health <= 0 && !source.activeEffects?.some(e => e.type === 'immortal')) {
+                  source.isDead = true;
+                }
+
+                const typeText = rType === 'direct_damage' || rType === 'true' ? 'Direto' :
+                                 rType === 'affliction' ? 'Aflição' :
+                                 rType === 'dot' ? 'Queimadura' :
+                                 rType === 'bleeding' ? 'Sangramento' : 'Normal';
+
+                const stackText = stacks > 1 ? ` (${stacks}x stacks)` : '';
+
+                newLogs.push({
+                  id: Math.random().toString(),
+                  turn,
+                  message: `⚡ [RETALIAÇÃO] ${defender.character.name} contra-atacou! ${source.character.name} recebeu ${rVal} de dano ${typeText}${stackText} por usar [${skill.name}] em ${target.character.name}!`,
+                  type: 'damage',
+                });
+                addFloatingText(source.id, `-${rVal} RETALIAÇÃO`, 'damage');
+              }
+            }
+          });
+        });
+      }
+
       // EXECUTE SKILL LOGIC
       let baseDamage = skill.damage || 0;
       let directDamage = (skill.directDamage || 0) + (skill.missingHpDamageType === 'normal' ? Math.max(0, source.maxHealth - source.health) : 0);
+
+      // Process Damage Rules (Regras de Dano) Block 2
+      let costRuleDamageBoost2 = 0;
+      let ruleDirectDamage2 = 0;
+      let ruleAfflictionDamage2 = 0;
+      let ruleBleedingDamage2 = 0;
+      let ruleDotDamage2 = 0;
+      let hasActiveDamageRuleIgnoreBase2 = false;
+
+      if (skill.damageRules && skill.damageRules.length > 0) {
+        const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+        for (const rule of skill.damageRules) {
+          if (rule.damageBoost > 0 && rule.activeSkillName) {
+            const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+            const hasActive = allActiveEffects.some(e => {
+              if (!e.name) return false;
+              const eNameLower = e.name.toLowerCase();
+              return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
+            });
+            if (hasActive) {
+              if (rule.ignoreBaseDamage !== false) {
+                hasActiveDamageRuleIgnoreBase2 = true;
+              }
+              const dtype = rule.damageType || 'damage';
+              if (dtype === 'direct_damage' || dtype === 'piercing') {
+                ruleDirectDamage2 += rule.damageBoost;
+              } else if (dtype === 'affliction') {
+                ruleAfflictionDamage2 += rule.damageBoost;
+              } else if (dtype === 'bleeding') {
+                ruleBleedingDamage2 += rule.damageBoost;
+              } else if (dtype === 'dot') {
+                ruleDotDamage2 += rule.damageBoost;
+              } else {
+                costRuleDamageBoost2 += rule.damageBoost;
+              }
+            }
+          }
+        }
+      }
+
+      if (hasActiveDamageRuleIgnoreBase2) {
+        baseDamage = 0;
+        directDamage = 0;
+      }
       const dotInstant = skill.dotInstant || 0;
       const bleedingInstant = skill.bleedingInstant || 0;
       const afflictionInstant = skill.afflictionInstant || 0;
@@ -4661,11 +5243,7 @@ const handleTradeChakra = () => {
       let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
       let stunDuration = skill.stunTurns || 1;
       let finalStunType: ('mental' | 'physical' | 'affliction' | 'chakra')[] | undefined = skill.stunType;
-      if (skill.name === 'Rasengan') {
-        stunApplied = true;
-        stunDuration = 1;
-        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
-      } else if (stunApplied && (!finalStunType || finalStunType.length === 0)) {
+      if (stunApplied && (!finalStunType || finalStunType.length === 0)) {
         finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
       }
       let removeShields = skill.removeShield || false;
@@ -4702,241 +5280,9 @@ const handleTradeChakra = () => {
         effectVal = skill.dotVal;
       }
 
-      // Custom skill script matching based on name (legacy matching for original cast):
-      switch (skill.name) {
-        // --- NARUTO ---
-        case 'Uzumaki Barrage':
-          const clonesActive = source.activeEffects.some(e => e.name === 'Shadow Clones');
-          baseDamage = clonesActive ? 30 : 20;
-          break;
-        case 'Rasengan':
-          baseDamage = 45;
-          stunApplied = true;
-          finalStunType = ['physical'];
-          break;
-        case 'Shadow Clones':
-          effectName = 'Shadow Clones';
-          effectType = 'damage_reduction';
-          effectDuration = 4;
-          effectVal = 15;
-          break;
-        case 'Sexy Technique':
-          effectName = 'Sexy Technique';
-          effectType = 'invulnerable';
-          effectDuration = 1;
-          break;
-
-        // --- SASUKE ---
-        case 'Lions Barrage':
-          const targetAnalyzed = target.activeEffects.some(e => e.name === 'Sharingan');
-          baseDamage = targetAnalyzed ? 45 : 30;
-          break;
-        case 'Chidori':
-          baseDamage = 40;
-          break;
-        case 'Sharingan':
-          effectName = 'Sharingan';
-          effectType = 'damage_buff';
-          effectDuration = 4;
-          effectVal = 10;
-          break;
-        case 'Orochimaru Block':
-          effectName = 'Orochimaru Block';
-          effectType = 'invulnerable';
-          effectDuration = 1;
-          break;
-
-        // --- SAKURA ---
-        case 'KO Punch':
-          const innerActive = source.activeEffects.some(e => e.name === 'Inner Sakura');
-          baseDamage = innerActive ? 35 : 20;
-          stunApplied = true;
-          finalStunType = ['physical'];
-          break;
-        case 'Healing Technique':
-          healAmt = 25;
-          break;
-        case 'Inner Sakura':
-          effectName = 'Inner Sakura';
-          effectType = 'damage_reduction';
-          effectDuration = 4;
-          effectVal = 15;
-          break;
-        case 'Substitution':
-          effectName = 'Substitution';
-          effectType = 'invulnerable';
-          effectDuration = 1;
-          break;
-
-        // --- KAKASHI ---
-        case 'Lightning Blade':
-          baseDamage = 40;
-          break;
-        case 'Copied Sharingan':
-          effectName = 'Copied Sharingan';
-          effectType = 'damage_reduction';
-          effectDuration = 3;
-          effectVal = 10;
-          break;
-        case 'Ninja Hounds':
-          baseDamage = 15;
-          stunApplied = true;
-          finalStunType = ['affliction'];
-          break;
-        case 'Underground Hide':
-          effectName = 'Underground Hide';
-          effectType = 'invulnerable';
-          effectDuration = 1;
-          break;
-
-        // --- GAARA ---
-        case 'Sand Coffin':
-          baseDamage = 15;
-          effectName = 'Sand Coffin';
-          effectType = 'custom';
-          effectDuration = 2;
-          break;
-        case 'Sand Burial':
-          const isSandCoffined = target.activeEffects.some(e => e.name === 'Sand Coffin');
-          baseDamage = isSandCoffined ? 55 : 35;
-          // Consume Sand Coffin
-          target.activeEffects = target.activeEffects.filter(e => e.name !== 'Sand Coffin');
-          break;
-        case 'Sand Armor':
-          effectName = 'Sand Armor';
-          effectType = 'shield';
-          effectDuration = 99; // indefinitely
-          effectVal = 30;
-          break;
-        case 'Sand Shield':
-          effectName = 'Sand Shield';
-          effectType = 'invulnerable';
-          effectDuration = 1;
-          break;
-
-        // --- ROCK LEE ---
-        case 'Ferocious Fist':
-          baseDamage = 25;
-          break;
-        case 'Primary Lotus':
-          const gatesOpen = source.activeEffects.some(e => e.name === 'Fifth Gate Opening');
-          baseDamage = gatesOpen ? 50 : 35;
-          break;
-        case 'Fifth Gate Opening':
-          effectName = 'Fifth Gate Opening';
-          effectType = 'damage_buff';
-          effectDuration = 3;
-          effectVal = 15;
-          break;
-        case 'Lee Guard':
-          effectName = 'Lee Guard';
-          effectType = 'invulnerable';
-          effectDuration = 1;
-          break;
-
-        // --- ITACHI ---
-        case 'Amaterasu':
-          // Apply DoT
-          effectName = 'Amaterasu Burn';
-          effectType = 'dot';
-          effectDuration = 3;
-          effectVal = 15;
-          break;
-        case 'Tsukuyomi':
-          baseDamage = 30;
-          stunApplied = true;
-          finalStunType = ['mental'];
-          break;
-        case 'Mangekyo Sharingan':
-          effectName = 'Mangekyo Sharingan';
-          effectType = 'counter';
-          effectDuration = 2;
-          break;
-        case 'Crow Clone Escape':
-          effectName = 'Crow Clone Escape';
-          effectType = 'invulnerable';
-          effectDuration = 1;
-          break;
-
-        // --- NEJI ---
-        case 'Gentle Fist':
-          baseDamage = 20;
-          // Drain 1 chakra
-          if (action.isPlayer) {
-            setEnemyChakra(prev => {
-              const u = { ...prev };
-              const nonZero = (Object.keys(u) as (keyof ChakraPool)[]).filter(k => u[k] > 0);
-              if (nonZero.length > 0) u[nonZero[0]]--;
-              return u;
-            });
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🌀 O Gentle Fist de Neji drenou 1 ponto de chakra do Inimigo!`,
-              type: 'chakra',
-            });
-          } else {
-            setPlayerChakra(prev => {
-              const u = { ...prev };
-              const nonZero = (Object.keys(u) as (keyof ChakraPool)[]).filter(k => u[k] > 0);
-              if (nonZero.length > 0) u[nonZero[0]]--;
-              return u;
-            });
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🌀 O Gentle Fist de Neji drenou 1 ponto de chakra do Jogador!`,
-              type: 'chakra',
-            });
-          }
-          break;
-        case 'Sixty-Four Palms':
-          baseDamage = 40;
-          stunApplied = true;
-          finalStunType = ['chakra'];
-          break;
-        case 'Byakugan Sight':
-          effectName = 'Byakugan Sight';
-          effectType = 'damage_reduction';
-          effectDuration = 3;
-          effectVal = 15;
-          break;
-        case 'Eight Trigrams Rotation':
-          effectName = 'Eight Trigrams Rotation';
-          effectType = 'invulnerable';
-          effectDuration = 1;
-          break;
-
-        // --- CHOJI ---
-        case 'Human Boulder':
-          baseDamage = 25;
-          break;
-        case 'Partial Expansion':
-          const pillsActive = source.activeEffects.some(e => e.name === 'Three Colored Pills');
-          baseDamage = pillsActive ? 45 : 30;
-          break;
-        case 'Three Colored Pills':
-          healAmt = 25;
-          effectName = 'Three Colored Pills';
-          effectType = 'damage_buff';
-          effectDuration = 3;
-          effectVal = 15;
-          break;
-        case 'Choji Block':
-          effectName = 'Choji Block';
-          effectType = 'invulnerable';
-          effectDuration = 1;
-          break;
-
-        // Young Nagato: Air Bullets marca o alvo para stunar se tomar dano
-        case 'Air Bullets':
-          if (source.character.name === 'Young Nagato' && target && !target.isDead) {
-            airBulletsHitTargets.current.set(target.id, skill.icon);
-          }
-          break;
-
-        default:
-          break;
+      // Custom skill script matching based on name (legacy matching removed except for Young Nagato):
+      if (skill.name === 'Air Bullets' && source.character.name === 'Young Nagato' && target && !target.isDead) {
+        airBulletsHitTargets.current.set(target.id, skill.icon);
       }
 
       // If skill is permanent, make all its effects last forever
@@ -5003,6 +5349,23 @@ const handleTradeChakra = () => {
       const casterSide: 'player' | 'enemy' = action.isPlayer ? 'player' : 'enemy';
 
       const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
+        if (targetChar.activeEffects.some(e => e.type === 'cannot_receive_friendly') && !isDebuffEffect(eff)) {
+          addFloatingText(targetChar.id, 'BLOQUEADO (SKILL AMIGÁVEL)', 'stun');
+          return;
+        }
+
+        if (eff.type === 'retaliate_damage') {
+          const sourceName = eff.sourceSkillName || skill.name;
+          const existing = targetChar.activeEffects.find(
+            e => e.type === 'retaliate_damage' && (e.sourceSkillName === sourceName || e.name === eff.name)
+          );
+          if (existing) {
+            existing.stacks = (existing.stacks || 1) + 1;
+            existing.duration = Math.max(existing.duration, eff.duration);
+            return;
+          }
+        }
+
         // Check stackDurationRules for duration override (skip for stack damage DOT effects)
         if (!eff.stackable && currentSkillRef.current?.stackDurationRules && !eff.name?.includes('DOT)')) {
           for (const rule of currentSkillRef.current.stackDurationRules) {
@@ -5058,7 +5421,7 @@ const handleTradeChakra = () => {
 
       // 0.2 DANO DIRETO (DIRECT DAMAGE) with missing HP
       const missingHpDirect2 = skill.missingHpDamageType === 'direct' || skill.missingHpDamageType === 'normal' ? source.maxHealth - source.health : 0;
-      let ddTotal = directDamage + missingHpDirect2;
+      let ddTotal = directDamage + missingHpDirect2 + ruleDirectDamage2;
       // Reduce by source's damage debuffs (qualquer tipo)
       const srcDdReduction2 = source.activeEffects
         .filter((e: ActiveEffect) => e.type === 'damage_debuff')
@@ -5104,13 +5467,23 @@ const handleTradeChakra = () => {
               matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
             }
 
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🎯 [${skill.name}] de ${source.character.name} causou ${ddTotal} de DANO DIRETO em ${t.character.name} (perfurando defesas).`,
-              type: 'damage',
-            });
-            addFloatingText(t.id, `-${ddTotal} HP (DIRETO)`, 'damage');
+            if (netDdTotal > 0) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🎯 [${skill.name}] de ${source.character.name} causou ${netDdTotal} de DANO DIRETO em ${t.character.name} (perfurando defesas).`,
+                type: 'damage',
+              });
+              addFloatingText(t.id, `-${netDdTotal} HP (DIRETO)`, 'damage');
+            } else if (hasDamageImmunity(t) || checkCombatantInvulnerable(t)) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu Dano Direto de [${skill.name}].`,
+                type: 'buff',
+              });
+              addFloatingText(t.id, 'IMUNE!', 'invulnerable');
+            }
           }
           cleanseTargetEffects(t, skill.directDamageRemoveType);
           // Any skill damaging an Air Bullets target triggers stun (refactored)
@@ -5141,9 +5514,10 @@ const handleTradeChakra = () => {
       const missDot2 = skill.missingHpDamageType === 'dot' ? source.maxHealth - source.health : 0;
       const missBleed2 = skill.missingHpDamageType === 'bleeding' ? source.maxHealth - source.health : 0;
       const missAffl2 = skill.missingHpDamageType === 'affliction' ? source.maxHealth - source.health : 0;
-      const totalDotInstant2 = dotInstant + missDot2;
-      const totalBleedInstant2 = bleedingInstant + missBleed2;
-      const totalAfflictionInstant2 = afflictionInstant + missAffl2;
+      const isTargetInvul2 = (checkCombatantInvulnerable(target) && !skill.ignoreInvulnerable) || hasDamageImmunity(target);
+      const totalDotInstant2 = isTargetInvul2 ? 0 : dotInstant + missDot2;
+      const totalBleedInstant2 = isTargetInvul2 ? 0 : bleedingInstant + missBleed2;
+      const totalAfflictionInstant2 = isTargetInvul2 ? 0 : afflictionInstant + missAffl2;
       if (totalDotInstant2 > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalDotInstant2);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant2;
@@ -5354,21 +5728,7 @@ const handleTradeChakra = () => {
             return types.includes('skill');
           });
           const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
-          let costRuleDamageBoost = 0;
-          if (skill.damageRules && skill.damageRules.length > 0) {
-            for (const rule of skill.damageRules) {
-              if (rule.damageBoost > 0 && rule.activeSkillName) {
-                const targetNameLower = rule.activeSkillName.trim().toLowerCase();
-                const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
-                const hasActive = allActiveEffects.some(e => {
-                  if (!e.name) return false;
-                  const eNameLower = e.name.toLowerCase();
-                  return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
-                });
-                if (hasActive) costRuleDamageBoost += rule.damageBoost;
-              }
-            }
-          }
+          let costRuleDamageBoost = costRuleDamageBoost2;
           let finalDamage = dmgVal + damageBuffSum + costRuleDamageBoost - damageDebuffSum;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
@@ -5398,6 +5758,10 @@ const handleTradeChakra = () => {
             finalDamage = 0;
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
             addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
+          } else if (hasDamageImmunity(t)) {
+            finalDamage = 0;
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
+            addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           }
           if (finalDamage > 0) {
             const before = t.health;
@@ -5483,25 +5847,7 @@ const handleTradeChakra = () => {
             return types.includes('skill');
           });
           const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
-          let costRuleDamageBoost = 0;
-          if (skill.damageRules && skill.damageRules.length > 0) {
-            for (const rule of skill.damageRules) {
-              if (rule.damageBoost > 0 && rule.activeSkillName) {
-                const targetNameLower = rule.activeSkillName.trim().toLowerCase();
-                const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
-                const hasActive = allActiveEffects.some(e => {
-                  if (!e.name) return false;
-                  const eNameLower = e.name.toLowerCase();
-                  return (
-                    eNameLower === targetNameLower ||
-                    eNameLower.includes(targetNameLower) ||
-                    targetNameLower.includes(eNameLower)
-                  );
-                });
-                if (hasActive) costRuleDamageBoost += rule.damageBoost;
-              }
-            }
-          }
+          let costRuleDamageBoost = costRuleDamageBoost2;
           // Dano por stack no alvo
           let stackDamageBonus = 0;
           // Aumento de dano por stack em mim mesmo
@@ -5526,14 +5872,16 @@ const handleTradeChakra = () => {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
                     const totalDmg = stackCount * stackRule.damagePerStack;
                     // Dano instantâneo no golpe
-                    t.health = Math.max(0, t.health - totalDmg);
-                    newLogs.push({
-                      id: Math.random().toString(),
-                      turn,
-                      message: `💥 ${t.character.name} levou ${totalDmg} de ${stackRule.stackType} instantâneo!`,
-                      type: 'damage',
-                    });
-                    addFloatingText(t.id, `-${totalDmg} ${stackRule.stackType}`, 'damage');
+                    if (!checkCombatantInvulnerable(t) && !hasDamageImmunity(t)) {
+                      t.health = Math.max(0, t.health - totalDmg);
+                      newLogs.push({
+                        id: Math.random().toString(),
+                        turn,
+                        message: `💥 ${t.character.name} levou ${totalDmg} de ${stackRule.stackType} instantâneo!`,
+                        type: 'damage',
+                      });
+                      addFloatingText(t.id, `-${totalDmg} ${stackRule.stackType}`, 'damage');
+                    }
                     // DOT por mais X turnos (duração 1 = só instantâneo)
                     if (stackRule.duration > 1) {
                       pushActiveEffect(t, {
@@ -5686,6 +6034,16 @@ const handleTradeChakra = () => {
         const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
+          if (t.activeEffects.some(e => e.type === 'cannot_receive_friendly')) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🚫 ${t.character.name} não pôde ser curado por [${skill.name}] por estar impossibilitado de receber habilidades amigáveis!`,
+              type: 'stun',
+            });
+            addFloatingText(t.id, 'CURA BLOQUEADA', 'stun');
+            return;
+          }
           const startingHealth = t.health;
           t.health = Math.min(100, t.health + totalHeal);
           const actualHealed = t.health - startingHealth;
@@ -5846,6 +6204,37 @@ if (skill.reflect) {
   });
 }
 
+// 4.2d APPLY RETALIATION DAMAGE BUFF
+if (skill.retaliateDamage) {
+  const retTargets = resolveEffectTargets(skill.retaliateDamageTarget || 'Self', target, source, sourceList, targetList, true);
+  const retDur = (skill.retaliateDamagePermanent || (skill.retaliateDamageDuration && skill.retaliateDamageDuration >= 999)) ? 99999 : (skill.retaliateDamageDuration || 1);
+  retTargets.forEach(t => {
+    if (t.isDead) return;
+    pushActiveEffect(t, {
+      name: `${skill.name} Retaliação`,
+      type: 'retaliate_damage',
+      duration: retDur,
+      value: skill.retaliateDamageVal || 0,
+      retaliateDamageVal: skill.retaliateDamageVal || 0,
+      retaliateDamageType: skill.retaliateDamageType || 'damage',
+      retaliateTargetScope: skill.retaliateTargetScope || 'self',
+      retaliateTriggerMode: skill.retaliateTriggerMode || 'always',
+      icon: skill.icon,
+      irremovable: !!skill.retaliateDamageIrremovable,
+      sourceSkillName: skill.name,
+      casterId: source.id,
+      targetId: t.id,
+    });
+    newLogs.push({
+      id: Math.random().toString(), turn,
+      message: `⚡ ${t.character.name} ativou RETALIAÇÃO com [${skill.name}]!`,
+      type: 'buff',
+    });
+    addFloatingText(t.id, 'RETALIAÇÃO', 'effect');
+    cleanseTargetEffects(t, skill.retaliateDamageRemoveType);
+  });
+}
+
       // 4.2 APPLY DAMAGE REDUCTION
       if (skill.damageReductionVal && skill.damageReductionVal > 0) {
         const shieldTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList, true);
@@ -5923,7 +6312,7 @@ if (skill.reflect) {
 
       // 4.4 APPLY INVULNERABILITY
       if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
-        const invulTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList, true);
+        const invulTargets = resolveEffectTargets(skill.invulnerableTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
         invulTargets.forEach(t => {
           if (t.isDead) return;
           pushActiveEffect(t, {
@@ -6099,6 +6488,62 @@ if (skill.reflect) {
         });
       }
 
+      // 4.10.6 APPLY CANNOT RECEIVE FRIENDLY SKILLS
+      if (skill.cannotReceiveFriendlyDuration && skill.cannotReceiveFriendlyDuration > 0) {
+        const cannotFriendlyTargets = resolveEffectTargets(skill.cannotReceiveFriendlyTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        cannotFriendlyTargets.forEach(t => {
+          if (t.isDead) return;
+          const duration = skill.cannotReceiveFriendlyDuration!;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Bloqueio Amigável)`,
+            type: 'cannot_receive_friendly',
+            duration,
+            icon: skill.icon,
+            irremovable: !!skill.cannotReceiveFriendlyIrremovable,
+            cannotBeCountered: !!skill.cannotBeCountered,
+            cannotBeReflected: !!skill.cannotBeReflected,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🚫 ${t.character.name} ficou impossibilitado de receber habilidades amigáveis por [${skill.name}] por ${duration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'BLOQUEIO AMIGÁVEL', 'effect');
+          cleanseTargetEffects(t, skill.cannotReceiveFriendlyRemoveType);
+        });
+      }
+
+      // 4.10.5 APPLY REVEAL INVISIBLE (REVELAR SKILLS INVISÍVEIS)
+      if (skill.revealInvisibleDuration && skill.revealInvisibleDuration > 0) {
+        const revealTargets = resolveEffectTargets(skill.revealInvisibleTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        revealTargets.forEach(t => {
+          if (t.isDead) return;
+          const duration = skill.revealInvisibleDuration!;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Revelar Skills Invisíveis)`,
+            type: 'reveal_invisible',
+            duration,
+            icon: skill.icon,
+            irremovable: !!skill.revealInvisibleIrremovable,
+            cannotBeCountered: !!skill.cannotBeCountered,
+            cannotBeReflected: !!skill.cannotBeReflected,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `👁️ ${t.character.name} teve suas habilidades e efeitos invisíveis revelados por [${skill.name}] por ${duration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, '👁️ SKILLS REVELADAS', 'effect');
+          cleanseTargetEffects(t, skill.revealInvisibleRemoveType);
+        });
+      }
+
       // 4.11 APPLY DAMAGE IMMUNITY (IMUNIDADE A DANO)
       if (skill.damageImmunityDuration && skill.damageImmunityDuration > 0) {
         const immunityTargets = resolveEffectTargets(skill.damageImmunityTarget || skill.shieldTarget || 'Self', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
@@ -6169,7 +6614,7 @@ if (skill.reflect) {
       }
 
       // Stack-only skill: apply stack even if skill has no damage/effects
-      if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !effectName) {
+      if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !effectName) {
         const stackTgts = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         stackTgts.forEach(t => {
           if (t.isDead) return;
@@ -6244,19 +6689,24 @@ if (skill.reflect) {
         // Apply active DoTs (e.g. Amaterasu)
         const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
         dotEffects.forEach(dot => {
-          c.health = Math.max(0, c.health - (dot.value || 0));
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `🔥 ${c.character.name} sofreu ${(dot.value || 0)} de dano de queima por ${dot.name}.`,
-            type: 'damage',
-          });
-          addFloatingText(c.id, `-${(dot.value || 0)} HP (QUEIMA)`, 'damage');
+          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
+            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+          } else {
+            c.health = Math.max(0, c.health - (dot.value || 0));
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔥 ${c.character.name} sofreu ${(dot.value || 0)} de dano de queima por ${dot.name}.`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${(dot.value || 0)} HP (QUEIMA)`, 'damage');
+          }
         });
 
         // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
         const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
-        const isInvulnerable = checkCombatantInvulnerable(c);
+        const isInvulnerable = checkCombatantInvulnerable(c) || hasDamageImmunity(c);
         activeDamageEffects.forEach(dmg => {
           if (isInvulnerable) {
             newLogs.push({
@@ -6281,17 +6731,22 @@ if (skill.reflect) {
         // Apply dynamic Direct Damage over time (direct_damage)
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
-          const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
-          : c.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
-        const netDd = Math.max(0, (dd.value || 0) - dr);
-        c.health = Math.max(0, c.health - netDd);
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `🎯 ${c.character.name} sofreu ${netDd} de dano direto contínuo de ${dd.name}.`,
-            type: 'damage',
-          });
-          addFloatingText(c.id, `-${(dd.value || 0)} HP (DIRETO)`, 'damage');
+          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo de ${dd.name}.`, type: 'buff' });
+            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+          } else {
+            const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
+              : c.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+            const netDd = Math.max(0, (dd.value || 0) - dr);
+            c.health = Math.max(0, c.health - netDd);
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🎯 ${c.character.name} sofreu ${netDd} de dano direto contínuo de ${dd.name}.`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${netDd} HP (DIRETO)`, 'damage');
+          }
         });
 
         // Apply dynamic Healing over time (heal)
@@ -6310,41 +6765,38 @@ if (skill.reflect) {
         // Apply Bleeding (Sangramento)
         const bleedingEffects = c.activeEffects.filter(e => e.type === 'bleeding');
         bleedingEffects.forEach(bleed => {
-          c.health = Math.max(0, c.health - (bleed.value || 0));
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `🩸 ${c.character.name} sofreu ${(bleed.value || 0)} de dano por Sangramento (${bleed.name}).`,
-            type: 'damage',
-          });
-          addFloatingText(c.id, `-${(bleed.value || 0)} HP (SANGRAMENTO)`, 'damage');
+          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o Sangramento (${bleed.name}).`, type: 'buff' });
+            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+          } else {
+            c.health = Math.max(0, c.health - (bleed.value || 0));
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🩸 ${c.character.name} sofreu ${(bleed.value || 0)} de dano por Sangramento (${bleed.name}).`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${(bleed.value || 0)} HP (SANGRAMENTO)`, 'damage');
+          }
         });
 
         // Apply Affliction (Aflição)
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
-          c.health = Math.max(0, c.health - (aff.value || 0));
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `💜 ${c.character.name} sofreu ${(aff.value || 0)} de dano por Aflição (${aff.name}).`,
-            type: 'damage',
-          });
-          addFloatingText(c.id, `-${(aff.value || 0)} HP (AFLIÇÃO)`, 'damage');
+          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a Aflição (${aff.name}).`, type: 'buff' });
+            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+          } else {
+            c.health = Math.max(0, c.health - (aff.value || 0));
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💜 ${c.character.name} sofreu ${(aff.value || 0)} de dano por Aflição (${aff.name}).`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${(aff.value || 0)} HP (AFLIÇÃO)`, 'damage');
+          }
         });
-
-        // Rock Lee Fifth gate self burn
-        const hasFifthGate = c.activeEffects.some(e => e.name === 'Fifth Gate Opening');
-        if (hasFifthGate) {
-          c.health = Math.max(0, c.health - 5);
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `⚠️ Rock Lee sofreu 5 de dano auto-infligido por abrir o Fifth Gate.`,
-            type: 'damage',
-          });
-          addFloatingText(c.id, '-5 HP (PORTÕES INTERNOS)', 'damage');
-        }
 
         // Apply continuous Chakra Gain effects
         const gainChakraEffects = c.activeEffects.filter(e => e.name.startsWith('Fluxo de Chakra'));
@@ -6544,8 +6996,8 @@ if (skill.reflect) {
     currentTurnUsedSkills.current = {};
 
     // Check game over
-    const allPlayerDead = updatedPlayer.every(p => p.isDead);
-    const allEnemyDead = updatedEnemy.every(e => e.isDead);
+    const allPlayerDead = updatedPlayer.length > 0 && updatedPlayer.every(p => p.isDead);
+    const allEnemyDead = updatedEnemy.length > 0 && updatedEnemy.every(e => e.isDead);
 
     if (allPlayerDead && allEnemyDead) {
       setGameOver('defeat');
@@ -6707,9 +7159,16 @@ if (skill.reflect) {
     if (skill.damageRules && skill.damageRules.length > 0) {
       skill.damageRules.forEach(rule => {
         if (!rule.activeSkillName || rule.damageBoost <= 0) return;
+        const typeLabel = rule.damageType === 'direct_damage' ? 'Dano Direto'
+          : rule.damageType === 'piercing' ? 'Dano Perfurante'
+          : rule.damageType === 'affliction' ? 'Dano de Aflição'
+          : rule.damageType === 'bleeding' ? 'Dano de Sangramento'
+          : rule.damageType === 'dot' ? 'DoT'
+          : 'Dano';
+        const ignoreStr = rule.ignoreBaseDamage !== false ? ' (substitui dano base)' : '';
         effects.push({
-          label: `Dano Extra (${rule.activeSkillName})`,
-          value: `+${rule.damageBoost} de dano quando ${rule.activeSkillName} estiver ativo`,
+          label: `Regra de Dano (${rule.activeSkillName})`,
+          value: `+${rule.damageBoost} de ${typeLabel} quando ${rule.activeSkillName} estiver ativo${ignoreStr}`,
           color: 'text-rose-300',
           targetLabel: 'Condicional'
         });
@@ -6772,6 +7231,22 @@ if (skill.reflect) {
         value: `Incapaz de ficar invulnerável por ${skill.cannotBeInvulnerableDuration} ${skill.cannotBeInvulnerableDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-amber-400',
         targetLabel: getTargetLabel(skill.cannotBeInvulnerableTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.cannotReceiveFriendlyDuration && skill.cannotReceiveFriendlyDuration > 0) {
+      effects.push({
+        label: 'Incapaz de Receber Skills Amigáveis',
+        value: `Incapaz de receber habilidades amigáveis por ${skill.cannotReceiveFriendlyDuration} ${skill.cannotReceiveFriendlyDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-fuchsia-400',
+        targetLabel: getTargetLabel(skill.cannotReceiveFriendlyTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.revealInvisibleDuration && skill.revealInvisibleDuration > 0) {
+      effects.push({
+        label: 'Revelar Skills Invisíveis',
+        value: `Revela habilidades e efeitos invisíveis por ${skill.revealInvisibleDuration} ${skill.revealInvisibleDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-cyan-400',
+        targetLabel: getTargetLabel(skill.revealInvisibleTarget, 'Alvo Principal')
       });
     }
     if (skill.ignoreStunDuration && skill.ignoreStunDuration > 0) {
@@ -6868,12 +7343,20 @@ if (skill.reflect) {
   // Informação de redução de custo quando Parasite estiver ativo (costRules)
   if (skill.costRules && skill.costRules.length > 0) {
     skill.costRules.forEach(rule => {
-      if (rule.activeSkillName && rule.reduceAmount && rule.reduceAmount > 0) {
+      if (!rule.activeSkillName) return;
+      if (rule.overrideCost !== undefined) {
+        const costStr = rule.overrideCost.length > 0 ? rule.overrideCost.join(', ') : 'GRÁTIS (0 Custo)';
+        effects.push({
+          label: `Novo Custo (${rule.activeSkillName})`,
+          value: `Custo alterado para [${costStr}] quando ${rule.activeSkillName} estiver ativo`,
+          color: 'text-amber-400',
+          targetLabel: 'Condicional'
+        });
+      } else if (rule.reduceAmount && rule.reduceAmount > 0) {
         const chakraType = rule.reduceType || rule.reduceSpecificType || 'Rand';
-        const chakraLabel = chakraType === 'Rand' ? 'Chakra Aleatório' : chakraType;
         effects.push({
           label: `Custo Reduzido (${rule.activeSkillName})`,
-          value: `Custa ${rule.reduceAmount} ${chakraType === 'Rand' ? 'Chakra Aleatório' : chakraType} a menos enquanto ${rule.activeSkillName} estiver ativo no alvo`,
+          value: `Custa ${rule.reduceAmount} ${chakraType === 'Rand' ? 'Chakra Aleatório' : chakraType} a menos enquanto ${rule.activeSkillName} estiver ativo`,
           color: 'text-emerald-400',
           targetLabel: 'Condicional'
         });
@@ -6881,16 +7364,18 @@ if (skill.reflect) {
     });
   }
 
-  // Informação de remoção de chakra condicional (chakraRemoveRules)
+  // Informação de remoção de chakra do estoque inimigo (chakraRemoveRules)
   if (skill.chakraRemoveRules && skill.chakraRemoveRules.length > 0) {
     skill.chakraRemoveRules.forEach(rule => {
-      if (!rule.activeSkillName || rule.removeAmount <= 0) return;
-      effects.push({
-        label: `Remover Chakra (${rule.activeSkillName})`,
-        value: `Remove ${rule.removeAmount} chakra aleatório do estoque inimigo quando ${rule.activeSkillName} estiver ativo`,
-        color: 'text-purple-400',
-        targetLabel: 'Condicional'
-      });
+      if (!rule.activeSkillName) return;
+      if (rule.removeAmount && rule.removeAmount > 0) {
+        effects.push({
+          label: `Remover Chakra (${rule.activeSkillName})`,
+          value: `Remove ${rule.removeAmount} chakra aleatório do estoque inimigo quando ${rule.activeSkillName} estiver ativo`,
+          color: 'text-purple-400',
+          targetLabel: 'Condicional'
+        });
+      }
     });
   }
 
@@ -6963,7 +7448,7 @@ if (skill.cannotBeReflected) {
             className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900/95 border border-orange-500/50 rounded-2xl px-8 py-4 flex items-center gap-4 shadow-2xl shadow-orange-600/20 backdrop-blur"
           >
             <div className="bg-orange-600/10 p-2 rounded-lg border border-orange-500/30">
-              <Sparkles className="w-5 h-5 text-orange-400 animate-spin" />
+              <img src="/static/img/icon/star.webp" alt="Loading" className="w-5 h-5 animate-spin object-contain" />
             </div>
             <div>
               <p className="text-[10px] font-mono text-orange-400 font-bold uppercase tracking-wider">Giro de Chakra - Turno {turn}</p>
@@ -7032,25 +7517,36 @@ if (skill.cannotBeReflected) {
             {/* End Turn Button */}
             <button
               onClick={handleEndTurnClick}
-              disabled={isPreparing || (!isSandbox && activePlanner !== 'player')}
+              disabled={isEndingTurn || isPreparing || (!isSandbox && activePlanner !== 'player')}
               className={`px-4 sm:px-6 py-2 sm:py-2.5 ${
-                isSandbox
-                  ? activePlanner === 'player'
-                    ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40'
-                    : 'bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-600/50 shadow-red-950/40'
-                  : activePlanner === 'player'
-                    ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40'
-                    : 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
-              } font-black rounded-xl active:scale-95 transition-all shadow-lg text-xs uppercase tracking-widest cursor-pointer flex items-center gap-2 border`}
+                isEndingTurn
+                  ? 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
+                  : isSandbox
+                    ? activePlanner === 'player'
+                      ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40 cursor-pointer'
+                      : 'bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-600/50 shadow-red-950/40 cursor-pointer'
+                    : activePlanner === 'player'
+                      ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40 cursor-pointer'
+                      : 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
+              } font-black rounded-xl active:scale-95 transition-all shadow-lg text-xs uppercase tracking-widest flex items-center gap-2 border disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              <Swords className="w-4 h-4" />
-              {isSandbox
-                ? activePlanner === 'player'
-                  ? 'Terminar Turno Jogador'
-                  : 'Terminar Turno Oponente'
-                : activePlanner === 'player'
-                  ? 'Finalizar Turno'
-                  : 'Aguardando...'}
+              {isEndingTurn ? (
+                <>
+                  <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
+                  <span>Finalizando...</span>
+                </>
+              ) : (
+                <>
+                  <Swords className="w-4 h-4" />
+                  {isSandbox
+                    ? activePlanner === 'player'
+                      ? 'Terminar Turno Jogador'
+                      : 'Terminar Turno Oponente'
+                    : activePlanner === 'player'
+                      ? 'Finalizar Turno'
+                      : 'Aguardando...'}
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -7083,9 +7579,11 @@ if (skill.cannotBeReflected) {
                   title: user.title,
                   equippedFrame: user.equippedFrame,
                   equippedFrameUrl: user.equippedFrameUrl,
-                  level: 15,
-                  wins: 28,
-                  losses: 4,
+                  equippedBannerUrl: user.equippedBannerUrl,
+                  xp: Math.max(0, user.xp || 0),
+                  rank: user.rank,
+                  wins: user.wins || 0,
+                  losses: user.losses || 0,
                   village: 'Vila da Folha (Konoha)',
                 },
                 isSelf: true,
@@ -7102,7 +7600,7 @@ if (skill.cannotBeReflected) {
               <div className="absolute inset-0 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
               <div className="relative w-full h-full rounded-full border-2 border-orange-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
                 <img
-                  src={user.photoUrl}
+                  src={user.photoUrl || null}
                   alt={user.name}
                   className="w-full h-full rounded-full object-cover"
                   referrerPolicy="no-referrer"
@@ -7110,7 +7608,7 @@ if (skill.cannotBeReflected) {
               </div>
               {user.equippedFrameUrl && (
                 <img
-                  src={user.equippedFrameUrl}
+                  src={user.equippedFrameUrl || null}
                   alt="Moldura"
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[135%] h-[135%] max-w-none pointer-events-none object-contain z-10"
                 />
@@ -7143,7 +7641,7 @@ if (skill.cannotBeReflected) {
               const isSelectedSource = selectedSkill?.charId === combatant.id;
               const hasCued = cuedActions.some(a => a.sourceId === combatant.id);
               const cuedAct = cuedActions.find(a => a.sourceId === combatant.id);
-              const isStunned = combatant.activeEffects.some(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player'));
+              const isStunned = combatant.activeEffects.some(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]));
               const incomingCues = getIncomingCuesForCombatant(combatant);
 
               return (
@@ -7163,7 +7661,7 @@ if (skill.cannotBeReflected) {
                       <div className="w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
                         {skinImg ? (
                           <img
-                            src={skinImg}
+                            src={skinImg || null}
                             alt={combatant.character.name}
                             referrerPolicy="no-referrer"
                             className="h-full w-auto max-w-full object-contain filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.95)]"
@@ -7224,19 +7722,30 @@ if (skill.cannotBeReflected) {
                       {incomingCues.map((cue, cIdx) => {
                         const src = playerCombatants.find(p => p.id === cue.sourceId) || enemyCombatants.find(e => e.id === cue.sourceId);
                         const skill = src?.character.skills[cue.skillIndex];
+                        const isEnemyCue = cue.sourceId.startsWith('enemy');
+                        const isSkillInvisible = !!(skill?.invisible || (skill?.invisibleDuration !== undefined && skill.invisibleDuration > 0));
+                        const hasReveal = [...playerCombatants, ...enemyCombatants].some(c => c.activeEffects?.some(e => e.type === 'reveal_invisible' && (e.casterSide === 'player' || !e.casterSide)));
+                        const isHiddenCue = isEnemyCue && isSkillInvisible && !hasReveal && !isSandbox;
+
                         return (
                           <div key={`${cue.sourceId}-${cue.skillIndex}-${cIdx}`} className="group relative">
-                            <img
-                              src={skill?.icon}
-                              alt={skill?.name}
-                              className="w-5 h-5 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
-                              onError={(e) => {
-                                const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                              }}
-                            />
+                            {isHiddenCue ? (
+                              <div className="w-5 h-5 rounded border border-pink-600/80 bg-pink-950/90 text-pink-300 flex items-center justify-center text-[10px] font-bold cursor-help" title="Ação Oculta (Invisível)">
+                                👁️
+                              </div>
+                            ) : (
+                              <img
+                                src={skill?.icon}
+                                alt={skill?.name}
+                                className="w-5 h-5 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
+                                onError={(e) => {
+                                  const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                                }}
+                              />
+                            )}
                             {/* Skill Tooltip */}
                             <div className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[9px] text-slate-200 z-50 whitespace-nowrap shadow-2xl pointer-events-none">
-                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{skill?.name}]
+                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{isHiddenCue ? 'Ação Oculta' : skill?.name}]
                             </div>
                           </div>
                         );
@@ -7248,7 +7757,7 @@ if (skill.cannotBeReflected) {
                   <div className="flex gap-3">
                     <div className="w-14 h-14 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex-shrink-0 relative">
                       <img 
-                        src={combatant.character.portrait} 
+                        src={combatant.character.portrait || null} 
                         alt={combatant.character.name} 
                         decoding="async"
                         loading="eager"
@@ -7270,7 +7779,7 @@ if (skill.cannotBeReflected) {
                         return (
                           <div className="absolute inset-0 rounded-lg overflow-hidden z-10 border-2 border-cyan-400/80">
                             {invulnEff.icon && (
-                              <img src={invulnEff.icon} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                              <img src={invulnEff.icon || null} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
                             )}
                             <div className="absolute inset-0 bg-cyan-950/60 flex items-center justify-center">
                               <span className="bg-cyan-950/90 px-1 py-0.5 rounded border border-cyan-400/60 font-mono text-[7px] font-black text-cyan-300 uppercase tracking-wider text-center drop-shadow-lg">
@@ -7352,7 +7861,7 @@ if (skill.cannotBeReflected) {
 
                       {/* Active Status Badges */}
                       {combatant.activeEffects.length > 0 && (() => {
-                        const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player');
+                        const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]);
 
                         return (
                           <div className="flex items-center gap-1.5 pt-1.5 w-full">
@@ -7373,7 +7882,7 @@ if (skill.cannotBeReflected) {
                                     <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden flex items-center justify-center bg-slate-900">
                                       {eff.icon ? (
                                         <img
-                                          src={eff.icon}
+                                          src={eff.icon || null}
                                           alt={item.skillName || eff.name}
                                           referrerPolicy="no-referrer"
                                           className="w-full h-full object-cover rounded-lg"
@@ -7386,6 +7895,9 @@ if (skill.cannotBeReflected) {
                                       )}
                                       {eff.irremovable && (
                                         <span className="absolute top-0 right-0 bg-slate-950/80 rounded text-[8px] p-0.5">🔒</span>
+                                      )}
+                                      {(eff.isInvisible || eff.type === 'invisible') && (
+                                        <span className="absolute top-0 left-0 bg-pink-950/90 text-pink-300 rounded text-[8px] p-0.5 border border-pink-700/80" title="Invisível para o oponente">👁️</span>
                                       )}
                                     </div>
 
@@ -7533,7 +8045,7 @@ if (skill.cannotBeReflected) {
                                 }`}
                               >
                                 <img 
-                                  src={skill.icon} 
+                                  src={skill.icon || null} 
                                   alt={skill.name} 
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
@@ -7694,7 +8206,7 @@ if (skill.cannotBeReflected) {
                 </h2>
               </div>
 
-              {!isWaitingForOpponent && !gameOver && (
+              {!gameOver && (
                 <div className="flex items-center gap-2">
                   <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-black uppercase tracking-wider transition-all duration-300 shadow ${
                     timeLeft <= 10
@@ -7706,11 +8218,17 @@ if (skill.cannotBeReflected) {
                   </div>
 
                   <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-black uppercase tracking-wider transition-all duration-300 shadow ${
-                    activePlanner === 'player'
-                      ? 'bg-emerald-900/90 border-emerald-500/60 text-emerald-100'
-                      : 'bg-red-900/90 border-red-500/60 text-red-100 animate-pulse'
+                    isWaitingForOpponent
+                      ? 'bg-amber-950/90 border-amber-500/60 text-amber-200 animate-pulse'
+                      : activePlanner === 'player'
+                        ? 'bg-emerald-900/90 border-emerald-500/60 text-emerald-100'
+                        : 'bg-red-900/90 border-red-500/60 text-red-100 animate-pulse'
                   }`}>
-                    {activePlanner === 'player' ? 'Seu Turno' : 'Vez do Oponente'}
+                    {isWaitingForOpponent
+                      ? 'Aguardando Oponente...'
+                      : activePlanner === 'player'
+                        ? 'Seu Turno'
+                        : 'Vez do Oponente'}
                   </div>
                 </div>
               )}
@@ -7860,7 +8378,7 @@ if (skill.cannotBeReflected) {
                     <div className="flex gap-3 pb-3 border-b border-slate-900">
                       <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-800 flex-shrink-0 bg-slate-900">
                         <img 
-                          src={inspectedSkill.skill.icon} 
+                          src={inspectedSkill.skill.icon || null} 
                           alt={inspectedSkill.skill.name} 
                           className={`w-full h-full object-cover ${inspectedSkill.isEnemy ? 'scale-x-[-1]' : ''}`}
                           onError={(e) => {
@@ -8084,10 +8602,12 @@ if (skill.cannotBeReflected) {
                   title: opp?.title || 'Renegado S-Rank',
                   equippedFrame: opp?.equippedFrame,
                   equippedFrameUrl: opp?.equippedFrameUrl,
+                  equippedBannerUrl: opp?.equippedBannerUrl,
                   isBot: !isOnline,
-                  level: 20,
-                  wins: 35,
-                  losses: 12,
+                  xp: opp?.xp || 1500,
+                  rank: opp?.rank || 'Anbu',
+                  wins: opp?.wins || 35,
+                  losses: opp?.losses || 12,
                   village: isOnline ? 'Vila Oponente' : 'Vila do Som',
                 },
                 isSelf: false,
@@ -8114,7 +8634,7 @@ if (skill.cannotBeReflected) {
               </div>
               {onlineParams?.isOnline && onlineParams.opponentProfile.equippedFrameUrl && (
                 <img
-                  src={onlineParams.opponentProfile.equippedFrameUrl}
+                  src={onlineParams.opponentProfile.equippedFrameUrl || null}
                   alt="Moldura Oponente"
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[135%] h-[135%] max-w-none pointer-events-none object-contain z-10"
                 />
@@ -8147,7 +8667,7 @@ if (skill.cannotBeReflected) {
        
           <div className="space-y-4">
             {enemyCombatants.map((combatant, idx) => {
-              const isStunned = combatant.activeEffects.some(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player'));
+              const isStunned = combatant.activeEffects.some(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]));
               const incomingCues = getIncomingCuesForCombatant(combatant);
 
               return (
@@ -8195,19 +8715,30 @@ if (skill.cannotBeReflected) {
                       {incomingCues.map((cue, cIdx) => {
                         const src = playerCombatants.find(p => p.id === cue.sourceId) || enemyCombatants.find(e => e.id === cue.sourceId);
                         const skill = src?.character.skills[cue.skillIndex];
+                        const isEnemyCue = cue.sourceId.startsWith('enemy');
+                        const isSkillInvisible = !!(skill?.invisible || (skill?.invisibleDuration !== undefined && skill.invisibleDuration > 0));
+                        const hasReveal = [...playerCombatants, ...enemyCombatants].some(c => c.activeEffects?.some(e => e.type === 'reveal_invisible' && (e.casterSide === 'player' || !e.casterSide)));
+                        const isHiddenCue = isEnemyCue && isSkillInvisible && !hasReveal && !isSandbox;
+
                         return (
                           <div key={`${cue.sourceId}-${cue.skillIndex}-${cIdx}`} className="group relative">
-                            <img
-                              src={skill?.icon}
-                              alt={skill?.name}
-                              className="w-5 h-5 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
-                              onError={(e) => {
-                                const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                              }}
-                            />
+                            {isHiddenCue ? (
+                              <div className="w-5 h-5 rounded border border-pink-600/80 bg-pink-950/90 text-pink-300 flex items-center justify-center text-[10px] font-bold cursor-help" title="Ação Oculta (Invisível)">
+                                👁️
+                              </div>
+                            ) : (
+                              <img
+                                src={skill?.icon}
+                                alt={skill?.name}
+                                className="w-5 h-5 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
+                                onError={(e) => {
+                                  const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                                }}
+                              />
+                            )}
                             {/* Skill Tooltip */}
                             <div className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[9px] text-slate-200 z-50 whitespace-nowrap shadow-2xl pointer-events-none">
-                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{skill?.name}]
+                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{isHiddenCue ? 'Ação Oculta' : skill?.name}]
                             </div>
                           </div>
                         );
@@ -8219,7 +8750,7 @@ if (skill.cannotBeReflected) {
                   <div className="flex gap-3 flex-row-reverse">
                     <div className="w-14 h-14 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex-shrink-0 relative">
                       <img 
-                        src={combatant.character.portrait} 
+                        src={combatant.character.portrait || null} 
                         alt={combatant.character.name} 
                         decoding="async"
                         loading="eager"
@@ -8241,7 +8772,7 @@ if (skill.cannotBeReflected) {
                         return (
                           <div className="absolute inset-0 rounded-lg overflow-hidden z-10 border-2 border-cyan-400/80">
                             {invulnEff.icon && (
-                              <img src={invulnEff.icon} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                              <img src={invulnEff.icon || null} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
                             )}
                             <div className="absolute inset-0 bg-cyan-950/60 flex items-center justify-center">
                               <span className="bg-cyan-950/90 px-1 py-0.5 rounded border border-cyan-400/60 font-mono text-[7px] font-black text-cyan-300 uppercase tracking-wider text-center drop-shadow-lg">
@@ -8323,7 +8854,7 @@ if (skill.cannotBeReflected) {
 
                       {/* Active Status Badges */}
                       {combatant.activeEffects.length > 0 && (() => {
-                        const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player');
+                        const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]);
 
                         return (
                           <div className="flex items-center gap-1.5 pt-1.5 w-full">
@@ -8344,7 +8875,7 @@ if (skill.cannotBeReflected) {
                                     <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden flex items-center justify-center bg-slate-900">
                                       {eff.icon ? (
                                         <img
-                                          src={eff.icon}
+                                          src={eff.icon || null}
                                           alt={item.skillName || eff.name}
                                           referrerPolicy="no-referrer"
                                           className="w-full h-full object-cover rounded-lg"
@@ -8468,7 +8999,10 @@ if (skill.cannotBeReflected) {
                           {paginatedSkills.map((skill, pIdx) => {
                             const sIdx = skillsPage * skillsPerPage + pIdx;
                             const isCooldown = skill.currentCooldown > 0;
-                            const isSkillInvisibleToOpponent = skill.invisible || (skill.invisibleDuration !== undefined && skill.invisibleDuration > 0);
+                            const hasRevealInvisible = [...playerCombatants, ...enemyCombatants].some(
+                              c => c.activeEffects?.some(e => e.type === 'reveal_invisible' && (e.casterSide === 'player' || !e.casterSide))
+                            );
+                            const isSkillInvisibleToOpponent = (skill.invisible || (skill.invisibleDuration !== undefined && skill.invisibleDuration > 0)) && !hasRevealInvisible;
 
                             if (isSkillInvisibleToOpponent && !isSandbox) {
                               return (
@@ -8530,7 +9064,7 @@ if (skill.cannotBeReflected) {
                                   }`}
                                 >
                                   <img 
-                                    src={skill.icon} 
+                                    src={skill.icon || null} 
                                     alt={skill.name} 
                                     className="w-full h-full object-cover scale-x-[-1]" 
                                     onError={(e) => {
@@ -8596,16 +9130,16 @@ if (skill.cannotBeReflected) {
 
                                   {/* Hover Details tooltip card */}
                                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
-                                    <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{skill.name}</p>
-                                    <p className="text-[10px] text-slate-400 leading-normal pt-1">{skill.desc}</p>
+                                    <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
+                                    <p className="text-[10px] text-slate-400 leading-normal pt-1">{translateGameText(skill.desc, language)}</p>
                                     
                                     {(skill.cannotBeCountered || skill.cannotBeReflected) && (
                                       <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
                                         {skill.cannotBeCountered && (
-                                          <span className="text-red-400 font-bold">🚫 Incontra-atacável</span>
+                                          <span className="text-red-400 font-bold">{t("🚫 Incontra-atacável", "🚫 Uncounterable")}</span>
                                         )}
                                         {skill.cannotBeReflected && (
-                                          <span className="text-cyan-400 font-bold">🚫 Irrefletível</span>
+                                          <span className="text-cyan-400 font-bold">{t("🚫 Irrefletível", "🚫 Unreflectable")}</span>
                                         )}
                                       </div>
                                     )}
@@ -8666,7 +9200,7 @@ if (skill.cannotBeReflected) {
                                   isCooldown ? 'border-slate-950 opacity-30' : 'border-slate-800'
                                 }`}
                               >
-                                <img src={skill.icon} alt={skill.name} className="w-full h-full object-cover scale-x-[-1]" />
+                                <img src={skill.icon || null} alt={skill.name} className="w-full h-full object-cover scale-x-[-1]" />
 
                                 {/* Cooldown Overlay */}
                                 {isCooldown && (
@@ -8679,21 +9213,21 @@ if (skill.cannotBeReflected) {
 
                                 {/* Hover Details tooltip card */}
                                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
-                                  <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{skill.name}</p>
-                                  <p className="text-[10px] text-slate-400 leading-normal pt-1">{skill.desc}</p>
+                                  <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
+                                  <p className="text-[10px] text-slate-400 leading-normal pt-1">{translateGameText(skill.desc, language)}</p>
                                   
                                   {(skill.cannotBeCountered || skill.cannotBeReflected) && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
                                       {skill.cannotBeCountered && (
-                                        <span className="text-red-400 font-bold">🚫 Incontra-atacável</span>
+                                        <span className="text-red-400 font-bold">{t("🚫 Incontra-atacável", "🚫 Uncounterable")}</span>
                                       )}
                                       {skill.cannotBeReflected && (
-                                        <span className="text-cyan-400 font-bold">🚫 Irrefletível</span>
+                                        <span className="text-cyan-400 font-bold">{t("🚫 Irrefletível", "🚫 Unreflectable")}</span>
                                       )}
                                     </div>
                                   )}
                                   <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-1">
-                                      <span>Recarga: {skill.permanent ? '♾️ Permanente' : skill.cooldown}</span>
+                                      <span>{t("Recarga", "Cooldown")}: {skill.permanent ? t("♾️ Permanente", "♾️ Permanent") : skill.cooldown}</span>
                                       <div className="flex gap-0.5 items-center">
                                         {effectiveCost.map((c, costIdx) => (
                                         <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
@@ -8749,7 +9283,7 @@ if (skill.cannotBeReflected) {
                     <div className="w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
                       {skinImg ? (
                         <img
-                          src={skinImg}
+                          src={skinImg || null}
                           alt={combatant.character.name}
                           referrerPolicy="no-referrer"
                           className="h-full w-auto max-w-full object-contain scale-x-[-1] filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.95)]"
@@ -8858,6 +9392,7 @@ if (skill.cannotBeReflected) {
             handleQuit={handleQuit}
             user={user}
             turn={turn}
+            matchStats={matchStatsRef.current}
           />
         )}
       </AnimatePresence>
@@ -8951,47 +9486,23 @@ if (skill.cannotBeReflected) {
       <AnimatePresence>
         {isPreparing && (
           <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-full px-4 py-2 shadow-lg backdrop-blur-sm select-none">
-            <div className="w-4 h-4 rounded-full border-2 border-orange-500/30 border-t-orange-500 animate-spin" />
+            <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
             <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">Preparando...</span>
           </div>
         )}
 
         {isWaitingForOpponent && (
-          <div className="fixed inset-0 bg-slate-950/80 z-45 flex items-center justify-center p-6 backdrop-blur-sm select-none">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-slate-900 border border-slate-800 p-8 max-w-sm w-full rounded-2xl text-center space-y-6 shadow-2xl relative"
-            >
-              {/* Spinning Sharingan/chakra element */}
-              <div className="relative w-20 h-20 mx-auto">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
-                  className="absolute inset-0 rounded-full border-4 border-t-red-500 border-r-transparent border-b-orange-500 border-l-transparent"
-                />
-                <div className="absolute inset-2 bg-slate-950 rounded-full flex items-center justify-center border border-slate-800">
-                  <Flame className="w-8 h-8 text-red-500 animate-pulse" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="text-xl font-black uppercase tracking-tight text-white">
-                  Aguardando Oponente
-                </h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  O oponente está escolhendo suas habilidades e táticas para este turno... Prepare-se para o impacto!
-                </p>
-              </div>
-
-              {/* Status micro banner */}
-              <div className="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800/60 inline-flex items-center gap-2 mx-auto">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-                <span className="text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">Sua equipe está pronta</span>
-              </div>
-            </motion.div>
-          </div>
+          <motion.div
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-slate-900/95 border border-amber-500/60 rounded-full px-5 py-2.5 shadow-2xl backdrop-blur-md select-none pointer-events-none"
+          >
+            <span className="w-2.5 h-2.5 bg-amber-400 rounded-full animate-ping" />
+            <span className="text-xs font-mono font-black tracking-wider text-amber-300 uppercase">
+              Aguardando Oponente Escolher Habilidades...
+            </span>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -9128,6 +9639,7 @@ if (skill.cannotBeReflected) {
                 <button
                   onClick={() => {
                     playClickSound();
+                    turnActionLockedRef.current = false;
                     setShowSandboxConfirmModal(false);
                   }}
                   className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition active:scale-95 border border-slate-700 cursor-pointer"
@@ -9135,11 +9647,14 @@ if (skill.cannotBeReflected) {
                   Cancelar
                 </button>
                 <button
+                  disabled={isEndingTurn || turnActionLockedRef.current}
                   onClick={() => {
+                    if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current) return;
+                    turnActionLockedRef.current = true;
                     setShowSandboxConfirmModal(false);
                     checkAndProceedWithEndTurn();
                   }}
-                  className={`flex-1 py-2 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-amber-100 shadow-md transition active:scale-95 cursor-pointer border ${
+                  className={`flex-1 py-2 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-amber-100 shadow-md transition active:scale-95 cursor-pointer border disabled:opacity-50 disabled:cursor-not-allowed ${
                     activePlanner === 'player'
                       ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 border-orange-600/50'
                       : 'bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 border-red-600/50'
@@ -9200,7 +9715,7 @@ if (skill.cannotBeReflected) {
                     <div key={idx} className="flex items-center justify-between text-xs bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800">
                       <div className="flex items-center gap-2">
                         {item.icon && (
-                          <img src={item.icon} alt="" className="w-5 h-5 rounded border border-amber-600/40 object-cover" />
+                          <img src={item.icon || null} alt="" className="w-5 h-5 rounded border border-amber-600/40 object-cover" />
                         )}
                         <span className="font-semibold text-slate-200">
                           <span className="text-amber-400">{item.charName}</span> - {item.skillName}
@@ -9302,6 +9817,7 @@ if (skill.cannotBeReflected) {
                   type="button"
                   onClick={() => {
                     playClickSound();
+                    turnActionLockedRef.current = false;
                     setShowRandChakraModal(false);
                   }}
                   className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition active:scale-95 border border-slate-700 cursor-pointer"
@@ -9311,9 +9827,15 @@ if (skill.cannotBeReflected) {
                 <button
                   type="button"
                   disabled={
+                    isEndingTurn ||
+                    turnActionLockedRef.current ||
                     (Object.keys(randAllocation) as (keyof ChakraPool)[]).reduce((sum, key) => sum + (randAllocation[key] || 0), 0) !== randModalData.totalRandRequired
                   }
                   onClick={() => {
+                    if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current) return;
+                    turnActionLockedRef.current = true;
+                    isEndingTurnRef.current = true;
+                    setIsEndingTurn(true);
                     setShowRandChakraModal(false);
                     handleEndTurn(randAllocation);
                   }}

@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { safeFetchJson } from '../lib/api';
 import { 
   Award, 
   Lock, 
@@ -33,7 +34,9 @@ import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
 import ProfileModal from './ProfileModal';
 import { RankConfig, getRanks, getUserRankFromConfig, fetchRanksFromServer } from '../lib/rankStorage';
+import { getRankProgress } from '../lib/xpSystem';
 import { getCharacters } from '../lib/characterStorage';
+import { useLanguage } from '../lib/i18n';
 
 interface QuestBoardProps {
   user: UserProfile;
@@ -76,6 +79,7 @@ export default function QuestBoard({
   playClickSound,
   playWinSound,
 }: QuestBoardProps) {
+  const { t } = useLanguage();
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(true);
   const [mainTab, setMainTab] = useState<'missoes' | 'perfil'>('missoes');
@@ -99,9 +103,8 @@ export default function QuestBoard({
   const fetchQuests = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/quests');
-      const data = await res.json();
-      if (data.success) {
+      const data = await safeFetchJson<{ success?: boolean; quests?: Quest[] }>('/api/quests');
+      if (data && data.success && Array.isArray(data.quests)) {
         // Sync completed quests with user profile
         const userCompletedIds = user.completedQuestIds || [];
         const synced = data.quests.map((q: Quest) => ({
@@ -248,7 +251,7 @@ export default function QuestBoard({
       setQuests(updatedQuestsList);
 
       try {
-        await fetch('/api/quests', {
+        await safeFetchJson('/api/quests', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ quests: updatedQuestsList })
@@ -352,13 +355,13 @@ export default function QuestBoard({
 
               {/* Top Badge */}
               <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/30 to-amber-500/20 border border-amber-400/70 shadow-lg shadow-amber-500/20">
-                <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+                <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
                 <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-amber-300 font-sans">
                   {rewardModalData.unlockedCharacters.length > 0
                     ? '✨ NOVO PERSONAGEM DESBLOQUEADO! ✨'
                     : '✨ RECOMPENSA RESGATADA! ✨'}
                 </span>
-                <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+                <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
               </div>
 
               {/* Character Unlocked View */}
@@ -380,7 +383,7 @@ export default function QuestBoard({
 
                           {/* Large Floating Character Image */}
                           <motion.img
-                            src={displayImg}
+                            src={displayImg || null}
                             alt={char.name}
                             initial={{ scale: 0.7, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1, y: [0, -8, 0] }}
@@ -443,7 +446,7 @@ export default function QuestBoard({
                                   title={sk.desc}
                                 >
                                   <img
-                                    src={sk.icon}
+                                    src={sk.icon || null}
                                     alt={sk.name}
                                     className="w-8 h-8 rounded-lg object-cover border border-amber-500/40 flex-shrink-0"
                                   />
@@ -570,47 +573,62 @@ export default function QuestBoard({
         </div>
 
         {/* Center: User Quick Profile & Wallet Widget */}
-        <button
-          onClick={() => {
-            playClickSound();
-            setShowProfileModal(true);
-          }}
-          className="flex items-center gap-3 bg-slate-950/80 hover:bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-800 hover:border-orange-500/60 transition cursor-pointer group"
-          title="Clique para abrir Perfil e Trocar Moldura"
-        >
-          {/* Avatar with Frame */}
-          <div className="relative w-9 h-9 flex-shrink-0">
-            <div className="w-full h-full rounded-full overflow-hidden bg-slate-900 border border-orange-500/50">
-              <img
-                src={user.photoUrl}
-                alt={user.name}
-                className="w-full h-full object-cover rounded-full"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            {user.equippedFrameUrl && (
-              <img
-                src={user.equippedFrameUrl}
-                alt="Moldura"
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain z-10"
-              />
-            )}
-          </div>
+        {(() => {
+          const ranks = getRanks();
+          const userXp = Math.max(0, user.xp || 0);
+          const rankProgress = getRankProgress(userXp, ranks);
 
-          <div className="text-left leading-tight">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-slate-200 group-hover:text-orange-400">{user.name}</span>
-              {user.title && (
-                <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-500/10 px-1 rounded border border-amber-500/20">
-                  {user.title}
-                </span>
-              )}
-            </div>
-            <p className="text-[10px] font-mono font-bold text-orange-400/90 mt-0.5">
-              🪙 {(user.ryos ?? 1500).toLocaleString()} | 💎 {user.gems ?? 120}
-            </p>
-          </div>
-        </button>
+          return (
+            <button
+              onClick={() => {
+                playClickSound();
+                setShowProfileModal(true);
+              }}
+              className="flex items-center gap-3 bg-slate-950/80 hover:bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-800 hover:border-orange-500/60 transition cursor-pointer group"
+              title="Clique para abrir Perfil e Trocar Moldura"
+            >
+              {/* Avatar with Frame */}
+              <div className="relative w-9 h-9 flex-shrink-0">
+                <div className="w-full h-full rounded-full overflow-hidden bg-slate-900 border border-orange-500/50">
+                  <img
+                    src={user.photoUrl || null}
+                    alt={user.name}
+                    className="w-full h-full object-cover rounded-full"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                {user.equippedFrameUrl && (
+                  <img
+                    src={user.equippedFrameUrl || null}
+                    alt="Moldura"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain z-10"
+                  />
+                )}
+              </div>
+
+              <div className="text-left leading-tight">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-black text-slate-200 group-hover:text-orange-400">{user.name}</span>
+                  <span className={`px-1.5 py-0.2 rounded bg-gradient-to-r text-[9px] font-mono font-extrabold uppercase shadow ${rankProgress.currentRank.color}`} style={{ color: '#ffffff' }}>
+                    {rankProgress.currentRank.name}
+                  </span>
+                  <span className="text-[9px] font-mono font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 shadow-sm flex items-center gap-0.5">
+                    <Sparkles className="w-2.5 h-2.5 text-amber-300 inline" />
+                    {userXp.toLocaleString()} XP
+                  </span>
+                  {user.title && (
+                    <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-500/10 px-1 rounded border border-amber-500/20">
+                      {user.title}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] font-mono font-bold text-orange-400/90 mt-0.5">
+                  🪙 {(user.ryos ?? 1500).toLocaleString()} | 💎 {user.gems ?? 120}
+                </p>
+              </div>
+            </button>
+          );
+        })()}
 
         {/* Right: Actions and Modals Toolbar (EVENTOS | LOJA | PERFIL & MOLDURAS | MISSÕES | BATALHA | MENU) */}
         <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800 w-full lg:w-auto justify-center">
@@ -627,7 +645,7 @@ export default function QuestBoard({
             }`}
           >
             <BookOpen className="w-4 h-4" />
-            <span>Missões</span>
+            <span>{t('Missões', 'Quests')}</span>
           </button>
 
           {/* EVENTOS E LOJA BOTÕES DESATIVADOS TEMPORARIAMENTE (CÓDIGO PRESERVADO)
@@ -666,14 +684,14 @@ export default function QuestBoard({
             className="px-3.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:brightness-110 shadow-md shadow-amber-500/10"
           >
             <Swords className="w-4 h-4 text-slate-950" />
-            <span>Batalha</span>
+            <span>{t('Batalha', 'Battle')}</span>
           </button>
 
           {/* MENU BACK BUTTON */}
           <button
             onClick={onBack}
             className="px-3 py-2 text-xs text-slate-400 hover:text-orange-400 transition cursor-pointer font-bold uppercase tracking-wider font-mono hover:bg-slate-900 rounded-lg"
-            title="Voltar ao Menu Inicial"
+            title={t('Voltar ao Menu Inicial', 'Back to Main Menu')}
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -686,22 +704,24 @@ export default function QuestBoard({
           {/* Sub-Filters Bar for Quests (Disponíveis | Concluídas | Todas) */}
           <div className="flex justify-between items-center bg-slate-900/60 backdrop-blur-md p-2 rounded-xl border border-slate-800/80">
             <div className="flex items-center gap-2">
-              {(['available', 'completed', 'all'] as const).map((tab) => (
+              {[
+                { id: 'available', pt: 'Disponíveis', en: 'Available' },
+                { id: 'completed', pt: 'Concluídas', en: 'Completed' },
+                { id: 'all', pt: 'Todas', en: 'All' }
+              ].map((tab) => (
                 <button
-                  key={tab}
+                  key={tab.id}
                   onClick={() => {
                     playClickSound();
-                    setActiveTab(tab);
+                    setActiveTab(tab.id as any);
                   }}
                   className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-                    activeTab === tab
+                    activeTab === tab.id
                       ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-black shadow-md shadow-orange-600/10'
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
                 >
-                  {tab === 'available' && 'Disponíveis'}
-                  {tab === 'completed' && 'Concluídas'}
-                  {tab === 'all' && 'Todas'}
+                  {t(tab.pt, tab.en)}
                 </button>
               ))}
             </div>
@@ -711,7 +731,7 @@ export default function QuestBoard({
               className="p-2 text-slate-400 hover:text-orange-400 hover:bg-slate-800 rounded-lg transition cursor-pointer flex items-center gap-1.5 text-xs font-mono"
               title="Sincronizar Missões"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-orange-400' : ''}`} />
+              <img src="/static/img/icon/star.webp" alt="Loading" className={`w-3.5 h-3.5 object-contain ${loading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Sincronizar</span>
             </button>
           </div>
@@ -719,7 +739,7 @@ export default function QuestBoard({
           {/* Quests Listing */}
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center space-y-3">
-              <RefreshCw className="w-8 h-8 text-orange-500 animate-spin" />
+              <img src="/static/img/icon/star.webp" alt="Loading" className="w-8 h-8 animate-spin object-contain" />
               <p className="text-slate-400 text-xs font-mono">Buscando missões secretas na névoa...</p>
             </div>
           ) : filteredQuests.length > 0 ? (
@@ -786,10 +806,10 @@ export default function QuestBoard({
                           {(() => {
                             const allRanks = getRanks();
                             const r = allRanks.find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase());
-                            if (r?.imageUrl) return <img src={r.imageUrl} alt="" className="rank-bg-img absolute" />;
+                            if (r?.imageUrl) return <img src={r.imageUrl || null} alt="" className="rank-bg-img absolute" />;
                             return null;
                           })()}
-                          <span className="relative z-10 rank-board-name" style={{ color: (() => { const r = getRanks().find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase()); return r?.fontColor || '#fbbf24'; })() }}>{quest.minRank}</span>
+                          <span className="relative z-10 rank-board-name" style={{ color: (() => { const r = getRanks().find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase()); return r?.fontColor || '#ffffff'; })() }}>{quest.minRank}</span>
                         </div>
                       </div>
 
@@ -858,7 +878,7 @@ export default function QuestBoard({
                                         const ch = allChars.find(c => c.name === r.value || c.id === r.value);
                                         return ch ? (
                                           <div className=" electric-border relative w-10 h-10 overflow-hidden  flex-shrink-0 bg-slate-900 rounded-md">
-                                            <img src={ch.portrait} alt={r.value} className=" electric-content w-full h-full object-cover" />
+                                            <img src={ch.portrait || null} alt={r.value} className=" electric-content w-full h-full object-cover" />
                                           </div>
                                         ) : <Award className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />;
                                       })()
@@ -897,7 +917,7 @@ export default function QuestBoard({
                               className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 active:scale-95 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer font-sans uppercase tracking-wider shadow-lg shadow-emerald-500/20"
                             >
                               {claimedRewardId === quest.id ? (
-                                <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                                <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
                               ) : (
                                 <Sparkles className="w-4 h-4 fill-slate-950 text-slate-950" />
                               )}
@@ -945,7 +965,7 @@ export default function QuestBoard({
               {/* Top Section: Avatar + Name Info */}
               <div className="flex items-center gap-3.5">
                 <img
-                  src={user.photoUrl}
+                  src={user.photoUrl || null}
                   alt={user.name}
                   className="w-14 h-14 rounded-full border-2 border-[#5a381a] object-cover shadow-md bg-stone-200"
                   referrerPolicy="no-referrer"
@@ -981,9 +1001,9 @@ export default function QuestBoard({
                     {(() => {
                       const allRanks = getRanks();
                       const r = allRanks.find(rr => rr.name === currentRank || rr.name.toLowerCase() === currentRank.toLowerCase());
-                      return r?.imageUrl ? <img src={r.imageUrl} alt="" className="rank-bg-img absolute inset-0 w-full h-full object-cover opacity-40" /> : null;
+                      return r?.imageUrl ? <img src={r.imageUrl || null} alt="" className="rank-bg-img absolute inset-0 w-full h-full object-cover opacity-40" /> : null;
                     })()}
-                    <span className="relative z-10" style={{ color: (() => { const r = getRanks().find(rr => rr.name === currentRank || rr.name.toLowerCase() === currentRank.toLowerCase()); return r?.fontColor || '#000'; })() }}>{currentRank}</span>
+                    <span className="relative z-10" style={{ color: (() => { const r = getRanks().find(rr => rr.name === currentRank || rr.name.toLowerCase() === currentRank.toLowerCase()); return r?.fontColor || '#ffffff'; })() }}>{currentRank}</span>
                   </div>
                   <span className="text-xs font-bold text-stone-800 tracking-wide">
                     Rank Atual

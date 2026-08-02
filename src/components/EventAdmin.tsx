@@ -258,7 +258,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
     }
   };
 
-  const handleAddOrUpdateSkin = () => {
+  const handleAddOrUpdateSkin = async () => {
     playClickSound();
     if (!newSkinCharId) {
       showError('Selecione o ninja para cadastrar a skin.');
@@ -289,7 +289,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
       });
 
       setCharactersList(updatedChars);
-      saveCharacters(updatedChars);
+      await saveCharacters(updatedChars);
       setEditingSkinInfo(null);
       setNewSkinName('');
       setNewSkinImage('');
@@ -310,7 +310,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
       });
 
       setCharactersList(updatedChars);
-      saveCharacters(updatedChars);
+      await saveCharacters(updatedChars);
       setNewSkinName('');
       setNewSkinImage('');
       showSuccess(`Nova skin adicionada para ${targetChar?.name || 'Ninja'}!`);
@@ -332,7 +332,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
     setNewSkinImage('');
   };
 
-  const handleDeleteSkin = (charId: string, skinIdx: number, skinName: string) => {
+  const handleDeleteSkin = async (charId: string, skinIdx: number, skinName: string) => {
     playClickSound();
     if (!confirm(`Tem certeza que deseja remover a skin "${skinName}"?`)) return;
 
@@ -346,7 +346,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
     });
 
     setCharactersList(updatedChars);
-    saveCharacters(updatedChars);
+    await saveCharacters(updatedChars);
     if (editingSkinInfo?.charId === charId && editingSkinInfo?.skinIdx === skinIdx) {
       handleCancelEditSkin();
     }
@@ -701,7 +701,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
                     <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" alt="Avatar" className="w-full h-full object-cover" />
                   </div>
                   <img
-                    src={newFrameUrl}
+                    src={newFrameUrl || null}
                     alt="Preview Frame"
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain"
                   />
@@ -743,7 +743,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
                     <div className="w-full h-full rounded-full bg-slate-900 overflow-hidden border border-slate-800">
                       <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100" alt="User" className="w-full h-full object-cover" />
                     </div>
-                    <img src={frame.imageUrl} alt={frame.name} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain" />
+                    <img src={frame.imageUrl || null} alt={frame.name} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain" />
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -853,7 +853,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
               <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-center">
                 <p className="text-[10px] font-mono text-slate-400 uppercase mb-2">Pré-visualização do Banner no Card</p>
                 <div className="h-24 w-full rounded-xl overflow-hidden relative border border-slate-700 shadow flex items-center justify-center">
-                  <img src={newBannerUrl} alt="Banner Preview" className="w-full h-full object-cover" />
+                  <img src={newBannerUrl || null} alt="Banner Preview" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
                   <div className="absolute bottom-2 left-2 flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-slate-800 border border-amber-500 overflow-hidden">
@@ -910,7 +910,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
               {customBanners.map(banner => (
                 <div key={banner.id} className="bg-slate-950/80 border border-slate-800 rounded-xl overflow-hidden relative group flex flex-col justify-between">
                   <div className="h-24 w-full relative overflow-hidden bg-slate-900">
-                    <img src={banner.imageUrl} alt={banner.name} className="w-full h-full object-cover" />
+                    <img src={banner.imageUrl || null} alt={banner.name} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent" />
                     <span className="absolute top-2 left-2 text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-slate-950/80 text-amber-400 border border-amber-500/30">
                       {banner.badge || 'BANNER'}
@@ -982,7 +982,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-800 bg-slate-900 flex-shrink-0">
-                        <img src={ev.bannerUrl} alt={ev.title} className="w-full h-full object-cover" />
+                        <img src={ev.bannerUrl || null} alt={ev.title} className="w-full h-full object-cover" />
                       </div>
                       <div className="min-w-0">
                         <p className="font-bold text-xs text-slate-200 truncate group-hover:text-orange-400">{ev.title}</p>
@@ -1281,7 +1281,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
                                   }`}
                                 >
                                   <div className="w-8 h-8 rounded-full bg-slate-800 relative flex-shrink-0">
-                                    <img src={frame.imageUrl} alt={frame.name} className="w-full h-full object-contain" />
+                                    <img src={frame.imageUrl || null} alt={frame.name} className="w-full h-full object-contain" />
                                   </div>
                                   <div className="min-w-0">
                                     <p className="text-[10px] font-bold truncate">{frame.name}</p>
@@ -1309,7 +1309,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
                                   }`}
                                 >
                                   <div className="w-12 h-8 rounded bg-slate-800 overflow-hidden relative flex-shrink-0">
-                                    <img src={banner.imageUrl} alt={banner.name} className="w-full h-full object-cover" />
+                                    <img src={banner.imageUrl || null} alt={banner.name} className="w-full h-full object-cover" />
                                   </div>
                                   <div className="min-w-0">
                                     <p className="text-[10px] font-bold truncate">{banner.name}</p>
@@ -1440,7 +1440,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
                 <span className="text-[9px] font-mono text-slate-500 uppercase mb-2">PRÉ-VISUALIZAÇÃO DA SKIN</span>
                 {newSkinImage ? (
                   <img
-                    src={newSkinImage}
+                    src={newSkinImage || null}
                     alt="Preview"
                     referrerPolicy="no-referrer"
                     className="max-h-36 object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)]"
@@ -1529,7 +1529,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
                     {/* Skin PNG Preview Card */}
                     <div className="w-20 h-24 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center p-1 relative flex-shrink-0 overflow-hidden">
                       <img
-                        src={skin.image}
+                        src={skin.image || null}
                         alt={skin.name}
                         referrerPolicy="no-referrer"
                         className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]"
@@ -1542,7 +1542,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
                     {/* Skin Details */}
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-1.5">
-                        <img src={char.portrait} alt={char.name} className="w-4 h-4 rounded-full border border-amber-500/50" />
+                        <img src={char.portrait || null} alt={char.name} className="w-4 h-4 rounded-full border border-amber-500/50" />
                         <span className="text-[10px] font-mono text-amber-400 font-extrabold uppercase truncate">
                           {char.name}
                         </span>

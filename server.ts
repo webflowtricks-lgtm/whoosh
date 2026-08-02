@@ -100,9 +100,9 @@ async function startServer() {
   });
 
   app.put("/api/user/profile", (req, res) => {
-    const { username, name, photoUrl } = req.body;
-    if (!username || !name) {
-      return res.status(400).json({ error: "Usuário e nome de exibição são obrigatórios." });
+    const { username, name, photoUrl, xp, rank, wins, losses, ryos, gems, title, equippedFrame, equippedFrameUrl, equippedBannerUrl } = req.body;
+    if (!username) {
+      return res.status(400).json({ error: "Nome de usuário é obrigatório." });
     }
 
     const cleanUsername = username.trim().toLowerCase();
@@ -113,14 +113,22 @@ async function startServer() {
       return res.status(404).json({ error: "Usuário não encontrado." });
     }
 
-    users[userIdx].name = name.trim();
-    if (photoUrl) {
-      users[userIdx].photoUrl = photoUrl;
-    }
+    if (name) users[userIdx].name = name.trim();
+    if (photoUrl) users[userIdx].photoUrl = photoUrl;
+    if (typeof xp === 'number') users[userIdx].xp = Math.max(0, xp);
+    if (rank) users[userIdx].rank = rank;
+    if (typeof wins === 'number') users[userIdx].wins = wins;
+    if (typeof losses === 'number') users[userIdx].losses = losses;
+    if (typeof ryos === 'number') users[userIdx].ryos = ryos;
+    if (typeof gems === 'number') users[userIdx].gems = gems;
+    if (title) users[userIdx].title = title;
+    if (equippedFrame) users[userIdx].equippedFrame = equippedFrame;
+    if (equippedFrameUrl !== undefined) users[userIdx].equippedFrameUrl = equippedFrameUrl;
+    if (equippedBannerUrl !== undefined) users[userIdx].equippedBannerUrl = equippedBannerUrl;
 
     writeJSON(USERS_FILE, users);
 
-    res.json({ success: true, user: { username: users[userIdx].username, name: users[userIdx].name, photoUrl: users[userIdx].photoUrl } });
+    res.json({ success: true, user: users[userIdx] });
   });
 
   // ==========================================
@@ -551,11 +559,13 @@ async function startServer() {
   app.get("/api/ranks", (req, res) => {
     const defaultRanks = [
       { id: 'rank_estudante', name: 'Estudante de Academia', requiredXp: 0, color: 'from-slate-500 to-slate-400 border-slate-500/30 text-slate-300' },
-      { id: 'rank_genin', name: 'Genin', requiredXp: 1, color: 'from-emerald-600 to-teal-500 border-emerald-500/30 text-emerald-400' },
-      { id: 'rank_chunin', name: 'Chunin', requiredXp: 2, color: 'from-blue-600 to-cyan-500 border-blue-500/30 text-blue-400' },
-      { id: 'rank_jonin', name: 'Jonin', requiredXp: 3, color: 'from-indigo-600 to-purple-500 border-indigo-500/30 text-indigo-400' },
-      { id: 'rank_anbu', name: 'ANBU', requiredXp: 4, color: 'from-red-600 to-pink-500 border-red-500/30 text-red-400' },
-      { id: 'rank_hokage', name: 'Hokage', requiredXp: 5, color: 'from-orange-600 to-amber-500 border-orange-500/30 text-orange-400' }
+      { id: 'rank_genin', name: 'Genin', requiredXp: 1000, color: 'from-emerald-600 to-teal-500 border-emerald-500/30 text-emerald-400' },
+      { id: 'rank_chunin', name: 'Chunin', requiredXp: 3500, color: 'from-blue-600 to-cyan-500 border-blue-500/30 text-blue-400' },
+      { id: 'rank_jonin', name: 'Jonin', requiredXp: 8500, color: 'from-indigo-600 to-purple-500 border-indigo-500/30 text-indigo-400' },
+      { id: 'rank_anbu', name: 'ANBU', requiredXp: 18000, color: 'from-red-600 to-pink-500 border-red-500/30 text-red-400' },
+      { id: 'rank_sannin', name: 'Sannin Lendário', requiredXp: 35000, color: 'from-purple-600 to-fuchsia-500 border-purple-500/30 text-purple-300' },
+      { id: 'rank_hokage', name: 'Hokage', requiredXp: 60000, color: 'from-orange-600 to-amber-500 border-orange-500/30 text-orange-400' },
+      { id: 'rank_lenda', name: 'Lenda Shinobi', requiredXp: 100000, color: 'from-yellow-500 to-amber-300 border-yellow-400/50 text-yellow-300' }
     ];
     const ranks = readJSON<any[]>(RANKS_FILE, defaultRanks);
     res.json({ success: true, ranks });

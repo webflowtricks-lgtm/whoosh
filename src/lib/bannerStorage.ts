@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { safeFetchJson } from './api';
+
 export interface CustomBannerItem {
   id: string;
   name: string;
@@ -62,17 +64,14 @@ export function getCustomBanners(): CustomBannerItem[] {
 
 export async function fetchCustomBannersFromServer(): Promise<CustomBannerItem[]> {
   try {
-    const res = await fetch('/api/banners');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && Array.isArray(data.banners) && data.banners.length > 0) {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.banners));
-        } catch (e) {
-          console.warn("Failed to save banners to localStorage:", e);
-        }
-        return data.banners;
+    const data = await safeFetchJson<{ success?: boolean; banners?: CustomBannerItem[] }>('/api/banners');
+    if (data && data.success && Array.isArray(data.banners) && data.banners.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.banners));
+      } catch (e) {
+        console.warn("Failed to save banners to localStorage:", e);
       }
+      return data.banners;
     }
   } catch (e) {
     console.error("Failed to fetch banners from server:", e);

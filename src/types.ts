@@ -14,6 +14,7 @@ export interface ChakraPool {
 
 export interface SkillCostRule {
   activeSkillName: string; // Active skill/effect name required on character (e.g. "Two-Headed Wolf")
+  overrideCost?: ChakraType[]; // Custom chakra cost array required when activeSkillName is active. Empty array [] = FREE skill (0 cost).
   reduceType?: ChakraType | 'Any'; // Type of chakra cost to reduce ('Rand', 'Tai', 'Nin', 'Gen', 'Blood', 'Any')
   reduceAmount?: number; // Quantity of chakra to reduce (e.g. 1)
   reduceRandCost?: number; // Legacy compatibility
@@ -23,8 +24,10 @@ export interface SkillCostRule {
 
 export interface SkillDamageRule {
   activeSkillName: string; // Active skill/effect required on character
-  damageBoost: number; // Extra damage when condition is active
+  damageBoost: number; // Damage amount when condition is active
   icon?: string; // Icon of the boosting skill
+  damageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'bleeding' | 'dot'; // Tipo de dano da regra
+  ignoreBaseDamage?: boolean; // Se true, ignora o dano base/direto normal da habilidade quando a regra é ativada
 }
 
 export interface SkillChakraRemoveRule {
@@ -38,9 +41,11 @@ export interface SkillHealRule {
 }
 
 export interface SkillStackDamageRule {
-  /** Nome do stackType que será verificado no alvo (ex: 'Marca', 'Veneno', 'Cortes') */
+  /** Nome do stackType que será verificado (ex: 'Marca', 'Veneno', 'Cortes') */
   stackType: string;
-  /** Dano adicional por cada stack que o alvo possui (instantâneo ou por turno) */
+  /** Onde verificar/contar as stacks: 'target' (No Alvo - padrão), 'self' (Em Mim / Conjurador), 'enemies' (Em Todos os Inimigos), 'allies' (Em Todos os Aliados), 'all' (Em Todos em Campo) */
+  stackSource?: 'target' | 'self' | 'enemies' | 'allies' | 'all';
+  /** Dano adicional por cada stack encontrada (instantâneo ou por turno) */
   damagePerStack: number;
   /** Quantidade de stacks para remover do alvo ao usar esta skill. Se não definido, não remove. */
   removeStacks?: number;
@@ -136,8 +141,10 @@ export interface Skill {
   paralyzeCooldownDuration?: number;
   cannotReduceDamageDuration?: number;
   cannotBeInvulnerableDuration?: number;
+  cannotReceiveFriendlyDuration?: number;
   ignoreStunDuration?: number;
   damageImmunityDuration?: number;
+  revealInvisibleDuration?: number;
 
   // New Durations
   damageDuration?: number;
@@ -158,10 +165,12 @@ export interface Skill {
   paralyzeCooldownTarget?: TargetOverride;
   cannotReduceDamageTarget?: TargetOverride;
   cannotBeInvulnerableTarget?: TargetOverride;
+  cannotReceiveFriendlyTarget?: TargetOverride;
   ignoreStunTarget?: TargetOverride;
   damageImmunityTarget?: TargetOverride;
   invulnerableTarget?: TargetOverride;
   invisibleTarget?: TargetOverride;
+  revealInvisibleTarget?: TargetOverride;
   gainChakraTarget?: TargetOverride;
   drainChakraTarget?: TargetOverride;
   removeChakraTarget?: TargetOverride;
@@ -182,6 +191,7 @@ export interface Skill {
   paralyzeCooldownRemoveType?: string;
   cannotReduceDamageRemoveType?: string;
   cannotBeInvulnerableRemoveType?: string;
+  cannotReceiveFriendlyRemoveType?: string;
   ignoreStunRemoveType?: string;
   damageImmunityRemoveType?: string;
   invulnerableRemoveType?: string;
@@ -191,8 +201,23 @@ export interface Skill {
   stealChakraRemoveType?: string;
   removeShieldRemoveType?: string;
   invisibleRemoveType?: string;
+  revealInvisibleRemoveType?: string;
   counterAttackRemoveType?: string;
   reflectRemoveType?: string;
+  retaliateDamageRemoveType?: string;
+
+  // ==============================
+  // Retaliation / Reactive Damage
+  // ==============================
+  retaliateDamage?: boolean;
+  retaliateDamageVal?: number;
+  retaliateDamageDuration?: number;
+  retaliateDamagePermanent?: boolean;
+  retaliateDamageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'dot' | 'bleeding' | 'true';
+  retaliateTargetScope?: 'self' | 'ally' | 'self_or_ally' | 'team';
+  retaliateTriggerMode?: 'always' | 'first_only';
+  retaliateDamageTarget?: TargetOverride;
+  retaliateDamageIrremovable?: boolean;
 
   // Irremovable effect overrides (protected)
   damageIrremovable?: boolean;
@@ -209,6 +234,7 @@ export interface Skill {
   paralyzeCooldownIrremovable?: boolean;
   cannotReduceDamageIrremovable?: boolean;
   cannotBeInvulnerableIrremovable?: boolean;
+  cannotReceiveFriendlyIrremovable?: boolean;
   ignoreStunIrremovable?: boolean;
   damageImmunityIrremovable?: boolean;
   gainChakraIrremovable?: boolean;
@@ -218,6 +244,7 @@ export interface Skill {
   removeShieldIrremovable?: boolean;
   invulnerableIrremovable?: boolean;
   invisibleIrremovable?: boolean;
+  revealInvisibleIrremovable?: boolean;
   // ==============================
 // Counter Attack
 // ==============================
@@ -350,10 +377,13 @@ export interface ActiveEffect {
 | 'heal'
 | 'cannot_reduce_damage'
 | 'cannot_be_invulnerable'
+| 'cannot_receive_friendly'
 | 'ignore_stun'
 | 'damage_immunity'
 | 'damage_debuff'
-| 'immortal';
+| 'retaliate_damage'
+| 'immortal'
+| 'reveal_invisible';
   value?: number; // magnitude of shield, reduction, damage, etc.
   duration: number; // remaining turns
   icon?: string; // Icon of the skill that caused this effect/debuff
@@ -381,6 +411,11 @@ export interface ActiveEffect {
   stackable?: boolean;
   /** Tipos de dano que este debuff afeta (para damage_debuff) */
   debuffTypes?: string[];
+  retaliateDamageVal?: number;
+  retaliateDamageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'dot' | 'bleeding' | 'true';
+  retaliateTargetScope?: 'self' | 'ally' | 'self_or_ally' | 'team';
+  retaliateTriggerMode?: 'always' | 'first_only';
+  retaliateTriggeredCount?: number;
 }
 
 export interface CombatCharacter {
@@ -417,6 +452,10 @@ export interface UserProfile {
   username: string;
   name: string;
   photoUrl: string;
+  xp?: number;
+  rank?: string;
+  wins?: number;
+  losses?: number;
   completedQuestIds?: string[];
   unlockedCharacterNames?: string[];
   title?: string;
@@ -523,7 +562,12 @@ export interface Quest {
 
 export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter, allCombatants?: CombatCharacter[]): ChakraType[] {
   if (!skill) return [];
-  if (skill.noChakraCost || !skill.cost || skill.cost.length === 0) {
+
+  if (skill.noChakraCost) {
+    return [];
+  }
+
+  if (!skill.cost) {
     return [];
   }
 
@@ -546,7 +590,6 @@ export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter
       const targetNameLower = rule.activeSkillName.trim().toLowerCase();
 
       const otherCombatants = (allCombatants || []).filter(c => c.id !== sourceChar.id);
-      console.log(`[CostRule] Verificando "${rule.activeSkillName}" em ${sourceChar.activeEffects.length} efeitos do source + ${otherCombatants.length} combatentes`);
       const allActiveEffects = [
         ...sourceChar.activeEffects,
         ...otherCombatants.flatMap(c => c.activeEffects),
@@ -561,12 +604,13 @@ export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter
           eNameLower.includes(targetNameLower)
         );
       });
-      if (isReqActive) {
-        const matched = allActiveEffects.find(e => e.name && e.name.toLowerCase().includes(targetNameLower));
-        console.log(`[CostRule] "${rule.activeSkillName}" ativo via "${matched?.name}" - custo reduzido`);
-      }
 
       if (isReqActive) {
+        // OVERRIDE COST (Specific chakra cost requirement OR 0 cost / free skill)
+        if (rule.overrideCost !== undefined) {
+          return [...rule.overrideCost];
+        }
+
         const typeToReduce: ChakraType | 'Any' =
           rule.reduceType ||
           rule.reduceSpecificType ||

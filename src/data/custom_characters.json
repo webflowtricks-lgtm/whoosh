@@ -781,8 +781,6 @@
         ],
         "permanent": true,
         "afflictionInstant": 10,
-        "damageBuffVal": 15,
-        "damageBuffDuration": 3,
         "afflictionVal": 0,
         "afflictionDuration": 0,
         "immortalHpThreshold": 40,
@@ -1361,7 +1359,7 @@
       },
       {
         "name": "Amateur Shinra Tensei",
-        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "desc": "Nagato fica imune a todo tipo de dano por 1 turno e ativa retaliação de 20 de dano direto se for atacado. Esta habilidade é invisível para os inimigos.",
         "icon": "https://i.ibb.co/CGFPNgt/ass.webp",
         "cost": [
           "Blood"
@@ -1375,8 +1373,12 @@
         ],
         "invisibleDuration": 1,
         "invisible": true,
+        "invisibleTarget": "Self",
         "damageImmunityDuration": 1,
-        "damageImmunityTarget": "Self"
+        "damageImmunityTarget": "Self",
+        "retaliateDamage": true,
+        "retaliateDamageVal": 20,
+        "retaliateDamageType": "direct_damage"
       }
     ],
     "skins": []

@@ -9,6 +9,7 @@ import { X, User, Shield, Award, Sparkles, Check, Image as ImageIcon, Camera, Up
 import { UserProfile } from '../types';
 import { getPngFrames, PngFrameItem, fetchPngFramesFromServer } from '../lib/frameStorage';
 import { getCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
+import { useLanguage } from '../lib/i18n';
 
 interface ProfileModalProps {
   user: UserProfile;
@@ -27,6 +28,7 @@ const PRESET_STYLED_FRAMES = [
 ];
 
 export default function ProfileModal({ user, onClose, onUpdateUser, playClickSound }: ProfileModalProps) {
+  const { t } = useLanguage();
   const [name, setName] = useState(user.name);
   const [photoUrl, setPhotoUrl] = useState(user.photoUrl);
   const [title, setTitle] = useState(user.title || 'Estudante');
@@ -153,7 +155,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
           {equippedBannerUrl ? (
             <>
               <img
-                src={equippedBannerUrl}
+                src={equippedBannerUrl || null}
                 alt="Banner do Perfil"
                 className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none"
                 referrerPolicy="no-referrer"
@@ -181,7 +183,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                 !equippedFrameUrl && currentPreset ? currentPreset.style : 'border-2 border-orange-400'
               }`}>
                 <img
-                  src={photoUrl}
+                  src={photoUrl || null}
                   alt={name}
                   className="w-full h-full object-cover rounded-full"
                   referrerPolicy="no-referrer"
@@ -191,7 +193,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
               {/* PNG Frame Overlay */}
               {equippedFrameUrl && (
                 <img
-                  src={equippedFrameUrl}
+                  src={equippedFrameUrl || null}
                   alt={equippedFrame}
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] max-w-none pointer-events-none object-contain z-10 drop-shadow-lg"
                 />
@@ -231,7 +233,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
             }`}
           >
             <ImageIcon className="w-4 h-4 text-amber-400" />
-            Banners do Perfil ({allBanners.length})
+            {t('Banners do Perfil', 'Profile Banners')} ({allBanners.length})
           </button>
 
           <button
@@ -246,7 +248,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
             }`}
           >
             <Shield className="w-4 h-4 text-amber-400" />
-            Alterar Moldura ({unlockedFrames.length + unlockedFrameUrls.length})
+            {t('Alterar Moldura', 'Change Frame')} ({unlockedFrames.length + unlockedFrameUrls.length})
           </button>
 
           <button
@@ -261,7 +263,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
             }`}
           >
             <User className="w-4 h-4 text-orange-400" />
-            Editar Perfil & Título
+            {t('Editar Perfil & Título', 'Edit Profile & Title')}
           </button>
         </div>
 
@@ -304,7 +306,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                       <div className="h-28 w-full relative bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 overflow-hidden flex items-center justify-center">
                         {banner.url ? (
                           <img
-                            src={banner.url}
+                            src={banner.url || null}
                             alt={banner.name}
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
@@ -400,13 +402,13 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                         <div className="relative w-16 h-16 my-1">
                           {/* Sample user photo underneath */}
                           <img
-                            src={photoUrl}
+                            src={photoUrl || null}
                             alt="Preview"
                             className="w-full h-full rounded-full object-cover"
                           />
                           {/* PNG Frame overlay */}
                           <img
-                            src={frame.imageUrl}
+                            src={frame.imageUrl || null}
                             alt={frame.name}
                             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain"
                           />
@@ -445,7 +447,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                       >
                         <div className="flex items-center gap-3">
                           <div className={`w-12 h-12 rounded-full overflow-hidden bg-slate-900 flex-shrink-0 ${frame.style}`}>
-                            <img src={photoUrl} alt="Preview" className="w-full h-full object-cover rounded-full" />
+                            <img src={photoUrl || null} alt="Preview" className="w-full h-full object-cover rounded-full" />
                           </div>
 
                           <div className="min-w-0 flex-1">

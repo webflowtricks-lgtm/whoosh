@@ -6,6 +6,7 @@
 import { Character } from '../types';
 import { CHARACTERS as DEFAULT_CHARACTERS } from '../data/characters';
 import { preloadCharacters } from './imagePreloader';
+import { safeFetchJson } from './api';
 
 const STORAGE_KEY = 'naruto_combat_characters';
 
@@ -16,7 +17,7 @@ export function enrichCharacters(characters: Character[]): Character[] {
     skins: char.skins || [],
     skills: (char.skills || []).map(sk => {
       const s = { ...sk };
-      if (s.stunTurns && (!s.stunType || s.stunType.length === 0)) {
+      if (char.id === 'young-nagato' && s.stunTurns && (!s.stunType || s.stunType.length === 0)) {
         s.stunType = ['physical', 'mental', 'affliction', 'chakra'];
       }
       // Remove null properties (explicitly cleared by user)
@@ -52,12 +53,15 @@ export function getCharacters(): Character[] {
 
 export async function fetchCharactersFromServer(): Promise<Character[]> {
   try {
-    const res = await fetch('/api/characters');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && Array.isArray(data.characters) && data.characters.length > 0) {
-        return enrichCharacters(data.characters);
+    const data = await safeFetchJson<{ success?: boolean; characters?: Character[] }>('/api/characters');
+    if (data && data.success && Array.isArray(data.characters) && data.characters.length > 0) {
+      const enriched = enrichCharacters(data.characters);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
+      } catch (e) {
+        console.warn("Failed to update localStorage cache from server data:", e);
       }
+      return enriched;
     }
   } catch (error) {
     // Network or server error - gracefully fallback to local storage
@@ -65,36 +69,50 @@ export async function fetchCharactersFromServer(): Promise<Character[]> {
   return getCharacters();
 }
 
-export function saveCharacters(characters: Character[]): void {
+export async function saveCharacters(characters: Character[]): Promise<Character[]> {
+  const enriched = enrichCharacters(characters);
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(characters));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
   } catch (e) {
     console.warn("Failed to save characters to localStorage quota:", e);
   }
-  // Send async request to save on server (fire-and-forget)
-  fetch('/api/characters', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ characters }),
-  }).then(res => {
-    if (!res.ok) console.error('Failed to sync characters to server:', res.statusText);
-  }).catch(err => {
+
+  try {
+    const res = await fetch('/api/characters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characters: enriched }),
+    });
+    if (!res.ok) {
+      console.error('Failed to sync characters to server:', res.statusText);
+    }
+  } catch (err) {
     console.error('Failed to sync characters to server:', err);
-  });
+  }
+
+  return enriched;
 }
 
-export function resetToDefaultCharacters(): Character[] {
+export async function resetToDefaultCharacters(): Promise<Character[]> {
+  const enriched = enrichCharacters(DEFAULT_CHARACTERS);
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CHARACTERS));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
   } catch (e) {
     console.warn("Failed to save default characters to localStorage quota:", e);
   }
-  fetch('/api/characters', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ characters: DEFAULT_CHARACTERS }),
-  }).catch(err => {
+
+  try {
+    const res = await fetch('/api/characters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characters: enriched }),
+    });
+    if (!res.ok) {
+      console.error('Failed to reset characters on server:', res.statusText);
+    }
+  } catch (err) {
     console.error('Failed to reset characters on server:', err);
-  });
-  return DEFAULT_CHARACTERS;
+  }
+
+  return enriched;
 }

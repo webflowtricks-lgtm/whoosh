@@ -133,7 +133,7 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
               exit={{ opacity: 0, y: -20 }}
               className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xl border border-emerald-400/40 flex items-center gap-2"
             >
-              <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+              <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
               <span>{claimToast}</span>
             </motion.div>
           )}
@@ -204,7 +204,7 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
               <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 min-h-[160px] sm:min-h-[200px] flex flex-col justify-end p-5 sm:p-6 shadow-xl">
                 {selectedEvent.bannerUrl && (
                   <img
-                    src={selectedEvent.bannerUrl}
+                    src={selectedEvent.bannerUrl || null}
                     alt={selectedEvent.title || 'Banner de Evento'}
                     className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-luminosity filter blur-[1px]"
                   />

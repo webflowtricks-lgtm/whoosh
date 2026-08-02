@@ -7,7 +7,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, Loader2, AlertTriangle, Shirt, Lock, X } from 'lucide-react';
 import { Character, ChakraType, UserProfile, Quest } from '../types';
 import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
+import { safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
+import { useLanguage, translateGameText, translateSkillName, translateTargetType } from '../lib/i18n';
 
 interface CharacterSelectProps {
   onConfirmTeams: (
@@ -24,22 +26,55 @@ interface CharacterSelectProps {
 }
 
 export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, user, activeQuest, onBack }: CharacterSelectProps) {
+  const { t, language } = useLanguage();
   const [charList, setCharList] = useState<Character[]>(() => getCharacters());
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('naruto_last_selected_team');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return [];
+  });
   const [sandboxPlayerTeam, setSandboxPlayerTeam] = useState<Character[] | null>(null);
-  const [previewCharacter, setPreviewCharacter] = useState<Character>(() => charList[0] || null);
+  const [previewCharacter, setPreviewCharacter] = useState<Character>(() => {
+    const list = getCharacters();
+    try {
+      const saved = localStorage.getItem('naruto_last_selected_team');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const found = list.find(c => c.id === parsed[0]);
+          if (found) return found;
+        }
+      }
+    } catch (e) {}
+    return list[0] || null;
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const [previewSkillsPage, setPreviewSkillsPage] = useState(0);
+
+  // Auto-persist last selected team whenever selection changes (outside sandbox opponent picking)
+  useEffect(() => {
+    if (!sandboxPlayerTeam && selectedIds && selectedIds.length > 0) {
+      try {
+        localStorage.setItem('naruto_last_selected_team', JSON.stringify(selectedIds));
+      } catch (e) {}
+    }
+  }, [selectedIds, sandboxPlayerTeam]);
 
   // Quests & Character Lock State
   const [questsList, setQuestsList] = useState<Quest[]>([]);
   const [lockedNotice, setLockedNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/quests')
-      .then(res => res.json())
+    safeFetchJson<{ success?: boolean; quests?: Quest[] }>('/api/quests')
       .then(data => {
-        if (data.success && Array.isArray(data.quests)) {
+        if (data && data.success && Array.isArray(data.quests)) {
           setQuestsList(data.quests);
         }
       })
@@ -138,6 +173,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('Todos');
+  const [expandedSkills, setExpandedSkills] = useState<Record<string, boolean>>({});
 
   const handleSearchChange = (val: string) => {
     setSearchTerm(val);
@@ -160,7 +196,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     return matchesSearch && matchesTag;
   });
 
-  const ITEMS_PER_PAGE = 20;
+  const ITEMS_PER_PAGE = 15;
   const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
   const activePage = Math.min(currentPage, Math.max(totalPages, 1));
   const startIndex = (activePage - 1) * ITEMS_PER_PAGE;
@@ -168,6 +204,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   const handleSelectCharacter = (character: Character) => {
     playClickSound();
+
+    // Always update preview character details on click
+    setPreviewCharacter(character);
+    setPreviewSkillsPage(0);
+
     const { isLocked, reason } = checkCharacterLocked(character);
     if (isLocked) {
       setLockedNotice(reason || 'Este personagem está bloqueado!');
@@ -180,18 +221,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     } else {
       if (selectedIds.length < 3) {
         setSelectedIds([...selectedIds, character.id]);
-        setPreviewCharacter(character);
-        setPreviewSkillsPage(0);
       }
     }
   };
 
-  const handleHoverCharacter = (character: Character) => {
-    if (previewCharacter.id !== character.id) {
-      playScrollSound();
-      setPreviewCharacter(character);
-      setPreviewSkillsPage(0);
-    }
+  const handleHoverCharacter = (_character: Character) => {
+    // Disabled hover preview - characteristics only display on click/selection as requested
   };
 
   // Skins state
@@ -465,179 +500,212 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative selection:bg-orange-600 selection:text-white">
-      {/* Visual background accents */}
-      <div className="absolute top-[10%] right-[10%] w-[40%] h-[40%] rounded-full bg-orange-600/5 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[15%] left-[5%] w-[40%] h-[40%] rounded-full bg-blue-600/5 blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative selection:bg-orange-600 selection:text-white overflow-x-hidden">
+      {/* Background Image: choose team background */}
+      <img 
+        src="/static/img/bg/background_choose_team.webp" 
+        alt="Background Choose Team" 
+        className="fixed inset-0 w-full h-full object-cover z-0 pointer-events-none filter brightness-100"
+        onError={(e) => {
+          e.currentTarget.src = '/static/img/bg/background-battle.webp';
+        }}
+      />
+      {/* Visual background accents and subtle transparent overlay */}
+      <div className="fixed inset-0 bg-transparent pointer-events-none z-0" />
+      <div className="absolute top-[10%] right-[10%] w-[40%] h-[40%] rounded-full bg-orange-500/5 blur-[120px] pointer-events-none z-0" />
+      <div className="absolute bottom-[15%] left-[5%] w-[40%] h-[40%] rounded-full bg-blue-500/5 blur-[120px] pointer-events-none z-0" />
 
-      {/* Draft Status Header */}
-      <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div>
-            <span className="text-xs font-mono text-orange-400 font-semibold tracking-wider uppercase">
-              {sandboxPlayerTeam ? "Fase 02: Oponente Sandbox" : "Fase 01: Escolha dos Shinobis"}
-            </span>
-            <h2 className="text-2xl font-bold tracking-tight">
-              {sandboxPlayerTeam ? "ESCOLHA O ESQUADRÃO ADVERSÁRIO" : "ESCOLHA SEU ESQUADRÃO"}
-            </h2>
-          </div>
+      {/* Draft Status Header in Parchment Scroll (Fixed at top, full width) */}
+      <header className="fixed top-0 left-0 right-0 z-30 w-full shadow-2xl">
+        <div className="w-full relative overflow-hidden flex items-center border-b border-amber-950/40">
+          {/* Topbar Parchment Background */}
+          <img 
+            src="/static/img/topbar.webp" 
+            alt="Topbar Pergaminho" 
+            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
+            onError={(e) => {
+              e.currentTarget.src = '/static/img/filtro_pergaminho.webp';
+            }}
+          />
 
-          {/* Player Selection Status Indicator */}
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2.5">
-              {[0, 1, 2].map(idx => {
-                const charId = selectedIds[idx];
-                const char = charList.find(c => c.id === charId);
-
-                return (
-                  <div
-                    key={idx}
-                    className={`w-14 h-14 rounded-lg border-2 overflow-hidden flex items-center justify-center transition-all ${
-                      char ? 'border-orange-500 bg-slate-900 shadow-md shadow-orange-600/10' : 'border-dashed border-slate-800 bg-slate-950'
-                    }`}
-                  >
-                    {char ? (
-                      <img 
-                        src={char.portrait} 
-                        alt={char.name} 
-                        decoding="async"
-                        loading="eager"
-                        className="w-full h-full object-cover" 
-                        onError={(e) => {
-                          e.currentTarget.style.opacity = '0.3';
-                        }}
-                      />
-                    ) : (
-                      <span className="text-slate-700 text-xs font-semibold font-mono">Slot</span>
-                    )}
-                  </div>
-                );
-              })}
+          {/* Topbar Content */}
+          <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col md:flex-row justify-center items-center gap-4 md:gap-10 px-4 sm:px-8 py-2.5">
+            <div className="text-center md:text-left shrink-0">
+              <span className="text-[11px] font-mono text-amber-900 font-bold tracking-wider uppercase block">
+                {sandboxPlayerTeam ? t("Fase 02: Oponente Sandbox", "Phase 02: Sandbox Opponent") : t("Fase 01: Escolha dos Shinobis", "Phase 01: Select Shinobis")}
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-amber-950 font-mono uppercase drop-shadow-sm">
+                {sandboxPlayerTeam ? t("ESCOLHA O ESQUADRÃO ADVERSÁRIO", "CHOOSE OPPONENT SQUAD") : t("ESCOLHA SEU ESQUADRÃO", "CHOOSE YOUR SQUAD")}
+              </h2>
             </div>
 
-            {sandboxPlayerTeam ? (
-              <>
-                <button
-                  onClick={handleBackToPlayerSelect}
-                  className="px-4 py-3 rounded-lg font-bold flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700 shadow-lg"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Voltar (Time A)
-                </button>
+            {/* Player Selection Status Indicator & Game Mode Buttons */}
+            <div className="flex flex-wrap items-center gap-3 sm:gap-5 justify-center">
+              <div className="flex items-center gap-2">
+                {[0, 1, 2].map(idx => {
+                  const charId = selectedIds[idx];
+                  const char = charList.find(c => c.id === charId);
 
-                <button
-                  onClick={handleConfirmSandboxMatch}
-                  disabled={selectedIds.length !== 3}
-                  className={`px-5 py-3 rounded-lg font-bold flex items-center gap-2 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all ${
-                    selectedIds.length === 3
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 text-slate-950 border-emerald-400 shadow-lg shadow-emerald-600/10'
-                      : 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed font-medium'
-                  }`}
-                >
-                  <Swords className="w-4 h-4 animate-pulse" />
-                  Iniciar Sandbox
-                </button>
-              </>
-            ) : (
-              <>
-                {onBack && (
-                  <button
-                    onClick={() => {
-                      playClickSound();
-                      onBack();
-                    }}
-                    className="px-4 py-3 rounded-lg font-bold flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800 shadow-lg"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    Voltar
-                  </button>
+                  return (
+                    <div
+                      key={idx}
+                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg border-2 overflow-hidden flex items-center justify-center transition-all ${
+                        char ? 'border-amber-800 bg-amber-950/30 shadow-md ring-1 ring-amber-700/50' : 'border-dashed border-amber-900/40 bg-amber-950/10'
+                      }`}
+                    >
+                      {char ? (
+                        <img 
+                          src={char.portrait || null} 
+                          alt={char.name} 
+                          decoding="async"
+                          loading="eager"
+                          className="w-full h-full object-cover" 
+                          onError={(e) => {
+                            e.currentTarget.style.opacity = '0.3';
+                          }}
+                        />
+                      ) : (
+                        <span className="text-amber-900/60 text-[10px] sm:text-xs font-bold font-mono">Slot</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                {sandboxPlayerTeam ? (
+                  <>
+                    <button
+                      onClick={handleBackToPlayerSelect}
+                      className="px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md font-mono"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      {t("Voltar (Time A)", "Back (Team A)")}
+                    </button>
+
+                    <button
+                      onClick={handleConfirmSandboxMatch}
+                      disabled={selectedIds.length !== 3}
+                      className={`px-4 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
+                        selectedIds.length === 3
+                          ? 'bg-gradient-to-r from-emerald-700 to-teal-600 hover:brightness-110 text-white border-emerald-500 shadow-lg'
+                          : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium'
+                      }`}
+                    >
+                      <Swords className="w-4 h-4 animate-pulse" />
+                      {t("Iniciar Sandbox", "Start Sandbox")}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {onBack && (
+                      <button
+                        onClick={() => {
+                          playClickSound();
+                          onBack();
+                        }}
+                        className="px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md font-mono"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        {t("Voltar", "Back")}
+                      </button>
+                    )}
+
+                    <button
+                      onClick={handleConfirm}
+                      disabled={selectedIds.length !== 3}
+                      className={`px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
+                        selectedIds.length === 3
+                          ? 'bg-amber-900 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md'
+                          : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium'
+                      }`}
+                    >
+                      <Swords className="w-4 h-4" />
+                      {t("Lutar contra IA", "Fight vs AI")}
+                    </button>
+
+                    <button
+                      onClick={handleStartSandboxPhase}
+                      disabled={selectedIds.length !== 3}
+                      className={`px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
+                        selectedIds.length === 3
+                          ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:brightness-110 text-amber-950 border-amber-500 shadow-md'
+                          : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium'
+                      }`}
+                    >
+                      <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
+                      Sandbox
+                    </button>
+
+                    <button
+                      onClick={handleStartMatchmaking}
+                      disabled={selectedIds.length !== 3}
+                      className={`px-4 py-2.5 rounded-lg font-black flex items-center gap-2 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
+                        selectedIds.length === 3
+                          ? 'bg-amber-950 text-amber-100 border-amber-700 hover:bg-amber-900 shadow-md'
+                          : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium'
+                      }`}
+                    >
+                      <Sparkles className="w-4 h-4 animate-pulse text-amber-400" />
+                      {t("Partida Rápida", "Quick Match")}
+                    </button>
+                  </>
                 )}
-
-                <button
-                  onClick={handleConfirm}
-                  disabled={selectedIds.length !== 3}
-                  className={`px-4 py-3 rounded-lg font-bold flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all ${
-                    selectedIds.length === 3
-                      ? 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700 shadow-lg'
-                      : 'bg-slate-950 text-slate-600 border-slate-900 cursor-not-allowed font-medium'
-                  }`}
-                >
-                  <Swords className="w-4 h-4" />
-                  Treino (I.A.)
-                </button>
-
-                <button
-                  onClick={handleStartSandboxPhase}
-                  disabled={selectedIds.length !== 3}
-                  className={`px-4 py-3 rounded-lg font-bold flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all ${
-                    selectedIds.length === 3
-                      ? 'bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-slate-950 border-orange-400 shadow-lg shadow-orange-600/10'
-                      : 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed font-medium'
-                  }`}
-                >
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Eu vs Eu Mesmo (Sandbox)
-                </button>
-
-                <button
-                  onClick={handleStartMatchmaking}
-                  disabled={selectedIds.length !== 3}
-                  className={`px-5 py-3 rounded-lg font-bold flex items-center gap-2 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all ${
-                    selectedIds.length === 3
-                      ? 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700 shadow-lg'
-                      : 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed font-medium'
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4 animate-pulse" />
-                  Partida Rápida (Online)
-                </button>
-              </>
-            )}
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Draft Area */}
-      <main className="max-w-7xl w-full mx-auto px-6 py-8 grid lg:grid-cols-12 gap-8 flex-1 items-start">
+      <main className="max-w-[1480px] w-full mx-auto px-4 sm:px-6 pt-24 sm:pt-28 pb-8 grid lg:grid-cols-12 gap-8 flex-1 items-start">
         {/* Roster Grid (Left Side) */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-6 space-y-6">
           <div className="flex flex-col gap-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-mono uppercase tracking-wider text-slate-400 font-bold">
-                Shinobis Disponíveis ({filteredCharacters.length})
-              </h3>
-              <span className="text-xs bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full text-slate-400 flex items-center gap-1 font-mono">
-                <Sparkles className="w-3.5 h-3.5 text-orange-400" /> Escolha exatamente 3
-              </span>
-            </div>
+       
 
-            {/* Filter and Search Bar */}
-            <div className="grid sm:grid-cols-2 gap-3 bg-slate-900/30 p-3 rounded-xl border border-slate-900">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="Buscar ninja pelo nome..."
-                  value={searchTerm}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-orange-500 transition-all font-sans"
-                />
-              </div>
+            {/* Filter and Search Bar inside Parchment Scroll */}
+            <div className="relative w-full rounded-xl overflow-hidden   flex items-center group">
+              {/* Parchment background */}
+              <img 
+                src="/static/img/filtro_pergaminho.webp" 
+                alt="Filtro Pergaminho" 
+                className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter"
+                onError={(e) => {
+                  e.currentTarget.src = '/static/img/pergaminho_skills.webp';
+                }}
+              />
 
-              {/* Tag Selection */}
-              <div className="relative">
-                <Filter className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-                <select
-                  value={selectedTag}
-                  onChange={(e) => handleTagChange(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-orange-500 transition-all font-sans text-slate-300 appearance-none cursor-pointer"
-                >
-                  {FILTER_TAGS.map(tag => (
-                    <option key={tag} value={tag}>{tag}</option>
-                  ))}
-                </select>
-                <div className="absolute right-3 top-3 pointer-events-none border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-500 w-0 h-0" />
+              {/* Filter inputs inside parchment printable bounds */}
+              <div className="relative z-10 w-full grid sm:grid-cols-2 gap-2.5 px-7 sm:px-10 py-3">
+                {/* Search Input */}
+                <div className="relative flex items-center">
+                  <Search className="absolute left-3 w-4 h-4 text-amber-950/70" />
+                  <input
+                    type="text"
+                    placeholder="Buscar ninja pelo nome..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className="w-full  rounded-lg pl-9 pr-3 py-1.5 text-xs text-amber-950   font-sans font-medium focus:outline-none transition-all"
+                  />
+                </div>
+
+                {/* Tag Selection Dropdown */}
+                <div className="relative flex items-center">
+                  <Filter className="absolute left-3 w-4 h-4 text-amber-950/70" />
+                  <select
+                    value={selectedTag}
+                    onChange={(e) => handleTagChange(e.target.value)}
+                    className="w-full  hover:bg-amber-950/15 focus:bg-amber-950/20   focus:border-amber-900/60 rounded-lg pl-9 pr-8 py-1.5 text-xs text-amber-950 font-sans font-bold appearance-none cursor-pointer focus:outline-none transition-all"
+                  >
+                    {FILTER_TAGS.map(tag => (
+                      <option key={tag} value={tag} className="bg-amber-50 text-amber-950 font-sans font-medium">
+                        {tag}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3 pointer-events-none border-l-4 border-r-4 border-t-4 border-transparent border-t-amber-900/80 w-0 h-0" />
+                </div>
               </div>
             </div>
           </div>
@@ -660,128 +728,154 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             )}
           </AnimatePresence>
 
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5 sm:gap-3">
             {paginatedCharacters.map(char => {
               const isSelected = selectedIds.includes(char.id);
               const isFull = selectedIds.length >= 3 && !isSelected;
               const { isLocked, reason } = checkCharacterLocked(char);
+              const villageTag = char.tags.find(t => t.includes('Vila')) || char.tags[0];
 
               return (
                 <motion.div
                   key={char.id}
-                  whileHover={{ scale: isFull || isLocked ? 1 : 1.02 }}
+                  whileHover={{ scale: isFull || isLocked ? 1 : 1.03 }}
                   onClick={() => handleSelectCharacter(char)}
-                  onMouseEnter={() => handleHoverCharacter(char)}
-                  className={`group relative rounded-xl border p-2.5 cursor-pointer transition-all ${
-                    isLocked
-                      ? 'bg-slate-950/80 border-red-950/60 opacity-80 hover:border-red-600/60'
-                      : isSelected
-                      ? 'bg-orange-950/20 border-orange-500 shadow-md shadow-orange-600/10'
-                      : isFull
-                      ? 'border-slate-900 bg-slate-950/40 opacity-40 cursor-not-allowed'
-                      : 'bg-slate-900/40 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900'
+                  className={`group relative flex flex-col items-center justify-between p-0 cursor-pointer transition-all aspect-[1/1.25] w-full select-none ${
+                    isFull && !isSelected ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                   title={isLocked ? reason : char.name}
                 >
-                  <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-slate-950 mb-2 border border-slate-800">
-                    <img
-                      src={char.portrait}
-                      alt={char.name}
-                      referrerPolicy="no-referrer"
-                      decoding="async"
-                      loading="eager"
-                      className={`w-full h-full object-cover transition-transform duration-300 ${isLocked ? 'grayscale opacity-50' : 'group-hover:scale-105'}`}
-                      onError={(e) => {
-                        e.currentTarget.style.opacity = '0.3';
-                      }}
-                    />
+                  {/* Parchment background scroll image - no border */}
+                  <img 
+                    src="/static/img/personagem_pergaminho.webp" 
+                    alt="Pergaminho Personagem" 
+                    className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
+                    onError={(e) => {
+                      e.currentTarget.src = '/static/img/ui/pergaminho.webp';
+                    }}
+                  />
 
-                    {/* Active Selected Badge */}
-                    {isSelected && (
-                      <div className="absolute inset-0 bg-orange-600/15 border-2 border-orange-500 flex items-center justify-center rounded-lg">
-                        <div className="bg-orange-500 text-slate-950 text-[8px] font-mono font-black uppercase px-1 py-0.5 rounded shadow-md">
-                          EQUIPE
+                  {/* Content inside scroll bounds */}
+                  <div className="relative z-10 w-full h-full flex flex-col items-center justify-between pt-1.5 sm:pt-2 pb-1.5 px-1 sm:px-1.5">
+                    {/* Character Portrait */}
+                    <div className="relative w-[92%] sm:w-[94%] aspect-square rounded-md overflow-hidden bg-amber-950/20 flex-shrink-0 shadow-sm mt-0.5">
+                      <img
+                        src={char.portrait || null}
+                        alt={char.name}
+                        referrerPolicy="no-referrer"
+                        decoding="async"
+                        loading="eager"
+                        className={`w-full h-full object-cover transition-transform duration-300 ${isLocked ? 'grayscale opacity-50' : 'group-hover:scale-105'}`}
+                        onError={(e) => {
+                          e.currentTarget.style.opacity = '0.3';
+                        }}
+                      />
+
+                      {/* Active Selected Badge */}
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-amber-600/35 border-2 border-amber-600 flex items-center justify-center rounded-md">
+                          <div className="bg-amber-600 text-amber-950 text-[8px] font-mono font-black uppercase px-1 py-0.5 rounded shadow-md">
+                            EQUIPE
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Locked Badge */}
-                    {isLocked && (
-                      <div className="absolute inset-0 bg-slate-950/70 border border-red-500/30 flex flex-col items-center justify-center rounded-lg gap-1">
-                        <Lock className="w-5 h-5 text-red-400 animate-pulse" />
-                        <span className="text-[7px] font-mono font-bold text-red-300 uppercase tracking-widest px-1 py-0.5 bg-red-950/80 rounded border border-red-500/40">
-                          BLOQUEADO
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                      {/* Locked Badge */}
+                      {isLocked && (
+                        <div className="absolute inset-0 bg-amber-950/85 flex flex-col items-center justify-center rounded-md gap-0.5">
+                          <Lock className="w-4 h-4 text-red-400 animate-pulse" />
+                          <span className="text-[7px] font-mono font-bold text-red-300 uppercase tracking-widest px-1 py-0.5 bg-red-950/90 rounded border border-red-500/40">
+                            BLOQUEADO
+                          </span>
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="space-y-0.5">
-                    <h4 className={`font-bold tracking-tight text-xs truncate ${isLocked ? 'text-red-400/90' : isSelected ? 'text-orange-400' : 'text-slate-100'}`}>
-                      {char.name}
-                    </h4>
-                    <p className="text-[9px] font-mono text-slate-500 truncate">
-                      {isLocked ? 'Requer Missão' : char.tags[0]}
-                    </p>
+                    {/* Character Name and Village */}
+                    <div className="w-full text-center px-1 py-0.5 min-h-[32px] flex flex-col justify-center">
+                      <h4 className={`font-black font-mono tracking-tight text-xs sm:text-[13px] leading-tight truncate uppercase ${isLocked ? 'text-red-950 font-bold' : isSelected ? 'text-amber-900 font-extrabold' : 'text-amber-950'}`}>
+                        {char.name}
+                      </h4>
+                      <p className="text-[9px] sm:text-[10px] font-mono font-bold text-amber-900/90 truncate mt-0.5">
+                        {isLocked ? 'Bloqueado' : villageTag}
+                      </p>
+                    </div>
                   </div>
                 </motion.div>
               );
             })}
           </div>
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-slate-900/40 border border-slate-800/80 p-2.5 rounded-xl mt-4">
+          {/* Pagination Controls - Embedded inside public/static/img/paginação.webp pergaminho */}
+          <div className="relative w-full rounded-xl overflow-hidden flex items-center mt-4 group">
+            {/* Background Parchment for Pagination */}
+            <img 
+              src="/static/img/paginação.webp" 
+              alt="Paginação Pergaminho" 
+              className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
+              onError={(e) => {
+                e.currentTarget.src = '/static/img/pergaminho_skills.webp';
+              }}
+            />
+
+            {/* Pagination Controls Content */}
+            <div className="relative z-10 w-full flex items-center justify-between px-6 sm:px-10 py-3">
               <button
                 onClick={() => {
                   playClickSound();
                   setCurrentPage(prev => Math.max(prev - 1, 1));
                 }}
-                disabled={activePage === 1}
-                className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
-                  activePage === 1
-                    ? 'border-slate-800 bg-slate-950/40 text-slate-600 cursor-not-allowed'
-                    : 'border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300'
+                disabled={activePage <= 1}
+                className={`px-3 py-1.5 rounded-lg border flex items-center gap-1 transition-all cursor-pointer text-xs font-mono font-bold ${
+                  activePage <= 1
+                    ? 'border-amber-900/20 bg-amber-950/10 text-amber-900/40 cursor-not-allowed'
+                    : 'border-amber-800 bg-amber-900/60 hover:bg-amber-800 text-amber-100 shadow'
                 }`}
                 title="Página Anterior"
               >
                 <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Anterior</span>
               </button>
 
-              <div className="flex items-center gap-1.5">
-                {(() => {
-                  const maxButtons = 5;
-                  let startPage = Math.max(1, activePage - Math.floor(maxButtons / 2));
-                  let endPage = Math.min(totalPages, startPage + maxButtons - 1);
-                  if (endPage - startPage + 1 < maxButtons) {
-                    startPage = Math.max(1, endPage - maxButtons + 1);
-                  }
-                  
-                  const buttons = [];
-                  for (let i = startPage; i <= endPage; i++) {
-                    buttons.push(i);
-                  }
-                  
-                  return buttons.map(pageNum => {
-                    const isActive = activePage === pageNum;
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => {
-                          playClickSound();
-                          setCurrentPage(pageNum);
-                        }}
-                        className={`w-7 h-7 rounded-lg text-xs font-mono font-bold flex items-center justify-center transition-all cursor-pointer border ${
-                          isActive
-                            ? 'bg-orange-600 border-orange-500 text-slate-950 shadow-md shadow-orange-600/10'
-                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-900'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  });
-                })()}
+              <div className="flex items-center gap-2">
+             
+
+                <div className="flex items-center gap-1.5">
+                  {(() => {
+                    const total = Math.max(totalPages, 1);
+                    const maxButtons = 5;
+                    let startPage = Math.max(1, activePage - Math.floor(maxButtons / 2));
+                    let endPage = Math.min(total, startPage + maxButtons - 1);
+                    if (endPage - startPage + 1 < maxButtons) {
+                      startPage = Math.max(1, endPage - maxButtons + 1);
+                    }
+                    
+                    const buttons = [];
+                    for (let i = startPage; i <= endPage; i++) {
+                      buttons.push(i);
+                    }
+                    
+                    return buttons.map(pageNum => {
+                      const isActive = activePage === pageNum;
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => {
+                            playClickSound();
+                            setCurrentPage(pageNum);
+                          }}
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs font-mono font-bold flex items-center justify-center transition-all cursor-pointer border ${
+                            isActive
+                              ? 'bg-amber-800 border-amber-700 text-amber-50 shadow-md font-black scale-105'
+                              : 'bg-amber-950/15 border-amber-900/20 text-amber-950 hover:bg-amber-950/30'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
               </div>
 
               <button
@@ -789,262 +883,321 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   playClickSound();
                   setCurrentPage(prev => Math.min(prev + 1, totalPages));
                 }}
-                disabled={activePage === totalPages}
-                className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
-                  activePage === totalPages
-                    ? 'border-slate-800 bg-slate-950/40 text-slate-600 cursor-not-allowed'
-                    : 'border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300'
+                disabled={activePage >= totalPages || totalPages <= 1}
+                className={`px-3 py-1.5 rounded-lg border flex items-center gap-1 transition-all cursor-pointer text-xs font-mono font-bold ${
+                  activePage >= totalPages || totalPages <= 1
+                    ? 'border-amber-900/20 bg-amber-950/10 text-amber-900/40 cursor-not-allowed'
+                    : 'border-amber-800 bg-amber-900/60 hover:bg-amber-800 text-amber-100 shadow'
                 }`}
                 title="Próxima Página"
               >
+                <span className="hidden sm:inline">Próxima</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Detailed Inspection sidebar (Right Side) */}
-        <div className="lg:col-span-5 sticky top-28">
-          <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 space-y-6">
-            {/* Header Portrait + Description */}
-            <div className="flex gap-4">
-              <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 flex-shrink-0">
-                <img
-                  src={
-                    (equippedSkins[previewCharacter.id] && previewCharacter.skins?.find(s => s.id === equippedSkins[previewCharacter.id])?.image) ||
-                    previewCharacter.portrait
-                  }
-                  alt={previewCharacter.name}
-                  decoding="async"
-                  loading="eager"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.opacity = '0.3';
-                  }}
-                />
-              </div>
+        <div className="lg:col-span-6 sticky top-28 space-y-6 z-10">
+          {/* Main Pergaminho Character Details Card */}
+          <div className="relative p-7 sm:p-10 md:p-12 flex flex-col justify-between group">
+            {/* Pergaminho Personagem Detalhes background asset */}
+            <img 
+              src="/static/img/pergaminho_personagem_detalhes.webp" 
+              alt="Pergaminho Personagem Detalhes" 
+              className="pergaminho_personagem_detalhes absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-2xl"
+              onError={(e) => {
+                e.currentTarget.src = '/static/img/personagem_pergaminho.webp';
+              }}
+            />
 
-              <div className="space-y-1.5 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-xl font-black tracking-tight text-slate-100 uppercase font-mono">{previewCharacter.name}</h3>
-                  <button
-                    onClick={() => {
-                      playClickSound();
-                      setShowSkinsTab(prev => !prev);
+            <div className="relative z-10 space-y-6 px-3 sm:px-6 py-2">
+              {/* Header Portrait + Description */}
+              <div className="flex gap-4 items-center p-2.5">
+                <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-amber-900/60 bg-amber-950/20 flex-shrink-0 shadow-md">
+                  <img
+                    src={
+                      (equippedSkins[previewCharacter.id] && previewCharacter.skins?.find(s => s.id === equippedSkins[previewCharacter.id])?.image) ||
+                      previewCharacter.portrait
+                    }
+                    alt={previewCharacter.name}
+                    decoding="async"
+                    loading="eager"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.opacity = '0.3';
                     }}
-                    className={`px-3 py-1 rounded-lg font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-md font-mono ${
-                      showSkinsTab
-                        ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 scale-105'
-                        : 'bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 hover:brightness-110'
-                    }`}
-                    title="Galeria de Skins"
-                  >
-                    <Shirt className="w-3.5 h-3.5 stroke-[2.5]" />
-                    SKINS
-                  </button>
+                  />
                 </div>
 
-                <div className="flex flex-wrap gap-1.5">
-                  {previewCharacter.tags.map((tag, idx) => (
-                    <span
-                      key={idx}
-                      className="text-[9px] font-mono font-medium px-2 py-0.5 bg-slate-950 border border-slate-800 text-slate-400 rounded-md"
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-xl font-black tracking-tight text-amber-950 uppercase font-mono drop-shadow-sm">{previewCharacter.name}</h3>
+                    <button
+                      onClick={() => {
+                        playClickSound();
+                        setShowSkinsTab(prev => !prev);
+                      }}
+                      className={`px-3 py-1 rounded-lg font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-md font-mono ${
+                        showSkinsTab
+                          ? 'bg-amber-600 text-amber-950 ring-2 ring-amber-500 scale-105 font-black'
+                          : 'bg-gradient-to-r from-amber-700 to-amber-600 text-amber-950 hover:brightness-110 font-black'
+                      }`}
+                      title="Galeria de Skins"
                     >
-                      {tag}
-                    </span>
-                  ))}
+                      <Shirt className="w-3.5 h-3.5 stroke-[2.5]" />
+                      SKINS
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {previewCharacter.tags.map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="text-[9px] font-mono font-bold px-2 py-0.5 bg-amber-950/15 border border-amber-900/30 text-amber-950 rounded-md shadow-xs"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {showSkinsTab ? (
-              <div className="bg-slate-950/90 border border-slate-800/80 rounded-2xl p-4 space-y-3 shadow-2xl">
-                <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
-                  <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Shirt className="w-4 h-4 text-amber-400" />
-                    GALERIA DE SKINS DO PERSONAGEM
+              {showSkinsTab ? (
+                <div className="bg-amber-950/10 border border-amber-900/30 rounded-xl p-4 space-y-3 shadow-inner">
+                  <div className="flex justify-between items-center border-b border-amber-900/20 pb-2">
+                    <span className="text-xs font-mono font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                      <Shirt className="w-4 h-4 text-amber-800" />
+                      GALERIA DE SKINS
+                    </span>
+                    <span className="text-[10px] text-amber-900/90 font-mono font-semibold">
+                      Clique para equipar
+                    </span>
+                  </div>
+
+                  <div className="flex gap-4 overflow-x-auto pb-2 pt-2 items-center justify-center min-h-[160px] max-h-[220px] bg-amber-950/10 rounded-xl border border-amber-900/20 p-3">
+                    {(() => {
+                      const skinsList = (previewCharacter.skins && previewCharacter.skins.length > 0)
+                        ? previewCharacter.skins 
+                        : [
+                            { id: 'default', name: 'Padrão', image: previewCharacter.portrait }
+                          ];
+                      
+                      return skinsList.map((skin) => {
+                        const isEquipped = (equippedSkins[previewCharacter.id] || skinsList[0]?.id) === skin.id;
+
+                        return (
+                          <div
+                            key={skin.id}
+                            onClick={() => {
+                              playClickSound();
+                              setEquippedSkins(prev => ({
+                                ...prev,
+                                [previewCharacter.id]: skin.id
+                              }));
+                            }}
+                            className={`relative group flex-shrink-0 w-32 h-44 rounded-xl border-2 overflow-hidden flex flex-col items-center justify-between p-2 cursor-pointer transition-all ${
+                              isEquipped
+                                ? 'border-amber-700 ring-2 ring-amber-600/50 shadow-xl bg-amber-500/20 scale-102'
+                                : 'border-amber-900/30 hover:border-amber-700 bg-amber-950/10 hover:bg-amber-950/20'
+                            }`}
+                          >
+                            {isEquipped && (
+                              <div className="absolute top-1.5 right-1.5 bg-amber-600 text-amber-950 text-[8px] font-black font-mono px-1.5 py-0.5 rounded shadow z-10 uppercase tracking-wider">
+                                EQUIPADA
+                              </div>
+                            )}
+
+                            <div className="w-full h-32 flex items-center justify-center overflow-hidden p-1">
+                              <img
+                                src={skin.image || null}
+                                alt={skin.name}
+                                referrerPolicy="no-referrer"
+                                className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)] transition-transform group-hover:scale-105"
+                                onError={(e) => {
+                                  const img = e.currentTarget; img.onerror = null; img.src = previewCharacter.portrait;
+                                }}
+                              />
+                            </div>
+
+                            <span className="text-[10px] font-bold text-amber-950 truncate w-full text-center font-mono uppercase tracking-tight">
+                              {skin.name}
+                            </span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-amber-950 text-xs leading-relaxed font-medium p-1">
+                  {translateGameText(previewCharacter.description, language)}
+                </p>
+              )}
+
+              {/* Section HABILIDADES - Individual Parchment Scrolls per Skill */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs font-mono font-bold uppercase tracking-wider text-amber-950 px-1">
+                  <span className="flex items-center gap-1.5 text-amber-950 font-black">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-800" /> {t("HABILIDADES", "SKILLS")}
                   </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    Clique na skin para equipar
-                  </span>
+                  {previewCharacter.skills.length > 3 && (
+                    <span className="text-[11px] text-amber-900/90 font-bold">
+                      {t("PÁG.", "PAGE")} {previewSkillsPage + 1} {t("DE", "OF")} {Math.ceil(previewCharacter.skills.length / 3)}
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex gap-4 overflow-x-auto pb-2 pt-2 items-center justify-center min-h-[160px] max-h-[220px] bg-slate-900/60 rounded-xl border border-slate-800/60 p-3">
+                <div className="space-y-3">
                   {(() => {
-                    const skinsList = (previewCharacter.skins && previewCharacter.skins.length > 0)
-                      ? previewCharacter.skins 
-                      : [
-                          { id: 'default', name: 'Padrão', image: previewCharacter.portrait }
-                        ];
-                    
-                    return skinsList.map((skin) => {
-                      const isEquipped = (equippedSkins[previewCharacter.id] || skinsList[0]?.id) === skin.id;
+                    const skillsPerPage = 3;
+                    const paginated = previewCharacter.skills.slice(previewSkillsPage * skillsPerPage, (previewSkillsPage + 1) * skillsPerPage);
+                    return paginated.map((skill, sIdx) => {
+                      const skillKey = `${previewCharacter.id}_${sIdx}_${skill.name}`;
+                      const isExpanded = !!expandedSkills[skillKey];
+                      const maxLen = 75;
+                      const translatedDesc = translateGameText(skill.desc, language);
+                      const translatedSkillName = translateSkillName(skill.name, language);
+                      const isLongText = translatedDesc.length > maxLen;
+                      const displayDesc = (isLongText && !isExpanded) ? `${translatedDesc.slice(0, maxLen)}...` : translatedDesc;
 
                       return (
                         <div
-                          key={skin.id}
-                          onClick={() => {
-                            playClickSound();
-                            setEquippedSkins(prev => ({
-                              ...prev,
-                              [previewCharacter.id]: skin.id
-                            }));
-                          }}
-                          className={`relative group flex-shrink-0 w-32 h-44 rounded-xl border-2 overflow-hidden flex flex-col items-center justify-between p-2 cursor-pointer transition-all ${
-                            isEquipped
-                              ? 'border-amber-500 ring-2 ring-amber-500/50 shadow-xl shadow-amber-500/20 bg-amber-500/10 scale-102'
-                              : 'border-slate-800/90 hover:border-slate-600 bg-slate-950/80 hover:bg-slate-900/80'
-                          }`}
+                          key={sIdx}
+                          className="relative w-full rounded-xl overflow-hidden min-h-[100px] flex items-center transition-transform hover:scale-[1.01] group"
                         >
-                          {isEquipped && (
-                            <div className="absolute top-1.5 right-1.5 bg-amber-500 text-slate-950 text-[8px] font-black font-mono px-1.5 py-0.5 rounded shadow z-10 uppercase tracking-wider">
-                              EQUIPADA
+                          {/* Background Pergaminho Scroll Asset for each skill */}
+                          <img 
+                            src="/static/img/pergaminho_skills.webp" 
+                            alt="Pergaminho Skill" 
+                            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow"
+                            onError={(e) => {
+                              e.currentTarget.src = '/static/img/ui/pergaminho.webp';
+                            }}
+                          />
+
+                          {/* Content sit on top of parchment paper area inside wooden handles */}
+                          <div className="relative z-10 w-full flex items-center gap-2 sm:gap-2.5 px-6 sm:px-8 py-2.5">
+                            {/* Larger Skill Icon */}
+                            <div className="w-14 h-14 sm:w-[60px] sm:h-[60px] rounded-lg overflow-hidden border-2 border-amber-900/60 bg-amber-950/40 flex-shrink-0 shadow-md">
+                              <img 
+                                src={skill.icon || null} 
+                                alt={translatedSkillName} 
+                                className="w-full h-full object-cover" 
+                                onError={(e) => {
+                                  const img = e.currentTarget;
+                                  img.onerror = null;
+                                  img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                                }}
+                              />
                             </div>
-                          )}
 
-                          <div className="w-full h-32 flex items-center justify-center overflow-hidden p-1">
-                            <img
-                              src={skin.image}
-                              alt={skin.name}
-                              referrerPolicy="no-referrer"
-                              className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)] transition-transform group-hover:scale-105"
-                              onError={(e) => {
-                                const img = e.currentTarget; img.onerror = null; img.src = previewCharacter.portrait;
-                              }}
-                            />
+                            <div className="flex-1 min-w-0 space-y-0.5">
+                              <div className="flex justify-between items-start gap-1.5">
+                                <span className="font-extrabold text-xs sm:text-sm text-amber-950 font-sans tracking-tight truncate drop-shadow-sm">
+                                  {translatedSkillName}
+                                </span>
+                                <div className="flex-shrink-0 bg-amber-950/10 px-1 py-0.5 rounded border border-amber-900/20">
+                                  {renderChakraCosts(skill.cost)}
+                                </div>
+                              </div>
+                              
+                              <p className="text-[10px] sm:text-[11px] text-stone-900 font-medium leading-snug">
+                                {displayDesc}{' '}
+                                {isLongText && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedSkills(prev => ({
+                                        ...prev,
+                                        [skillKey]: !prev[skillKey]
+                                      }));
+                                    }}
+                                    className="text-amber-950 font-black hover:underline cursor-pointer text-[9px] sm:text-[10px] uppercase font-mono tracking-wider ml-1 px-1 py-0.2 bg-amber-900/15 rounded border border-amber-900/20 inline-block"
+                                  >
+                                    {isExpanded ? t('Ver menos', 'See less') : t('Ver mais', 'See more')}
+                                  </button>
+                                )}
+                              </p>
+                              
+                              <div className="flex items-center gap-3 pt-0.5 text-[9px] font-mono font-bold text-amber-900/90">
+                                {skill.cooldown > 0 && (
+                                  <span>{t('Recarga', 'Cooldown')}: {skill.cooldown} {t('turnos', 'turns')}</span>
+                                )}
+                                <span className="truncate">
+                                  {t('Alvo', 'Target')}: {' '}
+                                  {translateTargetType(skill.targetType, language)}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-
-                          <span className="text-[10px] font-bold text-slate-200 truncate w-full text-center font-mono uppercase tracking-tight">
-                            {skin.name}
-                          </span>
                         </div>
                       );
                     });
                   })()}
                 </div>
-              </div>
-            ) : (
-              <p className="text-slate-400 text-xs leading-relaxed border-b border-slate-800/80 pb-4">
-                {previewCharacter.description}
-              </p>
-            )}
 
-            {/* Skills List */}
-            <div className="space-y-4">
-              <h4 className="text-xs font-mono uppercase tracking-wider text-slate-500 font-bold flex justify-between items-center">
-                <span>Habilidades</span>
-                {previewCharacter.skills.length > 3 && (
-                  <span className="text-[10px] text-slate-400 font-normal">
-                    Pág. {previewSkillsPage + 1} de {Math.ceil(previewCharacter.skills.length / 3)}
-                  </span>
-                )}
-              </h4>
-              
-              <div className="space-y-3.5">
-                {(() => {
-                  const skillsPerPage = 3;
-                  const paginated = previewCharacter.skills.slice(previewSkillsPage * skillsPerPage, (previewSkillsPage + 1) * skillsPerPage);
-                  return paginated.map((skill, sIdx) => (
-                    <div
-                      key={sIdx}
-                      className="flex gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800 hover:border-slate-700 transition-all"
-                    >
-                      <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-800 bg-slate-900 flex-shrink-0">
-                        <img 
-                          src={skill.icon} 
-                          alt={skill.name} 
-                          className="w-full h-full object-cover" 
-                          onError={(e) => {
-                            const img = e.currentTarget;
-                            img.onerror = null;
-                            img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                          }}
-                        />
+                {/* Skills list pagination controls */}
+                {previewCharacter.skills.length > 3 && (() => {
+                  const totalPages = Math.ceil(previewCharacter.skills.length / 3);
+                  return (
+                    <div className="flex items-center justify-between bg-amber-950/10 p-2 rounded-xl border border-amber-900/20 mt-2">
+                      <button
+                        onClick={() => {
+                          playClickSound();
+                          setPreviewSkillsPage(prev => Math.max(prev - 1, 0));
+                        }}
+                        disabled={previewSkillsPage === 0}
+                        className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
+                          previewSkillsPage === 0
+                            ? 'border-amber-900/10 bg-amber-950/5 text-amber-900/30 cursor-not-allowed'
+                            : 'border-amber-900/30 bg-amber-950/15 hover:bg-amber-950/25 text-amber-950 font-bold'
+                        }`}
+                        title="Habilidades Anteriores"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+
+                      <div className="flex gap-1.5">
+                        {Array.from({ length: totalPages }).map((_, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              playClickSound();
+                              setPreviewSkillsPage(idx);
+                            }}
+                            className={`w-6 h-6 rounded-md text-[10px] font-mono font-bold flex items-center justify-center transition-all cursor-pointer border ${
+                              idx === previewSkillsPage
+                                ? 'bg-amber-700 border-amber-800 text-amber-50 shadow-md font-black'
+                                : 'bg-amber-950/10 border-amber-900/20 text-amber-950 hover:bg-amber-950/20'
+                            }`}
+                          >
+                            {idx + 1}
+                          </button>
+                        ))}
                       </div>
 
-                      <div className="flex-1 space-y-1">
-                        <div className="flex justify-between items-start gap-2">
-                          <span className="font-semibold text-xs text-slate-200">{skill.name}</span>
-                          {renderChakraCosts(skill.cost)}
-                        </div>
-                        <p className="text-[10px] text-slate-400 leading-normal">{skill.desc}</p>
-                        <div className="flex items-center gap-3 pt-0.5 text-[9px] font-mono text-slate-500">
-                          {skill.cooldown > 0 && (
-                            <span>Recarga: {skill.cooldown} turnos</span>
-                          )}
-                          <span>
-                            Alvo: {' '}
-                            {skill.targetType === 'Enemy' && 'Inimigo Único'}
-                            {skill.targetType === 'Self' && 'Próprio'}
-                            {skill.targetType === 'Ally' && 'Aliado Único'}
-                            {skill.targetType === 'AllEnemies' && 'Todos os Inimigos'}
-                            {skill.targetType === 'AllAllies' && 'Todos os Aliados'}
-                          </span>
-                        </div>
-                      </div>
+                      <button
+                        onClick={() => {
+                          playClickSound();
+                          setPreviewSkillsPage(prev => Math.min(prev + 1, totalPages - 1));
+                        }}
+                        disabled={previewSkillsPage === totalPages - 1}
+                        className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
+                          previewSkillsPage === totalPages - 1
+                            ? 'border-amber-900/10 bg-amber-950/5 text-amber-900/30 cursor-not-allowed'
+                            : 'border-amber-900/30 bg-amber-950/15 hover:bg-amber-950/25 text-amber-950 font-bold'
+                        }`}
+                        title="Próximas Habilidades"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  ));
+                  );
                 })()}
               </div>
-
-              {/* Skills list pagination buttons */}
-              {previewCharacter.skills.length > 3 && (() => {
-                const totalPages = Math.ceil(previewCharacter.skills.length / 3);
-                return (
-                  <div className="flex items-center justify-between bg-slate-950/40 p-2 rounded-xl border border-slate-800 mt-3">
-                    <button
-                      onClick={() => {
-                        playClickSound();
-                        setPreviewSkillsPage(prev => Math.max(prev - 1, 0));
-                      }}
-                      disabled={previewSkillsPage === 0}
-                      className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
-                        previewSkillsPage === 0
-                          ? 'border-slate-800 bg-slate-950/40 text-slate-600 cursor-not-allowed'
-                          : 'border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300'
-                      }`}
-                      title="Habilidades Anteriores"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </button>
-
-                    <div className="flex gap-1.5">
-                      {Array.from({ length: totalPages }).map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            playClickSound();
-                            setPreviewSkillsPage(idx);
-                          }}
-                          className={`w-5 h-5 rounded-md text-[10px] font-mono font-bold flex items-center justify-center transition-all cursor-pointer border ${
-                            idx === previewSkillsPage
-                              ? 'bg-orange-600 border-orange-500 text-slate-950 shadow-md'
-                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-900'
-                          }`}
-                        >
-                          {idx + 1}
-                        </button>
-                      ))}
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        playClickSound();
-                        setPreviewSkillsPage(prev => Math.min(prev + 1, totalPages - 1));
-                      }}
-                      disabled={previewSkillsPage === totalPages - 1}
-                      className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
-                        previewSkillsPage === totalPages - 1
-                          ? 'border-slate-800 bg-slate-950/40 text-slate-600 cursor-not-allowed'
-                          : 'border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300'
-                      }`}
-                      title="Próximas Habilidades"
-                    >
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                );
-              })()}
             </div>
           </div>
         </div>
@@ -1100,7 +1253,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 {/* Current Player Profile Card */}
                 <div className="col-span-2 text-center space-y-2">
                   <div className="w-16 h-16 mx-auto rounded-xl border-2 border-orange-500 overflow-hidden bg-slate-950">
-                    <img src={user.photoUrl} alt={user.name} className="w-full h-full object-cover" />
+                    <img src={user.photoUrl || null} alt={user.name} className="w-full h-full object-cover" />
                   </div>
                   <div className="text-xs font-black truncate text-orange-400 uppercase font-mono">{user.name}</div>
                   <div className="text-[9px] font-mono text-slate-500">SEU TIME</div>
@@ -1117,9 +1270,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 <div className="col-span-2 text-center space-y-2">
                   <div className="w-16 h-16 mx-auto rounded-xl border-2 border-dashed border-slate-700 overflow-hidden bg-slate-950 flex items-center justify-center">
                     {opponent ? (
-                      <img src={opponent.photoUrl} alt={opponent.name} className="w-full h-full object-cover scale-x-[-1]" />
+                      <img src={opponent.photoUrl || null} alt={opponent.name} className="w-full h-full object-cover scale-x-[-1]" />
                     ) : (
-                      <Loader2 className="w-6 h-6 text-slate-500 animate-spin" />
+                      <img src="/static/img/icon/star.webp" alt="Loading" className="w-6 h-6 animate-spin object-contain" />
                     )}
                   </div>
                   <div className="text-xs font-black truncate text-slate-300 uppercase font-mono">

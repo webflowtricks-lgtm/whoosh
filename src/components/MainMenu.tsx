@@ -11,6 +11,9 @@ import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
 import ProfileModal from './ProfileModal';
 import ProfileCardModal from './ProfileCardModal';
+import { getRanks } from '../lib/rankStorage';
+import { getRankProgress } from '../lib/xpSystem';
+import { useLanguage } from '../lib/i18n';
 
 interface MainMenuProps {
   onStartGame: () => void;
@@ -25,6 +28,7 @@ interface MainMenuProps {
 }
 
 export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClickSound, playScrollSound, onOpenAdmin, user, onLogout, onUpdateUser }: MainMenuProps) {
+  const { t } = useLanguage();
   const [showRules, setShowRules] = useState(false);
   const [showEventsModal, setShowEventsModal] = useState(false);
   const [showShopModal, setShowShopModal] = useState(false);
@@ -44,6 +48,10 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
 
   const ryos = user.ryos ?? 1500;
   const gems = user.gems ?? 120;
+
+  const ranks = getRanks();
+  const userXp = user.xp || 0;
+  const rankProgress = getRankProgress(userXp, ranks);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-6 relative overflow-hidden font-sans selection:bg-orange-600 selection:text-white">
@@ -72,10 +80,10 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               onOpenAdmin();
             }}
             className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-orange-500 hover:bg-slate-950 hover:text-orange-400 transition-all cursor-pointer text-slate-400 font-mono text-xs flex items-center gap-2 uppercase tracking-wider font-semibold shadow"
-            title="Painel Administrativo"
+            title={t('Painel Administrativo', 'Admin Panel')}
           >
             <Shield className="w-4 h-4 text-orange-500" />
-            <span>Painel</span>
+            <span>{t('Painel', 'Admin')}</span>
           </button>
 
           <button
@@ -84,7 +92,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               onToggleMute();
             }}
             className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800 transition-all cursor-pointer text-slate-300 shadow"
-            title={isMuted ? "Ativar Som" : "Desativar Som"}
+            title={isMuted ? t('Ativar Som', 'Unmute Sound') : t('Desativar Som', 'Mute Sound')}
           >
             {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5 text-orange-400" />}
           </button>
@@ -92,7 +100,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
           <button
             onClick={onLogout}
             className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-red-500/80 hover:bg-red-500/10 hover:text-red-400 transition-all cursor-pointer text-slate-400 shadow"
-            title="Sair da Conta"
+            title={t('Sair da Conta', 'Log Out')}
           >
             <LogOut className="w-5 h-5" />
           </button>
@@ -110,10 +118,12 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               title: user.title,
               equippedFrame: user.equippedFrame,
               equippedFrameUrl: user.equippedFrameUrl,
-              level: 15,
-              wins: 28,
-              losses: 4,
-              village: 'Vila da Folha (Konoha)',
+              equippedBannerUrl: user.equippedBannerUrl,
+              xp: user.xp || 0,
+              rank: rankProgress.currentRank.name,
+              wins: user.wins || 0,
+              losses: user.losses || 0,
+              village: t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)'),
             }}
             isSelf={true}
             onClose={() => setShowProfileCardModal(false)}
@@ -130,26 +140,6 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             playClickSound={playClickSound}
           />
         )}
-
-        {/* EVENTOS E LOJA DESATIVADOS TEMPORARIAMENTE (CÓDIGO PRESERVADO)
-        {showEventsModal && (
-          <EventsModal
-            user={user}
-            onClose={() => setShowEventsModal(false)}
-            onUpdateUser={handleUserUpdate}
-            playClickSound={playClickSound}
-          />
-        )}
-
-        {showShopModal && (
-          <ShopModal
-            user={user}
-            onClose={() => setShowShopModal(false)}
-            onUpdateUser={handleUserUpdate}
-            playClickSound={playClickSound}
-          />
-        )}
-        */}
       </AnimatePresence>
 
       {/* Center Hero/Cta */}
@@ -161,7 +151,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
           className="space-y-6 w-full"
         >
           <div className="inline-block px-3 py-1 bg-orange-600/10 rounded-full border border-orange-500/30 text-xs font-mono text-orange-400 font-semibold tracking-wider uppercase">
-            Arena Tática Lendária 3v3
+            {t('Arena Tática Lendária 3v3', '3v3 Legendary Tactical Arena')}
           </div>
 
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent uppercase">
@@ -169,10 +159,13 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
           </h1>
 
           <p className="text-slate-400 text-base md:text-lg max-w-2xl mx-auto font-light leading-relaxed">
-            Escolha seu time de 3 ninjas lendários, gerencie suas reservas elementais de chakra e esmague os oponentes com habilidades e combos sincronizados.
+            {t(
+              'Escolha seu time de 3 ninjas lendários, gerencie suas reservas elementais de chakra e esmague os oponentes com habilidades e combos sincronizados.',
+              'Choose your team of 3 legendary ninjas, manage your elemental chakra reserves and crush opponents with synchronized skills and combos.'
+            )}
           </p>
 
-          {/* MAIN ACTION BAR: PERFIL + EVENTOS + LOJA + ENTRAR NA ARENA */}
+          {/* MAIN ACTION BAR: PERFIL + ENTRAR NA ARENA */}
           <div className="pt-4 flex flex-wrap items-center justify-center gap-3 md:gap-4 max-w-4xl mx-auto">
             {/* PERFIL BUTTON */}
             <button
@@ -182,13 +175,13 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
                 setShowProfileCardModal(true);
               }}
               className="p-3.5 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/80 hover:bg-slate-900 text-slate-200 transition-all cursor-pointer flex items-center gap-3 shadow-xl group relative"
-              title="Acessar Card do Perfil & Curtidas"
+              title={t('Acessar Card do Perfil & Curtidas', 'Access Profile Card & Likes')}
             >
               {/* Avatar with Equipped Frame */}
               <div className="relative w-10 h-10 flex-shrink-0">
                 <div className="w-full h-full rounded-full overflow-hidden bg-slate-950 border border-orange-500/50 shadow">
                   <img
-                    src={user.photoUrl}
+                    src={user.photoUrl || null}
                     alt={user.name}
                     className="w-full h-full object-cover rounded-full"
                     referrerPolicy="no-referrer"
@@ -196,72 +189,43 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
                 </div>
                 {user.equippedFrameUrl && (
                   <img
-                    src={user.equippedFrameUrl}
-                    alt="Moldura Equipada"
+                    src={user.equippedFrameUrl || null}
+                    alt={t('Moldura Equipada', 'Equipped Frame')}
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain z-10"
                   />
                 )}
               </div>
 
-              <div className="text-left min-w-0">
-                <div className="flex items-center gap-1.5">
+              <div className="text-left min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-xs font-mono font-black text-slate-100 truncate group-hover:text-orange-400">{user.name}</span>
+                  <span className={`px-1.5 py-0.2 rounded bg-gradient-to-r text-[9px] font-mono font-extrabold uppercase shadow ${rankProgress.currentRank.color}`} style={{ color: '#ffffff' }}>
+                    {rankProgress.currentRank.name}
+                  </span>
+                  <span className="text-[9px] font-mono font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 shadow-sm flex items-center gap-0.5">
+                    <Sparkles className="w-2.5 h-2.5 text-amber-300 inline" />
+                    {userXp.toLocaleString()} XP
+                  </span>
                   {user.title && (
                     <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
                       {user.title}
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] font-mono text-orange-400/90 font-bold flex items-center gap-1 mt-0.5">
-                  <User className="w-3 h-3 text-orange-400" />
-                  Perfil & Molduras
-                </span>
-              </div>
-            </button>
 
-            {/* EVENTOS E LOJA BOTÕES DESATIVADOS TEMPORARIAMENTE (CÓDIGO PRESERVADO)
-            <button
-              onClick={() => {
-                playClickSound();
-                playScrollSound();
-                setShowEventsModal(true);
-              }}
-              className="p-3.5 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/80 hover:bg-slate-900 text-slate-200 hover:text-orange-400 transition-all cursor-pointer flex items-center gap-3 shadow-xl group relative overflow-hidden"
-              title="Eventos Ativos"
-            >
-              <div className="p-2 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 group-hover:scale-110 transition-transform">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div className="text-left">
-                <span className="text-xs font-mono font-black uppercase tracking-wider block leading-none">Eventos</span>
-                <span className="text-[10px] font-mono text-orange-400/90 font-bold flex items-center gap-1 mt-0.5">
-                  <Sparkles className="w-3 h-3 animate-spin text-amber-400" />
-                  Ativos
-                </span>
-              </div>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-orange-500 animate-ping" />
-            </button>
-
-            <button
-              onClick={() => {
-                playClickSound();
-                playScrollSound();
-                setShowShopModal(true);
-              }}
-              className="p-3.5 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/80 hover:bg-slate-900 text-slate-200 hover:text-amber-400 transition-all cursor-pointer flex items-center gap-3 shadow-xl group"
-              title="Loja Shinobi"
-            >
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:scale-110 transition-transform">
-                <ShoppingBag className="w-5 h-5" />
-              </div>
-              <div className="text-left">
-                <span className="text-xs font-mono font-black uppercase tracking-wider block leading-none">Loja</span>
-                <span className="text-[10px] font-mono text-amber-300 font-bold block mt-0.5">
-                  🪙 {ryos.toLocaleString()} | 💎 {gems}
-                </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-20 h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400"
+                      style={{ width: `${rankProgress.progressPercent}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] font-mono text-slate-400 font-bold">
+                    {rankProgress.isMaxRank ? 'MAX' : `${userXp.toLocaleString()} XP`}
+                  </span>
+                </div>
               </div>
             </button>
-            */}
 
             {/* ENTRAR NA ARENA CTA BUTTON */}
             <button
@@ -269,7 +233,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               className="p-3.5 px-8 bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-mono font-black rounded-2xl flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-orange-600/25 border border-orange-400 cursor-pointer text-sm uppercase tracking-wider"
             >
               <Play className="w-5 h-5 fill-slate-950 text-slate-950" />
-              Entrar na Arena
+              {t('Entrar na Arena', 'Enter the Arena')}
             </button>
 
             {/* COMO JOGAR BUTTON */}
@@ -281,7 +245,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               className="p-3.5 px-5 bg-slate-900 border border-slate-800 text-slate-300 font-mono font-bold rounded-2xl flex items-center gap-2 hover:bg-slate-800 hover:border-slate-700 active:scale-95 transition-all cursor-pointer text-xs uppercase tracking-wider"
             >
               <HelpCircle className="w-4 h-4 text-orange-400" />
-              Como Jogar
+              {t('Como Jogar', 'How to Play')}
             </button>
           </div>
         </motion.div>
@@ -295,31 +259,51 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             className="mt-8 p-6 bg-slate-900/80 border border-slate-800 rounded-2xl text-left max-w-3xl w-full space-y-4 shadow-2xl"
           >
             <h3 className="font-semibold text-lg text-orange-400 flex items-center gap-2">
-              <Sword className="w-5 h-5" /> Regras e Mecânicas de Combate
+              <Sword className="w-5 h-5" /> {t('Regras e Mecânicas de Combate', 'Rules and Combat Mechanics')}
             </h3>
             <div className="grid md:grid-cols-2 gap-6 text-sm text-slate-300">
               <div className="space-y-2">
-                <p className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800 pb-1">1. Escolha e Formação de Equipe</p>
+                <p className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800 pb-1">
+                  {t('1. Escolha e Formação de Equipe', '1. Team Choice and Formation')}
+                </p>
                 <p className="text-slate-400 leading-relaxed text-xs">
-                  Escolha <strong className="text-orange-400">3 Ninjas</strong> para formar seu esquadrão. Cada ninja possui uma imagem e 4 habilidades personalizadas.
+                  {t(
+                    'Escolha 3 Ninjas para formar seu esquadrão. Cada ninja possui uma imagem e 4 habilidades personalizadas.',
+                    'Choose 3 Ninjas to form your squad. Each ninja has an image and 4 custom skills.'
+                  )}
                 </p>
               </div>
               <div className="space-y-2">
-                <p className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800 pb-1">2. Rolagem de Chakra por Turno</p>
+                <p className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800 pb-1">
+                  {t('2. Rolagem de Chakra por Turno', '2. Chakra Roll per Turn')}
+                </p>
                 <p className="text-slate-400 leading-relaxed text-xs">
-                  A cada turno, você gera <strong className="text-orange-400">1 chakra aleatório por aliado vivo</strong> dos tipos: Taijutsu, Ninjutsu, Genjutsu ou Linhagem Sanguínea. Se tiver 2 aliados vivos, gera 2 chakras.
+                  {t(
+                    'A cada turno, você gera 1 chakra aleatório por aliado vivo dos tipos: Taijutsu, Ninjutsu, Genjutsu ou Linhagem Sanguínea. Se tiver 2 aliados vivos, gera 2 chakras.',
+                    'Each turn, you generate 1 random chakra per living ally of types: Taijutsu, Ninjutsu, Genjutsu, or Bloodline. If you have 2 living allies, you generate 2 chakras.'
+                  )}
                 </p>
               </div>
               <div className="space-y-2">
-                <p className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800 pb-1">3. Seleção de Alvo e Gasto de Chakra</p>
+                <p className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800 pb-1">
+                  {t('3. Seleção de Alvo e Gasto de Chakra', '3. Target Selection & Chakra Cost')}
+                </p>
                 <p className="text-slate-400 leading-relaxed text-xs">
-                  Selecione uma habilidade e clique no alvo correspondente. As habilidades consomem chakra elemental ou Aleatório (Cinza).
+                  {t(
+                    'Selecione uma habilidade e clique no alvo correspondente. As habilidades consomem chakra elemental ou Aleatório (Cinza).',
+                    'Select a skill and click on the corresponding target. Skills consume elemental or Random (Gray) chakra.'
+                  )}
                 </p>
               </div>
               <div className="space-y-2">
-                <p className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800 pb-1">4. Efeitos e Vitória</p>
+                <p className="font-bold text-white uppercase tracking-wider text-xs border-b border-slate-800 pb-1">
+                  {t('4. Efeitos e Vitória', '4. Effects & Victory')}
+                </p>
                 <p className="text-slate-400 leading-relaxed text-xs">
-                  Use Escudos, Invulnerabilidade, Contra-ataques e Atordoamentos. Reduza a vida de todos os 3 ninjas inimigos a 0 para vencer!
+                  {t(
+                    'Use Escudos, Invulnerabilidade, Contra-ataques e Atordoamentos. Reduza a vida de todos os 3 ninjas inimigos a 0 para vencer!',
+                    'Use Shields, Invulnerability, Counter-attacks, and Stuns. Reduce all 3 enemy ninjas’ health to 0 to win!'
+                  )}
                 </p>
               </div>
             </div>
@@ -330,13 +314,17 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
       {/* Footer Info */}
       <div className="border-t border-slate-900 pt-4 max-w-7xl w-full mx-auto flex flex-col md:flex-row justify-between items-center text-xs text-slate-500 font-mono z-10 gap-4">
         <div>
-          Naruto é propriedade de Masashi Kishimoto, Pierrot Co. e Viz Media.
+          {t(
+            'Naruto é propriedade de Masashi Kishimoto, Pierrot Co. e Viz Media.',
+            'Naruto is property of Masashi Kishimoto, Pierrot Co. and Viz Media.'
+          )}
         </div>
         <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5 text-orange-500/60" /> Anti-Cheat Verificado</span>
+          <span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5 text-orange-500/60" /> {t('Anti-Cheat Verificado', 'Anti-Cheat Verified')}</span>
           <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5 text-blue-500/60" /> Unison Engine v1.0.0</span>
         </div>
       </div>
     </div>
   );
 }
+

@@ -4,6 +4,7 @@
  */
 
 import { ShopItem } from '../types';
+import { safeFetchJson } from './api';
 
 const STORAGE_KEY = 'naruto_shop_items';
 
@@ -153,17 +154,14 @@ export function getShopItems(): ShopItem[] {
 
 export async function fetchShopItemsFromServer(): Promise<ShopItem[]> {
   try {
-    const res = await fetch('/api/shop');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && Array.isArray(data.items) && data.items.length > 0) {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.items));
-        } catch (e) {
-          console.warn("Failed to save shop items to localStorage:", e);
-        }
-        return data.items;
+    const data = await safeFetchJson<{ success?: boolean; items?: ShopItem[] }>('/api/shop');
+    if (data && data.success && Array.isArray(data.items) && data.items.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.items));
+      } catch (e) {
+        console.warn("Failed to save shop items to localStorage:", e);
       }
+      return data.items;
     }
   } catch (e) {
     console.error("Failed to fetch shop items from server:", e);
