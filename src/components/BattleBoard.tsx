@@ -5,13 +5,16 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy, ShieldAlert } from 'lucide-react';
-import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost } from '../types';
+import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo } from 'lucide-react';
+import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, Quest, QuestGoal } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
 import { calculateBattleXp, getRankProgress, checkRankChange } from '../lib/xpSystem';
 import { getRanks } from '../lib/rankStorage';
+import { getCharacters } from '../lib/characterStorage';
 import { useLanguage, translateGameText, translateSkillName, translateTargetType, getLanguage } from '../lib/i18n';
+import { getGoalDescription } from '../lib/questUtils';
+import { safeFetchJson } from '../lib/api';
 
 interface BattleBoardProps {
   playerTeam: Character[];
@@ -50,6 +53,7 @@ interface BattleBoardProps {
     turn?: number;
     alivePlayerCount?: number;
   }, gainedXp?: number) => void;
+  activeQuest?: Quest | null;
 }
 
 interface CuedAction {
@@ -184,7 +188,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
   if (!eff) return false;
   const debuffTypes = [
     'stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown',
-    'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly'
+    'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage'
   ];
   if (debuffTypes.includes(eff.type)) return true;
   const lowerName = (eff.name || '').toLowerCase();
@@ -202,6 +206,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
 }
 
 export function getSkillBaseName(eff: ActiveEffect): string {
+  if (eff.stackType) return eff.stackType;
   if (eff.sourceSkillName) return eff.sourceSkillName;
 
   let name = eff.name || '';
@@ -215,7 +220,8 @@ export function getSkillBaseName(eff: ActiveEffect): string {
   const trailingKeywords = [
     'Burn', 'Sangramento', 'Aflição', 'Paralisia de Cooldown',
     'Guard', 'Power', 'Escape', 'Shield Decay', 'Contra-Ataque',
-    'Reflect', 'Counter', 'Shield', 'Weakness', 'Fraqueza'
+    'Reflect', 'Counter', 'Shield', 'Weakness', 'Fraqueza',
+    'Retaliação', 'Stack', 'Retaliation'
   ];
   const regex = new RegExp(`\\s+(?:${trailingKeywords.join('|')})$`, 'i');
   name = name.replace(regex, '');
@@ -320,6 +326,9 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'cannot_receive_friendly':
       rawPt = `Bloqueio Amigável: Não pode receber habilidades de aliados por ${durText}`;
       break;
+    case 'on_skill_use_damage':
+      rawPt = val > 0 ? `Punição por Habilidade: Sofre ${val} de dano a cada habilidade que usar por ${durText}` : `Punição por usar habilidade por ${durText}`;
+      break;
     case 'retaliate_damage': {
       const baseVal = effect.retaliateDamageVal || effect.value || 0;
       const stacks = (effect as any).stacks || 1;
@@ -369,8 +378,8 @@ function getGroupedActiveEffects(
       // Group ALL debuffs from the same skill under ONE group key
       groupKey = `DEBUFF_${skillBaseName}_${eff.icon || ''}`;
     } else {
-      // Group buffs by exact name & type
-      groupKey = `BUFF_${eff.name}_${eff.type}`;
+      // Group ALL buffs from the same skill under ONE group key
+      groupKey = `BUFF_${skillBaseName}_${eff.icon || ''}`;
     }
 
     let group = groupsMap.get(groupKey);
@@ -502,7 +511,7 @@ function GameOverOverlay({
                   : 'bg-gradient-to-r from-red-500 via-rose-400 to-red-600 bg-clip-text text-transparent'
               }`}
             >
-              {isVictory ? 'VITÓRIA SHINOBI!' : 'DERROTA EM COMBATE!'}
+              {isVictory ? 'VITÓRIA!' : 'DERROTA!'}
             </h1>
           </div>
 
@@ -729,8 +738,38 @@ export default function BattleBoard({
   isSandbox,
   restoredState,
   onBattleEnd,
+  activeQuest,
 }: BattleBoardProps) {
   const { t, language } = useLanguage();
+
+  // In-Game Quest Modal States
+  const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
+  const [allQuests, setAllQuests] = useState<Quest[]>([]);
+  const [loadingQuests, setLoadingQuests] = useState(false);
+
+  useEffect(() => {
+    if (isQuestModalOpen) {
+      const fetchQuests = async () => {
+        try {
+          setLoadingQuests(true);
+          const data = await safeFetchJson<{ success?: boolean; quests?: Quest[] }>('/api/quests');
+          if (data && data.success && Array.isArray(data.quests)) {
+            const userCompletedIds = user?.completedQuestIds || [];
+            const synced = data.quests.map((q: Quest) => ({
+              ...q,
+              completed: userCompletedIds.includes(q.id) || q.completed
+            }));
+            setAllQuests(synced);
+          }
+        } catch (err) {
+          console.error('Error fetching quests in battle:', err);
+        } finally {
+          setLoadingQuests(false);
+        }
+      };
+      fetchQuests();
+    }
+  }, [isQuestModalOpen, user?.completedQuestIds]);
   // Stats tracking for Quests
   const matchStatsRef = useRef({
     damageDealt: 0,
@@ -1004,24 +1043,67 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     }
   };
 
+function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
+  if (!combatants || !Array.isArray(combatants)) return [];
+  const allKnownChars = getCharacters();
+  return combatants.map(c => {
+    if (!c || !c.character) return c;
+    const baseChar = allKnownChars.find(
+      bc => (bc.id && bc.id === c.character.id) || (bc.name && bc.name.toLowerCase() === c.character.name?.toLowerCase())
+    );
+
+    if (!baseChar) return c;
+
+    const fullSkills = (c.character.skills || []).map((s, idx) => {
+      const baseSkill = baseChar.skills?.find(bs => bs.name === s.name) || baseChar.skills?.[idx];
+      if (baseSkill) {
+        return {
+          ...baseSkill,
+          ...s,
+          desc: s.desc || baseSkill.desc,
+          customEffects: (s.customEffects && s.customEffects.length > 0) ? s.customEffects : baseSkill.customEffects,
+          classes: (s.classes && s.classes.length > 0) ? s.classes : baseSkill.classes,
+          requireEffect: s.requireEffect || baseSkill.requireEffect,
+          requirePreviousSkill: s.requirePreviousSkill || baseSkill.requirePreviousSkill,
+          cannotBeCountered: s.cannotBeCountered !== undefined ? s.cannotBeCountered : baseSkill.cannotBeCountered,
+          cannotBeReflected: s.cannotBeReflected !== undefined ? s.cannotBeReflected : baseSkill.cannotBeReflected,
+          doNotApplyIfActive: s.doNotApplyIfActive !== undefined ? s.doNotApplyIfActive : baseSkill.doNotApplyIfActive,
+        };
+      }
+      return s;
+    });
+
+    return {
+      ...c,
+      character: {
+        ...baseChar,
+        ...c.character,
+        skills: fullSkills
+      }
+    };
+  });
+}
+
   // Initial setup on mount
   useEffect(() => {
     if (restoredState) {
       setTurn(restoredState.turn);
-      setPlayerCombatants(restoredState.playerCombatants);
-      setEnemyCombatants(restoredState.enemyCombatants);
+      const hydratedPlayer = hydrateCombatants(restoredState.playerCombatants);
+      const hydratedEnemy = hydrateCombatants(restoredState.enemyCombatants);
+      setPlayerCombatants(hydratedPlayer);
+      setEnemyCombatants(hydratedEnemy);
       setPlayerChakra(restoredState.playerChakra);
       setEnemyChakra(restoredState.enemyChakra);
       setCuedActions([]);
       setSelectedSkill(null);
       setGameOver(null);
 
-      const pCombat = restoredState.playerCombatants;
-      if (pCombat.length > 0 && pCombat[0].character.skills.length > 0) {
+      if (hydratedPlayer.length > 0 && hydratedPlayer[0].character.skills.length > 0) {
         setInspectedSkill({
-          skill: pCombat[0].character.skills[0],
-          ownerName: pCombat[0].character.name,
+          skill: hydratedPlayer[0].character.skills[0],
+          ownerName: hydratedPlayer[0].character.name,
           isEnemy: false,
+          combatant: hydratedPlayer[0]
         });
       }
 
@@ -1098,6 +1180,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
         skill: pCombat[0].character.skills[0],
         ownerName: pCombat[0].character.name,
         isEnemy: false,
+        combatant: pCombat[0]
       });
     }
 
@@ -1422,12 +1505,11 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     setCenterTab('inspector');
 
     if (combatant.isDead) return;
+    if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current || isWaitingForOpponent) return;
 
-    if (activePlanner === 'player' && isEnemyChar) {
-      return;
-    }
-    if (activePlanner === 'enemy' && !isEnemyChar) {
-      return;
+    if (!isSandbox) {
+      if (activePlanner === 'player' && isEnemyChar) return;
+      if (activePlanner === 'enemy' && !isEnemyChar) return;
     }
 
     // Stun check
@@ -1553,7 +1635,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
   // Grid/character click targets selection
   const handleSelectTarget = (targetId: string, isEnemyTarget: boolean) => {
-    if (isEndingTurnRef.current || isEndingTurn || gameOver) return;
+    if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current || isWaitingForOpponent || gameOver) return;
     if (!selectedSkill) return;
 
     const isSourceEnemy = selectedSkill.charId.startsWith('enemy');
@@ -1569,6 +1651,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     const expectedEnemyTarget = isSourceEnemy ? false : true;
     if (skill.targetType === 'Enemy' && isEnemyTarget !== expectedEnemyTarget) return;
     if (skill.targetType === 'Ally' && isEnemyTarget === expectedEnemyTarget) return;
+    if (skill.targetType === 'SelfAndAlly' && isEnemyTarget === expectedEnemyTarget) return;
     if (skill.targetType === 'AllEnemies' && isEnemyTarget !== expectedEnemyTarget) return;
     if (skill.targetType === 'AllAllies' && isEnemyTarget === expectedEnemyTarget) return;
 
@@ -1709,32 +1792,24 @@ const handleTradeChakra = () => {
     }
 
     // Check if this effect is stackable
-    const skill = character.character.skills.find(s => s.name === effect.name || effect.name.startsWith(s.name));
-    const isStackable = effect.stackable ?? skill?.stackable ?? false;
-    const stackType = effect.stackType ?? skill?.stackType;
-    // Use the executing skill's invisible flag (not the target's skill)
     const execSkill = currentSkillRef.current;
+    const skill = character.character.skills.find(s => s.name === effect.name || effect.name.startsWith(s.name));
+    const isStackable = effect.stackable ?? execSkill?.stackable ?? skill?.stackable ?? false;
+    const stackType = effect.stackType ?? execSkill?.stackType ?? skill?.stackType;
     const skillInvisible = execSkill?.invisible || (execSkill?.invisibleDuration !== undefined && execSkill?.invisibleDuration > 0);
+    const sourceName = effect.sourceSkillName || execSkill?.name || skill?.name || effect.name;
+    const effectiveStackType = stackType || (isStackable ? sourceName : undefined);
 
-    if (effect.type === 'retaliate_damage') {
-      const sourceName = effect.sourceSkillName || execSkill?.name || skill?.name || effect.name;
+    if (isStackable || effectiveStackType || effect.type === 'retaliate_damage') {
       const existing = character.activeEffects.find(
-        e => e.type === 'retaliate_damage' && (e.sourceSkillName === sourceName || e.name === effect.name)
+        e => (effectiveStackType && e.stackType === effectiveStackType) ||
+             (effectiveStackType && e.sourceSkillName === sourceName) ||
+             (e.type === effect.type && (e.sourceSkillName === sourceName || e.name === effect.name))
       );
       if (existing) {
         existing.stacks = (existing.stacks || 1) + 1;
         existing.duration = Math.max(existing.duration, effect.duration);
-        return;
-      }
-    }
-
-    if (isStackable && stackType) {
-      const existing = character.activeEffects.find(
-        e => e.stackType === stackType && e.type === effect.type
-      );
-      if (existing) {
-        existing.stacks = (existing.stacks || 1) + 1;
-        existing.duration = Math.max(existing.duration, effect.duration);
+        if (effectiveStackType && !existing.stackType) existing.stackType = effectiveStackType;
         return;
       }
     }
@@ -1743,9 +1818,9 @@ const handleTradeChakra = () => {
       ...effect,
       stacks: effect.stacks ?? 1,
       stackable: isStackable,
-      stackType: stackType,
+      stackType: effectiveStackType,
       icon: effect.icon || execSkill?.icon || skill?.icon,
-      sourceSkillName: effect.sourceSkillName || execSkill?.name || skill?.name || effect.name,
+      sourceSkillName: sourceName,
       isInvisible: effect.isInvisible !== undefined ? effect.isInvisible : (skillInvisible || effect.type === 'invisible'),
       casterSide: effect.casterSide || (effect.casterId ? (effect.casterId.startsWith('player') ? 'player' : 'enemy') : (character.id.startsWith('player') ? 'player' : 'enemy')),
       castTurn: effect.castTurn ?? turn,
@@ -1885,6 +1960,59 @@ const handleTradeChakra = () => {
     }, 0);
   };
 
+  // Origami Lotus rule (Young Konan only): quando um aliado/personagem com Origami Lotus é curado,
+  // a conjuradora (Young Konan) ganha +1 stack de "Paper Gathering".
+  const checkAndGrantOrigamiLotusGathering = (
+    target: CombatCharacter,
+    healedAmount: number,
+    logArr: CombatLog[],
+    allCombatantsList: CombatCharacter[]
+  ) => {
+    if (healedAmount <= 0 || target.isDead) return;
+    const lotusEffect = target.activeEffects.find(e =>
+      e.sourceSkillName === 'Origami Lotus' ||
+      (e.name && e.name.toLowerCase().includes('origami lotus'))
+    );
+    if (!lotusEffect) return;
+
+    const caster = (lotusEffect.casterId ? allCombatantsList.find(c => c.id === lotusEffect.casterId) : null) ||
+      allCombatantsList.find(c => (c.character.name === 'Young Konan' || c.character.id === 'young-konan') && !c.isDead);
+
+    if (caster && !caster.isDead && (caster.character.name === 'Young Konan' || caster.character.id === 'young-konan')) {
+      const existingPg = caster.activeEffects.find(e =>
+        e.stackType === 'Paper Gathering' ||
+        e.sourceSkillName === 'Paper Gathering' ||
+        (e.name && e.name.toLowerCase().includes('paper gathering'))
+      );
+      if (existingPg) {
+        existingPg.stacks = (existingPg.stacks || 1) + 1;
+      } else {
+        const pgSkill = caster.character.skills.find(s => s.name === 'Paper Gathering');
+        pushActiveEffect(caster, {
+          name: 'Paper Gathering Retaliação',
+          type: 'retaliate_damage',
+          value: 5,
+          retaliateDamageVal: 5,
+          retaliateDamageType: 'direct_damage',
+          duration: 999,
+          stackable: true,
+          stackType: 'Paper Gathering',
+          sourceSkillName: 'Paper Gathering',
+          casterId: caster.id,
+          casterSide: caster.id.startsWith('player') ? 'player' : 'enemy',
+          icon: pgSkill?.icon,
+        });
+      }
+      logArr.push({
+        id: Math.random().toString(),
+        turn,
+        message: `🌺 [Origami Lotus] ${target.character.name} foi curado e concedeu +1 stack de [Paper Gathering] a ${caster.character.name}!`,
+        type: 'buff',
+      });
+      addFloatingText(caster.id, '+1 PAPER GATHERING', 'effect');
+    }
+  };
+
   // Helper to execute actions for a single side (Player or Enemy) immediately
   const executeSideActions = (sideActions: CuedAction[], isPlayerSide: boolean, customRandAllocation?: ChakraPool): boolean => {
     const newLogs: CombatLog[] = [];
@@ -1968,6 +2096,13 @@ const handleTradeChakra = () => {
       }
       if (targetOverride === 'Self') return [source];
       if (targetOverride === 'Both') return [source, defaultTarget];
+      if (targetOverride === 'SelfAndAlly') {
+        if (sourceList.some(c => c.id === defaultTarget.id && c.id !== source.id)) {
+          return Array.from(new Set([source, defaultTarget]));
+        }
+        const allies = sourceList.filter(c => c.id !== source.id && !c.isDead);
+        return allies.length > 0 ? Array.from(new Set([source, allies[0]])) : [source];
+      }
       if (targetOverride === 'Ally') {
         if (sourceList.some(c => c.id === defaultTarget.id)) return [defaultTarget];
         const allies = sourceList.filter(c => c.id !== source.id && !c.isDead);
@@ -2033,8 +2168,99 @@ const handleTradeChakra = () => {
       const defaultTarget = targetList.find(c => c.id === action.targetId) || sourceList.find(c => c.id === action.targetId) || source;
 
       // Young Nagato: Air Bullets track target
-      if (skill.name === 'Air Bullets' && source.character.name === 'Young Nagato' && defaultTarget && !defaultTarget.isDead) {
+      if ((skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets')) && defaultTarget && !defaultTarget.isDead) {
         airBulletsHitTargets.current.set(defaultTarget.id, skill.icon);
+      }
+
+      // Young Kakashi: Implanted Sharingan mark target
+      if ((skill.name === 'Implanted Sharingan' || skill.name === 'Sharingan' || skill.name.toLowerCase().includes('sharingan')) && (source.character.folder === 'young-kakashi' || source.character.name.toLowerCase().includes('kakashi'))) {
+        if (defaultTarget && !defaultTarget.isDead) {
+          pushActiveEffect(defaultTarget, {
+            name: 'Implanted Sharingan Target',
+            type: 'custom',
+            duration: 2,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            castTurn: turn,
+            icon: skill.icon,
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `👁️ [Implanted Sharingan] de ${source.character.name}: ${defaultTarget.character.name} foi marcado pelo Sharingan por 2 turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(defaultTarget.id, 'MARCADO (SHARINGAN)', 'effect');
+        }
+      }
+
+      // Young Kakashi: Implanted Sharingan reaction check when marked target uses a skill
+      const sharinganTargetEffect = source.activeEffects.find(e => e.name === 'Implanted Sharingan Target' || e.name.includes('Sharingan Target') || e.name === 'Implanted Sharingan');
+      if (sharinganTargetEffect) {
+        const kakashiCaster = allCombatants.find(c => c.id === sharinganTargetEffect.casterId && !c.isDead);
+        if (kakashiCaster) {
+          const kakashiIsPlayerSide = updatedPlayer.some(p => p.id === kakashiCaster.id);
+
+          // Rule 1: Stun skill -> Kakashi skills cause Stun Completo for 1 turn
+          const isStunSkill = !!(
+            (skill.stunTurns && skill.stunTurns > 0) ||
+            (skill.stunType && skill.stunType.length > 0) ||
+            skill.classes?.some((c: string) => c.toLowerCase().includes('stun')) ||
+            skill.desc?.toLowerCase().includes('atordoa') ||
+            skill.desc?.toLowerCase().includes('stun')
+          );
+          if (isStunSkill) {
+            if (!kakashiCaster.activeEffects.some(e => e.name === 'Sharingan Stun Buff' && e.castTurn === turn)) {
+              pushActiveEffect(kakashiCaster, {
+                name: 'Sharingan Stun Buff',
+                type: 'custom',
+                duration: 1,
+                castTurn: turn,
+                icon: sharinganTargetEffect.icon || skill.icon,
+                casterId: kakashiCaster.id,
+                casterSide: kakashiIsPlayerSide ? 'player' : 'enemy',
+              });
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `👁️ [Implanted Sharingan] de ${kakashiCaster.character.name}: Copiou o Stun de ${source.character.name}! Suas habilidades causarão Stun Completo por 1 turno!`,
+                type: 'buff',
+              });
+              addFloatingText(kakashiCaster.id, 'BUFF: STUN COMPLETO', 'effect');
+            }
+          }
+
+          // Rule 3: Damage skill -> Kakashi skills deal +10 damage for 1 turn
+          const isDamageSkill = !!(
+            (skill.damage && skill.damage > 0) ||
+            (skill.directDamage && skill.directDamage > 0) ||
+            (skill.dotVal && skill.dotVal > 0) ||
+            (skill.bleedingVal && skill.bleedingVal > 0) ||
+            (skill.afflictionVal && skill.afflictionVal > 0) ||
+            skill.desc?.toLowerCase().includes('dano')
+          );
+          if (isDamageSkill) {
+            if (!kakashiCaster.activeEffects.some(e => e.name === 'Sharingan Damage Buff' && e.castTurn === turn)) {
+              pushActiveEffect(kakashiCaster, {
+                name: 'Sharingan Damage Buff',
+                type: 'damage_buff',
+                value: 10,
+                duration: 1,
+                castTurn: turn,
+                icon: sharinganTargetEffect.icon || skill.icon,
+                casterId: kakashiCaster.id,
+                casterSide: kakashiIsPlayerSide ? 'player' : 'enemy',
+              });
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `👁️ [Implanted Sharingan] de ${kakashiCaster.character.name}: Analisou o dano de ${source.character.name}! Kakashi causará +10 de dano adicional por 1 turno!`,
+                type: 'buff',
+              });
+              addFloatingText(kakashiCaster.id, '+10 DANO (SHARINGAN)', 'effect');
+            }
+          }
+        }
       }
 
       // Do Not Apply If Active check
@@ -2132,6 +2358,7 @@ const handleTradeChakra = () => {
       }
 
       // Skill parameters
+
       let baseDamage = skill.damage || 0;
       if (!skill.damage && !skill.directDamage) {
         const legacyDmg: Record<string, number> = {
@@ -2215,8 +2442,18 @@ const handleTradeChakra = () => {
       const healAmt = skill.heal || 0;
       let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
       let stunDuration = skill.stunTurns || 1;
-      let finalStunType: ('mental' | 'physical' | 'affliction' | 'chakra')[] | undefined = skill.stunType;
+      let finalStunType: string[] | undefined = skill.stunType;
       if (stunApplied && (!finalStunType || finalStunType.length === 0)) {
+        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
+      }
+      if (skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets')) {
+        stunApplied = true;
+        stunDuration = 1;
+        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
+      }
+      if (source.activeEffects.some(e => e.name === 'Sharingan Stun Buff')) {
+        stunApplied = true;
+        stunDuration = 1;
         finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
       }
 
@@ -2232,6 +2469,59 @@ const handleTradeChakra = () => {
         } else if (removeType === 'buff') {
           t.activeEffects = t.activeEffects.filter(e => e.irremovable || ['stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'paralyze_cooldown'].includes(e.type));
           addFloatingText(t.id, 'BUFFS REMOVIDOS', 'damage');
+        }
+      };
+
+      const cleanseSpecificDebuffs = (t: CombatCharacter, debuffTypes: string[]) => {
+        if (!debuffTypes || debuffTypes.length === 0) return;
+        const beforeCount = t.activeEffects.length;
+        const isAllDebuffs = debuffTypes.includes('all_debuffs') || debuffTypes.includes('debuff');
+
+        t.activeEffects = t.activeEffects.filter(eff => {
+          if (eff.irremovable) return true;
+
+          if (isAllDebuffs) {
+            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage'].includes(eff.type);
+            return !isDebuff;
+          }
+
+          if (debuffTypes.includes('affliction') && eff.type === 'affliction') return false;
+          if (debuffTypes.includes('dot') && eff.type === 'dot') return false;
+          if (debuffTypes.includes('bleeding') && eff.type === 'bleeding') return false;
+          if (debuffTypes.includes('stun') && eff.type === 'stun') return false;
+          if (debuffTypes.includes('paralyze_cooldown') && eff.type === 'paralyze_cooldown') return false;
+          if (debuffTypes.includes('damage_debuff') && eff.type === 'damage_debuff') return false;
+          if (debuffTypes.includes('cannot_reduce_damage') && eff.type === 'cannot_reduce_damage') return false;
+          if (debuffTypes.includes('cannot_be_invulnerable') && eff.type === 'cannot_be_invulnerable') return false;
+          if (debuffTypes.includes('cannot_receive_friendly') && eff.type === 'cannot_receive_friendly') return false;
+          if (debuffTypes.includes('on_skill_use_damage') && eff.type === 'on_skill_use_damage') return false;
+
+          return true;
+        });
+
+        const removedCount = beforeCount - t.activeEffects.length;
+        if (removedCount > 0) {
+          const typesName = isAllDebuffs ? 'Todos os Debuffs' : debuffTypes.map(d => {
+            if (d === 'affliction') return 'Aflição';
+            if (d === 'dot') return 'Dano por Turno';
+            if (d === 'bleeding') return 'Sangramento';
+            if (d === 'stun') return 'Atordoamento';
+            if (d === 'paralyze_cooldown') return 'Paralisar Cooldown';
+            if (d === 'damage_debuff') return 'Redução de Dano';
+            if (d === 'cannot_reduce_damage') return 'Incapaz de Reduzir Dano';
+            if (d === 'cannot_be_invulnerable') return 'Incapaz de Invulnerabilidade';
+            if (d === 'cannot_receive_friendly') return 'Incapaz de Receber Efeitos Amigáveis';
+            if (d === 'on_skill_use_damage') return 'Punição por Skill';
+            return d;
+          }).join(', ');
+
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `✨ [PURIFICAÇÃO] ${t.character.name} teve ${removedCount} debuff(s) removido(s) (${typesName}) por [${skill.name}]!`,
+            type: 'system',
+          });
+          addFloatingText(t.id, 'DEBUFFS REMOVIDOS', 'heal');
         }
       };
 
@@ -2280,16 +2570,52 @@ const handleTradeChakra = () => {
       }
 
       // 0.2 DIRECT DAMAGE (with missing HP & rule direct damage)
-      let dd = directDamage + missingHpDirect + ruleDirectDamage;
+      let stackDamageBonusForDd = 0;
+      if (skill.selfStackDamageRules && skill.selfStackDamageRules.length > 0) {
+        for (const selfRule of skill.selfStackDamageRules) {
+          if (selfRule.stackType && selfRule.damagePerStack > 0) {
+            const selfStackEffect = source.activeEffects.find(e => e.stackType === selfRule.stackType);
+            const selfStackCount = selfStackEffect?.stacks || 0;
+            if (selfStackCount > 0) {
+              stackDamageBonusForDd += selfStackCount * selfRule.damagePerStack;
+            }
+          }
+        }
+      }
+      if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
+        for (const stackRule of skill.stackDamageRules) {
+          if (stackRule.stackType && stackRule.damagePerStack > 0) {
+            const stackPool = getStackPoolForRule(stackRule, target, source, sourceList, targetList);
+            const stackCount = countStacksInPool(stackPool, stackRule.stackType);
+            if (stackCount > 0 && !stackRule.duration) {
+              stackDamageBonusForDd += stackCount * stackRule.damagePerStack;
+            }
+          }
+        }
+      }
+      const sourceBuffsDd = source.activeEffects.filter(e => e.type === 'damage_buff');
+      const damageBuffSumDd = sourceBuffsDd.reduce((acc, curr) => acc + (curr.value || 0), 0);
+      let dd = directDamage + missingHpDirect + ruleDirectDamage + stackDamageBonusForDd + damageBuffSumDd;
       // Reduce by source's damage debuffs (qualquer tipo)
       const srcDdReduction = source.activeEffects
-        .filter((e: ActiveEffect) => e.type === 'damage_debuff')
+        .filter((e: ActiveEffect) => {
+          if (e.type !== 'damage_debuff') return false;
+          if ((e as any).excludeAffliction) {
+            const isAffliction = skill.classes?.some((c: string) => {
+              const lower = c.toLowerCase();
+              return lower.includes('aflição') || lower.includes('affliction');
+            });
+            if (isAffliction) return false;
+          }
+          return true;
+        })
         .reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
       dd = Math.max(0, dd - srcDdReduction);
       if (dd > 0) {
         const directTargets = resolveEffectTargets(skill.directDamageTarget || skill.damageTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         directTargets.forEach(t => {
           if (t.isDead) return;
+          const startingHealth = t.health;
           const duration = skill.directDamageDuration || 1;
           if (duration > 1) {
             pushActiveEffect(t, {
@@ -2314,7 +2640,6 @@ const handleTradeChakra = () => {
             const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction');
             const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
             const netDd = hasDamageImmunity(t) ? 0 : Math.max(0, dd - reductionSum);
-            const startingHealth = t.health;
             t.health = Math.max(0, t.health - netDd);
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
@@ -2363,6 +2688,93 @@ const handleTradeChakra = () => {
             }
           }
           cleanseTargetEffects(t, skill.directDamageRemoveType);
+
+          // Amateur Raikiri & White Light Blade custom target debuff, self buff & elimination buff
+          if ((skill.name === 'Amateur Raikiri' || skill.name === 'Lightning Blade' || skill.name === 'White Light Blade' || skill.name.toLowerCase().includes('white light') || skill.name.toLowerCase().includes('raikiri')) && (source.character.folder === 'young-kakashi' || source.character.name.toLowerCase().includes('kakashi'))) {
+            if (!source.activeEffects.some(e => (e.name === 'Amateur Raikiri (Buff +5 Dano)' || e.name === 'White Light Blade (Buff +5 Dano)' || e.name.includes('Buff +5 Dano')) && e.castTurn === turn)) {
+              pushActiveEffect(source, {
+                name: 'Amateur Raikiri (Buff +5 Dano)',
+                type: 'damage_buff',
+                value: 5,
+                duration: 1,
+                castTurn: turn,
+                icon: skill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                sourceSkillName: skill.name,
+              });
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `⚡ [${skill.name}] de ${source.character.name}: Kakashi ganhou +5 de dano adicional para o seu próximo turno!`,
+                type: 'buff',
+              });
+              addFloatingText(source.id, '+5 DANO (PRÓX TURNO)', 'effect');
+            }
+
+            pushActiveEffect(t, {
+              name: 'Amateur Raikiri (Debuff -5 Dano)',
+              type: 'damage_debuff',
+              value: 5,
+              duration: 1,
+              castTurn: turn,
+              excludeAffliction: true,
+              icon: skill.icon,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⚡ [${skill.name}] de ${source.character.name}: Habilidades não-aflição de ${t.character.name} causarão -5 de dano por 1 turno!`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, '-5 DANO (NÃO-AFLIÇÃO)', 'damage');
+
+            if (t.health === 0 && startingHealth > 0) {
+              pushActiveEffect(source, {
+                name: 'Amateur Raikiri (Mestria Permanente)',
+                type: 'damage_buff',
+                value: 5,
+                duration: 99999,
+                permanent: true,
+                icon: skill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                sourceSkillName: skill.name,
+              });
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `⚡ [${skill.name}] de ${source.character.name} ELIMINOU ${t.character.name}! Kakashi ganhou +5 de dano PERMANENTEMENTE!`,
+                type: 'buff',
+              });
+              addFloatingText(source.id, '+5 DANO PERM!', 'effect');
+            }
+          }
+
+          // Air Bullets stun check for direct damage
+          if ((skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets') || airBulletsHitTargets.current.has(t.id))
+            && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
+            pushActiveEffect(t, {
+              name: 'Air Bullets Stun',
+              type: 'stun',
+              duration: 1,
+              stunType: ['physical', 'mental', 'affliction', 'chakra'],
+              icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              castTurn: turn,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`,
+              type: 'stun',
+            });
+            addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
+          }
         });
       }
 
@@ -2566,6 +2978,25 @@ const handleTradeChakra = () => {
         });
       }
 
+      // REMOVE COUNTER & REFLECT
+      if (skill.removeCounterReflect) {
+        const crTargets = resolveEffectTargets(skill.removeCounterReflectTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        crTargets.forEach(t => {
+          if (t.isDead) return;
+          const count = t.activeEffects.filter(e => !e.irremovable && ['counter_attack', 'counter', 'reflect'].includes(e.type)).length;
+          t.activeEffects = t.activeEffects.filter(e => e.irremovable || !['counter_attack', 'counter', 'reflect'].includes(e.type));
+          if (count > 0) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⚔️⛔ [${skill.name}] de ${source.character.name} REMOVEU os Contra-Ataques / Refletir de ${t.character.name}!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, 'CONTRA/REFLETIR REMOVIDO', 'stun');
+          }
+        });
+      }
+
       // 1. DAMAGE & SHIELDS
       if (skill.damageDuration && skill.damageDuration > 1) {
         const duration = skill.damageDuration;
@@ -2579,6 +3010,13 @@ const handleTradeChakra = () => {
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
+            if ((e as any).excludeAffliction) {
+              const isAffliction = skill.classes?.some((c: string) => {
+                const lower = c.toLowerCase();
+                return lower.includes('aflição') || lower.includes('affliction');
+              });
+              if (isAffliction) return false;
+            }
             const types = (e as any).debuffTypes as string[] | undefined;
             if (!types || types.length === 0) return true;
             return types.includes('skill');
@@ -2696,7 +3134,7 @@ const handleTradeChakra = () => {
             newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
             // Air Bullets stun check for normal damage
-            if (airBulletsHitTargets.current.has(t.id) && skill.name !== 'Air Bullets'
+            if ((airBulletsHitTargets.current.has(t.id) || skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets'))
               && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
               t.activeEffects.push({
                 name: 'Air Bullets Stun',
@@ -2797,6 +3235,13 @@ const handleTradeChakra = () => {
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
+            if ((e as any).excludeAffliction) {
+              const isAffliction = skill.classes?.some((c: string) => {
+                const lower = c.toLowerCase();
+                return lower.includes('aflição') || lower.includes('affliction');
+              });
+              if (isAffliction) return false;
+            }
             const types = (e as any).debuffTypes as string[] | undefined;
             if (!types || types.length === 0) return true;
             return types.includes('skill');
@@ -2936,7 +3381,7 @@ const handleTradeChakra = () => {
             });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
             // Air Bullets stun check for normal damage
-            if (airBulletsHitTargets.current.has(t.id) && skill.name !== 'Air Bullets'
+            if ((airBulletsHitTargets.current.has(t.id) || skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets'))
               && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
               t.activeEffects.push({
                 name: 'Air Bullets Stun',
@@ -3071,6 +3516,9 @@ const handleTradeChakra = () => {
               amount: actualHealed
             });
           }
+          if (totalHeal > 0 || actualHealed > 0) {
+            checkAndGrantOrigamiLotusGathering(t, totalHeal || actualHealed, newLogs, [...updatedPlayer, ...updatedEnemy]);
+          }
           newLogs.push({
             id: Math.random().toString(),
             turn,
@@ -3084,9 +3532,9 @@ const handleTradeChakra = () => {
 
       // 3. STUNS
       if (stunApplied) {
-        const stunTypeLabels: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra' };
-        const resolvedStunTypes: ('mental' | 'physical' | 'affliction' | 'chakra')[] =
-          (!finalStunType || finalStunType.length === 0 || finalStunType.length >= 4)
+        const stunTypeLabels: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+        const resolvedStunTypes: string[] =
+          (!finalStunType || finalStunType.length === 0 || finalStunType.length >= 6)
             ? ['physical', 'mental', 'affliction', 'chakra']
             : finalStunType;
 
@@ -3197,6 +3645,7 @@ const handleTradeChakra = () => {
             value: skill.damageReductionVal!,
             duration: reducDuration,
             icon: skill.icon,
+            sourceSkillName: skill.name,
             casterId: source.id,
             casterSide: action.isPlayer ? 'player' : 'enemy',
           });
@@ -3305,7 +3754,8 @@ const handleTradeChakra = () => {
       }
 
       // DoT (damage over time) - debuff on target
-      if (skill.dotVal && skill.dotVal > 0 && skill.name !== 'Amaterasu Burn') {
+      const totalDotVal = (hasActiveDamageRuleIgnoreBase && ruleDotDamage > 0) ? ruleDotDamage : ((skill.dotVal || 0) + ruleDotDamage);
+      if (totalDotVal > 0 && skill.name !== 'Amaterasu Burn') {
         const dotTargets = resolveEffectTargets(skill.dotTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         dotTargets.forEach(t => {
           if (t.isDead) return;
@@ -3313,7 +3763,7 @@ const handleTradeChakra = () => {
           pushActiveEffect(t, {
             name: `${skill.name} Burn`,
             type: 'dot',
-            value: skill.dotVal,
+            value: totalDotVal,
             duration,
             icon: skill.icon,
             irremovable: !!skill.dotIrremovable,
@@ -3325,16 +3775,17 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔥 ${t.character.name} foi afligido por queima contínua de [${skill.name}] sofrendo ${skill.dotVal} DoT por ${duration} turnos!`,
+            message: `🔥 ${t.character.name} foi afligido por queima contínua de [${skill.name}] sofrendo ${totalDotVal} DoT por ${duration} turnos!`,
             type: 'damage',
           });
-          addFloatingText(t.id, `QUEIMA (+${skill.dotVal} DoT)`, 'damage');
+          addFloatingText(t.id, `QUEIMA (+${totalDotVal} DoT)`, 'damage');
           cleanseTargetEffects(t, skill.dotRemoveType);
         });
       }
 
       // Bleeding - debuff on target
-      if (skill.bleedingVal && skill.bleedingVal > 0) {
+      const totalBleedingVal = (hasActiveDamageRuleIgnoreBase && ruleBleedingDamage > 0) ? ruleBleedingDamage : ((skill.bleedingVal || 0) + ruleBleedingDamage);
+      if (totalBleedingVal > 0) {
         const bleedTargets = resolveEffectTargets(skill.bleedingTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         bleedTargets.forEach(t => {
           if (t.isDead) return;
@@ -3342,7 +3793,7 @@ const handleTradeChakra = () => {
           pushActiveEffect(t, {
             name: `${skill.name} Bleed`,
             type: 'bleeding',
-            value: skill.bleedingVal,
+            value: totalBleedingVal,
             duration,
             icon: skill.icon,
             irremovable: !!skill.bleedingIrremovable,
@@ -3354,40 +3805,125 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🩸 ${t.character.name} está sangrando com [${skill.name}] sofrendo ${skill.bleedingVal} de dano por turno por ${duration} turnos!`,
+            message: `🩸 ${t.character.name} está sangrando com [${skill.name}] sofrendo ${totalBleedingVal} de dano por turno por ${duration} turnos!`,
             type: 'damage',
           });
-          addFloatingText(t.id, `SANGRAMENTO (-${skill.bleedingVal} HP)`, 'damage');
+          addFloatingText(t.id, `SANGRAMENTO (-${totalBleedingVal} HP)`, 'damage');
           cleanseTargetEffects(t, skill.bleedingRemoveType);
         });
       }
 
-      // Affliction - debuff on target
-      if (skill.afflictionVal && skill.afflictionVal > 0) {
+      // Affliction - debuff & immediate damage on target
+      const totalAfflictionVal = (hasActiveDamageRuleIgnoreBase && ruleAfflictionDamage > 0) ? ruleAfflictionDamage : ((skill.afflictionVal || 0) + ruleAfflictionDamage);
+      if (totalAfflictionVal > 0) {
         const afflictionTargets = resolveEffectTargets(skill.afflictionTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         afflictionTargets.forEach(t => {
           if (t.isDead) return;
-          const duration = skill.afflictionDuration || 3;
-          pushActiveEffect(t, {
-            name: `${skill.name} Affliction`,
-            type: 'affliction',
-            value: skill.afflictionVal,
-            duration,
-            icon: skill.icon,
-            irremovable: !!skill.afflictionIrremovable,
-            cannotBeCountered: !!skill.cannotBeCountered,
-            cannotBeReflected: !!skill.cannotBeReflected,
-            casterId: source.id,
-            casterSide: action.isPlayer ? 'player' : 'enemy',
-          });
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `💀 ${t.character.name} foi afetado por aflição de [${skill.name}] sofrendo ${skill.afflictionVal} de dano direto por ${duration} turnos!`,
-            type: 'damage',
-          });
-          addFloatingText(t.id, `AFLIÇÃO (-${skill.afflictionVal} HP)`, 'damage');
+          const rawDuration = skill.afflictionDuration !== undefined && skill.afflictionDuration > 0 ? skill.afflictionDuration : 1;
+
+          // Deduct health immediately upon applying affliction
+          if (checkCombatantInvulnerable(t) || hasDamageImmunity(t)) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou a aflição de [${skill.name}].`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, 'IMUNE!', 'invulnerable');
+          } else {
+            const startingHealth = t.health;
+            t.health = Math.max(0, t.health - totalAfflictionVal);
+            const healthReduced = startingHealth - t.health;
+            if (healthReduced > 0) {
+              if (action.isPlayer) {
+                matchStatsRef.current.damageDealt += healthReduced;
+                matchStatsRef.current.damageDealtRecords.push({
+                  charName: source.character.name,
+                  tags: source.character.tags || [],
+                  skillName: skill.name,
+                  amount: healthReduced
+                });
+              } else {
+                matchStatsRef.current.damageReceived += healthReduced;
+                matchStatsRef.current.damageReceivedRecords.push({
+                  charName: t.character.name,
+                  tags: t.character.tags || [],
+                  amount: healthReduced
+                });
+              }
+            }
+
+            if (t.health <= 0 && !t.activeEffects.some(e => e.type === 'immortal')) {
+              t.isDead = true;
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `💀 ${t.character.name} CAIU EM BATALHA POR AFLIÇÃO!`,
+                type: 'death',
+              });
+              addFloatingText(t.id, 'DERROTADO', 'damage');
+            }
+
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💀 ${t.character.name} sofreu ${totalAfflictionVal} de dano por aflição de [${skill.name}]!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `AFLIÇÃO (-${totalAfflictionVal} HP)`, 'damage');
+          }
+
+          // If duration > 1, push active effect for remaining turns
+          const remainingDuration = rawDuration - 1;
+          if (remainingDuration > 0) {
+            pushActiveEffect(t, {
+              name: `${skill.name} Affliction`,
+              type: 'affliction',
+              value: totalAfflictionVal,
+              duration: remainingDuration,
+              icon: skill.icon,
+              irremovable: !!skill.afflictionIrremovable,
+              cannotBeCountered: !!skill.cannotBeCountered,
+              cannotBeReflected: !!skill.cannotBeReflected,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+            });
+          }
+
           cleanseTargetEffects(t, skill.afflictionRemoveType);
+        });
+      }
+
+      // On Skill Use Damage Rules (Punição por usar Habilidade)
+      if (skill.onSkillUseDamageRules && skill.onSkillUseDamageRules.length > 0) {
+        skill.onSkillUseDamageRules.forEach(rule => {
+          if (!rule.damage || rule.damage <= 0) return;
+          const ruleTargets = resolveEffectTargets(rule.target || 'target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+          const duration = rule.duration || 1;
+          const damageType = rule.damageType || 'direct_damage';
+          ruleTargets.forEach(t => {
+            if (t.isDead) return;
+            pushActiveEffect(t, {
+              name: `${skill.name} (Punição por Skill)`,
+              type: 'on_skill_use_damage',
+              value: rule.damage,
+              duration,
+              damageType,
+              icon: skill.icon,
+              irremovable: !!rule.irremovable,
+              cannotBeCountered: !!skill.cannotBeCountered,
+              cannotBeReflected: !!skill.cannotBeReflected,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⚔️ ${t.character.name} sofrerá ${rule.damage} de dano a cada habilidade usada por [${skill.name}] por ${duration} turnos!`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, 'PUNIÇÃO POR SKILL', 'effect');
+          });
         });
       }
 
@@ -3559,8 +4095,10 @@ const handleTradeChakra = () => {
         });
       }
 
-      // Immortal effect: when HP ≤ threshold, character cannot die
-      if (skill.immortalHpThreshold && skill.immortalHpThreshold > 0 && source.health <= skill.immortalHpThreshold) {
+      // Immortal effect: Immediate activation upon skill use OR when HP ≤ threshold
+      const isImmortalByImmediate = (skill.immortalDuration && skill.immortalDuration > 0) && (skill.immortalImmediate || (!skill.immortalHpThreshold && skill.immortalImmediate !== false));
+      const isImmortalByThreshold = skill.immortalHpThreshold && skill.immortalHpThreshold > 0 && source.health <= skill.immortalHpThreshold;
+      if (isImmortalByImmediate || isImmortalByThreshold) {
         const immDuration = skill.permanent ? 99999 : (skill.immortalDuration || 3);
         const alreadyImmortal = source.activeEffects.some(e => e.type === 'immortal');
         if (!alreadyImmortal) {
@@ -3574,7 +4112,7 @@ const handleTradeChakra = () => {
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `💪 ${source.character.name} ativou IMORTALIDADE por ${skill.immortalDuration || 3} turnos (HP ≤ ${skill.immortalHpThreshold})!`,
+            message: `💪 ${source.character.name} ativou IMORTALIDADE por ${immDuration === 99999 ? 'permanente' : `${immDuration} turnos`}!`,
             type: 'buff',
           });
           addFloatingText(source.id, '💪 IMORTAL', 'effect');
@@ -3620,6 +4158,15 @@ const handleTradeChakra = () => {
           });
           addFloatingText(t.id, 'RETALIAÇÃO', 'effect');
           cleanseTargetEffects(t, skill.retaliateDamageRemoveType);
+        });
+      }
+
+      // Cleanse / Purify Debuffs (Multi-selection)
+      if (skill.cleanseDebuffs || (skill.cleanseDebuffTypes && skill.cleanseDebuffTypes.length > 0)) {
+        const cleanseTargets = resolveEffectTargets(skill.cleanseDebuffTarget || 'Self', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, true);
+        cleanseTargets.forEach(t => {
+          if (t.isDead) return;
+          cleanseSpecificDebuffs(t, skill.cleanseDebuffTypes || ['all_debuffs']);
         });
       }
 
@@ -3685,6 +4232,62 @@ const handleTradeChakra = () => {
             });
           }
           addFloatingText(t.id, `+1 ${skill.stackType.toUpperCase()}`, 'effect');
+        });
+      }
+
+      // ON SKILL USE DAMAGE PUNISHMENT TRIGGER
+      if (source.activeEffects && source.activeEffects.length > 0) {
+        source.activeEffects.forEach(eff => {
+          if (eff.type !== 'on_skill_use_damage') return;
+          const dmgVal = eff.value || 0;
+          if (dmgVal <= 0 || source.isDead) return;
+
+          if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⚔️ [PUNIÇÃO POR SKILL] ${source.character.name} usou uma habilidade, mas é IMUNE A DANO!`,
+              type: 'buff',
+            });
+            addFloatingText(source.id, 'IMUNE!', 'invulnerable');
+          } else {
+            let actualDmg = dmgVal;
+            const dmgType = eff.damageType || 'direct_damage';
+            if (dmgType === 'damage') {
+              if (source.shield > 0) {
+                if (source.shield >= actualDmg) {
+                  source.shield -= actualDmg;
+                  actualDmg = 0;
+                } else {
+                  actualDmg -= source.shield;
+                  source.shield = 0;
+                }
+              }
+            }
+
+            if (actualDmg > 0) {
+              source.health = source.activeEffects?.some(e => e.type === 'immortal')
+                ? Math.max(1, source.health - actualDmg)
+                : Math.max(0, source.health - actualDmg);
+            }
+
+            if (source.health <= 0 && !source.activeEffects?.some(e => e.type === 'immortal')) {
+              source.isDead = true;
+            }
+
+            const typeText = dmgType === 'direct_damage' || dmgType === 'piercing' ? 'Direto' :
+                             dmgType === 'affliction' ? 'Aflição' :
+                             dmgType === 'dot' ? 'Queimadura' :
+                             dmgType === 'bleeding' ? 'Sangramento' : 'Normal';
+
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⚔️ [PUNIÇÃO POR SKILL] ${source.character.name} usou [${skill.name}] e sofreu ${dmgVal} de dano ${typeText}!`,
+              type: 'damage',
+            });
+            addFloatingText(source.id, `-${dmgVal} PUNIÇÃO`, 'damage');
+          }
         });
       }
 
@@ -3949,7 +4552,12 @@ const handleTradeChakra = () => {
         // Apply dynamic Healing over time
         const activeHealEffects = c.activeEffects.filter(e => e.type === 'heal');
         activeHealEffects.forEach(hl => {
+          const startingHealth = c.health;
           c.health = Math.min(100, c.health + (hl.value || 0));
+          const actualHealed = c.health - startingHealth;
+          if (actualHealed > 0) {
+            checkAndGrantOrigamiLotusGathering(c, actualHealed, newLogs, [...updatedPlayer, ...updatedEnemy]);
+          }
           newLogs.push({
             id: Math.random().toString(),
             turn,
@@ -4150,7 +4758,15 @@ const handleTradeChakra = () => {
 
   // Main End Turn / Pass Turn handler
   const handleEndTurn = (customRandAllocation?: ChakraPool, skipActions?: boolean) => {
-    if (isEndingTurnRef.current) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      playCustomSound('Error');
+      setShowNoInternetModal(true);
+      isEndingTurnRef.current = false;
+      turnActionLockedRef.current = false;
+      setIsEndingTurn(false);
+      return;
+    }
+
     isEndingTurnRef.current = true;
     turnActionLockedRef.current = true;
     setIsEndingTurn(true);
@@ -4162,8 +4778,14 @@ const handleTradeChakra = () => {
     setSelectedSkill(null);
 
     const isCurrentPlayer = activePlanner === 'player';
+
     const isGameOver = executeSideActions(currentActions, isCurrentPlayer, customRandAllocation);
-    if (isGameOver) return;
+    if (isGameOver) {
+      isEndingTurnRef.current = false;
+      turnActionLockedRef.current = false;
+      setIsEndingTurn(false);
+      return;
+    }
 
     if (onlineParams?.isOnline) {
       fetch('/api/match/submit-turn', {
@@ -4201,6 +4823,10 @@ const handleTradeChakra = () => {
       setIsWaitingForOpponent(false);
       executeTurnEndResolution();
     }
+
+    isEndingTurnRef.current = false;
+    turnActionLockedRef.current = false;
+    setIsEndingTurn(false);
   };
 
   // AI Turn Trigger Effect for Offline Mode (ADVANCED TACTICAL HARD AI)
@@ -4473,6 +5099,7 @@ const handleTradeChakra = () => {
   }, [activePlanner, passedPlayersThisTurn.includes('enemy'), gameOver, isSandbox, onlineParams?.isOnline, turn]);
 
   const [showSurrenderModal, setShowSurrenderModal] = useState(false);
+  const [showNoInternetModal, setShowNoInternetModal] = useState(false);
   const [showSandboxConfirmModal, setShowSandboxConfirmModal] = useState(false);
   const [dontShowSandboxConfirmAgain, setDontShowSandboxConfirmAgain] = useState(false);
 
@@ -4526,7 +5153,18 @@ const handleTradeChakra = () => {
   };
 
   const checkAndProceedWithEndTurn = (customRandAllocation?: ChakraPool) => {
-    if (isEndingTurnRef.current || isEndingTurn) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      playCustomSound('Error');
+      setShowNoInternetModal(true);
+      turnActionLockedRef.current = false;
+      isEndingTurnRef.current = false;
+      setIsEndingTurn(false);
+      return;
+    }
+
+    turnActionLockedRef.current = true;
+    isEndingTurnRef.current = true;
+    setIsEndingTurn(true);
 
     if (customRandAllocation) {
       handleEndTurn(customRandAllocation);
@@ -4570,6 +5208,33 @@ const handleTradeChakra = () => {
       }
     });
 
+    // Check if player has enough chakra to cover the sum of fixed + rand costs of all queued skills
+    const hasEnoughFixedChakra = 
+      fixedCosts.Tai <= sideChakra.Tai &&
+      fixedCosts.Nin <= sideChakra.Nin &&
+      fixedCosts.Gen <= sideChakra.Gen &&
+      fixedCosts.Blood <= sideChakra.Blood;
+
+    const totalRemainingForRand = 
+      Math.max(0, sideChakra.Tai - fixedCosts.Tai) +
+      Math.max(0, sideChakra.Nin - fixedCosts.Nin) +
+      Math.max(0, sideChakra.Gen - fixedCosts.Gen) +
+      Math.max(0, sideChakra.Blood - fixedCosts.Blood);
+
+    if (isCurrentPlayer && (!hasEnoughFixedChakra || totalRemainingForRand < totalRandRequired)) {
+      playCustomSound('Error');
+      turnActionLockedRef.current = false;
+      isEndingTurnRef.current = false;
+      setIsEndingTurn(false);
+      addFloatingText(sideCombatants[0]?.id || 'p1', 'CHAKRA INSUFICIENTE!', 'damage');
+      setChakraToast({
+        id: Math.random().toString(),
+        message: 'Chakra insuficiente para a soma de todas as habilidades selecionadas!',
+        type: 'lost',
+      });
+      return;
+    }
+
     if (totalRandRequired > 0 && isCurrentPlayer) {
       const availablePoolForRand: ChakraPool = {
         Tai: Math.max(0, sideChakra.Tai - fixedCosts.Tai),
@@ -4600,6 +5265,8 @@ const handleTradeChakra = () => {
       setRandAllocation(initialAllocation);
       setShowRandChakraModal(true);
       turnActionLockedRef.current = false;
+      isEndingTurnRef.current = false;
+      setIsEndingTurn(false);
       playClickSound();
       return;
     }
@@ -4609,11 +5276,15 @@ const handleTradeChakra = () => {
 
   const handleEndTurnClick = () => {
     if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current) return;
-    turnActionLockedRef.current = true;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      playCustomSound('Error');
+      setShowNoInternetModal(true);
+      return;
+    }
+
     if (isSandbox && !dontShowSandboxConfirmAgain) {
       playClickSound();
       setShowSandboxConfirmModal(true);
-      turnActionLockedRef.current = false;
     } else {
       checkAndProceedWithEndTurn();
     }
@@ -4774,21 +5445,9 @@ const handleTradeChakra = () => {
         isDead: c.isDead,
         activeEffects: c.activeEffects || [],
         character: {
-          id: c.character.id,
-          name: c.character.name,
-          portrait: c.character.portrait,
-          selectedSkinId: c.character.selectedSkinId,
-          selectedSkinUrl: c.character.selectedSkinUrl,
-          folder: c.character.folder,
+          ...c.character,
           skills: (c.character.skills || []).map(s => ({
-            name: s.name,
-            cost: s.cost,
-            cooldown: s.cooldown,
-            currentCooldown: s.currentCooldown,
-            targetType: s.targetType,
-            icon: s.icon,
-            damage: s.damage,
-            classes: s.classes
+            ...s
           }))
         }
       });
@@ -4876,6 +5535,14 @@ const handleTradeChakra = () => {
           }
         } else if (targetOverride === 'Self') resultTargets = [source];
         else if (targetOverride === 'Both') resultTargets = [source, defaultTarget];
+        else if (targetOverride === 'SelfAndAlly') {
+          if (sourceList.some(c => c.id === defaultTarget.id && c.id !== source.id)) {
+            resultTargets = Array.from(new Set([source, defaultTarget]));
+          } else {
+            const allies = sourceList.filter(c => c.id !== source.id && !c.isDead);
+            resultTargets = allies.length > 0 ? Array.from(new Set([source, allies[0]])) : [source];
+          }
+        }
         else if (targetOverride === 'Ally') {
           if (sourceList.some(c => c.id === defaultTarget.id)) resultTargets = [defaultTarget];
           else {
@@ -5276,8 +5943,13 @@ const handleTradeChakra = () => {
       let healAmt = skill.heal || 0;
       let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
       let stunDuration = skill.stunTurns || 1;
-      let finalStunType: ('mental' | 'physical' | 'affliction' | 'chakra')[] | undefined = skill.stunType;
+      let finalStunType: string[] | undefined = skill.stunType;
       if (stunApplied && (!finalStunType || finalStunType.length === 0)) {
+        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
+      }
+      if (source.activeEffects.some(e => e.name === 'Sharingan Stun Buff')) {
+        stunApplied = true;
+        stunDuration = 1;
         finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
       }
       let removeShields = skill.removeShield || false;
@@ -5315,7 +5987,7 @@ const handleTradeChakra = () => {
       }
 
       // Custom skill script matching based on name (legacy matching removed except for Young Nagato):
-      if (skill.name === 'Air Bullets' && source.character.name === 'Young Nagato' && target && !target.isDead) {
+      if ((skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets')) && target && !target.isDead) {
         airBulletsHitTargets.current.set(target.id, skill.icon);
       }
 
@@ -5376,6 +6048,59 @@ const handleTradeChakra = () => {
             message: `✨ Purificação: Removidos ${removedCount} efeitos de ${t.character.name} (${removeType}).`,
             type: 'system',
           });
+        }
+      };
+
+      const cleanseSpecificDebuffs = (t: CombatCharacter, debuffTypes: string[]) => {
+        if (!debuffTypes || debuffTypes.length === 0) return;
+        const beforeCount = t.activeEffects.length;
+        const isAllDebuffs = debuffTypes.includes('all_debuffs') || debuffTypes.includes('debuff');
+
+        t.activeEffects = t.activeEffects.filter(eff => {
+          if (eff.irremovable) return true;
+
+          if (isAllDebuffs) {
+            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage'].includes(eff.type);
+            return !isDebuff;
+          }
+
+          if (debuffTypes.includes('affliction') && eff.type === 'affliction') return false;
+          if (debuffTypes.includes('dot') && eff.type === 'dot') return false;
+          if (debuffTypes.includes('bleeding') && eff.type === 'bleeding') return false;
+          if (debuffTypes.includes('stun') && eff.type === 'stun') return false;
+          if (debuffTypes.includes('paralyze_cooldown') && eff.type === 'paralyze_cooldown') return false;
+          if (debuffTypes.includes('damage_debuff') && eff.type === 'damage_debuff') return false;
+          if (debuffTypes.includes('cannot_reduce_damage') && eff.type === 'cannot_reduce_damage') return false;
+          if (debuffTypes.includes('cannot_be_invulnerable') && eff.type === 'cannot_be_invulnerable') return false;
+          if (debuffTypes.includes('cannot_receive_friendly') && eff.type === 'cannot_receive_friendly') return false;
+          if (debuffTypes.includes('on_skill_use_damage') && eff.type === 'on_skill_use_damage') return false;
+
+          return true;
+        });
+
+        const removedCount = beforeCount - t.activeEffects.length;
+        if (removedCount > 0) {
+          const typesName = isAllDebuffs ? 'Todos os Debuffs' : debuffTypes.map(d => {
+            if (d === 'affliction') return 'Aflição';
+            if (d === 'dot') return 'Dano por Turno';
+            if (d === 'bleeding') return 'Sangramento';
+            if (d === 'stun') return 'Atordoamento';
+            if (d === 'paralyze_cooldown') return 'Paralisar Cooldown';
+            if (d === 'damage_debuff') return 'Redução de Dano';
+            if (d === 'cannot_reduce_damage') return 'Incapaz de Reduzir Dano';
+            if (d === 'cannot_be_invulnerable') return 'Incapaz de Invulnerabilidade';
+            if (d === 'cannot_receive_friendly') return 'Incapaz de Receber Efeitos Amigáveis';
+            if (d === 'on_skill_use_damage') return 'Punição por Skill';
+            return d;
+          }).join(', ');
+
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `✨ [PURIFICAÇÃO] ${t.character.name} teve ${removedCount} debuff(s) removido(s) (${typesName}) por [${skill.name}]!`,
+            type: 'system',
+          });
+          addFloatingText(t.id, 'DEBUFFS REMOVIDOS', 'heal');
         }
       };
 
@@ -5453,9 +6178,51 @@ const handleTradeChakra = () => {
         cleanseTargetEffects(target, skill.removeShieldRemoveType);
       }
 
+      // REMOVE COUNTER & REFLECT
+      if (skill.removeCounterReflect) {
+        const crTargets = resolveEffectTargets(skill.removeCounterReflectTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        crTargets.forEach(t => {
+          if (t.isDead) return;
+          const count = t.activeEffects.filter(e => !e.irremovable && ['counter_attack', 'counter', 'reflect'].includes(e.type)).length;
+          t.activeEffects = t.activeEffects.filter(e => e.irremovable || !['counter_attack', 'counter', 'reflect'].includes(e.type));
+          if (count > 0) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⚔️⛔ [${skill.name}] de ${source.character.name} REMOVEU os Contra-Ataques / Refletir de ${t.character.name}!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, 'CONTRA/REFLETIR REMOVIDO', 'stun');
+          }
+        });
+      }
+
       // 0.2 DANO DIRETO (DIRECT DAMAGE) with missing HP
+      let stackDamageBonusForDd2 = 0;
+      if (skill.selfStackDamageRules && skill.selfStackDamageRules.length > 0) {
+        for (const selfRule of skill.selfStackDamageRules) {
+          if (selfRule.stackType && selfRule.damagePerStack > 0) {
+            const selfStackEffect = source.activeEffects.find(e => e.stackType === selfRule.stackType || e.sourceSkillName === selfRule.stackType);
+            const selfStackCount = selfStackEffect?.stacks || 0;
+            if (selfStackCount > 0) {
+              stackDamageBonusForDd2 += selfStackCount * selfRule.damagePerStack;
+            }
+          }
+        }
+      }
+      if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
+        for (const stackRule of skill.stackDamageRules) {
+          if (stackRule.stackType && stackRule.damagePerStack > 0) {
+            const stackPool = getStackPoolForRule(stackRule, target, source, sourceList, targetList);
+            const stackCount = countStacksInPool(stackPool, stackRule.stackType);
+            if (stackCount > 0 && !stackRule.duration) {
+              stackDamageBonusForDd2 += stackCount * stackRule.damagePerStack;
+            }
+          }
+        }
+      }
       const missingHpDirect2 = skill.missingHpDamageType === 'direct' || skill.missingHpDamageType === 'normal' ? source.maxHealth - source.health : 0;
-      let ddTotal = directDamage + missingHpDirect2 + ruleDirectDamage2;
+      let ddTotal = directDamage + missingHpDirect2 + ruleDirectDamage2 + stackDamageBonusForDd2;
       // Reduce by source's damage debuffs (qualquer tipo)
       const srcDdReduction2 = source.activeEffects
         .filter((e: ActiveEffect) => e.type === 'damage_debuff')
@@ -5521,7 +6288,7 @@ const handleTradeChakra = () => {
           }
           cleanseTargetEffects(t, skill.directDamageRemoveType);
           // Any skill damaging an Air Bullets target triggers stun (refactored)
-          if (airBulletsHitTargets.current.has(t.id) && skill.name !== 'Air Bullets'
+          if ((airBulletsHitTargets.current.has(t.id) || skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets'))
             && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
             t.activeEffects.push({
               name: 'Air Bullets Stun',
@@ -5757,6 +6524,13 @@ const handleTradeChakra = () => {
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
+            if ((e as any).excludeAffliction) {
+              const isAffliction = skill.classes?.some((c: string) => {
+                const lower = c.toLowerCase();
+                return lower.includes('aflição') || lower.includes('affliction');
+              });
+              if (isAffliction) return false;
+            }
             const types = (e as any).debuffTypes as string[] | undefined;
             if (!types || types.length === 0) return true;
             return types.includes('skill');
@@ -5803,7 +6577,7 @@ const handleTradeChakra = () => {
             newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
             // Air Bullets stun check for normal damage
-            if (airBulletsHitTargets.current.has(t.id) && skill.name !== 'Air Bullets'
+            if ((airBulletsHitTargets.current.has(t.id) || skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets'))
               && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
               t.activeEffects.push({
                 name: 'Air Bullets Stun',
@@ -5876,6 +6650,13 @@ const handleTradeChakra = () => {
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
+            if ((e as any).excludeAffliction) {
+              const isAffliction = skill.classes?.some((c: string) => {
+                const lower = c.toLowerCase();
+                return lower.includes('aflição') || lower.includes('affliction');
+              });
+              if (isAffliction) return false;
+            }
             const types = (e as any).debuffTypes as string[] | undefined;
             if (!types || types.length === 0) return true;
             return types.includes('skill');
@@ -6089,6 +6870,9 @@ const handleTradeChakra = () => {
           if (actualHealed > 0 && action.isPlayer) {
             matchStatsRef.current.healingDone += actualHealed;
           }
+          if (totalHeal > 0 || actualHealed > 0) {
+            checkAndGrantOrigamiLotusGathering(t, totalHeal || actualHealed, newLogs, [...updatedPlayer, ...updatedEnemy]);
+          }
           newLogs.push({
             id: Math.random().toString(),
             turn,
@@ -6103,10 +6887,10 @@ const handleTradeChakra = () => {
       // 3. APPLY STUNS
       if (stunApplied) {
         const stunTypeLabels: Record<string, string> = {
-          physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra',
+          physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável',
         };
-        const resolvedStunTypes: ('mental' | 'physical' | 'affliction' | 'chakra')[] =
-          (!finalStunType || finalStunType.length === 0 || finalStunType.length >= 4)
+        const resolvedStunTypes: string[] =
+          (!finalStunType || finalStunType.length === 0 || finalStunType.length >= 6)
             ? ['physical', 'mental', 'affliction', 'chakra']
             : finalStunType;
         const isAllTypes = resolvedStunTypes.length >= 4;
@@ -6287,6 +7071,9 @@ if (skill.retaliateDamage) {
             duration,
             icon: skill.icon,
             irremovable: !!skill.damageReductionIrremovable,
+            sourceSkillName: skill.name,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
           });
           newLogs.push({
             id: Math.random().toString(),
@@ -6373,7 +7160,8 @@ if (skill.retaliateDamage) {
       }
 
       // 4.5 APPLY DoT
-      if (skill.dotVal && skill.dotVal > 0) {
+      const totalDotVal2 = (hasActiveDamageRuleIgnoreBase2 && ruleDotDamage2 > 0) ? ruleDotDamage2 : ((skill.dotVal || 0) + ruleDotDamage2);
+      if (totalDotVal2 > 0) {
         const dotTargets = resolveEffectTargets(skill.dotTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         dotTargets.forEach(t => {
           if (t.isDead) return;
@@ -6381,7 +7169,7 @@ if (skill.retaliateDamage) {
           pushActiveEffect(t, {
             name: `${skill.name} Burn`,
             type: 'dot',
-            value: skill.dotVal,
+            value: totalDotVal2,
             duration,
             icon: skill.icon,
             irremovable: !!skill.dotIrremovable,
@@ -6389,16 +7177,17 @@ if (skill.retaliateDamage) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔥 ${t.character.name} foi afligido por queima contínua de [${skill.name}] sofrendo ${skill.dotVal} DoT por ${duration} turnos!`,
+            message: `🔥 ${t.character.name} foi afligido por queima contínua de [${skill.name}] sofrendo ${totalDotVal2} DoT por ${duration} turnos!`,
             type: 'damage',
           });
-          addFloatingText(t.id, `QUEIMA (+${skill.dotVal} DoT)`, 'damage');
+          addFloatingText(t.id, `QUEIMA (+${totalDotVal2} DoT)`, 'damage');
           cleanseTargetEffects(t, skill.dotRemoveType);
         });
       }
 
       // 4.6 APPLY BLEEDING (SANGRAMENTO)
-      if (skill.bleedingVal && skill.bleedingVal > 0) {
+      const totalBleedingVal2 = (hasActiveDamageRuleIgnoreBase2 && ruleBleedingDamage2 > 0) ? ruleBleedingDamage2 : ((skill.bleedingVal || 0) + ruleBleedingDamage2);
+      if (totalBleedingVal2 > 0) {
         const bleedTargets = resolveEffectTargets(skill.bleedingTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         bleedTargets.forEach(t => {
           if (t.isDead) return;
@@ -6406,7 +7195,7 @@ if (skill.retaliateDamage) {
           pushActiveEffect(t, {
             name: `${skill.name} Sangramento`,
             type: 'bleeding',
-            value: skill.bleedingVal,
+            value: totalBleedingVal2,
             duration,
             icon: skill.icon,
             irremovable: !!skill.bleedingIrremovable,
@@ -6414,35 +7203,87 @@ if (skill.retaliateDamage) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🩸 ${t.character.name} está sangrando com [${skill.name}] sofrendo ${skill.bleedingVal} de dano por turno por ${duration} turnos!`,
+            message: `🩸 ${t.character.name} está sangrando com [${skill.name}] sofrendo ${totalBleedingVal2} de dano por turno por ${duration} turnos!`,
             type: 'damage',
           });
-          addFloatingText(t.id, `SANGRAMENTO (-${skill.bleedingVal} HP)`, 'damage');
+          addFloatingText(t.id, `SANGRAMENTO (-${totalBleedingVal2} HP)`, 'damage');
           cleanseTargetEffects(t, skill.bleedingRemoveType);
         });
       }
 
       // 4.7 APPLY AFFLICTION (AFLIÇÃO)
-      if (skill.afflictionVal && skill.afflictionVal > 0) {
+      const totalAfflictionVal2 = (hasActiveDamageRuleIgnoreBase2 && ruleAfflictionDamage2 > 0) ? ruleAfflictionDamage2 : ((skill.afflictionVal || 0) + ruleAfflictionDamage2);
+      if (totalAfflictionVal2 > 0) {
         const afflictionTargets = resolveEffectTargets(skill.afflictionTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         afflictionTargets.forEach(t => {
           if (t.isDead) return;
-          const duration = skill.afflictionDuration || 3;
-          pushActiveEffect(t, {
-            name: `${skill.name} Aflição`,
-            type: 'affliction',
-            value: skill.afflictionVal,
-            duration,
-            icon: skill.icon,
-            irremovable: !!skill.afflictionIrremovable,
-          });
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `💜 ${t.character.name} foi afligido por Aflição com [${skill.name}] sofrendo ${skill.afflictionVal} de dano por turno por ${duration} turnos!`,
-            type: 'damage',
-          });
-          addFloatingText(t.id, `AFLIÇÃO (-${skill.afflictionVal} HP)`, 'damage');
+          const rawDuration = skill.afflictionDuration !== undefined && skill.afflictionDuration > 0 ? skill.afflictionDuration : 1;
+
+          // Deduct health immediately upon applying affliction
+          if (checkCombatantInvulnerable(t) || hasDamageImmunity(t)) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou a aflição de [${skill.name}].`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, 'IMUNE!', 'invulnerable');
+          } else {
+            const startingHealth = t.health;
+            t.health = Math.max(0, t.health - totalAfflictionVal2);
+            const healthReduced = startingHealth - t.health;
+            if (healthReduced > 0) {
+              if (action.isPlayer) {
+                matchStatsRef.current.damageDealt += healthReduced;
+                matchStatsRef.current.damageDealtRecords.push({
+                  charName: source.character.name,
+                  tags: source.character.tags || [],
+                  skillName: skill.name,
+                  amount: healthReduced
+                });
+              } else {
+                matchStatsRef.current.damageReceived += healthReduced;
+                matchStatsRef.current.damageReceivedRecords.push({
+                  charName: t.character.name,
+                  tags: t.character.tags || [],
+                  amount: healthReduced
+                });
+              }
+            }
+
+            if (t.health <= 0 && !t.activeEffects.some(e => e.type === 'immortal')) {
+              t.isDead = true;
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `💀 ${t.character.name} CAIU EM BATALHA POR AFLIÇÃO!`,
+                type: 'death',
+              });
+              addFloatingText(t.id, 'DERROTADO', 'damage');
+            }
+
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💜 ${t.character.name} sofreu ${totalAfflictionVal2} de dano por aflição de [${skill.name}]!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `AFLIÇÃO (-${totalAfflictionVal2} HP)`, 'damage');
+          }
+
+          // If duration > 1, push active effect for remaining turns
+          const remainingDuration = rawDuration - 1;
+          if (remainingDuration > 0) {
+            pushActiveEffect(t, {
+              name: `${skill.name} Aflição`,
+              type: 'affliction',
+              value: totalAfflictionVal2,
+              duration: remainingDuration,
+              icon: skill.icon,
+              irremovable: !!skill.afflictionIrremovable,
+            });
+          }
+
           cleanseTargetEffects(t, skill.afflictionRemoveType);
         });
       }
@@ -6609,6 +7450,15 @@ if (skill.retaliateDamage) {
           });
           addFloatingText(t.id, 'IMUNE A DANO', 'effect');
           cleanseTargetEffects(t, skill.damageImmunityRemoveType);
+        });
+      }
+
+      // Cleanse / Purify Debuffs (Multi-selection)
+      if (skill.cleanseDebuffs || (skill.cleanseDebuffTypes && skill.cleanseDebuffTypes.length > 0)) {
+        const cleanseTargets = resolveEffectTargets(skill.cleanseDebuffTarget || 'Self', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, true);
+        cleanseTargets.forEach(t => {
+          if (t.isDead) return;
+          cleanseSpecificDebuffs(t, skill.cleanseDebuffTypes || ['all_debuffs']);
         });
       }
 
@@ -6791,7 +7641,12 @@ if (skill.retaliateDamage) {
         // Apply dynamic Healing over time (heal)
         const activeHealEffects = c.activeEffects.filter(e => e.type === 'heal');
         activeHealEffects.forEach(hl => {
+          const startingHealth = c.health;
           c.health = Math.min(100, c.health + (hl.value || 0));
+          const actualHealed = c.health - startingHealth;
+          if (actualHealed > 0) {
+            checkAndGrantOrigamiLotusGathering(c, actualHealed, newLogs, [...updatedPlayer, ...updatedEnemy]);
+          }
           newLogs.push({
             id: Math.random().toString(),
             turn,
@@ -7110,6 +7965,7 @@ if (skill.retaliateDamage) {
     Target: 'Alvo Principal',
     Self: 'Conjurador (Mim)',
     Both: 'Ambos (Mim e Alvo)',
+    SelfAndAlly: 'Mim e um Aliado (à escolha)',
     Ally: 'Aliado (Outra Pessoa)',
     AllAllies: 'Toda Minha Equipe',
     AllEnemies: 'Todos os Inimigos',
@@ -7133,7 +7989,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Dano Normal',
         value: `${skill.damage} de Dano`,
-        color: 'text-red-400',
+        color: 'text-red-900 font-extrabold',
         targetLabel: getTargetLabel(skill.damageTarget, 'Alvo Principal')
       });
     }
@@ -7141,7 +7997,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Dano Direto',
         value: `${skill.directDamage} de Dano (Direto)`,
-        color: 'text-rose-500',
+        color: 'text-rose-950 font-extrabold',
         targetLabel: getTargetLabel(skill.directDamageTarget, 'Alvo Principal')
       });
     }
@@ -7149,7 +8005,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Cura',
         value: `${skill.heal} de Cura`,
-        color: 'text-emerald-400',
+        color: 'text-emerald-950 font-extrabold',
         targetLabel: getTargetLabel(skill.healTarget, 'Alvo Principal')
       });
     }
@@ -7167,7 +8023,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Atordoar (Stun)',
         value: `${skill.stunTurns} ${skill.stunTurns === 1 ? 'Turno' : 'Turnos'} (${stunText})`,
-        color: 'text-amber-500',
+        color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.stunTarget, 'Alvo Principal')
       });
     }
@@ -7175,7 +8031,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Escudo (Shield)',
         value: `+${skill.shieldVal} Escudo por ${skill.shieldDuration || 1} ${skill.shieldDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-blue-400',
+        color: 'text-blue-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
     }
@@ -7183,7 +8039,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Redução de Dano',
         value: `-${skill.damageReductionVal} de Dano Recebido por ${skill.damageReductionDuration || 1} ${skill.damageReductionDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-cyan-400',
+        color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
     }
@@ -7191,7 +8047,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Aumento de Dano',
         value: `+${skill.damageBuffVal} de Dano causado por ${skill.damageBuffDuration || 1} ${skill.damageBuffDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-orange-400',
+        color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
     }
@@ -7208,8 +8064,25 @@ if (skill.retaliateDamage) {
         effects.push({
           label: `Regra de Dano (${rule.activeSkillName})`,
           value: `+${rule.damageBoost} de ${typeLabel} quando ${rule.activeSkillName} estiver ativo${ignoreStr}`,
-          color: 'text-rose-300',
+          color: 'text-rose-950 font-extrabold',
           targetLabel: 'Condicional'
+        });
+      });
+    }
+    if (skill.onSkillUseDamageRules && skill.onSkillUseDamageRules.length > 0) {
+      skill.onSkillUseDamageRules.forEach(rule => {
+        if (!rule.damage || rule.damage <= 0) return;
+        const typeLabel = rule.damageType === 'direct_damage' ? 'Dano Direto'
+          : rule.damageType === 'piercing' ? 'Dano Perfurante'
+          : rule.damageType === 'affliction' ? 'Dano de Aflição'
+          : rule.damageType === 'bleeding' ? 'Sangramento'
+          : rule.damageType === 'dot' ? 'DoT'
+          : 'Dano';
+        effects.push({
+          label: 'Punição por Habilidade',
+          value: `Sofre ${rule.damage} de ${typeLabel} a cada skill usada por ${rule.duration || 1} ${(rule.duration || 1) === 1 ? 'Turno' : 'Turnos'}`,
+          color: 'text-amber-950 font-extrabold',
+          targetLabel: getTargetLabel(rule.target, 'Inimigo (Alvo)')
         });
       });
     }
@@ -7217,7 +8090,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Dano Contínuo (DoT)',
         value: `${skill.dotVal} de dano por turno por ${skill.dotDuration || 1} ${skill.dotDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-orange-500',
+        color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.dotTarget, 'Alvo Principal')
       });
     }
@@ -7225,7 +8098,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Sangramento (Bleeding)',
         value: `${skill.bleedingVal} de dano por turno por ${skill.bleedingDuration || 1} ${skill.bleedingDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-red-500',
+        color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.bleedingTarget, 'Alvo Principal')
       });
     }
@@ -7233,7 +8106,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Aflição (Aflicção)',
         value: `${skill.afflictionVal} de dano por turno por ${skill.afflictionDuration || 1} ${skill.afflictionDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-purple-400',
+        color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.afflictionTarget, 'Alvo Principal')
       });
     }
@@ -7243,7 +8116,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Reduz Dano do Inimigo',
         value: `Reduz o dano causado pelo inimigo em ${skill.damageDebuffVal} por ${skill.damageDebuffDuration || 1} ${skill.damageDebuffDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-rose-400',
+        color: 'text-rose-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageDebuffTarget, 'Alvo Principal')
       });
     }
@@ -7252,7 +8125,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Paralisar Cooldown',
         value: `Paralisa cooldowns por ${skill.paralyzeCooldownDuration} ${skill.paralyzeCooldownDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-amber-400',
+        color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.paralyzeCooldownTarget, 'Alvo Principal')
       });
     }
@@ -7260,7 +8133,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Incapaz de Reduzir Dano',
         value: `Incapaz de reduzir dano por ${skill.cannotReduceDamageDuration} ${skill.cannotReduceDamageDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-rose-400',
+        color: 'text-rose-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cannotReduceDamageTarget, 'Alvo Principal')
       });
     }
@@ -7268,7 +8141,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Incapaz de Ficar Invulnerável',
         value: `Incapaz de ficar invulnerável por ${skill.cannotBeInvulnerableDuration} ${skill.cannotBeInvulnerableDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-amber-400',
+        color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cannotBeInvulnerableTarget, 'Alvo Principal')
       });
     }
@@ -7276,7 +8149,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Incapaz de Receber Skills Amigáveis',
         value: `Incapaz de receber habilidades amigáveis por ${skill.cannotReceiveFriendlyDuration} ${skill.cannotReceiveFriendlyDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-fuchsia-400',
+        color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cannotReceiveFriendlyTarget, 'Alvo Principal')
       });
     }
@@ -7284,7 +8157,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Revelar Skills Invisíveis',
         value: `Revela habilidades e efeitos invisíveis por ${skill.revealInvisibleDuration} ${skill.revealInvisibleDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-cyan-400',
+        color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.revealInvisibleTarget, 'Alvo Principal')
       });
     }
@@ -7292,7 +8165,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Ignorar Stun',
         value: `Imune a stuns por ${skill.ignoreStunDuration} ${skill.ignoreStunDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-indigo-400',
+        color: 'text-indigo-950 font-extrabold',
         targetLabel: getTargetLabel(skill.ignoreStunTarget, 'Alvo Principal')
       });
     }
@@ -7300,7 +8173,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Imunidade a Dano',
         value: `Imune a todo dano por ${skill.damageImmunityDuration} ${skill.damageImmunityDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-yellow-400',
+        color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageImmunityTarget, 'Alvo Principal')
       });
     }
@@ -7308,7 +8181,7 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Gerar Chakra',
         value: `Gera ${skill.gainChakra} chakra por turno por ${skill.gainChakraDuration || 1} ${skill.gainChakraDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-blue-400',
+        color: 'text-blue-950 font-extrabold',
         targetLabel: getTargetLabel(skill.gainChakraTarget, 'Conjurador (Mim)')
       });
     }
@@ -7316,23 +8189,23 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Drenar Chakra',
         value: `Drena ${skill.drainChakra} chakra por turno por ${skill.drainChakraDuration || 1} ${skill.drainChakraDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-indigo-400',
+        color: 'text-indigo-950 font-extrabold',
         targetLabel: getTargetLabel(skill.drainChakraTarget, 'Alvo Principal')
       });
     }
     if (skill.removeChakra && skill.removeChakra > 0) {
       effects.push({
         label: 'Remover Chakra',
-        value: `Remove ${skill.removeChakra} chakra${skill.removeChakraMode === 'choice' ? ' (Escolha)' : ' (Aleatorio)'} por ${skill.removeChakraDuration || 1} ${skill.removeChakraDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-orange-400',
+        value: `Remove ${skill.removeChakra} chakra${skill.removeChakraMode === 'choice' ? ' (Escolha)' : ' (Aleatório)'} por ${skill.removeChakraDuration || 1} ${skill.removeChakraDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.removeChakraTarget, 'Alvo Principal')
       });
     }
     if (skill.stealChakra && skill.stealChakra > 0) {
       effects.push({
         label: 'Roubar Chakra',
-        value: `Rouba ${skill.stealChakra} chakra aleatorio por ${skill.stealChakraDuration || 1} ${skill.stealChakraDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-pink-400',
+        value: `Rouba ${skill.stealChakra} chakra aleatório por ${skill.stealChakraDuration || 1} ${skill.stealChakraDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.stealChakraTarget, 'Alvo Principal')
       });
     }
@@ -7340,15 +8213,35 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Destruir Escudos',
         value: `Remove escudos ativos por ${skill.removeShieldDuration || 1} ${skill.removeShieldDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-yellow-500',
+        color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.removeCounterReflect) {
+      effects.push({
+        label: 'Remover Contra-Ataques e Refletir',
+        value: 'Remove os efeitos de Contra-Ataque e Refletir do alvo',
+        color: 'text-rose-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.removeCounterReflectTarget, 'Alvo Principal')
       });
     }
     if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
       effects.push({
         label: 'Invulnerabilidade',
         value: `Fica invulnerável por ${skill.invulnerableDuration} ${skill.invulnerableDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-cyan-400',
+        color: 'text-teal-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
+      });
+    }
+
+    if ((skill.immortalDuration && skill.immortalDuration > 0) || (skill.immortalHpThreshold && skill.immortalHpThreshold > 0)) {
+      const conditionStr = skill.immortalHpThreshold && skill.immortalHpThreshold > 0
+        ? (skill.immortalImmediate ? `Ao usar ou se HP ≤ ${skill.immortalHpThreshold}` : `Se HP ≤ ${skill.immortalHpThreshold}`)
+        : 'Ao usar a habilidade';
+      effects.push({
+        label: 'Imortalidade',
+        value: `Fica imortal por ${skill.permanent ? 'tempo indeterminado (Permanente)' : `${skill.immortalDuration || 3} ${skill.immortalDuration === 1 ? 'Turno' : 'Turnos'}`} (${conditionStr})`,
+        color: 'text-green-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
     }
@@ -7357,106 +8250,120 @@ if (skill.retaliateDamage) {
       effects.push({
         label: 'Efeitos Invisíveis',
         value: `Efeitos ocultos do oponente por ${skill.invisibleDuration} ${skill.invisibleDuration === 1 ? 'Turno' : 'Turnos'}`,
-        color: 'text-pink-400',
+        color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
     }
 
     if (skill.counterAttack) {
-  effects.push({
-    label: 'Contra-Ataque',
-    value: `Anula a próxima habilidade recebida por ${skill.counterAttackDuration || 1} ${skill.counterAttackDuration === 1 ? 'Turno' : 'Turnos'}`,
-    color: 'text-red-400',
-    targetLabel: getTargetLabel(skill.counterAttackTarget, 'Conjurador (Mim)')
-  });
-}
-if (skill.reflect) {
-    effects.push({
-      label: 'Reflect',
-      value: `Reflete a próxima habilidade recebida (${skill.reflectMode === 'RandomAlly' ? 'para um aliado aleatório' : 'de volta pro atacante'}) por ${skill.reflectDuration || 1} ${skill.reflectDuration === 1 ? 'Turno' : 'Turnos'}`,
-      color: 'text-cyan-400',
-      targetLabel: getTargetLabel(skill.reflectTarget, 'Conjurador (Mim)')
-    });
-  }
-
-  // Informação de redução de custo quando Parasite estiver ativo (costRules)
-  if (skill.costRules && skill.costRules.length > 0) {
-    skill.costRules.forEach(rule => {
-      if (!rule.activeSkillName) return;
-      if (rule.overrideCost !== undefined) {
-        const costStr = rule.overrideCost.length > 0 ? rule.overrideCost.join(', ') : 'GRÁTIS (0 Custo)';
-        effects.push({
-          label: `Novo Custo (${rule.activeSkillName})`,
-          value: `Custo alterado para [${costStr}] quando ${rule.activeSkillName} estiver ativo`,
-          color: 'text-amber-400',
-          targetLabel: 'Condicional'
-        });
-      } else if (rule.reduceAmount && rule.reduceAmount > 0) {
-        const chakraType = rule.reduceType || rule.reduceSpecificType || 'Rand';
-        effects.push({
-          label: `Custo Reduzido (${rule.activeSkillName})`,
-          value: `Custa ${rule.reduceAmount} ${chakraType === 'Rand' ? 'Chakra Aleatório' : chakraType} a menos enquanto ${rule.activeSkillName} estiver ativo`,
-          color: 'text-emerald-400',
-          targetLabel: 'Condicional'
-        });
-      }
-    });
-  }
-
-  // Informação de remoção de chakra do estoque inimigo (chakraRemoveRules)
-  if (skill.chakraRemoveRules && skill.chakraRemoveRules.length > 0) {
-    skill.chakraRemoveRules.forEach(rule => {
-      if (!rule.activeSkillName) return;
-      if (rule.removeAmount && rule.removeAmount > 0) {
-        effects.push({
-          label: `Remover Chakra (${rule.activeSkillName})`,
-          value: `Remove ${rule.removeAmount} chakra aleatório do estoque inimigo quando ${rule.activeSkillName} estiver ativo`,
-          color: 'text-purple-400',
-          targetLabel: 'Condicional'
-        });
-      }
-    });
-  }
-
-  if (skill.healRules && skill.healRules.length > 0) {
-    skill.healRules.forEach(rule => {
-      if (!rule.activeSkillName || rule.healBoost <= 0) return;
       effects.push({
-        label: `Cura Extra (${rule.activeSkillName})`,
-        value: `+${rule.healBoost} de cura quando ${rule.activeSkillName} estiver ativo`,
-        color: 'text-emerald-400',
-        targetLabel: 'Condicional'
+        label: 'Contra-Ataque',
+        value: `Anula a próxima habilidade recebida por ${skill.counterAttackDuration || 1} ${skill.counterAttackDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-red-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.counterAttackTarget, 'Conjurador (Mim)')
       });
-    });
-  }
+    }
+    if (skill.reflect) {
+      effects.push({
+        label: 'Reflect',
+        value: `Reflete a próxima habilidade recebida (${skill.reflectMode === 'RandomAlly' ? 'para um aliado aleatório' : 'de volta pro atacante'}) por ${skill.reflectDuration || 1} ${skill.reflectDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-teal-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.reflectTarget, 'Conjurador (Mim)')
+      });
+    }
 
-  if (skill.cannotBeCountered) {
-  effects.push({
-    label: 'Incontra-atacável',
-    value: 'Esta habilidade NÃO pode ser contra-atacada ou anulada.',
-    color: 'text-rose-400 font-bold',
-  });
-}
-if (skill.cannotBeReflected) {
-  effects.push({
-    label: 'Irrefletível',
-    value: 'Esta habilidade NÃO pode ser refletida.',
-    color: 'text-cyan-400 font-bold',
-  });
-}
+    // Informação de redução de custo quando Parasite estiver ativo (costRules)
+    if (skill.costRules && skill.costRules.length > 0) {
+      skill.costRules.forEach(rule => {
+        if (!rule.activeSkillName) return;
+        if (rule.overrideCost !== undefined) {
+          const costStr = rule.overrideCost.length > 0 ? rule.overrideCost.join(', ') : 'GRÁTIS (0 Custo)';
+          effects.push({
+            label: `Novo Custo (${rule.activeSkillName})`,
+            value: `Custo alterado para [${costStr}] quando ${rule.activeSkillName} estiver ativo`,
+            color: 'text-amber-950 font-extrabold',
+            targetLabel: 'Condicional'
+          });
+        } else if (rule.reduceAmount && rule.reduceAmount > 0) {
+          const chakraType = rule.reduceType || rule.reduceSpecificType || 'Rand';
+          effects.push({
+            label: `Custo Reduzido (${rule.activeSkillName})`,
+            value: `Custa ${rule.reduceAmount} ${chakraType === 'Rand' ? 'Chakra Aleatório' : chakraType} a menos enquanto ${rule.activeSkillName} estiver ativo`,
+            color: 'text-emerald-950 font-extrabold',
+            targetLabel: 'Condicional'
+          });
+        }
+      });
+    }
+
+    // Informação de remoção de chakra do estoque inimigo (chakraRemoveRules)
+    if (skill.chakraRemoveRules && skill.chakraRemoveRules.length > 0) {
+      skill.chakraRemoveRules.forEach(rule => {
+        if (!rule.activeSkillName) return;
+        if (rule.removeAmount && rule.removeAmount > 0) {
+          effects.push({
+            label: `Remover Chakra (${rule.activeSkillName})`,
+            value: `Remove ${rule.removeAmount} chakra aleatório do estoque inimigo quando ${rule.activeSkillName} estiver ativo`,
+            color: 'text-purple-950 font-extrabold',
+            targetLabel: 'Condicional'
+          });
+        }
+      });
+    }
+
+    if (skill.healRules && skill.healRules.length > 0) {
+      skill.healRules.forEach(rule => {
+        if (!rule.activeSkillName || rule.healBoost <= 0) return;
+        effects.push({
+          label: `Cura Extra (${rule.activeSkillName})`,
+          value: `+${rule.healBoost} de cura quando ${rule.activeSkillName} estiver ativo`,
+          color: 'text-emerald-950 font-extrabold',
+          targetLabel: 'Condicional'
+        });
+      });
+    }
+
+    if (skill.cannotBeCountered) {
+      effects.push({
+        label: 'Incontra-atacável',
+        value: 'Esta habilidade NÃO pode ser contra-atacada ou anulada.',
+        color: 'text-red-950 font-extrabold',
+      });
+    }
+    if (skill.cannotBeReflected) {
+      effects.push({
+        label: 'Irrefletível',
+        value: 'Esta habilidade NÃO pode ser refletida.',
+        color: 'text-teal-950 font-extrabold',
+      });
+    }
 
     if (effects.length === 0) return null;
 
     return (
-      <div className="mt-2.5 pt-2 border-t border-slate-800/60 space-y-1.5 text-[10px] font-mono pointer-events-none text-left">
-        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Efeitos da Habilidade:</p>
+      <div className="mt-2.5 pt-2 border-t border-amber-900/30 space-y-1.5 text-[10px] font-mono text-left">
+        <p className="text-[10px] text-amber-950 font-extrabold uppercase tracking-wider mb-1 flex items-center gap-1">
+          <span>Efeitos da Habilidade</span>
+          <span className="bg-amber-900/30 text-amber-950 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold">{effects.length}</span>
+        </p>
         <div className="grid grid-cols-1 gap-1.5">
           {effects.map((eff, idx) => (
-            <div key={idx} className="flex flex-col gap-0.5 bg-slate-950/40 p-1.5 rounded border border-slate-900/60">
-              <span className={`${eff.color} font-bold`}>{eff.label}:</span>
-              <span className="text-slate-300 font-sans">{eff.value}</span>
+            <div
+              key={idx}
+              className="flex flex-col gap-1 bg-amber-100/70 border border-amber-900/30 p-2 rounded-lg text-[10px] font-mono shadow-sm"
+            >
+              <div className="flex items-center justify-between">
+                <span className={`${eff.color} font-extrabold text-[10px]`}>{eff.label}</span>
+              </div>
+              <p className="text-slate-900 font-semibold text-[10px] leading-tight">
+                {eff.value}
+              </p>
               {eff.targetLabel && (
-                <span className="text-[8px] text-slate-500">🎯 Aplicar em: <span className="text-slate-400 font-bold">{eff.targetLabel}</span></span>
+                <div className="pt-1 border-t border-amber-900/15 flex items-center justify-end">
+                  <span className="text-[8px] text-amber-900/80 font-extrabold bg-amber-900/10 px-1.5 py-0.5 rounded border border-amber-900/20 whitespace-nowrap">
+                    🎯 <span className="text-amber-950 font-black">{eff.targetLabel}</span>
+                  </span>
+                </div>
               )}
             </div>
           ))}
@@ -7541,6 +8448,19 @@ if (skill.cannotBeReflected) {
               </button>
             )}
 
+            {/* Quests Modal Toggle Button */}
+            <button
+              onClick={() => {
+                playClickSound();
+                setIsQuestModalOpen(true);
+              }}
+              className="px-2.5 sm:px-3 py-2 rounded-xl bg-gradient-to-r from-amber-900 via-amber-800 to-yellow-900 hover:from-amber-800 hover:to-yellow-800 border-2 border-amber-500/80 text-amber-100 transition-all cursor-pointer shadow-lg shadow-amber-950/50 active:scale-95 flex items-center gap-1.5"
+              title={t("Ver Missões em Andamento", "View Active Quests")}
+            >
+              <Scroll className="w-4 h-4 text-amber-300 animate-pulse" />
+              <span className="hidden sm:inline text-xs font-black uppercase tracking-wider">{t("Missões", "Quests")}</span>
+            </button>
+
             {/* Music/Sound Toggle */}
             <button
               onClick={() => {
@@ -7571,8 +8491,8 @@ if (skill.cannotBeReflected) {
             >
               {isEndingTurn ? (
                 <>
-                  <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
-                  <span>Finalizando...</span>
+                  <img src="/static/img/icon/star.webp" alt="Calculando" className="w-4 h-4 animate-spin object-contain" />
+                  <span className="normal-case font-bold">(calculando...)</span>
                 </>
               ) : (
                 <>
@@ -7794,41 +8714,44 @@ if (skill.cannotBeReflected) {
 
                   {/* Character Info */}
                   <div className="flex gap-3">
-                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex-shrink-0 relative">
-                      <img 
-                        src={combatant.character.portrait || null} 
-                        alt={combatant.character.name} 
-                        decoding="async"
-                        loading="eager"
-                        className="w-full h-full object-cover" 
-                        onError={(e) => {
-                           e.currentTarget.style.opacity = '0.3';
-                        }}
-                      />
-                      {isStunned && (
-                        <div className="absolute inset-0 bg-red-950/85 border border-red-500/80 flex flex-col items-center justify-center p-0.5 font-mono text-[8px] font-black text-red-300 tracking-tighter text-center leading-none uppercase animate-pulse">
-                          <span>⚡ STUN</span>
-                          <span className="text-[7px] text-red-400">DEBUFF</span>
-                        </div>
-                      )}
-                      {(() => {
-                        const isInvul = checkCombatantInvulnerable(combatant);
-                        const invulnEff = isInvul ? combatant.activeEffects.find(e => e.type === 'invulnerable') : undefined;
-                        if (!invulnEff) return null;
-                        return (
-                          <div className="absolute inset-0 rounded-lg overflow-hidden z-10 border-2 border-cyan-400/80">
-                            {invulnEff.icon && (
-                              <img src={invulnEff.icon || null} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-                            )}
-                            <div className="absolute inset-0 bg-cyan-950/60 flex items-center justify-center">
-                              <span className="bg-cyan-950/90 px-1 py-0.5 rounded border border-cyan-400/60 font-mono text-[7px] font-black text-cyan-300 uppercase tracking-wider text-center drop-shadow-lg">
-                                INVULNERÁVEL
-                              </span>
+                    {(() => {
+                      const isInvul = checkCombatantInvulnerable(combatant);
+                      const invulnEff = isInvul ? combatant.activeEffects.find(e => e.type === 'invulnerable') : undefined;
+                      const invulnSkillIcon = invulnEff
+                        ? (invulnEff.icon ||
+                           combatant.character.skills.find(s => (s.invulnerableDuration && s.invulnerableDuration > 0) || (invulnEff.name && invulnEff.name.toLowerCase().includes(s.name.toLowerCase())))?.icon ||
+                           [...playerCombatants, ...enemyCombatants].flatMap(c => c.character.skills).find(s => (s.invulnerableDuration && s.invulnerableDuration > 0) || (invulnEff.name && invulnEff.name.toLowerCase().includes(s.name.toLowerCase())))?.icon)
+                        : null;
+
+                      const displayPortrait = (isInvul && invulnSkillIcon) ? invulnSkillIcon : combatant.character.portrait;
+
+                      return (
+                        <div className={`w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
+                          isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] ring-2 ring-cyan-400/80 bg-slate-950' : 'border-slate-800 bg-slate-950'
+                        }`}>
+                          <img 
+                            src={displayPortrait || null} 
+                            alt={combatant.character.name} 
+                            decoding="async"
+                            loading="eager"
+                            title={isInvul ? `Invulnerável por ${invulnEff?.name || 'Skill'}` : combatant.character.name}
+                            className="w-full h-full object-cover" 
+                            onError={(e) => {
+                               e.currentTarget.style.opacity = '0.3';
+                            }}
+                          />
+                          {isStunned && (
+                            <div className="absolute inset-0 bg-red-950/85 border border-red-500/80 flex flex-col items-center justify-center p-0.5 font-mono text-[8px] font-black text-red-300 tracking-tighter text-center leading-none uppercase animate-pulse">
+                              <span>⚡ STUN</span>
+                              <span className="text-[7px] text-red-400">DEBUFF</span>
                             </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
+                          )}
+                          {isInvul && (
+                            <div className="absolute inset-0 rounded-lg z-10 border-2 border-cyan-400 pointer-events-none shadow-[inset_0_0_8px_rgba(34,211,238,0.5)]" />
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div className="flex-1 space-y-1.5">
                       <div className="flex justify-between items-start">
@@ -8067,7 +8990,7 @@ if (skill.cannotBeReflected) {
                                   }
                                   handleSelectSkill(combatant.id, sIdx);
                                 }}
-                                className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                                className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
                                   isSelected
                                     ? 'border-amber-400 shadow-lg shadow-amber-500/50 ring-2 ring-amber-400 z-20 scale-105'
                                     : isCued
@@ -8083,74 +9006,76 @@ if (skill.cannotBeReflected) {
                                     : 'border-slate-800 hover:border-slate-600'
                                 }`}
                               >
-                                <img 
-                                  src={skill.icon || null} 
-                                  alt={skill.name} 
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                                  }}
-                                />
+                                <div className="absolute inset-0 rounded-lg overflow-hidden flex flex-col items-center justify-center">
+                                  <img 
+                                    src={skill.icon || null} 
+                                    alt={skill.name} 
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                                    }}
+                                  />
 
-                                {/* Cooldown Overlay */}
-                                {isCooldown && (
-                                  <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
-                                    <span className="font-mono text-xs font-black text-orange-400">
-                                      {skill.currentCooldown}
-                                    </span>
-                                  </div>
-                                )}
-
-                                {/* Stun Blocked Overlay */}
-                                {isStunBlocked && !isCooldown && (
-                                  <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10">
-                                    <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">⚡</span>
-                                    <span className="text-[8px] font-mono font-black text-red-200 uppercase tracking-wider drop-shadow-md">STUN</span>
-                                  </div>
-                                )}
-
-                                {/* Required Effect Locked Overlay (🔒) */}
-                                {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
-                                  <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                    <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
-                                  </div>
-                                )}
-
-                                {/* Previous Skill Locked Overlay (🔒) */}
-                                {isPrevSkillLocked && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && (
-                                  <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                    <span className="text-cyan-500 font-bold drop-shadow-md text-xs">🔒</span>
-                                  </div>
-                                )}
-
-                                {/* HP Threshold Locked Overlay */}
-                                {skill.requireHpBelow && skill.requireHpBelow > 0 && combatant.health > skill.requireHpBelow && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
-                                  <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                    <span className="text-red-500 font-bold drop-shadow-md text-xs">❤️‍🩹</span>
-                                  </div>
-                                )}
-
-                                {/* Cued Indicator Overlay */}
-                                {isCued && (
-                                  <div className="absolute inset-0 bg-orange-600/10 border-2 border-orange-500 flex items-center justify-center">
-                                    <div className="bg-orange-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
-                                      PREPARADO
+                                  {/* Cooldown Overlay */}
+                                  {isCooldown && (
+                                    <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
+                                      <span className="font-mono text-xs font-black text-orange-400">
+                                        {skill.currentCooldown}
+                                      </span>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
 
-                                {/* Selected Target Prompt Overlay */}
-                                {isSelected && !isCued && (
-                                  <div className="absolute inset-0 bg-amber-950/90 border-2 border-amber-400 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
-                                    <span className="text-amber-300 text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md">
-                                      SELECIONE O ALVO
-                                    </span>
-                                  </div>
-                                )}
+                                  {/* Stun Blocked Overlay */}
+                                  {isStunBlocked && !isCooldown && (
+                                    <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10">
+                                      <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">⚡</span>
+                                      <span className="text-[8px] font-mono font-black text-red-200 uppercase tracking-wider drop-shadow-md">STUN</span>
+                                    </div>
+                                  )}
+
+                                  {/* Required Effect Locked Overlay (🔒) */}
+                                  {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
+                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                      <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                    </div>
+                                  )}
+
+                                  {/* Previous Skill Locked Overlay (🔒) */}
+                                  {isPrevSkillLocked && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && (
+                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                      <span className="text-cyan-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                    </div>
+                                  )}
+
+                                  {/* HP Threshold Locked Overlay */}
+                                  {skill.requireHpBelow && skill.requireHpBelow > 0 && combatant.health > skill.requireHpBelow && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
+                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                      <span className="text-red-500 font-bold drop-shadow-md text-xs">❤️‍acyl</span>
+                                    </div>
+                                  )}
+
+                                  {/* Cued Indicator Overlay */}
+                                  {isCued && (
+                                    <div className="absolute inset-0 bg-orange-600/10 border-2 border-orange-500 flex items-center justify-center">
+                                      <div className="bg-orange-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
+                                        PREPARADO
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Selected Target Prompt Overlay */}
+                                  {isSelected && !isCued && (
+                                    <div className="absolute inset-0 bg-amber-950/90 border-2 border-amber-400 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
+                                      <span className="text-amber-300 text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md">
+                                        SELECIONE O ALVO
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
 
                                 {/* Hover Details tooltip card */}
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
-                                  <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{skill.name}</p>
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
+                                  <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
                                   <p className="text-[10px] text-slate-400 leading-normal pt-1">{skill.desc}</p>
                                   
                                   {(skill.cannotBeCountered || skill.cannotBeReflected) && (
@@ -8234,360 +9159,298 @@ if (skill.cannotBeReflected) {
       </section>
 
       {/* Center: ARENA CONTROL BOARD & CHAKRA */}
-        <section className="battle-center-squad space-y-4 bg-slate-900/40 p-2 sm:p-3 rounded-2xl border border-slate-900">
-          {/* TURN, TIMER, TURN STATUS & CHAKRA PANEL */}
-          <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 sm:p-4 shadow-lg space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-orange-400" />
-                <h2 className="text-base sm:text-lg font-black tracking-tight text-amber-400 font-sans">
-                  TURNO {turn}
-                </h2>
-              </div>
-
-              {!gameOver && (
-                <div className="flex items-center gap-2">
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-black uppercase tracking-wider transition-all duration-300 shadow ${
-                    timeLeft <= 10
-                      ? 'bg-red-800/90 border-red-500 text-amber-100 animate-pulse'
-                      : 'bg-amber-950/90 border-amber-500/50 text-amber-100'
-                  }`}>
-                    <Clock className={`w-3.5 h-3.5 ${timeLeft <= 10 ? 'animate-bounce text-red-300' : 'text-amber-300 animate-pulse'}`} />
-                    <span>{timeLeft}s</span>
-                  </div>
-
-                  <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-black uppercase tracking-wider transition-all duration-300 shadow ${
-                    isWaitingForOpponent
-                      ? 'bg-amber-950/90 border-amber-500/60 text-amber-200 animate-pulse'
-                      : activePlanner === 'player'
-                        ? 'bg-emerald-900/90 border-emerald-500/60 text-emerald-100'
-                        : 'bg-red-900/90 border-red-500/60 text-red-100 animate-pulse'
-                  }`}>
-                    {isWaitingForOpponent
-                      ? 'Aguardando Oponente...'
-                      : activePlanner === 'player'
-                        ? 'Seu Turno'
-                        : 'Vez do Oponente'}
-                  </div>
+      <section className="battle-center-squad space-y-4 p-1 sm:p-2">
+        {/* TURN, TIMER, TURN STATUS & CHAKRA PANEL (turnoss.webp) */}
+          <div
+            className="relative w-full rounded-2xl overflow-hidden p-3 sm:p-4 shadow-2xl flex flex-col justify-between border border-amber-900/30"
+            style={{
+              backgroundImage: "url('/static/img/turnoss.webp')",
+              backgroundSize: "100% 100%",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+              minHeight: "230px"
+            }}
+          >
+            {/* Top Area: Clean text directly on turnoss.webp without dark background or border */}
+            <div className="space-y-1.5 px-1 pt-1 flex flex-col items-center justify-center text-center">
+              <div className="flex flex-col items-center justify-center gap-1.5 pb-1">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" />
+                  <h2 className="text-sm sm:text-base font-black tracking-wider text-amber-100 font-sans drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)] uppercase">
+                    TURNO {turn}
+                  </h2>
                 </div>
-              )}
-            </div>
 
-            {/* Active Player Chakra Pool */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
-                    Estoque de Chakra:
-                  </span>
-                  <span className="text-[11px] font-mono font-black text-amber-300 bg-amber-950/80 border border-amber-500/50 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-md">
-                    TOTAL: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
-                    {(() => {
-                      const sim = getSimulatedRemainingChakra(playerChakra, cuedActions);
-                      const simTotal = Object.values(sim).reduce((a, b) => a + b, 0);
-                      const currentTotal = Object.values(playerChakra).reduce((a, b) => a + b, 0);
-                      if (simTotal !== currentTotal) {
-                        return <span className="text-orange-400 text-[10px] ml-1">({simTotal})</span>;
-                      }
-                      return null;
-                    })()}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setShowChakraTrade(true)}
-                  className="text-[10px] font-mono uppercase tracking-wider text-orange-400 border border-orange-500/40 rounded px-2 py-0.5 hover:bg-orange-500/10 cursor-pointer transition-colors"
-                >
-                  Trocar 4→1
-                </button>
-              </div>
-
-              <div className="grid grid-cols-5 gap-1 items-center bg-slate-950/60 border border-slate-900 rounded-xl py-2 px-1 text-center">
-                {(() => {
-                  const simulatedChakra = getSimulatedRemainingChakra(playerChakra, cuedActions);
-                  const chakraElements = (Object.keys(playerChakra) as (keyof ChakraPool)[]).map(key => {
-                    let dotColorClass = '';
-                    let labelColorClass = '';
-                    let desc = '';
-                    if (key === 'Tai') {
-                      dotColorClass = 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.75)]';
-                      labelColorClass = 'text-green-400';
-                      desc = 'Taijutsu';
-                    } else if (key === 'Nin') {
-                      dotColorClass = 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.75)]';
-                      labelColorClass = 'text-blue-400';
-                      desc = 'Ninjutsu';
-                    } else if (key === 'Gen') {
-                      dotColorClass = 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.75)]';
-                      labelColorClass = 'text-white';
-                      desc = 'Genjutsu';
-                    } else if (key === 'Blood') {
-                      dotColorClass = 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.75)]';
-                      labelColorClass = 'text-red-400';
-                      desc = 'Bloodline';
-                    }
-
-                    const simulatedVal = simulatedChakra[key];
-                    const hasChange = simulatedVal !== playerChakra[key];
-
-                    return (
-                      <div key={key} className="flex flex-col items-center gap-0.5 group relative">
-                        <div className={`w-3 h-3 rounded-full ${dotColorClass} transition-transform group-hover:scale-110`} />
-                        <span className="font-mono text-sm font-black text-slate-200 mt-0.5 flex items-center">
-                          {playerChakra[key]}
-                          {hasChange && (
-                            <span className="text-orange-400 text-xs ml-1 font-bold animate-pulse">
-                              ({simulatedVal})
-                            </span>
-                          )}
-                        </span>
-                        <span className={`text-[8px] font-mono font-bold uppercase tracking-wider ${labelColorClass}`}>{key}</span>
-
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-950 border border-slate-850 rounded px-2 py-1 text-[9px] text-white z-50 whitespace-nowrap pointer-events-none shadow-lg">
-                          {desc} {hasChange ? `(Previsão: ${simulatedVal})` : ''}
-                        </div>
-                      </div>
-                    );
-                  });
-
-                  const currentTotal = Object.values(playerChakra).reduce((a, b) => a + b, 0);
-                  const simTotal = Object.values(simulatedChakra).reduce((a, b) => a + b, 0);
-                  const totalHasChange = simTotal !== currentTotal;
-
-                  return (
-                    <>
-                      {chakraElements}
-                      <div className="flex flex-col items-center gap-0.5 pl-2 border-l border-slate-800/80 group relative">
-                        <div className="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.75)] transition-transform group-hover:scale-110" />
-                        <span className="font-mono text-sm font-black text-amber-300 mt-0.5 flex items-center">
-                          {currentTotal}
-                          {totalHasChange && (
-                            <span className="text-orange-400 text-xs ml-1 font-bold animate-pulse">
-                              ({simTotal})
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-[8px] font-mono font-bold uppercase tracking-wider text-amber-400">TOTAL</span>
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-950 border border-slate-850 rounded px-2 py-1 text-[9px] text-white z-50 whitespace-nowrap pointer-events-none shadow-lg">
-                          Chakra Total {totalHasChange ? `(Previsão: ${simTotal})` : ''}
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-
-          {/* Central Console Area: Skill Inspector & Battle Logs Tabs */}
-          <div className="space-y-4">
-            <div className="hidden border-b border-slate-800">
-              <button
-                onClick={() => {
-                  playClickSound();
-                  setCenterTab('inspector');
-                }}
-                className={`flex-1 py-2 text-center text-xs font-mono uppercase font-bold tracking-wider transition-all border-b-2 cursor-pointer ${
-                  centerTab === 'inspector'
-                    ? 'border-orange-500 text-orange-400'
-                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-950/20'
-                }`}
-              >
-                📖 Skill Inspector
-              </button>
-              <button
-                onClick={() => {
-                  playClickSound();
-                  setCenterTab('logs');
-                }}
-                className={`flex-1 py-2 text-center text-xs font-mono uppercase font-bold tracking-wider transition-all border-b-2 cursor-pointer ${
-                  centerTab === 'logs'
-                    ? 'border-orange-500 text-orange-400'
-                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-950/20'
-                }`}
-              >
-                📜 Battle Logs
-              </button>
-            </div>
-
-            {centerTab === 'inspector' ? (
-              <div className="bg-slate-950/80 border border-slate-950 rounded-xl p-4 min-h-[16rem] max-h-[65vh] flex flex-col">
-                {inspectedSkill ? (
-                  <div className="space-y-3.5 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 pr-1">
-                    {/* Top Row: Skill Icon, Name & Owner */}
-                    <div className="flex gap-3 pb-3 border-b border-slate-900">
-                      <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-800 flex-shrink-0 bg-slate-900">
-                        <img 
-                          src={inspectedSkill.skill.icon || null} 
-                          alt={inspectedSkill.skill.name} 
-                          className={`w-full h-full object-cover ${inspectedSkill.isEnemy ? 'scale-x-[-1]' : ''}`}
-                          onError={(e) => {
-                            const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                          }}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="font-bold text-sm tracking-tight text-white truncate">{inspectedSkill.skill.name}</h4>
-                          <span className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${
-                            inspectedSkill.isEnemy 
-                              ? 'bg-red-500/10 text-red-400 border border-red-500/20' 
-                              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          }`}>
-                            {inspectedSkill.isEnemy ? 'Oponente' : 'Aliado'}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          Shinobi: <strong className="text-orange-400">{inspectedSkill.ownerName}</strong>
-                        </p>
-                      </div>
+                {!gameOver && (
+                  <div className="flex flex-wrap items-center justify-center gap-1.5">
+                    <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-black uppercase tracking-wider shadow ${
+                      timeLeft <= 10
+                        ? 'bg-red-900/90 text-red-100 border-red-500 animate-pulse'
+                        : 'bg-amber-950/80 border-amber-500/50 text-amber-100'
+                    }`}>
+                      <Clock className={`w-3 h-3 ${timeLeft <= 10 ? 'animate-bounce text-red-300' : 'text-amber-300 animate-pulse'}`} />
+                      <span>{timeLeft}s</span>
                     </div>
 
-                    {/* Cost, Cooldown & Target Grid */}
-                    <div className="grid grid-cols-3 gap-2 text-[10px] font-mono">
-                      {/* Chakra Cost */}
-                      <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-900 flex flex-col justify-between">
-                        <span className="text-slate-500 uppercase tracking-wide">Custo</span>
-                        <div className="flex flex-wrap gap-0.5 mt-1 items-center">
-                          {(() => {
-                            const effectiveCost = getEffectiveSkillCost(inspectedSkill.skill, inspectedSkill.combatant, [...playerCombatants, ...enemyCombatants]);
-                            if (inspectedSkill.skill.noChakraCost || effectiveCost.length === 0) {
-                              return <span className="text-emerald-400 text-[9px] font-bold">Sem Custo</span>;
-                            }
-                            return (
-                              <>
-                                {effectiveCost.map((c, idx) => (
-                                  <div key={idx} className="scale-95">{renderChakraIcon(c)}</div>
-                                ))}
-                                {effectiveCost.length < inspectedSkill.skill.cost.length && (
-                                  <span className="text-[9px] font-bold text-emerald-400 font-mono ml-1" title="Custo reduzido por efeito ativo!">⚡ Reduzido</span>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </div>
-
-                      {/* Cooldown */}
-                      <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-900 flex flex-col justify-between">
-                        <span className="text-slate-500 uppercase tracking-wide">Recarga</span>
-                        <p className="font-bold text-slate-200 mt-1 flex items-center gap-1">
-                          {inspectedSkill.skill.cooldown === 0 ? 'Sem Recarga' : `${inspectedSkill.skill.cooldown} turnos`}
-                        </p>
-                      </div>
-
-                      {/* Target type */}
-                      <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-900 flex flex-col justify-between">
-                        <span className="text-slate-500 uppercase tracking-wide">Alvo</span>
-                        <p className="font-bold text-slate-200 mt-1 truncate">
-                          {inspectedSkill.skill.targetType === 'Enemy' && 'Inimigo Único'}
-                          {inspectedSkill.skill.targetType === 'Self' && 'Próprio'}
-                          {inspectedSkill.skill.targetType === 'Ally' && 'Aliado Único'}
-                          {inspectedSkill.skill.targetType === 'AllEnemies' && 'Todos os Inimigos'}
-                          {inspectedSkill.skill.targetType === 'AllAllies' && 'Todos os Aliados'}
-                        </p>
-                      </div>
+                    <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-black uppercase tracking-wider shadow ${
+                      isWaitingForOpponent
+                        ? 'bg-amber-950/80 border-amber-500/60 text-amber-200 animate-pulse'
+                        : activePlanner === 'player'
+                          ? 'bg-emerald-950/80 border-emerald-500/60 text-emerald-100'
+                          : 'bg-red-950/80 border-red-500/60 text-red-100 animate-pulse'
+                    }`}>
+                      {isWaitingForOpponent
+                        ? 'Aguardando Oponente...'
+                        : activePlanner === 'player'
+                          ? 'Seu Turno'
+                          : 'Vez do Oponente'}
                     </div>
-
-                    {/* Classes & Tags */}
-                    {inspectedSkill.skill.classes && inspectedSkill.skill.classes.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {inspectedSkill.skill.classes.map((cls, idx) => (
-                          <span key={idx} className="text-[9px] font-mono bg-slate-900 text-slate-400 px-2 py-0.5 rounded-md border border-slate-800">
-                            {cls}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Protection & Immunity Tags */}
-                    {(inspectedSkill.skill.cannotBeCountered || inspectedSkill.skill.cannotBeReflected || inspectedSkill.skill.doNotApplyIfActive) && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {inspectedSkill.skill.cannotBeCountered && (
-                          <span className="text-[9px] font-mono bg-red-950/40 text-red-400 px-2.5 py-0.5 rounded-md border border-red-900/60 font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                            🚫 Incontra-atacável
-                          </span>
-                        )}
-                        {inspectedSkill.skill.cannotBeReflected && (
-                          <span className="text-[9px] font-mono bg-cyan-950/40 text-cyan-400 px-2.5 py-0.5 rounded-md border border-cyan-900/60 font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                            🚫 Irrefletível
-                          </span>
-                        )}
-                        {inspectedSkill.skill.doNotApplyIfActive && (
-                          <span className="text-[9px] font-mono bg-amber-950/40 text-amber-400 px-2.5 py-0.5 rounded-md border border-amber-900/60 font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                            🚫 Não Re-aplicável (Ativa)
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Requirement Warning */}
-                    {inspectedSkill.skill.requireEffect && (
-                      <div className="bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg text-[9px] font-mono text-amber-400 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        Requer efeito ativo: <strong className="underline">{inspectedSkill.skill.requireEffect}</strong>
-                      </div>
-                    )}
-                    {inspectedSkill.skill.requirePreviousSkill && (
-                      <div className="bg-cyan-500/10 border border-cyan-500/20 p-2 rounded-lg text-[9px] font-mono text-cyan-400 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                        Requer uso no turno anterior: <strong className="underline">{inspectedSkill.skill.requirePreviousSkill}</strong>
-                      </div>
-                    )}
-                    {inspectedSkill.skill.requireHpBelow && inspectedSkill.skill.requireHpBelow > 0 && (
-                      <div className="bg-red-500/10 border border-red-500/20 p-2 rounded-lg text-[9px] font-mono text-red-400 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                        Requer HP ≤ <strong className="underline">{inspectedSkill.skill.requireHpBelow}</strong>
-                      </div>
-                    )}
-
-                    {/* Skill Detailed Description */}
-                    <div className="bg-slate-900/30 rounded-lg p-3 border border-slate-900/60">
-                      <p className="text-xs text-slate-300 leading-relaxed font-sans">{inspectedSkill.skill.desc}</p>
-                      {renderSkillCustomEffects(inspectedSkill.skill)}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-center p-6 my-auto space-y-2">
-                    <Info className="w-8 h-8 text-slate-600 animate-pulse" />
-                    <p className="text-xs font-mono text-slate-400 font-bold">Inspecione uma Habilidade</p>
-                    <p className="text-[10px] text-slate-500 max-w-xs">
-                      Clique em qualquer ícone de habilidade dos seus aliados ou dos oponentes para ver as estatísticas, custos e descrições aqui.
-                    </p>
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="h-64 rounded-xl border border-slate-950 bg-slate-950/80 p-4 overflow-y-auto font-mono text-xs space-y-2 leading-relaxed scrollbar-thin scrollbar-thumb-slate-900">
-                {logs.map((log, lIdx) => {
-                  let colorClass = 'text-slate-400';
-                  if (log.type === 'damage') colorClass = 'text-red-400';
-                  if (log.type === 'heal') colorClass = 'text-emerald-400';
-                  if (log.type === 'buff') colorClass = 'text-blue-400';
-                  if (log.type === 'stun') colorClass = 'text-amber-500';
-                  if (log.type === 'death') colorClass = 'text-red-500 font-bold';
-                  if (log.type === 'chakra') colorClass = 'text-indigo-400';
+
+              {/* Chakra Header Row */}
+              <div className="flex flex-col items-center justify-center gap-1 pt-0.5 text-center">
+                <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-amber-100 font-extrabold drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)]">
+                  Estoque de Chakra
+                </span>
+                <div className="flex items-center justify-center gap-2.5">
+                  <button
+                    onClick={() => setShowChakraTrade(true)}
+                    className="text-[10px] font-mono uppercase tracking-wider font-extrabold text-amber-950 bg-amber-100/80 hover:bg-amber-200/90 border border-amber-800/50 rounded px-2.5 py-0.5 cursor-pointer shadow transition-all"
+                  >
+                    Trocar 4→1
+                  </button>
+                  <span className="text-[10px] text-amber-950 font-mono font-black bg-amber-100/80 border border-amber-800/50 px-2 py-0.5 rounded shadow">
+                    Total: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Area: Cylinders Chakra Quantities aligned precisely on the 4 cylinders in turnoss.webp */}
+            <div className="relative w-full h-12 mt-4">
+              {(() => {
+                const simulatedChakra = getSimulatedRemainingChakra(playerChakra, cuedActions);
+                const chakraPositions: { key: keyof ChakraPool; className: string }[] = [
+                  { key: 'Tai', className: 'chakra-number-tai' },
+                  { key: 'Blood', className: 'chakra-number-blood' },
+                  { key: 'Nin', className: 'chakra-number-nin' },
+                  { key: 'Gen', className: 'chakra-number-gen' },
+                ];
+
+                return chakraPositions.map(({ key, className }) => {
+                  const val = playerChakra[key] || 0;
+                  const simulatedVal = simulatedChakra[key];
+                  const hasChange = simulatedVal !== val;
 
                   return (
-                    <p key={`${log.id}-${lIdx}`} className={colorClass}>
-                      <span className="text-slate-600 font-semibold">[Turno {log.turn}]</span> {log.message}
-                    </p>
+                    <div 
+                      key={key} 
+                      className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-auto ${className}`}
+                    >
+                      <span className="font-mono text-xs sm:text-sm font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] flex items-center justify-center">
+                        {val}
+                        {hasChange && (
+                          <span className="text-orange-300 text-[10px] sm:text-xs ml-1 font-bold animate-pulse">
+                            ({simulatedVal})
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   );
-                })}
-                <div ref={logsEndRef} />
+                });
+              })()}
+            </div>
+          </div>
+
+          {/* Skill Inspector Details (skills_detalhes.webp) */}
+          <div
+            className="relative w-full rounded-2xl overflow-hidden p-3.5 sm:p-5 shadow-2xl flex flex-col border border-amber-900/30"
+            style={{
+              backgroundImage: "url('/static/img/skills_detalhes.webp')",
+              backgroundSize: "100% 100%",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+              minHeight: "360px"
+            }}
+          >
+            {inspectedSkill ? (
+              <div className="flex flex-col h-full space-y-3">
+                {/* Top Green Header Area: No dark background box, clean alignment over green top banner */}
+                <div className="flex items-center gap-3 px-1 pt-0.5 pb-2" style={{ marginTop: '-5px' }}>
+                  <div className="w-12 h-12 rounded-lg overflow-hidden border border-amber-300/60 flex-shrink-0 bg-black/40 shadow-md">
+                    <img 
+                      src={inspectedSkill.skill.icon || null} 
+                      alt={inspectedSkill.skill.name} 
+                      className={`w-full h-full object-cover ${inspectedSkill.isEnemy ? 'scale-x-[-1]' : ''}`}
+                      onError={(e) => {
+                        const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="group relative inline-block max-w-full">
+                        <h4 
+                          className="font-extrabold text-sm sm:text-base text-white tracking-tight drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)] cursor-help leading-tight"
+                          title={translateSkillName(inspectedSkill.skill.name, language)}
+                        >
+                          {translateSkillName(inspectedSkill.skill.name, language)}
+                        </h4>
+                        {/* Custom Hover Tooltip for complete skill name */}
+                        <div className="absolute top-full left-0 mt-1 hidden group-hover:flex flex-col bg-slate-950/98 border border-amber-500/60 p-2.5 rounded-xl shadow-2xl z-[100] pointer-events-none whitespace-normal min-w-[200px] max-w-[300px]">
+                          <span className="text-xs font-black text-amber-300 font-sans tracking-tight drop-shadow">
+                            {translateSkillName(inspectedSkill.skill.name, language)}
+                          </span>
+                          {translateSkillName(inspectedSkill.skill.name, language) !== inspectedSkill.skill.name && (
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              ({inspectedSkill.skill.name})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-amber-100 font-medium mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+                     <span className="text-amber-300 font-extrabold">{inspectedSkill.ownerName}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* 3 Papers Grid: Custo, Recarga, Alvo positioned cleanly over paper artwork */}
+                <div className="grid grid-cols-3 gap-1 font-mono pb-0.5 px-1" style={{ paddingTop: '11px' }}>
+                  {/* Paper 1: Custo */}
+                  <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
+                    <span className="text-amber-950 font-black uppercase tracking-wider text-[8.5px] leading-none drop-shadow-xs">Custo</span>
+                    <div className="flex flex-wrap justify-center gap-0.5 mt-0.5 items-center max-w-full">
+                      {(() => {
+                        const effectiveCost = getEffectiveSkillCost(inspectedSkill.skill, inspectedSkill.combatant, [...playerCombatants, ...enemyCombatants]);
+                        if (inspectedSkill.skill.noChakraCost || effectiveCost.length === 0) {
+                          return <span className="text-emerald-950 text-[8.5px] font-black leading-tight whitespace-normal text-center">Sem Custo</span>;
+                        }
+                        return (
+                          <>
+                            {effectiveCost.map((c, idx) => (
+                              <div key={idx} className="scale-90 -m-0.5">{renderChakraIcon(c)}</div>
+                            ))}
+                            {effectiveCost.length < inspectedSkill.skill.cost.length && (
+                              <span className="text-[7.5px] font-black text-emerald-950 font-mono leading-none">⚡Reduzido</span>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Paper 2: Recarga */}
+                  <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
+                    <span className="text-amber-950 font-black uppercase tracking-wider text-[8.5px] leading-none drop-shadow-xs">Recarga</span>
+                    <p className="font-extrabold text-amber-950 text-[8.5px] leading-[1.1] mt-0.5 whitespace-normal break-words text-center">
+                      {inspectedSkill.skill.cooldown === 0 ? 'Sem Recarga' : `${inspectedSkill.skill.cooldown} turnos`}
+                    </p>
+                  </div>
+
+                  {/* Paper 3: Alvo */}
+                  <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
+                    <span className="text-amber-950 font-black uppercase tracking-wider text-[8.5px] leading-none drop-shadow-xs">Alvo</span>
+                    <p className="font-extrabold text-amber-950 text-[8.5px] leading-[1.1] mt-0.5 whitespace-normal break-words text-center max-w-full px-0.5">
+                      {inspectedSkill.skill.targetType === 'Enemy' && 'Inimigo Único'}
+                      {inspectedSkill.skill.targetType === 'Self' && 'Próprio'}
+                      {inspectedSkill.skill.targetType === 'Ally' && 'Aliado Único'}
+                      {inspectedSkill.skill.targetType === 'AllEnemies' && 'Todos Inimigos'}
+                      {inspectedSkill.skill.targetType === 'AllAllies' && 'Todos Aliados'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Below Papers: Classes, Tags, Requirements & Description */}
+                <div className=" rounded-lg p-2.5 space-y-2 overflow-y-auto max-h-[190px] scrollbar-thin scrollbar-thumb-amber-800/40">
+                  {/* Classes & Tags */}
+                  {inspectedSkill.skill.classes && inspectedSkill.skill.classes.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {inspectedSkill.skill.classes.map((cls, idx) => (
+                        <span key={idx} className="text-[9px] font-mono bg-amber-900/25 text-amber-950 font-extrabold px-2 py-0.5 rounded border border-amber-900/30">
+                          {cls}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Protection & Immunity Tags */}
+                  {(inspectedSkill.skill.cannotBeCountered || inspectedSkill.skill.cannotBeReflected || inspectedSkill.skill.doNotApplyIfActive) && (
+                    <div className="flex flex-wrap gap-1">
+                      {inspectedSkill.skill.cannotBeCountered && (
+                        <span className="text-[9px] font-mono bg-red-900/20 text-red-950 px-2 py-0.5 rounded border border-red-900/30 font-bold uppercase">
+                          🚫 Incontra-atacável
+                        </span>
+                      )}
+                      {inspectedSkill.skill.cannotBeReflected && (
+                        <span className="text-[9px] font-mono bg-cyan-900/20 text-cyan-950 px-2 py-0.5 rounded border border-cyan-900/30 font-bold uppercase">
+                          🚫 Irrefletível
+                        </span>
+                      )}
+                      {inspectedSkill.skill.doNotApplyIfActive && (
+                        <span className="text-[9px] font-mono bg-amber-900/20 text-amber-950 px-2 py-0.5 rounded border border-amber-900/30 font-bold uppercase">
+                          🚫 Não Re-aplicável
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Requirements Warnings */}
+                  {inspectedSkill.skill.requireEffect && (
+                    <div className="bg-amber-500/20 border border-amber-700/30 p-1.5 rounded text-[9px] font-mono text-amber-950 font-bold flex items-center gap-1">
+                      <span>⚠️ Requer efeito ativo:</span>
+                      <span className="underline">{inspectedSkill.skill.requireEffect}</span>
+                    </div>
+                  )}
+                  {inspectedSkill.skill.requirePreviousSkill && (
+                    <div className="bg-cyan-500/20 border border-cyan-700/30 p-1.5 rounded text-[9px] font-mono text-cyan-950 font-bold flex items-center gap-1">
+                      <span>⚠️ Requer no turno anterior:</span>
+                      <span className="underline">{inspectedSkill.skill.requirePreviousSkill}</span>
+                    </div>
+                  )}
+
+                  {/* Detailed Description */}
+                  <p className="text-xs text-slate-900 font-medium leading-relaxed">
+                    {inspectedSkill.skill.desc}
+                  </p>
+                  {renderSkillCustomEffects(inspectedSkill.skill)}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center p-6 my-auto space-y-2">
+                <Info className="w-8 h-8 text-amber-950/70 animate-pulse" />
+                <p className="text-xs font-mono text-amber-950 font-extrabold">Inspecione uma Habilidade</p>
+                <p className="text-[10px] text-amber-900 font-semibold max-w-xs">
+                  Clique em qualquer ícone de habilidade dos seus aliados ou dos oponentes para ver as estatísticas, custos e descrições aqui.
+                </p>
               </div>
             )}
           </div>
 
-          {/* Current Turn Action cues */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold pb-2 border-b border-slate-900">
-              Suas Ações Preparadas ({cuedActions.length})
+          {/* Suas Ações Preparadas (ações.webp) */}
+          <div
+            className="relative w-full rounded-2xl overflow-hidden p-3.5 sm:p-4 shadow-2xl flex flex-col border border-amber-900/20"
+            style={{
+              backgroundImage: "url('/static/img/ações.webp')",
+              backgroundSize: "100% 100%",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+              minHeight: "130px"
+            }}
+          >
+            <h3 className="text-xs font-mono uppercase tracking-wider text-slate-900 font-extrabold pb-1.5 border-b border-black/20 flex items-center justify-between">
+              <span>Suas Ações Preparadas</span>
+              <span className="bg-amber-900/30 text-amber-950 px-2 py-0.5 rounded-full text-[10px] font-extrabold">{cuedActions.length}</span>
             </h3>
 
             {cuedActions.length === 0 ? (
-              <p className="text-xs text-slate-600 text-center py-4 italic font-mono">Nenhuma ação preparada. Selecione habilidades e alvos.</p>
+              <p className="text-xs text-slate-800 text-center py-3 italic font-mono font-bold">
+                Nenhuma ação preparada. Selecione habilidades e alvos.
+              </p>
             ) : (
-              <div className="space-y-1.5 max-h-32 overflow-y-auto">
+              <div className="space-y-1.5 max-h-32 overflow-y-auto mt-2 pr-1 scrollbar-thin scrollbar-thumb-amber-800/40">
                 {cuedActions.map((action, idx) => {
                   const isSrcEnemy = action.sourceId.startsWith('enemy');
                   const src = isSrcEnemy
@@ -8601,20 +9464,20 @@ if (skill.cannotBeReflected) {
                   return (
                     <div
                       key={idx}
-                      className="flex justify-between items-center bg-slate-950 border border-slate-800 p-2 rounded-lg text-[10px] font-mono"
+                      className="flex justify-between items-center bg-amber-100/70 border border-amber-900/30 p-2 rounded-lg text-[10px] font-mono shadow-sm"
                     >
                       <div className="flex items-center gap-2">
                         <img 
                           src={skill?.icon} 
                           alt={skill?.name} 
-                          className={`w-5 h-5 rounded object-cover ${isSrcEnemy ? 'scale-x-[-1]' : ''}`}
+                          className={`w-5 h-5 rounded object-cover border border-amber-900/40 ${isSrcEnemy ? 'scale-x-[-1]' : ''}`}
                           onError={(e) => {
                             const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
                           }}
                         />
-                        <span>
-                          <strong className={isSrcEnemy ? 'text-emerald-400' : 'text-orange-400'}>{src?.character.name}</strong> vai usar [
-                          {skill?.name}] em <strong className={action.targetId.startsWith('enemy') ? 'text-emerald-400' : 'text-blue-400'}>{tgt?.character.name}</strong>
+                        <span className="text-slate-900 font-semibold">
+                          <strong className={isSrcEnemy ? 'text-red-900' : 'text-amber-900'}>{src?.character.name}</strong> vai usar [
+                          <span className="font-extrabold text-amber-950">{skill?.name}</span>] em <strong className={action.targetId.startsWith('enemy') ? 'text-red-900' : 'text-blue-900'}>{tgt?.character.name}</strong>
                         </span>
                       </div>
                     </div>
@@ -8787,41 +9650,44 @@ if (skill.cannotBeReflected) {
 
                   {/* Character Info */}
                   <div className="flex gap-3 flex-row-reverse">
-                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex-shrink-0 relative">
-                      <img 
-                        src={combatant.character.portrait || null} 
-                        alt={combatant.character.name} 
-                        decoding="async"
-                        loading="eager"
-                        className="w-full h-full object-cover scale-x-[-1]" 
-                        onError={(e) => {
-                          e.currentTarget.style.opacity = '0.3';
-                        }}
-                      />
-                      {isStunned && (
-                        <div className="absolute inset-0 bg-red-950/85 border border-red-500/80 flex flex-col items-center justify-center p-0.5 font-mono text-[8px] font-black text-red-300 tracking-tighter text-center leading-none uppercase animate-pulse">
-                          <span>⚡ STUN</span>
-                          <span className="text-[7px] text-red-400">DEBUFF</span>
-                        </div>
-                      )}
-                      {(() => {
-                        const isInvul = checkCombatantInvulnerable(combatant);
-                        const invulnEff = isInvul ? combatant.activeEffects.find(e => e.type === 'invulnerable') : undefined;
-                        if (!invulnEff) return null;
-                        return (
-                          <div className="absolute inset-0 rounded-lg overflow-hidden z-10 border-2 border-cyan-400/80">
-                            {invulnEff.icon && (
-                              <img src={invulnEff.icon || null} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-                            )}
-                            <div className="absolute inset-0 bg-cyan-950/60 flex items-center justify-center">
-                              <span className="bg-cyan-950/90 px-1 py-0.5 rounded border border-cyan-400/60 font-mono text-[7px] font-black text-cyan-300 uppercase tracking-wider text-center drop-shadow-lg">
-                                INVULNERÁVEL
-                              </span>
+                    {(() => {
+                      const isInvul = checkCombatantInvulnerable(combatant);
+                      const invulnEff = isInvul ? combatant.activeEffects.find(e => e.type === 'invulnerable') : undefined;
+                      const invulnSkillIcon = invulnEff
+                        ? (invulnEff.icon ||
+                           combatant.character.skills.find(s => (s.invulnerableDuration && s.invulnerableDuration > 0) || (invulnEff.name && invulnEff.name.toLowerCase().includes(s.name.toLowerCase())))?.icon ||
+                           [...playerCombatants, ...enemyCombatants].flatMap(c => c.character.skills).find(s => (s.invulnerableDuration && s.invulnerableDuration > 0) || (invulnEff.name && invulnEff.name.toLowerCase().includes(s.name.toLowerCase())))?.icon)
+                        : null;
+
+                      const displayPortrait = (isInvul && invulnSkillIcon) ? invulnSkillIcon : combatant.character.portrait;
+
+                      return (
+                        <div className={`w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
+                          isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] ring-2 ring-cyan-400/80 bg-slate-950' : 'border-slate-800 bg-slate-950'
+                        }`}>
+                          <img 
+                            src={displayPortrait || null} 
+                            alt={combatant.character.name} 
+                            decoding="async"
+                            loading="eager"
+                            title={isInvul ? `Invulnerável por ${invulnEff?.name || 'Skill'}` : combatant.character.name}
+                            className={`w-full h-full object-cover ${isInvul ? '' : 'scale-x-[-1]'}`}
+                            onError={(e) => {
+                              e.currentTarget.style.opacity = '0.3';
+                            }}
+                          />
+                          {isStunned && (
+                            <div className="absolute inset-0 bg-red-950/85 border border-red-500/80 flex flex-col items-center justify-center p-0.5 font-mono text-[8px] font-black text-red-300 tracking-tighter text-center leading-none uppercase animate-pulse">
+                              <span>⚡ STUN</span>
+                              <span className="text-[7px] text-red-400">DEBUFF</span>
                             </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
+                          )}
+                          {isInvul && (
+                            <div className="absolute inset-0 rounded-lg z-10 border-2 border-cyan-400 pointer-events-none shadow-[inset_0_0_8px_rgba(34,211,238,0.5)]" />
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div className="flex-1 space-y-1.5">
                       <div className="flex justify-between items-start">
@@ -9086,7 +9952,7 @@ if (skill.cannotBeReflected) {
                                     }
                                     handleSelectSkill(combatant.id, sIdx);
                                   }}
-                                  className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                                  className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
                                     isSelected
                                       ? 'border-amber-400 shadow-lg shadow-amber-500/50 ring-2 ring-amber-400 z-20 scale-105'
                                       : isCued
@@ -9102,73 +9968,75 @@ if (skill.cannotBeReflected) {
                                       : 'border-slate-800 hover:border-slate-600'
                                   }`}
                                 >
-                                  <img 
-                                    src={skill.icon || null} 
-                                    alt={skill.name} 
-                                    className="w-full h-full object-cover scale-x-[-1]" 
-                                    onError={(e) => {
-                                      const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                                    }}
-                                  />
+                                  <div className="absolute inset-0 rounded-lg overflow-hidden flex flex-col items-center justify-center">
+                                    <img 
+                                      src={skill.icon || null} 
+                                      alt={skill.name} 
+                                      className="w-full h-full object-cover scale-x-[-1]" 
+                                      onError={(e) => {
+                                        const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                                      }}
+                                    />
 
-                                  {/* Cooldown Overlay */}
-                                  {isCooldown && (
-                                    <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
-                                      <span className="font-mono text-xs font-black text-orange-400">
-                                        {skill.currentCooldown}
-                                      </span>
-                                    </div>
-                                  )}
-
-                                  {/* Stun Blocked Overlay */}
-                                  {isStunBlocked && !isCooldown && (
-                                    <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10">
-                                      <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">⚡</span>
-                                      <span className="text-[8px] font-mono font-black text-red-200 uppercase tracking-wider drop-shadow-md">STUN</span>
-                                    </div>
-                                  )}
-
-                                  {/* Required Effect Locked Overlay (🔒) */}
-                                  {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
-                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                      <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
-                                    </div>
-                                  )}
-
-                                  {/* Previous Skill Locked Overlay (🔒) */}
-                                  {isPrevSkillLocked && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && (
-                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                      <span className="text-cyan-500 font-bold drop-shadow-md text-xs">🔒</span>
-                                    </div>
-                                  )}
-
-                                  {/* HP Threshold Locked Overlay */}
-                                  {skill.requireHpBelow && skill.requireHpBelow > 0 && combatant.health > skill.requireHpBelow && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
-                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                      <span className="text-red-500 font-bold drop-shadow-md text-xs">❤️‍🩹</span>
-                                    </div>
-                                  )}
-
-                                  {/* Cued Indicator Overlay */}
-                                  {isCued && (
-                                    <div className="absolute inset-0 bg-emerald-600/10 border-2 border-emerald-500 flex items-center justify-center">
-                                      <div className="bg-emerald-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
-                                        PREPARADO
+                                    {/* Cooldown Overlay */}
+                                    {isCooldown && (
+                                      <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
+                                        <span className="font-mono text-xs font-black text-orange-400">
+                                          {skill.currentCooldown}
+                                        </span>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
 
-                                  {/* Selected Target Prompt Overlay */}
-                                  {isSelected && !isCued && (
-                                    <div className="absolute inset-0 bg-amber-950/90 border-2 border-amber-400 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
-                                      <span className="text-amber-300 text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md">
-                                        SELECIONE O ALVO
-                                      </span>
-                                    </div>
-                                  )}
+                                    {/* Stun Blocked Overlay */}
+                                    {isStunBlocked && !isCooldown && (
+                                      <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10">
+                                        <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">⚡</span>
+                                        <span className="text-[8px] font-mono font-black text-red-200 uppercase tracking-wider drop-shadow-md">STUN</span>
+                                      </div>
+                                    )}
+
+                                    {/* Required Effect Locked Overlay (🔒) */}
+                                    {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
+                                      <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                        <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                      </div>
+                                    )}
+
+                                    {/* Previous Skill Locked Overlay (🔒) */}
+                                    {isPrevSkillLocked && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && (
+                                      <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                        <span className="text-cyan-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                      </div>
+                                    )}
+
+                                    {/* HP Threshold Locked Overlay */}
+                                    {skill.requireHpBelow && skill.requireHpBelow > 0 && combatant.health > skill.requireHpBelow && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
+                                      <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                        <span className="text-red-500 font-bold drop-shadow-md text-xs">❤️‍acyl</span>
+                                      </div>
+                                    )}
+
+                                    {/* Cued Indicator Overlay */}
+                                    {isCued && (
+                                      <div className="absolute inset-0 bg-emerald-600/10 border-2 border-emerald-500 flex items-center justify-center">
+                                        <div className="bg-emerald-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
+                                          PREPARADO
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Selected Target Prompt Overlay */}
+                                    {isSelected && !isCued && (
+                                      <div className="absolute inset-0 bg-amber-950/90 border-2 border-amber-400 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
+                                        <span className="text-amber-300 text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md">
+                                          SELECIONE O ALVO
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
 
                                   {/* Hover Details tooltip card */}
-                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
                                     <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
                                     <p className="text-[10px] text-slate-400 leading-normal pt-1">{translateGameText(skill.desc, language)}</p>
                                     
@@ -9235,23 +10103,25 @@ if (skill.cannotBeReflected) {
                                   });
                                   setCenterTab('inspector');
                                 }}
-                                className={`group relative aspect-square rounded-lg border overflow-hidden bg-slate-950 flex flex-col items-center justify-center cursor-pointer opacity-70 hover:opacity-100 transition-all ${
+                                className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer opacity-70 hover:opacity-100 transition-all ${
                                   isCooldown ? 'border-slate-950 opacity-30' : 'border-slate-800'
                                 }`}
                               >
-                                <img src={skill.icon || null} alt={skill.name} className="w-full h-full object-cover scale-x-[-1]" />
+                                <div className="absolute inset-0 rounded-lg overflow-hidden flex flex-col items-center justify-center">
+                                  <img src={skill.icon || null} alt={skill.name} className="w-full h-full object-cover scale-x-[-1]" />
 
-                                {/* Cooldown Overlay */}
-                                {isCooldown && (
-                                  <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
-                                    <span className="font-mono text-xs font-black text-orange-400">
-                                      {skill.currentCooldown}
-                                    </span>
-                                  </div>
-                                )}
+                                  {/* Cooldown Overlay */}
+                                  {isCooldown && (
+                                    <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
+                                      <span className="font-mono text-xs font-black text-orange-400">
+                                        {skill.currentCooldown}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
 
                                 {/* Hover Details tooltip card */}
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
                                   <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
                                   <p className="text-[10px] text-slate-400 leading-normal pt-1">{translateGameText(skill.desc, language)}</p>
                                   
@@ -9686,10 +10556,10 @@ if (skill.cannotBeReflected) {
                   Cancelar
                 </button>
                 <button
-                  disabled={isEndingTurn || turnActionLockedRef.current}
+                  disabled={isEndingTurn}
                   onClick={() => {
-                    if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current) return;
-                    turnActionLockedRef.current = true;
+                    if (isEndingTurnRef.current || isEndingTurn) return;
+                    turnActionLockedRef.current = false;
                     setShowSandboxConfirmModal(false);
                     checkAndProceedWithEndTurn();
                   }}
@@ -9702,6 +10572,39 @@ if (skill.cannotBeReflected) {
                   Passar Turno
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* NO INTERNET WARNING MODAL */}
+      <AnimatePresence>
+        {showNoInternetModal && (
+          <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 10 }}
+              className="bg-slate-900 border-2 border-red-500/60 rounded-2xl p-6 max-w-md w-full shadow-2xl relative text-center"
+            >
+              <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-red-500/20 border border-red-500/50 flex items-center justify-center text-red-400 text-2xl font-black">
+                📡
+              </div>
+              <h3 className="text-lg font-black text-white uppercase tracking-wider mb-2">
+                Conexão com a Internet Necessária
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed mb-5">
+                Para passar o turno e garantir o cálculo correto da partida sem erros ou manipulação de jogadas, é necessário estar conectado à internet. Por favor, conecte-se à internet e tente novamente.
+              </p>
+              <button
+                onClick={() => {
+                  playClickSound();
+                  setShowNoInternetModal(false);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white font-extrabold text-xs uppercase tracking-wider border border-red-500/50 shadow-md transition active:scale-95 cursor-pointer"
+              >
+                Conectar-se à Internet
+              </button>
             </motion.div>
           </div>
         )}
@@ -9871,10 +10774,7 @@ if (skill.cannotBeReflected) {
                     (Object.keys(randAllocation) as (keyof ChakraPool)[]).reduce((sum, key) => sum + (randAllocation[key] || 0), 0) !== randModalData.totalRandRequired
                   }
                   onClick={() => {
-                    if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current) return;
-                    turnActionLockedRef.current = true;
-                    isEndingTurnRef.current = true;
-                    setIsEndingTurn(true);
+                    if (isEndingTurnRef.current || isEndingTurn) return;
                     setShowRandChakraModal(false);
                     handleEndTurn(randAllocation);
                   }}
@@ -10096,6 +10996,185 @@ if (skill.cannotBeReflected) {
           playClickSound={playClickSound}
         />
       )}
+
+      {/* IN-GAME QUESTS MODAL */}
+      <AnimatePresence>
+        {isQuestModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-slate-900 border-2 border-amber-600/60 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-slate-100"
+            >
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 p-4 border-b border-amber-600/40 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400">
+                    <Scroll className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black tracking-wide text-amber-200 uppercase font-mono flex items-center gap-2">
+                      {t("Missões da Partida", "Match Quests")}
+                    </h3>
+                    <p className="text-xs text-amber-400/80 font-sans">
+                      {t("Acompanhe seu progresso e metas das missões ativas", "Track your progress and active quest goals")}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    playClickSound();
+                    setIsQuestModalOpen(false);
+                  }}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-4 sm:p-5 overflow-y-auto space-y-5 custom-scrollbar flex-1">
+                {/* Active Quest Highlight Banner */}
+                {activeQuest && (
+                  <div className="bg-gradient-to-r from-amber-900/40 via-yellow-950/30 to-amber-900/40 border-2 border-amber-500/60 rounded-xl p-4 space-y-3 relative overflow-hidden shadow-lg">
+                    <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Award className="w-4 h-4 text-amber-400 animate-pulse" />
+                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-300">
+                          {t("Missão Ativa Selecionada", "Selected Active Quest")}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                        {activeQuest.category || 'Ativa'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm sm:text-base font-extrabold text-amber-100">{activeQuest.title}</h4>
+                      <p className="text-xs text-slate-300 mt-1 leading-relaxed">{activeQuest.desc}</p>
+                    </div>
+
+                    {/* Goals Progress */}
+                    <div className="space-y-2.5 pt-1">
+                      <div className="text-[11px] font-mono uppercase tracking-wider text-amber-400 font-bold flex items-center justify-between">
+                        <span>{t("Metas em Andamento", "Ongoing Goals")}</span>
+                      </div>
+                      {activeQuest.goals && activeQuest.goals.map((goal: QuestGoal) => {
+                        const met = goal.currentValue >= goal.targetValue;
+                        const pct = Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100));
+                        return (
+                          <div key={goal.id} className="bg-slate-950/60 p-2.5 rounded-lg border border-amber-900/50 space-y-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-slate-200 font-medium">{getGoalDescription(goal)}</span>
+                              <span className={`font-mono font-bold text-xs ${met ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                {goal.currentValue} / {goal.targetValue}
+                              </span>
+                            </div>
+                            <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  met ? 'bg-emerald-500' : 'bg-gradient-to-r from-orange-500 to-amber-400'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* All Available / In-Progress Quests List */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <ListTodo className="w-4 h-4 text-slate-400" />
+                    <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
+                      {t("Todas as Missões Ativas & Disponíveis", "All Active & Available Quests")}
+                    </h4>
+                  </div>
+
+                  {loadingQuests ? (
+                    <div className="py-8 text-center text-xs font-mono text-slate-400 animate-pulse flex flex-col items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-amber-400 animate-spin" />
+                      {t("Carregando missões do pergaminho...", "Loading scroll quests...")}
+                    </div>
+                  ) : allQuests.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-400 font-sans italic">
+                      {t("Nenhuma missão em andamento encontrada.", "No active quests found.")}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {allQuests.map((quest) => {
+                        const isCompleted = user?.completedQuestIds?.includes(quest.id) || quest.completed;
+                        const allGoalsMet = quest.goals?.every((g) => g.currentValue >= g.targetValue);
+
+                        return (
+                          <div
+                            key={quest.id}
+                            className={`p-3.5 rounded-xl border transition-all ${
+                              isCompleted
+                                ? 'bg-emerald-950/20 border-emerald-800/40 opacity-75'
+                                : allGoalsMet
+                                ? 'bg-amber-950/30 border-amber-500/60'
+                                : 'bg-slate-950/60 border-slate-800'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div>
+                                <h5 className="text-xs sm:text-sm font-bold text-slate-100 flex items-center gap-1.5">
+                                  {quest.title}
+                                  {isCompleted && (
+                                    <span className="text-[10px] font-mono px-2 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                                      Concluída
+                                    </span>
+                                  )}
+                                </h5>
+                                <p className="text-[11px] text-slate-400 line-clamp-2 mt-0.5">{quest.desc}</p>
+                              </div>
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 shrink-0">
+                                {quest.category || 'Ninja'}
+                              </span>
+                            </div>
+
+                            {/* Goal Progress Bars */}
+                            <div className="space-y-1.5 mt-2">
+                              {quest.goals && quest.goals.map((goal: QuestGoal) => {
+                                const met = goal.currentValue >= goal.targetValue;
+                                const pct = Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100));
+                                return (
+                                  <div key={goal.id} className="text-[11px] space-y-1">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-slate-300 text-[11px] font-sans">{getGoalDescription(goal)}</span>
+                                      <span className={`font-mono text-[10px] font-bold ${met ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                        {goal.currentValue} / {goal.targetValue}
+                                      </span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800/80">
+                                      <div
+                                        className={`h-full rounded-full transition-all duration-300 ${
+                                          met ? 'bg-emerald-500' : 'bg-amber-500'
+                                        }`}
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

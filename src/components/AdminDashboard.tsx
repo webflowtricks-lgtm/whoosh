@@ -23,6 +23,7 @@ const TARGET_OPTIONS = [
   { value: 'Target', label: 'Alvo Principal' },
   { value: 'Self', label: 'Conjurador (Mim)' },
   { value: 'Both', label: 'Ambos (Mim e Alvo)' },
+  { value: 'SelfAndAlly', label: 'Mim e um Aliado (à escolha)' },
   { value: 'Ally', label: 'Aliado (Outra Pessoa)' },
   { value: 'AllAllies', label: 'Toda Minha Equipe' },
   { value: 'AllEnemies', label: 'Todos os Inimigos' },
@@ -931,6 +932,135 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                     <div className="flex items-center gap-2.5">
                       <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
                         <Sparkles className="w-5 h-5" />
+                      </div>
+
+                      {/* Regras de Dano ao Usar Habilidade (Punição por Habilidade) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">
+                              ⚔️ Dano ao Usar Habilidade (Punição por Skill)
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Se o alvo/inimigo usar qualquer habilidade, sofrerá o dano configurado a cada uso durante os turnos definidos.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.onSkillUseDamageRules || [];
+                              handleUpdateSkillField('onSkillUseDamageRules', [
+                                ...current,
+                                { damage: 20, duration: 2, damageType: 'direct_damage', target: 'target', irremovable: false }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.onSkillUseDamageRules || editingSkill.onSkillUseDamageRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de dano ao usar habilidade configurada.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1.5">
+                            {editingSkill.onSkillUseDamageRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-slate-400 font-bold">Dano:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={500}
+                                  value={rule.damage}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damage: val };
+                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
+                                  }}
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-white outline-none text-[10px]"
+                                />
+
+                                <span className="text-slate-400 font-bold">Turnos:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={99}
+                                  value={rule.duration}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 1;
+                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], duration: val };
+                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
+                                  }}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-white outline-none text-[10px]"
+                                />
+
+                                <span className="text-slate-400 font-bold">Tipo:</span>
+                                <select
+                                  value={rule.damageType || 'direct_damage'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damageType: e.target.value as any };
+                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-amber-300 outline-none text-[10px]"
+                                >
+                                  <option value="direct_damage">🎯 Dano Direto</option>
+                                  <option value="damage">💥 Dano Normal</option>
+                                  <option value="piercing">🗡️ Dano Perfurante</option>
+                                  <option value="affliction">💀 Dano de Aflição</option>
+                                  <option value="bleeding">🩸 Sangramento</option>
+                                  <option value="dot">🔥 DoT</option>
+                                </select>
+
+                                <span className="text-slate-400 font-bold">Alvo:</span>
+                                <select
+                                  value={rule.target || 'target'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], target: e.target.value as any };
+                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-cyan-300 outline-none text-[10px]"
+                                >
+                                  <option value="target">Inimigo (Alvo)</option>
+                                  <option value="enemies">Todos os Inimigos</option>
+                                  <option value="self">Eu Mesmo</option>
+                                  <option value="allies">Todos os Aliados</option>
+                                </select>
+
+                                <label className="flex items-center gap-1.5 cursor-pointer bg-slate-900/80 px-2 py-1 rounded border border-slate-800/80">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!rule.irremovable}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.onSkillUseDamageRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], irremovable: e.target.checked };
+                                      handleUpdateSkillField('onSkillUseDamageRules', updated);
+                                    }}
+                                    className="accent-amber-500 rounded cursor-pointer"
+                                  />
+                                  <span className="text-[9px] text-slate-300 font-bold">Inremovível</span>
+                                </label>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.onSkillUseDamageRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('onSkillUseDamageRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-white uppercase font-mono tracking-wider">
@@ -1870,6 +2000,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                             <option value="Enemy">Inimigo Único</option>
                             <option value="Ally">Aliado Único</option>
                             <option value="Self">Próprio (Self)</option>
+                            <option value="SelfAndAlly">Mim e um Aliado (à escolha)</option>
                             <option value="AllEnemies">Todos os Inimigos</option>
                             <option value="AllAllies">Todos os Aliados</option>
                           </select>
@@ -1903,18 +2034,73 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                         </label>
                       </div>
 
-                      <div className="md:col-span-2">
-                        <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">Classes / Propriedades (Separadas por vírgula)</label>
-                        <input
-                          type="text"
-                          value={editingSkill.classes.join(', ')}
-                          onChange={(e) => {
-                            const list = e.target.value.split(',').map(s => s.trim()).filter(s => s !== '');
-                            handleUpdateSkillField('classes', list);
-                          }}
-                          placeholder="E.g. Chakra, Corpo a Corpo, Físico"
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
-                        />
+                      <div className="md:col-span-2 space-y-2.5 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-300 font-mono">
+                            Classes / Propriedades da Habilidade
+                          </label>
+                          <span className="text-[9px] text-slate-500 font-mono">Clique para selecionar / desmarcar</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {[
+                            { value: 'A distancia', label: '🎯 A distancia', color: 'border-cyan-500/60 text-cyan-300 bg-cyan-950/40 hover:bg-cyan-900/50' },
+                            { value: 'Chakra', label: '🌀 Chakra', color: 'border-blue-500/60 text-blue-300 bg-blue-950/40 hover:bg-blue-900/50' },
+                            { value: 'Mental', label: '🧠 Mental', color: 'border-pink-500/60 text-pink-300 bg-pink-950/40 hover:bg-pink-900/50' },
+                            { value: 'Físico', label: '⚔️ Físico', color: 'border-orange-500/60 text-orange-300 bg-orange-950/40 hover:bg-orange-900/50' },
+                            { value: 'Aflição', label: '🩸 Aflição', color: 'border-red-500/60 text-red-300 bg-red-950/40 hover:bg-red-900/50' },
+                            { value: 'Amigável', label: '🤝 Amigável', color: 'border-emerald-500/60 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/50' },
+                          ].map((item) => {
+                            const currentClasses = editingSkill.classes || [];
+                            const isSelected = currentClasses.some(c => 
+                              c.toLowerCase() === item.value.toLowerCase() || 
+                              (item.value === 'A distancia' && (c.toLowerCase().includes('distancia') || c.toLowerCase().includes('distância')))
+                            );
+                            return (
+                              <button
+                                key={item.value}
+                                type="button"
+                                onClick={() => {
+                                  let updated: string[];
+                                  if (isSelected) {
+                                    updated = currentClasses.filter(c => 
+                                      c.toLowerCase() !== item.value.toLowerCase() && 
+                                      !(item.value === 'A distancia' && (c.toLowerCase().includes('distancia') || c.toLowerCase().includes('distância')))
+                                    );
+                                  } else {
+                                    updated = [...currentClasses, item.value];
+                                  }
+                                  handleUpdateSkillField('classes', updated);
+                                }}
+                                className={`px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all flex items-center justify-between cursor-pointer ${
+                                  isSelected
+                                    ? `${item.color} shadow-md`
+                                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                                }`}
+                              >
+                                <span>{item.label}</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${isSelected ? 'bg-white/20 text-white' : 'text-slate-600'}`}>
+                                  {isSelected ? '✓' : '+'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="pt-1 border-t border-slate-800/60">
+                          <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1 font-mono">Outras classes / personalizadas (opcional):</label>
+                          <input
+                            type="text"
+                            value={editingSkill.classes.filter(c => !['a distancia', 'à distância', 'chakra', 'mental', 'físico', 'fisico', 'aflição', 'aflicao', 'amigável', 'amigavel'].includes(c.toLowerCase())).join(', ')}
+                            onChange={(e) => {
+                              const customList = e.target.value.split(',').map(s => s.trim()).filter(s => s !== '');
+                              const predefinedPresent = editingSkill.classes.filter(c => ['a distancia', 'à distância', 'chakra', 'mental', 'físico', 'fisico', 'aflição', 'aflicao', 'amigável', 'amigavel'].includes(c.toLowerCase()));
+                              handleUpdateSkillField('classes', [...predefinedPresent, ...customList]);
+                            }}
+                            placeholder="Ex: Corpo a Corpo, Invocação (separadas por vírgula)"
+                            className="w-full px-3 py-1.5 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-lg text-white outline-none text-xs transition-all font-mono"
+                          />
+                        </div>
                       </div>
 
                       <div className="md:col-span-2">
@@ -2201,6 +2387,135 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   onClick={() => {
                                     const updated = (editingSkill.damageRules || []).filter((_, i) => i !== rIdx);
                                     handleUpdateSkillField('damageRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Regras de Dano ao Usar Habilidade (Punição por Habilidade) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">
+                              ⚔️ Dano ao Usar Habilidade (Punição por Skill)
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Se o alvo/inimigo usar qualquer habilidade, sofrerá o dano configurado a cada uso durante os turnos definidos.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.onSkillUseDamageRules || [];
+                              handleUpdateSkillField('onSkillUseDamageRules', [
+                                ...current,
+                                { damage: 20, duration: 2, damageType: 'direct_damage', target: 'target', irremovable: false }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.onSkillUseDamageRules || editingSkill.onSkillUseDamageRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de dano ao usar habilidade configurada.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1.5">
+                            {editingSkill.onSkillUseDamageRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-slate-400 font-bold">Dano:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={500}
+                                  value={rule.damage}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damage: val };
+                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
+                                  }}
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-white outline-none text-[10px]"
+                                />
+
+                                <span className="text-slate-400 font-bold">Turnos:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={99}
+                                  value={rule.duration}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 1;
+                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], duration: val };
+                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
+                                  }}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-white outline-none text-[10px]"
+                                />
+
+                                <span className="text-slate-400 font-bold">Tipo:</span>
+                                <select
+                                  value={rule.damageType || 'direct_damage'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damageType: e.target.value as any };
+                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-amber-300 outline-none text-[10px]"
+                                >
+                                  <option value="direct_damage">🎯 Dano Direto</option>
+                                  <option value="damage">💥 Dano Normal</option>
+                                  <option value="piercing">🗡️ Dano Perfurante</option>
+                                  <option value="affliction">💀 Dano de Aflição</option>
+                                  <option value="bleeding">🩸 Sangramento</option>
+                                  <option value="dot">🔥 DoT</option>
+                                </select>
+
+                                <span className="text-slate-400 font-bold">Alvo:</span>
+                                <select
+                                  value={rule.target || 'target'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], target: e.target.value as any };
+                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-cyan-300 outline-none text-[10px]"
+                                >
+                                  <option value="target">Inimigo (Alvo)</option>
+                                  <option value="enemies">Todos os Inimigos</option>
+                                  <option value="self">Eu Mesmo</option>
+                                  <option value="allies">Todos os Aliados</option>
+                                </select>
+
+                                <label className="flex items-center gap-1.5 cursor-pointer bg-slate-900/80 px-2 py-1 rounded border border-slate-800/80">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!rule.irremovable}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.onSkillUseDamageRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], irremovable: e.target.checked };
+                                      handleUpdateSkillField('onSkillUseDamageRules', updated);
+                                    }}
+                                    className="accent-amber-500 rounded cursor-pointer"
+                                  />
+                                  <span className="text-[9px] text-slate-300 font-bold">Inremovível</span>
+                                </label>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.onSkillUseDamageRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('onSkillUseDamageRules', updated.length > 0 ? updated : undefined);
                                   }}
                                   className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer"
                                   title="Remover Regra"
@@ -3230,48 +3545,64 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        const allTypes: ('physical' | 'mental' | 'affliction' | 'chakra')[] = ['physical', 'mental', 'affliction', 'chakra'];
-                                        const isAllSelected = (editingSkill.stunType || []).length >= 4;
+                                        const allTypes = ['ranged', 'chakra', 'mental', 'physical', 'affliction', 'friendly'];
+                                        const isAllSelected = (editingSkill.stunType || []).length >= 6;
                                         handleUpdateSkillField('stunType', isAllSelected ? ['physical'] : allTypes);
                                       }}
                                       className="text-[9px] px-2 py-0.5 rounded bg-purple-900/50 hover:bg-purple-800 text-purple-300 font-mono font-bold border border-purple-700/60 transition-all cursor-pointer select-none"
                                     >
-                                      {(editingSkill.stunType || []).length >= 4 ? '❌ Desmarcar Todos' : '⚡ Stun Completo (Todos)'}
+                                      {(editingSkill.stunType || []).length >= 6 ? '❌ Desmarcar Todos' : '⚡ Stun Completo (Todos)'}
                                     </button>
                                   </div>
                                   <div className="grid grid-cols-2 gap-1.5">
                                     {[
-                                      { value: 'physical', label: '⚔️ Stun Físico', desc: 'Impacto marcial / corporal' },
-                                      { value: 'mental', label: '🧠 Stun Mental', desc: 'Genjutsu / efeito de ilusão' },
-                                      { value: 'affliction', label: '🩸 Stun Aflição', desc: 'Hemorragia / venenos / dor' },
-                                      { value: 'chakra', label: '🌀 Stun Chakra', desc: 'Selamento / corte de fluxo' },
+                                      { value: 'ranged', altVal: 'A distancia', label: '🎯 Stun A distancia', desc: 'Ataques à distância' },
+                                      { value: 'chakra', altVal: 'Chakra', label: '🌀 Stun Chakra', desc: 'Selamento / corte de fluxo' },
+                                      { value: 'mental', altVal: 'Mental', label: '🧠 Stun Mental', desc: 'Genjutsu / efeito de ilusão' },
+                                      { value: 'physical', altVal: 'Físico', label: '⚔️ Stun Físico', desc: 'Impacto marcial / corporal' },
+                                      { value: 'affliction', altVal: 'Aflição', label: '🩸 Stun Aflição', desc: 'Hemorragia / venenos / dor' },
+                                      { value: 'friendly', altVal: 'Amigável', label: '🤝 Stun Amigável', desc: 'Suporte / pacificação' },
                                     ].map((opt) => {
                                       const currentTypes = editingSkill.stunType || [];
-                                      const isSelected = currentTypes.includes(opt.value as any);
+                                      const isSelected = currentTypes.some(t => 
+                                        t.toLowerCase() === opt.value.toLowerCase() || 
+                                        t.toLowerCase() === opt.altVal.toLowerCase() ||
+                                        (opt.value === 'ranged' && (t.toLowerCase().includes('distancia') || t.toLowerCase().includes('distância')))
+                                      );
                                       return (
                                         <button
                                           key={opt.value}
                                           type="button"
                                           onClick={() => {
-                                            const updated = isSelected
-                                              ? currentTypes.filter(t => t !== opt.value)
-                                              : [...currentTypes, opt.value];
+                                            let updated: string[];
+                                            if (isSelected) {
+                                              updated = currentTypes.filter(t => 
+                                                t.toLowerCase() !== opt.value.toLowerCase() && 
+                                                t.toLowerCase() !== opt.altVal.toLowerCase() &&
+                                                !(opt.value === 'ranged' && (t.toLowerCase().includes('distancia') || t.toLowerCase().includes('distância')))
+                                              );
+                                            } else {
+                                              updated = [...currentTypes, opt.value];
+                                            }
                                             handleUpdateSkillField('stunType', updated);
                                           }}
-                                          className={`p-1.5 text-left rounded-lg border transition-all ${
+                                          className={`p-1.5 text-left rounded-lg border transition-all cursor-pointer ${
                                             isSelected
                                               ? 'bg-purple-950 border-purple-500 text-purple-200 font-bold shadow-md shadow-purple-950/60'
                                               : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
                                           }`}
                                         >
-                                          <div className="text-[10px] font-mono">{opt.label}</div>
+                                          <div className="text-[10px] font-mono flex items-center justify-between">
+                                            <span>{opt.label}</span>
+                                            <span className="text-[9px] font-bold">{isSelected ? '✓' : ''}</span>
+                                          </div>
                                           <div className="text-[8px] text-slate-500 font-mono leading-tight mt-0.5">{opt.desc}</div>
                                         </button>
                                       );
                                     })}
                                   </div>
                                   <div className="text-[9px] text-slate-400 font-mono leading-normal bg-purple-950/20 border border-purple-900/30 p-2 rounded-lg mt-1">
-                                    🎯 <span className="font-bold text-purple-300">Resumo:</span> Ao usar esta habilidade, o alvo receberá <span className="text-purple-400 font-bold font-mono">{editingSkill.stunTurns} {editingSkill.stunTurns === 1 ? 'turno' : 'turnos'}</span> de <span className="text-pink-400 font-bold font-mono uppercase">{(editingSkill.stunType && editingSkill.stunType.length > 0) ? editingSkill.stunType.map(t => t === 'physical' ? 'Físico' : t === 'mental' ? 'Mental' : t === 'affliction' ? 'Aflição' : 'Chakra').join(' + ') : 'Stun'}</span>.
+                                    🎯 <span className="font-bold text-purple-300">Resumo:</span> Ao usar esta habilidade, o alvo receberá <span className="text-purple-400 font-bold font-mono">{editingSkill.stunTurns} {editingSkill.stunTurns === 1 ? 'turno' : 'turnos'}</span> de <span className="text-pink-400 font-bold font-mono uppercase">{(editingSkill.stunType && editingSkill.stunType.length > 0) ? editingSkill.stunType.map(t => t === 'physical' ? 'Físico' : t === 'mental' ? 'Mental' : t === 'affliction' ? 'Aflição' : t === 'chakra' ? 'Chakra' : t === 'ranged' ? 'A distancia' : t === 'friendly' ? 'Amigável' : t).join(' + ') : 'Stun'}</span>.
                                   </div>
                                 </div>
                               )}
@@ -4754,22 +5085,10 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                             </div>
                           </div>
 
-                          {/* 21. Imortalidade (HP ≤ X) */}
+                          {/* 21. Imortalidade */}
                           <div className="space-y-1 bg-green-950/15 border border-green-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div>
-                              <label className="block text-[10px] font-bold uppercase tracking-wider text-green-400 font-mono">💪 Imortalidade (HP ≤ X)</label>
-                              <div className="flex items-center gap-2 mt-1">
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  value={editingSkill.immortalHpThreshold || ''}
-                                  onChange={(e) => handleUpdateSkillField('immortalHpThreshold', e.target.value ? parseInt(e.target.value) : undefined)}
-                                  placeholder="HP ≤"
-                                  className="w-16 px-2 py-1 bg-slate-900 border border-green-800/60 rounded text-center text-xs font-mono text-white font-bold"
-                                />
-                                <span className="text-[10px] text-slate-500 font-mono">HP mínimo para ativar</span>
-                              </div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-green-400 font-mono">💪 Imortalidade</label>
                               <div className="flex items-center gap-2 mt-1">
                                 <input
                                   type="number"
@@ -4780,7 +5099,30 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-green-800/60 rounded text-center text-xs font-mono text-white"
                                 />
-                                <span className="text-[10px] text-slate-500 font-mono">Duração em turnos (use ♾️ para permanente)</span>
+                                <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-2 pt-1 border-t border-green-800/30">
+                                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.immortalImmediate || false}
+                                    onChange={(e) => handleUpdateSkillField('immortalImmediate', e.target.checked)}
+                                    className="rounded bg-slate-950 border-green-800/60 text-green-500 focus:ring-0 w-4 h-4"
+                                  />
+                                  <span className="text-[10px] font-bold text-green-300 font-mono">Ativar ao usar a habilidade (Imediato)</span>
+                                </label>
+                              </div>
+                              <div className="flex items-center gap-2 mt-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={editingSkill.immortalHpThreshold || ''}
+                                  onChange={(e) => handleUpdateSkillField('immortalHpThreshold', e.target.value ? parseInt(e.target.value) : undefined)}
+                                  placeholder="HP ≤"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-green-800/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <span className="text-[10px] text-slate-500 font-mono">HP mínimo para ativar (Gatilho de HP)</span>
                               </div>
                             </div>
                           </div>
@@ -5018,6 +5360,187 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                 </div>
                               </div>
                             )}
+                          </div>
+
+                          {/* Remover Contra-Ataques / Refletir do Inimigo */}
+                          <div className="space-y-3 bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono">
+                                ⚔️ Remover Contra-Ataques & Refletir
+                              </label>
+                              <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
+                                <input
+                                  type="checkbox"
+                                  checked={editingSkill.removeCounterReflect || false}
+                                  onChange={(e) => handleUpdateSkillField('removeCounterReflect', e.target.checked)}
+                                  className="rounded bg-slate-950 border-slate-800 text-rose-500 focus:ring-0 w-3.5 h-3.5"
+                                />
+                                Remover Contra-Ataques/Refletir do alvo
+                              </label>
+
+                              {editingSkill.removeCounterReflect && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="space-y-2 pt-2 border-t border-slate-800/40 mt-1"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] text-rose-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                    <select
+                                      value={editingSkill.removeCounterReflectTarget || 'Target'}
+                                      onChange={(e) => handleUpdateSkillField('removeCounterReflectTarget', e.target.value)}
+                                      className="px-2 py-0.5 bg-slate-900 border border-rose-900/50 rounded text-[10px] font-mono text-rose-300 focus:border-rose-600 outline-none w-full max-w-[150px]"
+                                    >
+                                      {TARGET_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 23. Remover Debuffs (Purificação / Cleanse Multi-seleção) */}
+                          <div className="space-y-3 bg-emerald-950/20 border border-emerald-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400 font-mono">
+                                  ✨ Remover Debuffs (Purificação)
+                                </label>
+                                {(editingSkill.cleanseDebuffTypes || []).length > 0 || editingSkill.cleanseDebuffs ? (
+                                  <span className="text-[9px] bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold animate-pulse">
+                                    ⚡ ATIVO
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] bg-slate-800 border border-slate-700 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                                    Inativo
+                                  </span>
+                                )}
+                              </div>
+
+                              <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
+                                <input
+                                  type="checkbox"
+                                  checked={editingSkill.cleanseDebuffs || (editingSkill.cleanseDebuffTypes && editingSkill.cleanseDebuffTypes.length > 0) || false}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    handleUpdateSkillField('cleanseDebuffs', checked);
+                                    if (checked && (!editingSkill.cleanseDebuffTypes || editingSkill.cleanseDebuffTypes.length === 0)) {
+                                      handleUpdateSkillField('cleanseDebuffTypes', ['affliction', 'dot', 'bleeding']);
+                                    } else if (!checked) {
+                                      handleUpdateSkillField('cleanseDebuffTypes', []);
+                                    }
+                                  }}
+                                  className="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0 w-3.5 h-3.5"
+                                />
+                                Ativar Purificação / Remoção de Debuffs
+                              </label>
+
+                              {(editingSkill.cleanseDebuffs || (editingSkill.cleanseDebuffTypes && editingSkill.cleanseDebuffTypes.length > 0)) && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="space-y-2.5 pt-2 border-t border-emerald-900/30 mt-2"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] text-emerald-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                    <select
+                                      value={editingSkill.cleanseDebuffTarget || 'Self'}
+                                      onChange={(e) => handleUpdateSkillField('cleanseDebuffTarget', e.target.value)}
+                                      className="px-2 py-0.5 bg-slate-900 border border-emerald-900/50 rounded text-[10px] font-mono text-emerald-300 focus:border-emerald-600 outline-none w-full max-w-[160px]"
+                                    >
+                                      {TARGET_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">
+                                        Debuffs a Remover (Selecione 1 ou mais):
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const allTypes = ['affliction', 'dot', 'bleeding', 'stun', 'paralyze_cooldown', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage'];
+                                          const isAllSelected = (editingSkill.cleanseDebuffTypes || []).length >= allTypes.length;
+                                          handleUpdateSkillField('cleanseDebuffTypes', isAllSelected ? [] : allTypes);
+                                        }}
+                                        className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-900/50 hover:bg-emerald-800 text-emerald-300 font-mono font-bold border border-emerald-700/60 transition-all cursor-pointer"
+                                      >
+                                        {(editingSkill.cleanseDebuffTypes || []).length >= 10 ? '❌ Desmarcar Todos' : '⚡ Marcar Todos'}
+                                      </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                      {[
+                                        { value: 'affliction', label: '💜 Aflição', desc: 'Dano de aflição' },
+                                        { value: 'dot', label: '🔥 DoT / Queimadura', desc: 'Dano por turno' },
+                                        { value: 'bleeding', label: '🩸 Sangramento', desc: 'Hemorragia ativa' },
+                                        { value: 'stun', label: '⚡ Atordoamento', desc: 'Stuns / paralisias' },
+                                        { value: 'paralyze_cooldown', label: '⏳ Paralisar Cooldown', desc: 'Trava de recarga' },
+                                        { value: 'damage_debuff', label: '📉 Redução de Dano', desc: 'Debuff de dano' },
+                                        { value: 'cannot_reduce_damage', label: '🚫 Incapaz Reduzir', desc: 'Quebra de defesa' },
+                                        { value: 'cannot_be_invulnerable', label: '🛡️ Incapaz Invulnerável', desc: 'Bloqueio de esquiva' },
+                                        { value: 'cannot_receive_friendly', label: '🤝 Incapaz Amigável', desc: 'Bloqueio de cura/buff' },
+                                        { value: 'on_skill_use_damage', label: '⚔️ Punição por Skill', desc: 'Dano ao usar skill' },
+                                        { value: 'all_debuffs', label: '🌀 Purificação Total', desc: 'Remove QUALQUER debuff' },
+                                      ].map((opt) => {
+                                        const current = editingSkill.cleanseDebuffTypes || [];
+                                        const isSelected = current.includes(opt.value);
+                                        return (
+                                          <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => {
+                                              let updated: string[];
+                                              if (isSelected) {
+                                                updated = current.filter(t => t !== opt.value);
+                                              } else {
+                                                updated = [...current, opt.value];
+                                              }
+                                              handleUpdateSkillField('cleanseDebuffTypes', updated);
+                                            }}
+                                            className={`p-1.5 text-left rounded-lg border transition-all cursor-pointer ${
+                                              isSelected
+                                                ? 'bg-emerald-950 border-emerald-500 text-emerald-200 font-bold shadow-md shadow-emerald-950/60'
+                                                : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                                            }`}
+                                          >
+                                            <div className="text-[10px] font-mono flex items-center justify-between">
+                                              <span>{opt.label}</span>
+                                              <span className="text-[9px] font-bold">{isSelected ? '✓' : ''}</span>
+                                            </div>
+                                            <div className="text-[8px] text-slate-500 font-mono leading-tight mt-0.5">{opt.desc}</div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+
+                                    {(editingSkill.cleanseDebuffTypes || []).length > 0 && (
+                                      <div className="text-[9px] text-emerald-300 font-mono leading-normal bg-emerald-950/30 border border-emerald-900/40 p-2 rounded-lg mt-2">
+                                        ✨ <span className="font-bold">Resumo:</span> Remove <span className="font-bold text-white uppercase">{(editingSkill.cleanseDebuffTypes || []).map(t => {
+                                          if (t === 'affliction') return 'Aflição';
+                                          if (t === 'dot') return 'DoT';
+                                          if (t === 'bleeding') return 'Sangramento';
+                                          if (t === 'stun') return 'Stun';
+                                          if (t === 'paralyze_cooldown') return 'Paralisar Cooldown';
+                                          if (t === 'damage_debuff') return 'Redução de Dano';
+                                          if (t === 'cannot_reduce_damage') return 'Incapaz Reduzir Dano';
+                                          if (t === 'cannot_be_invulnerable') return 'Incapaz Invulnerável';
+                                          if (t === 'cannot_receive_friendly') return 'Incapaz Receber Amigável';
+                                          if (t === 'on_skill_use_damage') return 'Punição por Skill';
+                                          if (t === 'all_debuffs') return 'Purificação Total';
+                                          return t;
+                                        }).join(', ')}</span> do alvo.
+                                      </div>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </div>
                           </div>
 
                         </div>

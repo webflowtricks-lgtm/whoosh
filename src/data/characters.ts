@@ -13723,30 +13723,31 @@ export const CHARACTERS: Character[] = [
     "folder": "young-kakashi",
     "skills": [
       {
-        "name": "Lightning Blade",
-        "desc": "Young Kakashi executa [Lightning Blade], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
+        "name": "Amateur Raikiri",
+        "desc": "Young Kakashi causa 20 de dano perfurante a um inimigo. Por 1 turno, as habilidades desse inimigo que não sejam da classe de aflição causarão 5 de dano a menos. Até o final do seu próximo turno, as habilidades de Kakashi causarão 5 de dano adicional. Se esta habilidade eliminar um inimigo, as habilidades de Kakashi passarão a causar 5 de dano adicional permanentemente.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/young-kakashi/LightningBlade.jpg",
         "cost": [
-          "Tai"
+          "Nin"
         ],
         "cooldown": 1,
         "currentCooldown": 0,
         "targetType": "Enemy",
         "classes": [
-          "Mental",
-          "À Distância"
-        ]
+          "Physical",
+          "Melee"
+        ],
+        "directDamage": 20
       },
       {
-        "name": "Sharingan",
-        "desc": "Young Kakashi ativa [Sharingan], concentrando seu chakra para ganhar 20 de Escudo por 3 turnos ou obter vantagens táticas no combate.",
+        "name": "Implanted Sharingan",
+        "desc": "Kakashi mira em um inimigo. Por 2 turnos: se esse inimigo for usar uma habilidade que cause stun, as habilidades de Kakashi causarão stun completo por 1 turno. Se esse inimigo for usar uma habilidade que cause dano, as habilidades de Kakashi causarão 10 de dano adicional por 1 turno.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/young-kakashi/Sharingan.jpg",
         "cost": [
           "Rand"
         ],
-        "cooldown": 3,
+        "cooldown": 2,
         "currentCooldown": 0,
-        "targetType": "Self",
+        "targetType": "Enemy",
         "classes": [
           "Chakra"
         ]
@@ -13767,7 +13768,7 @@ export const CHARACTERS: Character[] = [
       },
       {
         "name": "White Light Blade",
-        "desc": "Young Kakashi executa [White Light Blade], desferindo um golpe poderoso que causa 40 de dano ao oponente selecionado.",
+        "desc": "Young Kakashi causa 40 de dano a um oponente. Por 1 turno, as habilidades desse inimigo que não sejam da classe de aflição causarão 5 de dano a menos. Até o final do seu próximo turno, as habilidades de Kakashi causarão 5 de dano adicional. Se esta habilidade eliminar um inimigo, as habilidades de Kakashi passarão a causar 5 de dano adicional permanentemente.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/young-kakashi/WhiteLightBlade.jpg",
         "cost": [
           "Nin"
@@ -13778,7 +13779,8 @@ export const CHARACTERS: Character[] = [
         "classes": [
           "Chakra",
           "Corpo a Corpo"
-        ]
+        ],
+        "directDamage": 40
       }
     ]
   },

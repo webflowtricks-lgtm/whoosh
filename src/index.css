@@ -31,14 +31,15 @@
 }
 
 html, body {
-  min-width: 1080px;
-  overflow-x: auto;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
   cursor: url('/static/img/icon/kunai.webp'), auto !important;
 }
 
 #root {
-  min-width: 1080px;
   width: 100%;
+  min-height: 100%;
 }
 
 .pergaminho_personagem_detalhes {
@@ -173,8 +174,14 @@ html, body {
 }
 
 .main-area {
-  padding-left: 60px;
-  padding-right: 60px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+@media (min-width: 1024px) {
+  .main-area {
+    padding-left: 48px;
+    padding-right: 48px;
+  }
 }
 
 /* GPU Performance Acceleration */
@@ -333,26 +340,51 @@ e-squad-name {
    ARENA BATTLE BOARD LAYOUT & COLUMN WIDTH CONFIGURATION
    ========================================================= */
 :root {
-  /* LARGURA DA COLUNA CENTRAL (CHAKRA, LOGS E CONTROLES DE TURNO)
-     Altere o valor em pixels abaixo (ex: 280px, 300px, 320px, 350px) para ajustar a coluna central */
+  /* LARGURA DA COLUNA CENTRAL (CHAKRA, LOGS E CONTROLES DE TURNO) */
   --battle-center-col-width: 290px;
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --battle-center-col-width: clamp(210px, 28vw, 260px);
+  }
+}
+
+/* =========================================================
+   POSIÇÕES DOS NÚMEROS DE CHAKRA NOS CILINDROS DA ARENA (.turnoss)
+   ========================================================= */
+.chakra-number-tai {
+  left: 13.0%;
+}
+
+.chakra-number-blood {
+  left: 37.0%;
+}
+
+.chakra-number-nin {
+  left: 60.1%;
+}
+
+.chakra-number-gen {
+  left: 84.4%;
 }
 
 .battle-arena-layout {
   display: grid;
-  grid-template-columns: 1fr var(--battle-center-col-width) 1fr;
-  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr) var(--battle-center-col-width) minmax(0, 1fr);
+  gap: 0.75rem;
   align-items: start;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1024px) {
   .battle-arena-layout {
-    grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
 }
 
 .battle-left-squad {
   width: 100%;
+  min-width: 0;
 }
 
 .battle-center-squad {
@@ -362,4 +394,5 @@ e-squad-name {
 
 .battle-right-squad {
   width: 100%;
+  min-width: 0;
 }

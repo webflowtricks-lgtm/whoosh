@@ -547,27 +547,42 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   const char = charList.find(c => c.id === charId);
 
                   return (
-                    <div
+                    <button
                       key={idx}
-                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg border-2 overflow-hidden flex items-center justify-center transition-all ${
-                        char ? 'border-amber-800 bg-amber-950/30 shadow-md ring-1 ring-amber-700/50' : 'border-dashed border-amber-900/40 bg-amber-950/10'
+                      type="button"
+                      onClick={() => {
+                        if (char) {
+                          playClickSound();
+                          setSelectedIds(prev => prev.filter(id => id !== char.id));
+                        }
+                      }}
+                      title={char ? `${char.name} (${t("Clique para remover", "Click to remove")})` : `Slot ${idx + 1}`}
+                      className={`group relative w-12 h-12 sm:w-14 sm:h-14 rounded-lg border-2 overflow-hidden flex items-center justify-center transition-all ${
+                        char
+                          ? 'border-amber-800 bg-amber-950/30 shadow-md ring-1 ring-amber-700/50 cursor-pointer hover:border-red-500 hover:ring-2 hover:ring-red-500/80 active:scale-95'
+                          : 'border-dashed border-amber-900/40 bg-amber-950/10 cursor-default'
                       }`}
                     >
                       {char ? (
-                        <img 
-                          src={char.portrait || null} 
-                          alt={char.name} 
-                          decoding="async"
-                          loading="eager"
-                          className="w-full h-full object-cover" 
-                          onError={(e) => {
-                            e.currentTarget.style.opacity = '0.3';
-                          }}
-                        />
+                        <>
+                          <img 
+                            src={char.portrait || null} 
+                            alt={char.name} 
+                            decoding="async"
+                            loading="eager"
+                            className="w-full h-full object-cover transition-all group-hover:brightness-75" 
+                            onError={(e) => {
+                              e.currentTarget.style.opacity = '0.3';
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-red-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <X className="w-5 h-5 text-red-400 drop-shadow" />
+                          </div>
+                        </>
                       ) : (
                         <span className="text-amber-900/60 text-[10px] sm:text-xs font-bold font-mono">Slot</span>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1095,9 +1110,19 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
                             <div className="flex-1 min-w-0 space-y-0.5">
                               <div className="flex justify-between items-start gap-1.5">
-                                <span className="font-extrabold text-xs sm:text-sm text-amber-950 font-sans tracking-tight truncate drop-shadow-sm">
-                                  {translatedSkillName}
-                                </span>
+                                <div className="group relative inline-block max-w-full">
+                                  <span 
+                                    className="font-extrabold text-xs sm:text-sm text-amber-950 font-sans tracking-tight truncate drop-shadow-sm cursor-help block"
+                                    title={translatedSkillName}
+                                  >
+                                    {translatedSkillName}
+                                  </span>
+                                  <div className="absolute top-full left-0 mt-1 hidden group-hover:flex flex-col bg-amber-950 text-amber-100 border border-amber-800/80 p-2 rounded-lg shadow-2xl z-[100] pointer-events-none whitespace-normal min-w-[160px] max-w-[260px]">
+                                    <span className="text-xs font-black text-amber-200 font-sans tracking-tight">
+                                      {translatedSkillName}
+                                    </span>
+                                  </div>
+                                </div>
                                 <div className="flex-shrink-0 bg-amber-950/10 px-1 py-0.5 rounded border border-amber-900/20">
                                   {renderChakraCosts(skill.cost)}
                                 </div>

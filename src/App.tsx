@@ -446,6 +446,7 @@ export default function App() {
             isSandbox={isSandbox}
             restoredState={restoredState}
             onBattleEnd={handleBattleEnd}
+            activeQuest={activeQuest}
           />
         )}
 

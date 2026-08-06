@@ -77,6 +77,10 @@ export async function saveCharacters(characters: Character[]): Promise<Character
     console.warn("Failed to save characters to localStorage quota:", e);
   }
 
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return enriched;
+  }
+
   try {
     const res = await fetch('/api/characters', {
       method: 'POST',
@@ -84,10 +88,10 @@ export async function saveCharacters(characters: Character[]): Promise<Character
       body: JSON.stringify({ characters: enriched }),
     });
     if (!res.ok) {
-      console.error('Failed to sync characters to server:', res.statusText);
+      console.warn('Failed to sync characters to server:', res.statusText);
     }
   } catch (err) {
-    console.error('Failed to sync characters to server:', err);
+    console.warn('Failed to sync characters to server:', err);
   }
 
   return enriched;
@@ -101,6 +105,10 @@ export async function resetToDefaultCharacters(): Promise<Character[]> {
     console.warn("Failed to save default characters to localStorage quota:", e);
   }
 
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return enriched;
+  }
+
   try {
     const res = await fetch('/api/characters', {
       method: 'POST',
@@ -108,10 +116,10 @@ export async function resetToDefaultCharacters(): Promise<Character[]> {
       body: JSON.stringify({ characters: enriched }),
     });
     if (!res.ok) {
-      console.error('Failed to reset characters on server:', res.statusText);
+      console.warn('Failed to reset characters on server:', res.statusText);
     }
   } catch (err) {
-    console.error('Failed to reset characters on server:', err);
+    console.warn('Failed to reset characters on server:', err);
   }
 
   return enriched;

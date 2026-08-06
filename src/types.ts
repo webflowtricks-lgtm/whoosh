@@ -30,6 +30,14 @@ export interface SkillDamageRule {
   ignoreBaseDamage?: boolean; // Se true, ignora o dano base/direto normal da habilidade quando a regra é ativada
 }
 
+export interface SkillOnSkillUseDamageRule {
+  damage: number; // Dano sofrido ao usar qualquer habilidade
+  duration: number; // Duração em turnos do efeito de punição
+  damageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'bleeding' | 'dot'; // Tipo de dano
+  target?: 'target' | 'self' | 'enemies' | 'allies'; // Alvo que recebe a regra (padrão: 'target')
+  irremovable?: boolean; // Se não pode ser removido por cleanse
+}
+
 export interface SkillChakraRemoveRule {
   activeSkillName: string; // Active skill/effect required on any combatant
   removeAmount: number; // Quantity of chakra to remove from enemy stock when condition is active
@@ -78,6 +86,7 @@ export interface Skill {
   cost: ChakraType[];
   costRules?: SkillCostRule[];
   damageRules?: SkillDamageRule[];
+  onSkillUseDamageRules?: SkillOnSkillUseDamageRule[];
   chakraRemoveRules?: SkillChakraRemoveRule[];
   healRules?: SkillHealRule[];
   costRuleActiveSkill?: string;
@@ -86,20 +95,22 @@ export interface Skill {
   costRuleReduceSpecificAmount?: number;
   cooldown: number; // max cooldown
   currentCooldown: number; // remaining cooldown turns
-  targetType: 'Enemy' | 'Ally' | 'Self' | 'AllEnemies' | 'AllAllies';
+  targetType: 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies';
   classes: string[]; // ['Physical', 'Melee', 'Chakra', etc.]
   requireEffect?: string; // e.g. "Shadow Clones"
   requirePreviousSkill?: string; // Skill name that must have been used on the previous turn
   requireHpBelow?: number; // HP threshold below which the skill can be used (0-100)
   immortalHpThreshold?: number; // When HP ≤ this value, character becomes immortal (can't die)
   immortalDuration?: number; // How many turns the immortality lasts
+  immortalImmediate?: boolean; // If true, immortality activates immediately upon using the skill
   
   // Custom Dynamic Effects (configured from the Admin Dashboard)
+  customEffects?: any[];
   damage?: number;
   directDamage?: number;
   heal?: number;
   stunTurns?: number;
-  stunType?: ('mental' | 'physical' | 'affliction' | 'chakra')[];
+  stunType?: ('mental' | 'physical' | 'affliction' | 'chakra' | 'ranged' | 'friendly' | string)[];
   shieldVal?: number;
   shieldDuration?: number;
   damageReductionVal?: number;
@@ -114,6 +125,8 @@ export interface Skill {
   dotInstant?: number;
   removeShield?: boolean;
   removeShieldDuration?: number;
+  removeCounterReflect?: boolean;
+  removeCounterReflectTarget?: TargetOverride;
   invulnerableDuration?: number;
   gainChakra?: number;
   gainChakraDuration?: number;
@@ -175,6 +188,10 @@ export interface Skill {
   drainChakraTarget?: TargetOverride;
   removeChakraTarget?: TargetOverride;
   stealChakraTarget?: TargetOverride;
+
+  cleanseDebuffs?: boolean;
+  cleanseDebuffTypes?: string[];
+  cleanseDebuffTarget?: TargetOverride;
 
   // Remove effect types overrides (cleanse)
   damageRemoveType?: string;
@@ -383,12 +400,14 @@ export interface ActiveEffect {
 | 'damage_debuff'
 | 'retaliate_damage'
 | 'immortal'
-| 'reveal_invisible';
+| 'reveal_invisible'
+| 'on_skill_use_damage';
   value?: number; // magnitude of shield, reduction, damage, etc.
   duration: number; // remaining turns
+  damageType?: string;
   icon?: string; // Icon of the skill that caused this effect/debuff
   sourceSkillName?: string; // Base skill name for grouping debuffs
-  stunType?: ('mental' | 'physical' | 'affliction' | 'chakra')[];
+  stunType?: ('mental' | 'physical' | 'affliction' | 'chakra' | 'ranged' | 'friendly' | string)[];
   irremovable?: boolean;
   cannotBeCountered?: boolean;
   cannotBeReflected?: boolean;
@@ -416,6 +435,8 @@ export interface ActiveEffect {
   retaliateTargetScope?: 'self' | 'ally' | 'self_or_ally' | 'team';
   retaliateTriggerMode?: 'always' | 'first_only';
   retaliateTriggeredCount?: number;
+  excludeAffliction?: boolean;
+  permanent?: boolean;
 }
 
 export interface CombatCharacter {
@@ -554,6 +575,7 @@ export interface Quest {
   desc: string;
   coverUrl: string; // Capa de foto da missão
   minRank: 'Estudante de Academia' | 'Genin' | 'Chunin' | 'Jonin' | 'ANBU' | 'Hokage'; // Requisitos
+  category?: string;
   requiredQuestIds: string[]; // Missões necessárias para estar liberada
   goals: QuestGoal[];
   rewards: QuestReward[];
