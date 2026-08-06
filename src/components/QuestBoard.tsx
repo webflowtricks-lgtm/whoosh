@@ -87,6 +87,8 @@ export default function QuestBoard({
   const [claimedRewardId, setClaimedRewardId] = useState<string | null>(null);
 
   // Modals state
+  const [expandedDesc, setExpandedDesc] = useState<Record<string, boolean>>({});
+  const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
   const [showEventsModal, setShowEventsModal] = useState(false);
   const [showShopModal, setShowShopModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -294,7 +296,7 @@ export default function QuestBoard({
 
   return (
     <div className="quest-div-pai min-h-screen w-full relative">
-      <div className="absolute inset-0 bg-slate-950/75 pointer-events-none z-0" />
+      <div className="absolute inset-0 pointer-events-none z-0" />
 
       {/* Interactive Modals inside the Arena/Quartel Shinobi Hub */}
       <AnimatePresence>
@@ -816,16 +818,26 @@ export default function QuestBoard({
                       {/* Quest Body / Content */}
                       <div className="p-4 space-y-4 flex-1 flex flex-col justify-between">
                         <div className="space-y-4">
-                          <p className="text-xs text-slate-400 leading-relaxed font-sans">
-                            {quest.desc}
-                          </p>
+                          <div>
+                            <p className={`text-xs text-slate-400 leading-relaxed font-sans ${!expandedDesc[quest.id] ? 'line-clamp-3' : ''}`}>
+                              {quest.desc}
+                            </p>
+                            {quest.desc.length > 200 && (
+                              <button
+                                onClick={() => setExpandedDesc(prev => ({ ...prev, [quest.id]: !prev[quest.id] }))}
+                                className="text-[10px] font-mono uppercase tracking-wider text-orange-400 hover:text-orange-300 transition-colors cursor-pointer -mt-0.5"
+                              >
+                                {expandedDesc[quest.id] ? 'Ver menos' : 'Ler tudo'}
+                              </button>
+                            )}
+                          </div>
 
                           {/* Goals Checklist */}
                           <div className="space-y-3">
                             <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold border-b border-slate-800 pb-1 flex justify-between">
                               <span>Metas da Missão</span>
                             </div>
-                            {quest.goals.map((goal) => {
+                            {quest.goals.slice(0, expandedGoals[quest.id] ? quest.goals.length : 3).map((goal) => {
                               const met = goal.currentValue >= goal.targetValue;
                               const pct = Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100));
                               
@@ -854,6 +866,14 @@ export default function QuestBoard({
                                 </div>
                               );
                             })}
+                            {quest.goals.length > 3 && (
+                              <button
+                                onClick={() => setExpandedGoals(prev => ({ ...prev, [quest.id]: !prev[quest.id] }))}
+                                className="text-[10px] font-mono uppercase tracking-wider text-orange-400 hover:text-orange-300 transition-colors cursor-pointer"
+                              >
+                                {expandedGoals[quest.id] ? 'Ver menos' : `Ver todas (${quest.goals.length})`}
+                              </button>
+                            )}
                           </div>
 
                           {/* Rewards */}

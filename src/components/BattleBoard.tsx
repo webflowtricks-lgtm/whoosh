@@ -746,6 +746,7 @@ export default function BattleBoard({
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
   const [allQuests, setAllQuests] = useState<Quest[]>([]);
   const [loadingQuests, setLoadingQuests] = useState(false);
+  const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (isQuestModalOpen) {
@@ -4097,9 +4098,9 @@ const handleTradeChakra = () => {
 
       // Immortal effect: Immediate activation upon skill use OR when HP ≤ threshold
       const isImmortalByImmediate = (skill.immortalDuration && skill.immortalDuration > 0) && (skill.immortalImmediate || (!skill.immortalHpThreshold && skill.immortalImmediate !== false));
-      const isImmortalByThreshold = skill.immortalHpThreshold && skill.immortalHpThreshold > 0 && source.health <= skill.immortalHpThreshold;
+      const isImmortalByThreshold = skill.immortalHpThreshold && skill.immortalHpThreshold > 0 && source.health <= skill.immortalHpThreshold && source.activeEffects.some(e => e.name.startsWith(skill.name));
       if (isImmortalByImmediate || isImmortalByThreshold) {
-        const immDuration = skill.permanent ? 99999 : (skill.immortalDuration || 3);
+        const immDuration = skill.immortalDuration || 3;
         const alreadyImmortal = source.activeEffects.some(e => e.type === 'immortal');
         if (!alreadyImmortal) {
           pushActiveEffect(source, {
@@ -4112,7 +4113,7 @@ const handleTradeChakra = () => {
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `💪 ${source.character.name} ativou IMORTALIDADE por ${immDuration === 99999 ? 'permanente' : `${immDuration} turnos`}!`,
+            message: `💪 ${source.character.name} ativou IMORTALIDADE por ${immDuration} turnos!`,
             type: 'buff',
           });
           addFloatingText(source.id, '💪 IMORTAL', 'effect');
@@ -4388,8 +4389,9 @@ const handleTradeChakra = () => {
         }
         // Activate immortality if HP drops below threshold
         const immSkill = c.character.skills.find(s => s.immortalHpThreshold && s.immortalHpThreshold > 0 && c.health <= s.immortalHpThreshold);
-        if (immSkill && !c.activeEffects.some(e => e.type === 'immortal')) {
-          const immDur = immSkill.permanent ? 99999 : (immSkill.immortalDuration || 3);
+        const skillEffectActive = immSkill ? c.activeEffects.some(e => e.name.startsWith(immSkill.name)) : false;
+        if (immSkill && !c.activeEffects.some(e => e.type === 'immortal') && skillEffectActive) {
+          const immDur = immSkill.immortalDuration || 3;
           pushActiveEffect(c, {
             name: `${immSkill.name} (Imortal)`,
             type: 'immortal',
@@ -4616,8 +4618,9 @@ const handleTradeChakra = () => {
       combatantList.forEach(c => {
         if (c.isDead) return;
         const immortalSkill = c.character.skills.find(s => s.immortalHpThreshold && s.immortalHpThreshold > 0 && c.health <= s.immortalHpThreshold);
-        if (immortalSkill && !c.activeEffects.some(e => e.type === 'immortal')) {
-          const immDuration = immortalSkill.permanent ? 99999 : (immortalSkill.immortalDuration || 3);
+        const skillEffectActive = immortalSkill ? c.activeEffects.some(e => e.name.startsWith(immortalSkill.name)) : false;
+        if (immortalSkill && !c.activeEffects.some(e => e.type === 'immortal') && skillEffectActive) {
+          const immDuration = immortalSkill.immortalDuration || 3;
           pushActiveEffect(c, {
             name: `${immortalSkill.name} (Imortal)`,
             type: 'immortal',
@@ -8422,19 +8425,6 @@ if (skill.retaliateDamage) {
         {/* Background Pergaminho Image */}
         
         <div className="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-10 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            {gameOver && (
-              <button
-                onClick={handleQuit}
-                className="p-2 hover:bg-[#c49a5d] bg-[#d3ad75]/90 rounded-xl border border-[#7a4e25] text-stone-950 transition-all cursor-pointer shadow"
-                title="Sair do Combate"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-            )}
-            {/* Left side quit button when game over */}
-          </div>
-
           <div className="flex items-center gap-2 sm:gap-4">
             {/* Render-se button */}
             {!gameOver && (
@@ -8461,6 +8451,18 @@ if (skill.retaliateDamage) {
               <span className="hidden sm:inline text-xs font-black uppercase tracking-wider">{t("Missões", "Quests")}</span>
             </button>
 
+            {gameOver && (
+              <button
+                onClick={handleQuit}
+                className="p-2 hover:bg-[#c49a5d] bg-[#d3ad75]/90 rounded-xl border border-[#7a4e25] text-stone-950 transition-all cursor-pointer shadow"
+                title="Sair do Combate"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-4">
             {/* Music/Sound Toggle */}
             <button
               onClick={() => {
@@ -11092,7 +11094,7 @@ if (skill.retaliateDamage) {
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
                     <ListTodo className="w-4 h-4 text-slate-400" />
                     <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
-                      {t("Todas as Missões Ativas & Disponíveis", "All Active & Available Quests")}
+                      {t("Missões em Andamento", "Quests in Progress")}
                     </h4>
                   </div>
 
@@ -11107,17 +11109,16 @@ if (skill.retaliateDamage) {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {allQuests.map((quest) => {
-                        const isCompleted = user?.completedQuestIds?.includes(quest.id) || quest.completed;
+                      {allQuests
+                        .filter((quest) => !(user?.completedQuestIds?.includes(quest.id) || quest.completed))
+                        .map((quest) => {
                         const allGoalsMet = quest.goals?.every((g) => g.currentValue >= g.targetValue);
 
                         return (
                           <div
                             key={quest.id}
                             className={`p-3.5 rounded-xl border transition-all ${
-                              isCompleted
-                                ? 'bg-emerald-950/20 border-emerald-800/40 opacity-75'
-                                : allGoalsMet
+                              allGoalsMet
                                 ? 'bg-amber-950/30 border-amber-500/60'
                                 : 'bg-slate-950/60 border-slate-800'
                             }`}
@@ -11126,11 +11127,6 @@ if (skill.retaliateDamage) {
                               <div>
                                 <h5 className="text-xs sm:text-sm font-bold text-slate-100 flex items-center gap-1.5">
                                   {quest.title}
-                                  {isCompleted && (
-                                    <span className="text-[10px] font-mono px-2 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                                      Concluída
-                                    </span>
-                                  )}
                                 </h5>
                                 <p className="text-[11px] text-slate-400 line-clamp-2 mt-0.5">{quest.desc}</p>
                               </div>
@@ -11141,7 +11137,7 @@ if (skill.retaliateDamage) {
 
                             {/* Goal Progress Bars */}
                             <div className="space-y-1.5 mt-2">
-                              {quest.goals && quest.goals.map((goal: QuestGoal) => {
+                              {quest.goals && quest.goals.slice(0, expandedGoals[quest.id] ? quest.goals.length : 3).map((goal: QuestGoal) => {
                                 const met = goal.currentValue >= goal.targetValue;
                                 const pct = Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100));
                                 return (
@@ -11163,6 +11159,14 @@ if (skill.retaliateDamage) {
                                   </div>
                                 );
                               })}
+                              {quest.goals && quest.goals.length > 3 && (
+                                <button
+                                  onClick={() => setExpandedGoals(prev => ({ ...prev, [quest.id]: !prev[quest.id] }))}
+                                  className="text-[10px] font-mono uppercase tracking-wider text-orange-400 hover:text-orange-300 transition-colors cursor-pointer"
+                                >
+                                  {expandedGoals[quest.id] ? 'Ver menos' : `Ver todas (${quest.goals.length})`}
+                                </button>
+                              )}
                             </div>
                           </div>
                         );

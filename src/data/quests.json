@@ -2,7 +2,7 @@
   {
     "id": "quest_1784869393005",
     "title": "O Último Espelho de Gelo",
-    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
+    "desc": "A gifted individual, and having been trained by Zabuza himself, Haku was a very dangerous, and powerful ninja for his age. According to Zabuza, Haku possessed such prodigious talent that in many ways, Haku had become more dangerous than him.",
     "coverUrl": "https://wallpapercat.com/w/full/6/0/8/2150088-1920x1080-desktop-1080p-haku-wallpaper-photo.jpg",
     "minRank": "Estudante de Academia",
     "requiredQuestIds": [],
@@ -10,14 +10,25 @@
       {
         "id": "goal_1784869393005_1",
         "type": "win_battles_with_chars",
-        "targetValue": 3,
+        "targetValue": 5,
         "currentValue": 3,
         "singleMatch": false,
         "targetCharacters": [
-          "Naruto Uzumaki",
+          "Naruto Uzumaki"
+        ],
+        "currentStreak": 0,
+        "targetSkill": ""
+      },
+      {
+        "id": "goal_1786040155794_2",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
           "Sasuke Uchiha"
         ],
-        "currentStreak": 0
+        "targetSkill": "",
+        "targetValue": 5,
+        "currentValue": 0,
+        "singleMatch": false
       }
     ],
     "rewards": [
@@ -29,127 +40,197 @@
     "completed": true
   },
   {
-    "id": "quest_1784869393597",
-    "title": "Nova Missão Lendária 2",
-    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
-    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
+    "id": "quest_1786039551209",
+    "title": "Heiress of the Hyuga Clan",
+    "desc": "While unseen to what level, Hiashi noted that Hanabi showed much more potential than her elder sister Hinata, and was more suited for the role of heiress of the Hyūga clan. Her growth-rate greatly impressed her entire clan, making many wonder if she should be the heiress before it was even brought into official question. In later years, her talent was further shown as while still training to become the heiress, she also became a teacher for Team 15, proving her abilities to multitask.",
+    "coverUrl": "https://i.ibb.co/bjv8rb2d/Untitled-2.webp",
     "minRank": "Estudante de Academia",
     "requiredQuestIds": [],
     "goals": [
       {
-        "id": "goal_1784869393597_1",
+        "id": "goal_1786039551209_1",
         "type": "win_battles_with_chars",
         "targetCharacters": [
-          "Uzumaki Naruto",
-          "Sasuke Uchiha"
+          "Neji Hyuga"
         ],
         "targetValue": 5,
-        "currentValue": 0,
-        "currentStreak": 0
-      }
-    ],
-    "rewards": [
-      {
-        "type": "title",
-        "value": "Guerreiro do Amanhecer"
-      }
-    ],
-    "completed": false
-  },
-  {
-    "id": "quest_1784869394116",
-    "title": "Nova Missão Lendária",
-    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
-    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
-    "minRank": "Estudante de Academia",
-    "requiredQuestIds": [],
-    "goals": [
-      {
-        "id": "goal_1784869394116_1",
-        "type": "win_battles_with_chars",
-        "targetCharacters": [
-          "Uzumaki Naruto"
-        ],
-        "targetValue": 5,
-        "currentValue": 0,
-        "currentStreak": 0
-      }
-    ],
-    "rewards": [
-      {
-        "type": "title",
-        "value": "Guerreiro do Amanhecer"
-      }
-    ],
-    "completed": false
-  },
-  {
-    "id": "quest_1784869394404",
-    "title": "Nova Missão Lendária",
-    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
-    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
-    "minRank": "Estudante de Academia",
-    "requiredQuestIds": [],
-    "goals": [
-      {
-        "id": "goal_1784869394404_1",
-        "type": "win_battles_with_chars",
-        "targetCharacters": [
-          "Uzumaki Naruto"
-        ],
-        "targetValue": 5,
-        "currentValue": 0,
-        "currentStreak": 0
-      }
-    ],
-    "rewards": [
-      {
-        "type": "title",
-        "value": "Guerreiro do Amanhecer"
-      }
-    ],
-    "completed": false
-  },
-  {
-    "id": "quest_1784887518979",
-    "title": "kakashi",
-    "desc": "Descreva os objetivos épicos desta missão para os shinobis.",
-    "coverUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg",
-    "minRank": "Estudante de Academia",
-    "requiredQuestIds": [],
-    "goals": [
-      {
-        "id": "goal_1784887518979_1",
-        "type": "win_battles_with_chars",
-        "targetCharacters": [
-          "Sasuke Uchiha",
-          "Sakura Haruno"
-        ],
-        "targetValue": 5,
-        "currentValue": 3,
-        "currentStreak": 0
+        "currentValue": 0
       },
       {
-        "id": "goal_1784889181561_2",
-        "type": "shield",
-        "targetValue": 500,
-        "currentValue": 60,
-        "singleMatch": false,
-        "currentStreak": 0
-      },
-      {
-        "id": "goal_1784889202714_3",
-        "type": "damage_dealt",
-        "targetValue": 500,
-        "currentValue": 500,
-        "singleMatch": false,
-        "currentStreak": 0
+        "id": "goal_1786039716489_2",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Hinata Hyuga"
+        ],
+        "targetSkill": "",
+        "targetValue": 5,
+        "currentValue": 0,
+        "singleMatch": false
       }
     ],
     "rewards": [
       {
-        "type": "title",
-        "value": "Guerreiro do Amanhecer"
+        "type": "unlock_character",
+        "value": "Hyuga Hanabi"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "quest_1786040199522",
+    "title": " Sand Siblings",
+    "desc": "The Three Sand Siblings is the collective name for the children of Sunagakure's Fourth Kazekage: Temari, Kankurō and Gaara. Having undergone the gruelling training of their village, these three are regarded as elite shinobi of their village that excel in long-range combat.",
+    "coverUrl": "https://i.ibb.co/xtf08VVz/gaara.webp",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1786040199522_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Kiba Inuzuka"
+        ],
+        "targetValue": 3,
+        "currentValue": 0
+      },
+      {
+        "id": "goal_1786040464755_2",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Shino Aburame"
+        ],
+        "targetSkill": "",
+        "targetValue": 4,
+        "currentValue": 0,
+        "singleMatch": false
+      },
+      {
+        "id": "goal_1786040480786_3",
+        "type": "use_skill",
+        "targetSkill": "Smoke Bomb Escape",
+        "targetValue": 3,
+        "currentValue": 0,
+        "singleMatch": false
+      },
+      {
+        "id": "goal_1786040518996_4",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Hinata Hyuga"
+        ],
+        "targetSkill": "",
+        "targetValue": 3,
+        "currentValue": 0,
+        "singleMatch": false
+      },
+      {
+        "id": "goal_1786040662748_5",
+        "type": "use_skill",
+        "targetSkill": "Insect Clone",
+        "targetValue": 3,
+        "currentValue": 0,
+        "singleMatch": false
+      },
+      {
+        "id": "goal_1786040694186_6",
+        "type": "use_skill",
+        "targetSkill": "Guardian Rotation",
+        "targetValue": 3,
+        "currentValue": 0,
+        "singleMatch": false
+      }
+    ],
+    "rewards": [
+      {
+        "type": "unlock_character",
+        "value": "Gaara of the Sand"
+      },
+      {
+        "type": "unlock_character",
+        "value": "Temari"
+      },
+      {
+        "type": "unlock_character",
+        "value": "Kankuro"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "quest_1786041548484",
+    "title": "The Mission of The Team Dosu",
+    "desc": "Though instructed to kill Sasuke Uchiha in the Forest of Death, the three were actually sent by Orochimaru to test his potential host's abilities and barely survived Sasuke when he was under the influence of the Cursed Seal of Heaven. Since then, though he fared well in the exams while Kin and Zaku lost in their respective matches with Shikamaru Nara and Shino Aburame, Dosu realised that they outlived their usefulness and are now disposable.",
+    "coverUrl": "https://i.ibb.co/WvnzXqNt/3-3.webp",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1786041548484_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Choji Akimichi"
+        ],
+        "targetValue": 3,
+        "currentValue": 0
+      },
+      {
+        "id": "goal_1786041652644_2",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Shino Aburame"
+        ],
+        "targetSkill": "",
+        "targetValue": 5,
+        "currentValue": 0,
+        "singleMatch": false
+      },
+      {
+        "id": "goal_1786041662283_3",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Shikamaru Nara"
+        ],
+        "targetSkill": "",
+        "targetValue": 5,
+        "currentValue": 0,
+        "singleMatch": false
+      }
+    ],
+    "rewards": [
+      {
+        "type": "unlock_character",
+        "value": "Dosu Kinuta"
+      },
+      {
+        "type": "unlock_character",
+        "value": "Zaku Abumi"
+      },
+      {
+        "type": "unlock_character",
+        "value": "Kin Tsuchi"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "quest_1786041796915",
+    "title": "Focusing on Sensing",
+    "desc": "Karin took part in the Chūnin Exams held in Konoha on a team. During the second phase, Karin lost track of her teammates and was attacked by a large bear. She was saved by Sasuke Uchiha, who was disappointed to find she had an earth scroll as well, but she was able to catch a good glimpse of him, as he smiled at her.",
+    "coverUrl": "https://i.ibb.co/xq6R9rPR/4-2.webp",
+    "minRank": "Estudante de Academia",
+    "requiredQuestIds": [],
+    "goals": [
+      {
+        "id": "goal_1786041796915_1",
+        "type": "heal",
+        "targetValue": 150,
+        "currentValue": 0
+      }
+    ],
+    "rewards": [
+      {
+        "type": "unlock_character",
+        "value": "Young Karin"
       }
     ],
     "completed": false
