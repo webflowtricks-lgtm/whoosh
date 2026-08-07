@@ -742,6 +742,15 @@ export default function BattleBoard({
 }: BattleBoardProps) {
   const { t, language } = useLanguage();
 
+  const ranksList = useMemo(() => getRanks(), []);
+  const playerXp = user?.xp || 0;
+  const playerRankProgress = useMemo(() => getRankProgress(playerXp, ranksList), [playerXp, ranksList]);
+  const playerCurrentRank = playerRankProgress.currentRank;
+
+  const opponentXp = onlineParams?.isOnline ? (onlineParams.opponentProfile?.xp || 0) : 0;
+  const opponentRankProgress = useMemo(() => getRankProgress(opponentXp, ranksList), [opponentXp, ranksList]);
+  const opponentCurrentRank = opponentRankProgress.currentRank;
+
   // In-Game Quest Modal States
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
   const [allQuests, setAllQuests] = useState<Quest[]>([]);
@@ -8554,6 +8563,9 @@ if (skill.retaliateDamage) {
                   equippedFrame: user.equippedFrame,
                   equippedFrameUrl: user.equippedFrameUrl,
                   equippedBannerUrl: user.equippedBannerUrl,
+                  equippedBannerPositionY: user.equippedBannerPositionY,
+                  equippedBannerPositionX: user.equippedBannerPositionX,
+                  equippedShowcaseSkinUrl: user.equippedShowcaseSkinUrl,
                   xp: Math.max(0, user.xp || 0),
                   rank: user.rank,
                   wins: user.wins || 0,
@@ -8571,16 +8583,17 @@ if (skill.retaliateDamage) {
               <img
                 src={user.equippedBannerUrl || null}
                 alt=""
-                className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none rounded-2xl"
+                className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none rounded-2xl z-0"
+                style={{ objectPosition: `${user.equippedBannerPositionX ?? 50}% ${user.equippedBannerPositionY ?? 50}%` }}
                 referrerPolicy="no-referrer"
               />
             )}
-            {user.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-slate-900/10 to-transparent pointer-events-none rounded-2xl" />}
+            {user.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/50 to-slate-900/20 pointer-events-none rounded-2xl z-0" />}
             {/* Background absolute flare */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-600/5 rounded-full blur-2xl group-hover:bg-orange-600/10 transition-all pointer-events-none" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-600/5 rounded-full blur-2xl group-hover:bg-orange-600/10 transition-all pointer-events-none z-0" />
             
-            {/* Avatar container with high fidelity glow and frame overlay */}
-            <div className="relative w-14 h-14 flex-shrink-0">
+            {/* Avatar container with high fidelity glow and frame overlay (Foreground z-10) */}
+            <div className="relative z-10 w-14 h-14 flex-shrink-0">
               <div className="absolute inset-0 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
               <div className="relative w-full h-full rounded-full border-2 border-orange-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
                 <img
@@ -8599,21 +8612,43 @@ if (skill.retaliateDamage) {
               )}
             </div>
 
-            {/* Profile Info details */}
-            <div className="flex-1 text-left">
-              <p className="text-xs font-mono text-orange-400 font-black uppercase tracking-wider mb-0.5">
+            {/* Profile Info details (Foreground z-10 above banner) */}
+            <div className="relative z-10 flex-1 text-left">
+              <p className="text-xs font-mono text-orange-400 font-black uppercase tracking-wider mb-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
                 {user.title || 'Shinobi'}
               </p>
-              <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center gap-1.5 font-display group-hover:text-orange-400 transition-colors">
+              <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center gap-1.5 font-display group-hover:text-orange-400 transition-colors drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)]">
                 {user.name}
               </h4>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] font-mono text-slate-400">@{user.username}</span>
-                <span className="text-[10px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-900/90 border border-amber-500/40 text-amber-300">
-                  {user.title || (user as any).rank || 'Genin'}
-                </span>
-                <span className="w-1 h-1 bg-slate-600 rounded-full" />
-                <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-full flex items-center gap-1 shadow">
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                {(() => {
+                  const r = playerCurrentRank;
+                  const isNone = !r.color || r.color === 'none';
+                  const bgClass = isNone
+                    ? ''
+                    : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
+                  return (
+                    <span
+                      className={`px-2 py-0.5 rounded-lg border text-[10px] font-mono font-black uppercase tracking-wider shadow-md flex items-center gap-1.5 overflow-hidden relative ${bgClass}`}
+                      style={{
+                        ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
+                        color: r.fontColor || '#ffffff'
+                      }}
+                    >
+                      {r.imageUrl && (
+                        <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                      )}
+                      {r.iconUrl ? (
+                        <img src={r.iconUrl} alt="" className="w-3 h-3 object-contain relative z-10" />
+                      ) : (
+                        <Award className="w-3 h-3 relative z-10 text-amber-300" />
+                      )}
+                      <span className="relative z-10">{r.name}</span>
+                    </span>
+                  );
+                })()}
+                <span className="w-1 h-1 bg-slate-500 rounded-full" />
+                <span className="text-[10px] font-mono font-bold text-amber-300 bg-amber-950/90 border border-amber-500/60 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
                   ⚡ Chakra: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
                 </span>
               </div>
@@ -9529,6 +9564,9 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                   equippedFrame: opp?.equippedFrame,
                   equippedFrameUrl: opp?.equippedFrameUrl,
                   equippedBannerUrl: opp?.equippedBannerUrl,
+                  equippedBannerPositionY: opp?.equippedBannerPositionY,
+                  equippedBannerPositionX: opp?.equippedBannerPositionX,
+                  equippedShowcaseSkinUrl: opp?.equippedShowcaseSkinUrl,
                   isBot: !isOnline,
                   xp: opp?.xp || 1500,
                   rank: opp?.rank || 'Anbu',
@@ -9547,16 +9585,17 @@ onClick={() => handleSelectTarget(combatant.id, false)}
               <img
                 src={onlineParams.opponentProfile.equippedBannerUrl || null}
                 alt=""
-                className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none rounded-2xl"
+                className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none rounded-2xl z-0"
+                style={{ objectPosition: `${onlineParams.opponentProfile.equippedBannerPositionX ?? 50}% ${onlineParams.opponentProfile.equippedBannerPositionY ?? 50}%` }}
                 referrerPolicy="no-referrer"
               />
             )}
-            {onlineParams?.isOnline && onlineParams.opponentProfile?.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-slate-900/10 to-transparent pointer-events-none rounded-2xl" />}
+            {onlineParams?.isOnline && onlineParams.opponentProfile?.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/50 to-slate-900/20 pointer-events-none rounded-2xl z-0" />}
             {/* Background absolute flare */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/5 rounded-full blur-2xl group-hover:bg-red-600/10 transition-all pointer-events-none" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/5 rounded-full blur-2xl group-hover:bg-red-600/10 transition-all pointer-events-none z-0" />
             
-            {/* Avatar container with high fidelity glow and frame overlay */}
-            <div className="relative w-14 h-14 flex-shrink-0">
+            {/* Avatar container with high fidelity glow and frame overlay (Foreground z-10) */}
+            <div className="relative z-10 w-14 h-14 flex-shrink-0">
               <div className="absolute inset-0 bg-gradient-to-tr from-red-600 to-rose-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
               <div className="relative w-full h-full rounded-full border-2 border-red-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
                 <img
@@ -9580,21 +9619,43 @@ onClick={() => handleSelectTarget(combatant.id, false)}
               </div>
             </div>
 
-            {/* Profile Info details */}
-            <div className="flex-1 text-right">
-              <p className="text-xs font-mono text-red-400 font-black uppercase tracking-wider mb-0.5">
+            {/* Profile Info details (Foreground z-10 above banner) */}
+            <div className="relative z-10 flex-1 text-right">
+              <p className="text-xs font-mono text-red-400 font-black uppercase tracking-wider mb-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
                 {onlineParams?.isOnline ? (onlineParams.opponentProfile.title || 'Oponente') : 'Renegado S-Rank'}
               </p>
-              <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center justify-end gap-1.5 font-display group-hover:text-red-400 transition-colors">
+              <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center justify-end gap-1.5 font-display group-hover:text-red-400 transition-colors drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)]">
                 {onlineParams?.isOnline ? onlineParams.opponentProfile.name : 'I.A. Kakashi'}
               </h4>
-              <div className="flex items-center justify-end gap-2 mt-0.5">
-                <span className="text-[10px] font-mono text-slate-400">@{onlineParams?.isOnline ? onlineParams.opponentProfile.username : 'treinamento'}</span>
-                <span className="text-[10px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-900/90 border border-red-500/40 text-red-300">
-                  {onlineParams?.isOnline ? (onlineParams.opponentProfile.title || 'Genin') : 'Renegado'}
-                </span>
-                <span className="w-1 h-1 bg-slate-600 rounded-full" />
-                <span className="text-[10px] font-mono font-bold text-red-400 bg-red-950/60 border border-red-500/40 px-2 py-0.5 rounded-full flex items-center gap-1 shadow">
+              <div className="flex items-center justify-end gap-2 mt-0.5 flex-wrap">
+                {(() => {
+                  const r = opponentCurrentRank;
+                  const isNone = !r.color || r.color === 'none';
+                  const bgClass = isNone
+                    ? ''
+                    : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
+                  return (
+                    <span
+                      className={`px-2 py-0.5 rounded-lg border text-[10px] font-mono font-black uppercase tracking-wider shadow-md flex items-center justify-end gap-1.5 overflow-hidden relative ${bgClass}`}
+                      style={{
+                        ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
+                        color: r.fontColor || '#ffffff'
+                      }}
+                    >
+                      {r.imageUrl && (
+                        <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                      )}
+                      {r.iconUrl ? (
+                        <img src={r.iconUrl} alt="" className="w-3 h-3 object-contain relative z-10" />
+                      ) : (
+                        <Award className="w-3 h-3 relative z-10 text-red-300" />
+                      )}
+                      <span className="relative z-10">{r.name}</span>
+                    </span>
+                  );
+                })()}
+                <span className="w-1 h-1 bg-slate-500 rounded-full" />
+                <span className="text-[10px] font-mono font-bold text-red-300 bg-red-950/90 border border-red-500/60 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
                   ⚡ Chakra: {Object.values(enemyChakra).reduce((a, b) => a + b, 0)}
                 </span>
               </div>
@@ -11101,7 +11162,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                         return (
                           <div key={goal.id} className="bg-slate-950/60 p-2.5 rounded-lg border border-amber-900/50 space-y-1.5">
                             <div className="flex justify-between items-center text-xs">
-                              <span className="text-slate-200 font-medium">{getGoalDescription(goal, skillOwnerMap)}</span>
+                              <span className="text-slate-200 font-medium">{getGoalDescription(goal)}</span>
                               <span className={`font-mono font-bold text-xs ${met ? 'text-emerald-400' : 'text-amber-400'}`}>
                                 {goal.currentValue} / {goal.targetValue}
                               </span>
@@ -11175,7 +11236,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                 return (
                                   <div key={goal.id} className="text-[11px] space-y-1">
                                     <div className="flex justify-between items-center">
-                                      <span className="text-slate-300 text-[11px] font-sans">{getGoalDescription(goal, skillOwnerMap)}</span>
+                                      <span className="text-slate-300 text-[11px] font-sans">{getGoalDescription(goal)}</span>
                                       <span className={`font-mono text-[10px] font-bold ${met ? 'text-emerald-400' : 'text-amber-400'}`}>
                                         {goal.currentValue} / {goal.targetValue}
                                       </span>
@@ -11213,5 +11274,5 @@ onClick={() => handleSelectTarget(combatant.id, true)}
       </AnimatePresence>
     </div>
   );
-}
+} 
  

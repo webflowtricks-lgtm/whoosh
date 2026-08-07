@@ -10,6 +10,8 @@ export interface RankConfig {
   name: string;
   requiredXp: number;
   color: string;
+  bgColor?: string;
+  iconUrl?: string;
   imageUrl?: string;
   fontColor?: string;
 }
@@ -22,6 +24,7 @@ export interface RankGradientPreset {
 
 export const RANK_GRADIENT_PRESETS: RankGradientPreset[] = [
   // Clássicos
+  { name: '🚫 Sem Degradê (Apenas Cor de Fundo)', category: 'Clássicos', value: 'none' },
   { name: 'Cinza (Estudante)', category: 'Clássicos', value: 'from-slate-500 to-slate-400 border-slate-500/30 text-white' },
   { name: 'Verde (Genin)', category: 'Clássicos', value: 'from-emerald-600 to-teal-500 border-emerald-500/30 text-white' },
   { name: 'Azul (Chunin)', category: 'Clássicos', value: 'from-blue-600 to-cyan-500 border-blue-500/30 text-white' },

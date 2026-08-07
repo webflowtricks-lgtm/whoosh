@@ -13,18 +13,18 @@ import { Quest, QuestGoal, QuestReward, Character } from '../types';
 import { getCharacters } from '../lib/characterStorage';
 import { getGoalDescription } from '../lib/questUtils';
 import { safeFetchJson } from '../lib/api';
+import { RankConfig, getRanks, fetchRanksFromServer } from '../lib/rankStorage';
 
 interface QuestAdminProps {
   onBack: () => void;
   playClickSound: () => void;
 }
 
-const RANKS = ['Estudante de Academia', 'Genin', 'Chunin', 'Jonin', 'ANBU', 'Hokage'] as const;
-
 export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedQuestId, setSelectedQuestId] = useState<string>('');
+  const [ranksList, setRanksList] = useState<RankConfig[]>(getRanks());
   
   // Feedback
   const [success, setSuccess] = useState('');
@@ -68,9 +68,10 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
   const [rewardCharInput, setRewardCharInput] = useState('');
   const [showRewardCharSuggestions, setShowRewardCharSuggestions] = useState(false);
 
-  // Fetch quests and characters on mount
+  // Fetch quests, ranks and characters on mount
   useEffect(() => {
     fetchQuests();
+    fetchRanksFromServer().then(r => setRanksList(r));
     const loadedChars = getCharacters();
     setCharacters(loadedChars);
     
@@ -157,7 +158,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
       title: 'Nova Missão Lendária',
       desc: 'Descreva os objetivos épicos desta missão para os shinobis.',
       coverUrl: 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/portrait.jpg',
-      minRank: 'Estudante de Academia',
+      minRank: (ranksList[0]?.name || 'Estudante de Academia') as any,
       requiredQuestIds: [],
       goals: [
         {
@@ -559,8 +560,10 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                     onChange={(e) => updateQuestField('minRank', e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs focus:border-orange-500/50 focus:outline-none text-white font-mono"
                   >
-                    {RANKS.map(rank => (
-                      <option key={rank} value={rank}>{rank}</option>
+                    {ranksList.map(rankObj => (
+                      <option key={rankObj.id || rankObj.name} value={rankObj.name}>
+                        {rankObj.name} (Requer {rankObj.requiredXp} XP)
+                      </option>
                     ))}
                   </select>
                 </div>

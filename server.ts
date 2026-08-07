@@ -99,6 +99,40 @@ async function startServer() {
     res.json({ success: true, user: { username: user.username, name: user.name, photoUrl: user.photoUrl } });
   });
 
+  app.post("/api/auth/google", (req, res) => {
+    const { googleId, email, name, photoUrl } = req.body;
+    if (!googleId && !email) {
+      return res.status(400).json({ error: "Dados do Google inválidos." });
+    }
+
+    const users = readJSON<any[]>(USERS_FILE, []);
+    let rawUsername = email ? email.split("@")[0] : `google_${googleId}`;
+    let cleanUsername = rawUsername.toLowerCase().replace(/[^a-z0-9_]/g, "_");
+
+    let user = users.find((u) => u.googleId === googleId || u.username === cleanUsername || (email && u.email === email));
+
+    if (!user) {
+      user = {
+        username: cleanUsername,
+        password: "",
+        googleId: googleId,
+        email: email,
+        name: name || cleanUsername,
+        photoUrl: photoUrl || "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+      };
+      users.push(user);
+      writeJSON(USERS_FILE, users);
+    } else {
+      if (name) user.name = name;
+      if (photoUrl) user.photoUrl = photoUrl;
+      if (googleId) user.googleId = googleId;
+      if (email) user.email = email;
+      writeJSON(USERS_FILE, users);
+    }
+
+    res.json({ success: true, user });
+  });
+
   app.put("/api/user/profile", (req, res) => {
     const { username, name, photoUrl, xp, rank, wins, losses, ryos, gems, title, equippedFrame, equippedFrameUrl, equippedBannerUrl } = req.body;
     if (!username) {

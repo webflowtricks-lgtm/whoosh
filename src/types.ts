@@ -491,6 +491,9 @@ export interface UserProfile {
   unlockedBanners?: string[];
   unlockedBannerUrls?: string[];
   equippedBannerUrl?: string;
+  equippedBannerPositionY?: number;
+  equippedBannerPositionX?: number;
+  equippedShowcaseSkinUrl?: string;
   claimedEventRewardIds?: string[];
 }
 

@@ -81,6 +81,7 @@ export default function QuestBoard({
 }: QuestBoardProps) {
   const { t } = useLanguage();
   const [quests, setQuests] = useState<Quest[]>([]);
+  const [ranksList, setRanksList] = useState<RankConfig[]>(getRanks());
   const [loading, setLoading] = useState(true);
   const [mainTab, setMainTab] = useState<'missoes' | 'perfil'>('missoes');
   const [activeTab, setActiveTab] = useState<'available' | 'completed' | 'all'>('available');
@@ -114,6 +115,7 @@ export default function QuestBoard({
 
   useEffect(() => {
     fetchQuests();
+    fetchRanksFromServer().then(r => setRanksList(r));
   }, []);
 
   const fetchQuests = async () => {
@@ -136,16 +138,19 @@ export default function QuestBoard({
     }
   };
 
-  const completedCount = user.completedQuestIds?.length || 0;
-  const currentRank = getUserRank(completedCount);
+  const currentRank = getUserRankFromConfig(user.xp || 0, ranksList);
 
   // Check if a quest is locked based on minRank and requiredQuestIds
   const isQuestLocked = (quest: Quest): { locked: boolean; reason?: string } => {
-    const ranks = ['Estudante da Academia', 'Genin', 'Chunin', 'Jonin', 'ANBU', 'Hokage'];
-    const playerRankIndex = ranks.indexOf(currentRank);
-    const requiredRankIndex = ranks.indexOf(quest.minRank);
+    const playerRankName = getUserRankFromConfig(user.xp || 0, ranksList);
+    const playerRankIdx = ranksList.findIndex(r => r.name.toLowerCase() === playerRankName.toLowerCase());
+    const requiredRankIdx = ranksList.findIndex(r => r.name.toLowerCase() === (quest.minRank || '').toLowerCase());
+    const requiredRankObj = ranksList.find(r => r.name.toLowerCase() === (quest.minRank || '').toLowerCase());
+    const userXp = Math.max(0, user.xp || 0);
 
-    if (playerRankIndex < requiredRankIndex) {
+    if (requiredRankObj && userXp < requiredRankObj.requiredXp) {
+      return { locked: true, reason: `Requer Rank: ${quest.minRank}` };
+    } else if (requiredRankIdx !== -1 && playerRankIdx !== -1 && playerRankIdx < requiredRankIdx) {
       return { locked: true, reason: `Requer Rank: ${quest.minRank}` };
     }
 
@@ -301,7 +306,7 @@ export default function QuestBoard({
   };
 
   // Filter lists
-  const RANK_LIST = ['Estudante de Academia', 'Genin', 'Chunin', 'Jonin', 'ANBU', 'Hokage'];
+  const RANK_LIST = ranksList.map(r => r.name);
   const filteredQuests = quests.filter(quest => {
     const isCompleted = user.completedQuestIds?.includes(quest.id) || quest.completed;
     if (activeTab === 'completed') return isCompleted;
@@ -594,7 +599,7 @@ export default function QuestBoard({
 
         {/* Center: User Quick Profile & Wallet Widget */}
         {(() => {
-          const ranks = getRanks();
+          const ranks = ranksList;
           const userXp = Math.max(0, user.xp || 0);
           const rankProgress = getRankProgress(userXp, ranks);
 
@@ -629,9 +634,32 @@ export default function QuestBoard({
               <div className="text-left leading-tight">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-xs font-black text-slate-200 group-hover:text-orange-400">{user.name}</span>
-                  <span className={`px-1.5 py-0.2 rounded bg-gradient-to-r text-[9px] font-mono font-extrabold uppercase shadow ${rankProgress.currentRank.color}`} style={{ color: '#ffffff' }}>
-                    {rankProgress.currentRank.name}
-                  </span>
+                  {(() => {
+                    const r = rankProgress.currentRank;
+                    const isNone = !r.color || r.color === 'none';
+                    const bgClass = isNone
+                      ? ''
+                      : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
+                    return (
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-extrabold uppercase shadow flex items-center gap-1 overflow-hidden relative ${bgClass}`}
+                        style={{
+                          ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
+                          color: r.fontColor || '#ffffff'
+                        }}
+                      >
+                        {r.imageUrl && (
+                          <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                        )}
+                        {r.iconUrl ? (
+                          <img src={r.iconUrl} alt="" className="w-2.5 h-2.5 object-contain relative z-10" />
+                        ) : (
+                          <Award className="w-2.5 h-2.5 relative z-10" />
+                        )}
+                        <span className="relative z-10">{r.name}</span>
+                      </span>
+                    );
+                  })()}
                   <span className="text-[9px] font-mono font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 shadow-sm flex items-center gap-0.5">
                     <Sparkles className="w-2.5 h-2.5 text-amber-300 inline" />
                     {userXp.toLocaleString()} XP
@@ -838,19 +866,6 @@ export default function QuestBoard({
                         </div>
                       </div>
 
-                      {/* Rank requirement label (fora do overflow-hidden para transbordar) */}
-                      <div className="absolute -top-2 -left-2 px-2.5 py-1 rounded-lg text-[10px] font-mono uppercase tracking-wider font-bold shadow-md z-20">
-                        <div className="relative flex items-center gap-1.5 rounded-lg">
-                          {(() => {
-                            const allRanks = getRanks();
-                            const r = allRanks.find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase());
-                            if (r?.imageUrl) return <img src={r.imageUrl || null} alt="" className="rank-bg-img absolute" />;
-                            return null;
-                          })()}
-                          <span className="relative z-10 rank-board-name" style={{ color: (() => { const r = getRanks().find(rr => rr.name === quest.minRank || rr.name.toLowerCase() === quest.minRank.toLowerCase()); return r?.fontColor || '#ffffff'; })() }}>{quest.minRank}</span>
-                        </div>
-                      </div>
-
                       {/* Quest Body / Content */}
                       <div className="p-4 space-y-4 flex-1 flex flex-col justify-between">
                         <div className="space-y-4">
@@ -870,8 +885,37 @@ export default function QuestBoard({
 
                           {/* Goals Checklist */}
                           <div className="space-y-3">
-                            <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold border-b border-slate-800 pb-1 flex justify-between">
+                            <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold border-b border-slate-800 pb-1.5 flex justify-between items-center">
                               <span>Metas da Missão</span>
+                              {(() => {
+                                if (!quest.minRank) return null;
+                                const qRankLower = quest.minRank.trim().toLowerCase();
+                                const r = ranksList.find(rr => {
+                                  const nameLower = rr.name.trim().toLowerCase();
+                                  return nameLower === qRankLower || nameLower.includes(qRankLower) || qRankLower.includes(nameLower);
+                                });
+                                const isNone = !r?.color || r.color === 'none';
+                                const bgClass = isNone
+                                  ? 'bg-slate-800 text-slate-200 border border-slate-700'
+                                  : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
+                                return (
+                                  <div
+                                    className={`px-2.5 py-0.5 rounded-lg text-[10px] font-mono uppercase tracking-wider font-extrabold shadow-md flex items-center gap-1.5 overflow-hidden relative ${bgClass}`}
+                                    style={{
+                                      ...(r?.bgColor ? { backgroundColor: r.bgColor } : {}),
+                                      color: r?.fontColor || '#ffffff'
+                                    }}
+                                  >
+                                    {r?.imageUrl && <img src={r.imageUrl} alt="" className="rank-bg-img absolute inset-0 w-full h-full object-cover opacity-40" />}
+                                    {r?.iconUrl ? (
+                                      <img src={r.iconUrl} alt="" className="w-3.5 h-3.5 object-contain relative z-10" />
+                                    ) : (
+                                      <Award className="w-3.5 h-3.5 relative z-10" />
+                                    )}
+                                    <span className="relative z-10">{r?.name || quest.minRank}</span>
+                                  </div>
+                                );
+                              })()}
                             </div>
                             {quest.goals.slice(0, expandedGoals[quest.id] ? quest.goals.length : 3).map((goal) => {
                               const met = goal.currentValue >= goal.targetValue;
@@ -881,7 +925,7 @@ export default function QuestBoard({
                                 <div key={goal.id} className="space-y-1.5">
                                   <div className="flex justify-between items-start text-xs">
                                     <span className="text-slate-300 font-medium">
-                                      {getGoalDescription(goal, skillOwnerMap)}
+                                      {getGoalDescription(goal)}
                                     </span>
                                     <span className={`font-mono font-bold text-[11px] ${met ? 'text-emerald-400' : 'text-orange-400'}`}>
                                       {goal.currentValue} / {goal.targetValue}
@@ -1017,6 +1061,9 @@ export default function QuestBoard({
             />
 
             {/* Card Content (Parchment Styled Dark Text) */}
+            {(() => {
+              const completedCount = quests.filter(q => q.completed || user.completedQuestIds?.includes(q.id)).length;
+              return (
             <div className="relative z-10 px-10 sm:px-12 py-10 flex flex-col justify-between h-full min-h-[220px]">
               {/* Top Section: Avatar + Name Info */}
               <div className="flex items-center gap-3.5">
@@ -1053,14 +1100,30 @@ export default function QuestBoard({
               {/* Middle Section: Rank Box */}
               <div className="my-2 pt-2 border-t border-stone-900/20">
                 <div className="flex items-center gap-3">
-                  <div className="relative px-3 py-1 bg-[#d3ad75]/80 border-2 border-[#7a4e25] rounded-md text-stone-950 font-black text-xs uppercase tracking-wider shadow-sm">
-                    {(() => {
-                      const allRanks = getRanks();
-                      const r = allRanks.find(rr => rr.name === currentRank || rr.name.toLowerCase() === currentRank.toLowerCase());
-                      return r?.imageUrl ? <img src={r.imageUrl || null} alt="" className="rank-bg-img absolute inset-0 w-full h-full object-cover opacity-40" /> : null;
-                    })()}
-                    <span className="relative z-10" style={{ color: (() => { const r = getRanks().find(rr => rr.name === currentRank || rr.name.toLowerCase() === currentRank.toLowerCase()); return r?.fontColor || '#ffffff'; })() }}>{currentRank}</span>
-                  </div>
+                  {(() => {
+                    const r = ranksList.find(rr => rr.name === currentRank || rr.name.toLowerCase() === currentRank.toLowerCase());
+                    const isNone = !r?.color || r.color === 'none';
+                    const bgClass = isNone
+                      ? ''
+                      : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
+                    return (
+                      <div
+                        className={`relative px-3 py-1 rounded-md font-black text-xs uppercase tracking-wider shadow-sm flex items-center gap-1.5 overflow-hidden ${bgClass}`}
+                        style={{
+                          ...(r?.bgColor ? { backgroundColor: r.bgColor } : {}),
+                          color: r?.fontColor || '#ffffff'
+                        }}
+                      >
+                        {r?.imageUrl && <img src={r.imageUrl} alt="" className="rank-bg-img absolute inset-0 w-full h-full object-cover opacity-40" />}
+                        {r?.iconUrl ? (
+                          <img src={r.iconUrl} alt="" className="w-3.5 h-3.5 object-contain relative z-10" />
+                        ) : (
+                          <Award className="w-3.5 h-3.5 relative z-10 text-amber-400" />
+                        )}
+                        <span className="relative z-10">{currentRank}</span>
+                      </div>
+                    );
+                  })()}
                   <span className="text-xs font-bold text-stone-800 tracking-wide">
                     Rank Atual
                   </span>
@@ -1079,6 +1142,8 @@ export default function QuestBoard({
                 </div>
               </div>
             </div>
+            );
+          })()}
           </div>
 
           {/* Unlocked Titles Area */}

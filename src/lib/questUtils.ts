@@ -22,7 +22,7 @@ export interface BattleStats {
   skillUseRecords?: Array<{ charName: string; tags: string[]; skillName: string }>;
 }
 
-export function getGoalDescription(goal: QuestGoal, skillOwnerMap?: Map<string, string>): string {
+export function getGoalDescription(goal: QuestGoal): string {
   const lang = getLanguage();
   const charsText = goal.targetCharacters && goal.targetCharacters.length > 0 
     ? goal.targetCharacters.join(', ') 
@@ -30,10 +30,7 @@ export function getGoalDescription(goal: QuestGoal, skillOwnerMap?: Map<string, 
   
   const isMultiChar = goal.targetCharacters && goal.targetCharacters.length > 1;
   const sameTeamNote = isMultiChar ? (lang === 'en' ? ' (on the same team)' : ' (no mesmo time)') : '';
-  const skillDisplay = goal.targetSkill && skillOwnerMap?.has(goal.targetSkill)
-    ? `${goal.targetSkill} (${skillOwnerMap.get(goal.targetSkill)})`
-    : goal.targetSkill || '';
-  const skillNote = skillDisplay ? (lang === 'en' ? ` with [${skillDisplay}]` : ` com [${skillDisplay}]`) : '';
+  const skillNote = goal.targetSkill ? (lang === 'en' ? ` with [${goal.targetSkill}]` : ` com [${goal.targetSkill}]`) : '';
   
   const rawTags = goal.targetTags && goal.targetTags.length > 0 ? goal.targetTags.map(t => translateGameText(t, lang)).join(', ') : '';
   const tagsNote = rawTags ? ` (tag: ${rawTags})` : '';
@@ -50,8 +47,8 @@ export function getGoalDescription(goal: QuestGoal, skillOwnerMap?: Map<string, 
       case 'win_battles_with_tag':
         return `Win battles with a full team (3 ninjas) with tag ${rawTags || 'specified'}${singleNote}`;
 
-case 'use_skill':
-         return `Use ${skillDisplay ? `[${skillDisplay}]` : 'skill'}${charsText ? ` with ${charsText}` : ''}${tagsNote} ${goal.targetValue}x${singleNote}`;
+      case 'use_skill':
+        return `Use ${goal.targetSkill ? `[${goal.targetSkill}]` : 'skill'}${charsText ? ` with ${charsText}` : ''}${tagsNote} ${goal.targetValue}x${singleNote}`;
 
       case 'heal':
         return `Heal ${goal.targetValue} HP${charsText ? ` with ${charsText}` : ''}${skillNote}${tagsNote}${singleNote}`;
@@ -89,8 +86,8 @@ case 'use_skill':
     case 'win_battles_with_tag':
       return `Ganhar batalhas com um time completo (3 ninjas) da tag ${goal.targetTags?.join(', ') || 'especificada'}${singleNote}`;
 
-case 'use_skill':
-       return `Usar ${skillDisplay ? `[${skillDisplay}]` : 'habilidade'}${charsText ? ` com ${charsText}` : ''}${tagsNote} ${goal.targetValue}x${singleNote}`;
+    case 'use_skill':
+      return `Usar ${goal.targetSkill ? `[${goal.targetSkill}]` : 'habilidade'}${charsText ? ` com ${charsText}` : ''}${tagsNote} ${goal.targetValue}x${singleNote}`;
 
     case 'heal':
       return `Curar ${goal.targetValue} de HP${charsText ? ` com ${charsText}` : ''}${skillNote}${tagsNote}${singleNote}`;

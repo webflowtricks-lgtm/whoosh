@@ -7,7 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Shield, Plus, Trash2, Edit3, Save, 
   Database, RefreshCw, AlertTriangle, CheckCircle, Sparkles, User, HelpCircle, Shirt,
-  Lock, Unlock, Search, Trophy, Award, X, Download, Upload, FolderArchive, FileText, Server, CheckCircle2
+  Lock, Unlock, Search, Trophy, Award, X, Download, Upload, FolderArchive, FileText, Server, CheckCircle2,
+  GripVertical, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { Character, Skill, ChakraType, CharacterSkin, Quest } from '../types';
 import { getCharacters, saveCharacters, resetToDefaultCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
@@ -76,6 +77,16 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   const [presetModalIndex, setPresetModalIndex] = useState<number | null>(null);
   const [presetCategoryFilter, setPresetCategoryFilter] = useState<string>('Todos');
   const [presetSearch, setPresetSearch] = useState<string>('');
+  const [draggedRankIndex, setDraggedRankIndex] = useState<number | null>(null);
+  const [dragOverRankIndex, setDragOverRankIndex] = useState<number | null>(null);
+
+  const handleRankMove = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= ranksList.length) return;
+    const updated = [...ranksList];
+    const [movedItem] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, movedItem);
+    setRanksList(updated);
+  };
 
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{
@@ -769,20 +780,110 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
           <div className="space-y-4">
             {ranksList.map((rank, index) => (
               <div
-                key={rank.id}
-                className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between transition-all hover:border-slate-700"
+                key={rank.id || index}
+                draggable
+                onDragStart={(e) => {
+                  setDraggedRankIndex(index);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (draggedRankIndex !== null && draggedRankIndex !== index) {
+                    setDragOverRankIndex(index);
+                  }
+                }}
+                onDragLeave={() => {
+                  setDragOverRankIndex(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (draggedRankIndex !== null && draggedRankIndex !== index) {
+                    handleRankMove(draggedRankIndex, index);
+                  }
+                  setDraggedRankIndex(null);
+                  setDragOverRankIndex(null);
+                }}
+                onDragEnd={() => {
+                  setDraggedRankIndex(null);
+                  setDragOverRankIndex(null);
+                }}
+                className={`bg-slate-900/60 border rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between transition-all ${
+                  dragOverRankIndex === index
+                    ? 'border-amber-500/80 bg-amber-500/10 scale-[1.01] shadow-xl'
+                    : draggedRankIndex === index
+                    ? 'opacity-40 border-dashed border-amber-500/50'
+                    : 'border-slate-800/80 hover:border-slate-700'
+                }`}
               >
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                  <div className={`relative px-3 py-1.5 rounded-xl border bg-gradient-to-r font-black text-xs uppercase tracking-wider flex items-center gap-1.5 flex-shrink-0 overflow-hidden ${rank.color}`}>
-                    {rank.imageUrl && (
-                      <img src={rank.imageUrl || null} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
-                    )}
-                    <Award className="w-4 h-4 relative z-10" />
-                    <span className="relative z-10">{rank.name || 'Sem Nome'}</span>
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                  {/* Drag Handle & Reorder Arrows */}
+                  <div className="flex items-center gap-1">
+                    <div
+                      className="p-2 text-slate-500 hover:text-amber-400 cursor-grab active:cursor-grabbing hover:bg-slate-800/80 rounded-xl transition flex items-center justify-center"
+                      title="Segure e arraste para reordenar este rank"
+                    >
+                      <GripVertical className="w-5 h-5" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        type="button"
+                        disabled={index === 0}
+                        onClick={() => {
+                          playClickSound();
+                          handleRankMove(index, index - 1);
+                        }}
+                        className="p-1 text-slate-500 hover:text-amber-400 disabled:opacity-20 disabled:hover:text-slate-500 hover:bg-slate-800/80 rounded transition cursor-pointer"
+                        title="Mover para cima"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={index === ranksList.length - 1}
+                        onClick={() => {
+                          playClickSound();
+                          handleRankMove(index, index + 1);
+                        }}
+                        className="p-1 text-slate-500 hover:text-amber-400 disabled:opacity-20 disabled:hover:text-slate-500 hover:bg-slate-800/80 rounded transition cursor-pointer"
+                        title="Mover para baixo"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Rank Badge Preview & Order Indicator */}
+                  <div className="flex flex-col items-center gap-1.5 min-w-[120px]">
+                    {(() => {
+                      const isNone = !rank.color || rank.color === 'none';
+                      const bgGradientClass = isNone
+                        ? ''
+                        : (rank.color.includes('bg-gradient') ? rank.color : `bg-gradient-to-r ${rank.color}`);
+                      return (
+                        <div
+                          className={`relative px-3.5 py-2 rounded-xl border font-black text-xs uppercase tracking-wider flex items-center gap-2 flex-shrink-0 overflow-hidden shadow-lg ${bgGradientClass}`}
+                          style={{
+                            ...(rank.bgColor ? { backgroundColor: rank.bgColor } : {}),
+                            color: rank.fontColor || '#ffffff'
+                          }}
+                        >
+                          {rank.imageUrl && (
+                            <img src={rank.imageUrl || null} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                          )}
+                          {rank.iconUrl ? (
+                            <img src={rank.iconUrl} alt="" className="w-4 h-4 object-contain relative z-10" />
+                          ) : (
+                            <Award className="w-4 h-4 relative z-10" />
+                          )}
+                          <span className="relative z-10">{rank.name || 'Sem Nome'}</span>
+                        </div>
+                      );
+                    })()}
+                    <span className="text-[10px] font-mono text-slate-500">#{index + 1} - Preview</span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 w-full md:w-auto flex-1 max-w-2xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 w-full md:w-auto flex-1 max-w-3xl">
                   <div>
                     <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Nome do Rank</label>
                     <input
@@ -815,10 +916,15 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                   <div>
                     <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Estilo de Cor (Degradê)</label>
                     <select
-                      value={rank.color}
+                      value={rank.color || 'none'}
                       onChange={(e) => {
+                        const val = e.target.value;
                         const updated = [...ranksList];
-                        updated[index] = { ...updated[index], color: e.target.value };
+                        updated[index] = { 
+                          ...updated[index], 
+                          color: val, 
+                          bgColor: val !== 'none' ? undefined : updated[index].bgColor 
+                        };
                         setRanksList(updated);
                       }}
                       className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-slate-200 outline-none font-mono"
@@ -832,7 +938,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                           ))}
                         </optgroup>
                       ))}
-                      {!RANK_GRADIENT_PRESETS.some(p => p.value === rank.color) && (
+                      {rank.color && rank.color !== 'none' && !RANK_GRADIENT_PRESETS.some(p => p.value === rank.color) && (
                         <option value={rank.color}>Customizado: {rank.color}</option>
                       )}
                     </select>
@@ -850,6 +956,110 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                       <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                       <span>Galeria de Degradês ({RANK_GRADIENT_PRESETS.length} Opções)</span>
                     </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-amber-400 mb-1">Cor do Fundo (# Hex - Opcional)</label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={rank.bgColor || '#0f172a'}
+                        onChange={(e) => {
+                          const updated = [...ranksList];
+                          updated[index] = { ...updated[index], bgColor: e.target.value };
+                          setRanksList(updated);
+                        }}
+                        className="w-9 h-9 p-0.5 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer"
+                        title="Escolher cor sólida em Hex"
+                      />
+                      <input
+                        type="text"
+                        value={rank.bgColor || ''}
+                        onChange={(e) => {
+                          const updated = [...ranksList];
+                          updated[index] = { ...updated[index], bgColor: e.target.value || undefined };
+                          setRanksList(updated);
+                        }}
+                        placeholder="Sem cor (Usando degradê)"
+                        className="flex-1 min-w-0 px-3 py-1.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-white outline-none font-mono"
+                      />
+                      {rank.bgColor && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...ranksList];
+                            updated[index] = { ...updated[index], bgColor: undefined };
+                            setRanksList(updated);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-red-400 bg-slate-950 border border-slate-800 hover:border-red-500/50 rounded-xl transition flex items-center gap-1 text-[10px] font-mono flex-shrink-0"
+                          title="Remover cor hex e reativar degradê"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-amber-400 mb-1">Ícone do Rank (SVG, PNG, URL)</label>
+                    <div className="flex gap-1.5 items-center">
+                      <div className="w-8 h-8 rounded-xl bg-slate-950 border border-slate-800 p-1 flex items-center justify-center flex-shrink-0">
+                        {rank.iconUrl ? (
+                          <img src={rank.iconUrl} alt="" className="w-full h-full object-contain" />
+                        ) : (
+                          <Award className="w-4 h-4 text-amber-400" />
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={rank.iconUrl || ''}
+                        onChange={(e) => {
+                          const updated = [...ranksList];
+                          updated[index] = { ...updated[index], iconUrl: e.target.value || undefined };
+                          setRanksList(updated);
+                        }}
+                        placeholder="URL ou envie arquivo"
+                        className="flex-1 min-w-0 px-2.5 py-1.5 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl text-xs text-white outline-none font-mono"
+                      />
+                      <label className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-[10px] font-mono font-bold uppercase cursor-pointer transition flex items-center gap-1 flex-shrink-0">
+                        <Upload className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Upload</span>
+                        <input
+                          type="file"
+                          accept=".svg,.png,.jpg,.jpeg,.webp,image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (uploadEvt) => {
+                                const result = uploadEvt.target?.result as string;
+                                if (result) {
+                                  const updated = [...ranksList];
+                                  updated[index] = { ...updated[index], iconUrl: result };
+                                  setRanksList(updated);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      {rank.iconUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...ranksList];
+                            updated[index] = { ...updated[index], iconUrl: undefined };
+                            setRanksList(updated);
+                          }}
+                          className="p-1.5 text-slate-500 hover:text-red-400 bg-slate-950 border border-slate-800 hover:border-red-500/50 rounded-xl transition"
+                          title="Remover ícone personalizado (usar medalha)"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -934,134 +1144,6 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                         <Sparkles className="w-5 h-5" />
                       </div>
 
-                      {/* Regras de Dano ao Usar Habilidade (Punição por Habilidade) */}
-                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <span className="block text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">
-                              ⚔️ Dano ao Usar Habilidade (Punição por Skill)
-                            </span>
-                            <p className="text-[9px] text-slate-400">
-                              Se o alvo/inimigo usar qualquer habilidade, sofrerá o dano configurado a cada uso durante os turnos definidos.
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const current = editingSkill.onSkillUseDamageRules || [];
-                              handleUpdateSkillField('onSkillUseDamageRules', [
-                                ...current,
-                                { damage: 20, duration: 2, damageType: 'direct_damage', target: 'target', irremovable: false }
-                              ]);
-                            }}
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
-                          >
-                            + Adicionar Regra
-                          </button>
-                        </div>
-
-                        {(!editingSkill.onSkillUseDamageRules || editingSkill.onSkillUseDamageRules.length === 0) ? (
-                          <p className="text-[9px] text-slate-500 font-mono italic">
-                            Nenhuma regra de dano ao usar habilidade configurada.
-                          </p>
-                        ) : (
-                          <div className="space-y-2 pt-1.5">
-                            {editingSkill.onSkillUseDamageRules.map((rule, rIdx) => (
-                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
-                                <span className="text-slate-400 font-bold">Dano:</span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={500}
-                                  value={rule.damage}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 0;
-                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
-                                    updated[rIdx] = { ...updated[rIdx], damage: val };
-                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
-                                  }}
-                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-white outline-none text-[10px]"
-                                />
-
-                                <span className="text-slate-400 font-bold">Turnos:</span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={99}
-                                  value={rule.duration}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 1;
-                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
-                                    updated[rIdx] = { ...updated[rIdx], duration: val };
-                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
-                                  }}
-                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-white outline-none text-[10px]"
-                                />
-
-                                <span className="text-slate-400 font-bold">Tipo:</span>
-                                <select
-                                  value={rule.damageType || 'direct_damage'}
-                                  onChange={(e) => {
-                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
-                                    updated[rIdx] = { ...updated[rIdx], damageType: e.target.value as any };
-                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
-                                  }}
-                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-amber-300 outline-none text-[10px]"
-                                >
-                                  <option value="direct_damage">🎯 Dano Direto</option>
-                                  <option value="damage">💥 Dano Normal</option>
-                                  <option value="piercing">🗡️ Dano Perfurante</option>
-                                  <option value="affliction">💀 Dano de Aflição</option>
-                                  <option value="bleeding">🩸 Sangramento</option>
-                                  <option value="dot">🔥 DoT</option>
-                                </select>
-
-                                <span className="text-slate-400 font-bold">Alvo:</span>
-                                <select
-                                  value={rule.target || 'target'}
-                                  onChange={(e) => {
-                                    const updated = [...(editingSkill.onSkillUseDamageRules || [])];
-                                    updated[rIdx] = { ...updated[rIdx], target: e.target.value as any };
-                                    handleUpdateSkillField('onSkillUseDamageRules', updated);
-                                  }}
-                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-cyan-300 outline-none text-[10px]"
-                                >
-                                  <option value="target">Inimigo (Alvo)</option>
-                                  <option value="enemies">Todos os Inimigos</option>
-                                  <option value="self">Eu Mesmo</option>
-                                  <option value="allies">Todos os Aliados</option>
-                                </select>
-
-                                <label className="flex items-center gap-1.5 cursor-pointer bg-slate-900/80 px-2 py-1 rounded border border-slate-800/80">
-                                  <input
-                                    type="checkbox"
-                                    checked={!!rule.irremovable}
-                                    onChange={(e) => {
-                                      const updated = [...(editingSkill.onSkillUseDamageRules || [])];
-                                      updated[rIdx] = { ...updated[rIdx], irremovable: e.target.checked };
-                                      handleUpdateSkillField('onSkillUseDamageRules', updated);
-                                    }}
-                                    className="accent-amber-500 rounded cursor-pointer"
-                                  />
-                                  <span className="text-[9px] text-slate-300 font-bold">Inremovível</span>
-                                </label>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const updated = (editingSkill.onSkillUseDamageRules || []).filter((_, i) => i !== rIdx);
-                                    handleUpdateSkillField('onSkillUseDamageRules', updated.length > 0 ? updated : undefined);
-                                  }}
-                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer"
-                                  title="Remover Regra"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
                       <div>
                         <h3 className="text-base font-bold text-white uppercase font-mono tracking-wider">
                           Galeria de Degradês — {ranksList[presetModalIndex].name}
@@ -1125,7 +1207,11 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                           onClick={() => {
                             playClickSound();
                             const updated = [...ranksList];
-                            updated[presetModalIndex] = { ...updated[presetModalIndex], color: preset.value };
+                            updated[presetModalIndex] = { 
+                              ...updated[presetModalIndex], 
+                              color: preset.value,
+                              bgColor: preset.value !== 'none' ? undefined : updated[presetModalIndex].bgColor
+                            };
                             setRanksList(updated);
                             setPresetModalIndex(null);
                           }}
@@ -1147,10 +1233,31 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                           </div>
 
                           {/* Badge Preview */}
-                          <div className={`px-3 py-1.5 rounded-xl border bg-gradient-to-r font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md ${preset.value}`} style={{ color: ranksList[presetModalIndex].fontColor || '#ffffff' }}>
-                            <Award className="w-4 h-4 flex-shrink-0" />
-                            <span className="truncate">{ranksList[presetModalIndex].name || preset.name}</span>
-                          </div>
+                          {(() => {
+                            const isPresetNone = preset.value === 'none';
+                            const presetBgClass = isPresetNone
+                              ? ''
+                              : (preset.value.includes('bg-gradient') ? preset.value : `bg-gradient-to-r ${preset.value}`);
+                            return (
+                              <div
+                                className={`px-3 py-1.5 rounded-xl border font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md relative overflow-hidden ${presetBgClass}`}
+                                style={{
+                                  ...(isPresetNone && ranksList[presetModalIndex].bgColor ? { backgroundColor: ranksList[presetModalIndex].bgColor } : {}),
+                                  color: ranksList[presetModalIndex].fontColor || '#ffffff'
+                                }}
+                              >
+                                {ranksList[presetModalIndex].imageUrl && (
+                                  <img src={ranksList[presetModalIndex].imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                                )}
+                                {ranksList[presetModalIndex].iconUrl ? (
+                                  <img src={ranksList[presetModalIndex].iconUrl} alt="" className="w-4 h-4 object-contain flex-shrink-0 relative z-10" />
+                                ) : (
+                                  <Award className="w-4 h-4 flex-shrink-0 relative z-10" />
+                                )}
+                                <span className="truncate relative z-10">{ranksList[presetModalIndex].name || preset.name}</span>
+                              </div>
+                            );
+                          })()}
 
                           <div className="mt-2 text-[10px] font-mono text-slate-400 group-hover:text-amber-300 truncate">
                             {preset.name}

@@ -7,6 +7,16 @@
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
+/* =========================================================
+   CLASSE ÚNICA DA LARGURA DO CARD DO PERFIL (.profile-card-modal-container)
+   =========================================================
+   Para ajustar a largura máxima do Card de Perfil, altere o valor de max-width abaixo.
+   ========================================================= */
+.profile-card-modal-container {
+  width: 100%;
+  max-width: 620px;
+}
+
 /* Force Desktop Layout on all devices & Custom Mouse Class */
 /* =========================================================
    CLASSE ÚNICA DO MOUSE / CURSOR DA APLICAÇÃO (.custom-cursor)
@@ -46,10 +56,7 @@ html, body {
   font-size: auto;
 }
 
-.rank-board-name {
-     left: 42px;
-    top: 11px;
-}
+ 
 
 /* Para alterar a imagem do cursor, edite a URL na classe .custom-cursor */
 .electric-border {

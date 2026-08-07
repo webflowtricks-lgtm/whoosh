@@ -119,6 +119,9 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               equippedFrame: user.equippedFrame,
               equippedFrameUrl: user.equippedFrameUrl,
               equippedBannerUrl: user.equippedBannerUrl,
+              equippedBannerPositionY: user.equippedBannerPositionY,
+              equippedBannerPositionX: user.equippedBannerPositionX,
+              equippedShowcaseSkinUrl: user.equippedShowcaseSkinUrl,
               xp: user.xp || 0,
               rank: rankProgress.currentRank.name,
               wins: user.wins || 0,
@@ -199,9 +202,32 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               <div className="text-left min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-xs font-mono font-black text-slate-100 truncate group-hover:text-orange-400">{user.name}</span>
-                  <span className={`px-1.5 py-0.2 rounded bg-gradient-to-r text-[9px] font-mono font-extrabold uppercase shadow ${rankProgress.currentRank.color}`} style={{ color: '#ffffff' }}>
-                    {rankProgress.currentRank.name}
-                  </span>
+                  {(() => {
+                    const r = rankProgress.currentRank;
+                    const isNone = !r.color || r.color === 'none';
+                    const bgClass = isNone
+                      ? ''
+                      : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
+                    return (
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-extrabold uppercase shadow flex items-center gap-1 overflow-hidden relative ${bgClass}`}
+                        style={{
+                          ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
+                          color: r.fontColor || '#ffffff'
+                        }}
+                      >
+                        {r.imageUrl && (
+                          <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                        )}
+                        {r.iconUrl ? (
+                          <img src={r.iconUrl} alt="" className="w-2.5 h-2.5 object-contain relative z-10" />
+                        ) : (
+                          <Award className="w-2.5 h-2.5 relative z-10" />
+                        )}
+                        <span className="relative z-10">{r.name}</span>
+                      </span>
+                    );
+                  })()}
                   <span className="text-[9px] font-mono font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 shadow-sm flex items-center gap-0.5">
                     <Sparkles className="w-2.5 h-2.5 text-amber-300 inline" />
                     {userXp.toLocaleString()} XP

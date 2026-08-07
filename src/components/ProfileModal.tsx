@@ -5,10 +5,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, User, Shield, Award, Sparkles, Check, Image as ImageIcon, Camera, Upload, Save, RefreshCw } from 'lucide-react';
-import { UserProfile } from '../types';
+import { X, User, Shield, Award, Sparkles, Check, Image as ImageIcon, Camera, Upload, Save, RefreshCw, Move, ArrowUpDown, ArrowLeftRight } from 'lucide-react';
+import { UserProfile, Character } from '../types';
 import { getPngFrames, PngFrameItem, fetchPngFramesFromServer } from '../lib/frameStorage';
 import { getCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
+import { getCharacters } from '../lib/characterStorage';
 import { useLanguage } from '../lib/i18n';
 
 interface ProfileModalProps {
@@ -35,15 +36,20 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
   const [equippedFrame, setEquippedFrame] = useState<string>(user.equippedFrame || 'Padrão');
   const [equippedFrameUrl, setEquippedFrameUrl] = useState<string | undefined>(user.equippedFrameUrl);
   const [equippedBannerUrl, setEquippedBannerUrl] = useState<string | undefined>(user.equippedBannerUrl);
+  const [equippedBannerPositionY, setEquippedBannerPositionY] = useState<number>(user.equippedBannerPositionY ?? 50);
+  const [equippedBannerPositionX, setEquippedBannerPositionX] = useState<number>(user.equippedBannerPositionX ?? 50);
+  const [equippedShowcaseSkinUrl, setEquippedShowcaseSkinUrl] = useState<string | undefined>(user.equippedShowcaseSkinUrl);
 
   const [pngFrames, setPngFrames] = useState<PngFrameItem[]>([]);
   const [customBanners, setCustomBanners] = useState<CustomBannerItem[]>([]);
-  const [activeTab, setActiveTab] = useState<'profile' | 'frames' | 'banners'>('banners');
+  const [allCharacters, setAllCharacters] = useState<Character[]>([]);
+  const [activeTab, setActiveTab] = useState<'profile' | 'frames' | 'banners' | 'showcase'>('banners');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     fetchPngFramesFromServer().then(setPngFrames);
     fetchCustomBannersFromServer().then(setCustomBanners);
+    setAllCharacters(getCharacters());
   }, []);
 
   const unlockedFrames = user.unlockedFrames || ['Padrão', 'Fogo da Vontade', 'Operativo ANBU', 'Guerra Shinobi'];
@@ -131,7 +137,10 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
       title,
       equippedFrame,
       equippedFrameUrl,
-      equippedBannerUrl
+      equippedBannerUrl,
+      equippedBannerPositionY,
+      equippedBannerPositionX,
+      equippedShowcaseSkinUrl
     };
 
     onUpdateUser(updated);
@@ -157,7 +166,8 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
               <img
                 src={equippedBannerUrl || null}
                 alt="Banner do Perfil"
-                className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none"
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-150"
+                style={{ objectPosition: `${equippedBannerPositionX}% ${equippedBannerPositionY}%` }}
                 referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/45 to-slate-950/25 pointer-events-none" />
@@ -239,6 +249,21 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
           <button
             onClick={() => {
               playClickSound();
+              setActiveTab('showcase');
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
+              activeTab === 'showcase'
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            {t('Skin de Destaque', 'Showcase Skin')}
+          </button>
+
+          <button
+            onClick={() => {
+              playClickSound();
               setActiveTab('frames');
             }}
             className={`px-4 py-2 rounded-xl text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
@@ -288,6 +313,144 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                 </div>
               </div>
 
+              {/* Banner Position Adjustment Section (Visible when an image banner is equipped) */}
+              {equippedBannerUrl && (
+                <div className="bg-slate-950/90 border border-amber-500/40 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl relative overflow-hidden">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                        <Move className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-mono uppercase font-black text-amber-300 tracking-wider">
+                          Ajustar Posição do Banner
+                        </h4>
+                        <p className="text-[11px] text-slate-400 font-mono">
+                          Desloque a imagem para enquadrar rostos ou elementos importantes do seu banner.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClickSound();
+                        setEquippedBannerPositionY(50);
+                        setEquippedBannerPositionX(50);
+                      }}
+                      className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[10px] font-bold uppercase rounded-lg border border-slate-700 transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" /> Resetar (50%)
+                    </button>
+                  </div>
+
+                  {/* Controls Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    {/* Vertical Y Slider */}
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between text-xs font-mono font-bold">
+                        <span className="text-amber-300 flex items-center gap-1.5">
+                          <ArrowUpDown className="w-3.5 h-3.5 text-amber-400" /> Vertical (Subir / Descer)
+                        </span>
+                        <span className="text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-mono text-[11px]">
+                          {equippedBannerPositionY}%
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-mono text-slate-500 font-bold">Topo (0%)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={equippedBannerPositionY}
+                          onChange={(e) => setEquippedBannerPositionY(Number(e.target.value))}
+                          className="flex-1 accent-amber-500 cursor-pointer h-2 bg-slate-950 rounded-lg"
+                        />
+                        <span className="text-[10px] font-mono text-slate-500 font-bold">Base (100%)</span>
+                      </div>
+
+                      {/* Presets & Fine Adjustment Buttons for Vertical */}
+                      <div className="flex items-center gap-1.5 pt-1">
+                        {[
+                          { label: 'Topo', val: 0 },
+                          { label: 'Alto', val: 25 },
+                          { label: 'Centro', val: 50 },
+                          { label: 'Baixo', val: 75 },
+                          { label: 'Base', val: 100 },
+                        ].map(btn => (
+                          <button
+                            key={btn.val}
+                            type="button"
+                            onClick={() => {
+                              playClickSound();
+                              setEquippedBannerPositionY(btn.val);
+                            }}
+                            className={`flex-1 py-1 rounded text-[9px] font-mono font-extrabold uppercase transition border cursor-pointer ${
+                              equippedBannerPositionY === btn.val
+                                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                                : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'
+                            }`}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Horizontal X Slider */}
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between text-xs font-mono font-bold">
+                        <span className="text-amber-300 flex items-center gap-1.5">
+                          <ArrowLeftRight className="w-3.5 h-3.5 text-amber-400" /> Horizontal (Esquerda / Direita)
+                        </span>
+                        <span className="text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-mono text-[11px]">
+                          {equippedBannerPositionX}%
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-mono text-slate-500 font-bold">Esq. (0%)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={equippedBannerPositionX}
+                          onChange={(e) => setEquippedBannerPositionX(Number(e.target.value))}
+                          className="flex-1 accent-amber-500 cursor-pointer h-2 bg-slate-950 rounded-lg"
+                        />
+                        <span className="text-[10px] font-mono text-slate-500 font-bold">Dir. (100%)</span>
+                      </div>
+
+                      {/* Presets for Horizontal */}
+                      <div className="flex items-center gap-1.5 pt-1">
+                        {[
+                          { label: 'Esquerda', val: 0 },
+                          { label: 'Centro', val: 50 },
+                          { label: 'Direita', val: 100 },
+                        ].map(btn => (
+                          <button
+                            key={btn.val}
+                            type="button"
+                            onClick={() => {
+                              playClickSound();
+                              setEquippedBannerPositionX(btn.val);
+                            }}
+                            className={`flex-1 py-1 rounded text-[9px] font-mono font-extrabold uppercase transition border cursor-pointer ${
+                              equippedBannerPositionX === btn.val
+                                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow'
+                                : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'
+                            }`}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Banners Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {allBanners.map((banner, bIdx) => {
@@ -308,7 +471,8 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                           <img
                             src={banner.url || null}
                             alt={banner.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-all duration-150"
+                            style={isEquipped ? { objectPosition: `${equippedBannerPositionX}% ${equippedBannerPositionY}%` } : { objectPosition: '50% 50%' }}
                             referrerPolicy="no-referrer"
                           />
                         ) : (
@@ -463,6 +627,136 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                     );
                   })}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'showcase' && (
+            <div className="space-y-6">
+              {/* Info Header */}
+              <div className="bg-slate-950/80 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-inner">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
+                    <Sparkles className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-mono uppercase tracking-wider text-amber-300 font-extrabold">
+                      {t('Skin de Destaque no Card do Perfil', 'Showcase Skin for Profile Card')}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                      {t(
+                        'Escolha qual das suas skins ou artes de personagem vai ilustrar o lado direito do seu card de perfil para todos os jogadores!',
+                        'Select which of your unlocked skins or character artworks will feature on the right side of your profile card!'
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Showcase Skin Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {/* Option: Sem Skin (Invisible Default) */}
+                {(() => {
+                  const isSelected = !equippedShowcaseSkinUrl || equippedShowcaseSkinUrl === '' || equippedShowcaseSkinUrl === 'none';
+
+                  return (
+                    <div
+                      key="no-skin-default"
+                      onClick={() => {
+                        playClickSound();
+                        setEquippedShowcaseSkinUrl('');
+                      }}
+                      className={`relative bg-slate-950/90 border-2 rounded-2xl p-3 flex flex-col items-center text-center gap-2 cursor-pointer transition-all hover:scale-105 ${
+                        isSelected
+                          ? 'border-amber-400 bg-amber-500/10 shadow-[0_0_20px_rgba(251,191,36,0.3)]'
+                          : 'border-slate-800 hover:border-slate-600'
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 bg-amber-400 text-slate-950 p-1 rounded-full text-[10px] font-black z-20 shadow">
+                          <Check className="w-3 h-3" />
+                        </div>
+                      )}
+                      <div className="w-20 h-24 rounded-xl bg-slate-900/60 border border-slate-800/80 flex flex-col items-center justify-center gap-1 relative text-slate-600">
+                        <User className="w-8 h-8 opacity-40" />
+                        <span className="text-[9px] font-mono font-bold uppercase text-slate-500">{t('Vazio', 'Empty')}</span>
+                      </div>
+                      <div className="min-w-0 w-full">
+                        <span className="text-xs font-black text-white block truncate">{t('Sem Skin', 'No Skin')}</span>
+                        <span className="text-[10px] text-amber-300/80 font-mono block">{t('Padrão', 'Default')}</span>
+                      </div>
+                      <button
+                        className={`w-full py-1.5 rounded-lg text-[10px] font-mono font-black uppercase transition ${
+                          isSelected ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        {isSelected ? t('Equipado', 'Equipped') : t('Equipar', 'Equip')}
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Skins from all characters */}
+                {allCharacters.flatMap(char => {
+                  const skinItems: Array<{ id: string; name: string; charName: string; imageUrl: string }> = [];
+
+                  if (char.skins && char.skins.length > 0) {
+                    char.skins.forEach(s => {
+                      if (s.image && !skinItems.some(item => item.imageUrl === s.image)) {
+                        skinItems.push({
+                          id: s.id,
+                          name: s.name,
+                          charName: char.name,
+                          imageUrl: s.image
+                        });
+                      }
+                    });
+                  }
+
+                  return skinItems;
+                }).map(item => {
+                  const isSelected = equippedShowcaseSkinUrl === item.imageUrl;
+
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        playClickSound();
+                        setEquippedShowcaseSkinUrl(item.imageUrl);
+                      }}
+                      className={`relative bg-slate-950/90 border-2 rounded-2xl p-3 flex flex-col items-center text-center gap-2 cursor-pointer transition-all hover:scale-105 ${
+                        isSelected
+                          ? 'border-amber-400 bg-amber-500/10 shadow-[0_0_20px_rgba(251,191,36,0.3)]'
+                          : 'border-slate-800 hover:border-slate-600'
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 bg-amber-400 text-slate-950 p-1 rounded-full text-[10px] font-black z-20 shadow">
+                          <Check className="w-3 h-3" />
+                        </div>
+                      )}
+                      <div className="w-20 h-24 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center overflow-hidden relative">
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="w-full h-full object-contain filter drop-shadow"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      <div className="min-w-0 w-full">
+                        <span className="text-xs font-black text-white block truncate">{item.charName}</span>
+                        <span className="text-[10px] text-amber-300 font-mono block truncate">{item.name}</span>
+                      </div>
+                      <button
+                        className={`w-full py-1.5 rounded-lg text-[10px] font-mono font-black uppercase transition ${
+                          isSelected ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        {isSelected ? t('Equipado', 'Equipped') : t('Equipar', 'Equip')}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
