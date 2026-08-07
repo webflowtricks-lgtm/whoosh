@@ -595,7 +595,8 @@
       "Vila da Folha",
       "Time Guy",
       "Hyuga",
-      "Byakugan"
+      "Byakugan",
+      "Time 9"
     ],
     "portrait": "https://i.ibb.co/5pdTrdg/base-profile.webp",
     "folder": "neji-hyuga",
@@ -711,7 +712,8 @@
       "Vila da Folha",
       "Time Guy",
       "Taijutsu",
-      "Portões"
+      "Portões",
+      "Time 9"
     ],
     "portrait": "https://i.ibb.co/9m41tk7x/base-profile-2.webp",
     "folder": "rock-lee",
@@ -853,7 +855,9 @@
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "tags": [
       "Clã Shinobi",
-      "Clássico"
+      "Clássico",
+      "Time 9",
+      "Time Gai"
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/tenten/icon.jpg",
     "folder": "tenten",
@@ -1962,7 +1966,8 @@
       "Vila da Areia",
       "Jinchuriki",
       "Terra",
-      "Vento"
+      "Vento",
+      "Time Sand Siblings"
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/gaara/icon.jpg",
     "folder": "gaara",
@@ -2570,7 +2575,8 @@
       "Vila da Areia",
       "Vento",
       "Leque",
-      "À Distância"
+      "À Distância",
+      "Time Sand Siblings"
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/temari/icon.jpg",
     "folder": "temari",
@@ -4973,7 +4979,8 @@
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "tags": [
       "Clã Shinobi",
-      "Clássico"
+      "Clássico",
+      "Time Dosu"
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/dosu-kinuta/icon.jpg",
     "folder": "dosu-kinuta",
@@ -7835,15 +7842,15 @@
     "skins": []
   },
   {
-    "id": "kabuto-yakushi",
-    "name": "Kabuto Yakushi",
+    "id": "yakushi-kabuto",
+    "name": "Yakushi Kabuto",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "tags": [
       "Clã Shinobi",
       "Clássico"
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kabuto-yakushi/icon.jpg",
-    "folder": "kabuto-yakushi",
+    "folder": "yakushi-kabuto",
     "skills": [
       {
         "name": "Chakra Scalpel",
@@ -8144,7 +8151,8 @@
     "tags": [
       "Clã Shinobi",
       "Clássico",
-      "Vila da Areia"
+      "Vila da Areia",
+      "Time Sand Siblings"
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kankuro/icon.jpg",
     "folder": "kankuro",
@@ -8206,6 +8214,21 @@
         "targetType": "Self",
         "classes": [
           "Físico"
+        ]
+      },
+      {
+        "name": "Puppet Assault",
+        "desc": "Causa 30 de dano de chakra a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
+        "cost": [
+          "Nin"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
         ]
       }
     ],
@@ -8826,7 +8849,8 @@
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "tags": [
       "Clã Shinobi",
-      "Clássico"
+      "Clássico",
+      "Time Dosu"
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kin-tsuchi/icon.jpg",
     "folder": "kin-tsuchi",
@@ -14989,7 +15013,8 @@
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "tags": [
       "Clã Shinobi",
-      "Clássico"
+      "Clássico",
+      "Time Dosu"
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zaku-abumi/icon.jpg",
     "folder": "zaku-abumi",
@@ -15205,6 +15230,151 @@
     ],
     "portrait": "https://i.ibb.co/RpjX3ymL/base-profile.png",
     "folder": "naruto-uzumaki",
+    "skills": [
+      {
+        "name": "Golpe Básico",
+        "desc": "Causa 20 de dano físico a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ]
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "waraji-zori",
+    "name": "Waraji & Zori",
+    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://i.ibb.co/wZqmnJqG/base-profile-6.webp",
+    "folder": "waraji-zori",
+    "skills": [
+      {
+        "name": "Golpe Básico",
+        "desc": "Causa 20 de dano físico a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ]
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "mubi",
+    "name": "Mubi",
+    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://i.ibb.co/wNy05V9m/base-profile-7.webp",
+    "folder": "naruto-uzumaki",
+    "skills": [
+      {
+        "name": "Golpe Básico",
+        "desc": "Causa 20 de dano físico a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ]
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "kagari",
+    "name": "Kagari",
+    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://i.ibb.co/Sw4JxB14/kagari.webp",
+    "folder": "kagari",
+    "skills": [
+      {
+        "name": "Golpe Básico",
+        "desc": "Causa 20 de dano físico a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ]
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "ebisu",
+    "name": "Ebisu",
+    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://i.ibb.co/GvYhCpwf/base-profile-convertido-de-png.webp",
+    "folder": "ebisu",
+    "skills": [
+      {
+        "name": "Golpe Básico",
+        "desc": "Causa 20 de dano físico a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ]
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "spy-kabuto",
+    "name": "Spy Kabuto",
+    "description": "Kabuto is teamed with Yoroi Akadō and Misumi Tsurugi so that they can enter the Chūnin Exams being held in Konoha. Before the exam's first stage begins, Kabuto befriends the Rookie Nine. Because they're all quite confident in their prospects, he warns them about the exam's inherent difficulty as well as the considerable competition that some of the other participants pose.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://i.ibb.co/d4MvBKgV/base-profile-convertido-de-png-1.webp",
+    "folder": "spy-kabuto",
     "skills": [
       {
         "name": "Golpe Básico",

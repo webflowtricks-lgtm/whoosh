@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft, Plus, Trash2, Edit3, Save, Sparkles, CheckCircle, AlertTriangle, 
@@ -32,11 +32,25 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
 
   // Editing form states
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
+  const [dragGoalIndex, setDragGoalIndex] = useState<number | null>(null);
 
   // Autocomplete dynamic databases
   const [allCharNames, setAllCharNames] = useState<string[]>([]);
-  const [allSkillNames, setAllSkillNames] = useState<string[]>([]);
+  const [allSkillNames, setAllSkillNames] = useState<string[]>([]); // formato: "SkillName (CharacterName)"
   const [allTagsList, setAllTagsList] = useState<string[]>([]);
+
+  // Derived map: skill name -> first character owner
+  const skillOwnerMap = useMemo(() => {
+    const map = new Map<string, string>();
+    characters.forEach(c => {
+      c.skills.forEach(sk => {
+        if (!map.has(sk.name)) {
+          map.set(sk.name, c.name);
+        }
+      });
+    });
+    return map;
+  }, [characters]);
 
   // Individual Autocomplete UI state for characters inside goals
   const [goalCharInput, setGoalCharInput] = useState<{ [goalId: string]: string }>({});
@@ -67,7 +81,9 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
     const skills = new Set<string>();
     const tagsSet = new Set<string>();
     loadedChars.forEach(c => {
-      c.skills.forEach(sk => skills.add(sk.name));
+      c.skills.forEach(sk => {
+        skills.add(`${sk.name} (${c.name})`);
+      });
       if (c.tags) {
         c.tags.forEach(t => tagsSet.add(t));
       }
@@ -201,7 +217,16 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
       return;
     }
 
-    const updated = quests.map(q => q.id === editingQuest.id ? editingQuest : q);
+    // Strip character name from targetSkill (e.g. "Rasengan (Naruto)" -> "Rasengan")
+    const cleaned = {
+      ...editingQuest,
+      goals: editingQuest.goals.map(g => ({
+        ...g,
+        targetSkill: g.targetSkill ? g.targetSkill.replace(/\s*\(.*?\)\s*$/, '').trim() : g.targetSkill,
+      }))
+    };
+
+    const updated = quests.map(q => q.id === editingQuest.id ? cleaned : q);
     handleSaveQuests(updated);
   };
 
@@ -585,7 +610,32 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
               <div className="space-y-4">
                 {editingQuest.goals.map((g, goalIdx) => {
                   return (
-                    <div key={g.id} className="bg-slate-900 p-4 border border-slate-800 rounded-lg space-y-3 relative">
+                    <div
+                      key={g.id}
+                      draggable
+                      onDragStart={() => setDragGoalIndex(goalIdx)}
+                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                      onDrop={() => {
+                        if (dragGoalIndex === null || dragGoalIndex === goalIdx) return;
+                        const updated = [...editingQuest.goals];
+                        const [moved] = updated.splice(dragGoalIndex, 1);
+                        const dropIdx = dragGoalIndex < goalIdx ? goalIdx - 1 : goalIdx;
+                        updated.splice(dropIdx, 0, moved);
+                        setEditingQuest({ ...editingQuest, goals: updated });
+                        setDragGoalIndex(null);
+                      }}
+                      onDragEnd={() => setDragGoalIndex(null)}
+                      className={`bg-slate-900 p-4 border border-slate-800 rounded-lg space-y-3 relative transition-all ${
+                        dragGoalIndex === goalIdx ? 'opacity-40 border-dashed border-orange-400' : dragGoalIndex !== null ? 'border-slate-600/60 border-dashed' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 absolute top-3 left-3 text-slate-600 cursor-grab active:cursor-grabbing">
+                        <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+                          <circle cx="8" cy="3" r="1.5"/>
+                          <circle cx="8" cy="8" r="1.5"/>
+                          <circle cx="8" cy="13" r="1.5"/>
+                        </svg>
+                      </div>
                       <button
                         type="button"
                         onClick={() => handleRemoveGoal(g.id)}
@@ -595,7 +645,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
 
-                      <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                      <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950/60 p-2 pl-10 rounded-lg border border-slate-800">
                         <span className="text-[10px] font-mono text-orange-500 font-bold uppercase tracking-wider">Meta #{goalIdx + 1}</span>
                         <div className="text-xs text-amber-300 font-medium bg-amber-950/40 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
                           ⚡ {getGoalDescription(g)}
@@ -706,7 +756,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                           {g.targetSkill && (
                             <button
                               type="button"
-                              onClick={() => updateGoalField(g.id, 'targetSkill', '')}
+                              onClick={() => { updateGoalField(g.id, 'targetSkill', ''); setGoalSkillInput(prev => ({ ...prev, [g.id]: '' })); }}
                               className="text-[10px] text-red-400 hover:underline cursor-pointer"
                             >
                               Limpar habilidade
@@ -717,10 +767,13 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                         <div className="relative">
                           <input
                             type="text"
-                            value={g.targetSkill || ''}
+                            value={goalSkillInput[g.id] !== undefined ? goalSkillInput[g.id] : (g.targetSkill && skillOwnerMap.has(g.targetSkill) ? `${g.targetSkill} (${skillOwnerMap.get(g.targetSkill)})` : g.targetSkill || '')}
                             onChange={(e) => {
                               const val = e.target.value;
-                              updateGoalField(g.id, 'targetSkill', val);
+                              setGoalSkillInput(prev => ({ ...prev, [g.id]: val }));
+                              // Extract just skill name for the actual field
+                              const cleanName = val.replace(/\s*\(.*?\)\s*$/, '').trim();
+                              updateGoalField(g.id, 'targetSkill', cleanName);
                               setShowGoalSkillSuggestions(prev => ({ ...prev, [g.id]: true }));
                             }}
                             onFocus={() => setShowGoalSkillSuggestions(prev => ({ ...prev, [g.id]: true }))}
@@ -736,30 +789,35 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                                   const charSkills = new Set<string>();
                                   characters
                                     .filter(c => g.targetCharacters?.includes(c.name))
-                                    .forEach(c => c.skills.forEach(sk => charSkills.add(sk.name)));
+                                    .forEach(c => c.skills.forEach(sk => charSkills.add(`${sk.name} (${c.name})`)));
                                   const filtered = Array.from(charSkills);
                                   if (filtered.length > 0) {
                                     availableSkills = filtered;
                                   }
                                 }
-                                const search = (g.targetSkill || '').toLowerCase();
+                                const search = (goalSkillInput[g.id] || g.targetSkill || '').toLowerCase();
                                 const matches = availableSkills.filter(s => s.toLowerCase().includes(search));
                                 if (matches.length === 0) {
                                   return <div className="px-3 py-2 text-xs text-slate-500 italic">Nenhuma habilidade encontrada</div>;
                                 }
-                                return matches.slice(0, 8).map(skName => (
-                                  <div
-                                    key={skName}
-                                    onClick={() => {
-                                      updateGoalField(g.id, 'targetSkill', skName);
-                                      setShowGoalSkillSuggestions(prev => ({ ...prev, [g.id]: false }));
-                                    }}
-                                    className="px-3 py-2 text-xs text-slate-300 hover:bg-slate-850 hover:text-white cursor-pointer border-b border-slate-900/60 flex justify-between items-center"
-                                  >
-                                    <span>⚡ {skName}</span>
-                                    <span className="text-[10px] text-amber-400 font-mono">Selecionar</span>
-                                  </div>
-                                ));
+                                return matches.slice(0, 8).map(skName => {
+                                  // Extract just the skill name from "SkillName (Character)"
+                                  const justSkill = skName.replace(/\s*\(.*?\)\s*$/, '').trim();
+                                  return (
+                                    <div
+                                      key={skName}
+                                      onClick={() => {
+                                        updateGoalField(g.id, 'targetSkill', justSkill);
+                                        setGoalSkillInput(prev => ({ ...prev, [g.id]: skName }));
+                                        setShowGoalSkillSuggestions(prev => ({ ...prev, [g.id]: false }));
+                                      }}
+                                      className="px-3 py-2 text-xs text-slate-300 hover:bg-slate-850 hover:text-white cursor-pointer border-b border-slate-900/60 flex justify-between items-center"
+                                    >
+                                      <span>⚡ {skName}</span>
+                                      <span className="text-[10px] text-amber-400 font-mono">Selecionar</span>
+                                    </div>
+                                  );
+                                });
                               })()}
                             </div>
                           )}

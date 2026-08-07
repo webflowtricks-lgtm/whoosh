@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo } from 'lucide-react';
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, Quest, QuestGoal } from '../types';
@@ -747,6 +747,19 @@ export default function BattleBoard({
   const [allQuests, setAllQuests] = useState<Quest[]>([]);
   const [loadingQuests, setLoadingQuests] = useState(false);
   const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
+
+  const skillOwnerMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const allChars = getCharacters();
+    allChars.forEach(c => {
+      c.skills.forEach(sk => {
+        if (!map.has(sk.name)) {
+          map.set(sk.name, c.name);
+        }
+      });
+    });
+    return map;
+  }, []);
 
   useEffect(() => {
     if (isQuestModalOpen) {
@@ -8553,6 +8566,16 @@ if (skill.retaliateDamage) {
             className="relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer"
             title="Clique para ver o Card do Perfil & Curtidas"
           >
+            {/* Profile Banner Background */}
+            {user.equippedBannerUrl && (
+              <img
+                src={user.equippedBannerUrl || null}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none rounded-2xl"
+                referrerPolicy="no-referrer"
+              />
+            )}
+            {user.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-slate-900/10 to-transparent pointer-events-none rounded-2xl" />}
             {/* Background absolute flare */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-orange-600/5 rounded-full blur-2xl group-hover:bg-orange-600/10 transition-all pointer-events-none" />
             
@@ -8640,7 +8663,7 @@ if (skill.retaliateDamage) {
 
                   {/* Main Combatant Card Container */}
                   <div
-                    onClick={() => handleSelectTarget(combatant.id, false)}
+onClick={() => handleSelectTarget(combatant.id, false)}
                     className={`flex-1 relative p-4 rounded-xl border bg-slate-900/60 transition-all ${
                       combatant.isDead
                         ? 'border-slate-950 bg-slate-950/40 opacity-40 pointer-events-none'
@@ -8651,15 +8674,15 @@ if (skill.retaliateDamage) {
                         : 'border-slate-800'
                     }`}
                   >
-                  {/* Floating combat numbers portal */}
-                  <div className="absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
-                    {floatingTexts
-                      .filter(f => f.targetId === combatant.id)
-                      .map((f, fIdx) => {
-                        let textClass = 'text-red-500 shadow-red-500/5';
-                        if (f.type === 'heal') textClass = 'text-emerald-400 shadow-emerald-500/5';
-                        if (f.type === 'shield') textClass = 'text-blue-400 shadow-blue-500/5';
-                        if (f.type === 'stun') textClass = 'text-amber-500';
+                    {/* Floating combat numbers portal */}
+                    <div className="absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
+                      {floatingTexts
+                        .filter(f => f.targetId === combatant.id)
+                        .map((f, fIdx) => {
+                          let textClass = 'text-red-500 shadow-red-500/5';
+                          if (f.type === 'heal') textClass = 'text-emerald-400 shadow-emerald-500/5';
+                          if (f.type === 'shield') textClass = 'text-blue-400 shadow-blue-500/5';
+                          if (f.type === 'stun') textClass = 'text-amber-500';
                         if (f.type === 'effect') textClass = 'text-orange-400';
 
                         return (
@@ -9295,8 +9318,7 @@ if (skill.retaliateDamage) {
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="group relative inline-block max-w-full">
                         <h4 
-                          className="font-extrabold text-sm sm:text-base text-white tracking-tight drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)] cursor-help leading-tight"
-                          title={translateSkillName(inspectedSkill.skill.name, language)}
+                          className="font-extrabold text-sm sm:text-base text-white tracking-tight drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)] leading-tight"
                         >
                           {translateSkillName(inspectedSkill.skill.name, language)}
                         </h4>
@@ -9520,6 +9542,16 @@ if (skill.retaliateDamage) {
             className="relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer"
             title="Clique para ver o Card do Perfil do Oponente & Curtir"
           >
+            {/* Profile Banner Background */}
+            {onlineParams?.isOnline && onlineParams.opponentProfile?.equippedBannerUrl && (
+              <img
+                src={onlineParams.opponentProfile.equippedBannerUrl || null}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none rounded-2xl"
+                referrerPolicy="no-referrer"
+              />
+            )}
+            {onlineParams?.isOnline && onlineParams.opponentProfile?.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-slate-900/10 to-transparent pointer-events-none rounded-2xl" />}
             {/* Background absolute flare */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/5 rounded-full blur-2xl group-hover:bg-red-600/10 transition-all pointer-events-none" />
             
@@ -9578,7 +9610,7 @@ if (skill.retaliateDamage) {
                 <div key={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch">
                   {/* Main Combatant Card Container */}
                   <div
-                    onClick={() => handleSelectTarget(combatant.id, true)}
+onClick={() => handleSelectTarget(combatant.id, true)}
                     className={`flex-1 relative p-4 rounded-xl border bg-slate-900/60 transition-all ${
                       combatant.isDead
                         ? 'border-slate-950 bg-slate-950/40 opacity-40 pointer-events-none'
@@ -9587,15 +9619,15 @@ if (skill.retaliateDamage) {
                         : 'border-slate-800'
                     }`}
                   >
-                  {/* Floating combat numbers portal */}
-                  <div className="absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
-                    {floatingTexts
-                      .filter(f => f.targetId === combatant.id)
-                      .map((f, fIdx) => {
-                        let textClass = 'text-red-500 shadow-red-500/5';
-                        if (f.type === 'heal') textClass = 'text-emerald-400 shadow-emerald-500/5';
-                        if (f.type === 'shield') textClass = 'text-blue-400 shadow-blue-500/5';
-                        if (f.type === 'stun') textClass = 'text-amber-500';
+                    {/* Floating combat numbers portal */}
+                    <div className="absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
+                      {floatingTexts
+                        .filter(f => f.targetId === combatant.id)
+                        .map((f, fIdx) => {
+                          let textClass = 'text-red-500 shadow-red-500/5';
+                          if (f.type === 'heal') textClass = 'text-emerald-400 shadow-emerald-500/5';
+                          if (f.type === 'shield') textClass = 'text-blue-400 shadow-blue-500/5';
+                          if (f.type === 'stun') textClass = 'text-amber-500';
                         if (f.type === 'effect') textClass = 'text-orange-400';
 
                         return (
@@ -11069,7 +11101,7 @@ if (skill.retaliateDamage) {
                         return (
                           <div key={goal.id} className="bg-slate-950/60 p-2.5 rounded-lg border border-amber-900/50 space-y-1.5">
                             <div className="flex justify-between items-center text-xs">
-                              <span className="text-slate-200 font-medium">{getGoalDescription(goal)}</span>
+                              <span className="text-slate-200 font-medium">{getGoalDescription(goal, skillOwnerMap)}</span>
                               <span className={`font-mono font-bold text-xs ${met ? 'text-emerald-400' : 'text-amber-400'}`}>
                                 {goal.currentValue} / {goal.targetValue}
                               </span>
@@ -11143,7 +11175,7 @@ if (skill.retaliateDamage) {
                                 return (
                                   <div key={goal.id} className="text-[11px] space-y-1">
                                     <div className="flex justify-between items-center">
-                                      <span className="text-slate-300 text-[11px] font-sans">{getGoalDescription(goal)}</span>
+                                      <span className="text-slate-300 text-[11px] font-sans">{getGoalDescription(goal, skillOwnerMap)}</span>
                                       <span className={`font-mono text-[10px] font-bold ${met ? 'text-emerald-400' : 'text-amber-400'}`}>
                                         {goal.currentValue} / {goal.targetValue}
                                       </span>

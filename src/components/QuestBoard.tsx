@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { safeFetchJson } from '../lib/api';
 import { 
@@ -84,6 +84,7 @@ export default function QuestBoard({
   const [loading, setLoading] = useState(true);
   const [mainTab, setMainTab] = useState<'missoes' | 'perfil'>('missoes');
   const [activeTab, setActiveTab] = useState<'available' | 'completed' | 'all'>('available');
+  const [rankFilter, setRankFilter] = useState<string>('');
   const [claimedRewardId, setClaimedRewardId] = useState<string | null>(null);
 
   // Modals state
@@ -97,6 +98,19 @@ export default function QuestBoard({
     unlockedCharacters: Character[];
     otherRewards: QuestReward[];
   } | null>(null);
+
+  const skillOwnerMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const allChars = getCharacters();
+    allChars.forEach(c => {
+      c.skills.forEach(sk => {
+        if (!map.has(sk.name)) {
+          map.set(sk.name, c.name);
+        }
+      });
+    });
+    return map;
+  }, []);
 
   useEffect(() => {
     fetchQuests();
@@ -287,11 +301,15 @@ export default function QuestBoard({
   };
 
   // Filter lists
+  const RANK_LIST = ['Estudante de Academia', 'Genin', 'Chunin', 'Jonin', 'ANBU', 'Hokage'];
   const filteredQuests = quests.filter(quest => {
     const isCompleted = user.completedQuestIds?.includes(quest.id) || quest.completed;
     if (activeTab === 'completed') return isCompleted;
     if (activeTab === 'available') return !isCompleted;
     return true; // 'all'
+  }).filter(quest => {
+    if (!rankFilter) return true;
+    return (quest.minRank || '').toLowerCase() === rankFilter.toLowerCase();
   });
 
   return (
@@ -703,39 +721,57 @@ export default function QuestBoard({
       {/* Main Tab View 1: MISSÕES */}
       {mainTab === 'missoes' && (
         <div className="space-y-6">
-          {/* Sub-Filters Bar for Quests (Disponíveis | Concluídas | Todas) */}
-          <div className="flex justify-between items-center bg-slate-900/60 backdrop-blur-md p-2 rounded-xl border border-slate-800/80">
-            <div className="flex items-center gap-2">
-              {[
-                { id: 'available', pt: 'Disponíveis', en: 'Available' },
-                { id: 'completed', pt: 'Concluídas', en: 'Completed' },
-                { id: 'all', pt: 'Todas', en: 'All' }
-              ].map((tab) => (
+          {/* Sub-Filters Bar for Quests */}
+          <div className="bg-slate-900/60 backdrop-blur-md p-2 rounded-xl border border-slate-800/80 space-y-2">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                {[
+                  { id: 'available', pt: 'Disponíveis', en: 'Available' },
+                  { id: 'completed', pt: 'Concluídas', en: 'Completed' },
+                  { id: 'all', pt: 'Todas', en: 'All' }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      playClickSound();
+                      setActiveTab(tab.id as any);
+                    }}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                      activeTab === tab.id
+                        ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-black shadow-md shadow-orange-600/10'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    {t(tab.pt, tab.en)}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={fetchQuests}
+                className="p-2 text-slate-400 hover:text-orange-400 hover:bg-slate-800 rounded-lg transition cursor-pointer flex items-center gap-1.5 text-xs font-mono"
+                title="Sincronizar Missões"
+              >
+                <img src="/static/img/icon/star.webp" alt="Loading" className={`w-3.5 h-3.5 object-contain ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Sincronizar</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {RANK_LIST.map(rank => (
                 <button
-                  key={tab.id}
-                  onClick={() => {
-                    playClickSound();
-                    setActiveTab(tab.id as any);
-                  }}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-                    activeTab === tab.id
+                  key={rank}
+                  onClick={() => setRankFilter(rankFilter === rank ? '' : rank)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition cursor-pointer ${
+                    rankFilter === rank
                       ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-black shadow-md shadow-orange-600/10'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      : 'text-slate-500 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
                 >
-                  {t(tab.pt, tab.en)}
+                  {rank}
                 </button>
               ))}
             </div>
-
-            <button
-              onClick={fetchQuests}
-              className="p-2 text-slate-400 hover:text-orange-400 hover:bg-slate-800 rounded-lg transition cursor-pointer flex items-center gap-1.5 text-xs font-mono"
-              title="Sincronizar Missões"
-            >
-              <img src="/static/img/icon/star.webp" alt="Loading" className={`w-3.5 h-3.5 object-contain ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Sincronizar</span>
-            </button>
           </div>
 
           {/* Quests Listing */}
@@ -819,7 +855,7 @@ export default function QuestBoard({
                       <div className="p-4 space-y-4 flex-1 flex flex-col justify-between">
                         <div className="space-y-4">
                           <div>
-                            <p className={`text-xs text-slate-400 leading-relaxed font-sans ${!expandedDesc[quest.id] ? 'line-clamp-3' : ''}`}>
+                            <p className={`text-xs text-slate-400 leading-relaxed font-sans ${!expandedDesc[quest.id] ? 'line-clamp-2' : ''}`}>
                               {quest.desc}
                             </p>
                             {quest.desc.length > 200 && (
@@ -845,7 +881,7 @@ export default function QuestBoard({
                                 <div key={goal.id} className="space-y-1.5">
                                   <div className="flex justify-between items-start text-xs">
                                     <span className="text-slate-300 font-medium">
-                                      {getGoalDescription(goal)}
+                                      {getGoalDescription(goal, skillOwnerMap)}
                                     </span>
                                     <span className={`font-mono font-bold text-[11px] ${met ? 'text-emerald-400' : 'text-orange-400'}`}>
                                       {goal.currentValue} / {goal.targetValue}
