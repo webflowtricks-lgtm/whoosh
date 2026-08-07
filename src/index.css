@@ -17,6 +17,16 @@
   max-width: 620px;
 }
 
+/* =========================================================
+   CLASSE ÚNICA DA LARGURA DO CARD DE RECOMPENSA (.quest-reward-card)
+   =========================================================
+   Para ajustar a largura máxima do Card de Recompensa, altere o valor de max-width abaixo.
+   ========================================================= */
+.quest-reward-card {
+  width: 100%;
+  max-width: 280px;
+}
+
 /* Force Desktop Layout on all devices & Custom Mouse Class */
 /* =========================================================
    CLASSE ÚNICA DO MOUSE / CURSOR DA APLICAÇÃO (.custom-cursor)
@@ -50,6 +60,11 @@ html, body {
 #root {
   width: 100%;
   min-height: 100%;
+}
+
+.reward-mission {
+
+  width: 50%;
 }
 
 .pergaminho_personagem_detalhes {

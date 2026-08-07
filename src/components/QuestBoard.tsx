@@ -125,11 +125,41 @@ export default function QuestBoard({
       if (data && data.success && Array.isArray(data.quests)) {
         // Sync completed quests with user profile
         const userCompletedIds = user.completedQuestIds || [];
-        const synced = data.quests.map((q: Quest) => ({
+        let synced = data.quests.map((q: Quest) => ({
           ...q,
           completed: userCompletedIds.includes(q.id)
         }));
+
+        // Missões bloqueadas (e as novas que ainda não desbloquearam) só começam a
+        // contar a meta a partir do momento em que são desbloqueadas. Zera o progresso
+        // acumulado delas para que vitórias/batalhas anteriores ao desbloqueio não contem.
+        const lockedIds = computeLockedQuestIds(synced, user, ranksList);
+        let changed = false;
+        synced = synced.map(q => {
+          if (lockedIds.has(q.id) && q.goals?.some(g => (g.currentValue || 0) > 0 || (g.currentStreak || 0) > 0)) {
+            changed = true;
+            return {
+              ...q,
+              goals: q.goals.map(g => ({ ...g, currentValue: 0, currentStreak: 0 }))
+            };
+          }
+          return q;
+        });
+
         setQuests(synced);
+
+        // Persiste o progresso zerado no servidor para que a missão comece do zero quando desbloquear
+        if (changed) {
+          try {
+            await safeFetchJson('/api/quests', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ quests: synced })
+            });
+          } catch (err) {
+            console.error('Error persisting zeroed locked quest progress:', err);
+          }
+        }
       }
     } catch (err) {
       console.error('Error fetching quests:', err);
@@ -139,6 +169,39 @@ export default function QuestBoard({
   };
 
   const currentRank = getUserRankFromConfig(user.xp || 0, ranksList);
+
+  // Compute which quests are locked for the current user (rank + required quests)
+  const computeLockedQuestIds = (qList: Quest[], u: UserProfile, rList: RankConfig[]): Set<string> => {
+    const lockedIds = new Set<string>();
+    const playerRankName = getUserRankFromConfig(Math.max(0, u.xp || 0), rList);
+    const playerRankIdx = rList.findIndex(r => r.name.toLowerCase() === playerRankName.toLowerCase());
+    const userXp = Math.max(0, u.xp || 0);
+    const completedIds = u.completedQuestIds || [];
+
+    for (const q of qList) {
+      const requiredRankIdx = rList.findIndex(r => r.name.toLowerCase() === (q.minRank || '').toLowerCase());
+      const requiredRankObj = rList.find(r => r.name.toLowerCase() === (q.minRank || '').toLowerCase());
+      let locked = false;
+
+      if (requiredRankObj && userXp < requiredRankObj.requiredXp) {
+        locked = true;
+      } else if (requiredRankIdx !== -1 && playerRankIdx !== -1 && playerRankIdx < requiredRankIdx) {
+        locked = true;
+      }
+
+      if (!locked) {
+        for (const reqId of q.requiredQuestIds || []) {
+          if (!completedIds.includes(reqId)) {
+            locked = true;
+            break;
+          }
+        }
+      }
+
+      if (locked) lockedIds.add(q.id);
+    }
+    return lockedIds;
+  };
 
   // Check if a quest is locked based on minRank and requiredQuestIds
   const isQuestLocked = (quest: Quest): { locked: boolean; reason?: string } => {
@@ -305,6 +368,53 @@ export default function QuestBoard({
     onSelectQuest(quest);
   };
 
+  // Build reward modal data (display-only, no claim) for completed quests
+  const buildRewardModalData = (quest: Quest) => {
+    const allChars = getCharacters();
+    const unlockedChars: Character[] = [];
+    const otherRewardsList: QuestReward[] = [];
+
+    quest.rewards.forEach(r => {
+      if (r.type === 'title') {
+        otherRewardsList.push(r);
+      } else if (r.type === 'unlock_character') {
+        const found = allChars.find(c => 
+          c.name.toLowerCase() === r.value.toLowerCase() || 
+          c.id.toLowerCase() === r.value.toLowerCase() ||
+          c.folder.toLowerCase() === r.value.toLowerCase()
+        );
+        if (found) {
+          unlockedChars.push(found);
+        } else {
+          unlockedChars.push({
+            id: r.value,
+            name: r.value,
+            description: 'Novo Shinobi desbloqueado para batalhas!',
+            tags: ['Vila da Folha', 'Shinobi Desbloqueado'],
+            skills: [],
+            portrait: '/static/img/icon/default.jpg',
+            folder: r.value
+          });
+        }
+      } else if (r.type === 'frame' || r.type === 'banner') {
+        otherRewardsList.push(r);
+      }
+    });
+
+    setRewardModalData({
+      questTitle: quest.title,
+      unlockedCharacters: unlockedChars,
+      otherRewards: otherRewardsList
+    });
+  };
+
+  // Replay reward animation for a completed quest (no re-claim)
+  const handleViewCompletedRewards = (quest: Quest) => {
+    playClickSound();
+    playWinSound();
+    buildRewardModalData(quest);
+  };
+
   // Filter lists
   const RANK_LIST = ranksList.map(r => r.name);
   const filteredQuests = quests.filter(quest => {
@@ -361,7 +471,7 @@ export default function QuestBoard({
               animate={{ scale: 1, opacity: 1, y: 0, rotate: 0 }}
               exit={{ scale: 0.2, opacity: 0, y: 50, rotate: 7 }}
               transition={{ type: "spring", damping: 14, stiffness: 125, bounce: 0.35 }}
-              className="relative w-full max-w-lg bg-slate-900/95 border-2 border-amber-400/90 rounded-3xl p-6 sm:p-8 shadow-[0_0_70px_rgba(245,158,11,0.4)] flex flex-col items-center text-center space-y-5 z-10 my-auto"
+              className="quest-reward-card relative bg-slate-900/95 border-2 border-amber-400/90 rounded-3xl p-3.5 sm:p-4 shadow-[0_0_70px_rgba(245,158,11,0.4)] flex flex-col items-center text-center space-y-2.5 z-10 my-auto"
             >
               {/* Outer Pulsing Glow Aura */}
               <div className="absolute -inset-1 rounded-[26px] bg-gradient-to-r from-amber-500 via-orange-500 to-amber-300 opacity-40 blur-lg -z-10 animate-pulse" />
@@ -379,27 +489,27 @@ export default function QuestBoard({
               </button>
 
               {/* Top Badge */}
-              <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/30 to-amber-500/20 border border-amber-400/70 shadow-lg shadow-amber-500/20">
-                <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
-                <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-amber-300 font-sans">
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/30 to-amber-500/20 border border-amber-400/70 shadow-lg shadow-amber-500/20">
+                <img src="/static/img/icon/star.webp" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 font-sans">
                   {rewardModalData.unlockedCharacters.length > 0
-                    ? '✨ NOVO PERSONAGEM DESBLOQUEADO! ✨'
-                    : '✨ RECOMPENSA RESGATADA! ✨'}
+                    ? 'NOVO PERSONAGEM'
+                    : 'RECOMPENSA RESGATADA!'}
                 </span>
-                <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
+                <img src="/static/img/icon/star.webp" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
               </div>
 
               {/* Character Unlocked View */}
               {rewardModalData.unlockedCharacters.length > 0 ? (
-                <div className="w-full space-y-4">
+                <div className="w-full space-y-2">
                   {rewardModalData.unlockedCharacters.map((char) => {
                     const skinImg = char.skins?.[0]?.image || char.selectedSkinUrl;
                     const displayImg = skinImg || char.portrait;
 
                     return (
-                      <div key={char.id} className="flex flex-col items-center space-y-4">
+                      <div key={char.id} className="flex flex-col items-center space-y-2">
                         {/* BIG PHOTO / ARTWORK FRAME (Foto bem grande) */}
-                        <div className="relative w-full h-80 sm:h-96 max-w-sm mx-auto rounded-2xl overflow-hidden border-2 border-amber-400/90 shadow-[0_10px_35px_rgba(245,158,11,0.35)] bg-slate-950 flex items-center justify-center group">
+                        <div className="relative w-full h-36 sm:h-40 max-w-[240px] mx-auto rounded-2xl overflow-hidden border-2 border-amber-400/90 shadow-[0_10px_35px_rgba(245,158,11,0.35)] bg-slate-950 flex items-center justify-center group">
                           {/* Inner Radial Aura */}
                           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/35 via-orange-600/15 to-slate-950 z-0" />
                           
@@ -426,12 +536,12 @@ export default function QuestBoard({
                             }}
                           />
 
-                          {/* Top & Bottom Dark Gradient Overlay for Typography contrast */}
-                          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent pointer-events-none z-30" />
+                          {/* Bottom Dark Gradient Overlay for Typography contrast */}
+                          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent pointer-events-none z-30" />
 
                           {/* Character Name Label over Image */}
-                          <div className="absolute bottom-3 left-0 right-0 z-40 px-3 text-center">
-                            <h2 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-100 to-orange-400 font-sans tracking-wider uppercase drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)]">
+                          <div className="absolute bottom-2 left-0 right-0 z-40 px-2 text-center">
+                            <h2 className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-100 to-orange-400 font-sans tracking-wider uppercase drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)]">
                               {char.name}
                             </h2>
                           </div>
@@ -458,32 +568,20 @@ export default function QuestBoard({
 
                         {/* Skills Showcase */}
                         {char.skills && char.skills.length > 0 && (
-                          <div className="w-full bg-slate-950/90 p-3 rounded-2xl border border-amber-500/30 space-y-2 text-left">
-                            <div className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold flex items-center gap-1.5 justify-center">
-                              <Zap className="w-3.5 h-3.5 text-amber-400" />
-                              <span>Habilidades Desbloqueadas</span>
+                          <div className="w-full bg-slate-950/90 p-2.5 rounded-xl border border-amber-500/30 space-y-1.5 text-left">
+                            <div className="text-[9px] font-mono uppercase tracking-widest text-amber-400 font-bold flex items-center gap-1 justify-center">
+                              <Zap className="w-3 h-3 text-amber-400" />
+                              <span>Habilidades</span>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <div className="grid grid-cols-4 gap-1.5">
                               {char.skills.slice(0, 4).map((sk, skIdx) => (
-                                <div
+                                <img
                                   key={skIdx}
-                                  className="bg-slate-900/90 p-2 rounded-xl border border-slate-800 flex items-center gap-2 group/sk hover:border-amber-500/50 transition"
+                                  src={sk.icon || null}
+                                  alt={sk.name}
                                   title={sk.desc}
-                                >
-                                  <img
-                                    src={sk.icon || null}
-                                    alt={sk.name}
-                                    className="w-8 h-8 rounded-lg object-cover border border-amber-500/40 flex-shrink-0"
-                                  />
-                                  <div className="overflow-hidden leading-tight">
-                                    <p className="text-[10px] font-bold text-slate-200 truncate group-hover/sk:text-amber-300">
-                                      {sk.name}
-                                    </p>
-                                    <p className="text-[9px] font-mono text-amber-400/80 font-semibold">
-                                      {sk.cost?.join('/') || 'Sem Custo'}
-                                    </p>
-                                  </div>
-                                </div>
+                                  className="w-full aspect-square rounded-lg object-cover border border-amber-500/40 bg-slate-900"
+                                />
                               ))}
                             </div>
                           </div>
@@ -494,16 +592,16 @@ export default function QuestBoard({
                 </div>
               ) : (
                 /* Fallback if no character unlocked */
-                <div className="py-6 space-y-4">
-                  <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 p-1 shadow-2xl shadow-amber-500/30 flex items-center justify-center">
+                <div className="py-4 space-y-3">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 p-1 shadow-2xl shadow-amber-500/30 flex items-center justify-center">
                     <div className="w-full h-full bg-slate-950 rounded-full flex items-center justify-center">
-                      <Award className="w-12 h-12 text-amber-400" />
+                      <Award className="w-8 h-8 text-amber-400" />
                     </div>
                   </div>
-                  <h2 className="text-2xl font-black text-amber-300 uppercase font-sans">
+                  <h2 className="text-lg font-black text-amber-300 uppercase font-sans">
                     Recompensas Obtidas
                   </h2>
-                  <p className="text-xs text-slate-300">
+                  <p className="text-[11px] text-slate-300">
                     Parabéns por completar os objetivos da missão!
                   </p>
                 </div>
@@ -511,17 +609,17 @@ export default function QuestBoard({
 
               {/* Other Rewards List */}
               {rewardModalData.otherRewards && rewardModalData.otherRewards.length > 0 && (
-                <div className="w-full bg-slate-950/80 p-3 rounded-2xl border border-slate-800 space-y-1.5">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
+                <div className="w-full bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-1">
+                  <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400 font-bold">
                     Outras Recompensas:
                   </span>
-                  <div className="flex flex-wrap justify-center gap-2">
+                  <div className="flex flex-wrap justify-center gap-1.5">
                     {rewardModalData.otherRewards.map((r, rIdx) => (
                       <span
                         key={rIdx}
-                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1.5"
+                        className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <Sparkles className="w-3 h-3 text-amber-400" />
                         {r.type === 'title' ? `Título: « ${r.value} »` :
                          r.type === 'banner' ? `Banner: ${r.value}` :
                          `Moldura: ${r.value}`}
@@ -532,13 +630,13 @@ export default function QuestBoard({
               )}
 
               {/* Confirm Button */}
-              <div className="w-full pt-2">
+              <div className="w-full pt-1">
                 <button
                   onClick={() => {
                     playClickSound();
                     setRewardModalData(null);
                   }}
-                  className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 hover:brightness-110 active:scale-95 text-slate-950 font-black rounded-xl text-sm uppercase tracking-wider shadow-xl shadow-orange-500/30 transition cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 hover:brightness-110 active:scale-95 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider shadow-xl shadow-orange-500/30 transition cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Sparkles className="w-4 h-4 text-slate-950 fill-slate-950" />
                   <span>INCRÍVEL! EXCELENTE</span>
@@ -824,9 +922,12 @@ export default function QuestBoard({
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ duration: 0.25 }}
+                      onClick={() => {
+                        if (isCompleted) handleViewCompletedRewards(quest);
+                      }}
                       className={`bg-slate-900/80 rounded-2xl border flex flex-col justify-between relative shadow-xl backdrop-blur-md ${
                         isCompleted
-                          ? 'border-emerald-500/30 shadow-emerald-950/10'
+                          ? 'border-emerald-500/30 shadow-emerald-950/10 cursor-pointer hover:border-emerald-500/70 hover:shadow-emerald-500/10 transition-all duration-300'
                           : lockCheck.locked
                             ? 'border-slate-800/80 brightness-[0.7]'
                             : allGoalsMet
@@ -875,7 +976,7 @@ export default function QuestBoard({
                             </p>
                             {quest.desc.length > 200 && (
                               <button
-                                onClick={() => setExpandedDesc(prev => ({ ...prev, [quest.id]: !prev[quest.id] }))}
+                                onClick={(e) => { e.stopPropagation(); setExpandedDesc(prev => ({ ...prev, [quest.id]: !prev[quest.id] })); }}
                                 className="text-[10px] font-mono uppercase tracking-wider text-orange-400 hover:text-orange-300 transition-colors cursor-pointer -mt-0.5"
                               >
                                 {expandedDesc[quest.id] ? 'Ver menos' : 'Ler tudo'}
@@ -948,7 +1049,7 @@ export default function QuestBoard({
                             })}
                             {quest.goals.length > 3 && (
                               <button
-                                onClick={() => setExpandedGoals(prev => ({ ...prev, [quest.id]: !prev[quest.id] }))}
+                                onClick={(e) => { e.stopPropagation(); setExpandedGoals(prev => ({ ...prev, [quest.id]: !prev[quest.id] })); }}
                                 className="text-[10px] font-mono uppercase tracking-wider text-orange-400 hover:text-orange-300 transition-colors cursor-pointer"
                               >
                                 {expandedGoals[quest.id] ? 'Ver menos' : `Ver todas (${quest.goals.length})`}
@@ -1001,10 +1102,13 @@ export default function QuestBoard({
                         {/* Button Action */}
                         <div className="pt-4 mt-auto">
                           {isCompleted ? (
-                            <div className="w-full py-2.5 bg-emerald-950/30 border border-emerald-500/40 text-emerald-400 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans uppercase tracking-wider">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleViewCompletedRewards(quest); }}
+                              className="w-full py-2.5 bg-emerald-950/30 border border-emerald-500/40 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/50 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans uppercase tracking-wider transition cursor-pointer active:scale-95"
+                            >
                               <CheckCircle className="w-4 h-4" />
                               <span>Missão Concluída</span>
-                            </div>
+                            </button>
                           ) : lockCheck.locked ? (
                             <div className="w-full py-2.5 bg-slate-950 border border-slate-800 text-slate-500 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans uppercase tracking-wider" title={lockCheck.reason}>
                               <Lock className="w-3.5 h-3.5 text-slate-600" />
