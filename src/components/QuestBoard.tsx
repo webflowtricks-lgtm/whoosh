@@ -15,6 +15,7 @@ import {
   User, 
   Star, 
   ChevronRight, 
+  ChevronLeft,
   Compass, 
   BookOpen, 
   Sparkles,
@@ -99,6 +100,10 @@ export default function QuestBoard({
     unlockedCharacters: Character[];
     otherRewards: QuestReward[];
   } | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6;
 
   const skillOwnerMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -427,6 +432,11 @@ export default function QuestBoard({
     return (quest.minRank || '').toLowerCase() === rankFilter.toLowerCase();
   });
 
+  const totalPages = Math.ceil(filteredQuests.length / ITEMS_PER_PAGE);
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedQuests = filteredQuests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   return (
     <div className="quest-div-pai min-h-screen w-full relative">
       <div className="absolute inset-0 pointer-events-none z-0" />
@@ -465,14 +475,16 @@ export default function QuestBoard({
               ))}
             </div>
 
-            {/* Main Reward Card Container */}
+            {/* Main Reward Cards Container */}
             <motion.div
               initial={{ scale: 0.15, opacity: 0, y: 70, rotate: -7 }}
               animate={{ scale: 1, opacity: 1, y: 0, rotate: 0 }}
               exit={{ scale: 0.2, opacity: 0, y: 50, rotate: 7 }}
               transition={{ type: "spring", damping: 14, stiffness: 125, bounce: 0.35 }}
-              className="quest-reward-card relative bg-slate-900/95 border-2 border-amber-400/90 rounded-3xl p-3.5 sm:p-4 shadow-[0_0_70px_rgba(245,158,11,0.4)] flex flex-col items-center text-center space-y-2.5 z-10 my-auto"
+              className="relative flex flex-col sm:flex-row items-center sm:items-stretch justify-center gap-3 z-10 my-auto"
             >
+              {/* Character Reward Card */}
+              <div className="quest-reward-card relative bg-slate-900/95 border-2 border-amber-400/90 rounded-3xl p-3.5 sm:p-4 shadow-[0_0_70px_rgba(245,158,11,0.4)] flex flex-col items-center text-center space-y-2.5">
               {/* Outer Pulsing Glow Aura */}
               <div className="absolute -inset-1 rounded-[26px] bg-gradient-to-r from-amber-500 via-orange-500 to-amber-300 opacity-40 blur-lg -z-10 animate-pulse" />
 
@@ -607,28 +619,6 @@ export default function QuestBoard({
                 </div>
               )}
 
-              {/* Other Rewards List */}
-              {rewardModalData.otherRewards && rewardModalData.otherRewards.length > 0 && (
-                <div className="w-full bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 space-y-1">
-                  <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400 font-bold">
-                    Outras Recompensas:
-                  </span>
-                  <div className="flex flex-wrap justify-center gap-1.5">
-                    {rewardModalData.otherRewards.map((r, rIdx) => (
-                      <span
-                        key={rIdx}
-                        className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1"
-                      >
-                        <Sparkles className="w-3 h-3 text-amber-400" />
-                        {r.type === 'title' ? `Título: « ${r.value} »` :
-                         r.type === 'banner' ? `Banner: ${r.value}` :
-                         `Moldura: ${r.value}`}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Confirm Button */}
               <div className="w-full pt-1">
                 <button
@@ -642,6 +632,34 @@ export default function QuestBoard({
                   <span>INCRÍVEL! EXCELENTE</span>
                 </button>
               </div>
+              </div>
+
+              {/* Other Rewards Card (do lado do card do personagem) */}
+              {rewardModalData.otherRewards && rewardModalData.otherRewards.length > 0 && (
+                <div className="relative w-full max-w-[220px] bg-slate-900/95 border-2 border-amber-400/90 rounded-3xl p-3.5 sm:p-4 shadow-[0_0_70px_rgba(245,158,11,0.4)] flex flex-col items-center text-center space-y-2.5">
+                  {/* Top Badge */}
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/30 to-amber-500/20 border border-amber-400/70 shadow-lg shadow-amber-500/20">
+                    <img src="/static/img/icon/star.webp" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 font-sans">
+                      OUTRAS RECOMPENSAS
+                    </span>
+                    <img src="/static/img/icon/star.webp" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
+                  </div>
+                  <div className="flex flex-col gap-2 w-full">
+                    {rewardModalData.otherRewards.map((r, rIdx) => (
+                      <div
+                        key={rIdx}
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        {r.type === 'title' ? `Título: « ${r.value} »` :
+                         r.type === 'banner' ? `Banner: ${r.value}` :
+                         `Moldura: ${r.value}`}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
@@ -861,6 +879,7 @@ export default function QuestBoard({
                     onClick={() => {
                       playClickSound();
                       setActiveTab(tab.id as any);
+                      setCurrentPage(1);
                     }}
                     className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
                       activeTab === tab.id
@@ -887,7 +906,10 @@ export default function QuestBoard({
               {RANK_LIST.map(rank => (
                 <button
                   key={rank}
-                  onClick={() => setRankFilter(rankFilter === rank ? '' : rank)}
+                  onClick={() => {
+                    setRankFilter(rankFilter === rank ? '' : rank);
+                    setCurrentPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition cursor-pointer ${
                     rankFilter === rank
                       ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-black shadow-md shadow-orange-600/10'
@@ -906,11 +928,12 @@ export default function QuestBoard({
               <img src="/static/img/icon/star.webp" alt="Loading" className="w-8 h-8 animate-spin object-contain" />
               <p className="text-slate-400 text-xs font-mono">Buscando missões secretas na névoa...</p>
             </div>
-          ) : filteredQuests.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <AnimatePresence>
-                {filteredQuests.map((quest) => {
-                  const lockCheck = isQuestLocked(quest);
+) : filteredQuests.length > 0 ? (
+            <>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <AnimatePresence>
+                  {paginatedQuests.map((quest) => {
+                    const lockCheck = isQuestLocked(quest);
                   const isCompleted = user.completedQuestIds?.includes(quest.id) || quest.completed;
                   const allGoalsMet = quest.goals.every(g => g.currentValue >= g.targetValue);
 
@@ -1142,7 +1165,50 @@ export default function QuestBoard({
                   );
                 })}
               </AnimatePresence>
-            </div>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-6">
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      setCurrentPage(p => Math.max(1, p - 1));
+                    }}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => {
+                        playClickSound();
+                        setCurrentPage(page);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                        page === currentPage
+                          ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-black shadow-md shadow-orange-600/10'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      setCurrentPage(p => Math.min(totalPages, p + 1));
+                    }}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="py-20 border border-dashed border-slate-800 rounded-2xl text-center space-y-3">
               <ShieldAlert className="w-8 h-8 text-slate-600 mx-auto" />

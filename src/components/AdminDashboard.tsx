@@ -4485,6 +4485,31 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   ))}
                                 </select>
                               </div>
+                              <div className="mt-2">
+                                <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold">🛡️ Tipos de Proteção:</span>
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {(['all','damage','direct_damage','affliction','bleeding','dot','mental','physical','chakra','ranged','friendly','stun'] as const).map(t => {
+                                    const allInvulTypes = ['all','damage','direct_damage','affliction','bleeding','dot','mental','physical','chakra','ranged','friendly','stun'];
+                                    const current = editingSkill.invulnerableTypes;
+                                    const isChecked = !current || current.length === 0 || current.includes(t);
+                                    return (
+                                      <label key={t} className="flex items-center gap-0.5 cursor-pointer select-none text-[9px] text-slate-400 font-mono">
+                                        <input type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => {
+                                            const base = editingSkill.invulnerableTypes && editingSkill.invulnerableTypes.length > 0
+                                              ? [...editingSkill.invulnerableTypes] : [...allInvulTypes];
+                                            const idx = base.indexOf(t);
+                                            if (idx >= 0) base.splice(idx, 1); else base.push(t);
+                                            handleUpdateSkillField('invulnerableTypes', base.length > 0 && base.length < allInvulTypes.length ? base : undefined);
+                                          }}
+                                          className="rounded bg-slate-950 border-slate-700 text-cyan-500 focus:ring-0 w-2.5 h-2.5" />
+                                        {t === 'all' ? 'Tudo' : t === 'damage' ? '💥Dano' : t === 'direct_damage' ? '🎯Direto' : t === 'affliction' ? '💀Aflição' : t === 'bleeding' ? '🩸Sangra' : t === 'dot' ? '🔥DoT' : t === 'mental' ? '🧠Mental' : t === 'physical' ? '🤜Físico' : t === 'chakra' ? '⚡Chakra' : t === 'ranged' ? '🏹Distância' : t === 'friendly' ? '🤝Amigo' : '⚡Stun'}
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             </div>
                             <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
                               <div className="flex items-center justify-between gap-2">

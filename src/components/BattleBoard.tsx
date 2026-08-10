@@ -145,10 +145,37 @@ export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveE
   return false;
 }
 
-export function checkCombatantInvulnerable(c: CombatCharacter): boolean {
+export function checkCombatantInvulnerable(c: CombatCharacter, damageType?: string): boolean {
   if (!c || !c.activeEffects) return false;
   if (c.activeEffects.some(e => e.type === 'cannot_be_invulnerable')) return false;
-  return c.activeEffects.some(e => e.type === 'invulnerable');
+  const invulEffects = c.activeEffects.filter(e => e.type === 'invulnerable');
+  if (invulEffects.length === 0) return false;
+  // If no specific damage type is being checked, return true if any invulnerable effect exists
+  if (!damageType) return true;
+  // Check if any invulnerable effect covers the damage type
+  return invulEffects.some(eff => {
+    const types = eff.invulnerableTypes;
+    if (!types || types.length === 0) return true; // No specific types = protects against all
+    if (types.includes('all')) return true;
+    // Map damageType to invulnerableTypes
+    const typeMap: Record<string, string> = {
+      'damage': 'damage',
+      'direct_damage': 'direct_damage',
+      'affliction': 'affliction',
+      'bleeding': 'bleeding',
+      'dot': 'dot',
+      'mental': 'mental',
+      'physical': 'physical',
+      'chakra': 'chakra',
+      'ranged': 'ranged',
+      'friendly': 'friendly',
+      'stun': 'stun',
+      'damage_debuff': 'affliction',
+      'bleeding_damage': 'bleeding',
+    };
+    const mappedType = typeMap[damageType] || damageType;
+    return types.includes(mappedType as any) || types.includes('all');
+  });
 }
 
 export function isEffectVisibleToViewer(
@@ -3762,6 +3789,7 @@ const handleTradeChakra = () => {
             type: 'invulnerable',
             duration: skill.invulnerableDuration!,
             icon: skill.icon,
+            invulnerableTypes: skill.invulnerableTypes,
             irremovable: !!skill.invulnerableIrremovable,
             casterId: source.id,
             casterSide: action.isPlayer ? 'player' : 'enemy',

@@ -35,6 +35,10 @@
       {
         "type": "unlock_character",
         "value": "Haku"
+      },
+      {
+        "type": "title",
+        "value": "Novo Título"
       }
     ],
     "completed": true
@@ -767,6 +771,42 @@
       {
         "type": "title",
         "value": "Orochimaru's Spy"
+      }
+    ],
+    "completed": false
+  },
+  {
+    "id": "quest_1786315139730",
+    "title": "The Dishonourable",
+    "desc": "Mizuki's craving for power and acknowledgement led him to hate Iruka for gaining more attention than him, and pretended to be Iruka's friend in order to live off of that attention, as well as discreetly inflict misery on Iruka. Because of this, during their second confrontation, Mizuki constantly mocked Iruka while refusing to surrender and repent no matter how many times Iruka tried to convince him to.",
+    "coverUrl": "https://i.ibb.co/Jj9RPf1B/15.webp",
+    "minRank": "Chunin",
+    "requiredQuestIds": [
+      "quest_1786044478711"
+    ],
+    "goals": [
+      {
+        "id": "goal_1786315139730_1",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [
+          "Uzumaki Naruto"
+        ],
+        "targetValue": 5,
+        "currentValue": 0
+      },
+      {
+        "id": "goal_1786315347746_2",
+        "type": "use_skill",
+        "targetSkill": "Shadow Clones",
+        "targetValue": 10,
+        "currentValue": 0,
+        "singleMatch": false
+      }
+    ],
+    "rewards": [
+      {
+        "type": "unlock_character",
+        "value": "Mizuki"
       }
     ],
     "completed": false

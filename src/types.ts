@@ -128,6 +128,7 @@ export interface Skill {
   removeCounterReflect?: boolean;
   removeCounterReflectTarget?: TargetOverride;
   invulnerableDuration?: number;
+  invulnerableTypes?: ('damage' | 'direct_damage' | 'affliction' | 'bleeding' | 'dot' | 'mental' | 'physical' | 'chakra' | 'ranged' | 'friendly' | 'stun' | 'all')[];
   gainChakra?: number;
   gainChakraDuration?: number;
   drainChakra?: number;
@@ -375,39 +376,40 @@ export interface Character {
 export interface ActiveEffect {
   name: string; // name of skill or effect (e.g. "Shadow Clones", "Sand Coffin")
   type:
-'shield'
-| 'damage_reduction'
-| 'damage_buff'
-| 'stun'
-| 'invulnerable'
-| 'dot'
-| 'counter'
-| 'counter_attack'
-| 'reflect'
-| 'custom'
-| 'invisible'
-| 'bleeding'
-| 'affliction'
-| 'paralyze_cooldown'
-| 'damage'
-| 'direct_damage'
-| 'heal'
-| 'cannot_reduce_damage'
-| 'cannot_be_invulnerable'
-| 'cannot_receive_friendly'
-| 'ignore_stun'
-| 'damage_immunity'
-| 'damage_debuff'
-| 'retaliate_damage'
-| 'immortal'
-| 'reveal_invisible'
-| 'on_skill_use_damage';
+  'shield'
+  | 'damage_reduction'
+  | 'damage_buff'
+  | 'stun'
+  | 'invulnerable'
+  | 'dot'
+  | 'counter'
+  | 'counter_attack'
+  | 'reflect'
+  | 'custom'
+  | 'invisible'
+  | 'bleeding'
+  | 'affliction'
+  | 'paralyze_cooldown'
+  | 'damage'
+  | 'direct_damage'
+  | 'heal'
+  | 'cannot_reduce_damage'
+  | 'cannot_be_invulnerable'
+  | 'cannot_receive_friendly'
+  | 'ignore_stun'
+  | 'damage_immunity'
+  | 'damage_debuff'
+  | 'retaliate_damage'
+  | 'immortal'
+  | 'reveal_invisible'
+  | 'on_skill_use_damage';
   value?: number; // magnitude of shield, reduction, damage, etc.
   duration: number; // remaining turns
   damageType?: string;
   icon?: string; // Icon of the skill that caused this effect/debuff
   sourceSkillName?: string; // Base skill name for grouping debuffs
   stunType?: ('mental' | 'physical' | 'affliction' | 'chakra' | 'ranged' | 'friendly' | string)[];
+  invulnerableTypes?: ('damage' | 'direct_damage' | 'affliction' | 'bleeding' | 'dot' | 'mental' | 'physical' | 'chakra' | 'ranged' | 'friendly' | 'stun' | 'all')[];
   irremovable?: boolean;
   cannotBeCountered?: boolean;
   cannotBeReflected?: boolean;
