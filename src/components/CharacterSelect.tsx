@@ -673,7 +673,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       </header>
 
       {/* Main Draft Area */}
-      <main className="max-w-[1480px] w-full mx-auto px-4 sm:px-6 pt-24 sm:pt-28 pb-8 grid lg:grid-cols-12 gap-8 flex-1 items-start">
+      <main className="max-w-[1400px] w-full mx-auto px-3 sm:px-6 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform">
         {/* Roster Grid (Left Side) */}
         <div className="lg:col-span-6 space-y-6">
           <div className="flex flex-col gap-4">
@@ -834,7 +834,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             />
 
             {/* Pagination Controls Content */}
-            <div className="relative z-10 w-full flex items-center justify-between px-6 sm:px-10 py-3">
+            <div className="relative z-10 w-full flex items-center justify-center gap-3 sm:gap-6 px-6 sm:px-10 py-3">
               <button
                 onClick={() => {
                   playClickSound();
@@ -1110,18 +1110,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
                             <div className="flex-1 min-w-0 space-y-0.5">
                               <div className="flex justify-between items-start gap-1.5">
-                                <div className="group relative inline-block max-w-full">
+                                <div className="inline-block max-w-full">
                                   <span 
-                                    className="font-extrabold text-xs sm:text-sm text-amber-950 font-sans tracking-tight truncate drop-shadow-sm cursor-help block"
-                                    title={translatedSkillName}
+                                    className="font-extrabold text-xs sm:text-sm text-amber-950 font-sans tracking-tight truncate drop-shadow-sm block"
                                   >
                                     {translatedSkillName}
                                   </span>
-                                  <div className="absolute top-full left-0 mt-1 hidden group-hover:flex flex-col bg-amber-950 text-amber-100 border border-amber-800/80 p-2 rounded-lg shadow-2xl z-[100] pointer-events-none whitespace-normal min-w-[160px] max-w-[260px]">
-                                    <span className="text-xs font-black text-amber-200 font-sans tracking-tight">
-                                      {translatedSkillName}
-                                    </span>
-                                  </div>
                                 </div>
                                 <div className="flex-shrink-0 bg-amber-950/10 px-1 py-0.5 rounded border border-amber-900/20">
                                   {renderChakraCosts(skill.cost)}

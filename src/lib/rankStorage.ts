@@ -202,3 +202,4 @@ export function getUserRankFromConfig(xp: number, rankList?: RankConfig[]): stri
   }
   return list[0]?.name || 'Estudante de Academia';
 }
+ 

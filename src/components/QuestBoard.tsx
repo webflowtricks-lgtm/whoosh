@@ -591,7 +591,6 @@ export default function QuestBoard({
                                   key={skIdx}
                                   src={sk.icon || null}
                                   alt={sk.name}
-                                  title={sk.desc}
                                   className="w-full aspect-square rounded-lg object-cover border border-amber-500/40 bg-slate-900"
                                 />
                               ))}

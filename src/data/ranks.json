@@ -1,99 +1,50 @@
 [
   {
     "id": "rank_estudante",
-    "name": "Estudante dA Academia",
+    "name": "Estudante de Academia",
     "requiredXp": 0,
-    "color": "from-slate-500 to-slate-400 border-slate-500/30 text-white",
-    "fontColor": "#fff"
+    "color": "from-slate-500 to-slate-400 border-slate-500/30 text-slate-300"
   },
   {
     "id": "rank_genin",
     "name": "Genin",
     "requiredXp": 1000,
-    "color": "from-emerald-600 to-teal-500 border-emerald-500/30 text-white",
-    "fontColor": "#fff"
+    "color": "from-emerald-600 to-teal-500 border-emerald-500/30 text-emerald-400"
   },
   {
     "id": "rank_chunin",
     "name": "Chunin",
     "requiredXp": 3500,
-    "color": "from-emerald-600 to-teal-500 border-emerald-500/30 text-white",
-    "fontColor": "#fff"
+    "color": "from-blue-600 to-cyan-500 border-blue-500/30 text-blue-400"
   },
   {
     "id": "rank_jonin",
-    "name": "Especial Jonin",
+    "name": "Jonin",
     "requiredXp": 8500,
-    "color": "from-teal-400 via-cyan-500 to-blue-500 border-cyan-300/40 text-white",
-    "fontColor": "#fff"
+    "color": "from-indigo-600 to-purple-500 border-indigo-500/30 text-indigo-400"
+  },
+  {
+    "id": "rank_anbu",
+    "name": "ANBU",
+    "requiredXp": 18000,
+    "color": "from-red-600 to-pink-500 border-red-500/30 text-red-400"
   },
   {
     "id": "rank_sannin",
-    "name": "Jonin",
+    "name": "Sannin Lendário",
     "requiredXp": 35000,
-    "color": "from-cyan-400 via-blue-600 to-indigo-700 border-cyan-400/40 text-white",
-    "fontColor": "#fff"
+    "color": "from-purple-600 to-fuchsia-500 border-purple-500/30 text-purple-300"
   },
   {
     "id": "rank_hokage",
-    "name": "Sannin",
+    "name": "Hokage",
     "requiredXp": 60000,
-    "color": "from-red-600 to-pink-500 border-red-500/30 text-white"
+    "color": "from-orange-600 to-amber-500 border-orange-500/30 text-orange-400"
   },
   {
     "id": "rank_lenda",
-    "name": "War Commander",
+    "name": "Lenda Shinobi",
     "requiredXp": 100000,
-    "color": "from-neutral-950 via-slate-900 to-black border-slate-700/50 text-white"
-  },
-  {
-    "id": "rank_1786061995918",
-    "name": "S-Rank",
-    "requiredXp": 100001,
-    "color": "from-black via-red-950 to-red-600 border-red-600/50 text-white"
-  },
-  {
-    "id": "rank_1786062007671",
-    "name": "Village Head",
-    "requiredXp": 100002,
-    "color": "from-red-800 via-orange-600 to-amber-400 border-red-600/40 text-white"
-  },
-  {
-    "id": "rank_1786062007902",
-    "name": "Tsuchikage",
-    "requiredXp": 100003,
-    "color": "from-red-800 via-orange-600 to-amber-400 border-red-600/40 text-white"
-  },
-  {
-    "id": "rank_1786062008158",
-    "name": "Raikage",
-    "requiredXp": 100004,
-    "color": "from-red-800 via-orange-600 to-amber-400 border-red-600/40 text-white"
-  },
-  {
-    "id": "rank_1786062008382",
-    "name": "Mizukage",
-    "requiredXp": 100005,
-    "color": "from-red-800 via-orange-600 to-amber-400 border-red-600/40 text-white"
-  },
-  {
-    "id": "rank_1786062008550",
-    "name": "Kazekage",
-    "requiredXp": 100006,
-    "color": "from-amber-600 to-yellow-500 border-amber-500/30 text-amber-400"
-  },
-  {
-    "id": "rank_1786062070366",
-    "name": "Hokage",
-    "requiredXp": 100007,
-    "color": "from-amber-600 to-yellow-500 border-amber-500/30 text-amber-400"
-  },
-  {
-    "id": "rank_1786098053445",
-    "name": "Anbu",
-    "requiredXp": 100008,
-    "color": "none",
-    "bgColor": "#fff",
-    "fontColor": "#ff0000"
+    "color": "from-yellow-500 to-amber-300 border-yellow-400/50 text-yellow-300"
   }
 ]

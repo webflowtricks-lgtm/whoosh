@@ -1889,6 +1889,81 @@
     ]
   },
   {
+    "id": "demon-brothers",
+    "name": "Demon Brothers",
+    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
+    "tags": [
+      "Clã Shinobi",
+      "Clássico"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/demon-brothers/icon.jpg",
+    "folder": "demon-brothers",
+    "skills": [
+      {
+        "name": "Chain Shred",
+        "desc": "Demon Brothers executa [Chain Shred], desferindo um golpe poderoso que causa 40 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/demon-brothers/ChainShred.jpg",
+        "cost": [
+          "Gen"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Mental",
+          "À Distância"
+        ]
+      },
+      {
+        "name": "Chain Wrap",
+        "desc": "Demon Brothers executa [Chain Wrap], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/demon-brothers/ChainWrap.jpg",
+        "cost": [
+          "Nin"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "À Distância"
+        ]
+      },
+      {
+        "name": "Poison Gauntlet",
+        "desc": "Demon Brothers executa [Poison Gauntlet], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/demon-brothers/PoisonGauntlet.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Mental",
+          "À Distância"
+        ]
+      },
+      {
+        "name": "Vanish",
+        "desc": "Demon Brothers executa [Vanish], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/demon-brothers/Vanish.jpg",
+        "cost": [
+          "Nin",
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Mental",
+          "À Distância"
+        ]
+      }
+    ],
+    "skins": []
+  },
+  {
     "id": "kakashi",
     "name": "Kakashi Hatake",
     "description": "O líder Jonin de elite do Time 7. Conhecido mundialmente como o Ninja Copiador, Kakashi usa seu Sharingan para antecipar movimentos, se esconde no subsolo e desfere sua icônica Espada Relâmpago.",
@@ -4756,81 +4831,6 @@
     "skins": []
   },
   {
-    "id": "demon-brothers",
-    "name": "Demon Brothers",
-    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
-    "tags": [
-      "Clã Shinobi",
-      "Clássico"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/demon-brothers/icon.jpg",
-    "folder": "demon-brothers",
-    "skills": [
-      {
-        "name": "Chain Shred",
-        "desc": "Demon Brothers executa [Chain Shred], desferindo um golpe poderoso que causa 40 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/demon-brothers/ChainShred.jpg",
-        "cost": [
-          "Gen"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Mental",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Chain Wrap",
-        "desc": "Demon Brothers executa [Chain Wrap], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/demon-brothers/ChainWrap.jpg",
-        "cost": [
-          "Nin"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Poison Gauntlet",
-        "desc": "Demon Brothers executa [Poison Gauntlet], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/demon-brothers/PoisonGauntlet.jpg",
-        "cost": [
-          "Tai"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Mental",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Vanish",
-        "desc": "Demon Brothers executa [Vanish], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/demon-brothers/Vanish.jpg",
-        "cost": [
-          "Nin",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Mental",
-          "À Distância"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
     "id": "deva-path-pain-(s)",
     "name": "Deva Path Pain (S)",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
@@ -7030,50 +7030,56 @@
     "folder": "iruka-umino",
     "skills": [
       {
-        "name": "Ally Shield",
-        "desc": "Iruka Umino executa [Ally Shield], desferindo um golpe poderoso que causa 40 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/iruka-umino/AllyShield.jpg",
+        "name": "Shuriken Throw",
+        "desc": "Iruka Umino executa [Shuriken Throw], desferindo um golpe poderoso que causa 30 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/iruka-umino/ShurikenThrow.jpg",
         "cost": [
-          "Gen"
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "À Distância",
+          "Físico"
+        ],
+        "damage": 20,
+        "bonusDamagePerMissingHp": 10
+      },
+      {
+        "name": "Captureand Arrest",
+        "desc": "Iruka escolhe um inimigo como alvo. No turno seguinte, se o inimigo usar uma habilidade ofensiva, sofrerá 40 de dano e, por 1 turno, sofrerá 15 de dano adicional de habilidades físicas e de chakra. Este efeito é invisível até ser ativado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/iruka-umino/CaptureandArrest.jpg",
+        "cost": [
+          "Nin"
         ],
         "cooldown": 1,
         "currentCooldown": 0,
         "targetType": "Enemy",
         "classes": [
-          "Mental",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Captureand Arrest",
-        "desc": "Iruka Umino executa [Captureand Arrest], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/iruka-umino/CaptureandArrest.jpg",
-        "cost": [
-          "Gen"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
           "Físico",
           "Corpo a Corpo"
-        ]
+        ],
+        "invisible": true,
+        "invisibleDuration": 1,
+        "captureAndArrest": true
       },
       {
-        "name": "Shuriken Throw",
-        "desc": "Iruka Umino executa [Shuriken Throw], desferindo um golpe poderoso que causa 30 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/iruka-umino/ShurikenThrow.jpg",
+        "name": "Ally Shield",
+        "desc": "Iruka Umino executa [Ally Shield], desferindo um golpe poderoso que causa 40 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/iruka-umino/AllyShield.jpg",
         "cost": [
-          "Gen",
           "Rand"
         ],
-        "cooldown": 0,
+        "cooldown": 2,
         "currentCooldown": 0,
-        "targetType": "Enemy",
+        "targetType": "Ally",
         "classes": [
-          "Chakra",
-          "À Distância"
-        ]
+          "Físico",
+          "Amigável"
+        ],
+        "invulnerableDuration": 1,
+        "invulnerableTarget": "Ally"
       },
       {
         "name": "Parry",
@@ -7087,7 +7093,8 @@
         "targetType": "Self",
         "classes": [
           "Físico"
-        ]
+        ],
+        "invulnerableDuration": 1
       }
     ],
     "skins": []

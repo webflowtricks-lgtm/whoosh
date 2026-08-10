@@ -145,37 +145,90 @@ export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveE
   return false;
 }
 
-export function checkCombatantInvulnerable(c: CombatCharacter, damageType?: string): boolean {
+export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Skill | string | string[]): boolean {
   if (!c || !c.activeEffects) return false;
   if (c.activeEffects.some(e => e.type === 'cannot_be_invulnerable')) return false;
   const invulEffects = c.activeEffects.filter(e => e.type === 'invulnerable');
   if (invulEffects.length === 0) return false;
-  // If no specific damage type is being checked, return true if any invulnerable effect exists
-  if (!damageType) return true;
-  // Check if any invulnerable effect covers the damage type
+
   return invulEffects.some(eff => {
     const types = eff.invulnerableTypes;
-    if (!types || types.length === 0) return true; // No specific types = protects against all
+    // No types specified = protects against all by default
+    if (!types) return true;
+    // Explicitly empty array = protects against nothing
+    if (types.length === 0) return false;
+
+    // 1. If skillOrType is a single string
+    if (typeof skillOrType === 'string') {
+      return isSingleTypeProtected(skillOrType, types);
+    }
+
+    // 2. If skillOrType is an array of strings
+    if (Array.isArray(skillOrType)) {
+      return skillOrType.some(st => isSingleTypeProtected(st, types));
+    }
+
+    // 3. If skillOrType is a Skill object
+    if (skillOrType) {
+      const skill = skillOrType as Skill;
+      const classes = (skill.classes || []).map(cls => cls.toLowerCase());
+
+      const isPhysical = classes.some(cls => ['physical', 'físico', 'fisico', 'taijutsu', 'melee', 'corpo a corpo'].includes(cls));
+      const isMental = classes.some(cls => ['mental', 'genjutsu'].includes(cls));
+      const isChakra = classes.some(cls => ['chakra', 'ninjutsu'].includes(cls));
+      const isRanged = classes.some(cls => ['ranged', 'à distância', 'distância', 'distancia'].includes(cls));
+      const isAffliction = classes.some(cls => ['affliction', 'aflição', 'aflicao'].includes(cls));
+      const isFriendly = classes.some(cls => ['friendly', 'suporte', 'cura'].includes(cls));
+
+      // If skill has Physical class, target MUST be protected against Physical
+      if (isPhysical && !types.includes('physical')) return false;
+
+      // If skill has Mental class, target MUST be protected against Mental
+      if (isMental && !types.includes('mental')) return false;
+
+      // If skill has Chakra class, target MUST be protected against Chakra
+      if (isChakra && !types.includes('chakra')) return false;
+
+      // If skill has Ranged class, target MUST be protected against Ranged
+      if (isRanged && !types.includes('ranged')) return false;
+
+      // If skill has Affliction class, target MUST be protected against Affliction
+      if (isAffliction && !types.includes('affliction')) return false;
+
+      // If skill has Friendly class, target MUST be protected against Friendly
+      if (isFriendly && !types.includes('friendly')) return false;
+
+      // Check specific damage/effect fields if skill has no primary class tags or passed all class checks
+      if (skill.directDamage && skill.directDamage > 0) {
+        if (!types.includes('direct_damage') && !types.includes('damage') && !types.includes('all')) return false;
+      }
+      if (skill.dotVal && skill.dotVal > 0) {
+        if (!types.includes('dot') && !types.includes('damage') && !types.includes('all')) return false;
+      }
+      if (skill.bleedingVal && skill.bleedingVal > 0) {
+        if (!types.includes('bleeding') && !types.includes('damage') && !types.includes('all')) return false;
+      }
+
+      return true;
+    }
+
+    // If no skill or damage type context provided at call-site (UI aura), check if 'all' or has any types
     if (types.includes('all')) return true;
-    // Map damageType to invulnerableTypes
-    const typeMap: Record<string, string> = {
-      'damage': 'damage',
-      'direct_damage': 'direct_damage',
-      'affliction': 'affliction',
-      'bleeding': 'bleeding',
-      'dot': 'dot',
-      'mental': 'mental',
-      'physical': 'physical',
-      'chakra': 'chakra',
-      'ranged': 'ranged',
-      'friendly': 'friendly',
-      'stun': 'stun',
-      'damage_debuff': 'affliction',
-      'bleeding_damage': 'bleeding',
-    };
-    const mappedType = typeMap[damageType] || damageType;
-    return types.includes(mappedType as any) || types.includes('all');
+
+    return true;
   });
+}
+
+function isSingleTypeProtected(typeStr: string, types: string[]): boolean {
+  if (types.includes('all')) return true;
+  const st = typeStr.toLowerCase();
+  if (types.includes(st)) return true;
+  if (['físico', 'fisico', 'taijutsu', 'melee', 'corpo a corpo'].includes(st) && types.includes('physical')) return true;
+  if (['genjutsu'].includes(st) && types.includes('mental')) return true;
+  if (['ninjutsu'].includes(st) && types.includes('chakra')) return true;
+  if (['aflição', 'aflicao'].includes(st) && types.includes('affliction')) return true;
+  if (['à distância', 'distância', 'distancia', 'ranged'].includes(st) && types.includes('ranged')) return true;
+  return false;
 }
 
 export function isEffectVisibleToViewer(
@@ -215,7 +268,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
   if (!eff) return false;
   const debuffTypes = [
     'stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown',
-    'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage'
+    'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff'
   ];
   if (debuffTypes.includes(eff.type)) return true;
   const lowerName = (eff.name || '').toLowerCase();
@@ -254,6 +307,62 @@ export function getSkillBaseName(eff: ActiveEffect): string {
   name = name.replace(regex, '');
 
   return name.trim();
+}
+
+export function formatInvulnerableSummary(types?: string[]): string {
+  const ALL_KNOWN_TYPES = ['damage', 'direct_damage', 'affliction', 'bleeding', 'dot', 'mental', 'physical', 'chakra', 'ranged', 'friendly', 'stun'];
+  const TYPE_LABELS: Record<string, string> = {
+    damage: 'dano normal',
+    direct_damage: 'dano direto',
+    affliction: 'aflição',
+    bleeding: 'sangramento',
+    dot: 'dano contínuo',
+    mental: 'mental',
+    physical: 'físico',
+    chakra: 'chakra',
+    ranged: 'distância',
+    friendly: 'amigável',
+    stun: 'atordoamento',
+  };
+
+  if (!types || types.length === 0 || types.includes('all')) {
+    return 'a todos os danos e efeitos';
+  }
+
+  const cleanTypes = Array.from(new Set(types.filter(t => t !== 'all')));
+
+  if (cleanTypes.length >= ALL_KNOWN_TYPES.length) {
+    return 'a todos os danos e efeitos';
+  }
+
+  const formatList = (items: string[]) => {
+    if (items.length === 0) return '';
+    if (items.length === 1) return items[0];
+    if (items.length === 2) return `${items[0]} e ${items[1]}`;
+    return `${items.slice(0, -1).join(', ')} e ${items[items.length - 1]}`;
+  };
+
+  if (cleanTypes.length <= Math.floor(ALL_KNOWN_TYPES.length / 2)) {
+    const includedNames = cleanTypes.map(t => TYPE_LABELS[t] || t);
+    return `a ${formatList(includedNames)}`;
+  } else {
+    const missingTypes = ALL_KNOWN_TYPES.filter(t => !cleanTypes.includes(t));
+    const excludedNames = missingTypes.map(t => TYPE_LABELS[t] || t);
+    return `a todos (exceto ${formatList(excludedNames)})`;
+  }
+}
+
+export function getCaptureArrestBonusDamage(t: CombatCharacter, skill: Skill): number {
+  if (!t || !t.activeEffects || t.activeEffects.length === 0 || !skill) return 0;
+  const hasDebuff = t.activeEffects.some(e => e.type === 'capture_arrest_debuff' || (e.name && e.name.includes('Captureand Arrest')));
+  if (!hasDebuff) return 0;
+  const isPhysicalOrChakra = skill.classes?.some((c: string) => {
+    const lower = c.toLowerCase();
+    return lower.includes('físico') || lower.includes('fisico') || lower.includes('physical') ||
+           lower.includes('tai') || lower.includes('corpo a corpo') || lower.includes('melee') ||
+           lower.includes('chakra') || lower.includes('nin') || lower.includes('blood');
+  });
+  return isPhysicalOrChakra ? 15 : 0;
 }
 
 export function getSingleEffectDescription(effect: ActiveEffect): string {
@@ -316,9 +425,11 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'heal':
       rawPt = val > 0 ? `Regenera ${val} de vida por turno por ${durText}` : `Efeito de cura por ${durText}`;
       break;
-    case 'invulnerable':
-      rawPt = `Inviolável: Imune a todos os danos por ${durText}`;
+    case 'invulnerable': {
+      const summary = formatInvulnerableSummary(effect.invulnerableTypes);
+      rawPt = `Inviolável: Imune ${summary} por ${durText}`;
       break;
+    }
     case 'counter':
     case 'counter_attack':
       rawPt = `Pronto para contra-atacar por ${durText}`;
@@ -355,6 +466,12 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       break;
     case 'on_skill_use_damage':
       rawPt = val > 0 ? `Punição por Habilidade: Sofre ${val} de dano a cada habilidade que usar por ${durText}` : `Punição por usar habilidade por ${durText}`;
+      break;
+    case 'capture_arrest_trap':
+      rawPt = `Armadilha Capture and Arrest (Invisível): Se usar habilidade ofensiva, sofrerá 40 de dano e +15 de dano de físicas/chakra por 1 turno.`;
+      break;
+    case 'capture_arrest_debuff':
+      rawPt = `Vulnerabilidade (Capture and Arrest): Sofre +15 de dano adicional de habilidades Físicas e de Chakra por ${durText}`;
       break;
     case 'retaliate_damage': {
       const baseVal = effect.retaliateDamageVal || effect.value || 0;
@@ -1657,7 +1774,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       // Skill targeting ALL ENEMIES
       if (skill.targetType === 'AllEnemies') {
         if (isTargetTeam && !combatant.isDead) {
-          const isInvulnerable = checkCombatantInvulnerable(combatant);
+          const isInvulnerable = checkCombatantInvulnerable(combatant, skill);
           return !isInvulnerable || !!skill.ignoreInvulnerable;
         }
         return false;
@@ -1673,7 +1790,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
       // Single target check
       if (a.targetId === combatant.id) {
-        if (isTargetTeam && checkCombatantInvulnerable(combatant) && !skill.ignoreInvulnerable) {
+        if (isTargetTeam && checkCombatantInvulnerable(combatant, skill) && !skill.ignoreInvulnerable) {
           return false;
         }
         return true;
@@ -1729,7 +1846,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       if (skill.targetType === 'AllEnemies') {
         // For AllEnemies, check if ALL living targets on that side are invulnerable
         const livingTargets = targetList.filter(c => !c.isDead);
-        const allInvulnerable = livingTargets.length > 0 && livingTargets.every(c => checkCombatantInvulnerable(c));
+        const allInvulnerable = livingTargets.length > 0 && livingTargets.every(c => checkCombatantInvulnerable(c, skill));
         if (allInvulnerable && !skill.ignoreInvulnerable) {
           playCustomSound('Error');
           addFloatingText(targetId, 'TODOS INIMIGOS INVULNERÁVEIS!', 'invulnerable');
@@ -1742,7 +1859,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
           addFloatingText(targetId, 'ALVO INVISÍVEL!', 'stun');
           return;
         }
-        const isTargetInvulnerable = checkCombatantInvulnerable(targetChar);
+        const isTargetInvulnerable = checkCombatantInvulnerable(targetChar, skill);
         if (isTargetInvulnerable && !skill.ignoreInvulnerable) {
           playCustomSound('Error');
           addFloatingText(targetId, 'ALVO INVULNERÁVEL!', 'invulnerable');
@@ -1765,7 +1882,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     setSelectedSkill(null);
 
     if (skill.targetType === 'AllEnemies') {
-      const nonInvulTargets = targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c) || skill.ignoreInvulnerable));
+      const nonInvulTargets = targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill.ignoreInvulnerable));
       nonInvulTargets.forEach(t => {
         addFloatingText(t.id, 'Alvo Marcado!', 'effect');
       });
@@ -2124,7 +2241,7 @@ const handleTradeChakra = () => {
                            ((!targetOverride || targetOverride === 'Target') && skill?.targetType === 'AllEnemies');
 
       if (isAllEnemies) {
-        return targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c) || skill?.ignoreInvulnerable));
+        return targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill?.ignoreInvulnerable));
       }
 
       const isAllAllies = targetOverride === 'AllAllies' ||
@@ -2159,20 +2276,20 @@ const handleTradeChakra = () => {
         return allies.length > 0 ? [allies[0]] : [source];
       }
       if (targetOverride === 'AllAllies') return sourceList.filter(c => !c.isDead);
-      if (targetOverride === 'AllEnemies') return targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c) || skill?.ignoreInvulnerable));
+      if (targetOverride === 'AllEnemies') return targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill?.ignoreInvulnerable));
       if (targetOverride === 'AllLiving') return [...sourceList, ...targetList].filter(c => !c.isDead);
-      if (targetOverride === 'AllNonInvulnerable') return [...sourceList, ...targetList].filter(c => !c.isDead && !checkCombatantInvulnerable(c));
-      if (targetOverride === 'AllInvulnerable') return [...sourceList, ...targetList].filter(c => !c.isDead && checkCombatantInvulnerable(c));
+      if (targetOverride === 'AllNonInvulnerable') return [...sourceList, ...targetList].filter(c => !c.isDead && !checkCombatantInvulnerable(c, skill));
+      if (targetOverride === 'AllInvulnerable') return [...sourceList, ...targetList].filter(c => !c.isDead && checkCombatantInvulnerable(c, skill));
       if (targetOverride === 'OneInvulnerable') {
-        const invuls = [...sourceList, ...targetList].filter(c => !c.isDead && checkCombatantInvulnerable(c));
+        const invuls = [...sourceList, ...targetList].filter(c => !c.isDead && checkCombatantInvulnerable(c, skill));
         return invuls.length > 0 ? [invuls[0]] : [];
       }
       if (targetOverride === 'OneInvulnerableAlly') {
-        const allies = sourceList.filter(c => !c.isDead && checkCombatantInvulnerable(c));
+        const allies = sourceList.filter(c => !c.isDead && checkCombatantInvulnerable(c, skill));
         return allies.length > 0 ? [allies[0]] : [];
       }
       if (targetOverride === 'SelfAndAllEnemies') {
-        return [source, ...targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c) || skill?.ignoreInvulnerable))];
+        return [source, ...targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill?.ignoreInvulnerable))];
       }
       return [defaultTarget];
     };
@@ -2340,7 +2457,7 @@ const handleTradeChakra = () => {
       // Invulnerability check on target (logs notification, but does not abort non-damage effects like chakra steal)
       if (skill.targetType === 'AllEnemies') {
         const livingTargets = targetList.filter(c => !c.isDead);
-        const allInvulnerable = livingTargets.length > 0 && livingTargets.every(c => checkCombatantInvulnerable(c));
+        const allInvulnerable = livingTargets.length > 0 && livingTargets.every(c => checkCombatantInvulnerable(c, skill));
         if (allInvulnerable && !skill.ignoreInvulnerable) {
           newLogs.push({
             id: Math.random().toString(),
@@ -2351,7 +2468,7 @@ const handleTradeChakra = () => {
           addFloatingText(defaultTarget.id, 'TODOS INVULNERÁVEIS!', 'invulnerable');
         }
       } else {
-        const isTargetInvulnerable = checkCombatantInvulnerable(defaultTarget);
+        const isTargetInvulnerable = checkCombatantInvulnerable(defaultTarget, skill);
         if (isTargetInvulnerable && !skill.ignoreInvulnerable) {
           newLogs.push({
             id: Math.random().toString(),
@@ -2432,7 +2549,7 @@ const handleTradeChakra = () => {
           }
         }
       }
-      let directDamage = (skill.directDamage || 0) + (skill.missingHpDamageType === 'normal' ? Math.max(0, source.maxHealth - source.health) : 0);
+      let directDamage = skill.directDamage || 0;
 
       // Process Damage Rules (Regras de Dano)
       let costRuleDamageBoost = 0;
@@ -2482,12 +2599,30 @@ const handleTradeChakra = () => {
       const afflictionInstant = skill.afflictionInstant || 0;
       // Apply missing HP damage for non-normal types
       let missingHpDirect = 0, missingHpDot = 0, missingHpBleed = 0, missingHpAffliction = 0;
-      if (skill.missingHpDamageType && skill.missingHpDamageType !== 'normal') {
-        const hpLoss = source.maxHealth - source.health;
-        if (skill.missingHpDamageType === 'direct') missingHpDirect = hpLoss;
+      if (skill.missingHpDamageType) {
+        const hpLoss = Math.max(0, source.maxHealth - source.health);
+        if (skill.missingHpDamageType === 'normal') baseDamage += hpLoss;
+        else if (skill.missingHpDamageType === 'direct') missingHpDirect = hpLoss;
         else if (skill.missingHpDamageType === 'dot') missingHpDot = hpLoss;
         else if (skill.missingHpDamageType === 'bleeding') missingHpBleed = hpLoss;
         else if (skill.missingHpDamageType === 'affliction') missingHpAffliction = hpLoss;
+      }
+
+      // Apply bonus damage per missing HP step rule (Regra de Dano por HP Perdido)
+      if (skill.bonusDamagePerMissingHp && skill.bonusDamagePerMissingHp > 0) {
+        const hpSubject = (skill.missingHpSource === 'target' && target) ? target : source;
+        const missingHp = Math.max(0, hpSubject.maxHealth - hpSubject.health);
+        const step = (skill.missingHpStep && skill.missingHpStep > 0) ? skill.missingHpStep : 20;
+        const stepCount = Math.floor(missingHp / step);
+        const bonusDmg = stepCount * skill.bonusDamagePerMissingHp;
+        if (bonusDmg > 0) {
+          const bType = skill.missingHpBonusType || 'damage';
+          if (bType === 'direct') missingHpDirect += bonusDmg;
+          else if (bType === 'dot') missingHpDot += bonusDmg;
+          else if (bType === 'bleeding') missingHpBleed += bonusDmg;
+          else if (bType === 'affliction') missingHpAffliction += bonusDmg;
+          else baseDamage += bonusDmg;
+        }
       }
       const healAmt = skill.heal || 0;
       let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
@@ -2689,7 +2824,7 @@ const handleTradeChakra = () => {
             const targetCannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage');
             const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction');
             const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
-            const netDd = hasDamageImmunity(t) ? 0 : Math.max(0, dd - reductionSum);
+            const netDd = hasDamageImmunity(t) ? 0 : Math.max(0, (dd + getCaptureArrestBonusDamage(t, skill)) - reductionSum);
             t.health = Math.max(0, t.health - netDd);
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
@@ -2727,7 +2862,7 @@ const handleTradeChakra = () => {
                 type: 'damage',
               });
               addFloatingText(t.id, `-${netDd} HP (DIRETO)`, 'damage');
-            } else if (hasDamageImmunity(t) || checkCombatantInvulnerable(t)) {
+            } else if (hasDamageImmunity(t) || checkCombatantInvulnerable(t, skill)) {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
@@ -2829,15 +2964,15 @@ const handleTradeChakra = () => {
       }
 
       // INSTANT DOT / BLEEDING / AFFLICTION (with missing HP)
-      const isTargetInvul1 = (checkCombatantInvulnerable(target) && !skill.ignoreInvulnerable) || hasDamageImmunity(target);
+      const isTargetInvul1 = (checkCombatantInvulnerable(target, skill) && !skill.ignoreInvulnerable) || hasDamageImmunity(target);
       const totalDotInstant = isTargetInvul1 ? 0 : dotInstant + missingHpDot;
       const totalBleedInstant = isTargetInvul1 ? 0 : bleedingInstant + missingHpBleed;
       const totalAfflictionInstant = isTargetInvul1 ? 0 : afflictionInstant + missingHpAffliction;
       if (totalDotInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalDotInstant);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${target.character.name}: -${totalDotInstant} HP (QUEIMA)${missingHpDot > 0 ? ` [HP Perdido: ${missingHpDot}]` : ''}`, type: 'damage' });
-        addFloatingText(target.id, `-${totalDotInstant} HP (QUEIMA)`, 'damage');
+        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${target.character.name}: -${totalDotInstant} HP (DoT)${missingHpDot > 0 ? ` [HP Perdido: ${missingHpDot}]` : ''}`, type: 'damage' });
+        addFloatingText(target.id, `-${totalDotInstant} HP (DoT)`, 'damage');
       }
       if (totalBleedInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalBleedInstant);
@@ -2954,7 +3089,7 @@ const handleTradeChakra = () => {
           });
           if (isReqActive) {
             const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
-            const livingTargets = targetSide.filter(c => !c.isDead && !checkCombatantInvulnerable(c));
+            const livingTargets = targetSide.filter(c => !c.isDead && !checkCombatantInvulnerable(c, skill));
             if (livingTargets.length > 0) {
               const t = livingTargets[0];
               const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
@@ -3144,7 +3279,7 @@ const handleTradeChakra = () => {
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus - damageDebuffSum;
+          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) - damageDebuffSum;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
           if (!targetCannotReduce) {
@@ -3169,7 +3304,7 @@ const handleTradeChakra = () => {
               t.shield = 0;
             }
           }
-          if (checkCombatantInvulnerable(t) && !skill.ignoreInvulnerable) {
+          if (checkCombatantInvulnerable(t, skill) && !skill.ignoreInvulnerable) {
             finalDamage = 0;
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
             addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
@@ -3234,7 +3369,7 @@ const handleTradeChakra = () => {
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
-      } else if (baseDamage > 0 || (skill.damageRules && skill.damageRules.length > 0) || (skill.stackDamageRules && skill.stackDamageRules.length > 0)) {
+      } else if (baseDamage > 0 || (skill.damage || 0) > 0 || (skill.damageRules && skill.damageRules.length > 0) || (skill.stackDamageRules && skill.stackDamageRules.length > 0) || (skill.bonusDamagePerMissingHp && skill.bonusDamagePerMissingHp > 0)) {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         const splashVal = skill.splashDamage || 0;
         const splashTgt = skill.splashTarget || 'Target';
@@ -3369,7 +3504,7 @@ const handleTradeChakra = () => {
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus - damageDebuffSum;
+          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) - damageDebuffSum;
 
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
@@ -3408,7 +3543,7 @@ const handleTradeChakra = () => {
             }
           }
 
-          if (checkCombatantInvulnerable(t) && !skill.ignoreInvulnerable) {
+          if (checkCombatantInvulnerable(t, skill) && !skill.ignoreInvulnerable) {
             finalDamage = 0;
             newLogs.push({
               id: Math.random().toString(),
@@ -3826,10 +3961,10 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔥 ${t.character.name} foi afligido por queima contínua de [${skill.name}] sofrendo ${totalDotVal} DoT por ${duration} turnos!`,
+            message: `🔥 ${t.character.name} foi afligido por dano contínuo de [${skill.name}] sofrendo ${totalDotVal} DoT por ${duration} turnos!`,
             type: 'damage',
           });
-          addFloatingText(t.id, `QUEIMA (+${totalDotVal} DoT)`, 'damage');
+          addFloatingText(t.id, `DANO CONTÍNUO (+${totalDotVal} DoT)`, 'damage');
           cleanseTargetEffects(t, skill.dotRemoveType);
         });
       }
@@ -4286,6 +4421,99 @@ const handleTradeChakra = () => {
         });
       }
 
+      // CAPTURE AND ARREST TRAP APPLICATION (Iruka Umino)
+      if (skill.captureAndArrest || (skill.name && skill.name.toLowerCase().includes('capture') && skill.name.toLowerCase().includes('arrest'))) {
+        const captureTargets = resolveEffectTargets(skill.targetType || 'Enemy', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        captureTargets.forEach(t => {
+          if (t.isDead) return;
+          pushActiveEffect(t, {
+            name: 'Captureand Arrest (Armadilha)',
+            type: 'capture_arrest_trap',
+            duration: 1,
+            icon: skill.icon,
+            isInvisible: true,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            sourceSkillName: skill.name,
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🥷 ${source.character.name} usou [${skill.name}] em ${t.character.name}! (Armadilha Invisível instalada)`,
+            type: 'buff',
+          });
+        });
+      }
+
+      // CAPTURE AND ARREST TRAP TRIGGER (Iruka Umino)
+      if (source.activeEffects && source.activeEffects.length > 0) {
+        const trapEff = source.activeEffects.find(e => e.type === 'capture_arrest_trap' || (e.name && e.name.includes('Captureand Arrest')));
+        if (trapEff) {
+          const isOffensive = isOffensiveSkill || skill.targetType === 'Enemy' || skill.targetType === 'AllEnemies' || (skill.damage || 0) > 0 || (skill.directDamage || 0) > 0;
+          if (isOffensive) {
+            source.activeEffects = source.activeEffects.filter(e => e !== trapEff);
+
+            if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🪤 [CAPTURE AND ARREST] ${source.character.name} usou [${skill.name}] e ativou a armadilha de Iruka, mas é IMUNE A DANO!`,
+                type: 'buff',
+              });
+              addFloatingText(source.id, 'IMUNE!', 'invulnerable');
+            } else {
+              let actualDmg = 40;
+              if (source.shield > 0) {
+                if (source.shield >= actualDmg) {
+                  source.shield -= actualDmg;
+                  actualDmg = 0;
+                } else {
+                  actualDmg -= source.shield;
+                  source.shield = 0;
+                }
+              }
+
+              if (actualDmg > 0) {
+                source.health = source.activeEffects?.some(e => e.type === 'immortal')
+                  ? Math.max(1, source.health - actualDmg)
+                  : Math.max(0, source.health - actualDmg);
+              }
+
+              if (source.health <= 0 && !source.activeEffects?.some(e => e.type === 'immortal')) {
+                source.isDead = true;
+              }
+
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🪤 [CAPTURE AND ARREST] ${source.character.name} usou a habilidade ofensiva [${skill.name}] e ATIVOU a armadilha de Iruka! Sofreu 40 de dano!`,
+                type: 'damage',
+              });
+              addFloatingText(source.id, '-40 ARMADILHA!', 'damage');
+            }
+
+            pushActiveEffect(source, {
+              name: 'Captureand Arrest (Vulnerabilidade)',
+              type: 'capture_arrest_debuff',
+              value: 15,
+              duration: 1,
+              icon: trapEff.icon || skill.icon,
+              casterId: trapEff.casterId,
+              casterSide: trapEff.casterSide,
+              sourceSkillName: 'Captureand Arrest',
+            });
+
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⚠️ [CAPTURE AND ARREST] ${source.character.name} receberá +15 de dano adicional de habilidades Físicas e de Chakra por 1 turno!`,
+              type: 'buff',
+            });
+            addFloatingText(source.id, '+15 DANO RECEBIDO (FÍSICO/CHAKRA)', 'effect');
+          }
+        }
+      }
+
       // ON SKILL USE DAMAGE PUNISHMENT TRIGGER
       if (source.activeEffects && source.activeEffects.length > 0) {
         source.activeEffects.forEach(eff => {
@@ -4501,7 +4729,7 @@ const handleTradeChakra = () => {
         // Apply active DoTs (e.g. Amaterasu)
         const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
         dotEffects.forEach(dot => {
-          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+          if (checkCombatantInvulnerable(c, 'dot') || hasDamageImmunity(c)) {
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -4518,7 +4746,7 @@ const handleTradeChakra = () => {
 
         // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
         const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
-        const isInvulnerable = checkCombatantInvulnerable(c) || hasDamageImmunity(c);
+        const isInvulnerable = checkCombatantInvulnerable(c, 'damage') || hasDamageImmunity(c);
         activeDamageEffects.forEach(dmg => {
           if (isInvulnerable) {
             newLogs.push({
@@ -4547,7 +4775,7 @@ const handleTradeChakra = () => {
         // Apply dynamic Direct Damage over time (direct_damage)
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
-          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+          if (checkCombatantInvulnerable(c, 'direct_damage') || hasDamageImmunity(c)) {
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo por ${dd.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -4568,7 +4796,7 @@ const handleTradeChakra = () => {
         // Apply Bleeding (Sangramento)
         const bleedingEffects = c.activeEffects.filter(e => e.type === 'bleeding');
         bleedingEffects.forEach(bleed => {
-          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+          if (checkCombatantInvulnerable(c, 'bleeding') || hasDamageImmunity(c)) {
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -4586,7 +4814,7 @@ const handleTradeChakra = () => {
         // Apply Affliction (Aflição)
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
-          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+          if (checkCombatantInvulnerable(c, 'affliction') || hasDamageImmunity(c)) {
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -5567,7 +5795,7 @@ const handleTradeChakra = () => {
                            ((!targetOverride || targetOverride === 'Target') && currentSkill?.targetType === 'AllEnemies');
 
       if (isAllEnemies) {
-        resultTargets = targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c) || currentSkill?.ignoreInvulnerable));
+        resultTargets = targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, currentSkill) || currentSkill?.ignoreInvulnerable));
       } else {
         const isAllAllies = targetOverride === 'AllAllies' ||
                             ((!targetOverride || targetOverride === 'Target') && currentSkill?.targetType === 'AllAllies');
@@ -5605,21 +5833,21 @@ const handleTradeChakra = () => {
         } else if (targetOverride === 'AllAllies') {
           resultTargets = sourceList.filter(c => !c.isDead);
         } else if (targetOverride === 'AllEnemies') {
-          resultTargets = targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c) || currentSkill?.ignoreInvulnerable));
+          resultTargets = targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, currentSkill) || currentSkill?.ignoreInvulnerable));
         } else if (targetOverride === 'AllLiving') {
           resultTargets = [...sourceList, ...targetList].filter(c => !c.isDead);
         } else if (targetOverride === 'AllNonInvulnerable') {
-          resultTargets = [...sourceList, ...targetList].filter(c => !c.isDead && !checkCombatantInvulnerable(c));
+          resultTargets = [...sourceList, ...targetList].filter(c => !c.isDead && !checkCombatantInvulnerable(c, currentSkill));
         } else if (targetOverride === 'AllInvulnerable') {
-          resultTargets = [...sourceList, ...targetList].filter(c => !c.isDead && checkCombatantInvulnerable(c));
+          resultTargets = [...sourceList, ...targetList].filter(c => !c.isDead && checkCombatantInvulnerable(c, currentSkill));
         } else if (targetOverride === 'OneInvulnerable') {
-          const invuls = [...sourceList, ...targetList].filter(c => !c.isDead && checkCombatantInvulnerable(c));
+          const invuls = [...sourceList, ...targetList].filter(c => !c.isDead && checkCombatantInvulnerable(c, currentSkill));
           resultTargets = invuls.length > 0 ? [invuls[0]] : [];
         } else if (targetOverride === 'OneInvulnerableAlly') {
-          const allies = sourceList.filter(c => !c.isDead && checkCombatantInvulnerable(c));
+          const allies = sourceList.filter(c => !c.isDead && checkCombatantInvulnerable(c, currentSkill));
           resultTargets = allies.length > 0 ? [allies[0]] : [];
         } else if (targetOverride === 'SelfAndAllEnemies') {
-          resultTargets = [source, ...targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c) || currentSkill?.ignoreInvulnerable))];
+          resultTargets = [source, ...targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, currentSkill) || currentSkill?.ignoreInvulnerable))];
         } else {
           resultTargets = [defaultTarget];
         }
@@ -5717,7 +5945,7 @@ const handleTradeChakra = () => {
       // CHECK INVULNERABILITY
       if (skill.targetType === 'AllEnemies') {
         const livingTargets = targetList.filter(c => !c.isDead);
-        const allInvulnerable = livingTargets.length > 0 && livingTargets.every(c => checkCombatantInvulnerable(c));
+        const allInvulnerable = livingTargets.length > 0 && livingTargets.every(c => checkCombatantInvulnerable(c, skill));
         if (allInvulnerable && !skill.ignoreInvulnerable) {
           newLogs.push({
             id: Math.random().toString(),
@@ -5728,7 +5956,7 @@ const handleTradeChakra = () => {
           addFloatingText(target.id, 'TODOS INVULNERÁVEIS', 'invulnerable');
         }
       } else {
-        const isInvulnerable = checkCombatantInvulnerable(target);
+        const isInvulnerable = checkCombatantInvulnerable(target, skill);
         if (isInvulnerable && !skill.ignoreInvulnerable) {
           newLogs.push({
             id: Math.random().toString(),
@@ -5945,7 +6173,7 @@ const handleTradeChakra = () => {
 
       // EXECUTE SKILL LOGIC
       let baseDamage = skill.damage || 0;
-      let directDamage = (skill.directDamage || 0) + (skill.missingHpDamageType === 'normal' ? Math.max(0, source.maxHealth - source.health) : 0);
+      let directDamage = skill.directDamage || 0;
 
       // Process Damage Rules (Regras de Dano) Block 2
       let costRuleDamageBoost2 = 0;
@@ -5989,6 +6217,27 @@ const handleTradeChakra = () => {
       if (hasActiveDamageRuleIgnoreBase2) {
         baseDamage = 0;
         directDamage = 0;
+      }
+
+      if (skill.missingHpDamageType === 'normal') {
+        baseDamage += Math.max(0, source.maxHealth - source.health);
+      }
+
+      // Apply bonus damage per missing HP step rule in Block 2 (Regra de Dano por HP Perdido)
+      if (skill.bonusDamagePerMissingHp && skill.bonusDamagePerMissingHp > 0) {
+        const hpSubject = (skill.missingHpSource === 'target' && target) ? target : source;
+        const missingHp = Math.max(0, hpSubject.maxHealth - hpSubject.health);
+        const step = (skill.missingHpStep && skill.missingHpStep > 0) ? skill.missingHpStep : 20;
+        const stepCount = Math.floor(missingHp / step);
+        const bonusDmg = stepCount * skill.bonusDamagePerMissingHp;
+        if (bonusDmg > 0) {
+          const bType = skill.missingHpBonusType || 'damage';
+          if (bType === 'direct') ruleDirectDamage2 += bonusDmg;
+          else if (bType === 'dot') ruleDotDamage2 += bonusDmg;
+          else if (bType === 'bleeding') ruleBleedingDamage2 += bonusDmg;
+          else if (bType === 'affliction') ruleAfflictionDamage2 += bonusDmg;
+          else baseDamage += bonusDmg;
+        }
       }
       const dotInstant = skill.dotInstant || 0;
       const bleedingInstant = skill.bleedingInstant || 0;
@@ -6306,7 +6555,7 @@ const handleTradeChakra = () => {
             const cannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage');
             const reductionTotal = cannotReduce ? 0
               : t.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
-            const netDdTotal = hasDamageImmunity(t) ? 0 : Math.max(0, ddTotal - reductionTotal);
+            const netDdTotal = hasDamageImmunity(t) ? 0 : Math.max(0, (ddTotal + getCaptureArrestBonusDamage(t, skill)) - reductionTotal);
             const startingHealth = t.health;
             t.health = Math.max(0, t.health - netDdTotal);
             const healthReduced = startingHealth - t.health;
@@ -6329,7 +6578,7 @@ const handleTradeChakra = () => {
                 type: 'damage',
               });
               addFloatingText(t.id, `-${netDdTotal} HP (DIRETO)`, 'damage');
-            } else if (hasDamageImmunity(t) || checkCombatantInvulnerable(t)) {
+            } else if (hasDamageImmunity(t) || checkCombatantInvulnerable(t, skill)) {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
@@ -6368,7 +6617,7 @@ const handleTradeChakra = () => {
       const missDot2 = skill.missingHpDamageType === 'dot' ? source.maxHealth - source.health : 0;
       const missBleed2 = skill.missingHpDamageType === 'bleeding' ? source.maxHealth - source.health : 0;
       const missAffl2 = skill.missingHpDamageType === 'affliction' ? source.maxHealth - source.health : 0;
-      const isTargetInvul2 = (checkCombatantInvulnerable(target) && !skill.ignoreInvulnerable) || hasDamageImmunity(target);
+      const isTargetInvul2 = (checkCombatantInvulnerable(target, skill) && !skill.ignoreInvulnerable) || hasDamageImmunity(target);
       const totalDotInstant2 = isTargetInvul2 ? 0 : dotInstant + missDot2;
       const totalBleedInstant2 = isTargetInvul2 ? 0 : bleedingInstant + missBleed2;
       const totalAfflictionInstant2 = isTargetInvul2 ? 0 : afflictionInstant + missAffl2;
@@ -6533,7 +6782,7 @@ const handleTradeChakra = () => {
           });
           if (isReqActive) {
             const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
-            const livingTargets = targetSide.filter(c => !c.isDead && !checkCombatantInvulnerable(c));
+            const livingTargets = targetSide.filter(c => !c.isDead && !checkCombatantInvulnerable(c, skill));
             if (livingTargets.length > 0) {
               const t = livingTargets[0];
               const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
@@ -6590,7 +6839,7 @@ const handleTradeChakra = () => {
           });
           const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           let costRuleDamageBoost = costRuleDamageBoost2;
-          let finalDamage = dmgVal + damageBuffSum + costRuleDamageBoost - damageDebuffSum;
+          let finalDamage = dmgVal + damageBuffSum + costRuleDamageBoost + getCaptureArrestBonusDamage(t, skill) - damageDebuffSum;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
           if (!targetCannotReduce) {
@@ -6615,7 +6864,7 @@ const handleTradeChakra = () => {
               t.shield = 0;
             }
           }
-          if (checkCombatantInvulnerable(t) && !skill.ignoreInvulnerable) {
+          if (checkCombatantInvulnerable(t, skill) && !skill.ignoreInvulnerable) {
             finalDamage = 0;
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
             addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
@@ -6677,7 +6926,7 @@ const handleTradeChakra = () => {
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
-      } else if (baseDamage > 0 || (skill.damageRules && skill.damageRules.length > 0) || (skill.stackDamageRules && skill.stackDamageRules.length > 0)) {
+      } else if (baseDamage > 0 || (skill.damage || 0) > 0 || (skill.damageRules && skill.damageRules.length > 0) || (skill.stackDamageRules && skill.stackDamageRules.length > 0) || (skill.bonusDamagePerMissingHp && skill.bonusDamagePerMissingHp > 0)) {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         damageTargets.forEach(t => {
           if (t.isDead) return;
@@ -6740,7 +6989,7 @@ const handleTradeChakra = () => {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
                     const totalDmg = stackCount * stackRule.damagePerStack;
                     // Dano instantâneo no golpe
-                    if (!checkCombatantInvulnerable(t) && !hasDamageImmunity(t)) {
+                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
                         id: Math.random().toString(),
@@ -6789,7 +7038,7 @@ const handleTradeChakra = () => {
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus - damageDebuffSum;
+          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) - damageDebuffSum;
 
           // Apply flat damage reduction on target
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
@@ -7199,6 +7448,7 @@ if (skill.retaliateDamage) {
             type: 'invulnerable',
             duration: skill.invulnerableDuration!,
             icon: skill.icon,
+            invulnerableTypes: skill.invulnerableTypes,
             irremovable: !!skill.invulnerableIrremovable,
           });
           newLogs.push({
@@ -7631,7 +7881,7 @@ if (skill.retaliateDamage) {
         // Apply active DoTs (e.g. Amaterasu)
         const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
         dotEffects.forEach(dot => {
-          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+          if (checkCombatantInvulnerable(c, 'dot') || hasDamageImmunity(c)) {
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -7648,7 +7898,7 @@ if (skill.retaliateDamage) {
 
         // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
         const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
-        const isInvulnerable = checkCombatantInvulnerable(c) || hasDamageImmunity(c);
+        const isInvulnerable = checkCombatantInvulnerable(c, 'damage') || hasDamageImmunity(c);
         activeDamageEffects.forEach(dmg => {
           if (isInvulnerable) {
             newLogs.push({
@@ -7673,7 +7923,7 @@ if (skill.retaliateDamage) {
         // Apply dynamic Direct Damage over time (direct_damage)
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
-          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+          if (checkCombatantInvulnerable(c, 'direct_damage') || hasDamageImmunity(c)) {
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo de ${dd.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -7712,7 +7962,7 @@ if (skill.retaliateDamage) {
         // Apply Bleeding (Sangramento)
         const bleedingEffects = c.activeEffects.filter(e => e.type === 'bleeding');
         bleedingEffects.forEach(bleed => {
-          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+          if (checkCombatantInvulnerable(c, 'bleeding') || hasDamageImmunity(c)) {
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o Sangramento (${bleed.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -7730,7 +7980,7 @@ if (skill.retaliateDamage) {
         // Apply Affliction (Aflição)
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
-          if (checkCombatantInvulnerable(c) || hasDamageImmunity(c)) {
+          if (checkCombatantInvulnerable(c, 'affliction') || hasDamageImmunity(c)) {
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a Aflição (${aff.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -8122,6 +8372,34 @@ if (skill.retaliateDamage) {
         });
       });
     }
+    if (skill.bonusDamagePerMissingHp && skill.bonusDamagePerMissingHp > 0) {
+      const step = (skill.missingHpStep && skill.missingHpStep > 0) ? skill.missingHpStep : 20;
+      const srcLabel = skill.missingHpSource === 'target' ? 'Alvo' : 'Conjurador';
+      const bType = skill.missingHpBonusType === 'direct' ? 'Dano Direto'
+        : skill.missingHpBonusType === 'dot' ? 'DoT (Queima)'
+        : skill.missingHpBonusType === 'bleeding' ? 'Sangramento'
+        : skill.missingHpBonusType === 'affliction' ? 'Aflição'
+        : 'Dano';
+      effects.push({
+        label: 'Dano Bônus p/ HP Perdido',
+        value: `Dano Base (${skill.damage || 0}) + ${skill.bonusDamagePerMissingHp} de ${bType} a cada ${step} de HP perdido (${srcLabel})`,
+        color: 'text-rose-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.damageTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.missingHpDamageType) {
+      const typeLabel = skill.missingHpDamageType === 'direct' ? 'Dano Direto'
+        : skill.missingHpDamageType === 'dot' ? 'DoT (Queima)'
+        : skill.missingHpDamageType === 'bleeding' ? 'Sangramento'
+        : skill.missingHpDamageType === 'affliction' ? 'Aflição'
+        : 'Dano Normal';
+      effects.push({
+        label: 'Dano = HP Perdido',
+        value: `Causa ${typeLabel} igual a todo o HP perdido do Conjurador`,
+        color: 'text-red-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.damageTarget, 'Alvo Principal')
+      });
+    }
     if (skill.onSkillUseDamageRules && skill.onSkillUseDamageRules.length > 0) {
       skill.onSkillUseDamageRules.forEach(rule => {
         if (!rule.damage || rule.damage <= 0) return;
@@ -8279,9 +8557,10 @@ if (skill.retaliateDamage) {
       });
     }
     if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
+      const invulSummary = formatInvulnerableSummary(skill.invulnerableTypes);
       effects.push({
         label: 'Invulnerabilidade',
-        value: `Fica invulnerável por ${skill.invulnerableDuration} ${skill.invulnerableDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Fica invulnerável ${invulSummary} por ${skill.invulnerableDuration} ${skill.invulnerableDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });

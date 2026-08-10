@@ -354,3 +354,4 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
   );
 }
 
+ 

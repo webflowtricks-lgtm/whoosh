@@ -6104,18 +6104,21 @@ export const CHARACTERS: Character[] = [
       },
       {
         "name": "Captureand Arrest",
-        "desc": "Iruka Umino executa [Captureand Arrest], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
+        "desc": "Iruka escolhe um inimigo como alvo. No turno seguinte, se o inimigo usar uma habilidade ofensiva, sofrerá 40 de dano e, por 1 turno, sofrerá 15 de dano adicional de habilidades físicas e de chakra. Este efeito é invisível até ser ativado.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/iruka-umino/CaptureandArrest.jpg",
         "cost": [
-          "Gen"
+          "Nin"
         ],
-        "cooldown": 0,
+        "cooldown": 1,
         "currentCooldown": 0,
         "targetType": "Enemy",
         "classes": [
           "Físico",
           "Corpo a Corpo"
-        ]
+        ],
+        "invisible": true,
+        "invisibleDuration": 1,
+        "captureAndArrest": true
       },
       {
         "name": "Shuriken Throw",

@@ -144,6 +144,10 @@ export interface Skill {
   ignoreDamageReduction?: boolean;
   ignoreDamageReductionVal?: number;
   missingHpDamageType?: '' | 'normal' | 'direct' | 'dot' | 'bleeding' | 'affliction'; // Damage = caster's missing HP
+  bonusDamagePerMissingHp?: number; // Extra bonus damage per step of missing HP (e.g. +10 damage)
+  missingHpStep?: number; // Step size of missing HP (e.g. for every 20 HP lost)
+  missingHpSource?: 'caster' | 'target'; // Whose missing HP (default 'caster')
+  missingHpBonusType?: 'damage' | 'direct' | 'dot' | 'bleeding' | 'affliction'; // Type of damage to apply the bonus to (default 'damage')
 
   // New custom dynamic effects (Bleeding, Affliction, Paralyze Cooldown, Cannot Reduce Damage, Cannot Be Invulnerable)
   bleedingVal?: number;
@@ -159,6 +163,7 @@ export interface Skill {
   ignoreStunDuration?: number;
   damageImmunityDuration?: number;
   revealInvisibleDuration?: number;
+  captureAndArrest?: boolean;
 
   // New Durations
   damageDuration?: number;
@@ -402,7 +407,9 @@ export interface ActiveEffect {
   | 'retaliate_damage'
   | 'immortal'
   | 'reveal_invisible'
-  | 'on_skill_use_damage';
+  | 'on_skill_use_damage'
+  | 'capture_arrest_trap'
+  | 'capture_arrest_debuff';
   value?: number; // magnitude of shield, reduction, damage, etc.
   duration: number; // remaining turns
   damageType?: string;

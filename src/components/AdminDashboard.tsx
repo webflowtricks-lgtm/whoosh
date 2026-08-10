@@ -3180,6 +3180,71 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                   <option value="affliction">Aflição</option>
                                 </select>
                               </div>
+
+                              {/* Dano Bônus por Passo de HP Perdido */}
+                              <div className="mt-2 pt-2 border-t border-slate-800/80 space-y-2 bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] text-rose-400 font-mono font-bold uppercase flex items-center gap-1">
+                                    💔 Dano Bônus por HP Perdido
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                                  <div>
+                                    <span className="text-slate-400 block text-[9px] mb-0.5">+Dano Adicional:</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={500}
+                                      value={editingSkill.bonusDamagePerMissingHp || 0}
+                                      onChange={(e) => handleUpdateSkillField('bonusDamagePerMissingHp', parseInt(e.target.value) || 0)}
+                                      placeholder="Ex: 10"
+                                      className="w-full px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white text-xs font-bold text-center"
+                                    />
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400 block text-[9px] mb-0.5">A cada HP Perdido:</span>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={1000}
+                                      value={editingSkill.missingHpStep || 20}
+                                      onChange={(e) => handleUpdateSkillField('missingHpStep', parseInt(e.target.value) || 20)}
+                                      placeholder="Ex: 20"
+                                      className="w-full px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white text-xs font-bold text-center"
+                                    />
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400 block text-[9px] mb-0.5">Origem da Vida:</span>
+                                    <select
+                                      value={editingSkill.missingHpSource || 'caster'}
+                                      onChange={(e) => handleUpdateSkillField('missingHpSource', e.target.value)}
+                                      className="w-full px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] text-amber-300 outline-none"
+                                    >
+                                      <option value="caster">Conjurador (Mim)</option>
+                                      <option value="target">Alvo (Inimigo)</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400 block text-[9px] mb-0.5">Tipo do Bônus:</span>
+                                    <select
+                                      value={editingSkill.missingHpBonusType || 'damage'}
+                                      onChange={(e) => handleUpdateSkillField('missingHpBonusType', e.target.value)}
+                                      className="w-full px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] text-rose-300 outline-none"
+                                    >
+                                      <option value="damage">💥 Dano Normal</option>
+                                      <option value="direct">🎯 Dano Direto</option>
+                                      <option value="dot">🔥 DoT (Queima)</option>
+                                      <option value="bleeding">🩸 Sangramento</option>
+                                      <option value="affliction">💀 Aflição</option>
+                                    </select>
+                                  </div>
+                                </div>
+                                {editingSkill.bonusDamagePerMissingHp && editingSkill.bonusDamagePerMissingHp > 0 ? (
+                                  <p className="text-[9px] text-emerald-400 font-mono italic">
+                                    💡 Regra: Dano Base ({editingSkill.damage || 0}) + {editingSkill.bonusDamagePerMissingHp} de dano bônus a cada {editingSkill.missingHpStep || 20} HP perdidos ({editingSkill.missingHpSource === 'target' ? 'Alvo' : 'Conjurador'}).
+                                  </p>
+                                ) : null}
+                              </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
                                 <select
@@ -5766,3 +5831,4 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     </div>
   );
 }
+ 

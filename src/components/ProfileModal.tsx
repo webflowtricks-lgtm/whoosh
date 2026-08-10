@@ -830,3 +830,4 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
     </div>
   );
 }
+ 
