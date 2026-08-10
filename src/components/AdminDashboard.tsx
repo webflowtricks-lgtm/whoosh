@@ -2070,6 +2070,22 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                       </div>
 
                       <div>
+                        <label className="block text-[9px] font-bold uppercase tracking-wider text-amber-400 mb-1 font-mono">Efeito Requerido no Alvo (Opcional)</label>
+                        <input
+                          type="text"
+                          list="requireTargetEffect-suggestions"
+                          value={editingSkill.requireTargetEffect || ''}
+                          onChange={(e) => handleUpdateSkillField('requireTargetEffect', e.target.value || null)}
+                          placeholder="Ex: Chain Wrap"
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
+                        />
+                        <datalist id="requireTargetEffect-suggestions">
+                          {editingChar.skills.flatMap(s => s.name).filter(Boolean).map(name => <option key={name} value={name} />)}
+                        </datalist>
+                        <p className="text-[8px] text-slate-500 font-mono mt-0.5">Esta skill só pode ser usada em inimigos que tenham este efeito ativo (ex: stun do Chain Wrap)</p>
+                      </div>
+
+                      <div>
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-red-400 mb-1 font-mono">HP Máximo para Liberar (Opcional)</label>
                         <input
                           type="number"

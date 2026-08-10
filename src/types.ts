@@ -100,6 +100,7 @@ export interface Skill {
   requireEffect?: string; // e.g. "Shadow Clones"
   requirePreviousSkill?: string; // Skill name that must have been used on the previous turn
   requireHpBelow?: number; // HP threshold below which the skill can be used (0-100)
+  requireTargetEffect?: string; // Effect name that must be active on the target enemy to use this skill (e.g. "Chain Wrap")
   immortalHpThreshold?: number; // When HP ≤ this value, character becomes immortal (can't die)
   immortalDuration?: number; // How many turns the immortality lasts
   immortalImmediate?: boolean; // If true, immortality activates immediately upon using the skill

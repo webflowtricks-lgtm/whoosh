@@ -1833,6 +1833,17 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       return;
     }
 
+    // requireTargetEffect: skill can only be used on targets that have this effect active
+    if (skill.requireTargetEffect) {
+      const reqLower = skill.requireTargetEffect.toLowerCase();
+      const targetHasEffect = targetChar.activeEffects.some(e => e.name && (e.name.toLowerCase() === reqLower || e.name.toLowerCase().startsWith(reqLower) || e.name.toLowerCase().includes(reqLower)));
+      if (!targetHasEffect) {
+        playCustomSound('Error');
+        addFloatingText(targetId, `Requer ${skill.requireTargetEffect} ativo no alvo!`, 'effect');
+        return;
+      }
+    }
+
     // Invisible & Invulnerable checks
     const isOppositeSide = isSourceEnemy ? !isEnemyTarget : isEnemyTarget;
     if (!isOppositeSide) {
@@ -5185,6 +5196,25 @@ const handleTradeChakra = () => {
                   if (!hasPrev) return false;
                 }
                 if (skill.requireHpBelow && skill.requireHpBelow > 0 && aiChar.health > skill.requireHpBelow) return false;
+                
+                // requireTargetEffect: check if there's at least one valid target with the effect
+                if (skill.requireTargetEffect) {
+                  const reqLower = skill.requireTargetEffect.toLowerCase();
+                  let hasValidTarget = false;
+                  
+                  if (skill.targetType === 'Enemy' || skill.targetType === 'AllEnemies') {
+                    hasValidTarget = alivePlayers.some(t => 
+                      t.activeEffects.some(e => e.name && (e.name.toLowerCase() === reqLower || e.name.toLowerCase().startsWith(reqLower) || e.name.toLowerCase().includes(reqLower)))
+                    );
+                  } else if (skill.targetType === 'Ally' || skill.targetType === 'AllAllies' || skill.targetType === 'SelfAndAlly') {
+                    hasValidTarget = aliveAllies.some(t => 
+                      t.activeEffects.some(e => e.name && (e.name.toLowerCase() === reqLower || e.name.toLowerCase().startsWith(reqLower) || e.name.toLowerCase().includes(reqLower)))
+                    );
+                  }
+                  
+                  if (!hasValidTarget) return false;
+                }
+                
                 if (aiActions.some(a => a.sourceId === aiChar.id && a.skillIndex === idx)) return false;
                 return true;
               });
@@ -5203,6 +5233,15 @@ const handleTradeChakra = () => {
               }
 
               for (const target of candidateTargets) {
+                // requireTargetEffect: AI must only target enemies with this effect active
+                if (skill.requireTargetEffect) {
+                  const reqLower = skill.requireTargetEffect.toLowerCase();
+                  const targetHasEffect = target.activeEffects.some(e => e.name && (e.name.toLowerCase() === reqLower || e.name.toLowerCase().startsWith(reqLower) || e.name.toLowerCase().includes(reqLower)));
+                  if (!targetHasEffect) {
+                    continue; // Skip this target
+                  }
+                }
+                
                 let score = 0;
 
                 const targetIsEnemy = target.id.startsWith('player');
