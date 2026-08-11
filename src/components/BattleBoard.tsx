@@ -9815,6 +9815,18 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       <span className="underline">{inspectedSkill.skill.requirePreviousSkill}</span>
                     </div>
                   )}
+                  {inspectedSkill.skill.requireTargetEffect && (
+                    <div className="bg-amber-500/20 border border-amber-700/30 p-1.5 rounded text-[9px] font-mono text-amber-950 font-bold flex items-center gap-1">
+                      <span>⚠️ Requer efeito no alvo:</span>
+                      <span className="underline">{inspectedSkill.skill.requireTargetEffect}</span>
+                    </div>
+                  )}
+                  {inspectedSkill.skill.requireHpBelow && inspectedSkill.skill.requireHpBelow > 0 && (
+                    <div className="bg-red-500/20 border border-red-700/30 p-1.5 rounded text-[9px] font-mono text-red-950 font-bold flex items-center gap-1">
+                      <span>⚠️ Requer HP ≤</span>
+                      <span className="underline">{inspectedSkill.skill.requireHpBelow}</span>
+                    </div>
+                  )}
 
                   {/* Detailed Description */}
                   <p className="text-xs text-slate-900 font-medium leading-relaxed">
