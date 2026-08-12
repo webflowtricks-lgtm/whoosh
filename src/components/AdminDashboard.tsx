@@ -8,7 +8,7 @@ import {
   ArrowLeft, Shield, Plus, Trash2, Edit3, Save, 
   Database, RefreshCw, AlertTriangle, CheckCircle, Sparkles, User, HelpCircle, Shirt,
   Lock, Unlock, Search, Trophy, Award, X, Download, Upload, FolderArchive, FileText, Server, CheckCircle2,
-  GripVertical, ArrowUp, ArrowDown
+  GripVertical, ArrowUp, ArrowDown, Image
 } from 'lucide-react';
 import { Character, Skill, ChakraType, CharacterSkin, Quest } from '../types';
 import { getCharacters, saveCharacters, resetToDefaultCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
@@ -112,24 +112,23 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
       },
     });
   };
-  const getEffectNameSuggestions = (): string[] => {
-    const names = new Set<string>();
+const getEffectNameSuggestions = (): string[] => {
+  const names = new Set<string>();
 
-    // Skills do personagem que está sendo editado agora (mesmo sem ter salvo ainda)
-    if (editingChar) {
-      editingChar.skills.forEach(sk => {
-        names.add(sk.name);
-        if (sk.shieldVal) names.add(`${sk.name} Shield`);
-        if (sk.damageReductionVal) names.add(`${sk.name} Guard`);
-        if (sk.damageBuffVal) names.add(`${sk.name} Power`);
-        if (sk.dotVal) names.add(`${sk.name} Burn`);
-      });
-    }
+  // Skills do personagem que está sendo editado agora (mesmo sem ter salvo ainda)
+  if (editingChar) {
+    editingChar.skills.forEach(sk => {
+      names.add(sk.name);
+      if (sk.shieldVal) names.add(`${sk.name} Shield`);
+      if (sk.damageReductionVal) names.add(`${sk.name} Guard`);
+      if (sk.damageBuffVal) names.add(`${sk.name} Power`);
+      if (sk.dotVal) names.add(`${sk.name} Burn`);
+      if (sk.blocksOffensiveSkills) names.add(`${sk.name} Impedimento Ofensivo`);
+    });
+  }
 
-
-
-    return Array.from(names).sort();
-  };
+  return Array.from(names).sort();
+};
 
   // Load characters, quests and ranks on mount
   useEffect(() => {
@@ -431,16 +430,21 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
     playClickSound();
     if (!editingChar) return;
     
-    const newSkill: Skill = {
-      name: 'Nova Habilidade',
-      desc: 'Causa 30 de dano de chakra a um inimigo.',
-      icon: 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg',
-      cost: ['Nin'],
-      cooldown: 1,
-      currentCooldown: 0,
-      targetType: 'Enemy',
-      classes: ['Chakra', 'À Distância']
-    };
+const newSkill: Skill = {
+  name: 'Nova Habilidade',
+  desc: 'Causa 30 de dano de chakra a um inimigo.',
+  icon: 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg',
+  cost: ['Nin'],
+  cooldown: 1,
+  currentCooldown: 0,
+  targetType: 'Enemy',
+  classes: ['Chakra', 'À Distância'],
+  blocksOffensiveSkills: false,
+  stackable: false,
+  stackType: '',
+  stackDuration: undefined,
+  stackTarget: 'Target'
+};
 
     const updatedSkills = [...editingChar.skills, newSkill];
     const updatedChar = { ...editingChar, skills: updatedSkills };
@@ -1642,16 +1646,71 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">Caminho do Retrato (Ícone)</label>
-                  <input
-                    type="text"
-                    value={editingChar.portrait}
-                    onChange={(e) => handleUpdateCharDetails('portrait', e.target.value)}
-                    placeholder="E.g. https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg"
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
-                  />
-                </div>
+                 <div>
+                   <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">Retrato do Personagem</label>
+                   <div className="flex gap-1.5 items-center">
+                     <div className="w-10 h-10 rounded-lg border border-slate-800 bg-slate-900 flex items-center justify-center flex-shrink-0">
+                       {editingChar?.portrait ? (
+                         <img 
+                           src={editingChar.portrait} 
+                           alt={editingChar.name} 
+                           className="w-full h-full object-cover" 
+                           referrerPolicy="no-referrer"
+                           onError={(e) => {
+                             const img = e.currentTarget; 
+                             img.onerror = null; 
+                             img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
+                           }}
+                         />
+                       ) : (
+                         <User className="w-5 h-5 text-slate-400" />
+                       )}
+                     </div>
+                     <input
+                       type="text"
+                       value={editingChar.portrait || ''}
+                       onChange={(e) => handleUpdateCharDetails('portrait', e.target.value)}
+                       placeholder="URL ou envie arquivo"
+                       className="flex-1 min-w-0 px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
+                     />
+                     <label className="px-3 py-2 bg-orange-600/10 hover:bg-orange-600/20 text-orange-400 border border-orange-500/30 rounded-xl text-[10px] font-mono font-bold uppercase cursor-pointer transition flex items-center gap-1 flex-shrink-0">
+                       <Upload className="w-4 h-4 text-orange-400" />
+                       <span>Upload</span>
+                       <input
+                         type="file"
+                         accept=".png,.jpg,.jpeg,.webp,image/*"
+                         className="hidden"
+                         onChange={(e) => {
+                           const file = e.target.files?.[0];
+                           if (file) {
+                             const reader = new FileReader();
+                             reader.onload = (uploadEvt) => {
+                               const result = uploadEvt.target?.result as string;
+                               if (result) {
+                                 handleUpdateCharDetails('portrait', result);
+                                 triggerSuccess('Retrato carregado com sucesso!');
+                               }
+                             };
+                             reader.readAsDataURL(file);
+                           }
+                         }}
+                       />
+                     </label>
+                     {editingChar.portrait && (
+                       <button
+                         type="button"
+                         onClick={() => {
+                           handleUpdateCharDetails('portrait', '');
+                           triggerSuccess('Retrato personalizado removido.');
+                         }}
+                         className="p-2 text-slate-500 hover:text-red-400 bg-slate-950 border border-slate-800 hover:border-red-500/50 rounded-xl transition"
+                         title="Remover retrato personalizado"
+                       >
+                         <X className="w-3.5 h-3.5" />
+                       </button>
+                     )}
+                   </div>
+                 </div>
 
                 <div className="md:col-span-2">
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">Tags / Afiliações (Separadas por vírgula)</label>
@@ -1846,20 +1905,77 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                             />
                           </div>
 
-                          <div>
-                            <label className="block text-[8px] font-mono text-slate-400 uppercase">URL Imagem (PNG sem fundo)</label>
-                            <input
-                              type="text"
-                              value={skin.image}
-                              onChange={(e) => {
-                                const updatedSkins = [...(editingChar.skins || [])];
-                                updatedSkins[skinIdx] = { ...updatedSkins[skinIdx], image: e.target.value };
-                                handleUpdateCharDetails('skins', updatedSkins);
-                              }}
-                              placeholder="Ex: https://.../sasuke_skin.png"
-                              className="w-full px-2 py-1 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded text-xs text-white outline-none font-mono"
-                            />
-                          </div>
+                           <div>
+                             <label className="block text-[8px] font-mono text-slate-400 uppercase">Imagem da Skin</label>
+                             <div className="flex gap-1 items-center">
+                               <div className="w-8 h-8 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-center flex-shrink-0">
+                                 {skin.image ? (
+                                   <img 
+                                     src={skin.image} 
+                                     alt={skin.name} 
+                                     className="w-full h-full object-contain" 
+                                     referrerPolicy="no-referrer"
+                                     onError={(e) => {
+                                       const img = e.currentTarget; 
+                                       img.onerror = null; 
+                                       img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
+                                     }}
+                                   />
+                                 ) : (
+                                   <Image className="w-4 h-4 text-slate-400" />
+                                 )}
+                               </div>
+                               <input
+                                 type="text"
+                                 value={skin.image || ''}
+                                 onChange={(e) => {
+                                   const updatedSkins = [...(editingChar.skins || [])];
+                                   updatedSkins[skinIdx] = { ...updatedSkins[skinIdx], image: e.target.value };
+                                   handleUpdateCharDetails('skins', updatedSkins);
+                                 }}
+                                 placeholder="URL ou envie arquivo"
+                                 className="flex-1 min-w-0 px-2 py-1 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded text-xs text-white outline-none font-mono"
+                               />
+                               <label className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-[8px] font-mono font-bold uppercase cursor-pointer transition flex items-center gap-0.5 flex-shrink-0">
+                                 <Upload className="w-3 h-3 text-amber-400" />
+                                 <span>Upload</span>
+                                 <input
+                                   type="file"
+                                   accept=".png,.jpg,.jpeg,.webp,image/*"
+                                   className="hidden"
+                                   onChange={(e) => {
+                                     const file = e.target.files?.[0];
+                                     if (file) {
+                                       const reader = new FileReader();
+                                       reader.onload = (uploadEvt) => {
+                                         const result = uploadEvt.target?.result as string;
+                                         if (result) {
+                                           const updatedSkins = [...(editingChar.skins || [])];
+                                           updatedSkins[skinIdx] = { ...updatedSkins[skinIdx], image: result };
+                                           handleUpdateCharDetails('skins', updatedSkins);
+                                         }
+                                       };
+                                       reader.readAsDataURL(file);
+                                     }
+                                   }}
+                                 />
+                               </label>
+                               {skin.image && (
+                                 <button
+                                   type="button"
+                                   onClick={() => {
+                                     const updatedSkins = [...(editingChar.skins || [])];
+                                     updatedSkins[skinIdx] = { ...updatedSkins[skinIdx], image: '' };
+                                     handleUpdateCharDetails('skins', updatedSkins);
+                                   }}
+                                   className="p-1 text-slate-500 hover:text-red-400 bg-slate-950 border border-slate-800 hover:border-red-500/50 rounded transition"
+                                   title="Remover imagem personalizada"
+                                 >
+                                   <X className="w-2 h-2" />
+                                 </button>
+                               )}
+                             </div>
+                           </div>
                         </div>
 
                         <button
@@ -2027,16 +2143,71 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Caminho da Imagem (Ícone)</label>
-                        <input
-                          type="text"
-                          value={editingSkill.icon}
-                          onChange={(e) => handleUpdateSkillField('icon', e.target.value)}
-                          placeholder="E.g. https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg"
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
-                        />
-                      </div>
+                       <div>
+                         <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Ícone da Habilidade</label>
+                         <div className="flex gap-1.5 items-center">
+                           <div className="w-10 h-10 rounded-lg border border-slate-800 bg-slate-900 flex items-center justify-center flex-shrink-0">
+                             {editingSkill?.icon ? (
+                               <img 
+                                 src={editingSkill.icon} 
+                                 alt={editingSkill.name} 
+                                 className="w-full h-full object-contain" 
+                                 referrerPolicy="no-referrer"
+                                 onError={(e) => {
+                                   const img = e.currentTarget; 
+                                   img.onerror = null; 
+                                   img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                                 }}
+                               />
+                             ) : (
+                               <Award className="w-5 h-5 text-slate-400" />
+                             )}
+                           </div>
+                           <input
+                             type="text"
+                             value={editingSkill.icon || ''}
+                             onChange={(e) => handleUpdateSkillField('icon', e.target.value)}
+                             placeholder="URL ou envie arquivo"
+                             className="flex-1 min-w-0 px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
+                           />
+                           <label className="px-3 py-2 bg-orange-600/10 hover:bg-orange-600/20 text-orange-400 border border-orange-500/30 rounded-xl text-[9px] font-mono font-bold uppercase cursor-pointer transition flex items-center gap-1 flex-shrink-0">
+                             <Upload className="w-4 h-4 text-orange-400" />
+                             <span>Upload</span>
+                             <input
+                               type="file"
+                               accept=".png,.jpg,.jpeg,.webp,image/*"
+                               className="hidden"
+                               onChange={(e) => {
+                                 const file = e.target.files?.[0];
+                                 if (file) {
+                                   const reader = new FileReader();
+                                   reader.onload = (uploadEvt) => {
+                                     const result = uploadEvt.target?.result as string;
+                                     if (result) {
+                                       handleUpdateSkillField('icon', result);
+                                       triggerSuccess('Ícone carregado com sucesso!');
+                                     }
+                                   };
+                                   reader.readAsDataURL(file);
+                                 }
+                               }}
+                             />
+                           </label>
+                           {editingSkill.icon && (
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 handleUpdateSkillField('icon', '');
+                                 triggerSuccess('Ícone personalizado removido.');
+                               }}
+                               className="p-2 text-slate-500 hover:text-red-400 bg-slate-900 border border-slate-800 hover:border-red-500/50 rounded-xl transition"
+                               title="Remover ícone personalizado"
+                             >
+                               <X className="w-3.5 h-3.5" />
+                             </button>
+                           )}
+                         </div>
+                       </div>
 
                       <div>
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Efeito Requerido para Ativar (Opcional)</label>
@@ -2149,12 +2320,19 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                             className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0" />
                           🚫 Não aplicar se a habilidade já estiver ativa no alvo
                         </label>
-                        <label className="flex items-center gap-2 text-[10px] text-cyan-300 font-bold">
-                          <input type="checkbox" checked={editingSkill.permanent || false}
-                            onChange={(e) => handleUpdateSkillField('permanent', e.target.checked)}
-                            className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0" />
-                          ♾️ Esta skill não pode ser removida (efeito permanente)
-                        </label>
+                         <label className="flex items-center gap-2 text-[10px] text-cyan-300 font-bold">
+                           <input type="checkbox" checked={editingSkill.permanent || false}
+                             onChange={(e) => handleUpdateSkillField('permanent', e.target.checked)}
+                             className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0" />
+                           � ♾��️ Esta skill não pode ser removida (efeito permanente)
+                         </label>
+
+                         <label className="flex items-center gap-2 text-[10px] text-orange-400 font-bold">
+                           <input type="checkbox" checked={editingSkill.blocksOffensiveSkills || false}
+                             onChange={(e) => handleUpdateSkillField('blocksOffensiveSkills', e.target.checked)}
+                             className="rounded bg-slate-950 border-slate-800 text-orange-500 focus:ring-0" />
+                           �� 🛑 Bloquear skills ofensivas do alvo quando ativo
+                         </label>
                       </div>
 
                       <div className="md:col-span-2 space-y-2.5 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
@@ -5367,18 +5545,30 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
                                     />
                                     <span className="text-[10px] text-slate-500 font-mono shrink-0">Tipo de Stack</span>
                                   </div>
-                                  <div className="flex items-center gap-2 mt-1.5">
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      max={999}
-                                      value={editingSkill.stackDuration ?? ''}
-                                      onChange={(e) => handleUpdateSkillField('stackDuration', e.target.value ? parseInt(e.target.value) : undefined)}
-                                      placeholder="999"
-                                      className="w-16 px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-white"
-                                    />
-                                    <span className="text-[10px] text-slate-500 font-mono">Duração da Stack (turnos)</span>
-                                  </div>
+                                   <div className="flex items-center gap-2 mt-1.5">
+                                     <input
+                                       type="number"
+                                       min={1}
+                                       max={999}
+                                       value={editingSkill.stackDuration ?? ''}
+                                       onChange={(e) => handleUpdateSkillField('stackDuration', e.target.value ? parseInt(e.target.value) : undefined)}
+                                       placeholder="999"
+                                       className="w-16 px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-white"
+                                     />
+                                     <span className="text-[10px] text-slate-500 font-mono">Duração da Stack (turnos)</span>
+                                   </div>
+                                   <div className="flex items-center gap-2 mt-1.5">
+                                     <select
+                                       value={editingSkill.stackTarget || 'Target'}
+                                       onChange={(e) => handleUpdateSkillField('stackTarget', e.target.value)}
+                                       className="px-2 py-0.5 bg-slate-900 border border-purple-800/60 rounded text-[10px] font-mono text-purple-300 focus:border-purple-500 outline-none w-full max-w-[150px]"
+                                     >
+                                       {TARGET_OPTIONS.map(opt => (
+                                         <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                       ))}
+                                     </select>
+                                     <span className="text-[10px] text-slate-500 font-mono">Aplicar Stacks em:</span>
+                                   </div>
                                 </>
                               )}
                             </div>

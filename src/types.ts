@@ -312,19 +312,22 @@ cannotBeReflected?: boolean;
 
   noChakraCost?: boolean;
 
-  doNotApplyIfActive?: boolean;
-
-  permanent?: boolean; // If true, skill stays forever (shows ∞ instead of turn count)
-
+   doNotApplyIfActive?: boolean;
+   
+   permanent?: boolean; // If true, skill stays forever (shows � ∞ instead of turn count)
+   blocksOffensiveSkills?: boolean;
+   
+   // ==============================
+   // STACK SYSTEM - Acumular efeitos
   // ==============================
-  // STACK SYSTEM - Acumular efeitos
-  // ==============================
-  /** Se true, o efeito desta skill pode acumular stacks no mesmo alvo */
-  stackable?: boolean;
-  /** Nome do tipo de stack para agrupar (ex: 'Marca', 'Veneno', 'Cortes') */
-  stackType?: string;
-  /** Duração da stack em turnos no oponente (padrão: 999 = praticamente permanente) */
-  stackDuration?: number;
+/** Se true, o efeito desta skill pode acumular stacks no mesmo alvo */
+   stackable?: boolean;
+   /** Nome do tipo de stack para agrupar (ex: 'Marca', 'Veneno', 'Cortes') */
+   stackType?: string;
+   /** Duração da stack em turnos no oponente (padrão: 999 = praticamente permanente) */
+   stackDuration?: number;
+   /** Onde aplicar as stacks quando a skill é usada (padrão: 'Target') */
+   stackTarget?: TargetOverride;
 
   // ==============================
   // SPLASH/AOE DAMAGE - Dano em área
