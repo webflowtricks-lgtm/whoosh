@@ -22,6 +22,16 @@ export interface SkillCostRule {
   reduceSpecificAmount?: number; // Legacy compatibility
 }
 
+export interface SkillTargetRule {
+  activeSkillName: string; // Skill/Efeito ativo necessário no combatente ou equipe
+  overrideTarget: 'Enemy' | 'AllEnemies' | 'Ally' | 'AllAllies' | 'Self' | 'SelfAndAlly'; // Novo Alvo quando ativo
+}
+
+export interface SkillCooldownRule {
+  activeSkillName: string; // Skill/Efeito ativo necessário no combatente ou equipe
+  overrideCooldown: number; // Novo Cooldown quando ativo (ex: 0)
+}
+
 export interface SkillDamageRule {
   activeSkillName: string; // Active skill/effect required on character
   damageBoost: number; // Damage amount when condition is active
@@ -70,6 +80,8 @@ export interface SkillSelfStackDamageRule {
   stackType: string;
   /** Dano adicional por stack que eu possuo */
   damagePerStack: number;
+  /** Tipo de dano da stack (padrão: 'damage') */
+  damageType?: 'dot' | 'bleeding' | 'affliction' | 'direct_damage' | 'damage';
 }
 
 export interface SkillStackDurationRule {
@@ -85,6 +97,8 @@ export interface Skill {
   icon: string;
   cost: ChakraType[];
   costRules?: SkillCostRule[];
+  targetRules?: SkillTargetRule[];
+  cooldownRules?: SkillCooldownRule[];
   damageRules?: SkillDamageRule[];
   onSkillUseDamageRules?: SkillOnSkillUseDamageRule[];
   chakraRemoveRules?: SkillChakraRemoveRule[];
@@ -413,7 +427,8 @@ export interface ActiveEffect {
   | 'reveal_invisible'
   | 'on_skill_use_damage'
   | 'capture_arrest_trap'
-  | 'capture_arrest_debuff';
+  | 'capture_arrest_debuff'
+  | 'redirect_offensive';
   value?: number; // magnitude of shield, reduction, damage, etc.
   duration: number; // remaining turns
   damageType?: string;
@@ -433,6 +448,14 @@ export interface ActiveEffect {
   reflectMode?: 'Caster' | 'RandomAlly';
   reflectType?: 'active' | 'passive';
   reflectCharges?: number;
+
+  // Redirection / Bodyguard (Redirecionar Skills Ofensivas em Mim)
+  redirectOffensiveToCaster?: boolean;
+  redirectOffensiveDuration?: number;
+  redirectOffensiveScope?: 'ally' | 'team';
+  redirectOffensiveTarget?: TargetOverride;
+  redirectOffensiveIrremovable?: boolean;
+  redirectOffensiveRemoveType?: string;
   counterAttackType?: 'attacker' | 'defender';
   castTurn?: number;
   /** Quantidade de stacks acumuladas */
@@ -448,6 +471,7 @@ export interface ActiveEffect {
   retaliateTargetScope?: 'self' | 'ally' | 'self_or_ally' | 'team';
   retaliateTriggerMode?: 'always' | 'first_only';
   retaliateTriggeredCount?: number;
+  redirectCasterId?: string;
   excludeAffliction?: boolean;
   permanent?: boolean;
 }
@@ -690,4 +714,80 @@ export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter
   }
 
   return currentCost;
+}
+
+export function getEffectiveTargetType(
+  skill: Skill,
+  sourceChar?: CombatCharacter,
+  allCombatants?: CombatCharacter[]
+): 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies' {
+  if (!skill) return 'Enemy';
+  const defaultTarget = skill.targetType || 'Enemy';
+
+  if (sourceChar && sourceChar.activeEffects && skill.targetRules && skill.targetRules.length > 0) {
+    const otherCombatants = (allCombatants || []).filter(c => c.id !== sourceChar.id);
+    const allActiveEffects = [
+      ...sourceChar.activeEffects,
+      ...otherCombatants.flatMap(c => c.activeEffects),
+    ];
+
+    for (const rule of skill.targetRules) {
+      if (!rule.activeSkillName) continue;
+      const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+
+      const isReqActive = allActiveEffects.some(e => {
+        if (!e.name) return false;
+        const eNameLower = e.name.toLowerCase();
+        return (
+          eNameLower === targetNameLower ||
+          eNameLower.startsWith(targetNameLower) ||
+          eNameLower.includes(targetNameLower)
+        );
+      });
+
+      if (isReqActive && rule.overrideTarget) {
+        return rule.overrideTarget;
+      }
+    }
+  }
+
+  return defaultTarget;
+}
+
+export function getEffectiveCooldown(
+  skill: Skill,
+  sourceChar?: CombatCharacter,
+  allCombatants?: CombatCharacter[]
+): number {
+  if (!skill) return 0;
+  const defaultCd = skill.cooldown ?? 0;
+
+  if (sourceChar && sourceChar.activeEffects && skill.cooldownRules && skill.cooldownRules.length > 0) {
+    const otherCombatants = (allCombatants || []).filter(c => c.id !== sourceChar.id);
+    const allActiveEffects = [
+      ...sourceChar.activeEffects,
+      ...otherCombatants.flatMap(c => c.activeEffects),
+    ];
+
+    for (const rule of skill.cooldownRules) {
+      if (!rule.activeSkillName) continue;
+      const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+
+      const isReqActive = allActiveEffects.some(e => {
+        if (!e.name) return false;
+        const eNameLower = e.name.toLowerCase();
+        return (
+          eNameLower === targetNameLower ||
+          eNameLower.startsWith(targetNameLower) ||
+          eNameLower.includes(targetNameLower)
+        );
+      });
+
+      if (isReqActive && rule.overrideCooldown !== undefined) {
+        return rule.overrideCooldown;
+      }
+    }
+  }
+
+  return defaultCd;
 }

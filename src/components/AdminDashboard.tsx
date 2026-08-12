@@ -2598,6 +2598,196 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Target Rules (Regras de Alvo Condicional - Alterar Alvo da Habilidade) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-indigo-400 font-mono">
+                              🎯 Regras de Alvo Condicional (Alterar Alvo da Habilidade)
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Quando a habilidade/efeito especificado estiver ativo, altera o alvo padrão desta habilidade para o novo alvo selecionado (ex: passar de Inimigo Único para <strong>Todos os Inimigos</strong>).
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.targetRules || [];
+                              handleUpdateSkillField('targetRules', [
+                                ...currentRules,
+                                { activeSkillName: '', overrideTarget: 'AllEnemies' }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra de Alvo
+                          </button>
+                        </div>
+
+                        {(!editingSkill.targetRules || editingSkill.targetRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de alvo condicional configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-3 pt-1">
+                            {editingSkill.targetRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-[10px] font-mono space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-slate-400 font-bold">Quando ativo:</span>
+                                  <input
+                                    type="text"
+                                    list="targetSkills-suggestions"
+                                    value={rule.activeSkillName}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.targetRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                      handleUpdateSkillField('targetRules', updated);
+                                    }}
+                                    placeholder="Ex: Modo Sábio / Sharingan"
+                                    className="flex-1 min-w-[150px] px-2.5 py-1 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-lg text-white outline-none text-[10px]"
+                                  />
+                                  <datalist id="targetSkills-suggestions">
+                                    {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                      editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                    ) : <option value="" disabled />}
+                                  </datalist>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = (editingSkill.targetRules || []).filter((_, i) => i !== rIdx);
+                                      handleUpdateSkillField('targetRules', updated.length > 0 ? updated : undefined);
+                                    }}
+                                    className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                    title="Remover Regra"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+
+                                <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800/80 flex flex-wrap items-center gap-2">
+                                  <span className="text-slate-300 font-bold text-[9.5px]">Alterar Alvo da Skill para:</span>
+                                  <select
+                                    value={rule.overrideTarget || 'AllEnemies'}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.targetRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], overrideTarget: e.target.value as any };
+                                      handleUpdateSkillField('targetRules', updated);
+                                    }}
+                                    className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-[10px] font-mono text-indigo-300 font-bold outline-none"
+                                  >
+                                    <option value="AllEnemies">👥 Todos os Inimigos (All Enemies)</option>
+                                    <option value="Enemy">👤 Um Inimigo (Single Enemy)</option>
+                                    <option value="AllAllies">🛡️ Todos os Aliados (All Allies)</option>
+                                    <option value="Ally">👤 Um Aliado (Single Ally)</option>
+                                    <option value="Self">🌀 Si Mesmo (Self)</option>
+                                    <option value="SelfAndAlly">🌀 Si Mesmo e Aliado</option>
+                                  </select>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Cooldown Rules (Regras de Cooldown Condicional - Alterar Recarga) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">
+                              ⏳ Regras de Cooldown Condicional (Alterar Recarga)
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Quando a habilidade/efeito especificado estiver ativo, altera o tempo de recarga desta habilidade para o valor definido (ex: colocar em <strong>0 de cooldown</strong>).
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.cooldownRules || [];
+                              handleUpdateSkillField('cooldownRules', [
+                                ...currentRules,
+                                { activeSkillName: '', overrideCooldown: 0 }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra de Cooldown
+                          </button>
+                        </div>
+
+                        {(!editingSkill.cooldownRules || editingSkill.cooldownRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de cooldown condicional configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-3 pt-1">
+                            {editingSkill.cooldownRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-[10px] font-mono space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-slate-400 font-bold">Quando ativo:</span>
+                                  <input
+                                    type="text"
+                                    list="cooldownSkills-suggestions"
+                                    value={rule.activeSkillName}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.cooldownRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                      handleUpdateSkillField('cooldownRules', updated);
+                                    }}
+                                    placeholder="Ex: Modo Sábio / Chakra Infinito"
+                                    className="flex-1 min-w-[150px] px-2.5 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-lg text-white outline-none text-[10px]"
+                                  />
+                                  <datalist id="cooldownSkills-suggestions">
+                                    {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                      editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                    ) : <option value="" disabled />}
+                                  </datalist>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = (editingSkill.cooldownRules || []).filter((_, i) => i !== rIdx);
+                                      handleUpdateSkillField('cooldownRules', updated.length > 0 ? updated : undefined);
+                                    }}
+                                    className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                    title="Remover Regra"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+
+                                <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800/80 flex flex-wrap items-center gap-2">
+                                  <span className="text-slate-300 font-bold text-[9.5px]">Novo Cooldown da Skill:</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={10}
+                                    value={rule.overrideCooldown ?? 0}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.cooldownRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], overrideCooldown: parseInt(e.target.value) || 0 };
+                                      handleUpdateSkillField('cooldownRules', updated);
+                                    }}
+                                    className="w-20 px-2 py-1 bg-slate-950 border border-slate-800 rounded text-center text-[10px] font-mono text-cyan-300 font-bold outline-none"
+                                  />
+                                  <span className="text-[10px] text-slate-400 font-mono">Turno(s)</span>
+                                  {rule.overrideCooldown === 0 ? (
+                                    <span className="px-2 py-0.5 bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 rounded text-[9px] font-bold tracking-wide animate-pulse ml-auto">
+                                      ✨ SEM RECARGA (0 COOLDOWN)
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 bg-cyan-950/80 text-cyan-400 border border-cyan-500/40 rounded text-[9px] font-bold tracking-wide ml-auto">
+                                      ⏳ Recarga de {rule.overrideCooldown} Turnos
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       <div className="md:col-span-2">
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-rose-400 font-mono">Regras de Dano (Damage Rules)</label>
                         <button
@@ -3052,6 +3242,23 @@ const newSkill: Skill = {
                                   }}
                                   className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-pink-500 rounded text-white outline-none text-[10px]"
                                 />
+                                <span className="text-slate-400 font-bold ml-1">Tipo Dano:</span>
+                                <select
+                                  value={rule.damageType || 'damage'}
+                                  onChange={(e) => {
+                                    const val = e.target.value as any;
+                                    const updated = [...(editingSkill.selfStackDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damageType: val };
+                                    handleUpdateSkillField('selfStackDamageRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-pink-500 rounded text-white outline-none text-[10px]"
+                                >
+                                  <option value="damage">Normal</option>
+                                  <option value="direct_damage">Direto</option>
+                                  <option value="dot">DOT / Poção</option>
+                                  <option value="bleeding">Sangramento</option>
+                                  <option value="affliction">Aflição</option>
+                                </select>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -4579,7 +4786,18 @@ const newSkill: Skill = {
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white" />
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
-                              <p className="text-[8px] text-slate-500 font-mono">Usa o mesmo alvo configurado em "Adicionar Escudo"</p>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-rose-400 font-mono uppercase font-bold">🎯 Aplicar Debuff em:</span>
+                                <select
+                                  value={editingSkill.damageDebuffTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('damageDebuffTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-rose-300 focus:border-rose-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
                               <div className="flex flex-wrap gap-1.5 mt-1">
                                 <span className="text-[9px] text-slate-500 font-mono mr-1">Afetar:</span>
                                 {(['skill','dot','bleeding','affliction','direct_damage','damage'] as const).map(t => {
@@ -5798,6 +6016,76 @@ const newSkill: Skill = {
                                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                                       ))}
                                     </select>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 24. Redirecionamento / Proteção do Guarda-Costas */}
+                          <div className="space-y-3 bg-cyan-950/20 border border-cyan-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono flex items-center gap-1">
+                                  🛡️ Redirecionar Skills Ofensivas em Mim (Guarda-Costas)
+                                </label>
+                                {editingSkill.redirectOffensiveToCaster ? (
+                                  <span className="text-[9px] bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 px-1.5 py-0.5 rounded font-mono font-bold animate-pulse">
+                                    ⚡ ATIVO
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] bg-slate-800 border border-slate-700 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                                    Inativo
+                                  </span>
+                                )}
+                              </div>
+
+                              <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
+                                <input
+                                  type="checkbox"
+                                  checked={editingSkill.redirectOffensiveToCaster || false}
+                                  onChange={(e) => handleUpdateSkillField('redirectOffensiveToCaster', e.target.checked)}
+                                  className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3.5 h-3.5"
+                                />
+                                Ativar Proteção / Redirecionar para o Conjurador
+                              </label>
+
+                              {editingSkill.redirectOffensiveToCaster && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="space-y-3 pt-2 border-t border-cyan-900/40 mt-2"
+                                >
+                                  {/* Alvo / Escopo da Proteção */}
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold block">
+                                      🎯 Proteger Quem (Quem recebe o Buff de Redirecionamento):
+                                    </span>
+                                    <select
+                                      value={editingSkill.redirectOffensiveScope || 'ally'}
+                                      onChange={(e) => handleUpdateSkillField('redirectOffensiveScope', e.target.value as 'ally' | 'team')}
+                                      className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-cyan-300 outline-none w-full"
+                                    >
+                                      <option value="ally">👤 Apenas um Aliado Selecionado</option>
+                                      <option value="team">🛡️ Minha Equipe Inteira (Todos os Aliados)</option>
+                                    </select>
+                                  </div>
+
+                                  {/* Duração em Turnos */}
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={10}
+                                      value={editingSkill.redirectOffensiveDuration || 1}
+                                      onChange={(e) => handleUpdateSkillField('redirectOffensiveDuration', parseInt(e.target.value) || 1)}
+                                      className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-cyan-300 font-bold"
+                                    />
+                                    <span className="text-[10px] text-slate-400 font-mono">Turno(s) de Duração</span>
+                                  </div>
+
+                                  <div className="text-[8.5px] text-cyan-200/80 font-mono leading-relaxed bg-cyan-950/40 border border-cyan-900/50 p-2 rounded-lg">
+                                    💡 <span className="font-bold text-cyan-300">Como funciona:</span> Qualquer habilidade ofensiva usada pelo oponente contra {editingSkill.redirectOffensiveScope === 'team' ? 'qualquer aliado da sua equipe' : 'o aliado protegido'} será <span className="font-bold text-white uppercase">redirecionada diretamente para Você (conjurador)</span>, exceto se a habilidade inimiga estiver configurada com <span className="font-bold text-amber-300 font-mono">"Não Pode Ser Refletida"</span>.
                                   </div>
                                 </motion.div>
                               )}
