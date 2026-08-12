@@ -360,6 +360,20 @@ cannotBeReflected?: boolean;
   stackDurationRules?: SkillStackDurationRule[];
   /** Aumento de dano por stack em mim mesmo */
   selfStackDamageRules?: SkillSelfStackDamageRule[];
+
+  // ==============================
+  // CHAKRA COST INCREASE - Aumentar custo de chakra do inimigo
+  // ==============================
+  /** Tipos de chakra cujo custo será aumentado (ex: ['Nin', 'Tai']) */
+  chakraCostIncreaseTypes?: ChakraType[];
+  /** Tipos de skill afetados pelo aumento (physical, mental, affliction, chakra, ranged, friendly) */
+  chakraCostIncreaseSkillTypes?: string[];
+  /** Duração do debuff em turnos */
+  chakraCostIncreaseDuration?: number;
+  /** Alvo do debuff (ex: Target, AllEnemies) */
+  chakraCostIncreaseTarget?: TargetOverride;
+  /** Debuff não pode ser removido */
+  chakraCostIncreaseIrremovable?: boolean;
 }
 
 export type TargetOverride =
@@ -428,6 +442,7 @@ export interface ActiveEffect {
   | 'on_skill_use_damage'
   | 'capture_arrest_trap'
   | 'capture_arrest_debuff'
+  | 'chakra_cost_increase'
   | 'redirect_offensive';
   value?: number; // magnitude of shield, reduction, damage, etc.
   duration: number; // remaining turns
@@ -456,6 +471,7 @@ export interface ActiveEffect {
   redirectOffensiveTarget?: TargetOverride;
   redirectOffensiveIrremovable?: boolean;
   redirectOffensiveRemoveType?: string;
+  blocksOffensiveSkills?: boolean; // Se verdadeiro, impede o alvo de usar skills ofensivas
   counterAttackType?: 'attacker' | 'defender';
   castTurn?: number;
   /** Quantidade de stacks acumuladas */
@@ -464,6 +480,10 @@ export interface ActiveEffect {
   stackType?: string;
   /** Se o efeito é stackable (pode acumular) */
   stackable?: boolean;
+  /** Tipos de chakra cujo custo aumenta enquanto este debuff estiver ativo */
+  costIncreaseChakraTypes?: ChakraType[];
+  /** Tipos de skill afetados pelo aumento de custo (physical, mental, affliction, chakra, ranged, friendly) */
+  costIncreaseSkillTypes?: string[];
   /** Tipos de dano que este debuff afeta (para damage_debuff) */
   debuffTypes?: string[];
   retaliateDamageVal?: number;
@@ -713,7 +733,36 @@ export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter
     }
   }
 
+  // Chakra cost increase debuff: raises the cost of matching chakra types for matching skill types
+  if (sourceChar && sourceChar.activeEffects) {
+    const skillTypes = getSkillCombatTypes(skill);
+    for (const eff of sourceChar.activeEffects) {
+      if (eff.type !== 'chakra_cost_increase') continue;
+      if (!eff.costIncreaseChakraTypes || eff.costIncreaseChakraTypes.length === 0) continue;
+      if (eff.costIncreaseSkillTypes && eff.costIncreaseSkillTypes.length > 0) {
+        const matchesSkillType = eff.costIncreaseSkillTypes.some(t => skillTypes.includes(t));
+        if (!matchesSkillType) continue;
+      }
+      for (const ct of eff.costIncreaseChakraTypes) {
+        currentCost.push(ct);
+      }
+    }
+  }
+
   return currentCost;
+}
+
+export function getSkillCombatTypes(skill: Skill | null): string[] {
+  if (!skill) return [];
+  const classes = (skill.classes || []).map(c => c.toLowerCase());
+  const types: string[] = [];
+  if (classes.some(cls => ['physical', 'físico', 'fisico', 'taijutsu', 'melee', 'corpo a corpo'].includes(cls))) types.push('physical');
+  if (classes.some(cls => ['mental', 'genjutsu'].includes(cls))) types.push('mental');
+  if (classes.some(cls => ['affliction', 'aflição', 'aflicao', 'affliction'].includes(cls))) types.push('affliction');
+  if (classes.some(cls => ['chakra', 'ninjutsu'].includes(cls))) types.push('chakra');
+  if (classes.some(cls => ['ranged', 'à distância', 'distância', 'distancia'].includes(cls))) types.push('ranged');
+  if (classes.some(cls => ['friendly', 'suporte', 'cura', 'heal', 'amigável', 'amigavel'].includes(cls))) types.push('friendly');
+  return types;
 }
 
 export function getEffectiveTargetType(

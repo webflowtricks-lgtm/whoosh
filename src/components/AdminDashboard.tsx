@@ -5736,6 +5736,154 @@ const newSkill: Skill = {
                             </div>
                           </div>
 
+                          {/* 19b. Aumentar Custo de Chakra (Debuff) */}
+                          <div className="space-y-1 bg-cyan-950/15 border border-cyan-800/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">⛓️ Aumentar Custo de Chakra (Debuff)</label>
+                              <div className="flex items-center gap-2 mt-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={10}
+                                  value={editingSkill.chakraCostIncreaseDuration || 0}
+                                  onChange={(e) => handleUpdateSkillField('chakraCostIncreaseDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-cyan-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
+                              </div>
+                              {(editingSkill.chakraCostIncreaseDuration || 0) > 0 && (
+                                <>
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                    <select
+                                      value={editingSkill.chakraCostIncreaseTarget || 'Target'}
+                                      onChange={(e) => handleUpdateSkillField('chakraCostIncreaseTarget', e.target.value)}
+                                      className="px-2 py-0.5 bg-slate-900 border border-cyan-900/50 rounded text-[10px] font-mono text-cyan-300 focus:border-cyan-600 outline-none w-full max-w-[150px]"
+                                    >
+                                      {TARGET_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="mt-1.5 pt-1.5 border-t border-cyan-900/30">
+                                    <div className="flex items-center justify-between">
+                                      <span className="block text-[9px] text-slate-400 font-mono uppercase font-bold">Tipos de Chakra a Aumentar:</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const allTypes: ChakraType[] = ['Tai', 'Nin', 'Gen', 'Blood', 'Rand'];
+                                          const isAllSelected = (editingSkill.chakraCostIncreaseTypes || []).length >= 5;
+                                          handleUpdateSkillField('chakraCostIncreaseTypes', isAllSelected ? [] : allTypes);
+                                        }}
+                                        className="text-[9px] px-2 py-0.5 rounded bg-cyan-900/50 hover:bg-cyan-800 text-cyan-300 font-mono font-bold border border-cyan-700/60 transition-all cursor-pointer select-none"
+                                      >
+                                        {(editingSkill.chakraCostIncreaseTypes || []).length >= 5 ? '❌ Desmarcar Todos' : '⚡ Todos'}
+                                      </button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-1.5 mt-1">
+                                      {([
+                                        { value: 'Tai', label: '🥋 Taijutsu', desc: 'Aumenta custo Tai' },
+                                        { value: 'Nin', label: '🌀 Ninjutsu', desc: 'Aumenta custo Nin' },
+                                        { value: 'Gen', label: '🧠 Genjutsu', desc: 'Aumenta custo Gen' },
+                                        { value: 'Blood', label: '🩸 Kekkei Genkai', desc: 'Aumenta custo Blood' },
+                                        { value: 'Rand', label: '🎲 Aleatório', desc: 'Aumenta custo Rand (qualquer chakra)' },
+                                      ] as { value: ChakraType; label: string; desc: string }[]).map((opt) => {
+                                        const currentTypes = editingSkill.chakraCostIncreaseTypes || [];
+                                        const isSelected = currentTypes.includes(opt.value);
+                                        return (
+                                          <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => {
+                                              const updated = isSelected ? currentTypes.filter(t => t !== opt.value) : [...currentTypes, opt.value];
+                                              handleUpdateSkillField('chakraCostIncreaseTypes', updated);
+                                            }}
+                                            className={`p-1.5 text-left rounded-lg border transition-all cursor-pointer ${
+                                              isSelected
+                                                ? 'bg-cyan-950 border-cyan-500 text-cyan-200 font-bold shadow-md shadow-cyan-950/60'
+                                                : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                                            }`}
+                                          >
+                                            <div className="text-[10px] font-mono flex items-center justify-between">
+                                              <span>{opt.label}</span>
+                                              <span className="text-[9px] font-bold">{isSelected ? '✓' : ''}</span>
+                                            </div>
+                                            <div className="text-[8px] text-slate-500 font-mono leading-tight mt-0.5">{opt.desc}</div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                  <div className="mt-1.5 pt-1.5 border-t border-cyan-900/30">
+                                    <div className="flex items-center justify-between">
+                                      <span className="block text-[9px] text-slate-400 font-mono uppercase font-bold">Tipos de Skill Afetadas:</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const allTypes = ['physical', 'chakra', 'ranged', 'mental', 'affliction', 'friendly'];
+                                          const isAllSelected = (editingSkill.chakraCostIncreaseSkillTypes || []).length >= 6;
+                                          handleUpdateSkillField('chakraCostIncreaseSkillTypes', isAllSelected ? [] : allTypes);
+                                        }}
+                                        className="text-[9px] px-2 py-0.5 rounded bg-cyan-900/50 hover:bg-cyan-800 text-cyan-300 font-mono font-bold border border-cyan-700/60 transition-all cursor-pointer select-none"
+                                      >
+                                        {(editingSkill.chakraCostIncreaseSkillTypes || []).length >= 6 ? '❌ Desmarcar Todos' : '⚡ Todas'}
+                                      </button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-1.5 mt-1">
+                                      {[
+                                        { value: 'physical', label: '⚔️ Físico', desc: 'Taijutsu / marcial' },
+                                        { value: 'chakra', label: '🌀 Chakra', desc: 'Ninjutsu / selos' },
+                                        { value: 'ranged', label: '🎯 A Distância', desc: 'Projéteis / arremesso' },
+                                        { value: 'mental', label: '🧠 Mental', desc: 'Genjutsu / ilusão' },
+                                        { value: 'affliction', label: '🩸 Aflição', desc: 'Venenos / dor / sangra' },
+                                        { value: 'friendly', label: '🤝 Amigável', desc: 'Suporte / cura' },
+                                      ].map((opt) => {
+                                        const currentTypes = editingSkill.chakraCostIncreaseSkillTypes || [];
+                                        const isSelected = currentTypes.includes(opt.value);
+                                        return (
+                                          <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => {
+                                              const updated = isSelected ? currentTypes.filter(t => t !== opt.value) : [...currentTypes, opt.value];
+                                              handleUpdateSkillField('chakraCostIncreaseSkillTypes', updated);
+                                            }}
+                                            className={`p-1.5 text-left rounded-lg border transition-all cursor-pointer ${
+                                              isSelected
+                                                ? 'bg-cyan-950 border-cyan-500 text-cyan-200 font-bold shadow-md shadow-cyan-950/60'
+                                                : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                                            }`}
+                                          >
+                                            <div className="text-[10px] font-mono flex items-center justify-between">
+                                              <span>{opt.label}</span>
+                                              <span className="text-[9px] font-bold">{isSelected ? '✓' : ''}</span>
+                                            </div>
+                                            <div className="text-[8px] text-slate-500 font-mono leading-tight mt-0.5">{opt.desc}</div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                  <div className="mt-1.5 pt-1.5 border-t border-cyan-900/30 space-y-1">
+                                    <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={editingSkill.chakraCostIncreaseIrremovable || false}
+                                        onChange={(e) => handleUpdateSkillField('chakraCostIncreaseIrremovable', e.target.checked)}
+                                        className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
+                                      />
+                                      🔒 Nunca Remover
+                                    </label>
+                                    <p className="text-[9px] text-cyan-300 font-mono italic leading-tight">
+                                      💡 Resumo: Ao usar esta habilidade, o(s) alvo(s) terá(ão) +1 de custo em {(editingSkill.chakraCostIncreaseTypes || []).map(ct => ct === 'Tai' ? 'Taijutsu' : ct === 'Nin' ? 'Ninjutsu' : ct === 'Gen' ? 'Genjutsu' : ct === 'Blood' ? 'Kekkei Genkai' : ct === 'Rand' ? 'Aleatório' : ct).join(' + ') || 'chakra'}{(editingSkill.chakraCostIncreaseSkillTypes && editingSkill.chakraCostIncreaseSkillTypes.length > 0 ? ` nas skills de ${editingSkill.chakraCostIncreaseSkillTypes.map(st => st === 'physical' ? 'Físico' : st === 'mental' ? 'Mental' : st === 'affliction' ? 'Aflição' : st === 'chakra' ? 'Chakra' : st === 'ranged' ? 'A Distância' : st === 'friendly' ? 'Amigável' : st).join(' + ')}` : '')} por {editingSkill.chakraCostIncreaseDuration} {editingSkill.chakraCostIncreaseDuration === 1 ? 'turno' : 'turnos'}!
+                                    </p>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
                           {/* 20. Stackable (Acumulável) */}
                           <div className="space-y-1 bg-purple-950/15 border border-purple-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div>

@@ -296,7 +296,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
   if (!eff) return false;
   const debuffTypes = [
     'stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown',
-    'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff'
+    'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase'
   ];
   if (debuffTypes.includes(eff.type)) return true;
   const lowerName = (eff.name || '').toLowerCase();
@@ -508,6 +508,14 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'capture_arrest_debuff':
       rawPt = `Vulnerabilidade (Capture and Arrest): Sofre +15 de dano adicional de habilidades Físicas e de Chakra por ${durText}`;
       break;
+    case 'chakra_cost_increase': {
+      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+      const skillLbl: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+      const ctLabel = (effect.costIncreaseChakraTypes || []).map(ct => chakraLbl[ct] || ct).join(' + ');
+      const stLabel = (effect.costIncreaseSkillTypes || []).map(st => skillLbl[st] || st).join(' + ');
+      rawPt = `Aumento de Custo: Habilidades${stLabel ? ` de ${stLabel}` : ''} custam +1 ${ctLabel || 'chakra'} por ${durText}`;
+      break;
+    }
     case 'retaliate_damage': {
       const baseVal = effect.retaliateDamageVal || effect.value || 0;
       const stacks = (effect as any).stacks || 1;
@@ -2019,9 +2027,10 @@ const handleTradeChakra = () => {
     const effectiveStackType = stackType || (isStackable ? sourceName : undefined);
 
     if (isStackable || effectiveStackType || effect.type === 'retaliate_damage') {
+      const sameStackKind = e => e.type === effect.type || (e.type === 'custom' && effect.type === 'custom');
       const existing = character.activeEffects.find(
-        e => (effectiveStackType && e.stackType === effectiveStackType) ||
-             (effectiveStackType && e.sourceSkillName === sourceName) ||
+        e => (effectiveStackType && e.stackType === effectiveStackType && sameStackKind(e)) ||
+             (effectiveStackType && e.sourceSkillName === sourceName && sameStackKind(e)) ||
              (e.type === effect.type && (e.sourceSkillName === sourceName || e.name === effect.name))
       );
       if (existing) {
@@ -2739,7 +2748,7 @@ const handleTradeChakra = () => {
           if (eff.irremovable) return true;
 
           if (isAllDebuffs) {
-            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage'].includes(eff.type);
+            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'chakra_cost_increase'].includes(eff.type);
             return !isDebuff;
           }
 
@@ -2753,6 +2762,7 @@ const handleTradeChakra = () => {
           if (debuffTypes.includes('cannot_be_invulnerable') && eff.type === 'cannot_be_invulnerable') return false;
           if (debuffTypes.includes('cannot_receive_friendly') && eff.type === 'cannot_receive_friendly') return false;
           if (debuffTypes.includes('on_skill_use_damage') && eff.type === 'on_skill_use_damage') return false;
+          if (debuffTypes.includes('chakra_cost_increase') && eff.type === 'chakra_cost_increase') return false;
 
           return true;
         });
@@ -2770,6 +2780,7 @@ const handleTradeChakra = () => {
             if (d === 'cannot_be_invulnerable') return 'Incapaz de Invulnerabilidade';
             if (d === 'cannot_receive_friendly') return 'Incapaz de Receber Efeitos Amigáveis';
             if (d === 'on_skill_use_damage') return 'Punição por Skill';
+            if (d === 'chakra_cost_increase') return 'Aumento de Custo de Chakra';
             return d;
           }).join(', ');
 
@@ -3767,7 +3778,7 @@ const handleTradeChakra = () => {
         // Apply stack AFTER damage calculation so first hit uses existing stacks (not the new one)
         // Stack goes to stackTarget (e.g., Self), not damageTarget
         if (skill.stackable && skill.stackType) {
-          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, true);
+          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
           stackTargets.forEach(st => {
             if (st.isDead) return;
             pushActiveEffect(st, {
@@ -3897,6 +3908,33 @@ const handleTradeChakra = () => {
           addFloatingText(t.id, `STUN (${stunDuration}T)`, 'stun');
           cleanseTargetEffects(t, skill.stunRemoveType);
         });
+
+        // Apply stack to stackTarget (e.g., Target/Enemy) if skill is stackable
+        if (skill.stackable && skill.stackType) {
+          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
+          stackTargets.forEach(st => {
+            if (st.isDead) return;
+            pushActiveEffect(st, {
+              name: `${skill.stackType || skill.name} (Stack)`,
+              type: 'custom',
+              value: 0,
+              duration: skill.stackDuration ?? 999,
+              icon: skill.icon,
+              stackable: true,
+              stackType: skill.stackType || skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `📚 ${st.character.name} recebeu stack [${skill.stackType}] de ${source.character.name} via [${skill.name}]!`,
+              type: 'buff',
+            });
+            addFloatingText(st.id, `+1 ${skill.stackType.toUpperCase()}`, 'effect');
+          });
+        }
       }
 
       // 3.1 BLOQUEAR SKILLS OFENSIVAS
@@ -3923,6 +3961,39 @@ const handleTradeChakra = () => {
             type: 'stun',
           });
           addFloatingText(t.id, `SKILLS OFENSIVAS BLOQUEADAS (${blockDuration}T)`, 'stun');
+        });
+      }
+
+      // 3.2 AUMENTAR CUSTO DE CHAKRA (DEBUFF)
+      if (skill.chakraCostIncreaseDuration && skill.chakraCostIncreaseDuration > 0 && skill.chakraCostIncreaseTypes && skill.chakraCostIncreaseTypes.length > 0) {
+        const costIncreaseTargets = resolveEffectTargets(skill.chakraCostIncreaseTarget, target, source, sourceList, targetList, false);
+        const costSkillTypes = skill.chakraCostIncreaseSkillTypes || [];
+        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+        const costTypesLabel = (skill.chakraCostIncreaseTypes || []).map(ct => chakraLabels[ct] || ct).join(' + ');
+        const skillTypesLabels: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+        const costSkillLabel = costSkillTypes.map(st => skillTypesLabels[st] || st).join(' + ');
+        costIncreaseTargets.forEach(t => {
+          if (t.isDead) return;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Aumento de Custo)`,
+            type: 'chakra_cost_increase',
+            duration: skill.chakraCostIncreaseDuration!,
+            value: 1,
+            icon: skill.icon || source.character.portrait,
+            irremovable: !!skill.chakraCostIncreaseIrremovable,
+            costIncreaseChakraTypes: skill.chakraCostIncreaseTypes,
+            costIncreaseSkillTypes: costSkillTypes.length > 0 ? costSkillTypes : undefined,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            sourceSkillName: skill.name,
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⛓️ ${t.character.name} recebeu AUMENTO DE CUSTO (+1 ${costTypesLabel})${costSkillLabel ? ` em skills de ${costSkillLabel}` : ''} por [${skill.name}] de ${source.character.name} por ${skill.chakraCostIncreaseDuration} ${skill.chakraCostIncreaseDuration === 1 ? 'turno' : 'turnos'}!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'CUSTO +1', 'effect');
         });
       }
 
@@ -4591,7 +4662,7 @@ const handleTradeChakra = () => {
 
       // Stack-only skill: apply stack even if skill has no damage/effects
       if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !skill.permanent) {
-         const targets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, true);
+         const targets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
         targets.forEach(t => {
           if (t.isDead) return;
           const existing = t.activeEffects.find(e => e.stackType === skill.stackType && e.type === 'custom' && e.sourceSkillName === skill.name);
@@ -6565,7 +6636,7 @@ const handleTradeChakra = () => {
             return !['shield', 'damage_reduction', 'damage_buff', 'invulnerable', 'invisible', 'heal'].includes(eff.type);
           }
           if (removeType === 'debuff') {
-            return !['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'cannot_reduce_damage', 'cannot_be_invulnerable'].includes(eff.type);
+            return !['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'chakra_cost_increase'].includes(eff.type);
           }
           if (removeType === 'stun' && eff.type === 'stun') return false;
           if (removeType === 'dot' && eff.type === 'dot') return false;
@@ -6595,7 +6666,7 @@ const handleTradeChakra = () => {
           if (eff.irremovable) return true;
 
           if (isAllDebuffs) {
-            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage'].includes(eff.type);
+            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'chakra_cost_increase'].includes(eff.type);
             return !isDebuff;
           }
 
@@ -6609,6 +6680,7 @@ const handleTradeChakra = () => {
           if (debuffTypes.includes('cannot_be_invulnerable') && eff.type === 'cannot_be_invulnerable') return false;
           if (debuffTypes.includes('cannot_receive_friendly') && eff.type === 'cannot_receive_friendly') return false;
           if (debuffTypes.includes('on_skill_use_damage') && eff.type === 'on_skill_use_damage') return false;
+          if (debuffTypes.includes('chakra_cost_increase') && eff.type === 'chakra_cost_increase') return false;
 
           return true;
         });
@@ -6626,6 +6698,7 @@ const handleTradeChakra = () => {
             if (d === 'cannot_be_invulnerable') return 'Incapaz de Invulnerabilidade';
             if (d === 'cannot_receive_friendly') return 'Incapaz de Receber Efeitos Amigáveis';
             if (d === 'on_skill_use_damage') return 'Punição por Skill';
+            if (d === 'chakra_cost_increase') return 'Aumento de Custo de Chakra';
             return d;
           }).join(', ');
 
@@ -6685,9 +6758,10 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
   // Check if this effect is stackable and if we should stack with existing effects
   const effectiveStackType = stackType || (isStackable ? sourceName : undefined);
   if (isStackable || effectiveStackType || eff.type === 'retaliate_damage') {
+    const sameStackKind = (e: ActiveEffect) => e.type === eff.type || (e.type === 'custom' && eff.type === 'custom');
     const existing = targetChar.activeEffects.find(
-      e => (effectiveStackType && e.stackType === effectiveStackType) ||
-           (effectiveStackType && e.sourceSkillName === sourceName) ||
+      e => (effectiveStackType && e.stackType === effectiveStackType && sameStackKind(e)) ||
+           (effectiveStackType && e.sourceSkillName === sourceName && sameStackKind(e)) ||
            (e.type === eff.type && (e.sourceSkillName === sourceName || e.name === eff.name))
     );
     if (existing) {
@@ -7178,7 +7252,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         // Apply stack AFTER damage calculation so first hit uses existing stacks (not the new one)
         // Stack goes to stackTarget (e.g., Self), not damageTarget
         if (skill.stackable && skill.stackType) {
-          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, true);
+          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
           stackTargets.forEach(st => {
             if (st.isDead) return;
             pushActiveEffect(st, {
@@ -7412,7 +7486,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         // Apply stack AFTER damage calculation so first hit uses existing stacks (not the new one)
         // Stack goes to stackTarget (e.g., Self), not damageTarget
         if (skill.stackable && skill.stackType) {
-          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, true);
+          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
           stackTargets.forEach(st => {
             if (st.isDead) return;
             pushActiveEffect(st, {
@@ -7548,6 +7622,33 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           addFloatingText(t.id, floatingTextStr, 'stun');
           cleanseTargetEffects(t, skill.stunRemoveType);
         });
+
+        // Apply stack to stackTarget (e.g., Target/Enemy) if skill is stackable
+        if (skill.stackable && skill.stackType) {
+          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
+          stackTargets.forEach(st => {
+            if (st.isDead) return;
+            pushActiveEffect(st, {
+              name: `${skill.stackType || skill.name} (Stack)`,
+              type: 'custom',
+              value: 0,
+              duration: skill.stackDuration ?? 999,
+              icon: skill.icon,
+              stackable: true,
+              stackType: skill.stackType || skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `📚 ${st.character.name} recebeu stack [${skill.stackType}] de ${source.character.name} via [${skill.name}]!`,
+              type: 'buff',
+            });
+            addFloatingText(st.id, `+1 ${skill.stackType.toUpperCase()}`, 'effect');
+          });
+        }
       }
 
       if (skill.blocksOffensiveSkills) {
@@ -7573,6 +7674,39 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             type: 'stun',
           });
           addFloatingText(t.id, `SKILLS OFENSIVAS BLOQUEADAS (${blockDuration}T)`, 'stun');
+        });
+      }
+
+      // 3.2 AUMENTAR CUSTO DE CHAKRA (DEBUFF)
+      if (skill.chakraCostIncreaseDuration && skill.chakraCostIncreaseDuration > 0 && skill.chakraCostIncreaseTypes && skill.chakraCostIncreaseTypes.length > 0) {
+        const costIncreaseTargets = resolveEffectTargets(skill.chakraCostIncreaseTarget, target, source, sourceList, targetList, false);
+        const costSkillTypes = skill.chakraCostIncreaseSkillTypes || [];
+        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+        const costTypesLabel = (skill.chakraCostIncreaseTypes || []).map(ct => chakraLabels[ct] || ct).join(' + ');
+        const skillTypesLabels: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+        const costSkillLabel = costSkillTypes.map(st => skillTypesLabels[st] || st).join(' + ');
+        costIncreaseTargets.forEach(t => {
+          if (t.isDead) return;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Aumento de Custo)`,
+            type: 'chakra_cost_increase',
+            duration: skill.chakraCostIncreaseDuration!,
+            value: 1,
+            icon: skill.icon || source.character.portrait,
+            irremovable: !!skill.chakraCostIncreaseIrremovable,
+            costIncreaseChakraTypes: skill.chakraCostIncreaseTypes,
+            costIncreaseSkillTypes: costSkillTypes.length > 0 ? costSkillTypes : undefined,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            sourceSkillName: skill.name,
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⛓️ ${t.character.name} recebeu AUMENTO DE CUSTO (+1 ${costTypesLabel})${costSkillLabel ? ` em skills de ${costSkillLabel}` : ''} por [${skill.name}] de ${source.character.name} por ${skill.chakraCostIncreaseDuration} ${skill.chakraCostIncreaseDuration === 1 ? 'turno' : 'turnos'}!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'CUSTO +1', 'effect');
         });
       }
 
@@ -8181,7 +8315,7 @@ if (skill.redirectOffensiveToCaster) {
 
       // Stack-only skill: apply stack even if skill has no damage/effects
       if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !effectName) {
-         const stackTgts = resolveEffectTargets(skill.stackTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, true);
+         const stackTgts = resolveEffectTargets(skill.stackTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, false);
         stackTgts.forEach(t => {
           if (t.isDead) return;
           const existing = t.activeEffects.find(e => e.stackType === skill.stackType && e.type === 'custom' && e.sourceSkillName === skill.name);
@@ -8864,6 +8998,18 @@ if (skill.redirectOffensiveToCaster) {
         value: `Incapaz de receber habilidades amigáveis por ${skill.cannotReceiveFriendlyDuration} ${skill.cannotReceiveFriendlyDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cannotReceiveFriendlyTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.chakraCostIncreaseDuration && skill.chakraCostIncreaseDuration > 0 && skill.chakraCostIncreaseTypes && skill.chakraCostIncreaseTypes.length > 0) {
+      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+      const skillLbl: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+      const ctLabel = (skill.chakraCostIncreaseTypes || []).map(ct => chakraLbl[ct] || ct).join(' + ');
+      const stLabel = (skill.chakraCostIncreaseSkillTypes || []).map(st => skillLbl[st] || st).join(' + ');
+      effects.push({
+        label: 'Aumentar Custo de Chakra',
+        value: `Aumenta o custo (+1 ${ctLabel})${stLabel ? ` das habilidades de ${stLabel}` : ''} por ${skill.chakraCostIncreaseDuration} ${skill.chakraCostIncreaseDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-cyan-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.chakraCostIncreaseTarget, 'Alvo Principal')
       });
     }
     if (skill.revealInvisibleDuration && skill.revealInvisibleDuration > 0) {
