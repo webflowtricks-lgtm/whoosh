@@ -3522,6 +3522,75 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Conditional Kill Rules (Execução Instantânea) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-red-400 font-mono">
+                              💀 Execução Instantânea (Condicional)
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Mata INSTANTANEAMENTE o Oponente que estiver com a habilidade/efeito específico ATIVO nele.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.killWhenActiveRules || [];
+                              handleUpdateSkillField('killWhenActiveRules', [
+                                ...currentRules,
+                                { activeSkillName: '' }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-red-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.killWhenActiveRules || editingSkill.killWhenActiveRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de execução configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.killWhenActiveRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-red-400 font-bold">Matar quando ativo no Oponente:</span>
+                                <input
+                                  type="text"
+                                  list="killSkills-suggestions"
+                                  value={rule.activeSkillName}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.killWhenActiveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                    handleUpdateSkillField('killWhenActiveRules', updated);
+                                  }}
+                                  placeholder="Ex: Two-Headed Wolf"
+                                  className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-red-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <datalist id="killSkills-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : <option value="" disabled />}
+                                </datalist>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.killWhenActiveRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('killWhenActiveRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       <div className="md:col-span-2">
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Descrição do Efeito / Detalhes</label>
                         <textarea
@@ -4089,9 +4158,6 @@ const newSkill: Skill = {
                                   onChange={(e) => {
                                     const val = parseInt(e.target.value) || 0;
                                     handleUpdateSkillField('stunTurns', val);
-                                    if (val > 0 && (!editingSkill.stunType || editingSkill.stunType.length === 0)) {
-                                      handleUpdateSkillField('stunType', ['physical', 'mental', 'affliction', 'chakra']);
-                                    }
                                   }}
                                   className="w-20 px-2 py-1.5 bg-slate-900 border border-purple-900/60 focus:border-purple-500 rounded-lg text-purple-400 font-mono text-xs text-center font-bold"
                                 />
@@ -4308,6 +4374,55 @@ const newSkill: Skill = {
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                              </div>
+                              <div className="mt-1.5 pt-1.5 border-t border-blue-900/30">
+                                <div className="flex items-center justify-between">
+                                  <span className="block text-[9px] text-blue-400 font-mono uppercase font-bold">Chakra Gerado:</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const isAllSelected = (editingSkill.gainChakraTypes || []).includes('Rand');
+                                      handleUpdateSkillField('gainChakraTypes', isAllSelected ? [] : ['Rand']);
+                                    }}
+                                    className="text-[9px] px-2 py-0.5 rounded bg-blue-900/50 hover:bg-blue-800 text-blue-300 font-mono font-bold border border-blue-700/60 transition-all cursor-pointer select-none"
+                                  >
+                                    {(editingSkill.gainChakraTypes || []).includes('Rand') ? '❌ Padrão' : '🎲 Aleatório'}
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-1.5 mt-1">
+                                  {([
+                                    { value: 'Tai', label: '🥋 Taijutsu', desc: 'Gera chakra Tai' },
+                                    { value: 'Nin', label: '🌀 Ninjutsu', desc: 'Gera chakra Nin' },
+                                    { value: 'Gen', label: '🧠 Genjutsu', desc: 'Gera chakra Gen' },
+                                    { value: 'Blood', label: '🩸 Kekkei Genkai', desc: 'Gera chakra Blood' },
+                                    { value: 'Existing', label: '♻️ Dos Existentes', desc: 'Aleatório entre os que o alvo já tem' },
+                                  ] as { value: string; label: string; desc: string }[]).map((opt) => {
+                                    const currentTypes = editingSkill.gainChakraTypes || [];
+                                    const isSelected = currentTypes.includes(opt.value);
+                                    return (
+                                      <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = isSelected ? currentTypes.filter(t => t !== opt.value) : [...currentTypes, opt.value];
+                                          handleUpdateSkillField('gainChakraTypes', updated);
+                                        }}
+                                        className={`p-1.5 text-left rounded-lg border transition-all cursor-pointer ${
+                                          isSelected
+                                            ? 'bg-blue-950 border-blue-500 text-blue-200 font-bold shadow-md shadow-blue-950/60'
+                                            : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                                        }`}
+                                      >
+                                        <div className="text-[10px] font-mono flex items-center justify-between">
+                                          <span>{opt.label}</span>
+                                          <span className="text-[9px] font-bold">{isSelected ? '✓' : ''}</span>
+                                        </div>
+                                        <div className="text-[8px] text-slate-500 font-mono leading-tight mt-0.5">{opt.desc}</div>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <div className="text-[8px] text-slate-500 font-mono mt-1">Sem seleção ou 🎲 Aleatório = qualquer tipo. Vários marcados = sorteia entre eles. ♻️ = só tipos que o alvo já tem.</div>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-slate-800/60">
                                 <span className="text-[9px] text-blue-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
@@ -4869,11 +4984,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.dotDuration || 0}
+                                  value={editingSkill.dotDuration === 99999 ? 0 : (editingSkill.dotDuration || 0)}
                                   onChange={(e) => handleUpdateSkillField('dotDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Dur"
+                                  title={editingSkill.dotDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   className="w-12 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.dotDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('dotDuration', e.target.checked ? 99999 : 1)}
+                                    className="rounded bg-slate-950 border-slate-800 text-orange-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-orange-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">por turno</span>
                               </div>
                               <div className="flex items-center gap-2 mt-1">
@@ -5648,6 +5773,15 @@ const newSkill: Skill = {
                                 />
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
+                              <label className="flex items-center gap-1.5 mt-1 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={editingSkill.damageImmunityFirstHitOnly || false}
+                                  onChange={(e) => handleUpdateSkillField('damageImmunityFirstHitOnly', e.target.checked)}
+                                  className="rounded bg-slate-950 border-slate-800 text-yellow-500 focus:ring-0 w-3 h-3"
+                                />
+                                <span className="text-[9px] text-yellow-400 font-mono">🎯 Só o 1º Dano: bloqueia apenas o PRIMEIRO dano recebido e depois a imunidade é consumida</span>
+                              </label>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] text-yellow-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
                                 <select

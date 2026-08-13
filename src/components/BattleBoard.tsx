@@ -131,6 +131,26 @@ export function isOffensiveSkill(skill: Skill | null): boolean {
   return true;
 }
 
+function isFriendlyOrPassiveSkill(skill: Skill | null): boolean {
+  return !isOffensiveSkill(skill);
+}
+
+export function pickChakraGainType(pool: ChakraPool, gainChakraTypes: string[] | undefined): ChakraType {
+  const allTypes: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
+  const sel = gainChakraTypes || [];
+  if (sel.includes('Existing')) {
+    const exists = allTypes.filter(k => (pool[k] || 0) > 0);
+    const from = exists.length > 0 ? exists : allTypes;
+    return from[Math.floor(Math.random() * from.length)];
+  }
+  if (sel.includes('Rand') || sel.length === 0) {
+    return allTypes[Math.floor(Math.random() * allTypes.length)];
+  }
+  const fixed = allTypes.filter(k => sel.includes(k));
+  const from = fixed.length > 0 ? fixed : allTypes;
+  return from[Math.floor(Math.random() * from.length)];
+}
+
 export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveEffect[]): boolean {
   if (!activeEffects || activeEffects.length === 0) return false;
   // Stun immunity: if character has ignore_stun effect, they cannot be stunned
@@ -491,7 +511,7 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       rawPt = `Imune a Stun: Stuns ignorados por ${durText}`;
       break;
     case 'damage_immunity':
-      rawPt = `Imune a Dano: Todo dano anulado por ${durText}`;
+      rawPt = `Imune a Dano: Todo dano anulado por ${durText}${effect.firstHitOnly ? ' (Só o 1º dano - consumida após bloquear)' : ''}`;
       break;
     case 'immortal':
       rawPt = `Imortal: Não pode morrer enquanto este efeito estiver ativo por ${durText}`;
@@ -1997,6 +2017,13 @@ const handleTradeChakra = () => {
   const hasDamageImmunity = (character: CombatCharacter) =>
     character?.activeEffects?.some((e: ActiveEffect) => e.type === 'damage_immunity' || e.type === 'invulnerable') ?? false;
 
+  const consumeFirstHitOnlyImmunity = (character: CombatCharacter): boolean => {
+    const idx = character?.activeEffects?.findIndex((e: ActiveEffect) => e.type === 'damage_immunity' && e.firstHitOnly) ?? -1;
+    if (idx === -1) return false;
+    character.activeEffects.splice(idx, 1);
+    return true;
+  };
+
   const pushActiveEffect = (character: CombatCharacter, effect: ActiveEffect) => {
     // Check stackDurationRules for duration override (skip for stack damage DOT effects)
     if (!effect.stackable && currentSkillRef.current?.stackDurationRules && !effect.name?.includes('DOT)') && !effect.name?.includes('Imunidade a Dano')) {
@@ -2373,6 +2400,23 @@ const handleTradeChakra = () => {
       (source as any)._executingSkill = skill;
       currentSkillRef.current = skill;
 
+      // Regra única do Mubi: usar skill amigável/passiva remove DoTs infinitos marcados com removedOnFriendlySkillUse
+      if (isFriendlyOrPassiveSkill(skill)) {
+        const friendlyDots = source.activeEffects.filter(e => e.type === 'dot' && e.removedOnFriendlySkillUse);
+        if (friendlyDots.length > 0) {
+          source.activeEffects = source.activeEffects.filter(e => !friendlyDots.includes(e));
+          friendlyDots.forEach(dot => {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💨 ${source.character.name} usou uma habilidade amigável/passiva e o dano contínuo infinito de [${dot.name}] foi removido!`,
+              type: 'heal',
+            });
+            addFloatingText(source.id, 'DOT REMOVIDO', 'heal');
+          });
+        }
+      }
+
       // Set skill on cooldown
       const effectiveCd = getEffectiveCooldown(skill, source, allCombatants);
       skill.currentCooldown = effectiveCd;
@@ -2710,13 +2754,10 @@ const handleTradeChakra = () => {
       let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
       let stunDuration = skill.stunTurns || 1;
       let finalStunType: string[] | undefined = skill.stunType;
-      if (stunApplied && (!finalStunType || finalStunType.length === 0)) {
-        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
-      }
       if (skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets')) {
         stunApplied = true;
         stunDuration = 1;
-        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
+        finalStunType = skill.stunType || [];
       }
       if (source.activeEffects.some(e => e.name === 'Sharingan Stun Buff')) {
         stunApplied = true;
@@ -2810,6 +2851,7 @@ const handleTradeChakra = () => {
               duration: dur,
               icon: skill.icon,
               irremovable: !!skill.gainChakraIrremovable,
+              gainChakraTypes: skill.gainChakraTypes || [],
             });
             newLogs.push({
               id: Math.random().toString(),
@@ -2821,9 +2863,8 @@ const handleTradeChakra = () => {
           } else {
             const isPlayerCombatant = updatedPlayer.some(p => p.id === t.id);
             const targetPool = isPlayerCombatant ? localPlayerChakra : localEnemyChakra;
-            const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
             for (let i = 0; i < amt; i++) {
-              const randType = types[Math.floor(Math.random() * types.length)];
+              const randType = pickChakraGainType(targetPool, skill.gainChakraTypes);
               targetPool[randType] = (targetPool[randType] || 0) + 1;
             }
             newLogs.push({
@@ -2947,10 +2988,11 @@ const handleTradeChakra = () => {
               });
               addFloatingText(t.id, `-${netDd} HP (DIRETO)`, 'damage');
             } else if (hasDamageImmunity(t) || checkCombatantInvulnerable(t, skill)) {
+              const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu Dano Direto de [${skill.name}].`,
+                message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu Dano Direto de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`,
                 type: 'buff',
               });
               addFloatingText(t.id, 'IMUNE!', 'invulnerable');
@@ -3030,7 +3072,7 @@ const handleTradeChakra = () => {
               name: 'Air Bullets Stun',
               type: 'stun',
               duration: 1,
-              stunType: ['physical', 'mental', 'affliction', 'chakra'],
+              stunType: skill.stunType || [],
               icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
               casterId: source.id,
               casterSide: action.isPlayer ? 'player' : 'enemy',
@@ -3070,6 +3112,9 @@ const handleTradeChakra = () => {
         newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${totalAfflictionInstant} HP (AFLICAO)${missingHpAffliction > 0 ? ` [HP Perdido: ${missingHpAffliction}]` : ''}`, type: 'damage' });
         addFloatingText(target.id, `-${totalAfflictionInstant} HP (AFLICAO)`, 'damage');
       }
+      if ((totalDotInstant > 0 || totalBleedInstant > 0 || totalAfflictionInstant > 0) && hasDamageImmunity(target)) {
+        consumeFirstHitOnlyImmunity(target);
+      }
 
       // GAIN CHAKRA
       if (skill.gainChakra && skill.gainChakra > 0) {
@@ -3079,8 +3124,7 @@ const handleTradeChakra = () => {
           if (t.isDead) return;
           const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
           const pool = tIsPlayer ? localPlayerChakra : localEnemyChakra;
-          const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
-          const randType = types[Math.floor(Math.random() * types.length)];
+          const randType = pickChakraGainType(pool, skill.gainChakraTypes);
           pool[randType] = (pool[randType] || 0) + amt;
           newLogs.push({ id: Math.random().toString(), turn, message: `✨ [${skill.name}] → ${t.character.name}: +${amt} chakra (${randType})`, type: 'chakra' });
           addFloatingText(t.id, `+${amt} CHAKRA (${randType.toUpperCase()})`, 'effect');
@@ -3185,6 +3229,36 @@ const handleTradeChakra = () => {
               });
             }
           }
+        }
+      }
+
+      // CONDITIONAL INSTANT KILL RULES (matar instantaneamente quando habilidade ativa no Oponente)
+      if (skill.killWhenActiveRules && skill.killWhenActiveRules.length > 0) {
+        for (const rule of skill.killWhenActiveRules) {
+          if (!rule.activeSkillName) continue;
+          const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+          const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
+          targetSide.forEach(t => {
+            if (t.isDead) return;
+            const hasActiveEffect = (t.activeEffects || []).some(e => {
+              if (!e.name) return false;
+              const n = e.name.toLowerCase();
+              return n === targetNameLower || n.startsWith(targetNameLower) || n.includes(targetNameLower);
+            });
+            if (hasActiveEffect) {
+              t.health = 0;
+              t.isDead = true;
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `💀 [EXECUÇÃO] ${source.character.name} MATOU INSTANTANEAMENTE ${t.character.name} com [${skill.name}] porque [${rule.activeSkillName}] está ativo nele!`,
+                type: 'damage',
+              });
+              addFloatingText(t.id, 'MORTE INSTANTÂNEA!', 'damage');
+              if (action.isPlayer) {
+                matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
+              }
+            }
+          });
         }
       }
 
@@ -3303,6 +3377,7 @@ const handleTradeChakra = () => {
                   const selfBonusDmg = selfStackCount * selfRule.damagePerStack;
                   const selfDmgType = selfRule.damageType || 'damage';
                   if (selfDmgType === 'direct_damage') {
+                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
                       t.health = Math.max(0, t.health - selfBonusDmg);
                       newLogs.push({
@@ -3336,6 +3411,7 @@ const handleTradeChakra = () => {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
                     const totalDmg = stackCount * stackRule.damagePerStack;
                     // Dano instantâneo no golpe
+                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
@@ -3373,7 +3449,8 @@ const handleTradeChakra = () => {
                     const stackDmg = stackCount * stackRule.damagePerStack;
                     const dmgType = stackRule.damageType || 'damage';
                     if (dmgType === 'direct_damage') {
-                      if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                      if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
+                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
                         t.health = Math.max(0, t.health - stackDmg);
                         newLogs.push({
                           id: Math.random().toString(),
@@ -3437,7 +3514,8 @@ const handleTradeChakra = () => {
             addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
           } else if (hasDamageImmunity(t)) {
             finalDamage = 0;
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
+            const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`, type: 'buff' });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           }
           if (finalDamage > 0) {
@@ -3452,7 +3530,7 @@ const handleTradeChakra = () => {
                 name: 'Air Bullets Stun',
                 type: 'stun',
                 duration: 1,
-                stunType: ['physical', 'mental', 'affliction', 'chakra'],
+                stunType: skill.stunType || [],
                 icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
                 casterId: source.id,
                 casterSide: action.isPlayer ? 'player' : 'enemy',
@@ -3555,6 +3633,7 @@ const handleTradeChakra = () => {
                   const selfBonusDmg = selfStackCount * selfRule.damagePerStack;
                   const selfDmgType = selfRule.damageType || 'damage';
                   if (selfDmgType === 'direct_damage') {
+                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
                       t.health = Math.max(0, t.health - selfBonusDmg);
                       newLogs.push({
@@ -3588,6 +3667,7 @@ const handleTradeChakra = () => {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
                     const totalDmg = stackCount * stackRule.damagePerStack;
                     // Dano instantâneo no golpe
+                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
@@ -3625,7 +3705,8 @@ const handleTradeChakra = () => {
                     const stackDmg = stackCount * stackRule.damagePerStack;
                     const dmgType = stackRule.damageType || 'damage';
                     if (dmgType === 'direct_damage') {
-                      if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                      if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
+                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
                         t.health = Math.max(0, t.health - stackDmg);
                         newLogs.push({
                           id: Math.random().toString(),
@@ -3726,7 +3807,7 @@ const handleTradeChakra = () => {
                 name: 'Air Bullets Stun',
                 type: 'stun',
                 duration: 1,
-                stunType: ['physical', 'mental', 'affliction', 'chakra'],
+                stunType: skill.stunType || [],
                 icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
                 casterId: source.id,
                 casterSide: action.isPlayer ? 'player' : 'enemy',
@@ -3878,14 +3959,13 @@ const handleTradeChakra = () => {
       // 3. STUNS
       if (stunApplied) {
         const stunTypeLabels: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
-        const resolvedStunTypes: string[] =
-          (!finalStunType || finalStunType.length === 0 || finalStunType.length >= 6)
-            ? ['physical', 'mental', 'affliction', 'chakra']
-            : finalStunType;
+        const resolvedStunTypes: string[] = finalStunType || [];
 
-        const stunTypeName = resolvedStunTypes.length >= 4
+        const stunTypeName = resolvedStunTypes.length === 0
           ? 'Stun Completo'
-          : `Stun (${resolvedStunTypes.map(t => stunTypeLabels[t] || t).join(' + ')})`;
+          : resolvedStunTypes.length >= 4
+            ? 'Stun Completo'
+            : `Stun (${resolvedStunTypes.map(t => stunTypeLabels[t] || t).join(' + ')})`;
 
         const stunTargets = resolveEffectTargets(skill.stunTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         stunTargets.forEach(t => {
@@ -4189,6 +4269,9 @@ const handleTradeChakra = () => {
       // DoT (damage over time) - debuff on target
       const totalDotVal = (hasActiveDamageRuleIgnoreBase && ruleDotDamage > 0) ? ruleDotDamage : ((skill.dotVal || 0) + ruleDotDamage);
       if (totalDotVal > 0 && skill.name !== 'Amaterasu Burn') {
+        // Regra única do Mubi: Haze Clones Assault causa 15 de dano contínuo INFINITO,
+        // removido apenas quando o alvo usar uma habilidade amigável/passiva
+        const isMubiHazeRule = (source.character.name || '').toLowerCase() === 'mubi' && skill.name === 'Haze Clones Assault';
         const dotTargets = resolveEffectTargets(skill.dotTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         dotTargets.forEach(t => {
           if (t.isDead) return;
@@ -4204,11 +4287,12 @@ const handleTradeChakra = () => {
             cannotBeReflected: !!skill.cannotBeReflected,
             casterId: source.id,
             casterSide: action.isPlayer ? 'player' : 'enemy',
+            removedOnFriendlySkillUse: isMubiHazeRule,
           });
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔥 ${t.character.name} foi afligido por dano contínuo de [${skill.name}] sofrendo ${totalDotVal} DoT por ${duration} turnos!`,
+            message: `🔥 ${t.character.name} foi afligido por dano contínuo de [${skill.name}] sofrendo ${totalDotVal} DoT${isMubiHazeRule ? ' INFINITO (só para ao usar skill amigável/passiva)' : ` por ${duration} turnos`}!`,
             type: 'damage',
           });
           addFloatingText(t.id, `DANO CONTÍNUO (+${totalDotVal} DoT)`, 'damage');
@@ -4256,10 +4340,11 @@ const handleTradeChakra = () => {
 
           // Deduct health immediately upon applying affliction
           if (checkCombatantInvulnerable(t) || hasDamageImmunity(t)) {
+            const consumedAfflHit = consumeFirstHitOnlyImmunity(t);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou a aflição de [${skill.name}].`,
+              message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou a aflição de [${skill.name}].${consumedAfflHit ? ' (Imunidade de 1º dano usada!)' : ''}`,
               type: 'buff',
             });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
@@ -4512,6 +4597,7 @@ const handleTradeChakra = () => {
             duration,
             icon: skill.icon,
             irremovable: !!skill.damageImmunityIrremovable,
+            firstHitOnly: !!skill.damageImmunityFirstHitOnly,
             cannotBeCountered: !!skill.cannotBeCountered,
             cannotBeReflected: !!skill.cannotBeReflected,
             casterId: source.id,
@@ -5006,6 +5092,7 @@ const handleTradeChakra = () => {
         const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
         dotEffects.forEach(dot => {
           if (checkCombatantInvulnerable(c, 'dot') || hasDamageImmunity(c)) {
+            consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -5025,6 +5112,7 @@ const handleTradeChakra = () => {
         const isInvulnerable = checkCombatantInvulnerable(c, 'damage') || hasDamageImmunity(c);
         activeDamageEffects.forEach(dmg => {
           if (isInvulnerable) {
+            consumeFirstHitOnlyImmunity(c);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -5052,6 +5140,7 @@ const handleTradeChakra = () => {
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
           if (checkCombatantInvulnerable(c, 'direct_damage') || hasDamageImmunity(c)) {
+            consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo por ${dd.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -5073,6 +5162,7 @@ const handleTradeChakra = () => {
         const bleedingEffects = c.activeEffects.filter(e => e.type === 'bleeding');
         bleedingEffects.forEach(bleed => {
           if (checkCombatantInvulnerable(c, 'bleeding') || hasDamageImmunity(c)) {
+            consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -5091,6 +5181,7 @@ const handleTradeChakra = () => {
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
           if (checkCombatantInvulnerable(c, 'affliction') || hasDamageImmunity(c)) {
+            consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -5532,7 +5623,7 @@ const handleTradeChakra = () => {
                   }
 
                   const rawDmg = (skill.damage || 0) + (skill.directDamage || 0);
-                  const dotDmg = ((skill.dotVal || 0) * (skill.dotDuration || 1)) +
+                  const dotDmg = Math.min((skill.dotVal || 0) * (skill.dotDuration || 1), 400) +
                                  ((skill.bleedingVal || 0) * (skill.bleedingDuration || 1)) +
                                  ((skill.afflictionVal || 0) * (skill.afflictionDuration || 1));
                   const totalDmg = rawDmg + dotDmg;
@@ -6187,6 +6278,23 @@ const handleTradeChakra = () => {
       (source as any)._executingSkill = skill;
       currentSkillRef.current = skill;
 
+      // Regra única do Mubi: usar skill amigável/passiva remove DoTs infinitos marcados com removedOnFriendlySkillUse
+      if (isFriendlyOrPassiveSkill(skill)) {
+        const friendlyDots = source.activeEffects.filter(e => e.type === 'dot' && e.removedOnFriendlySkillUse);
+        if (friendlyDots.length > 0) {
+          source.activeEffects = source.activeEffects.filter(e => !friendlyDots.includes(e));
+          friendlyDots.forEach(dot => {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💨 ${source.character.name} usou uma habilidade amigável/passiva e o dano contínuo infinito de [${dot.name}] foi removido!`,
+              type: 'heal',
+            });
+            addFloatingText(source.id, 'DOT REMOVIDO', 'heal');
+          });
+        }
+      }
+
       // Stun check
       if (isSkillBlockedByStun(skill, source.activeEffects)) {
         newLogs.push({
@@ -6550,9 +6658,6 @@ const handleTradeChakra = () => {
       let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
       let stunDuration = skill.stunTurns || 1;
       let finalStunType: string[] | undefined = skill.stunType;
-      if (stunApplied && (!finalStunType || finalStunType.length === 0)) {
-        finalStunType = ['physical', 'mental', 'affliction', 'chakra'];
-      }
       if (source.activeEffects.some(e => e.name === 'Sharingan Stun Buff')) {
         stunApplied = true;
         stunDuration = 1;
@@ -6915,10 +7020,11 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               });
               addFloatingText(t.id, `-${netDdTotal} HP (DIRETO)`, 'damage');
             } else if (hasDamageImmunity(t) || checkCombatantInvulnerable(t, skill)) {
+              const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu Dano Direto de [${skill.name}].`,
+                message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu Dano Direto de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`,
                 type: 'buff',
               });
               addFloatingText(t.id, 'IMUNE!', 'invulnerable');
@@ -6932,7 +7038,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               name: 'Air Bullets Stun',
               type: 'stun',
               duration: 1,
-              stunType: ['physical', 'mental', 'affliction', 'chakra'],
+              stunType: skill.stunType || [],
               icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
               casterId: source.id,
               casterSide: action.isPlayer ? 'player' : 'enemy',
@@ -6975,6 +7081,9 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${totalAfflictionInstant2} HP (AFLICAO)${missAffl2 > 0 ? ` [HP Perdido: ${missAffl2}]` : ''}`, type: 'damage' });
         addFloatingText(target.id, `-${totalAfflictionInstant2} HP (AFLICAO)`, 'damage');
       }
+      if ((totalDotInstant2 > 0 || totalBleedInstant2 > 0 || totalAfflictionInstant2 > 0) && hasDamageImmunity(target)) {
+        consumeFirstHitOnlyImmunity(target);
+      }
 
       // 0.3 DRENO / GANHO DE CHAKRA
       if (skill.gainChakra && skill.gainChakra > 0) {
@@ -6992,6 +7101,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               duration: dur,
               icon: skill.icon,
               irremovable: !!skill.gainChakraIrremovable,
+              gainChakraTypes: skill.gainChakraTypes || [],
             });
             newLogs.push({
               id: Math.random().toString(),
@@ -7005,9 +7115,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             const targetSetter = isPlayerCombatant ? setPlayerChakra : setEnemyChakra;
             targetSetter(prev => {
               const u = { ...prev };
-              const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
               for (let i = 0; i < amt; i++) {
-                const randType = types[Math.floor(Math.random() * types.length)];
+                const randType = pickChakraGainType(u, skill.gainChakraTypes);
                 u[randType]++;
               }
               return u;
@@ -7133,6 +7242,36 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         }
       }
 
+      // CONDITIONAL INSTANT KILL RULES (matar instantaneamente quando habilidade ativa no Oponente)
+      if (skill.killWhenActiveRules && skill.killWhenActiveRules.length > 0) {
+        for (const rule of skill.killWhenActiveRules) {
+          if (!rule.activeSkillName) continue;
+          const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+          const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
+          targetSide.forEach(t => {
+            if (t.isDead) return;
+            const hasActiveEffect = (t.activeEffects || []).some(e => {
+              if (!e.name) return false;
+              const n = e.name.toLowerCase();
+              return n === targetNameLower || n.startsWith(targetNameLower) || n.includes(targetNameLower);
+            });
+            if (hasActiveEffect) {
+              t.health = 0;
+              t.isDead = true;
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `💀 [EXECUÇÃO] ${source.character.name} MATOU INSTANTANEAMENTE ${t.character.name} com [${skill.name}] porque [${rule.activeSkillName}] está ativo nele!`,
+                type: 'damage',
+              });
+              addFloatingText(t.id, 'MORTE INSTANTÂNEA!', 'damage');
+              if (action.isPlayer) {
+                matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
+              }
+            }
+          });
+        }
+      }
+
       // 1. APPLY DAMAGE REDUCTION & SHIELDS FOR OFFENSE
       if (skill.damageDuration && skill.damageDuration > 1) {
         const duration = skill.damageDuration;
@@ -7192,7 +7331,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
           } else if (hasDamageImmunity(t)) {
             finalDamage = 0;
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
+            const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`, type: 'buff' });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           }
           if (finalDamage > 0) {
@@ -7207,7 +7347,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                 name: 'Air Bullets Stun',
                 type: 'stun',
                 duration: 1,
-                stunType: ['physical', 'mental', 'affliction', 'chakra'],
+                stunType: skill.stunType || [],
                 icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
                 casterId: source.id,
                 casterSide: action.isPlayer ? 'player' : 'enemy',
@@ -7306,6 +7446,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                   const selfBonusDmg = selfStackCount * selfRule.damagePerStack;
                   const selfDmgType = selfRule.damageType || 'damage';
                   if (selfDmgType === 'direct_damage') {
+                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
                       t.health = Math.max(0, t.health - selfBonusDmg);
                       newLogs.push({
@@ -7339,6 +7480,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
                     const totalDmg = stackCount * stackRule.damagePerStack;
                     // Dano instantâneo no golpe
+                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
@@ -7376,7 +7518,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                     const stackDmg = stackCount * stackRule.damagePerStack;
                     const dmgType = stackRule.damageType || 'damage';
                     if (dmgType === 'direct_damage') {
-                      if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                      if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
+                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
                         t.health = Math.max(0, t.health - stackDmg);
                         newLogs.push({
                           id: Math.random().toString(),
@@ -7584,15 +7727,14 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         const stunTypeLabels: Record<string, string> = {
           physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável',
         };
-        const resolvedStunTypes: string[] =
-          (!finalStunType || finalStunType.length === 0 || finalStunType.length >= 6)
-            ? ['physical', 'mental', 'affliction', 'chakra']
-            : finalStunType;
+        const resolvedStunTypes: string[] = finalStunType || [];
         const isAllTypes = resolvedStunTypes.length >= 4;
 
-        const stunTypeName = isAllTypes
-          ? 'Stun Completo (Físico + Mental + Aflição + Chakra)'
-          : `Stun (${resolvedStunTypes.map(t => stunTypeLabels[t] || t).join(' + ')})`;
+        const stunTypeName = resolvedStunTypes.length === 0
+          ? 'Stun Completo'
+          : isAllTypes
+            ? 'Stun Completo'
+            : `Stun (${resolvedStunTypes.map(t => stunTypeLabels[t] || t).join(' + ')})`;
 
         const stunTargets = resolveEffectTargets(skill.stunTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         stunTargets.forEach(t => {
@@ -7616,7 +7758,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             message: `🌀 ${t.character.name} recebeu [${stunTypeName}] por [${skill.name}] de ${source.character.name} por ${stunDuration} ${stunDuration === 1 ? 'turno' : 'turnos'}!`,
             type: 'stun',
           });
-          const floatingTextStr = isAllTypes
+          const floatingTextStr = isAllTypes || resolvedStunTypes.length === 0
             ? `STUN COMPLETO (${stunDuration}T)`
             : `STUN (${resolvedStunTypes.map(t => (stunTypeLabels[t] || t).toUpperCase()).join('+')}) (${stunDuration}T)`;
           addFloatingText(t.id, floatingTextStr, 'stun');
@@ -7973,6 +8115,7 @@ if (skill.redirectOffensiveToCaster) {
       // 4.5 APPLY DoT
       const totalDotVal2 = (hasActiveDamageRuleIgnoreBase2 && ruleDotDamage2 > 0) ? ruleDotDamage2 : ((skill.dotVal || 0) + ruleDotDamage2);
       if (totalDotVal2 > 0) {
+        const isMubiHazeRule = (source.character.name || '').toLowerCase() === 'mubi' && skill.name === 'Haze Clones Assault';
         const dotTargets = resolveEffectTargets(skill.dotTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         dotTargets.forEach(t => {
           if (t.isDead) return;
@@ -7984,11 +8127,12 @@ if (skill.redirectOffensiveToCaster) {
             duration,
             icon: skill.icon,
             irremovable: !!skill.dotIrremovable,
+            removedOnFriendlySkillUse: isMubiHazeRule,
           });
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔥 ${t.character.name} foi afligido por queima contínua de [${skill.name}] sofrendo ${totalDotVal2} DoT por ${duration} turnos!`,
+            message: `🔥 ${t.character.name} foi afligido por queima contínua de [${skill.name}] sofrendo ${totalDotVal2} DoT${isMubiHazeRule ? ' INFINITO (só para ao usar skill amigável/passiva)' : ` por ${duration} turnos`}!`,
             type: 'damage',
           });
           addFloatingText(t.id, `QUEIMA (+${totalDotVal2} DoT)`, 'damage');
@@ -8032,10 +8176,11 @@ if (skill.redirectOffensiveToCaster) {
 
           // Deduct health immediately upon applying affliction
           if (checkCombatantInvulnerable(t) || hasDamageImmunity(t)) {
+            const consumedAfflHit = consumeFirstHitOnlyImmunity(t);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou a aflição de [${skill.name}].`,
+              message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou a aflição de [${skill.name}].${consumedAfflHit ? ' (Imunidade de 1º dano usada!)' : ''}`,
               type: 'buff',
             });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
@@ -8390,6 +8535,7 @@ if (skill.redirectOffensiveToCaster) {
         const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
         dotEffects.forEach(dot => {
           if (checkCombatantInvulnerable(c, 'dot') || hasDamageImmunity(c)) {
+            consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -8409,6 +8555,7 @@ if (skill.redirectOffensiveToCaster) {
         const isInvulnerable = checkCombatantInvulnerable(c, 'damage') || hasDamageImmunity(c);
         activeDamageEffects.forEach(dmg => {
           if (isInvulnerable) {
+            consumeFirstHitOnlyImmunity(c);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -8432,6 +8579,7 @@ if (skill.redirectOffensiveToCaster) {
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
           if (checkCombatantInvulnerable(c, 'direct_damage') || hasDamageImmunity(c)) {
+            consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo de ${dd.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -8471,6 +8619,7 @@ if (skill.redirectOffensiveToCaster) {
         const bleedingEffects = c.activeEffects.filter(e => e.type === 'bleeding');
         bleedingEffects.forEach(bleed => {
           if (checkCombatantInvulnerable(c, 'bleeding') || hasDamageImmunity(c)) {
+            consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o Sangramento (${bleed.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -8489,6 +8638,7 @@ if (skill.redirectOffensiveToCaster) {
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
           if (checkCombatantInvulnerable(c, 'affliction') || hasDamageImmunity(c)) {
+            consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a Aflição (${aff.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -8510,9 +8660,8 @@ if (skill.redirectOffensiveToCaster) {
           const targetSetter = name === 'Player' ? setPlayerChakra : setEnemyChakra;
           targetSetter(prev => {
             const u = { ...prev };
-            const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
             for (let i = 0; i < amt; i++) {
-              const randType = types[Math.floor(Math.random() * types.length)];
+              const randType = pickChakraGainType(u, effect.gainChakraTypes);
               u[randType]++;
             }
             return u;
@@ -8836,7 +8985,7 @@ if (skill.redirectOffensiveToCaster) {
         chakra: 'Chakra'
       };
       const stunText = (skill.stunType && skill.stunType.length > 0)
-        ? (skill.stunType.length >= 4 ? 'Físico + Mental + Aflição + Chakra' : skill.stunType.map(t => typesMap[t] || t).join(' + '))
+        ? skill.stunType.map(t => typesMap[t] || t).join(' + ')
         : 'Todos os Tipos';
 
       effects.push({
@@ -8936,7 +9085,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.dotVal && skill.dotVal > 0) {
       effects.push({
         label: 'Dano Contínuo (DoT)',
-        value: `${skill.dotVal} de dano por turno por ${skill.dotDuration || 1} ${skill.dotDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `${skill.dotVal} de dano por turno por ${skill.dotDuration === 99999 ? '∞ (Infinito)' : `${skill.dotDuration || 1} ${skill.dotDuration === 1 ? 'Turno' : 'Turnos'}`}`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.dotTarget, 'Alvo Principal')
       });
@@ -9030,16 +9179,22 @@ if (skill.redirectOffensiveToCaster) {
     }
     if (skill.damageImmunityDuration && skill.damageImmunityDuration > 0) {
       effects.push({
-        label: 'Imunidade a Dano',
-        value: `Imune a todo dano por ${skill.damageImmunityDuration} ${skill.damageImmunityDuration === 1 ? 'Turno' : 'Turnos'}`,
+        label: skill.damageImmunityFirstHitOnly ? 'Imunidade a Dano (1º Dano)' : 'Imunidade a Dano',
+        value: skill.damageImmunityFirstHitOnly
+          ? `Imune apenas ao PRIMEIRO dano recebido (a imunidade é consumida após bloquear)`
+          : `Imune a todo dano por ${skill.damageImmunityDuration} ${skill.damageImmunityDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageImmunityTarget, 'Alvo Principal')
       });
     }
     if (skill.gainChakra && skill.gainChakra > 0) {
+      const gcTypes = skill.gainChakraTypes || [];
+      const gcLabel = gcTypes.includes('Existing') ? ' (dos tipos existentes)' :
+        gcTypes.includes('Rand') || gcTypes.length === 0 ? ' (aleatório)' :
+        gcTypes.filter(t => ['Tai', 'Nin', 'Gen', 'Blood'].includes(t)).join('+');
       effects.push({
         label: 'Gerar Chakra',
-        value: `Gera ${skill.gainChakra} chakra por turno por ${skill.gainChakraDuration || 1} ${skill.gainChakraDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Gera ${skill.gainChakra} chakra por turno por ${skill.gainChakraDuration || 1} ${skill.gainChakraDuration === 1 ? 'Turno' : 'Turnos'}${gcLabel ? ` ${gcLabel}` : ''}`,
         color: 'text-blue-950 font-extrabold',
         targetLabel: getTargetLabel(skill.gainChakraTarget, 'Conjurador (Mim)')
       });
@@ -9168,6 +9323,19 @@ if (skill.redirectOffensiveToCaster) {
             targetLabel: 'Condicional'
           });
         }
+      });
+    }
+
+    // Informação de execução instantânea (killWhenActiveRules)
+    if (skill.killWhenActiveRules && skill.killWhenActiveRules.length > 0) {
+      skill.killWhenActiveRules.forEach(rule => {
+        if (!rule.activeSkillName) return;
+        effects.push({
+          label: `Execução Instantânea (${rule.activeSkillName})`,
+          value: `MATA instantaneamente o Oponente que estiver com ${rule.activeSkillName} ativo nele`,
+          color: 'text-red-950 font-extrabold',
+          targetLabel: 'Condicional'
+        });
       });
     }
 
@@ -9786,13 +9954,13 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                           physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra',
                         };
                         const normalStunEffs = stunEffs.filter(e => !e.blocksOffensiveSkills && (e as any).type !== 'blocks_offensive_skills');
-                        const allStunTypes = Array.from(new Set(
-                          normalStunEffs.flatMap(e => (!e.stunType || e.stunType.length === 0 || e.stunType.length >= 4) ? ['physical', 'mental', 'affliction', 'chakra'] : e.stunType)
+                        const hasGenericStun = normalStunEffs.some(e => !e.stunType || e.stunType.length === 0);
+                        const markedStunTypes = Array.from(new Set(
+                          normalStunEffs.flatMap(e => e.stunType || [])
                         ));
-                        const isCompleteStun = allStunTypes.length >= 4;
-                        const stunTypesStr = isCompleteStun
-                          ? 'Físico + Mental + Aflição + Chakra (Total)'
-                          : allStunTypes.map((t: any) => stunTypeLabels[t] || t).join(' + ');
+                        const stunTypesStr = hasGenericStun || markedStunTypes.length === 0
+                          ? 'Stun Completo'
+                          : markedStunTypes.map((t: any) => stunTypeLabels[t] || t).join(' + ');
 
                         return (
                           <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
@@ -10832,13 +11000,13 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                           physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra',
                         };
                         const normalStunEffs = stunEffs.filter(e => !e.blocksOffensiveSkills && (e as any).type !== 'blocks_offensive_skills');
-                        const allStunTypes = Array.from(new Set(
-                          normalStunEffs.flatMap(e => (!e.stunType || e.stunType.length === 0 || e.stunType.length >= 4) ? ['physical', 'mental', 'affliction', 'chakra'] : e.stunType)
+                        const hasGenericStun = normalStunEffs.some(e => !e.stunType || e.stunType.length === 0);
+                        const markedStunTypes = Array.from(new Set(
+                          normalStunEffs.flatMap(e => e.stunType || [])
                         ));
-                        const isCompleteStun = allStunTypes.length >= 4;
-                        const stunTypesStr = isCompleteStun
-                          ? 'Físico + Mental + Aflição + Chakra (Total)'
-                          : allStunTypes.map((t: any) => stunTypeLabels[t] || t).join(' + ');
+                        const stunTypesStr = hasGenericStun || markedStunTypes.length === 0
+                          ? 'Stun Completo'
+                          : markedStunTypes.map((t: any) => stunTypeLabels[t] || t).join(' + ');
 
                         return (
                           <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">

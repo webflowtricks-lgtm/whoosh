@@ -53,6 +53,10 @@ export interface SkillChakraRemoveRule {
   removeAmount: number; // Quantity of chakra to remove from enemy stock when condition is active
 }
 
+export interface SkillKillWhenActiveRule {
+  activeSkillName: string; // Skill/efeito ativo no Oponente que será morto instantaneamente
+}
+
 export interface SkillHealRule {
   activeSkillName: string; // Active skill/effect required on character
   healBoost: number; // Extra healing when condition is active
@@ -102,6 +106,8 @@ export interface Skill {
   damageRules?: SkillDamageRule[];
   onSkillUseDamageRules?: SkillOnSkillUseDamageRule[];
   chakraRemoveRules?: SkillChakraRemoveRule[];
+  /** Regras condicionais de morte instantânea: mata o Oponente que estiver com a habilidade ativa */
+  killWhenActiveRules?: SkillKillWhenActiveRule[];
   healRules?: SkillHealRule[];
   costRuleActiveSkill?: string;
   costRuleReduceRand?: number;
@@ -146,6 +152,8 @@ export interface Skill {
   invulnerableTypes?: ('damage' | 'direct_damage' | 'affliction' | 'bleeding' | 'dot' | 'mental' | 'physical' | 'chakra' | 'ranged' | 'friendly' | 'stun' | 'all')[];
   gainChakra?: number;
   gainChakraDuration?: number;
+  /** Tipos de chakra gerados pelo gainChakra: 'Tai' | 'Nin' | 'Gen' | 'Blood' | 'Rand' | 'Existing' (vazio = aleatório) */
+  gainChakraTypes?: string[];
   drainChakra?: number;
   drainChakraDuration?: number;
   removeChakra?: number;
@@ -177,6 +185,8 @@ export interface Skill {
   cannotReceiveFriendlyDuration?: number;
   ignoreStunDuration?: number;
   damageImmunityDuration?: number;
+  /** Se true, a imunidade a dano só bloqueia o PRIMEIRO dano recebido e depois é consumida */
+  damageImmunityFirstHitOnly?: boolean;
   revealInvisibleDuration?: number;
   captureAndArrest?: boolean;
 
@@ -484,6 +494,12 @@ export interface ActiveEffect {
   costIncreaseChakraTypes?: ChakraType[];
   /** Tipos de skill afetados pelo aumento de custo (physical, mental, affliction, chakra, ranged, friendly) */
   costIncreaseSkillTypes?: string[];
+  /** Se true, este debuff (ex: DoT infinito) é removido quando o alvo usa uma skill amigável/passiva */
+  removedOnFriendlySkillUse?: boolean;
+  /** Se true, esta imunidade a dano é consumida após bloquear o primeiro dano recebido */
+  firstHitOnly?: boolean;
+  /** Tipos de chakra gerados pelo gainChakra: 'Tai' | 'Nin' | 'Gen' | 'Blood' | 'Rand' | 'Existing' (vazio = aleatório) */
+  gainChakraTypes?: string[];
   /** Tipos de dano que este debuff afeta (para damage_debuff) */
   debuffTypes?: string[];
   retaliateDamageVal?: number;

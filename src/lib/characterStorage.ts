@@ -17,9 +17,6 @@ export function enrichCharacters(characters: Character[]): Character[] {
     skins: char.skins || [],
     skills: (char.skills || []).map(sk => {
       const s = { ...sk };
-      if (char.id === 'young-nagato' && s.stunTurns && (!s.stunType || s.stunType.length === 0)) {
-        s.stunType = ['physical', 'mental', 'affliction', 'chakra'];
-      }
       // Remove null properties (explicitly cleared by user)
       for (const key of Object.keys(s)) {
         if ((s as any)[key] === null) {
