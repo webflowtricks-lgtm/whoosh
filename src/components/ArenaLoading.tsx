@@ -237,7 +237,7 @@ export default function ArenaLoading({ onComplete }: { onComplete: () => void })
         </div>
         <div className="flex items-center justify-center gap-1.5 mt-3 text-[9px] font-mono text-slate-500 uppercase tracking-wider">
           <Flame className="w-3 h-3 text-orange-500/70" />
-          {t('Naruto Unison Combat — Vontade de Fogo', 'Naruto Unison Combat — Will of Fire')}
+          {t('Naruto Arena — Vontade de Fogo', 'Naruto Arena — Will of Fire')}
           <Flame className="w-3 h-3 text-orange-500/70" />
         </div>
       </div>

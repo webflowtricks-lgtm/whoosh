@@ -155,7 +155,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, onBack }: A
             <Swords className="w-7 h-7" />
           </div>
           <h1 className="text-3xl font-black uppercase tracking-wider bg-gradient-to-r from-orange-500 via-amber-400 to-red-500 bg-clip-text text-transparent font-display">
-            NARUTO UNISON
+            NARUTO ARENA
           </h1>
           <p className="text-slate-400 text-xs font-mono tracking-widest uppercase mt-1">
             {t('Arena de Batalha Shinobi', 'Shinobi Battle Arena')}

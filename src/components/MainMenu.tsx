@@ -55,6 +55,13 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-6 relative overflow-hidden font-sans selection:bg-orange-600 selection:text-white">
+      {/* Background Image */}
+      <img
+        src="/static/img/bg/background-screen.webp"
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+      />
+      <div className="absolute inset-0 bg-slate-950/40 pointer-events-none" />
       {/* Decorative Background effects */}
       <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-orange-600/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
@@ -67,7 +74,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
           </div>
           <div>
             <h1 className="text-lg font-black tracking-tight uppercase bg-gradient-to-r from-white via-slate-100 to-orange-400 bg-clip-text text-transparent">
-              NARUTO UNISON
+              NARUTO ARENA
             </h1>
             <span className="font-mono text-[10px] tracking-wider text-orange-400 uppercase font-bold block leading-none">Engine v1.0</span>
           </div>
@@ -160,7 +167,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
           </div>
 
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent uppercase">
-            NARUTO <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-500">UNISON</span>
+            NARUTO <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-500">ARENA</span>
           </h1>
 
           <p className="text-slate-400 text-base md:text-lg max-w-2xl mx-auto font-light leading-relaxed">
