@@ -2333,6 +2333,12 @@ const newSkill: Skill = {
                              className="rounded bg-slate-950 border-slate-800 text-orange-500 focus:ring-0" />
                            �� 🛑 Bloquear skills ofensivas do alvo quando ativo
                          </label>
+                          <label className="flex items-center gap-2 text-[10px] text-cyan-400 font-bold">
+                            <input type="checkbox" checked={editingSkill.ignoreInvulnerable || false}
+                              onChange={(e) => handleUpdateSkillField('ignoreInvulnerable', e.target.checked)}
+                              className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0" />
+                            🧿 Ignorar Invulnerabilidade (pode mirar/atingir inimigos invulneráveis)
+                          </label>
                       </div>
 
                       <div className="md:col-span-2 space-y-2.5 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
@@ -4763,6 +4769,22 @@ const newSkill: Skill = {
                                     title="O escudo total do personagem não ultrapassa este valor. Deixe em branco para sem limite."
                                   />
                                   <span className="text-[9px] text-slate-500 font-mono">vazio = sem limite</span>
+                                </div>
+                              </div>
+                              <div className="space-y-1 pt-1 border-t border-slate-800/50">
+                                <span className="text-[9px] text-slate-400 font-mono uppercase font-bold block">🔁 Gerar Escudo por Turno (Adicional)</span>
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={99}
+                                    value={editingSkill.shieldRegenTurns || 0}
+                                    onChange={(e) => handleUpdateSkillField('shieldRegenTurns', parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                    className="w-14 px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                    title="A cada turno, durante N turnos, gera o 'Valor do Escudo' como escudo ADICIONAL (0 = desativado)"
+                                  />
+                                  <span className="text-[9px] text-slate-500 font-mono">por {editingSkill.shieldRegenTurns || 0} turnos, +{editingSkill.shieldVal || 0} de escudo ADICIONAL por turno (0 = desativado)</span>
                                 </div>
                               </div>
                               <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/50">

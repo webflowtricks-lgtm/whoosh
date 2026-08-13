@@ -838,7 +838,9 @@ function GameOverOverlay({
               >
                 {/* Character Box */}
                 <div
-                  className={`relative w-28 sm:w-34 h-38 sm:h-48 rounded-2xl overflow-hidden border flex flex-col items-center justify-between p-2 shadow-xl ${
+                  className={`relative w-28 sm:w-34 h-38 sm:h-48 rounded-2xl overflow-hidden border flex flex-col items-center p-2 shadow-xl ${
+                    skinImg ? 'justify-end' : 'justify-between'
+                  } ${
                     isVictory
                       ? combatant.isDead
                         ? 'bg-slate-950 border-slate-800 opacity-60 grayscale'
@@ -847,13 +849,13 @@ function GameOverOverlay({
                   }`}
                 >
                   {/* Character Standing PNG or Portrait */}
-                  <div className="w-full h-26 sm:h-34 relative flex items-center justify-center overflow-hidden">
+                  <div className="relative flex-1 w-full min-h-0 flex items-center justify-center">
                     {skinImg ? (
                       <img
                         src={skinImg || null}
                         alt={combatant.character.name}
                         referrerPolicy="no-referrer"
-                        className={`h-full w-auto max-w-full object-contain ${
+                        className={`absolute inset-0 z-0 w-auto h-full max-w-none object-contain block ${
                           combatant.isDead ? 'grayscale opacity-50' : ''
                         }`}
                         onError={(e) => {
@@ -1083,6 +1085,9 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const isEndingTurnRef = useRef(false);
   const turnActionLockedRef = useRef(false);
   const processedOpponentTurnsRef = useRef<Set<number>>(new Set());
+  const passedPlayersRef = useRef<('player' | 'enemy')[]>([]);
+  const isResolvingTurnEndRef = useRef(false);
+  const randConfirmLockRef = useRef(false);
 
   // Last rolled chakra display
   const [lastChakraRoll, setLastChakraRoll] = useState<string[]>([]);
@@ -1358,6 +1363,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     }
     setActivePlanner(startingPlanner);
     setPassedPlayersThisTurn([]);
+    passedPlayersRef.current = [];
 
     const sanitizeCharacter = (c: any): Character => {
       if (!c) {
@@ -1529,10 +1535,10 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   const addFloatingText = (targetId: string, text: string, type: FloatingText['type']) => {
     const id = Math.random().toString();
     setFloatingTexts(prev => [...prev, { id, targetId, text, type }]);
-    // Remove after 1.5 seconds
+    // Remove after 5 seconds
     setTimeout(() => {
       setFloatingTexts(prev => prev.filter(t => t.id !== id));
-    }, 1500);
+    }, 5000);
   };
 
   // Calculate simulated remaining chakra pool after deducting cued actions
@@ -1617,7 +1623,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       setLastChakraRoll(rolled);
       setShowRollBanner(true);
       playCustomSound('StartTurn');
-      setTimeout(() => setShowRollBanner(false), 2500);
+      setTimeout(() => setShowRollBanner(false), 5000);
 
       // Log roll
       setLogs(prev => [
@@ -2015,7 +2021,7 @@ const handleTradeChakra = () => {
   const [passedPlayersThisTurn, setPassedPlayersThisTurn] = useState<('player' | 'enemy')[]>([]);
 
   const hasDamageImmunity = (character: CombatCharacter) =>
-    character?.activeEffects?.some((e: ActiveEffect) => e.type === 'damage_immunity' || e.type === 'invulnerable') ?? false;
+    character?.activeEffects?.some((e: ActiveEffect) => e.type === 'damage_immunity') ?? false;
 
   const consumeFirstHitOnlyImmunity = (character: CombatCharacter): boolean => {
     const idx = character?.activeEffects?.findIndex((e: ActiveEffect) => e.type === 'damage_immunity' && e.firstHitOnly) ?? -1;
@@ -2995,7 +3001,7 @@ const handleTradeChakra = () => {
                 type: 'damage',
               });
               addFloatingText(t.id, `-${netDd} HP (DIRETO)`, 'damage');
-            } else if (hasDamageImmunity(t) || checkCombatantInvulnerable(t, skill)) {
+            } else if (hasDamageImmunity(t)) {
               const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
               newLogs.push({
                 id: Math.random().toString(),
@@ -3098,10 +3104,9 @@ const handleTradeChakra = () => {
       }
 
       // INSTANT DOT / BLEEDING / AFFLICTION (with missing HP)
-      const isTargetInvul1 = (checkCombatantInvulnerable(target, skill) && !skill.ignoreInvulnerable) || hasDamageImmunity(target);
-      const totalDotInstant = isTargetInvul1 ? 0 : dotInstant + missingHpDot;
-      const totalBleedInstant = isTargetInvul1 ? 0 : bleedingInstant + missingHpBleed;
-      const totalAfflictionInstant = isTargetInvul1 ? 0 : afflictionInstant + missingHpAffliction;
+      const totalDotInstant = dotInstant + missingHpDot;
+      const totalBleedInstant = bleedingInstant + missingHpBleed;
+      const totalAfflictionInstant = afflictionInstant + missingHpAffliction;
       if (totalDotInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalDotInstant);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant;
@@ -3225,7 +3230,7 @@ const handleTradeChakra = () => {
           });
           if (isReqActive) {
             const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
-            const livingTargets = targetSide.filter(c => !c.isDead && !checkCombatantInvulnerable(c, skill));
+            const livingTargets = targetSide.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill.ignoreInvulnerable));
             if (livingTargets.length > 0) {
               const t = livingTargets[0];
               const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
@@ -3386,7 +3391,7 @@ const handleTradeChakra = () => {
                   const selfDmgType = selfRule.damageType || 'damage';
                   if (selfDmgType === 'direct_damage') {
                     if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
                       let remainingDmg = selfBonusDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -3427,7 +3432,7 @@ const handleTradeChakra = () => {
                     const totalDmg = stackCount * stackRule.damagePerStack;
                     // Dano instantâneo no golpe
                     if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
                         id: Math.random().toString(),
@@ -3465,7 +3470,7 @@ const handleTradeChakra = () => {
                     const dmgType = stackRule.damageType || 'damage';
                     if (dmgType === 'direct_damage') {
                       if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
                         let remainingDmg = stackDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -3530,11 +3535,7 @@ const handleTradeChakra = () => {
               t.shield = 0;
             }
           }
-          if (checkCombatantInvulnerable(t, skill) && !skill.ignoreInvulnerable) {
-            finalDamage = 0;
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
-          } else if (hasDamageImmunity(t)) {
+          if (hasDamageImmunity(t)) {
             finalDamage = 0;
             const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`, type: 'buff' });
@@ -3612,9 +3613,9 @@ const handleTradeChakra = () => {
           const splashPool = splashTgt === 'AllAllies' || splashTgt === 'AllEnemies'
             ? (splashTgt === 'AllAllies' ? sourceList : targetList)
             : (splashTgt === 'AllLiving' ? [...sourceList, ...targetList] : targetList);
-          splashOnlyTargets = splashPool.filter(c =>
-            c.id !== target.id && !c.isDead && !checkCombatantInvulnerable(c)
-          );
+splashOnlyTargets = splashPool.filter(c =>
+          c.id !== target.id && !c.isDead
+        );
         } else {
           // No splash: all damageTargets get full damage as normal
           primaryTargets = damageTargets;
@@ -3656,7 +3657,7 @@ const handleTradeChakra = () => {
                   const selfDmgType = selfRule.damageType || 'damage';
                   if (selfDmgType === 'direct_damage') {
                     if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
                       let remainingDmg = selfBonusDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -3697,7 +3698,7 @@ const handleTradeChakra = () => {
                     const totalDmg = stackCount * stackRule.damagePerStack;
                     // Dano instantâneo no golpe
                     if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
                         id: Math.random().toString(),
@@ -3735,7 +3736,7 @@ const handleTradeChakra = () => {
                     const dmgType = stackRule.damageType || 'damage';
                     if (dmgType === 'direct_damage') {
                       if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
                         let remainingDmg = stackDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -3812,17 +3813,6 @@ const handleTradeChakra = () => {
               addFloatingText(t.id, 'ESCUDO QUEBRADO', 'shield');
               t.shield = 0;
             }
-          }
-
-          if (checkCombatantInvulnerable(t, skill) && !skill.ignoreInvulnerable) {
-            finalDamage = 0;
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🛡️ ${t.character.name} está INVULNERÁVEL e não sofreu dano de HP de [${skill.name}].`,
-              type: 'buff',
-            });
-            addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
           }
 
           if (finalDamage > 0) {
@@ -4142,6 +4132,28 @@ const handleTradeChakra = () => {
           });
           addFloatingText(t.id, `+${actualAdded} ESCUDO`, 'shield');
           cleanseTargetEffects(t, skill.shieldRemoveType);
+          if (skill.shieldRegenTurns && skill.shieldRegenTurns > 0) {
+            pushActiveEffect(t, {
+              name: `${skill.name} Escudo por Turno`,
+              type: 'shield',
+              value: skill.shieldVal!,
+              duration: skill.shieldRegenTurns,
+              icon: skill.icon,
+              sourceSkillName: skill.name,
+              regenPerTurn: true,
+              regenMaxVal: skill.shieldMaxVal,
+              irremovable: !!skill.shieldIrremovable,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔁 ${t.character.name} irá gerar +${skill.shieldVal} de escudo ADICIONAL por turno por ${skill.shieldRegenTurns} ${skill.shieldRegenTurns === 1 ? 'turno' : 'turnos'} com [${skill.name}]!`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, `+${skill.shieldVal} ESCUDO/TURNO`, 'shield');
+          }
         });
       }
 
@@ -4387,7 +4399,7 @@ const handleTradeChakra = () => {
           const rawDuration = skill.afflictionDuration !== undefined && skill.afflictionDuration > 0 ? skill.afflictionDuration : 1;
 
           // Deduct health immediately upon applying affliction
-          if (checkCombatantInvulnerable(t) || hasDamageImmunity(t)) {
+          if (hasDamageImmunity(t)) {
             const consumedAfflHit = consumeFirstHitOnlyImmunity(t);
             newLogs.push({
               id: Math.random().toString(),
@@ -5126,6 +5138,8 @@ const handleTradeChakra = () => {
 
   // Helper to execute end-of-turn effects after BOTH players have completed their action phase
   const executeTurnEndResolution = () => {
+    if (isResolvingTurnEndRef.current) return;
+    isResolvingTurnEndRef.current = true;
     const newLogs: CombatLog[] = [];
     const srcPlayer = playerRef.current.length ? playerRef.current : playerCombatants;
     const srcEnemy = enemyRef.current.length ? enemyRef.current : enemyCombatants;
@@ -5136,10 +5150,24 @@ const handleTradeChakra = () => {
       combatantList.forEach(c => {
         if (c.isDead) return;
 
+        // Busca a skill de origem do efeito para respeitar ignoreInvulnerable
+        const getEffectSkill = (eff: ActiveEffect): Skill | null => {
+          const caster = [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === eff.casterId);
+          if (!caster) return null;
+          const effName = eff.name || '';
+          const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|Aflição|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
+          return caster.character.skills.find(s => !!s.name && (s.name === baseName || effName.startsWith(s.name))) || null;
+        };
+        const isBlockedByInvuln = (eff: ActiveEffect, fallbackType: string): boolean => {
+          const skill = getEffectSkill(eff);
+          if (skill && skill.ignoreInvulnerable) return false;
+          return checkCombatantInvulnerable(c, fallbackType);
+        };
+
         // Apply active DoTs (e.g. Amaterasu)
         const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
         dotEffects.forEach(dot => {
-          if (checkCombatantInvulnerable(c, 'dot') || hasDamageImmunity(c)) {
+          if (isBlockedByInvuln(dot, 'dot') || hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -5157,8 +5185,8 @@ const handleTradeChakra = () => {
 
         // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
         const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
-        const isInvulnerable = checkCombatantInvulnerable(c, 'damage') || hasDamageImmunity(c);
         activeDamageEffects.forEach(dmg => {
+          const isInvulnerable = isBlockedByInvuln(dmg, 'damage') || hasDamageImmunity(c);
           if (isInvulnerable) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({
@@ -5187,7 +5215,7 @@ const handleTradeChakra = () => {
         // Apply dynamic Direct Damage over time (direct_damage)
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
-          if (checkCombatantInvulnerable(c, 'direct_damage') || hasDamageImmunity(c)) {
+          if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo por ${dd.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -5217,7 +5245,7 @@ const handleTradeChakra = () => {
         // Apply Bleeding (Sangramento)
         const bleedingEffects = c.activeEffects.filter(e => e.type === 'bleeding');
         bleedingEffects.forEach(bleed => {
-          if (checkCombatantInvulnerable(c, 'bleeding') || hasDamageImmunity(c)) {
+          if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -5236,7 +5264,7 @@ const handleTradeChakra = () => {
         // Apply Affliction (Aflição)
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
-          if (checkCombatantInvulnerable(c, 'affliction') || hasDamageImmunity(c)) {
+          if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -5268,6 +5296,24 @@ const handleTradeChakra = () => {
             type: 'heal',
           });
           addFloatingText(c.id, `+${(hl.value || 0)} HP (REGEN)`, 'heal');
+        });
+
+        // Shield per turn (escudo ADICIONAL gerado a cada turno)
+        const shieldPerTurnEffects = c.activeEffects.filter(e => e.type === 'shield' && e.regenPerTurn && e.castTurn !== turn);
+        shieldPerTurnEffects.forEach(re => {
+          const cap = re.regenMaxVal && re.regenMaxVal > 0 ? re.regenMaxVal : Infinity;
+          const prevShield = c.shield || 0;
+          c.shield = Math.min(prevShield + (re.value || 0), cap);
+          const actualAdded = c.shield - prevShield;
+          if (actualAdded > 0) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔁 ${c.character.name} gerou +${actualAdded} de escudo ADICIONAL por [${re.sourceSkillName || 'Escudo por Turno'}].`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, `+${actualAdded} ESCUDO`, 'shield');
+          }
         });
 
         // Check if dead now
@@ -5449,6 +5495,7 @@ const handleTradeChakra = () => {
     const newFirstPlayer: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     setActivePlanner(newFirstPlayer);
     setPassedPlayersThisTurn([]);
+    passedPlayersRef.current = [];
 
     // Roll chakra for the new turn (1 per alive character on each team)
     const alivePlayerCount = updatedPlayer.filter(c => !c.isDead).length;
@@ -5472,14 +5519,39 @@ const handleTradeChakra = () => {
   useEffect(() => {
     isEndingTurnRef.current = false;
     turnActionLockedRef.current = false;
+    isResolvingTurnEndRef.current = false;
     setIsEndingTurn(false);
   }, [turn, activePlanner]);
+
+  // Release the rand-modal confirm lock only when the turn advances
+  useEffect(() => {
+    randConfirmLockRef.current = false;
+  }, [turn]);
 
   // Main End Turn / Pass Turn handler
   const handleEndTurn = (customRandAllocation?: ChakraPool, skipActions?: boolean) => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       playCustomSound('Error');
       setShowNoInternetModal(true);
+      isEndingTurnRef.current = false;
+      turnActionLockedRef.current = false;
+      setIsEndingTurn(false);
+      return;
+    }
+
+    if (passedPlayersRef.current.includes(activePlanner)) {
+      isEndingTurnRef.current = false;
+      turnActionLockedRef.current = false;
+      setIsEndingTurn(false);
+      return;
+    }
+
+    // In online/offline (non-sandbox) matches, the enemy side only passes
+    // through the AI effect or the matchmaking poll — never via this handler.
+    // This closes the rapid double-click hole where a second click, after the
+    // planner already switched to 'enemy', would pass the enemy side and end
+    // the turn prematurely.
+    if (!isSandbox && activePlanner !== 'player') {
       isEndingTurnRef.current = false;
       turnActionLockedRef.current = false;
       setIsEndingTurn(false);
@@ -5519,7 +5591,8 @@ const handleTradeChakra = () => {
       }).catch(err => console.error("Error submitting turn online:", err));
     }
 
-    const newPassed = [...passedPlayersThisTurn, activePlanner];
+    const newPassed = [...passedPlayersRef.current, activePlanner];
+    passedPlayersRef.current = newPassed;
     setPassedPlayersThisTurn(newPassed);
 
     if (newPassed.length < 2) {
@@ -5749,9 +5822,9 @@ const handleTradeChakra = () => {
 
                   if (skill.shieldVal && skill.shieldVal > 0) {
                     if (target.health / target.maxHealth < 0.7 && target.shield === 0) {
-                      score += (skill.shieldVal * 2) + 400;
+                      score += ((skill.shieldVal * (1 + (skill.shieldRegenTurns || 0))) * 2) + 400;
                     } else {
-                      score += 100;
+                      score += 100 + ((skill.shieldRegenTurns || 0) * 150);
                     }
                   }
 
@@ -5819,10 +5892,12 @@ const handleTradeChakra = () => {
           }
         }
 
+        if (passedPlayersRef.current.includes('enemy')) return;
         const isGameOver = executeSideActions(aiActions, false);
         if (isGameOver) return;
 
-        const newPassed: ('player' | 'enemy')[] = [...passedPlayersThisTurn, 'enemy'];
+        const newPassed: ('player' | 'enemy')[] = [...passedPlayersRef.current, 'enemy'];
+        passedPlayersRef.current = newPassed;
         setPassedPlayersThisTurn(newPassed);
 
         if (newPassed.length < 2) {
@@ -6138,31 +6213,31 @@ const handleTradeChakra = () => {
                   : act.targetId.replace('enemy', 'player'),
               }));
 
+              if (passedPlayersRef.current.includes('enemy')) return;
               executeSideActions(mappedOppActions, false);
 
-              setPassedPlayersThisTurn(prev => {
-                const newPassed: ('player' | 'enemy')[] = [...prev, 'enemy'];
-                if (newPassed.length >= 2) {
-                  setIsWaitingForOpponent(false);
-                  setTimeout(() => {
-                    executeTurnEndResolution();
-                  }, 300);
-                } else {
-                  setActivePlanner('player');
-                  setIsWaitingForOpponent(false);
-                  setTimeLeft(60);
-                  setLogs(l => [
-                    ...l,
-                    {
-                      id: Math.random().toString(),
-                      turn,
-                      message: `⚔️ OPONENTE finalizou a fase de planejamento. Vez de VOCÊ planejar.`,
-                      type: 'system',
-                    }
-                  ]);
-                }
-                return newPassed;
-              });
+              const newPassed: ('player' | 'enemy')[] = [...passedPlayersRef.current, 'enemy'];
+              passedPlayersRef.current = newPassed;
+              setPassedPlayersThisTurn(newPassed);
+              if (newPassed.length >= 2) {
+                setIsWaitingForOpponent(false);
+                setTimeout(() => {
+                  executeTurnEndResolution();
+                }, 300);
+              } else {
+                setActivePlanner('player');
+                setIsWaitingForOpponent(false);
+                setTimeLeft(60);
+                setLogs(l => [
+                  ...l,
+                  {
+                    id: Math.random().toString(),
+                    turn,
+                    message: `⚔️ OPONENTE finalizou a fase de planejamento. Vez de VOCÊ planejar.`,
+                    type: 'system',
+                  }
+                ]);
+              }
             }
           }
         })
@@ -6221,6 +6296,9 @@ const handleTradeChakra = () => {
     if (isWaitingForOpponent) {
       return;
     }
+    if (showRandChakraModal) {
+      return;
+    }
 
     // Reset countdown to 60 seconds (1 minute) for the new active turn/planning phase
     setTimeLeft(60);
@@ -6230,7 +6308,9 @@ const handleTradeChakra = () => {
         if (prev <= 1) {
           clearInterval(timerInterval);
           // Auto-pass turn when time runs out (does NOT execute cued skills)
-          handleEndTurnRef.current(undefined, true);
+          if (!isEndingTurnRef.current && !turnActionLockedRef.current) {
+            handleEndTurnRef.current(undefined, true);
+          }
           return 0;
         }
         return prev - 1;
@@ -6238,7 +6318,7 @@ const handleTradeChakra = () => {
     }, 1000);
 
     return () => clearInterval(timerInterval);
-  }, [turn, gameOver, isWaitingForOpponent, activePlanner]);
+  }, [turn, gameOver, isWaitingForOpponent, activePlanner, showRandChakraModal]);
 
   const executeTurnSimulation = (playerActions: CuedAction[] = [], enemyActions: CuedAction[] = []) => {
     const newLogs: CombatLog[] = [];
@@ -7098,7 +7178,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                 type: 'damage',
               });
               addFloatingText(t.id, `-${netDdTotal} HP (DIRETO)`, 'damage');
-            } else if (hasDamageImmunity(t) || checkCombatantInvulnerable(t, skill)) {
+            } else if (hasDamageImmunity(t)) {
               const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
               newLogs.push({
                 id: Math.random().toString(),
@@ -7138,10 +7218,9 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
       const missDot2 = skill.missingHpDamageType === 'dot' ? source.maxHealth - source.health : 0;
       const missBleed2 = skill.missingHpDamageType === 'bleeding' ? source.maxHealth - source.health : 0;
       const missAffl2 = skill.missingHpDamageType === 'affliction' ? source.maxHealth - source.health : 0;
-      const isTargetInvul2 = (checkCombatantInvulnerable(target, skill) && !skill.ignoreInvulnerable) || hasDamageImmunity(target);
-      const totalDotInstant2 = isTargetInvul2 ? 0 : dotInstant + missDot2;
-      const totalBleedInstant2 = isTargetInvul2 ? 0 : bleedingInstant + missBleed2;
-      const totalAfflictionInstant2 = isTargetInvul2 ? 0 : afflictionInstant + missAffl2;
+      const totalDotInstant2 = dotInstant + missDot2;
+      const totalBleedInstant2 = bleedingInstant + missBleed2;
+      const totalAfflictionInstant2 = afflictionInstant + missAffl2;
       if (totalDotInstant2 > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalDotInstant2);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant2;
@@ -7306,7 +7385,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           });
           if (isReqActive) {
             const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
-            const livingTargets = targetSide.filter(c => !c.isDead && !checkCombatantInvulnerable(c, skill));
+            const livingTargets = targetSide.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill.ignoreInvulnerable));
             if (livingTargets.length > 0) {
               const t = livingTargets[0];
               const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
@@ -7404,11 +7483,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               t.shield = 0;
             }
           }
-          if (checkCombatantInvulnerable(t, skill) && !skill.ignoreInvulnerable) {
-            finalDamage = 0;
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL e não sofreu dano de HP de [${skill.name}].`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
-          } else if (hasDamageImmunity(t)) {
+          if (hasDamageImmunity(t)) {
             finalDamage = 0;
             const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`, type: 'buff' });
@@ -7526,7 +7601,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                   const selfDmgType = selfRule.damageType || 'damage';
                   if (selfDmgType === 'direct_damage') {
                     if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
                       let remainingDmg = selfBonusDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -7567,7 +7642,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                     const totalDmg = stackCount * stackRule.damagePerStack;
                     // Dano instantâneo no golpe
                     if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
                         id: Math.random().toString(),
@@ -7605,7 +7680,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                     const dmgType = stackRule.damageType || 'damage';
                     if (dmgType === 'direct_damage') {
                       if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
                         let remainingDmg = stackDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -7978,6 +8053,29 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             });
             addFloatingText(t.id, `+${actualAdded} ESCUDO`, 'shield');
             
+            if (skill.shieldRegenTurns && skill.shieldRegenTurns > 0) {
+              pushActiveEffect(t, {
+                name: `${skill.name} Escudo por Turno`,
+                type: 'shield',
+                value: skill.shieldVal,
+                duration: skill.shieldRegenTurns,
+                icon: skill.icon,
+                sourceSkillName: skill.name,
+                regenPerTurn: true,
+                regenMaxVal: skill.shieldMaxVal,
+                irremovable: !!skill.shieldIrremovable,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+              });
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🔁 ${t.character.name} irá gerar +${skill.shieldVal} de escudo ADICIONAL por turno por ${skill.shieldRegenTurns} ${skill.shieldRegenTurns === 1 ? 'turno' : 'turnos'} com [${skill.name}]!`,
+                type: 'buff',
+              });
+              addFloatingText(t.id, `+${skill.shieldVal} ESCUDO/TURNO`, 'shield');
+            }
+            
             if (skill.shieldDuration && skill.shieldDuration < 99) {
               pushActiveEffect(t, {
                 name: `${skill.name} Shield Decay`,
@@ -8274,7 +8372,7 @@ if (skill.redirectOffensiveToCaster) {
           const rawDuration = skill.afflictionDuration !== undefined && skill.afflictionDuration > 0 ? skill.afflictionDuration : 1;
 
           // Deduct health immediately upon applying affliction
-          if (checkCombatantInvulnerable(t) || hasDamageImmunity(t)) {
+          if (hasDamageImmunity(t)) {
             const consumedAfflHit = consumeFirstHitOnlyImmunity(t);
             newLogs.push({
               id: Math.random().toString(),
@@ -8636,10 +8734,24 @@ if (skill.redirectOffensiveToCaster) {
         if (c.isDead) return;
         const initialHealth = c.health;
 
+        // Busca a skill de origem do efeito para respeitar ignoreInvulnerable
+        const getEffectSkill = (eff: ActiveEffect): Skill | null => {
+          const caster = [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === eff.casterId);
+          if (!caster) return null;
+          const effName = eff.name || '';
+          const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|Aflição|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
+          return caster.character.skills.find(s => !!s.name && (s.name === baseName || effName.startsWith(s.name))) || null;
+        };
+        const isBlockedByInvuln = (eff: ActiveEffect, fallbackType: string): boolean => {
+          const skill = getEffectSkill(eff);
+          if (skill && skill.ignoreInvulnerable) return false;
+          return checkCombatantInvulnerable(c, fallbackType);
+        };
+
         // Apply active DoTs (e.g. Amaterasu)
         const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
         dotEffects.forEach(dot => {
-          if (checkCombatantInvulnerable(c, 'dot') || hasDamageImmunity(c)) {
+          if (isBlockedByInvuln(dot, 'dot') || hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -8657,8 +8769,8 @@ if (skill.redirectOffensiveToCaster) {
 
         // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
         const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
-        const isInvulnerable = checkCombatantInvulnerable(c, 'damage') || hasDamageImmunity(c);
         activeDamageEffects.forEach(dmg => {
+          const isInvulnerable = isBlockedByInvuln(dmg, 'damage') || hasDamageImmunity(c);
           if (isInvulnerable) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({
@@ -8683,7 +8795,7 @@ if (skill.redirectOffensiveToCaster) {
         // Apply dynamic Direct Damage over time (direct_damage)
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
-          if (checkCombatantInvulnerable(c, 'direct_damage') || hasDamageImmunity(c)) {
+          if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo de ${dd.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -8728,10 +8840,28 @@ if (skill.redirectOffensiveToCaster) {
           addFloatingText(c.id, `+${(hl.value || 0)} HP (REGEN)`, 'heal');
         });
 
+        // Shield per turn (escudo ADICIONAL gerado a cada turno)
+        const shieldPerTurnEffects = c.activeEffects.filter(e => e.type === 'shield' && e.regenPerTurn && e.castTurn !== turn);
+        shieldPerTurnEffects.forEach(re => {
+          const cap = re.regenMaxVal && re.regenMaxVal > 0 ? re.regenMaxVal : Infinity;
+          const prevShield = c.shield || 0;
+          c.shield = Math.min(prevShield + (re.value || 0), cap);
+          const actualAdded = c.shield - prevShield;
+          if (actualAdded > 0) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔁 ${c.character.name} gerou +${actualAdded} de escudo ADICIONAL por [${re.sourceSkillName || 'Escudo por Turno'}].`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, `+${actualAdded} ESCUDO`, 'shield');
+          }
+        });
+
         // Apply Bleeding (Sangramento)
         const bleedingEffects = c.activeEffects.filter(e => e.type === 'bleeding');
         bleedingEffects.forEach(bleed => {
-          if (checkCombatantInvulnerable(c, 'bleeding') || hasDamageImmunity(c)) {
+          if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o Sangramento (${bleed.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -8750,7 +8880,7 @@ if (skill.redirectOffensiveToCaster) {
         // Apply Affliction (Aflição)
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
-          if (checkCombatantInvulnerable(c, 'affliction') || hasDamageImmunity(c)) {
+          if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a Aflição (${aff.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -9105,7 +9235,16 @@ if (skill.redirectOffensiveToCaster) {
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.stunTarget || skill.targetType, 'Alvo Principal')
       });
-    } else if (skill.stunTurns && skill.stunTurns > 0) {
+    }
+    if (skill.ignoreInvulnerable) {
+      effects.push({
+        label: 'Ignorar Invulnerabilidade',
+        value: 'Pode mirar e atingir inimigos invulneráveis mesmo com a invulnerabilidade ativa',
+        color: 'text-cyan-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.targetType, 'Alvo Principal')
+      });
+    }
+    if (skill.stunTurns && skill.stunTurns > 0) {
       const typesMap: Record<string, string> = {
         physical: 'Físico',
         mental: 'Mental',
@@ -9133,6 +9272,14 @@ if (skill.redirectOffensiveToCaster) {
         color: 'text-blue-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
+      if (skill.shieldRegenTurns && skill.shieldRegenTurns > 0) {
+        effects.push({
+          label: 'Escudo por Turno (Adicional)',
+          value: `+${skill.shieldVal} de escudo ADICIONAL por turno, durante ${skill.shieldRegenTurns} ${skill.shieldRegenTurns === 1 ? 'Turno' : 'Turnos'}`,
+          color: 'text-blue-950 font-extrabold',
+          targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
+        });
+      }
     }
     if (skill.damageReductionVal && skill.damageReductionVal > 0) {
       effects.push({
@@ -9891,7 +10038,7 @@ if (skill.redirectOffensiveToCaster) {
                             src={skinImg || null}
                             alt={combatant.character.name}
                             referrerPolicy="no-referrer"
-                            className="h-full w-auto max-w-full object-contain filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.95)]"
+                            className="h-full w-auto max-w-full object-contain"
                             onError={(e) => {
                               const img = e.currentTarget;
                               img.style.display = 'none';
@@ -11666,7 +11813,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                           src={skinImg || null}
                           alt={combatant.character.name}
                           referrerPolicy="no-referrer"
-                          className="h-full w-auto max-w-full object-contain scale-x-[-1] filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.95)]"
+                          className="h-full w-auto max-w-full object-contain scale-x-[-1]"
                           onError={(e) => {
                             const img = e.currentTarget;
                             img.style.display = 'none';
@@ -12245,7 +12392,8 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     (Object.keys(randAllocation) as (keyof ChakraPool)[]).reduce((sum, key) => sum + (randAllocation[key] || 0), 0) !== randModalData.totalRandRequired
                   }
                   onClick={() => {
-                    if (isEndingTurnRef.current || isEndingTurn) return;
+                    if (isEndingTurnRef.current || isEndingTurn || randConfirmLockRef.current) return;
+                    randConfirmLockRef.current = true;
                     setShowRandChakraModal(false);
                     handleEndTurn(randAllocation);
                   }}

@@ -135,6 +135,7 @@ export interface Skill {
   shieldVal?: number;
   shieldDuration?: number;
   shieldMaxVal?: number;
+  shieldRegenTurns?: number; // Quantos turnos a skill gera shieldVal ADICIONAL de escudo por turno
   damageReductionVal?: number;
   damageReductionDuration?: number;
   damageBuffVal?: number;
@@ -463,6 +464,8 @@ export interface ActiveEffect {
   stunType?: ('mental' | 'physical' | 'affliction' | 'chakra' | 'ranged' | 'friendly' | string)[];
   invulnerableTypes?: ('damage' | 'direct_damage' | 'affliction' | 'bleeding' | 'dot' | 'mental' | 'physical' | 'chakra' | 'ranged' | 'friendly' | 'stun' | 'all')[];
   irremovable?: boolean;
+  regenPerTurn?: boolean; // Se true, gera value de escudo ADICIONAL a cada turno (escudo por turno)
+  regenMaxVal?: number; // Limite máximo de escudo para a geração por turno
   cannotBeCountered?: boolean;
   cannotBeReflected?: boolean;
 

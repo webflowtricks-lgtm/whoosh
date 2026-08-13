@@ -68,18 +68,108 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
 
       {/* Top Header Row */}
       <div className="flex justify-between items-center max-w-7xl w-full mx-auto z-10 gap-3">
-        <div className="flex items-center space-x-3">
-          <div className="bg-gradient-to-tr from-orange-600 to-amber-500 p-2.5 rounded-xl border border-orange-400/20 shadow-lg shadow-orange-600/10">
-            <Sword className="w-6 h-6 text-slate-950 stroke-[2.5]" />
-          </div>
-          <div>
-            <img
-              src="/static/img/logo.webp"
-              alt="NARUTO ARENA"
-              className="menu-logo w-auto"
-            />
-            <span className="font-mono text-[10px] tracking-wider text-orange-400 uppercase font-bold block leading-none">Engine v1.0</span>
-          </div>
+        <div className="flex items-center">
+          {user ? (
+            <button
+              onClick={() => {
+                playClickSound();
+                playScrollSound();
+                setShowProfileCardModal(true);
+              }}
+              className="p-3.5 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/80 hover:bg-slate-900 text-slate-200 transition-all cursor-pointer flex items-center gap-3 shadow-xl group relative"
+              title={t('Acessar Card do Perfil & Curtidas', 'Access Profile Card & Likes')}
+            >
+              {/* Avatar with Equipped Frame */}
+              <div className="relative w-10 h-10 flex-shrink-0">
+                <div className="w-full h-full rounded-full overflow-hidden bg-slate-950 border border-orange-500/50 shadow">
+                  <img
+                    src={user.photoUrl || null}
+                    alt={user.name}
+                    className="w-full h-full object-cover rounded-full"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                {user.equippedFrameUrl && (
+                  <img
+                    src={user.equippedFrameUrl || null}
+                    alt={t('Moldura Equipada', 'Equipped Frame')}
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain z-10"
+                  />
+                )}
+              </div>
+
+              <div className="text-left min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-mono font-black text-slate-100 truncate group-hover:text-orange-400">{user.name}</span>
+                  {(() => {
+                    const r = rankProgress.currentRank;
+                    const isNone = !r.color || r.color === 'none';
+                    const bgClass = isNone
+                      ? ''
+                      : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
+                    return (
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-extrabold uppercase shadow flex items-center gap-1 overflow-hidden relative ${bgClass}`}
+                        style={{
+                          ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
+                          color: r.fontColor || '#ffffff'
+                        }}
+                      >
+                        {r.imageUrl && (
+                          <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                        )}
+                        {r.iconUrl ? (
+                          <img src={r.iconUrl} alt="" className="w-2.5 h-2.5 object-contain relative z-10" />
+                        ) : (
+                          <Award className="w-2.5 h-2.5 relative z-10" />
+                        )}
+                        <span className="relative z-10">{r.name}</span>
+                      </span>
+                    );
+                  })()}
+                  <span className="text-[9px] font-mono font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 shadow-sm flex items-center gap-0.5">
+                    <Sparkles className="w-2.5 h-2.5 text-amber-300 inline" />
+                    {userXp.toLocaleString()} XP
+                  </span>
+                  {user.title && (
+                    <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                      {user.title}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-20 h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400"
+                      style={{ width: `${rankProgress.progressPercent}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] font-mono text-slate-400 font-bold">
+                    {rankProgress.isMaxRank ? 'MAX' : `${userXp.toLocaleString()} XP`}
+                  </span>
+                </div>
+              </div>
+            </button>
+          ) : (
+            <button
+              onClick={handleStart}
+              className="p-3.5 px-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/80 hover:bg-slate-900 text-slate-200 transition-all cursor-pointer flex items-center gap-3 shadow-xl group"
+              title={t('Entrar com sua conta ninja', 'Log in with your ninja account')}
+            >
+              <div className="w-10 h-10 flex-shrink-0 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center shadow">
+                <User className="w-5 h-5 text-slate-950" />
+              </div>
+              <div className="text-left min-w-0">
+                <div className="text-xs font-mono font-black text-orange-400 uppercase tracking-wide">
+                  {t('Visitante', 'Guest')}
+                </div>
+                <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                  {t('Toque para entrar na arena', 'Tap to enter the arena')}
+                </div>
+              </div>
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -181,110 +271,8 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             )}
           </p>
 
-          {/* MAIN ACTION BAR: PERFIL + ENTRAR NA ARENA */}
+          {/* MAIN ACTION BAR: ENTRAR NA ARENA */}
           <div className="pt-4 flex flex-wrap items-center justify-center gap-3 md:gap-4 max-w-4xl mx-auto">
-            {/* PERFIL BUTTON (or login prompt when visiting) */}
-            {user ? (
-              <button
-                onClick={() => {
-                  playClickSound();
-                  playScrollSound();
-                  setShowProfileCardModal(true);
-                }}
-                className="p-3.5 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/80 hover:bg-slate-900 text-slate-200 transition-all cursor-pointer flex items-center gap-3 shadow-xl group relative"
-                title={t('Acessar Card do Perfil & Curtidas', 'Access Profile Card & Likes')}
-              >
-              {/* Avatar with Equipped Frame */}
-              <div className="relative w-10 h-10 flex-shrink-0">
-                <div className="w-full h-full rounded-full overflow-hidden bg-slate-950 border border-orange-500/50 shadow">
-                  <img
-                    src={user.photoUrl || null}
-                    alt={user.name}
-                    className="w-full h-full object-cover rounded-full"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                {user.equippedFrameUrl && (
-                  <img
-                    src={user.equippedFrameUrl || null}
-                    alt={t('Moldura Equipada', 'Equipped Frame')}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain z-10"
-                  />
-                )}
-              </div>
-
-              <div className="text-left min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-xs font-mono font-black text-slate-100 truncate group-hover:text-orange-400">{user.name}</span>
-                  {(() => {
-                    const r = rankProgress.currentRank;
-                    const isNone = !r.color || r.color === 'none';
-                    const bgClass = isNone
-                      ? ''
-                      : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
-                    return (
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-extrabold uppercase shadow flex items-center gap-1 overflow-hidden relative ${bgClass}`}
-                        style={{
-                          ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
-                          color: r.fontColor || '#ffffff'
-                        }}
-                      >
-                        {r.imageUrl && (
-                          <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
-                        )}
-                        {r.iconUrl ? (
-                          <img src={r.iconUrl} alt="" className="w-2.5 h-2.5 object-contain relative z-10" />
-                        ) : (
-                          <Award className="w-2.5 h-2.5 relative z-10" />
-                        )}
-                        <span className="relative z-10">{r.name}</span>
-                      </span>
-                    );
-                  })()}
-                  <span className="text-[9px] font-mono font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 shadow-sm flex items-center gap-0.5">
-                    <Sparkles className="w-2.5 h-2.5 text-amber-300 inline" />
-                    {userXp.toLocaleString()} XP
-                  </span>
-                  {user.title && (
-                    <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
-                      {user.title}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="w-20 h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-                    <div
-                      className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400"
-                      style={{ width: `${rankProgress.progressPercent}%` }}
-                    />
-                  </div>
-                  <span className="text-[9px] font-mono text-slate-400 font-bold">
-                    {rankProgress.isMaxRank ? 'MAX' : `${userXp.toLocaleString()} XP`}
-                  </span>
-                </div>
-              </div>
-            </button>
-            ) : (
-              <button
-                onClick={handleStart}
-                className="p-3.5 px-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/80 hover:bg-slate-900 text-slate-200 transition-all cursor-pointer flex items-center gap-3 shadow-xl group"
-                title={t('Entrar com sua conta ninja', 'Log in with your ninja account')}
-              >
-                <div className="w-10 h-10 flex-shrink-0 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center shadow">
-                  <User className="w-5 h-5 text-slate-950" />
-                </div>
-                <div className="text-left min-w-0">
-                  <div className="text-xs font-mono font-black text-orange-400 uppercase tracking-wide">
-                    {t('Visitante', 'Guest')}
-                  </div>
-                  <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                    {t('Toque para entrar na arena', 'Tap to enter the arena')}
-                  </div>
-                </div>
-              </button>
-            )}
 
             {/* ENTRAR NA ARENA CTA BUTTON */}
             <div className="relative">
