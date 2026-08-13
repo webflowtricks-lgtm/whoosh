@@ -27,6 +27,17 @@
   max-width: 280px;
 }
 
+/* =========================================================
+   CLASSE ÚNICA DO TAMANHO DO BOTÃO COMO JOGAR (.como-jogar-btn)
+   =========================================================
+   Para ajustar o tamanho do botão "Como Jogar" (imagem como-jogar.webp),
+   altere o valor de height abaixo. A largura acompanha a proporção da imagem.
+   ========================================================= */
+.como-jogar-btn {
+      height: 86px;
+    width: 175px;
+}
+
 /* Force Desktop Layout on all devices & Custom Mouse Class */
 /* =========================================================
    CLASSE ÚNICA DO MOUSE / CURSOR DA APLICAÇÃO (.custom-cursor)

@@ -648,7 +648,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium'
                       }`}
                     >
-                      <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
+                      <img src="/static/img/icon/star.svg" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
                       Sandbox
                     </button>
 
@@ -1291,7 +1291,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     {opponent ? (
                       <img src={opponent.photoUrl || null} alt={opponent.name} className="w-full h-full object-cover scale-x-[-1]" />
                     ) : (
-                      <img src="/static/img/icon/star.webp" alt="Loading" className="w-6 h-6 animate-spin object-contain" />
+                      <img src="/static/img/icon/star.svg" alt="Loading" className="w-6 h-6 animate-spin object-contain" />
                     )}
                   </div>
                   <div className="text-xs font-black truncate text-slate-300 uppercase font-mono">

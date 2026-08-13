@@ -22,6 +22,7 @@ import { Swords, Flag } from 'lucide-react';
 import MainMenu from './components/MainMenu';
 import CharacterSelect from './components/CharacterSelect';
 import BattleBoard from './components/BattleBoard';
+import ArenaLoading from './components/ArenaLoading';
 import AdminDashboard from './components/AdminDashboard';
 import AuthScreen from './components/AuthScreen';
 import QuestBoard from './components/QuestBoard';
@@ -31,7 +32,7 @@ function ScreenLoadingFallback() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-100 select-none gpu-accelerated">
       <div className="relative flex items-center justify-center mb-6">
-        <img src="/static/img/icon/star.webp" alt="Loading" className="w-16 h-16 animate-spin object-contain" />
+        <img src="/static/img/icon/star.svg" alt="Loading" className="w-16 h-16 animate-spin object-contain" />
       </div>
       <div className="flex flex-col items-center gap-2">
         <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-orange-400 animate-pulse">
@@ -61,6 +62,10 @@ export default function App() {
   
   // Active Quest State
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
+
+  // Login on demand (only when entering the arena) + arena loading screen
+  const [showAuth, setShowAuth] = useState(false);
+  const [showArenaLoading, setShowArenaLoading] = useState(false);
   
   // User Profile state
   const [user, setUser] = useState<UserProfile | null>(() => {
@@ -188,7 +193,11 @@ export default function App() {
   const playLoseSound = () => playSound('Lose');
 
   const handleStartGame = () => {
-    setScreen('quests');
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
+    setShowArenaLoading(true);
   };
 
   const handleSelectQuest = (quest: Quest) => {
@@ -304,6 +313,8 @@ export default function App() {
     try {
       localStorage.setItem('naruto_user_profile', JSON.stringify(safeProfile));
     } catch {}
+    setShowAuth(false);
+    setShowArenaLoading(true);
   };
 
   const handleLogout = () => {
@@ -315,13 +326,14 @@ export default function App() {
     setScreen('main-menu');
   };
 
-  // If not logged in, show Auth Screen
-  if (!user) {
+  // If not logged in, only ask for login when the user wants to enter the arena
+  if (!user && showAuth) {
     return (
       <Suspense fallback={<ScreenLoadingFallback />}>
         <AuthScreen
           onLoginSuccess={handleLoginSuccess}
           playClickSound={playClickSound}
+          onBack={() => setShowAuth(false)}
         />
       </Suspense>
     );
@@ -385,6 +397,18 @@ export default function App() {
       </AnimatePresence>
 
       <Suspense fallback={<ScreenLoadingFallback />}>
+        {/* ARENA LOADING OVERLAY (preloads everything on Enter the Arena) */}
+        <AnimatePresence>
+          {showArenaLoading && (
+            <ArenaLoading
+              onComplete={() => {
+                setShowArenaLoading(false);
+                setScreen('quests');
+              }}
+            />
+          )}
+        </AnimatePresence>
+
         {screen === 'main-menu' && (
           <MainMenu
             onStartGame={handleStartGame}

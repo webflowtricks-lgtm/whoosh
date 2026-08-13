@@ -2949,8 +2949,16 @@ const handleTradeChakra = () => {
             const targetCannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage');
             const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction');
             const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
+            // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             const netDd = hasDamageImmunity(t) ? 0 : Math.max(0, (dd + getCaptureArrestBonusDamage(t, skill)) - reductionSum);
-            t.health = Math.max(0, t.health - netDd);
+            let remainingDd = netDd;
+            if (remainingDd > 0 && (t.shield || 0) > 0) {
+              const absorbed = Math.min(t.shield || 0, remainingDd);
+              t.shield = (t.shield || 0) - absorbed;
+              remainingDd -= absorbed;
+              addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+            }
+            t.health = Math.max(0, t.health - remainingDd);
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
               if (action.isPlayer) {
@@ -3379,7 +3387,14 @@ const handleTradeChakra = () => {
                   if (selfDmgType === 'direct_damage') {
                     if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
-                      t.health = Math.max(0, t.health - selfBonusDmg);
+                      let remainingDmg = selfBonusDmg;
+                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                        const absorbed = Math.min(t.shield || 0, remainingDmg);
+                        t.shield = (t.shield || 0) - absorbed;
+                        remainingDmg -= absorbed;
+                        addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+                      }
+                      t.health = Math.max(0, t.health - remainingDmg);
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
@@ -3451,7 +3466,14 @@ const handleTradeChakra = () => {
                     if (dmgType === 'direct_damage') {
                       if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
-                        t.health = Math.max(0, t.health - stackDmg);
+                        let remainingDmg = stackDmg;
+                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                        const absorbed = Math.min(t.shield || 0, remainingDmg);
+                        t.shield = (t.shield || 0) - absorbed;
+                        remainingDmg -= absorbed;
+                        addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+                      }
+                      t.health = Math.max(0, t.health - remainingDmg);
                         newLogs.push({
                           id: Math.random().toString(),
                           turn,
@@ -3635,7 +3657,14 @@ const handleTradeChakra = () => {
                   if (selfDmgType === 'direct_damage') {
                     if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
-                      t.health = Math.max(0, t.health - selfBonusDmg);
+                      let remainingDmg = selfBonusDmg;
+                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                        const absorbed = Math.min(t.shield || 0, remainingDmg);
+                        t.shield = (t.shield || 0) - absorbed;
+                        remainingDmg -= absorbed;
+                        addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+                      }
+                      t.health = Math.max(0, t.health - remainingDmg);
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
@@ -3707,7 +3736,14 @@ const handleTradeChakra = () => {
                     if (dmgType === 'direct_damage') {
                       if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
-                        t.health = Math.max(0, t.health - stackDmg);
+                        let remainingDmg = stackDmg;
+                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                        const absorbed = Math.min(t.shield || 0, remainingDmg);
+                        t.shield = (t.shield || 0) - absorbed;
+                        remainingDmg -= absorbed;
+                        addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+                      }
+                      t.health = Math.max(0, t.health - remainingDmg);
                         newLogs.push({
                           id: Math.random().toString(),
                           turn,
@@ -4082,23 +4118,29 @@ const handleTradeChakra = () => {
         const shieldTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList, true);
         shieldTargets.forEach(t => {
           if (t.isDead) return;
-          t.shield = (t.shield || 0) + skill.shieldVal!;
+          const cap = skill.shieldMaxVal && skill.shieldMaxVal > 0 ? skill.shieldMaxVal : Infinity;
+          const prevShield = t.shield || 0;
+          t.shield = Math.min(prevShield + skill.shieldVal!, cap);
+          const actualAdded = t.shield - prevShield;
+          if (skill.shieldDuration && skill.shieldDuration > 0 && skill.shieldDuration < 99999) {
+            t.shieldExpiresTurn = Math.max(t.shieldExpiresTurn || 0, turn + skill.shieldDuration);
+          }
           if (action.isPlayer) {
-            matchStatsRef.current.shieldGenerated += skill.shieldVal!;
+            matchStatsRef.current.shieldGenerated += actualAdded;
             matchStatsRef.current.shieldGeneratedRecords.push({
               charName: source.character.name,
               tags: source.character.tags || [],
               skillName: skill.name,
-              amount: skill.shieldVal!
+              amount: actualAdded
             });
           }
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️ ${t.character.name} ganhou +${skill.shieldVal} de escudo com [${skill.name}]!`,
+            message: `🛡️ ${t.character.name} ganhou +${actualAdded} de escudo com [${skill.name}]${skill.shieldDuration && skill.shieldDuration < 99999 ? ` por ${skill.shieldDuration} turnos` : ''}!`,
             type: 'buff',
           });
-          addFloatingText(t.id, `+${skill.shieldVal} ESCUDO`, 'shield');
+          addFloatingText(t.id, `+${actualAdded} ESCUDO`, 'shield');
           cleanseTargetEffects(t, skill.shieldRemoveType);
         });
       }
@@ -4108,22 +4150,28 @@ const handleTradeChakra = () => {
       const applyBuffEffect = (name: string, type: ActiveEffect['type'], duration: number, value: number = 0, isSelfTarget: boolean = true, isDebuffOnTarget: boolean = false) => {
         if (type === 'shield') {
           const t = isSelfTarget ? source : target;
-          t.shield = (t.shield || 0) + value;
+          const cap = skill.shieldMaxVal && skill.shieldMaxVal > 0 ? skill.shieldMaxVal : Infinity;
+          const prevShield = t.shield || 0;
+          t.shield = Math.min(prevShield + value, cap);
+          const actualAdded = t.shield - prevShield;
+          if (duration && duration > 0 && duration < 99999) {
+            t.shieldExpiresTurn = Math.max(t.shieldExpiresTurn || 0, turn + duration);
+          }
           if (action.isPlayer) {
-            matchStatsRef.current.shieldGenerated += value;
+            matchStatsRef.current.shieldGenerated += actualAdded;
             matchStatsRef.current.shieldGeneratedRecords.push({
               charName: source.character.name,
               tags: source.character.tags || [],
               skillName: skill.name,
-              amount: value
+              amount: actualAdded
             });
           }
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🛡️ ${t.character.name} ganhou +${value} de escudo com [${skill.name}]!`,
+            message: `🛡️ ${t.character.name} ganhou +${actualAdded} de escudo com [${skill.name}]${duration && duration < 99999 ? ` por ${duration} turnos` : ''}!`,
             type: 'buff',
           });
-          addFloatingText(t.id, `+${value} ESCUDO`, 'shield');
+          addFloatingText(t.id, `+${actualAdded} ESCUDO`, 'shield');
           return;
         }
         const t = isDebuffOnTarget ? target : (isSelfTarget ? source : target);
@@ -5146,8 +5194,16 @@ const handleTradeChakra = () => {
           } else {
             const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
               : c.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+            // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             const netDd = Math.max(0, (dd.value || 0) - dr);
-            c.health = Math.max(0, c.health - netDd);
+            let remainingDd = netDd;
+            if (remainingDd > 0 && (c.shield || 0) > 0) {
+              const absorbed = Math.min(c.shield || 0, remainingDd);
+              c.shield = (c.shield || 0) - absorbed;
+              remainingDd -= absorbed;
+              addFloatingText(c.id, `-${absorbed} ESCUDO`, 'shield');
+            }
+            c.health = Math.max(0, c.health - remainingDd);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -5225,6 +5281,21 @@ const handleTradeChakra = () => {
           });
           playCustomSound('Death');
           addFloatingText(c.id, 'DERROTADO', 'damage');
+        }
+
+        // Shield expiration (escudo com duração limitada)
+        if (c.shieldExpiresTurn && turn >= c.shieldExpiresTurn) {
+          if (c.shield > 0) {
+            c.shield = 0;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🛡️💨 O escudo de ${c.character.name} expirou!`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, 'ESCUDO EXPIRADO', 'shield');
+          }
+          c.shieldExpiresTurn = undefined;
         }
 
         // Decrement effect durations (skip effects cast in the current turn, skip permanent effects)
@@ -6997,8 +7068,16 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             const reductionTotal = cannotReduce ? 0
               : t.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
             const netDdTotal = hasDamageImmunity(t) ? 0 : Math.max(0, (ddTotal + getCaptureArrestBonusDamage(t, skill)) - reductionTotal);
+            // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
+            let remainingDdTotal = netDdTotal;
+            if (remainingDdTotal > 0 && (t.shield || 0) > 0) {
+              const absorbed = Math.min(t.shield || 0, remainingDdTotal);
+              t.shield = (t.shield || 0) - absorbed;
+              remainingDdTotal -= absorbed;
+              addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+            }
             const startingHealth = t.health;
-            t.health = Math.max(0, t.health - netDdTotal);
+            t.health = Math.max(0, t.health - remainingDdTotal);
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
               if (action.isPlayer) {
@@ -7448,7 +7527,14 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                   if (selfDmgType === 'direct_damage') {
                     if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
-                      t.health = Math.max(0, t.health - selfBonusDmg);
+                      let remainingDmg = selfBonusDmg;
+                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                        const absorbed = Math.min(t.shield || 0, remainingDmg);
+                        t.shield = (t.shield || 0) - absorbed;
+                        remainingDmg -= absorbed;
+                        addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+                      }
+                      t.health = Math.max(0, t.health - remainingDmg);
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
@@ -7520,7 +7606,14 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                     if (dmgType === 'direct_damage') {
                       if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
                     if (!checkCombatantInvulnerable(t, skill) && !hasDamageImmunity(t)) {
-                        t.health = Math.max(0, t.health - stackDmg);
+                        let remainingDmg = stackDmg;
+                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                        const absorbed = Math.min(t.shield || 0, remainingDmg);
+                        t.shield = (t.shield || 0) - absorbed;
+                        remainingDmg -= absorbed;
+                        addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+                      }
+                      t.health = Math.max(0, t.health - remainingDmg);
                         newLogs.push({
                           id: Math.random().toString(),
                           turn,
@@ -7867,17 +7960,23 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             });
             addFloatingText(t.id, 'ESCUDO BLOQUEADO', 'shield');
           } else {
-            t.shield = (t.shield || 0) + skill.shieldVal!;
+            const cap = skill.shieldMaxVal && skill.shieldMaxVal > 0 ? skill.shieldMaxVal : Infinity;
+            const prevShield = t.shield || 0;
+            t.shield = Math.min(prevShield + skill.shieldVal!, cap);
+            const actualAdded = t.shield - prevShield;
+            if (skill.shieldDuration && skill.shieldDuration > 0 && skill.shieldDuration < 99999) {
+              t.shieldExpiresTurn = Math.max(t.shieldExpiresTurn || 0, turn + skill.shieldDuration);
+            }
             if (action.isPlayer) {
-              matchStatsRef.current.shieldGenerated += skill.shieldVal!;
+              matchStatsRef.current.shieldGenerated += actualAdded;
             }
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${t.character.name} ganhou +${skill.shieldVal} de escudo com [${skill.name}] por ${skill.shieldDuration || 99} turnos!`,
+              message: `🛡️ ${t.character.name} ganhou +${actualAdded} de escudo com [${skill.name}] por ${skill.shieldDuration || 99} turnos!`,
               type: 'buff',
             });
-            addFloatingText(t.id, `+${skill.shieldVal} ESCUDO`, 'shield');
+            addFloatingText(t.id, `+${actualAdded} ESCUDO`, 'shield');
             
             if (skill.shieldDuration && skill.shieldDuration < 99) {
               pushActiveEffect(t, {
@@ -8431,14 +8530,20 @@ if (skill.redirectOffensiveToCaster) {
             });
             addFloatingText(target.id, 'ESCUDO BLOQUEADO', 'shield');
           } else {
-            target.shield = (target.shield || 0) + effectVal;
+            const cap = skill.shieldMaxVal && skill.shieldMaxVal > 0 ? skill.shieldMaxVal : Infinity;
+            const prevShield = target.shield || 0;
+            target.shield = Math.min(prevShield + effectVal, cap);
+            const actualAdded = target.shield - prevShield;
+            if (effectDuration && effectDuration > 0 && effectDuration < 99999) {
+              target.shieldExpiresTurn = Math.max(target.shieldExpiresTurn || 0, turn + effectDuration);
+            }
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${target.character.name} ativou [${skill.name}] ganhando um escudo de ${effectVal}.`,
+              message: `🛡️ ${target.character.name} ativou [${skill.name}] ganhando um escudo de ${actualAdded}.`,
               type: 'buff',
             });
-            addFloatingText(target.id, `+${effectVal} ESCUDO`, 'shield');
+            addFloatingText(target.id, `+${actualAdded} ESCUDO`, 'shield');
           }
         } else {
           pushActiveEffect(target, {
@@ -8585,8 +8690,16 @@ if (skill.redirectOffensiveToCaster) {
           } else {
             const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
               : c.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+            // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             const netDd = Math.max(0, (dd.value || 0) - dr);
-            c.health = Math.max(0, c.health - netDd);
+            let remainingDd = netDd;
+            if (remainingDd > 0 && (c.shield || 0) > 0) {
+              const absorbed = Math.min(c.shield || 0, remainingDd);
+              c.shield = (c.shield || 0) - absorbed;
+              remainingDd -= absorbed;
+              addFloatingText(c.id, `-${absorbed} ESCUDO`, 'shield');
+            }
+            c.health = Math.max(0, c.health - remainingDd);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -8812,6 +8925,21 @@ if (skill.redirectOffensiveToCaster) {
           });
         }
 
+        // Shield expiration (escudo com duração limitada)
+        if (c.shieldExpiresTurn && turn >= c.shieldExpiresTurn) {
+          if (c.shield > 0) {
+            c.shield = 0;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🛡️💨 O escudo de ${c.character.name} expirou!`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, 'ESCUDO EXPIRADO', 'shield');
+          }
+          c.shieldExpiresTurn = undefined;
+        }
+
         // Decrement effect durations (skip permanent effects)
         c.activeEffects = c.activeEffects
           .map(eff => eff.duration >= 99999 ? eff : { ...eff, duration: eff.duration - 1 })
@@ -8996,9 +9124,12 @@ if (skill.redirectOffensiveToCaster) {
       });
     }
     if (skill.shieldVal && skill.shieldVal > 0) {
+      const shieldDurText = skill.shieldDuration && skill.shieldDuration > 0 && skill.shieldDuration < 99999
+        ? `${skill.shieldDuration} ${skill.shieldDuration === 1 ? 'Turno' : 'Turnos'}`
+        : 'Infinito';
       effects.push({
         label: 'Escudo (Shield)',
-        value: `+${skill.shieldVal} Escudo por ${skill.shieldDuration || 1} ${skill.shieldDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `+${skill.shieldVal} Escudo por ${shieldDurText}${skill.shieldMaxVal && skill.shieldMaxVal > 0 ? ` (Limite Máx: ${skill.shieldMaxVal})` : ''}`,
         color: 'text-blue-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -9496,7 +9627,7 @@ if (skill.redirectOffensiveToCaster) {
             className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900/95 border border-orange-500/50 rounded-2xl px-8 py-4 flex items-center gap-4 shadow-2xl shadow-orange-600/20 backdrop-blur"
           >
             <div className="bg-orange-600/10 p-2 rounded-lg border border-orange-500/30">
-              <img src="/static/img/icon/star.webp" alt="Loading" className="w-5 h-5 animate-spin object-contain" />
+              <img src="/static/img/icon/star.svg" alt="Loading" className="w-5 h-5 animate-spin object-contain" />
             </div>
             <div>
               <p className="text-[10px] font-mono text-orange-400 font-bold uppercase tracking-wider">Giro de Chakra - Turno {turn}</p>
@@ -9592,7 +9723,7 @@ if (skill.redirectOffensiveToCaster) {
             >
               {isEndingTurn ? (
                 <>
-                  <img src="/static/img/icon/star.webp" alt="Calculando" className="w-4 h-4 animate-spin object-contain" />
+                  <img src="/static/img/icon/star.svg" alt="Calculando" className="w-4 h-4 animate-spin object-contain" />
                   <span className="normal-case font-bold">(calculando...)</span>
                 </>
               ) : (
@@ -11735,7 +11866,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
       <AnimatePresence>
         {isPreparing && (
           <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-full px-4 py-2 shadow-lg backdrop-blur-sm select-none">
-            <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
+            <img src="/static/img/icon/star.svg" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
             <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">Preparando...</span>
           </div>
         )}

@@ -4696,18 +4696,9 @@ const newSkill: Skill = {
                                   onChange={(e) => handleUpdateSkillField('shieldVal', parseInt(e.target.value) || 0)}
                                   placeholder="Valor"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                  title="Quantidade de escudo que a skill gera"
                                 />
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={99}
-                                  value={editingSkill.shieldDuration || 0}
-                                  onChange={(e) => handleUpdateSkillField('shieldDuration', parseInt(e.target.value) || 0)}
-                                  placeholder="Turnos"
-                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
-                                  title="Turnos de duração. Deixe em branco para infinito."
-                                />
-                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                                <span className="text-[9px] text-slate-500 font-mono">Valor do Escudo</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-slate-800/60">
                                 <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">🎯 Aplicar Buffs/Escudos em:</span>
@@ -4723,7 +4714,58 @@ const newSkill: Skill = {
                               </div>
                             </div>
                             <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
-                              <div className="flex items-center justify-between gap-2">
+                              <div className="space-y-1">
+                                <span className="text-[9px] text-slate-400 font-mono uppercase font-bold block">⏳ Duração do Escudo</span>
+                                <label className="flex items-center gap-1.5 text-[9px] text-slate-400 font-mono cursor-pointer select-none">
+                                  <input
+                                    type="radio"
+                                    name="shield-duration-mode"
+                                    checked={!(editingSkill.shieldDuration && editingSkill.shieldDuration > 0)}
+                                    onChange={() => handleUpdateSkillField('shieldDuration', 0)}
+                                    className="w-3 h-3 accent-orange-500"
+                                  />
+                                  Permanente (fica até ser destruído)
+                                </label>
+                                <div className="flex items-center gap-1.5">
+                                  <label className="flex items-center gap-1.5 text-[9px] text-slate-400 font-mono cursor-pointer select-none whitespace-nowrap">
+                                    <input
+                                      type="radio"
+                                      name="shield-duration-mode"
+                                      checked={!!(editingSkill.shieldDuration && editingSkill.shieldDuration > 0)}
+                                      onChange={() => handleUpdateSkillField('shieldDuration', editingSkill.shieldDuration && editingSkill.shieldDuration > 0 ? editingSkill.shieldDuration : 2)}
+                                      className="w-3 h-3 accent-orange-500"
+                                    />
+                                    Sumir em
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={99}
+                                    value={editingSkill.shieldDuration || 2}
+                                    onChange={(e) => handleUpdateSkillField('shieldDuration', parseInt(e.target.value) || 2)}
+                                    placeholder="Turnos"
+                                    className="w-14 px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                  />
+                                  <span className="text-[9px] text-slate-500 font-mono">turnos</span>
+                                </div>
+                              </div>
+                              <div className="space-y-1 pt-1 border-t border-slate-800/50">
+                                <span className="text-[9px] text-slate-400 font-mono uppercase font-bold block">📦 Limite Máx. de Escudo que esta skill pode gerar</span>
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={10000}
+                                    value={editingSkill.shieldMaxVal || 0}
+                                    onChange={(e) => handleUpdateSkillField('shieldMaxVal', parseInt(e.target.value) || 0)}
+                                    placeholder="Sem limite"
+                                    className="w-24 px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                    title="O escudo total do personagem não ultrapassa este valor. Deixe em branco para sem limite."
+                                  />
+                                  <span className="text-[9px] text-slate-500 font-mono">vazio = sem limite</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/50">
                                 <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
                                   <input
                                     type="checkbox"

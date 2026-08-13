@@ -133,7 +133,7 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
               exit={{ opacity: 0, y: -20 }}
               className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xl border border-emerald-400/40 flex items-center gap-2"
             >
-              <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
+              <img src="/static/img/icon/star.svg" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
               <span>{claimToast}</span>
             </motion.div>
           )}

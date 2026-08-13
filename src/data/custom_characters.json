@@ -536,7 +536,8 @@
         ],
         "gainChakra": 0,
         "shieldVal": 10,
-        "shieldTarget": "AllAllies"
+        "shieldTarget": "AllAllies",
+        "shieldDuration": 1
       },
       {
         "name": "Byakugan Activation",
@@ -2915,7 +2916,8 @@
           "Amigável"
         ],
         "doNotApplyIfActive": false,
-        "shieldVal": 40
+        "shieldVal": 40,
+        "shieldMaxVal": 40
       },
       {
         "name": "Sand Shield",

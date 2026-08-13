@@ -22,7 +22,7 @@ interface MainMenuProps {
   playClickSound: () => void;
   playScrollSound: () => void;
   onOpenAdmin: () => void;
-  user: UserProfile;
+  user: UserProfile | null;
   onLogout: () => void;
   onUpdateUser?: (updatedUser: UserProfile) => void;
 }
@@ -46,11 +46,11 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
     }
   };
 
-  const ryos = user.ryos ?? 1500;
-  const gems = user.gems ?? 120;
+  const ryos = user ? (user.ryos ?? 1500) : 1500;
+  const gems = user ? (user.gems ?? 120) : 120;
 
   const ranks = getRanks();
-  const userXp = user.xp || 0;
+  const userXp = user?.xp || 0;
   const rankProgress = getRankProgress(userXp, ranks);
 
   return (
@@ -97,19 +97,21 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5 text-orange-400" />}
           </button>
 
-          <button
-            onClick={onLogout}
-            className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-red-500/80 hover:bg-red-500/10 hover:text-red-400 transition-all cursor-pointer text-slate-400 shadow"
-            title={t('Sair da Conta', 'Log Out')}
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          {user && (
+            <button
+              onClick={onLogout}
+              className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-red-500/80 hover:bg-red-500/10 hover:text-red-400 transition-all cursor-pointer text-slate-400 shadow"
+              title={t('Sair da Conta', 'Log Out')}
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Modals */}
       <AnimatePresence>
-        {showProfileCardModal && (
+        {user && showProfileCardModal && (
           <ProfileCardModal
             profile={{
               name: user.name,
@@ -135,7 +137,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
           />
         )}
 
-        {showProfileModal && (
+        {user && showProfileModal && (
           <ProfileModal
             user={user}
             onClose={() => setShowProfileModal(false)}
@@ -170,16 +172,17 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
 
           {/* MAIN ACTION BAR: PERFIL + ENTRAR NA ARENA */}
           <div className="pt-4 flex flex-wrap items-center justify-center gap-3 md:gap-4 max-w-4xl mx-auto">
-            {/* PERFIL BUTTON */}
-            <button
-              onClick={() => {
-                playClickSound();
-                playScrollSound();
-                setShowProfileCardModal(true);
-              }}
-              className="p-3.5 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/80 hover:bg-slate-900 text-slate-200 transition-all cursor-pointer flex items-center gap-3 shadow-xl group relative"
-              title={t('Acessar Card do Perfil & Curtidas', 'Access Profile Card & Likes')}
-            >
+            {/* PERFIL BUTTON (or login prompt when visiting) */}
+            {user ? (
+              <button
+                onClick={() => {
+                  playClickSound();
+                  playScrollSound();
+                  setShowProfileCardModal(true);
+                }}
+                className="p-3.5 px-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/80 hover:bg-slate-900 text-slate-200 transition-all cursor-pointer flex items-center gap-3 shadow-xl group relative"
+                title={t('Acessar Card do Perfil & Curtidas', 'Access Profile Card & Likes')}
+              >
               {/* Avatar with Equipped Frame */}
               <div className="relative w-10 h-10 flex-shrink-0">
                 <div className="w-full h-full rounded-full overflow-hidden bg-slate-950 border border-orange-500/50 shadow">
@@ -252,6 +255,25 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
                 </div>
               </div>
             </button>
+            ) : (
+              <button
+                onClick={handleStart}
+                className="p-3.5 px-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-orange-500/80 hover:bg-slate-900 text-slate-200 transition-all cursor-pointer flex items-center gap-3 shadow-xl group"
+                title={t('Entrar com sua conta ninja', 'Log in with your ninja account')}
+              >
+                <div className="w-10 h-10 flex-shrink-0 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center shadow">
+                  <User className="w-5 h-5 text-slate-950" />
+                </div>
+                <div className="text-left min-w-0">
+                  <div className="text-xs font-mono font-black text-orange-400 uppercase tracking-wide">
+                    {t('Visitante', 'Guest')}
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                    {t('Toque para entrar na arena', 'Tap to enter the arena')}
+                  </div>
+                </div>
+              </button>
+            )}
 
             {/* ENTRAR NA ARENA CTA BUTTON */}
             <button
@@ -268,10 +290,17 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
                 playClickSound();
                 setShowRules(!showRules);
               }}
-              className="p-3.5 px-5 bg-slate-900 border border-slate-800 text-slate-300 font-mono font-bold rounded-2xl flex items-center gap-2 hover:bg-slate-800 hover:border-slate-700 active:scale-95 transition-all cursor-pointer text-xs uppercase tracking-wider"
+              className="como-jogar-btn relative text-slate-900 font-mono font-black flex items-center justify-center hover:brightness-110 active:scale-95 transition-all cursor-pointer text-xs uppercase tracking-wider shadow-xl"
             >
-              <HelpCircle className="w-4 h-4 text-orange-400" />
-              {t('Como Jogar', 'How to Play')}
+              <img
+                src="/static/img/como-jogar.webp"
+                alt={t('Como Jogar', 'How to Play')}
+                className="h-full w-auto"
+              />
+              <span className="absolute inset-0 flex items-center justify-center gap-2 pointer-events-none">
+                <HelpCircle className="w-4 h-4 text-orange-600 drop-shadow" />
+                <span>{t('Como Jogar', 'How to Play')}</span>
+              </span>
             </button>
           </div>
         </motion.div>

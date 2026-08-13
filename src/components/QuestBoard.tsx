@@ -502,13 +502,13 @@ export default function QuestBoard({
 
               {/* Top Badge */}
               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/30 to-amber-500/20 border border-amber-400/70 shadow-lg shadow-amber-500/20">
-                <img src="/static/img/icon/star.webp" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
+                <img src="/static/img/icon/star.svg" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 font-sans">
                   {rewardModalData.unlockedCharacters.length > 0
                     ? 'NOVO PERSONAGEM'
                     : 'RECOMPENSA RESGATADA!'}
                 </span>
-                <img src="/static/img/icon/star.webp" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
+                <img src="/static/img/icon/star.svg" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
               </div>
 
               {/* Character Unlocked View */}
@@ -638,11 +638,11 @@ export default function QuestBoard({
                 <div className="relative w-full max-w-[220px] bg-slate-900/95 border-2 border-amber-400/90 rounded-3xl p-3.5 sm:p-4 shadow-[0_0_70px_rgba(245,158,11,0.4)] flex flex-col items-center text-center space-y-2.5">
                   {/* Top Badge */}
                   <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/30 to-amber-500/20 border border-amber-400/70 shadow-lg shadow-amber-500/20">
-                    <img src="/static/img/icon/star.webp" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
+                    <img src="/static/img/icon/star.svg" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 font-sans">
                       OUTRAS RECOMPENSAS
                     </span>
-                    <img src="/static/img/icon/star.webp" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
+                    <img src="/static/img/icon/star.svg" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
                   </div>
                   <div className="flex flex-col gap-2 w-full">
                     {rewardModalData.otherRewards.map((r, rIdx) => (
@@ -896,7 +896,7 @@ export default function QuestBoard({
                 className="p-2 text-slate-400 hover:text-orange-400 hover:bg-slate-800 rounded-lg transition cursor-pointer flex items-center gap-1.5 text-xs font-mono"
                 title="Sincronizar Missões"
               >
-                <img src="/static/img/icon/star.webp" alt="Loading" className={`w-3.5 h-3.5 object-contain ${loading ? 'animate-spin' : ''}`} />
+                <img src="/static/img/icon/star.svg" alt="Loading" className={`w-3.5 h-3.5 object-contain ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Sincronizar</span>
               </button>
             </div>
@@ -924,7 +924,7 @@ export default function QuestBoard({
           {/* Quests Listing */}
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center space-y-3">
-              <img src="/static/img/icon/star.webp" alt="Loading" className="w-8 h-8 animate-spin object-contain" />
+              <img src="/static/img/icon/star.svg" alt="Loading" className="w-8 h-8 animate-spin object-contain" />
               <p className="text-slate-400 text-xs font-mono">Buscando missões secretas na névoa...</p>
             </div>
 ) : filteredQuests.length > 0 ? (
@@ -1143,7 +1143,7 @@ export default function QuestBoard({
                               className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 active:scale-95 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer font-sans uppercase tracking-wider shadow-lg shadow-emerald-500/20"
                             >
                               {claimedRewardId === quest.id ? (
-                                <img src="/static/img/icon/star.webp" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
+                                <img src="/static/img/icon/star.svg" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
                               ) : (
                                 <Sparkles className="w-4 h-4 fill-slate-950 text-slate-950" />
                               )}

@@ -134,6 +134,7 @@ export interface Skill {
   stunType?: ('mental' | 'physical' | 'affliction' | 'chakra' | 'ranged' | 'friendly' | string)[];
   shieldVal?: number;
   shieldDuration?: number;
+  shieldMaxVal?: number;
   damageReductionVal?: number;
   damageReductionDuration?: number;
   damageBuffVal?: number;
@@ -518,6 +519,7 @@ export interface CombatCharacter {
   health: number;
   maxHealth: number;
   shield: number;
+  shieldExpiresTurn?: number;
   activeEffects: ActiveEffect[];
   isDead: boolean;
   lastTurnStatus?: 'ANULADO' | 'REFLETIDO' | 'CONTRA-ATAQUE' | null;
