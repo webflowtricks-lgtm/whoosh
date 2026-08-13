@@ -76,6 +76,233 @@
 }
 
 /* =========================================================
+   ANIMAÇÃO DE FOGO/ELETRICIDADE DA BARRA DE PROGRESSO DA ARENA
+   (.arena-progress-fill e .arena-progress-sheen)
+   =========================================================
+   A barra usa um gradiente de fogo deslizante + brilho pulsante,
+   e o sheen é a faísca elétrica clara que varre da esquerda p/ direita.
+   Para acelerar o fogo, reduza o tempo em fire-slide (1.2s).
+   ========================================================= */
+@keyframes fire-slide {
+  0% {
+    background-position: 0% 0%, 0% 0%;
+  }
+  100% {
+    background-position: 200% 0%, 200% 0%;
+  }
+}
+
+@keyframes fire-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 6px rgba(249, 115, 22, 0.6),
+      0 0 14px rgba(251, 146, 60, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 0 12px rgba(249, 115, 22, 0.95),
+      0 0 26px rgba(251, 146, 60, 0.6),
+      0 0 40px rgba(255, 60, 20, 0.3);
+  }
+}
+
+.arena-progress-fill {
+  background-image:
+    repeating-linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.25) 0px,
+      rgba(255, 255, 255, 0) 8px,
+      rgba(255, 255, 255, 0) 16px
+    ),
+    linear-gradient(90deg, #ef4444, #f97316, #f59e0b, #facc15, #fb923c, #ef4444);
+  background-size: 200% 100%, 200% 100%;
+  background-repeat: repeat-x, repeat-x;
+  animation:
+    fire-slide 1.2s linear infinite,
+    fire-glow 0.8s ease-in-out infinite;
+}
+
+.arena-progress-sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  left: -40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: sheen-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes sheen-sweep {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 110%;
+  }
+}
+
+/* =========================================================
+   CLASSE ÚNICA DO TAMANHO DO PORTAL (.portal-animation)
+   =========================================================
+   Para diminuir ou aumentar o portal inteiro (todos os anéis,
+   espiral, brilho e microbolinhas), altere o valor de scale.
+   Exemplos: 0.6 = 60% do tamanho | 1.2 = 20% maior | 0.75 = 75%
+   ========================================================= */
+.portal-animation {
+    transform: scale(0.75);
+}
+
+/* =========================================================
+   ANIMAÇÃO DO PORTAL ATRÁS DO BOTÃO ENTRAR NA ARENA
+   =========================================================
+   Camadas do portal (portal-rim / portal-halo / portal-vortex-a/b/c /
+   portal-depth / portal-orbit / portal-particle).
+   Os braços do vórtice usam conic-gradient suave + blur para ficarem
+   líquidos (sem pontas de ventilador). Para deixar mais denso, aumente
+   os intervalos de cor (ex: 60deg -> 90deg) e/ou reduza o blur.
+   Velocidades em portal-spin.
+   ========================================================= */
+@keyframes portal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes portal-glow-pulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.portal-rim {
+  border-radius: 9999px;
+  border: 5px solid rgba(255, 170, 70, 0.9);
+  box-shadow:
+    0 0 22px rgba(249, 115, 22, 0.85),
+    0 0 60px rgba(249, 115, 22, 0.45),
+    inset 0 0 30px rgba(249, 115, 22, 0.6),
+    inset 0 0 90px rgba(255, 120, 20, 0.3);
+  animation: portal-glow-pulse 2.4s ease-in-out infinite;
+}
+
+.portal-vortex-a {
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(255, 154, 61, 0) 20deg,
+    rgba(255, 154, 61, 0.8) 60deg,
+    rgba(255, 200, 120, 0.95) 90deg,
+    rgba(255, 154, 61, 0.75) 120deg,
+    rgba(255, 154, 61, 0) 170deg,
+    transparent 210deg,
+    rgba(255, 170, 70, 0) 240deg,
+    rgba(255, 170, 70, 0.6) 280deg,
+    rgba(255, 205, 130, 0.8) 310deg,
+    rgba(255, 170, 70, 0.5) 340deg,
+    transparent 360deg
+  );
+  filter: blur(9px);
+  animation: portal-spin 5s linear infinite;
+}
+
+.portal-vortex-b {
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 130deg,
+    transparent 0deg,
+    rgba(255, 170, 70, 0) 10deg,
+    rgba(255, 170, 70, 0.55) 50deg,
+    rgba(255, 200, 120, 0.75) 80deg,
+    rgba(255, 170, 70, 0.55) 110deg,
+    rgba(255, 170, 70, 0) 160deg,
+    transparent 200deg,
+    rgba(251, 146, 60, 0) 240deg,
+    rgba(251, 146, 60, 0.5) 280deg,
+    rgba(255, 190, 100, 0.7) 310deg,
+    rgba(251, 146, 60, 0.45) 340deg,
+    transparent 360deg
+  );
+  filter: blur(10px);
+  animation: portal-spin 9s linear infinite reverse;
+}
+
+.portal-vortex-c {
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 60deg,
+    transparent 0deg,
+    rgba(255, 220, 160, 0) 5deg,
+    rgba(255, 220, 160, 0.9) 14deg,
+    rgba(255, 190, 110, 0.85) 22deg,
+    rgba(255, 220, 160, 0) 32deg,
+    transparent 90deg,
+    rgba(255, 220, 160, 0) 95deg,
+    rgba(255, 220, 160, 0.75) 104deg,
+    rgba(255, 190, 110, 0.7) 112deg,
+    rgba(255, 220, 160, 0) 122deg,
+    transparent 180deg,
+    rgba(255, 220, 160, 0) 185deg,
+    rgba(255, 220, 160, 0.7) 194deg,
+    rgba(255, 190, 110, 0.65) 202deg,
+    rgba(255, 220, 160, 0) 212deg,
+    transparent 270deg,
+    rgba(255, 220, 160, 0) 275deg,
+    rgba(255, 220, 160, 0.8) 284deg,
+    rgba(255, 190, 110, 0.7) 292deg,
+    rgba(255, 220, 160, 0) 302deg,
+    transparent 360deg
+  );
+  filter: blur(4px);
+  animation: portal-spin 3.5s linear infinite;
+}
+
+.portal-halo {
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    transparent 55%,
+    rgba(255, 170, 70, 0.4) 74%,
+    rgba(249, 115, 22, 0.12) 88%,
+    transparent 96%
+  );
+  animation: portal-glow-pulse 2.4s ease-in-out infinite;
+}
+
+.portal-spiral {
+  filter: drop-shadow(0 0 6px rgba(255, 170, 70, 0.8));
+  opacity: 0.9;
+}
+
+.portal-depth {
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgba(2, 2, 5, 0.92) 0%,
+    rgba(249, 115, 22, 0.28) 45%,
+    rgba(249, 115, 22, 0.06) 62%,
+    transparent 75%
+  );
+}
+
+.portal-orbit {
+  animation: portal-spin 14s linear infinite;
+}
+
+.portal-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #ffd58a;
+  box-shadow: 0 0 8px #ffab40;
+  opacity: 0.9;
+}
+
+/* =========================================================
    CLASSE ÚNICA DO TAMANHO DO BOTÃO COMO JOGAR (.como-jogar-btn)
    =========================================================
    Para ajustar o tamanho do botão "Como Jogar" (imagem como-jogar.webp),

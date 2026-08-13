@@ -230,9 +230,9 @@ export default function ArenaLoading({ onComplete }: { onComplete: () => void })
           <motion.div
             animate={{ width: `${progress}%` }}
             transition={{ ease: 'easeOut', duration: 0.3 }}
-            className="h-full rounded-full bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-400 relative"
+            className="arena-progress-fill h-full rounded-full relative"
           >
-            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" />
+            <span className="arena-progress-sheen" />
           </motion.div>
         </div>
         <div className="flex items-center justify-center gap-1.5 mt-3 text-[9px] font-mono text-slate-500 uppercase tracking-wider">

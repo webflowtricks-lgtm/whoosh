@@ -289,28 +289,37 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             {/* ENTRAR NA ARENA CTA BUTTON */}
             <div className="relative">
               {/* PORTAL ANIMATION */}
-              <div className="absolute -inset-10 pointer-events-none flex items-center justify-center" aria-hidden>
-                <div className="absolute w-56 h-56 rounded-full bg-orange-500/20 blur-3xl animate-pulse" />
-                <div
-                  className="absolute w-56 h-56 rounded-full border-2 border-dashed border-amber-400/40 animate-spin"
-                  style={{ animationDuration: '9s', animationDirection: 'reverse' }}
-                />
-                <div
-                  className="absolute w-44 h-44 rounded-full border-4 border-orange-500/40 border-t-orange-400 border-r-transparent border-b-orange-600/30 border-l-transparent animate-spin"
-                  style={{ animationDuration: '3s' }}
-                />
-                <div
-                  className="absolute w-32 h-32 rounded-full border-2 border-orange-600/60 border-b-transparent animate-spin"
-                  style={{ animationDuration: '1.6s' }}
-                />
-                <div
-                  className="absolute w-48 h-48 rounded-full opacity-40 animate-spin"
-                  style={{
-                    animationDuration: '6s',
-                    background:
-                      'conic-gradient(from 0deg, transparent 0%, rgba(249,115,22,0.5) 18%, transparent 38%, rgba(251,191,36,0.45) 58%, transparent 78%, rgba(249,115,22,0.35) 95%, transparent 100%)',
-                  }}
-                />
+              <div className="portal-animation absolute -inset-8 pointer-events-none flex items-center justify-center" aria-hidden>
+                <div className="absolute w-60 h-60 rounded-full bg-orange-500/15 blur-3xl animate-pulse" style={{ animationDuration: '3s' }} />
+                <div className="portal-rim absolute w-48 h-48" />
+                <div className="portal-halo absolute w-48 h-48" />
+                <div className="portal-vortex-a absolute w-48 h-48" />
+                <div className="portal-vortex-b absolute w-44 h-44" />
+                <div className="portal-vortex-c absolute w-48 h-48" />
+                <div className="portal-depth absolute w-48 h-48" />
+                <svg
+                  className="portal-spiral absolute w-48 h-48 animate-spin"
+                  style={{ animationDuration: '8s', animationDirection: 'reverse' }}
+                  viewBox="-90 -90 290 290"
+                  fill="none"
+                >
+                  <path
+                    d="M 54.0 50.0 54.9 50.4 55.7 50.9 56.4 51.6 57.1 52.4 57.7 53.3 58.2 54.3 58.6 55.4 58.9 56.6 59.0 57.9 58.9 59.2 58.7 60.5 58.4 61.9 57.8 63.3 57.1 64.7 56.2 66.0 55.2 67.3 54.0 68.5 52.6 69.7 51.1 70.7 49.4 71.6 47.5 72.3 45.6 72.9 43.6 73.4 41.4 73.6 39.2 73.6 36.9 73.5 34.6 73.1 32.2 72.5 29.9 71.6 27.6 70.5 25.3 69.2 23.1 67.7 21.0 65.9 19.1 63.9 17.2 61.7 15.5 59.2 14.0 56.6 12.8 53.8 11.7 50.8 10.9 47.7 10.3 44.5 10.0 41.1 10.0 37.7 10.3 34.2 10.9 30.7 11.8 27.2 13.0 23.7 14.6 20.3 16.4 16.9 18.6 13.7 21.1 10.6 23.9 7.6 27.0 4.9 30.3 2.4 33.9 0.1 37.7 -1.8 41.8 -3.5 46.0 -4.9 50.4 -5.9 55.0 -6.6 59.6 -6.9 64.4 -6.8 69.1 -6.3 73.9 -5.4 78.7 -4.1 83.4 -2.3 88.0 -0.2 92.5 2.3 96.8 5.3 100.9 8.6 104.7 12.3 108.3 16.3 111.6 20.7 114.6 25.4 117.2 30.4 119.4 35.7 121.2 41.2 122.6 46.9 123.5 52.7 123.9 58.7 123.8 64.7 123.3 70.8 122.2 76.9 120.6 83.0 118.5 88.9 115.9 94.8 112.8 100.5 109.2 105.9 105.1 111.1 100.6 116.0 95.7 120.6 90.3 124.8 84.5 128.6 78.4 131.9 72.0 134.8 65.3 137.1 58.4 139.0 51.3 140.2 44.0 140.9 36.6 141.0 29.2 140.5 21.8 139.4 14.4 137.7 7.1 135.3 -0.1 132.4 -7.0 128.8 -13.7 124.7 -20.1 120.0 -26.1 114.7 -31.8 109.0 -37.0 102.7 -41.7 96.0 -45.9 88.8 -49.5 81.3 -52.6 73.4 -55.0 65.3 -56.7 56.9 -57.8 48.4 -58.2 39.7 -57.9 30.9 -56.9 22.1 -55.2 13.4 -52.7 4.7 -49.5 -3.8 -45.7 -12.0 -41.1 -20.0 -35.9 -27.6 -30.0 -34.9 -23.5 -41.7 -16.4 -48.0 -8.8 -53.8 -0.7 -58.9 7.9 -63.5 16.8 -67.3 26.1 -70.5 35.7 -72.9 45.6 -74.5 55.6 -75.3 65.7 -75.3 75.8 -74.6 85.9 -72.9 96.0 -70.5 105.8 -67.2 115.5 -63.2 124.8 -58.3 133.8 -52.6 142.3 -46.3 150.4 -39.2 157.9 -31.4 164.8 -23.0 171.0 -14.0 176.5 -4.5 181.3 5.6 185.3 16.0 188.5 26.7 190.8 37.8 192.2 49.1"
+                    stroke="rgba(255,190,110,0.9)"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="portal-orbit absolute w-56 h-56">
+                  <span className="portal-particle" style={{ top: '50%', left: '0%', transform: 'translate(-50%,-50%)' }} />
+                  <span className="portal-particle" style={{ top: '50%', left: '100%', transform: 'translate(-50%,-50%)' }} />
+                  <span className="portal-particle" style={{ top: '0%', left: '50%', transform: 'translate(-50%,-50%)' }} />
+                  <span className="portal-particle" style={{ top: '100%', left: '50%', transform: 'translate(-50%,-50%)' }} />
+                  <span className="portal-particle" style={{ top: '0%', left: '0%', transform: 'translate(-50%,-50%)' }} />
+                  <span className="portal-particle" style={{ top: '0%', left: '100%', transform: 'translate(-50%,-50%)' }} />
+                  <span className="portal-particle" style={{ top: '100%', left: '0%', transform: 'translate(-50%,-50%)' }} />
+                  <span className="portal-particle" style={{ top: '100%', left: '100%', transform: 'translate(-50%,-50%)' }} />
+                </div>
               </div>
               <button
                 onClick={handleStart}
@@ -419,7 +428,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
         </div>
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5 text-orange-500/60" /> {t('Anti-Cheat Verificado', 'Anti-Cheat Verified')}</span>
-          <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5 text-blue-500/60" /> Unison Engine v1.0.0</span>
+          <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5 text-blue-500/60" />Engine v1.0.0</span>
         </div>
       </div>
     </div>
