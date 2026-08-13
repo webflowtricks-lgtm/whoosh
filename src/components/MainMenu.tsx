@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Sword, Play, HelpCircle, Shield, Award, LogOut, Calendar, ShoppingBag, Sparkles, User } from 'lucide-react';
+import { Volume2, VolumeX, Sword, HelpCircle, Shield, Award, LogOut, Calendar, ShoppingBag, Sparkles, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import EventsModal from './EventsModal';
@@ -73,9 +73,11 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             <Sword className="w-6 h-6 text-slate-950 stroke-[2.5]" />
           </div>
           <div>
-            <h1 className="text-lg font-black tracking-tight uppercase bg-gradient-to-r from-white via-slate-100 to-orange-400 bg-clip-text text-transparent">
-              NARUTO ARENA
-            </h1>
+            <img
+              src="/static/img/logo.webp"
+              alt="NARUTO ARENA"
+              className="menu-logo w-auto"
+            />
             <span className="font-mono text-[10px] tracking-wider text-orange-400 uppercase font-bold block leading-none">Engine v1.0</span>
           </div>
         </div>
@@ -166,9 +168,11 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             {t('Arena Tática Lendária 3v3', '3v3 Legendary Tactical Arena')}
           </div>
 
-          <h1 className="text-6xl md:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent uppercase">
-            NARUTO <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-500">ARENA</span>
-          </h1>
+          <img
+            src="/static/img/logo.webp"
+            alt="NARUTO ARENA"
+            className="menu-logo-central w-auto mx-auto"
+          />
 
           <p className="text-slate-400 text-base md:text-lg max-w-2xl mx-auto font-light leading-relaxed">
             {t(
@@ -283,13 +287,45 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             )}
 
             {/* ENTRAR NA ARENA CTA BUTTON */}
-            <button
-              onClick={handleStart}
-              className="p-3.5 px-8 bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-mono font-black rounded-2xl flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-orange-600/25 border border-orange-400 cursor-pointer text-sm uppercase tracking-wider"
-            >
-              <Play className="w-5 h-5 fill-slate-950 text-slate-950" />
-              {t('Entrar na Arena', 'Enter the Arena')}
-            </button>
+            <div className="relative">
+              {/* PORTAL ANIMATION */}
+              <div className="absolute -inset-10 pointer-events-none flex items-center justify-center" aria-hidden>
+                <div className="absolute w-56 h-56 rounded-full bg-orange-500/20 blur-3xl animate-pulse" />
+                <div
+                  className="absolute w-56 h-56 rounded-full border-2 border-dashed border-amber-400/40 animate-spin"
+                  style={{ animationDuration: '9s', animationDirection: 'reverse' }}
+                />
+                <div
+                  className="absolute w-44 h-44 rounded-full border-4 border-orange-500/40 border-t-orange-400 border-r-transparent border-b-orange-600/30 border-l-transparent animate-spin"
+                  style={{ animationDuration: '3s' }}
+                />
+                <div
+                  className="absolute w-32 h-32 rounded-full border-2 border-orange-600/60 border-b-transparent animate-spin"
+                  style={{ animationDuration: '1.6s' }}
+                />
+                <div
+                  className="absolute w-48 h-48 rounded-full opacity-40 animate-spin"
+                  style={{
+                    animationDuration: '6s',
+                    background:
+                      'conic-gradient(from 0deg, transparent 0%, rgba(249,115,22,0.5) 18%, transparent 38%, rgba(251,191,36,0.45) 58%, transparent 78%, rgba(249,115,22,0.35) 95%, transparent 100%)',
+                  }}
+                />
+              </div>
+              <button
+                onClick={handleStart}
+                className="entrar-na-arena-btn relative text-slate-900 font-mono font-black flex items-center justify-center hover:brightness-110 active:scale-95 transition-all cursor-pointer text-sm uppercase tracking-wider shadow-xl"
+              >
+                <img
+                  src="/static/img/entrar-na-arena.webp"
+                  alt={t('Entrar na Arena', 'Enter the Arena')}
+                  className="h-full w-auto"
+                />
+                <span className="entrar-na-arena-label absolute inset-0 flex items-center justify-center pointer-events-none">
+                  {t('Entrar na Arena', 'Enter the Arena')}
+                </span>
+              </button>
+            </div>
 
             {/* COMO JOGAR BUTTON */}
             <button

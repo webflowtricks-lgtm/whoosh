@@ -28,6 +28,54 @@
 }
 
 /* =========================================================
+   CLASSE ÚNICA DO TAMANHO DO BOTÃO ENTRAR NA ARENA (.entrar-na-arena-btn)
+   =========================================================
+   Para ajustar o tamanho do botão "Entrar na Arena" (imagem entrar-na-arena.webp),
+   altere o valor de height abaixo. A largura acompanha a proporção da imagem.
+   ========================================================= */
+.entrar-na-arena-btn {
+     height: 128px;
+    width: 302px;
+}
+
+/* =========================================================
+   POSIÇÃO DO TEXTO DO BOTÃO ENTRAR NA ARENA (.entrar-na-arena-label)
+   =========================================================
+   O texto fica centralizado por padrão. Para mover o texto na imagem,
+   ajuste os valores de transform (translateX/translateY) abaixo.
+   Exemplos:
+     - Descer 4px:  transform: translateY(4px);
+     - Subir 2px:   transform: translateY(-2px);
+     - Mover à direita: transform: translateX(8px);
+   ========================================================= */
+.entrar-na-arena-label {
+         transform: translate(0px, -6px);
+    font-weight: 1000;
+    font-family: arial;
+    font-size: 13px;
+}
+
+/* =========================================================
+   CLASSE ÚNICA DO TAMANHO DA LOGO CENTRAL DO MENU (.menu-logo-central)
+   =========================================================
+   Para ajustar o tamanho da logo central (logo.webp), altere o
+   valor de height abaixo. A largura acompanha a proporção.
+   ========================================================= */
+.menu-logo-central {
+  height: 90px;
+}
+
+/* =========================================================
+   CLASSE ÚNICA DO TAMANHO DA LOGO DO MENU (.menu-logo)
+   =========================================================
+   Para ajustar o tamanho da logo (logo.webp) do menu inicial,
+   altere o valor de height abaixo. A largura acompanha a proporção.
+   ========================================================= */
+.menu-logo {
+  height: 36px;
+}
+
+/* =========================================================
    CLASSE ÚNICA DO TAMANHO DO BOTÃO COMO JOGAR (.como-jogar-btn)
    =========================================================
    Para ajustar o tamanho do botão "Como Jogar" (imagem como-jogar.webp),
