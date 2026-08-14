@@ -5314,6 +5314,57 @@ splashOnlyTargets = splashPool.filter(c =>
         // Apply dynamic Direct Damage over time (direct_damage)
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
+          // Recompute the value when the skill has damage rules (ex.: Umbrella): se a skill
+          // ativa da regra não estiver mais ativa, o dano volta ao valor base.
+          const ddSkill = getEffectSkill(dd);
+          if (ddSkill && ddSkill.damageRules && ddSkill.damageRules.some(r => r.damageType === 'direct_damage' || r.damageType === 'piercing')) {
+            const ddCaster = dd.casterId ? [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === dd.casterId) : null;
+            if (ddCaster) {
+              const ddScanPool = [...updatedPlayer, ...updatedEnemy];
+              let ruleDirect = 0;
+              let ruleIgnoresBase = false;
+              for (const rule of ddSkill.damageRules) {
+                if (rule.damageBoost > 0 && rule.activeSkillName && (rule.damageType === 'direct_damage' || rule.damageType === 'piercing')) {
+                  const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+                  const hasActive = ddScanPool.some(cb => cb.activeEffects.some(e => {
+                    if (!e.name) return false;
+                    const eNameLower = e.name.toLowerCase();
+                    return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
+                  }));
+                  if (hasActive) {
+                    ruleDirect += rule.damageBoost;
+                    if (rule.ignoreBaseDamage !== false) ruleIgnoresBase = true;
+                  }
+                }
+              }
+              let stackBonus = 0;
+              if (ddSkill.selfStackDamageRules) {
+                for (const selfRule of ddSkill.selfStackDamageRules) {
+                  if (selfRule.stackType && selfRule.damagePerStack > 0 && selfRule.damageType === 'direct_damage') {
+                    const selfEff = ddCaster.activeEffects.find(e => e.stackType === selfRule.stackType || e.name === selfRule.stackType);
+                    const selfCount = selfEff?.stacks || 0;
+                    if (selfCount > 0) stackBonus += selfCount * selfRule.damagePerStack;
+                  }
+                }
+              }
+              if (ddSkill.stackDamageRules) {
+                const ddCasterIsPlayer = ddCaster.id.startsWith('player');
+                const ddSrcList = ddScanPool.filter(cb => cb.id.startsWith('player') === ddCasterIsPlayer);
+                const ddTgtList = ddScanPool.filter(cb => cb.id.startsWith('player') !== ddCasterIsPlayer);
+                for (const stackRule of ddSkill.stackDamageRules) {
+                  if (stackRule.stackType && stackRule.damagePerStack > 0 && stackRule.damageType === 'direct_damage') {
+                    const count = countStacksInPool(getStackPoolForRule(stackRule, c, ddCaster, ddSrcList, ddTgtList), stackRule.stackType);
+                    if (count > 0 && !stackRule.duration) stackBonus += count * stackRule.damagePerStack;
+                  }
+                }
+              }
+              const missingHpDirect = ddSkill.missingHpDamageType === 'direct' ? Math.max(0, ddCaster.maxHealth - ddCaster.health) : 0;
+              const ddBase = ruleIgnoresBase ? 0 : (ddSkill.directDamage || 0);
+              const ddBuffs = ddCaster.activeEffects.filter(e => e.type === 'damage_buff').reduce((a, e) => a + (e.value || 0), 0);
+              const ddDebuffs = ddCaster.activeEffects.filter(e => e.type === 'damage_debuff').reduce((a, e) => a + (e.value || 0), 0);
+              dd.value = Math.max(0, ddBase + ruleDirect + stackBonus + missingHpDirect + ddBuffs - ddDebuffs);
+            }
+          }
           if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo por ${dd.name}.`, type: 'buff' });
