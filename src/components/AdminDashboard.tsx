@@ -3879,14 +3879,31 @@ const newSkill: Skill = {
                                   </div>
 
                                   <div className="space-y-1">
+                                    <span className="text-[9px] text-red-400 font-mono uppercase font-bold block">Modo de Anulação:</span>
+                                    <select
+                                      value={editingSkill.counterAttackMode || 'first'}
+                                      onChange={(e) => handleUpdateSkillField('counterAttackMode', e.target.value)}
+                                      className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-red-300 outline-none w-full"
+                                    >
+                                      <option value="first">Anular somente a 1ª skill (consome ao anular)</option>
+                                      <option value="all">Anular TODAS as skills durante a duração</option>
+                                    </select>
+                                    <p className="text-[9px] text-slate-500 font-mono leading-tight">
+                                      {editingSkill.counterAttackMode === 'all'
+                                        ? 'Todas as skills na janela de turnos são anuladas, sem consumir o contra-ataque.'
+                                        : 'A 1ª skill anulada consome o contra-ataque; as demais passam normalmente.'}
+                                    </p>
+                                  </div>
+
+                                  <div className="space-y-1">
                                     <span className="text-[9px] text-red-400 font-mono uppercase font-bold block">Tipo de Anulação:</span>
                                     <select
                                       value={editingSkill.counterAttackType || 'defender'}
                                       onChange={(e) => handleUpdateSkillField('counterAttackType', e.target.value)}
                                       className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-red-300 outline-none w-full"
                                     >
-                                      <option value="attacker">Anular o próximo ataque do inimigo alvo</option>
-                                      <option value="defender">Anular o primeiro ataque recebido pelo aliado alvo</option>
+                                      <option value="attacker">No inimigo: anula as skills OFENSIVAS usadas por ele</option>
+                                      <option value="defender">No aliado/alvo: anula as skills usadas NELE</option>
                                     </select>
                                   </div>
 
@@ -3901,6 +3918,9 @@ const newSkill: Skill = {
                                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                                       ))}
                                     </select>
+                                    <p className="text-[9px] text-slate-500 font-mono leading-tight">
+                                      Ex.: marque em um aliado (defender) para anular a 1ª skill usada nele, ou em todos os inimigos (attacker) para anular as skills deles pelos turnos configurados.
+                                    </p>
                                   </div>
                                 </motion.div>
                               )}

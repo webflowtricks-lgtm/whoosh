@@ -3260,6 +3260,197 @@
     "skins": []
   },
   {
+    "id": "zaku-abumi",
+    "name": "Zaku Abumi",
+    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
+    "tags": [
+      "Clã Shinobi",
+      "Clássico",
+      "Time Dosu"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zaku-abumi/icon.jpg",
+    "folder": "zaku-abumi",
+    "skills": [
+      {
+        "name": "Slicing Sound Wave",
+        "desc": "Zaku Abumi executa [Slicing Sound Wave], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zaku-abumi/SlicingSoundWave.jpg",
+        "cost": [
+          "Blood"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ],
+        "damage": 25,
+        "stackable": true,
+        "stackType": "Decapitating Airwaves",
+        "stackTarget": "Self",
+        "stackDuration": 1
+      },
+      {
+        "name": "Supersonic Slicing Wave",
+        "desc": "Zaku Abumi executa [Supersonic Slicing Wave], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zaku-abumi/SupersonicSlicingWave.jpg",
+        "cost": [
+          "Blood",
+          "Blood"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "AllEnemies",
+        "classes": [
+          "À Distância",
+          "Físico"
+        ],
+        "damage": 30,
+        "selfStackDamageRules": [
+          {
+            "stackType": "Decapitating Airwaves",
+            "damagePerStack": 40
+          }
+        ]
+      },
+      {
+        "name": "Wallof Air",
+        "desc": "Zaku Abumi executa [Wallof Air], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zaku-abumi/WallofAir.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 2,
+        "currentCooldown": 0,
+        "targetType": "Ally",
+        "classes": [
+          "Amigável",
+          "Físico"
+        ],
+        "counterAttack": true,
+        "counterAttackType": "defender"
+      },
+      {
+        "name": "Deflect",
+        "desc": "Zaku Abumi executa [Deflect], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zaku-abumi/Deflect.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 4,
+        "currentCooldown": 0,
+        "targetType": "Ally",
+        "classes": [
+          "Chakra",
+          "Amigável"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "kin-tsuchi",
+    "name": "Kin Tsuchi",
+    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
+    "tags": [
+      "Clã Shinobi",
+      "Clássico",
+      "Time Dosu"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kin-tsuchi/icon.jpg",
+    "folder": "kin-tsuchi",
+    "skills": [
+      {
+        "name": "Bell Ring Illusion",
+        "desc": "Kin Tsuchi executa [Bell Ring Illusion], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kin-tsuchi/BellRingIllusion.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Mental",
+          "A distancia"
+        ],
+        "damage": 20,
+        "damageRules": [
+          {
+            "activeSkillName": "Shadow Senbon",
+            "damageBoost": 30,
+            "damageType": "damage",
+            "ignoreBaseDamage": true
+          }
+        ],
+        "stackDamageRules": [
+          {
+            "stackType": "Unnerving Bells",
+            "damagePerStack": 10,
+            "stackSource": "target"
+          }
+        ]
+      },
+      {
+        "name": "Shadow Senbon",
+        "desc": "Kin Tsuchi executa [Shadow Senbon], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kin-tsuchi/ShadowSenbon.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "A distancia"
+        ],
+        "cannotReduceDamageDuration": 2,
+        "stackable": true,
+        "stackDuration": 1,
+        "stackType": "Shadow Senbon"
+      },
+      {
+        "name": "Unnerving Bells",
+        "desc": "Kin Tsuchi executa [Unnerving Bells], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kin-tsuchi/UnnervingBells.jpg",
+        "cost": [
+          "Gen"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Mental",
+          "À Distância"
+        ],
+        "removeChakra": 1,
+        "stackable": true,
+        "stackType": "Unnerving Bells",
+        "stackDuration": 1
+      },
+      {
+        "name": "Foresight",
+        "desc": "Kin Tsuchi executa [Foresight], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kin-tsuchi/Foresight.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Amigável"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
     "id": "kakashi",
     "name": "Kakashi Hatake",
     "description": "O líder Jonin de elite do Time 7. Conhecido mundialmente como o Ninja Copiador, Kakashi usa seu Sharingan para antecipar movimentos, se esconde no subsolo e desfere sua icônica Espada Relâmpago.",
@@ -9603,82 +9794,6 @@
     "skins": []
   },
   {
-    "id": "kin-tsuchi",
-    "name": "Kin Tsuchi",
-    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
-    "tags": [
-      "Clã Shinobi",
-      "Clássico",
-      "Time Dosu"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kin-tsuchi/icon.jpg",
-    "folder": "kin-tsuchi",
-    "skills": [
-      {
-        "name": "Bell Ring Illusion",
-        "desc": "Kin Tsuchi executa [Bell Ring Illusion], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kin-tsuchi/BellRingIllusion.jpg",
-        "cost": [
-          "Gen"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Foresight",
-        "desc": "Kin Tsuchi executa [Foresight], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kin-tsuchi/Foresight.jpg",
-        "cost": [
-          "Nin"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Shadow Senbon",
-        "desc": "Kin Tsuchi executa [Shadow Senbon], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kin-tsuchi/ShadowSenbon.jpg",
-        "cost": [
-          "Nin",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Unnerving Bells",
-        "desc": "Kin Tsuchi executa [Unnerving Bells], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kin-tsuchi/UnnervingBells.jpg",
-        "cost": [
-          "Tai"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Mental",
-          "À Distância"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
     "id": "kinkaku-(r)",
     "name": "Kinkaku (R)",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
@@ -15612,82 +15727,6 @@
         "targetType": "Self",
         "classes": [
           "Físico"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "zaku-abumi",
-    "name": "Zaku Abumi",
-    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
-    "tags": [
-      "Clã Shinobi",
-      "Clássico",
-      "Time Dosu"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zaku-abumi/icon.jpg",
-    "folder": "zaku-abumi",
-    "skills": [
-      {
-        "name": "Deflect",
-        "desc": "Zaku Abumi executa [Deflect], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zaku-abumi/Deflect.jpg",
-        "cost": [
-          "Gen",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Slicing Sound Wave",
-        "desc": "Zaku Abumi executa [Slicing Sound Wave], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zaku-abumi/SlicingSoundWave.jpg",
-        "cost": [
-          "Gen"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Supersonic Slicing Wave",
-        "desc": "Zaku Abumi executa [Supersonic Slicing Wave], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zaku-abumi/SupersonicSlicingWave.jpg",
-        "cost": [
-          "Nin"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Wallof Air",
-        "desc": "Zaku Abumi executa [Wallof Air], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zaku-abumi/WallofAir.jpg",
-        "cost": [
-          "Nin"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
         ]
       }
     ],

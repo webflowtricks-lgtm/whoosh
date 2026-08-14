@@ -306,8 +306,9 @@ export interface Skill {
 // ==============================
 
 counterAttack?: boolean;
-counterAttackDuration?: number;
-counterAttackType?: 'attacker' | 'defender';
+  counterAttackDuration?: number;
+  counterAttackType?: 'attacker' | 'defender';
+  counterAttackMode?: 'first' | 'all';
 counterAttackTarget?: TargetOverride;
 
 counterAttackIrremovable?: boolean;
@@ -493,7 +494,8 @@ export interface ActiveEffect {
   redirectOffensiveIrremovable?: boolean;
   redirectOffensiveRemoveType?: string;
   blocksOffensiveSkills?: boolean; // Se verdadeiro, impede o alvo de usar skills ofensivas
-  counterAttackType?: 'attacker' | 'defender';
+counterAttackType?: 'attacker' | 'defender';
+  counterAttackMode?: 'first' | 'all';
   castTurn?: number;
   /** Quantidade de stacks acumuladas */
   stacks?: number;

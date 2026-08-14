@@ -506,7 +506,7 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     }
     case 'counter':
     case 'counter_attack':
-      rawPt = `Pronto para contra-atacar por ${durText}`;
+      rawPt = `Pronto para contra-atacar por ${durText}${effect.counterAttackMode === 'all' ? ' (anula TODAS as skills durante a duração)' : ' (anula somente a 1ª skill)'}`;
       break;
     case 'reflect':
       rawPt = `Reflete habilidades do oponente por ${durText}`;
@@ -2614,6 +2614,26 @@ const handleTradeChakra = () => {
         }
       }
 
+      // Check Counter-Attack on source (attacker mode): nullifies the source's own offensive skills
+      const attackerCounterEffect = source.activeEffects.find(e => e.type === 'counter_attack' && e.counterAttackType === 'attacker');
+      if (attackerCounterEffect && isOffensiveSkill && !skill.cannotBeCountered) {
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: `🚫 [${skill.name}] de ${source.character.name} foi ANULADO pelo Contra-Ataque ativo nele!`,
+          type: 'system',
+        });
+        addFloatingText(source.id, 'ANULADO', 'effect');
+        source.lastTurnStatus = 'ANULADO';
+        if (attackerCounterEffect.counterAttackMode !== 'all') {
+          attackerCounterEffect.duration = (attackerCounterEffect.duration || 1) - 1;
+          if (attackerCounterEffect.duration <= 0) {
+            source.activeEffects = source.activeEffects.filter(e => e !== attackerCounterEffect);
+          }
+        }
+        return; // Skill is cancelled due to counter-attack
+      }
+
       // Check Counter-Attack on target (only counter-attack cancels the skill)
       const counterEffect = defaultTarget.activeEffects.find(e => e.type === 'counter_attack' || (e.type === 'counter' && e.counterAttackType === 'defender'));
       if (counterEffect && isOffensiveSkill && !skill.cannotBeCountered) {
@@ -2627,9 +2647,11 @@ const handleTradeChakra = () => {
         addFloatingText(source.id, 'HABILIDADE ANULADA!', 'damage');
         defaultTarget.lastTurnStatus = 'CONTRA-ATAQUE';
         source.lastTurnStatus = 'ANULADO';
-        counterEffect.duration = (counterEffect.duration || 1) - 1;
-        if (counterEffect.duration <= 0) {
-          defaultTarget.activeEffects = defaultTarget.activeEffects.filter(e => e !== counterEffect);
+        if (counterEffect.counterAttackMode !== 'all') {
+          counterEffect.duration = (counterEffect.duration || 1) - 1;
+          if (counterEffect.duration <= 0) {
+            defaultTarget.activeEffects = defaultTarget.activeEffects.filter(e => e !== counterEffect);
+          }
         }
         return; // Skill is cancelled due to counter-attack
       }
@@ -4751,7 +4773,33 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // Counter Attack (applied as debuff on the selected target)
       if (skill.counterAttack) {
-        applyBuffEffect(`${skill.name} Counter`, 'counter', skill.counterAttackDuration || 2, 0, false, true);
+        const cTargets = resolveEffectTargets(skill.counterAttackTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, true);
+        cTargets.forEach(t => {
+          if (t.isDead) return;
+          const cMode = skill.counterAttackMode || 'first';
+          pushActiveEffect(t, {
+            name: `${skill.name} Contra-Ataque`,
+            sourceSkillName: skill.name,
+            type: 'counter_attack',
+            duration: skill.counterAttackDuration || 1,
+            counterAttackType: skill.counterAttackType || 'defender',
+            counterAttackMode: cMode,
+            icon: skill.icon,
+            irremovable: !!skill.counterAttackIrremovable,
+            cannotBeCountered: !!skill.counterAttackCannotBeCountered,
+            cannotBeReflected: !!skill.counterAttackCannotBeReflected,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⚔️ ${t.character.name} ativou CONTRA-ATAQUE com [${skill.name}]${cMode === 'all' ? ' (anula TODAS as skills)' : ' (anula somente a 1ª skill)'} por ${skill.counterAttackDuration || 1} ${skill.counterAttackDuration === 1 ? 'turno' : 'turnos'}!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'CONTRA-ATAQUE', 'effect');
+          cleanseTargetEffects(t, skill.counterAttackRemoveType);
+        });
       }
 
       // Reflect (applied as debuff on the selected target)
@@ -9639,8 +9687,8 @@ if (skill.redirectOffensiveToCaster) {
 
     if (skill.counterAttack) {
       effects.push({
-        label: 'Contra-Ataque',
-        value: `Anula a próxima habilidade recebida por ${skill.counterAttackDuration || 1} ${skill.counterAttackDuration === 1 ? 'Turno' : 'Turnos'}`,
+        label: 'Contra-Ataque (Anular)',
+        value: `${skill.counterAttackMode === 'all' ? 'Anula TODAS as habilidades' : 'Anula somente a 1ª habilidade'} ${skill.counterAttackType === 'attacker' ? 'ofensivas usadas pelo alvo' : 'recebidas pelo alvo'} por ${skill.counterAttackDuration || 1} ${skill.counterAttackDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.counterAttackTarget, 'Conjurador (Mim)')
       });
