@@ -124,6 +124,10 @@ export interface Skill {
   immortalHpThreshold?: number; // When HP ≤ this value, character becomes immortal (can't die)
   immortalDuration?: number; // How many turns the immortality lasts
   immortalImmediate?: boolean; // If true, immortality activates immediately upon using the skill
+  reviveOnDeath?: boolean; // Ao morrer, o personagem ressuscita com reviveHp de vida (consumido ao reviver)
+  reviveHp?: number; // Quantidade de vida ao ressuscitar
+  requireRevived?: boolean; // Skill só pode ser usada se o personagem já ressuscitou nesta partida
+  blockIfRevived?: boolean; // Skill fica bloqueada se o personagem já ressuscitou nesta partida
   
   // Custom Dynamic Effects (configured from the Admin Dashboard)
   customEffects?: any[];
@@ -139,6 +143,7 @@ export interface Skill {
   damageReductionVal?: number;
   damageReductionDuration?: number;
   damageBuffVal?: number;
+  damageBuffTypes?: string[]; // Classes de skill que o buff aumenta (vazio = todas: physical, mental, affliction, chakra, ranged, friendly)
   damageBuffDuration?: number;
   damageDebuffVal?: number;
   damageDebuffDuration?: number;
@@ -173,6 +178,7 @@ export interface Skill {
   invisibleDuration?: number;
   ignoreInvulnerable?: boolean;
   removedOnTargetSkillUse?: boolean; // Remove os efeitos desta skill do alvo quando ele usar uma habilidade (mesmo que infinita)
+  removedOnCasterDeath?: boolean; // Remove os efeitos desta skill dos alvos quando o conjurador morrer
   ignoreDamageReduction?: boolean;
   ignoreDamageReductionVal?: number;
   missingHpDamageType?: '' | 'normal' | 'direct' | 'dot' | 'bleeding' | 'affliction'; // Damage = caster's missing HP
@@ -475,8 +481,10 @@ export interface ActiveEffect {
   | 'capture_arrest_trap'
   | 'capture_arrest_debuff'
   | 'chakra_cost_increase'
-  | 'redirect_offensive';
+  | 'redirect_offensive'
+  | 'revive_on_death';
   value?: number; // magnitude of shield, reduction, damage, etc.
+  buffAtCast?: number; // damage_buff value included at cast time (for dynamic tick recomputation)
   duration: number; // remaining turns
   damageType?: string;
   icon?: string; // Icon of the skill that caused this effect/debuff
@@ -529,6 +537,7 @@ counterAttackType?: 'attacker' | 'defender';
   debuffTypes?: string[];
   /** Classes de skill que recebem dano adicional enquanto este efeito estiver ativo (para damage_vulnerability): physical, mental, affliction, chakra, ranged, friendly */
   vulnerabilityTypes?: string[];
+  buffTypes?: string[]; // Classes de skill que o damage_buff aumenta (vazio = todas)
   retaliateDamageVal?: number;
   retaliateDamageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'dot' | 'bleeding' | 'true';
   retaliateTargetScope?: 'self' | 'ally' | 'self_or_ally' | 'team';
@@ -548,6 +557,7 @@ export interface CombatCharacter {
   shieldExpiresTurn?: number;
   activeEffects: ActiveEffect[];
   isDead: boolean;
+  hasRevived?: boolean; // Se o personagem já ressuscitou nesta partida (reviveOnDeath)
   lastTurnStatus?: 'ANULADO' | 'REFLETIDO' | 'CONTRA-ATAQUE' | null;
 }
 

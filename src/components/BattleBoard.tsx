@@ -475,7 +475,10 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       rawPt = val > 0 ? `Vulnerabilidade: Alvo recebe +${val} de dano extra de skills das classes (${((effect.vulnerabilityTypes as string[]) || []).map(ct => ({ physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'Distância', friendly: 'Amigável' } as Record<string, string>)[ct] || ct).join(', ') || 'Todas'}) por ${durText}` : `Vulnerabilidade por ${durText}`;
       break;
     case 'damage_buff':
-      rawPt = val > 0 ? `Aumenta o ataque de todas as suas habilidades em ${val}` : `Aumenta o ataque das habilidades por ${durText}`;
+      const bTypes = (effect.buffTypes as string[] | undefined);
+      const bLbl: Record<string, string> = { physical: '💪Físico', mental: '🧠Mental', affliction: '💀Aflição', chakra: '⚡Chakra', ranged: '🏹Distância', friendly: '🤝Amigável' };
+      const bText = bTypes && bTypes.length > 0 ? ` de classes (${bTypes.map(t => bLbl[t] || t).join(', ')})` : '';
+      rawPt = val > 0 ? `Aumenta o ataque${bText} das suas habilidades em ${val}` : `Aumenta o ataque das habilidades por ${durText}`;
       break;
     case 'damage_reduction':
       rawPt = val > 0 ? `Redução de ${val} de dano por ${durText}` : `Redução de dano por ${durText}`;
@@ -537,6 +540,9 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       break;
     case 'immortal':
       rawPt = `Imortal: Não pode morrer enquanto este efeito estiver ativo por ${durText}`;
+      break;
+    case 'revive_on_death':
+      rawPt = `Ressurreição (passiva): Ao morrer, volta com ${val > 0 ? val : 'X'} de vida (${(effect.stacks || 1)} uso(s) restante(s))`;
       break;
     case 'cannot_receive_friendly':
       rawPt = `Bloqueio Amigável: Não pode receber habilidades de aliados por ${durText}`;
@@ -1808,6 +1814,18 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       }
     }
 
+    // Resurrection requirement (requireRevived)
+    if (skill.requireRevived && !combatant.hasRevived) {
+      addFloatingText(charId, 'Requer ter ressuscitado!', 'effect');
+      return;
+    }
+
+    // Blocked after resurrecting (blockIfRevived)
+    if (skill.blockIfRevived && combatant.hasRevived) {
+      addFloatingText(charId, 'Bloqueada após ressuscitar!', 'effect');
+      return;
+    }
+
     // Check if already cued
     const alreadyCuedIdx = cuedActions.findIndex(a => a.sourceId === charId);
     let currentActionsAfterCancel = [...cuedActions];
@@ -2242,6 +2260,82 @@ const handleTradeChakra = () => {
     }, 0);
   };
 
+  // Total damage_buff currently active on the caster of an effect (bônus de dano)
+  const damageBuffAppliesToSkill = (buff: ActiveEffect, skill: Character['skills'][number] | null): boolean => {
+    const types = buff.buffTypes;
+    if (!types || types.length === 0) return true;
+    if (!skill) return true;
+    const skillTypes = getSkillCombatTypes(skill);
+    if (skillTypes.length === 0) return true;
+    return skillTypes.some(t => types.some(bt => bt.toLowerCase() === t));
+  };
+
+  // Localiza a skill que originou um efeito nos skills do conjurador (mesmo matching do turno)
+  const getEffectSkillFromCaster = (eff: ActiveEffect, caster: CombatCharacter): Character['skills'][number] | null => {
+    const effName = eff.name || '';
+    const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|Aflição|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
+    return caster.character.skills.find(s => !!s.name && (s.name === baseName || effName.startsWith(s.name))) || null;
+  };
+
+  const getCasterDamageBuffSum = (eff: ActiveEffect, allCombatants: CombatCharacter[]): number => {
+    const caster = eff.casterId ? allCombatants.find(cb => cb.id === eff.casterId) : null;
+    if (!caster || caster.isDead) return 0;
+    const skill = getEffectSkillFromCaster(eff, caster);
+    return caster.activeEffects
+      .filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill))
+      .reduce((a, e) => a + (e.value || 0), 0);
+  };
+
+  // Process revivals (revive_on_death) and removal of effects whose caster died
+  const processDeathEvents = (combatantList: CombatCharacter[], logs: CombatLog[]) => {
+    // 1) Revivals: dead combatants with a revive_on_death effect come back with X HP (1 stack consumida)
+    combatantList.forEach(c => {
+      if (!c.isDead) return;
+      const reviveEff = c.activeEffects.find(e => e.type === 'revive_on_death');
+      if (!reviveEff) return;
+      const reviveVal = Math.min(Math.max(1, reviveEff.value || 0), c.maxHealth);
+      c.isDead = false;
+      c.health = reviveVal;
+      const remainingStacks = (reviveEff.stacks || 1) - 1;
+      if (remainingStacks > 0) {
+        reviveEff.stacks = remainingStacks;
+      } else {
+        c.activeEffects = c.activeEffects.filter(e => e !== reviveEff);
+      }
+      c.hasRevived = true;
+      logs.push({
+        id: Math.random().toString(),
+        turn,
+        message: `💀✨ ${c.character.name} RESSUSCITOU com ${reviveVal} de vida!${remainingStacks > 0 ? ` (${remainingStacks} ressurreição(ões) restante(s))` : ''}`,
+        type: 'heal',
+      });
+      addFloatingText(c.id, `RESSUSCITADO (+${reviveVal} HP)`, 'heal');
+    });
+    // 2) Caster death: effects from skills marked removedOnCasterDeath are removed from everyone
+    combatantList.forEach(dead => {
+      if (!dead.isDead) return;
+      const flagSkills = dead.character.skills.filter(s => s.removedOnCasterDeath);
+      if (flagSkills.length === 0) return;
+      combatantList.forEach(other => {
+        if (other.id === dead.id) return;
+        const beforeCount = other.activeEffects.length;
+        other.activeEffects = other.activeEffects.filter(eff => {
+          if (!eff.name) return true;
+          return !flagSkills.some(s => eff.name === s.name || eff.name.startsWith(s.name + ' ') || eff.name.startsWith(s.name + '('));
+        });
+        if (other.activeEffects.length < beforeCount) {
+          logs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `💀 A morte de ${dead.character.name} removeu seus efeitos de ${other.character.name}!`,
+            type: 'buff',
+          });
+          addFloatingText(other.id, 'EFEITOS REMOVIDOS', 'effect');
+        }
+      });
+    });
+  };
+
   // Origami Lotus rule (Young Konan only): quando um aliado/personagem com Origami Lotus é curado,
   // a conjuradora (Young Konan) ganha +1 stack de "Paper Gathering".
   const checkAndGrantOrigamiLotusGathering = (
@@ -2302,6 +2396,9 @@ const handleTradeChakra = () => {
     const srcEnemy = enemyRef.current.length ? enemyRef.current : enemyCombatants;
     const updatedPlayer = srcPlayer.map(c => ({ ...c, lastTurnStatus: null }));
     const updatedEnemy = srcEnemy.map(c => ({ ...c, lastTurnStatus: null }));
+
+    // Process revivals & caster-death effect removals from previous phases
+    processDeathEvents([...updatedPlayer, ...updatedEnemy], newLogs);
 
     const localPlayerChakra = { ...playerChakra };
     const localEnemyChakra = { ...enemyChakra };
@@ -2955,7 +3052,7 @@ const handleTradeChakra = () => {
           }
         }
       }
-      const sourceBuffsDd = source.activeEffects.filter(e => e.type === 'damage_buff');
+      const sourceBuffsDd = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill));
       const damageBuffSumDd = sourceBuffsDd.reduce((acc, curr) => acc + (curr.value || 0), 0);
       let dd = directDamage + missingHpDirect + ruleDirectDamage + stackDamageBonusForDd + damageBuffSumDd;
       // Reduce by source's damage debuffs (qualquer tipo)
@@ -2984,6 +3081,7 @@ const handleTradeChakra = () => {
               name: `${skill.name} (Dano Direto)`,
               type: 'direct_damage',
               value: dd,
+              buffAtCast: damageBuffSumDd,
               duration,
               icon: skill.icon,
               irremovable: !!skill.directDamageIrremovable,
@@ -3150,9 +3248,10 @@ const handleTradeChakra = () => {
       }
 
       // INSTANT DOT / BLEEDING / AFFLICTION (with missing HP)
-      const totalDotInstant = dotInstant + missingHpDot;
-      const totalBleedInstant = bleedingInstant + missingHpBleed;
-      const totalAfflictionInstant = afflictionInstant + missingHpAffliction;
+      const instantBuffSum = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill)).reduce((a, e) => a + (e.value || 0), 0);
+      const totalDotInstant = dotInstant + missingHpDot + instantBuffSum;
+      const totalBleedInstant = bleedingInstant + missingHpBleed + instantBuffSum;
+      const totalAfflictionInstant = afflictionInstant + missingHpAffliction + instantBuffSum;
       if (totalDotInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalDotInstant);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant;
@@ -3408,7 +3507,7 @@ const handleTradeChakra = () => {
           // Deal immediate first tick
           const startingShield = t.shield;
           const startingHealth = t.health;
-          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
+          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill));
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
@@ -3674,7 +3773,7 @@ splashOnlyTargets = splashPool.filter(c =>
           const startingShield = t.shield;
           const startingHealth = t.health;
 
-          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
+          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill));
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
@@ -4330,7 +4429,13 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // Damage Buff
       if (skill.damageBuffVal && skill.damageBuffVal > 0) {
-        const targets = resolveEffectTargets(skill.damageBuffTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
+        // Se o usuário definiu explicitamente o alvo do buff, respeitar exatamente (sem o redirect
+        // de efeito benéfico que manda para o conjurador quando o alvo é inimigo).
+        // Sem alvo definido, mantém o fallback antigo (shieldTarget / Self).
+        const buffTarget = skill.damageBuffTarget || skill.shieldTarget || 'Self';
+        const targets = skill.damageBuffTarget
+          ? resolveEffectTargets(skill.damageBuffTarget, target, source, sourceList, targetList, false)
+          : resolveEffectTargets(buffTarget, target, source, sourceList, targetList, true);
         targets.forEach(t => {
           if (t.isDead) return;
           const buffDuration = skill.permanent ? 99999 : (skill.damageBuffDuration || 3);
@@ -4340,12 +4445,13 @@ splashOnlyTargets = splashPool.filter(c =>
             value: skill.damageBuffVal!,
             duration: buffDuration,
             icon: skill.icon,
+            buffTypes: skill.damageBuffTypes,
             casterId: source.id,
             casterSide: action.isPlayer ? 'player' : 'enemy',
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `✨ ${t.character.name} recebeu [${skill.name} Power] por ${skill.damageBuffDuration || 3} turnos.`,
+            message: `✨ ${t.character.name} recebeu [${skill.name} Power]${skill.damageBuffTypes && skill.damageBuffTypes.length > 0 ? ` (classes: ${skill.damageBuffTypes.join(', ')})` : ''} por ${skill.damageBuffDuration || 3} turnos.`,
             type: 'buff',
           });
           addFloatingText(t.id, `${skill.name} Power`.toUpperCase(), 'effect');
@@ -4465,6 +4571,8 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // Affliction - debuff & immediate damage on target
       const totalAfflictionVal = (hasActiveDamageRuleIgnoreBase && ruleAfflictionDamage > 0) ? ruleAfflictionDamage : ((skill.afflictionVal || 0) + ruleAfflictionDamage);
+      const afflCastBuff = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill)).reduce((a, e) => a + (e.value || 0), 0);
+      const afflInstantDmg = totalAfflictionVal + afflCastBuff;
       if (totalAfflictionVal > 0) {
         const afflictionTargets = resolveEffectTargets(skill.afflictionTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         afflictionTargets.forEach(t => {
@@ -4483,7 +4591,7 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           } else {
             const startingHealth = t.health;
-            t.health = Math.max(0, t.health - totalAfflictionVal);
+            t.health = Math.max(0, t.health - afflInstantDmg);
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
               if (action.isPlayer) {
@@ -4518,10 +4626,10 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💀 ${t.character.name} sofreu ${totalAfflictionVal} de dano por aflição de [${skill.name}]!`,
+              message: `💀 ${t.character.name} sofreu ${afflInstantDmg} de dano por aflição de [${skill.name}]!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `AFLIÇÃO (-${totalAfflictionVal} HP)`, 'damage');
+            addFloatingText(t.id, `AFLIÇÃO (-${afflInstantDmg} HP)`, 'damage');
           }
 
           // If duration > 1, push active effect for remaining turns
@@ -4768,6 +4876,40 @@ splashOnlyTargets = splashPool.filter(c =>
             type: 'buff',
           });
           addFloatingText(source.id, '💪 IMORTAL', 'effect');
+        }
+      }
+
+      // Revive on death (Ressurreição): stack passiva infinita — cada uso adiciona +1 stack,
+      // consumida automaticamente quando o personagem morrer (1 stack por morte).
+      // Ativa quando reviveHp > 0 (o campo HP do card "Reviver ao Morrer" é o próprio gatilho).
+      if (skill.reviveHp && skill.reviveHp > 0 && skill.reviveOnDeath !== false) {
+        const existingRevive = source.activeEffects.find(e => e.type === 'revive_on_death');
+        if (existingRevive) {
+          existingRevive.stacks = (existingRevive.stacks || 1) + 1;
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `💀✨ ${source.character.name} agora tem ${existingRevive.stacks} RESSURREIÇÃO(ÕES) guardadas!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, `+1 RESSURREIÇÃO (${existingRevive.stacks})`, 'effect');
+        } else {
+          pushActiveEffect(source, {
+            name: `${skill.name} Ressurreição`,
+            sourceSkillName: skill.name,
+            type: 'revive_on_death',
+            value: skill.reviveHp,
+            stacks: 1,
+            duration: 99999,
+            icon: skill.icon,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `💀✨ ${source.character.name} recebeu RESSURREIÇÃO: ao morrer, voltará com ${skill.reviveHp} de vida!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, '💀✨ RESSURREIÇÃO', 'effect');
         }
       }
 
@@ -5039,7 +5181,7 @@ splashOnlyTargets = splashPool.filter(c =>
       if (source.activeEffects && source.activeEffects.length > 0) {
         source.activeEffects.forEach(eff => {
           if (eff.type !== 'on_skill_use_damage') return;
-          const dmgVal = eff.value || 0;
+          const dmgVal = (eff.value || 0) + getCasterDamageBuffSum(eff, [...sourceList, ...targetList]);
           if (dmgVal <= 0 || source.isDead) return;
 
           if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
@@ -5145,7 +5287,7 @@ splashOnlyTargets = splashPool.filter(c =>
             }
 
             // Apply Retaliation Damage to source (attacker)
-            const baseRVal = eff.retaliateDamageVal || eff.value || 0;
+            const baseRVal = (eff.retaliateDamageVal || eff.value || 0) + getCasterDamageBuffSum(eff, [...sourceList, ...targetList]);
             const stacks = (eff as any).stacks || 1;
             const rVal = baseRVal * stacks;
             const rType = eff.retaliateDamageType || 'damage';
@@ -5245,6 +5387,10 @@ splashOnlyTargets = splashPool.filter(c =>
     enemyRef.current = updatedEnemy;
     setPlayerCombatants(updatedPlayer);
     setEnemyCombatants(updatedEnemy);
+
+    // Process revivals IMMEDIATELY after deaths during actions:
+    // se um personagem com stack de ressurreição morreu agora, ele revive antes do game over
+    processDeathEvents([...updatedPlayer, ...updatedEnemy], newLogs);
     setLogs(prev => [...prev, ...newLogs]);
 
     // Check game over
@@ -5296,14 +5442,16 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
-            c.health = Math.max(0, c.health - (dot.value || 0));
+            const dotBuff = getCasterDamageBuffSum(dot, [...updatedPlayer, ...updatedEnemy]);
+            const dotVal = Math.max(0, (dot.value || 0) + dotBuff);
+            c.health = Math.max(0, c.health - dotVal);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔥 ${c.character.name} sofreu ${(dot.value || 0)} de dano de queima por ${dot.name}.`,
+              message: `🔥 ${c.character.name} sofreu ${dotVal} de dano de queima por ${dot.name}.`,
               type: 'damage',
             });
-            addFloatingText(c.id, `-${(dot.value || 0)} HP (QUEIMA)`, 'damage');
+            addFloatingText(c.id, `-${dotVal} HP (QUEIMA)`, 'damage');
           }
         });
 
@@ -5324,7 +5472,7 @@ splashOnlyTargets = splashPool.filter(c =>
             const targetCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
             const targetReductions = targetCannotReduce ? [] : c.activeEffects.filter(e => e.type === 'damage_reduction');
             const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
-            const netDmg = Math.max(0, (dmg.value || 0) - reductionSum);
+            const netDmg = Math.max(0, (dmg.value || 0) - reductionSum + getCasterDamageBuffSum(dmg, [...updatedPlayer, ...updatedEnemy]));
             c.health = Math.max(0, c.health - netDmg);
             newLogs.push({
               id: Math.random().toString(),
@@ -5342,8 +5490,8 @@ splashOnlyTargets = splashPool.filter(c =>
           // Recompute the value when the skill has damage rules (ex.: Umbrella): se a skill
           // ativa da regra não estiver mais ativa, o dano volta ao valor base.
           const ddSkill = getEffectSkill(dd);
+          const ddCaster = dd.casterId ? [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === dd.casterId) : null;
           if (ddSkill && ddSkill.damageRules && ddSkill.damageRules.some(r => r.damageType === 'direct_damage' || r.damageType === 'piercing')) {
-            const ddCaster = dd.casterId ? [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === dd.casterId) : null;
             if (ddCaster) {
               const ddScanPool = [...updatedPlayer, ...updatedEnemy];
               let ruleDirect = 0;
@@ -5385,10 +5533,14 @@ splashOnlyTargets = splashPool.filter(c =>
               }
               const missingHpDirect = ddSkill.missingHpDamageType === 'direct' ? Math.max(0, ddCaster.maxHealth - ddCaster.health) : 0;
               const ddBase = ruleIgnoresBase ? 0 : (ddSkill.directDamage || 0);
-              const ddBuffs = ddCaster.activeEffects.filter(e => e.type === 'damage_buff').reduce((a, e) => a + (e.value || 0), 0);
+              const ddBuffs = ddCaster.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, ddSkill)).reduce((a, e) => a + (e.value || 0), 0);
               const ddDebuffs = ddCaster.activeEffects.filter(e => e.type === 'damage_debuff').reduce((a, e) => a + (e.value || 0), 0);
               dd.value = Math.max(0, ddBase + ruleDirect + stackBonus + missingHpDirect + ddBuffs - ddDebuffs);
             }
+          } else if (ddCaster) {
+            // Sem regras de dano: valor base (sem o buff do cast) + buffs de dano atuais do conjurador
+            const ddBuffsNow = getCasterDamageBuffSum(dd, [...updatedPlayer, ...updatedEnemy]);
+            dd.value = Math.max(0, (dd.value || 0) - (dd.buffAtCast || 0) + ddBuffsNow);
           }
           if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
@@ -5425,14 +5577,16 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
-            c.health = Math.max(0, c.health - (bleed.value || 0));
+            const bleedBuff = getCasterDamageBuffSum(bleed, [...updatedPlayer, ...updatedEnemy]);
+            const bleedVal = Math.max(0, (bleed.value || 0) + bleedBuff);
+            c.health = Math.max(0, c.health - bleedVal);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🩸 ${c.character.name} sofreu ${(bleed.value || 0)} de dano por sangramento (${bleed.name}).`,
+              message: `🩸 ${c.character.name} sofreu ${bleedVal} de dano por sangramento (${bleed.name}).`,
               type: 'damage',
             });
-            addFloatingText(c.id, `-${(bleed.value || 0)} HP (SANGRAMENTO)`, 'damage');
+            addFloatingText(c.id, `-${bleedVal} HP (SANGRAMENTO)`, 'damage');
           }
         });
 
@@ -5444,14 +5598,16 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
-            c.health = Math.max(0, c.health - (aff.value || 0));
+            const affBuff = getCasterDamageBuffSum(aff, [...updatedPlayer, ...updatedEnemy]);
+            const affVal = Math.max(0, (aff.value || 0) + affBuff);
+            c.health = Math.max(0, c.health - affVal);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💀 ${c.character.name} sofreu ${(aff.value || 0)} de dano por aflição (${aff.name}).`,
+              message: `💀 ${c.character.name} sofreu ${affVal} de dano por aflição (${aff.name}).`,
               type: 'damage',
             });
-            addFloatingText(c.id, `-${(aff.value || 0)} HP (AFLIÇÃO)`, 'damage');
+            addFloatingText(c.id, `-${affVal} HP (AFLIÇÃO)`, 'damage');
           }
         });
 
@@ -5549,6 +5705,9 @@ splashOnlyTargets = splashPool.filter(c =>
 
     applyTurnEndUpdates(updatedPlayer, 'Player');
     applyTurnEndUpdates(updatedEnemy, 'Enemy');
+
+    // Process revivals & caster-death effect removals after end-of-turn damage
+    processDeathEvents([...updatedPlayer, ...updatedEnemy], newLogs);
 
     // Check immortal threshold for all combatants (HP ≤ threshold triggers immortality)
     const checkImmortalThreshold = (combatantList: CombatCharacter[], sideChar: CombatCharacter[]) => {
@@ -5871,6 +6030,8 @@ splashOnlyTargets = splashPool.filter(c =>
                   if (!hasPrev) return false;
                 }
                 if (skill.requireHpBelow && skill.requireHpBelow > 0 && aiChar.health > skill.requireHpBelow) return false;
+                if (skill.requireRevived && !aiChar.hasRevived) return false;
+                if (skill.blockIfRevived && aiChar.hasRevived) return false;
                 
                 // requireTargetEffect: check if there's at least one valid target with the effect
                 if (skill.requireTargetEffect) {
@@ -7618,7 +7779,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           // Deal immediate first tick
           const startingShield = t.shield;
           const startingHealth = t.health;
-          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
+          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill));
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
@@ -7749,7 +7910,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           const startingShield = t.shield;
           const startingHealth = t.health;
           // Apply damage buff from source effects
-          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff');
+          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill));
           const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
@@ -9752,6 +9913,15 @@ if (skill.redirectOffensiveToCaster) {
       });
     }
 
+    if (skill.reviveHp && skill.reviveHp > 0) {
+      effects.push({
+        label: 'Ressurreição',
+        value: `Stack passiva: cada uso adiciona +1 ressurreição; ao morrer, 1 é consumida e ressuscita com ${skill.reviveHp} de vida`,
+        color: 'text-violet-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
+      });
+    }
+
     if (skill.invisible && skill.invisibleDuration && skill.invisibleDuration > 0) {
       effects.push({
         label: 'Efeitos Invisíveis',
@@ -10715,6 +10885,13 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                     </div>
                                   )}
 
+                                  {/* Resurrection Requirement Overlay */}
+                                  {((skill.requireRevived && !combatant.hasRevived) || (skill.blockIfRevived && combatant.hasRevived)) && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
+                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                      <span className="text-violet-400 font-bold drop-shadow-md text-xs">💀</span>
+                                    </div>
+                                  )}
+
                                   {/* Cued Indicator Overlay */}
                                   {isCued && (
                                     <div className="absolute inset-0 bg-orange-600/10 border-2 border-orange-500 flex items-center justify-center">
@@ -10769,6 +10946,16 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                   {skill.requireHpBelow && skill.requireHpBelow > 0 && (
                                     <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.health > skill.requireHpBelow ? 'text-red-500' : 'text-emerald-500'}`}>
                                       {combatant.health > skill.requireHpBelow ? `🔒 HP ≤ ${skill.requireHpBelow}` : `🔓 HP ≤ ${skill.requireHpBelow}`}
+                                    </p>
+                                  )}
+                                  {skill.requireRevived && (
+                                    <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-emerald-500' : 'text-red-500'}`}>
+                                      {combatant.hasRevived ? '🔓 Ressurreição: Sim' : '🔒 Requer ter ressuscitado'}
+                                    </p>
+                                  )}
+                                  {skill.blockIfRevived && (
+                                    <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-red-500' : 'text-emerald-500'}`}>
+                                      {combatant.hasRevived ? '🔒 Bloqueada após ressuscitar' : '🔓 Bloqueada após ressuscitar'}
                                     </p>
                                   )}
 
@@ -11787,6 +11974,13 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                       </div>
                                     )}
 
+                                    {/* Resurrection Requirement Overlay */}
+                                    {((skill.requireRevived && !combatant.hasRevived) || (skill.blockIfRevived && combatant.hasRevived)) && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
+                                      <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                        <span className="text-violet-400 font-bold drop-shadow-md text-xs">💀</span>
+                                      </div>
+                                    )}
+
                                     {/* Cued Indicator Overlay */}
                                     {isCued && (
                                       <div className="absolute inset-0 bg-emerald-600/10 border-2 border-emerald-500 flex items-center justify-center">
@@ -11841,6 +12035,16 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     {skill.requireHpBelow && skill.requireHpBelow > 0 && (
                                       <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.health > skill.requireHpBelow ? 'text-red-500' : 'text-emerald-500'}`}>
                                         {combatant.health > skill.requireHpBelow ? `🔒 HP ≤ ${skill.requireHpBelow}` : `🔓 HP ≤ ${skill.requireHpBelow}`}
+                                      </p>
+                                    )}
+                                    {skill.requireRevived && (
+                                      <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-emerald-500' : 'text-red-500'}`}>
+                                        {combatant.hasRevived ? '🔓 Ressurreição: Sim' : '🔒 Requer ter ressuscitado'}
+                                      </p>
+                                    )}
+                                    {skill.blockIfRevived && (
+                                      <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-red-500' : 'text-emerald-500'}`}>
+                                        {combatant.hasRevived ? '🔒 Bloqueada após ressuscitar' : '🔓 Bloqueada após ressuscitar'}
                                       </p>
                                     )}
 

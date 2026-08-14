@@ -2279,6 +2279,26 @@ const newSkill: Skill = {
                         <p className="text-[8px] text-slate-500 font-mono mt-0.5">Só libera esta skill se o HP do personagem estiver ≤ este valor</p>
                       </div>
                       </div>
+                      <div className="flex flex-wrap items-center gap-3 mt-1">
+                        <label className="flex items-center gap-1.5 text-[9px] text-emerald-400 font-mono cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={editingSkill.requireRevived || false}
+                            onChange={(e) => handleUpdateSkillField('requireRevived', e.target.checked)}
+                            className="rounded bg-slate-950 border-emerald-800 text-emerald-500 focus:ring-0 w-3 h-3"
+                          />
+                          🙏 Só pode ser usada se o personagem já ressuscitou nesta partida
+                        </label>
+                        <label className="flex items-center gap-1.5 text-[9px] text-red-400 font-mono cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={editingSkill.blockIfRevived || false}
+                            onChange={(e) => handleUpdateSkillField('blockIfRevived', e.target.checked)}
+                            className="rounded bg-slate-950 border-red-800 text-red-500 focus:ring-0 w-3 h-3"
+                          />
+                          🚫 Bloqueada se o personagem já ressuscitou nesta partida
+                        </label>
+                      </div>
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -2353,6 +2373,12 @@ const newSkill: Skill = {
                               onChange={(e) => handleUpdateSkillField('removedOnTargetSkillUse', e.target.checked)}
                               className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0" />
                             🧹 Removida do alvo quando ele usar uma habilidade (mesmo que infinita)
+                          </label>
+                          <label className="flex items-center gap-2 text-[10px] text-red-400 font-bold">
+                            <input type="checkbox" checked={editingSkill.removedOnCasterDeath || false}
+                              onChange={(e) => handleUpdateSkillField('removedOnCasterDeath', e.target.checked)}
+                              className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0" />
+                            💀 Removida dos alvos se meu personagem morrer
                           </label>
                       </div>
 
@@ -5094,7 +5120,41 @@ const newSkill: Skill = {
                                 </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
-                              <p className="text-[8px] text-slate-500 font-mono">Usa o mesmo alvo configurado em "Adicionar Escudo"</p>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-amber-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.damageBuffTarget || 'Self'}
+                                  onChange={(e) => handleUpdateSkillField('damageBuffTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-amber-300 focus:border-amber-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <p className="text-[8px] text-slate-500 font-mono">Alvo do buff (padrão: Conjurador)</p>
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                <span className="text-[9px] text-amber-400 font-mono uppercase font-bold mr-1">Classes do buff (vazio = todas):</span>
+                                {(['physical','mental','affliction','chakra','ranged','friendly'] as const).map(t => {
+                                  const current = editingSkill.damageBuffTypes;
+                                  const isChecked = !current || current.length === 0 || current.includes(t);
+                                  return (
+                                    <label key={t} className="flex items-center gap-0.5 cursor-pointer select-none text-[9px] text-slate-400 font-mono">
+                                      <input type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          const allTypes = ['physical','mental','affliction','chakra','ranged','friendly'];
+                                          const base = current && current.length > 0 ? [...current] : [...allTypes];
+                                          const idx = base.indexOf(t);
+                                          if (idx >= 0) base.splice(idx, 1); else base.push(t);
+                                          handleUpdateSkillField('damageBuffTypes', base.length > 0 && base.length < 6 ? base : undefined);
+                                        }}
+                                        className="rounded bg-slate-950 border-slate-700 text-amber-500 focus:ring-0 w-2.5 h-2.5" />
+                                      {t === 'physical' ? '💪Físico' : t === 'mental' ? '🧠Mental' : t === 'affliction' ? '💀Aflição' : t === 'chakra' ? '⚡Chakra' : t === 'ranged' ? '🏹Distância' : '🤝Amigável'}
+                                    </label>
+                                  );
+                                })}
+                              </div>
                             </div>
                             <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
                               <div className="flex items-center justify-between gap-2">
@@ -6328,6 +6388,28 @@ const newSkill: Skill = {
                                 />
                                 <span className="text-[10px] text-slate-500 font-mono">HP mínimo para ativar (Gatilho de HP)</span>
                               </div>
+                            </div>
+                          </div>
+
+                          {/* 21b. Reviver ao Morrer (Ressurreição) */}
+                          <div className="space-y-1 bg-violet-950/15 border border-violet-800/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-violet-400 font-mono">💀 Reviver ao Morrer (Ressurreição)</label>
+                              <div className="flex items-center gap-2 mt-1">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={100}
+                                  value={editingSkill.reviveHp || ''}
+                                  onChange={(e) => handleUpdateSkillField('reviveHp', e.target.value ? parseInt(e.target.value) : undefined)}
+                                  placeholder="HP"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-violet-800/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <span className="text-[10px] text-slate-500 font-mono">vida ao ressuscitar (use a skill em si mesmo)</span>
+                              </div>
+                              <p className="text-[8px] text-slate-500 font-mono mt-1">
+                                Stack passiva infinita: cada uso da skill adiciona +1 ressurreição. Quando o personagem morrer, 1 stack é consumida automaticamente e ele revive com esta quantidade de vida. Personagens ressuscitados ficam marcados para os requerimentos "Ressurreição".
+                              </p>
                             </div>
                           </div>
 
