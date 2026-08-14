@@ -2348,6 +2348,12 @@ const newSkill: Skill = {
                               className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0" />
                             🧿 Ignorar Invulnerabilidade (pode mirar/atingir inimigos invulneráveis)
                           </label>
+                          <label className="flex items-center gap-2 text-[10px] text-red-400 font-bold">
+                            <input type="checkbox" checked={editingSkill.removedOnTargetSkillUse || false}
+                              onChange={(e) => handleUpdateSkillField('removedOnTargetSkillUse', e.target.checked)}
+                              className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0" />
+                            🧹 Removida do alvo quando ele usar uma habilidade (mesmo que infinita)
+                          </label>
                       </div>
 
                       <div className="md:col-span-2 space-y-2.5 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
@@ -2959,7 +2965,8 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={99}
-                                  value={rule.duration}
+                                  value={rule.duration === 99999 ? 0 : (rule.duration || 1)}
+                                  title={rule.duration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => {
                                     const val = parseInt(e.target.value) || 1;
                                     const updated = [...(editingSkill.onSkillUseDamageRules || [])];
@@ -2968,6 +2975,19 @@ const newSkill: Skill = {
                                   }}
                                   className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-white outline-none text-[10px]"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={rule.duration === 99999}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.onSkillUseDamageRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], duration: e.target.checked ? 99999 : 1 };
+                                      handleUpdateSkillField('onSkillUseDamageRules', updated);
+                                    }}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
 
                                 <span className="text-slate-400 font-bold">Tipo:</span>
                                 <select
@@ -3643,11 +3663,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.damageDuration || 1}
+                                  value={editingSkill.damageDuration === 99999 ? 0 : (editingSkill.damageDuration || 1)}
+                                  title={editingSkill.damageDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('damageDuration', parseInt(e.target.value) || 1)}
                                   placeholder="Turnos"
                                   className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('damageDuration', e.target.checked ? 99999 : 1)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -3793,11 +3823,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.directDamageDuration || 1}
+                                  value={editingSkill.directDamageDuration === 99999 ? 0 : (editingSkill.directDamageDuration || 1)}
+                                  title={editingSkill.directDamageDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('directDamageDuration', parseInt(e.target.value) || 1)}
                                   placeholder="Turnos"
                                   className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.directDamageDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('directDamageDuration', e.target.checked ? 99999 : 1)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -3871,11 +3911,21 @@ const newSkill: Skill = {
                                       type="number"
                                       min={1}
                                       max={10}
-                                      value={editingSkill.counterAttackDuration || 1}
-                                      onChange={(e) => handleUpdateSkillField('counterAttackDuration', parseInt(e.target.value) || 1)}
-                                      className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
-                                    />
-                                    <span className="text-[9px] text-slate-500 font-mono">Turnos ativo</span>
+                                          value={editingSkill.counterAttackDuration === 99999 ? 0 : (editingSkill.counterAttackDuration || 1)}
+                                          title={editingSkill.counterAttackDuration === 99999 ? '♾️ Infinito' : 'Turnos ativo'}
+                                          onChange={(e) => handleUpdateSkillField('counterAttackDuration', parseInt(e.target.value) || 1)}
+                                          className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                        />
+                                        <label className="flex items-center gap-1 cursor-pointer select-none">
+                                          <input
+                                            type="checkbox"
+                                            checked={editingSkill.counterAttackDuration === 99999}
+                                            onChange={(e) => handleUpdateSkillField('counterAttackDuration', e.target.checked ? 99999 : 1)}
+                                            className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                          />
+                                          <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                        </label>
+                                        <span className="text-[9px] text-slate-500 font-mono">Turnos ativo</span>
                                   </div>
 
                                   <div className="space-y-1">
@@ -4018,10 +4068,20 @@ const newSkill: Skill = {
                                       type="number"
                                       min={1}
                                       max={10}
-                                      value={editingSkill.reflectDuration || 1}
+                                      value={editingSkill.reflectDuration === 99999 ? 0 : (editingSkill.reflectDuration || 1)}
+                                      title={editingSkill.reflectDuration === 99999 ? '♾️ Infinito' : 'Turnos ativo'}
                                       onChange={(e) => handleUpdateSkillField('reflectDuration', parseInt(e.target.value) || 1)}
                                       className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                     />
+                                    <label className="flex items-center gap-1 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={editingSkill.reflectDuration === 99999}
+                                        onChange={(e) => handleUpdateSkillField('reflectDuration', e.target.checked ? 99999 : 1)}
+                                        className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                      />
+                                      <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                    </label>
                                     <span className="text-[9px] text-slate-500 font-mono">Turnos ativo</span>
                                   </div>
 
@@ -4115,11 +4175,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.healDuration || 1}
+                                  value={editingSkill.healDuration === 99999 ? 0 : (editingSkill.healDuration || 1)}
+                                  title={editingSkill.healDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('healDuration', parseInt(e.target.value) || 1)}
                                   placeholder="Turnos"
                                   className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.healDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('healDuration', e.target.checked ? 99999 : 1)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -4189,13 +4259,23 @@ const newSkill: Skill = {
                                   type="number"
                                   min={0}
                                   max={5}
-                                  value={editingSkill.stunTurns || 0}
+                                  value={editingSkill.stunTurns === 99999 ? 0 : (editingSkill.stunTurns || 0)}
+                                  title={editingSkill.stunTurns === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => {
                                     const val = parseInt(e.target.value) || 0;
                                     handleUpdateSkillField('stunTurns', val);
                                   }}
                                   className="w-20 px-2 py-1.5 bg-slate-900 border border-purple-900/60 focus:border-purple-500 rounded-lg text-purple-400 font-mono text-xs text-center font-bold"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.stunTurns === 99999}
+                                    onChange={(e) => handleUpdateSkillField('stunTurns', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-purple-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-purple-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[10px] text-slate-400 font-mono">Duração em turnos</span>
                               </div>
 
@@ -4343,10 +4423,20 @@ const newSkill: Skill = {
                                       type="number"
                                       min={1}
                                       max={10}
-                                      value={editingSkill.removeShieldDuration || 1}
+                                      value={editingSkill.removeShieldDuration === 99999 ? 0 : (editingSkill.removeShieldDuration || 1)}
+                                      title={editingSkill.removeShieldDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                       onChange={(e) => handleUpdateSkillField('removeShieldDuration', parseInt(e.target.value) || 1)}
                                       className="w-14 px-1.5 py-1 bg-slate-900 border border-amber-900/60 focus:border-amber-500 rounded text-center text-xs font-mono text-amber-400 font-bold"
                                     />
+                                    <label className="flex items-center gap-1 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={editingSkill.removeShieldDuration === 99999}
+                                        onChange={(e) => handleUpdateSkillField('removeShieldDuration', e.target.checked ? 99999 : 1)}
+                                        className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                      />
+                                      <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                    </label>
                                     <span className="text-[9px] text-slate-500 font-mono">Turnos</span>
                                   </div>
                                 )}
@@ -4403,11 +4493,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.gainChakraDuration || 1}
+                                  value={editingSkill.gainChakraDuration === 99999 ? 0 : (editingSkill.gainChakraDuration || 1)}
+                                  title={editingSkill.gainChakraDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('gainChakraDuration', parseInt(e.target.value) || 1)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.gainChakraDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('gainChakraDuration', e.target.checked ? 99999 : 1)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
                               <div className="mt-1.5 pt-1.5 border-t border-blue-900/30">
@@ -4523,11 +4623,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.drainChakraDuration || 1}
+                                  value={editingSkill.drainChakraDuration === 99999 ? 0 : (editingSkill.drainChakraDuration || 1)}
+                                  title={editingSkill.drainChakraDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('drainChakraDuration', parseInt(e.target.value) || 1)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.drainChakraDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('drainChakraDuration', e.target.checked ? 99999 : 1)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-slate-800/60">
@@ -4594,11 +4704,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.stealChakraDuration || 1}
+                                  value={editingSkill.stealChakraDuration === 99999 ? 0 : (editingSkill.stealChakraDuration || 1)}
+                                  title={editingSkill.stealChakraDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('stealChakraDuration', parseInt(e.target.value) || 1)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.stealChakraDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('stealChakraDuration', e.target.checked ? 99999 : 1)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-slate-800/60">
@@ -4665,11 +4785,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.removeChakraDuration || 1}
+                                  value={editingSkill.removeChakraDuration === 99999 ? 0 : (editingSkill.removeChakraDuration || 1)}
+                                  title={editingSkill.removeChakraDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('removeChakraDuration', parseInt(e.target.value) || 1)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.removeChakraDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('removeChakraDuration', e.target.checked ? 99999 : 1)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-slate-800/60">
@@ -4866,11 +4996,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.damageReductionDuration || 0}
+                                  value={editingSkill.damageReductionDuration === 99999 ? 0 : (editingSkill.damageReductionDuration || 0)}
+                                  title={editingSkill.damageReductionDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('damageReductionDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageReductionDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('damageReductionDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -4937,11 +5077,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.damageBuffDuration || 0}
+                                  value={editingSkill.damageBuffDuration === 99999 ? 0 : (editingSkill.damageBuffDuration || 0)}
+                                  title={editingSkill.damageBuffDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('damageBuffDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageBuffDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('damageBuffDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
                               <p className="text-[8px] text-slate-500 font-mono">Usa o mesmo alvo configurado em "Adicionar Escudo"</p>
@@ -4989,9 +5139,19 @@ const newSkill: Skill = {
                                   onChange={(e) => handleUpdateSkillField('damageDebuffVal', parseInt(e.target.value) || 0)}
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white font-bold" />
                                 <input type="number" min={1} max={10}
-                                  value={editingSkill.damageDebuffDuration || 0}
+                                  value={editingSkill.damageDebuffDuration === 99999 ? 0 : (editingSkill.damageDebuffDuration || 0)}
+                                  title={editingSkill.damageDebuffDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('damageDebuffDuration', parseInt(e.target.value) || 0)}
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white" />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageDebuffDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('damageDebuffDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -5250,10 +5410,20 @@ const newSkill: Skill = {
                                   type="number"
                                   min={0}
                                   max={3}
-                                  value={editingSkill.invulnerableDuration || 0}
+                                  value={editingSkill.invulnerableDuration === 99999 ? 0 : (editingSkill.invulnerableDuration || 0)}
+                                  title={editingSkill.invulnerableDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('invulnerableDuration', parseInt(e.target.value) || 0)}
                                   className="w-20 px-2 py-1.5 bg-slate-900 border border-cyan-900/60 focus:border-cyan-500 rounded-lg text-cyan-400 font-mono text-xs text-center font-bold"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.invulnerableDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('invulnerableDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-cyan-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -5345,11 +5515,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.bleedingDuration || 0}
+                                  value={editingSkill.bleedingDuration === 99999 ? 0 : (editingSkill.bleedingDuration || 0)}
+                                  title={editingSkill.bleedingDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('bleedingDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Dur"
                                   className="w-12 px-1.5 py-1 bg-slate-900 border border-red-900/60 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.bleedingDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('bleedingDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-red-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">por turno</span>
                               </div>
                               <div className="flex items-center gap-2 mt-1">
@@ -5429,11 +5609,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.afflictionDuration || 0}
+                                  value={editingSkill.afflictionDuration === 99999 ? 0 : (editingSkill.afflictionDuration || 0)}
+                                  title={editingSkill.afflictionDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('afflictionDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Dur"
                                   className="w-12 px-1.5 py-1 bg-slate-900 border border-purple-900/60 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.afflictionDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('afflictionDuration', e.target.checked ? 99999 : 1)}
+                                    className="rounded bg-slate-950 border-slate-800 text-purple-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-purple-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">por turno</span>
                               </div>
                               <div className="flex items-center gap-2 mt-1">
@@ -5504,11 +5694,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={0}
                                   max={5}
-                                  value={editingSkill.paralyzeCooldownDuration || 0}
+                                  value={editingSkill.paralyzeCooldownDuration === 99999 ? 0 : (editingSkill.paralyzeCooldownDuration || 0)}
+                                  title={editingSkill.paralyzeCooldownDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('paralyzeCooldownDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-amber-900/60 rounded text-center text-xs font-mono text-white font-bold"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.paralyzeCooldownDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('paralyzeCooldownDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -5586,10 +5786,20 @@ const newSkill: Skill = {
                                       type="number"
                                       min={1}
                                       max={10}
-                                      value={editingSkill.invisibleDuration || 1}
+                                      value={editingSkill.invisibleDuration === 99999 ? 0 : (editingSkill.invisibleDuration || 1)}
+                                      title={editingSkill.invisibleDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                       onChange={(e) => handleUpdateSkillField('invisibleDuration', parseInt(e.target.value) || 1)}
                                       className="w-14 px-1.5 py-1 bg-slate-900 border border-pink-900/60 focus:border-pink-500 rounded text-center text-xs font-mono text-pink-400 font-bold"
                                     />
+                                    <label className="flex items-center gap-1 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={editingSkill.invisibleDuration === 99999}
+                                        onChange={(e) => handleUpdateSkillField('invisibleDuration', e.target.checked ? 99999 : 1)}
+                                        className="rounded bg-slate-950 border-slate-800 text-pink-500 focus:ring-0 w-3 h-3"
+                                      />
+                                      <span className="text-[9px] text-pink-400 font-mono">♾️ Infinito</span>
+                                    </label>
                                     <span className="text-[9px] text-slate-500 font-mono">Turnos</span>
                                   </div>
                                 )}
@@ -5637,11 +5847,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={0}
                                   max={10}
-                                  value={editingSkill.revealInvisibleDuration || 0}
+                                  value={editingSkill.revealInvisibleDuration === 99999 ? 0 : (editingSkill.revealInvisibleDuration || 0)}
+                                  title={editingSkill.revealInvisibleDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('revealInvisibleDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-cyan-900/60 rounded text-center text-xs font-mono text-white font-bold"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.revealInvisibleDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('revealInvisibleDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-cyan-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -5699,11 +5919,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={0}
                                   max={10}
-                                  value={editingSkill.cannotReduceDamageDuration || 0}
+                                  value={editingSkill.cannotReduceDamageDuration === 99999 ? 0 : (editingSkill.cannotReduceDamageDuration || 0)}
+                                  title={editingSkill.cannotReduceDamageDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('cannotReduceDamageDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-rose-900/60 rounded text-center text-xs font-mono text-white font-bold"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.cannotReduceDamageDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('cannotReduceDamageDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-rose-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-rose-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -5761,11 +5991,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={0}
                                   max={10}
-                                  value={editingSkill.cannotBeInvulnerableDuration || 0}
+                                  value={editingSkill.cannotBeInvulnerableDuration === 99999 ? 0 : (editingSkill.cannotBeInvulnerableDuration || 0)}
+                                  title={editingSkill.cannotBeInvulnerableDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('cannotBeInvulnerableDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-amber-900/60 rounded text-center text-xs font-mono text-white font-bold"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.cannotBeInvulnerableDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('cannotBeInvulnerableDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -5823,11 +6063,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={0}
                                   max={10}
-                                  value={editingSkill.cannotReceiveFriendlyDuration || 0}
+                                  value={editingSkill.cannotReceiveFriendlyDuration === 99999 ? 0 : (editingSkill.cannotReceiveFriendlyDuration || 0)}
+                                  title={editingSkill.cannotReceiveFriendlyDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('cannotReceiveFriendlyDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-fuchsia-900/60 rounded text-center text-xs font-mono text-white font-bold"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.cannotReceiveFriendlyDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('cannotReceiveFriendlyDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-fuchsia-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-fuchsia-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -5885,11 +6135,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={0}
                                   max={10}
-                                  value={editingSkill.ignoreStunDuration || 0}
+                                  value={editingSkill.ignoreStunDuration === 99999 ? 0 : (editingSkill.ignoreStunDuration || 0)}
+                                  title={editingSkill.ignoreStunDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('ignoreStunDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-indigo-900/60 rounded text-center text-xs font-mono text-white font-bold"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.ignoreStunDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('ignoreStunDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-indigo-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-indigo-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
@@ -5947,11 +6207,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={0}
                                   max={10}
-                                  value={editingSkill.damageImmunityDuration || 0}
+                                  value={editingSkill.damageImmunityDuration === 99999 ? 0 : (editingSkill.damageImmunityDuration || 0)}
+                                  title={editingSkill.damageImmunityDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('damageImmunityDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-yellow-900/60 rounded text-center text-xs font-mono text-white font-bold"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageImmunityDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('damageImmunityDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-yellow-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-yellow-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
                               <label className="flex items-center gap-1.5 mt-1 cursor-pointer select-none">
@@ -6018,11 +6288,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={1}
                                   max={10}
-                                  value={editingSkill.immortalDuration || ''}
+                                  value={editingSkill.immortalDuration === 99999 ? 0 : (editingSkill.immortalDuration || '')}
+                                  title={editingSkill.immortalDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('immortalDuration', e.target.value ? parseInt(e.target.value) : undefined)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-green-800/60 rounded text-center text-xs font-mono text-white"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.immortalDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('immortalDuration', e.target.checked ? 99999 : undefined)}
+                                    className="rounded bg-slate-950 border-slate-800 text-green-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-green-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
                               <div className="flex items-center gap-2 mt-2 pt-1 border-t border-green-800/30">
@@ -6060,11 +6340,21 @@ const newSkill: Skill = {
                                   type="number"
                                   min={0}
                                   max={10}
-                                  value={editingSkill.chakraCostIncreaseDuration || 0}
+                                  value={editingSkill.chakraCostIncreaseDuration === 99999 ? 0 : (editingSkill.chakraCostIncreaseDuration || 0)}
+                                  title={editingSkill.chakraCostIncreaseDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('chakraCostIncreaseDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-cyan-900/60 rounded text-center text-xs font-mono text-white font-bold"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.chakraCostIncreaseDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('chakraCostIncreaseDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-cyan-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
                               </div>
                               {(editingSkill.chakraCostIncreaseDuration || 0) > 0 && (
@@ -6231,12 +6521,22 @@ const newSkill: Skill = {
                                        type="number"
                                        min={1}
                                        max={999}
-                                       value={editingSkill.stackDuration ?? ''}
-                                       onChange={(e) => handleUpdateSkillField('stackDuration', e.target.value ? parseInt(e.target.value) : undefined)}
-                                       placeholder="999"
-                                       className="w-16 px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-white"
-                                     />
-                                     <span className="text-[10px] text-slate-500 font-mono">Duração da Stack (turnos)</span>
+value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ?? '')}
+                                        title={editingSkill.stackDuration === 99999 ? '♾️ Infinito' : 'Duração da Stack (turnos)'}
+                                        onChange={(e) => handleUpdateSkillField('stackDuration', e.target.value ? parseInt(e.target.value) : undefined)}
+                                        placeholder="999"
+                                        className="w-16 px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-white"
+                                      />
+                                      <label className="flex items-center gap-1 cursor-pointer select-none">
+                                        <input
+                                          type="checkbox"
+                                          checked={editingSkill.stackDuration === 99999}
+                                          onChange={(e) => handleUpdateSkillField('stackDuration', e.target.checked ? 99999 : undefined)}
+                                          className="rounded bg-slate-950 border-slate-800 text-purple-500 focus:ring-0 w-3 h-3"
+                                        />
+                                        <span className="text-[9px] text-purple-400 font-mono">♾️ Infinito</span>
+                                      </label>
+                                      <span className="text-[10px] text-slate-500 font-mono">Duração da Stack (turnos)</span>
                                    </div>
                                    <div className="flex items-center gap-2 mt-1.5">
                                      <select
@@ -6540,10 +6840,20 @@ const newSkill: Skill = {
                                       type="number"
                                       min={1}
                                       max={10}
-                                      value={editingSkill.redirectOffensiveDuration || 1}
+                                      value={editingSkill.redirectOffensiveDuration === 99999 ? 0 : (editingSkill.redirectOffensiveDuration || 1)}
+                                      title={editingSkill.redirectOffensiveDuration === 99999 ? '♾️ Infinito' : 'Turno(s) de Duração'}
                                       onChange={(e) => handleUpdateSkillField('redirectOffensiveDuration', parseInt(e.target.value) || 1)}
                                       className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-cyan-300 font-bold"
                                     />
+                                    <label className="flex items-center gap-1 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={editingSkill.redirectOffensiveDuration === 99999}
+                                        onChange={(e) => handleUpdateSkillField('redirectOffensiveDuration', e.target.checked ? 99999 : 1)}
+                                        className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
+                                      />
+                                      <span className="text-[9px] text-cyan-400 font-mono">♾️ Infinito</span>
+                                    </label>
                                     <span className="text-[10px] text-slate-400 font-mono">Turno(s) de Duração</span>
                                   </div>
 

@@ -3626,7 +3626,7 @@ const handleTradeChakra = () => {
               name: `${skill.name} (Dano Contínuo)`,
               type: 'damage',
               value: baseDamage,
-              duration: duration - 1,
+              duration: duration === 99999 ? 99999 : (duration - 1),
               icon: skill.icon,
               irremovable: !!skill.damageIrremovable,
               casterId: source.id,
@@ -3636,10 +3636,10 @@ const handleTradeChakra = () => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💥 ${t.character.name} foi afetado por [${skill.name}] sofrendo ${baseDamage} de dano por turno por mais ${duration - 1} turnos!`,
+              message: `💥 ${t.character.name} foi afetado por [${skill.name}] sofrendo ${baseDamage} de dano por turno por mais ${duration === 99999 ? '∞' : (duration - 1)} turnos!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO CONTÍNUO (${skill?.permanent ? '♾️ Permanente' : (duration - 1) + 'T'})`, 'damage');
+            addFloatingText(t.id, `DANO CONTÍNUO (${skill?.permanent || duration === 99999 ? '♾️ Permanente' : (duration - 1) + 'T'})`, 'damage');
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
@@ -4525,7 +4525,7 @@ splashOnlyTargets = splashPool.filter(c =>
           }
 
           // If duration > 1, push active effect for remaining turns
-          const remainingDuration = rawDuration - 1;
+          const remainingDuration = rawDuration === 99999 ? 99999 : (rawDuration - 1);
           if (remainingDuration > 0) {
             pushActiveEffect(t, {
               name: `${skill.name} Affliction`,
@@ -5089,6 +5089,31 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(source.id, `-${dmgVal} PUNIÇÃO`, 'damage');
           }
         });
+      }
+
+      // REGRA: Remover do alvo os efeitos de skills marcadas como removíveis ao usar habilidade
+      // (mesmo que a duração seja infinita, usar uma skill remove o efeito do conjurador)
+      const removableFlagSkills = [...updatedPlayer, ...updatedEnemy]
+        .flatMap(cb => cb.character.skills)
+        .filter(s => s.removedOnTargetSkillUse)
+        .sort((a, b) => b.name.length - a.name.length);
+      if (removableFlagSkills.length > 0 && source.activeEffects.length > 0) {
+        const beforeRemove = source.activeEffects.length;
+        source.activeEffects = source.activeEffects.filter(eff => {
+          if (!eff.name) return true;
+          return !removableFlagSkills.some(s =>
+            eff.name === s.name || eff.name.startsWith(s.name + ' ') || eff.name.startsWith(s.name + '(')
+          );
+        });
+        if (source.activeEffects.length < beforeRemove) {
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🧹 ${source.character.name} usou uma habilidade e os efeitos removíveis foram removidos!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, 'EFEITOS REMOVIDOS', 'effect');
+        }
       }
 
       // RETALIATION / REACTIVE DAMAGE TRIGGER

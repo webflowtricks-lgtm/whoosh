@@ -172,6 +172,7 @@ export interface Skill {
   invisible?: boolean;
   invisibleDuration?: number;
   ignoreInvulnerable?: boolean;
+  removedOnTargetSkillUse?: boolean; // Remove os efeitos desta skill do alvo quando ele usar uma habilidade (mesmo que infinita)
   ignoreDamageReduction?: boolean;
   ignoreDamageReductionVal?: number;
   missingHpDamageType?: '' | 'normal' | 'direct' | 'dot' | 'bleeding' | 'affliction'; // Damage = caster's missing HP
@@ -314,6 +315,17 @@ counterAttackTarget?: TargetOverride;
 counterAttackIrremovable?: boolean;
 counterAttackCannotBeCountered?: boolean;
 counterAttackCannotBeReflected?: boolean;
+
+// ==============================
+// Redirection / Bodyguard
+// ==============================
+
+redirectOffensiveToCaster?: boolean;
+redirectOffensiveDuration?: number;
+redirectOffensiveScope?: 'ally' | 'team';
+redirectOffensiveTarget?: TargetOverride;
+redirectOffensiveIrremovable?: boolean;
+redirectOffensiveRemoveType?: string;
 
 
 // ==============================
