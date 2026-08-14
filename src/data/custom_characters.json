@@ -3451,6 +3451,105 @@
     "skins": []
   },
   {
+    "id": "shigure",
+    "name": "Shigure",
+    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
+    "tags": [
+      "Clã Shinobi",
+      "Clássico"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shigure/icon.jpg",
+    "folder": "shigure",
+    "skills": [
+      {
+        "name": "Umbrella",
+        "desc": "Shigure executa [Umbrella], desferindo um golpe poderoso que causa 30 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shigure/Umbrella.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 4,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Físico",
+          "Amigável"
+        ],
+        "stackable": true,
+        "stackType": "Umbrella",
+        "stackDuration": 3
+      },
+      {
+        "name": "Senbon Shower",
+        "desc": "Shigure executa [Senbon Shower], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shigure/SenbonShower.jpg",
+        "cost": [
+          "Rand",
+          "Rand"
+        ],
+        "cooldown": 3,
+        "currentCooldown": 0,
+        "targetType": "AllEnemies",
+        "classes": [
+          "Físico",
+          "A distancia"
+        ],
+        "directDamage": 10,
+        "directDamageDuration": 2,
+        "damageRules": [
+          {
+            "activeSkillName": "Umbrella",
+            "damageBoost": 20,
+            "damageType": "direct_damage",
+            "ignoreBaseDamage": true
+          }
+        ]
+      },
+      {
+        "name": "Senbon Barrage",
+        "desc": "Shigure executa [Senbon Barrage], desferindo um golpe poderoso que causa 30 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shigure/SenbonBarrage.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "À Distância",
+          "Físico"
+        ],
+        "damage": 20,
+        "requireTargetEffect": "Senbon Shower",
+        "damageRules": [
+          {
+            "activeSkillName": "Umbrella",
+            "damageBoost": 25,
+            "damageType": "damage",
+            "ignoreBaseDamage": true
+          }
+        ]
+      },
+      {
+        "name": "Umbrella Gathering",
+        "desc": "Shigure executa [Umbrella Gathering], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shigure/UmbrellaGathering.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Amigável",
+          "Físico"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
     "id": "kakashi",
     "name": "Kakashi Hatake",
     "description": "O líder Jonin de elite do Time 7. Conhecido mundialmente como o Ninja Copiador, Kakashi usa seu Sharingan para antecipar movimentos, se esconde no subsolo e desfere sua icônica Espada Relâmpago.",
@@ -13580,83 +13679,6 @@
           "Rand"
         ],
         "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "shigure",
-    "name": "Shigure",
-    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
-    "tags": [
-      "Clã Shinobi",
-      "Clássico"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shigure/icon.jpg",
-    "folder": "shigure",
-    "skills": [
-      {
-        "name": "Senbon Barrage",
-        "desc": "Shigure executa [Senbon Barrage], desferindo um golpe poderoso que causa 30 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shigure/SenbonBarrage.jpg",
-        "cost": [
-          "Gen",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Senbon Shower",
-        "desc": "Shigure executa [Senbon Shower], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shigure/SenbonShower.jpg",
-        "cost": [
-          "Nin",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Umbrella",
-        "desc": "Shigure executa [Umbrella], desferindo um golpe poderoso que causa 30 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shigure/Umbrella.jpg",
-        "cost": [
-          "Tai"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Umbrella Gathering",
-        "desc": "Shigure executa [Umbrella Gathering], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shigure/UmbrellaGathering.jpg",
-        "cost": [
-          "Tai",
-          "Rand"
-        ],
-        "cooldown": 0,
         "currentCooldown": 0,
         "targetType": "Enemy",
         "classes": [
