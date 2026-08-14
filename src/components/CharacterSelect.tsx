@@ -196,7 +196,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     return matchesSearch && matchesTag;
   });
 
-  const ITEMS_PER_PAGE = 15;
+  const ITEMS_PER_PAGE = 18;
   const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
   const activePage = Math.min(currentPage, Math.max(totalPages, 1));
   const startIndex = (activePage - 1) * ITEMS_PER_PAGE;
@@ -743,7 +743,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             )}
           </AnimatePresence>
 
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 sm:gap-3">
             {paginatedCharacters.map(char => {
               const isSelected = selectedIds.includes(char.id);
               const isFull = selectedIds.length >= 3 && !isSelected;
@@ -808,10 +808,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
                     {/* Character Name and Village */}
                     <div className="w-full text-center px-1 py-0.5 min-h-[32px] flex flex-col justify-center">
-                      <h4 className={`font-black font-mono tracking-tight text-xs sm:text-[13px] leading-tight truncate uppercase ${isLocked ? 'text-red-950 font-bold' : isSelected ? 'text-amber-900 font-extrabold' : 'text-amber-950'}`}>
+                      <h4 className={`ninja-name-tag font-black font-mono tracking-tight text-xs sm:text-[13px] leading-tight truncate uppercase ${isLocked ? 'text-red-950 font-bold' : isSelected ? 'text-amber-900 font-extrabold' : 'text-amber-950'}`}>
                         {char.name}
                       </h4>
-                      <p className="text-[9px] sm:text-[10px] font-mono font-bold text-amber-900/90 truncate mt-0.5">
+                      <p className="ninja-village-tag text-[9px] sm:text-[10px] font-mono font-bold text-amber-900/90 truncate mt-0.5">
                         {isLocked ? 'Bloqueado' : villageTag}
                       </p>
                     </div>

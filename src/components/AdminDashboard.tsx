@@ -67,6 +67,13 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   const [editingSkillIndex, setEditingSkillIndex] = useState<number | null>(null);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
 
+  // Raw text draft for the tags field so typing commas/spaces is not disrupted
+  const [tagsDraft, setTagsDraft] = useState('');
+  useEffect(() => {
+    setTagsDraft((editingChar?.tags || []).join(', '));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingChar?.id]);
+
   // Quest Autocomplete state for character lock requirements
   const [allQuests, setAllQuests] = useState<Quest[]>([]);
   const [questSearchInput, setQuestSearchInput] = useState('');
@@ -1716,9 +1723,11 @@ const newSkill: Skill = {
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">Tags / Afiliações (Separadas por vírgula)</label>
                   <input
                     type="text"
-                    value={editingChar.tags.join(', ')}
+                    value={tagsDraft}
                     onChange={(e) => {
-                      const list = e.target.value.split(',').map(s => s.trim()).filter(s => s !== '');
+                      const val = e.target.value;
+                      setTagsDraft(val);
+                      const list = val.split(',').map(s => s.trim()).filter(s => s !== '');
                       handleUpdateCharDetails('tags', list);
                     }}
                     placeholder="E.g. Vila da Folha, Time 7, Jinchuriki"
@@ -5030,6 +5039,94 @@ const newSkill: Skill = {
                             </div>
                           </div>
 
+                          {/* 11.5 Receber Dano Extra por Classe (Vulnerabilidade) */}
+                          <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-fuchsia-400 font-mono">Receber Dano Extra por Classe (Vulnerabilidade)</label>
+                              <div className="flex items-center gap-2">
+                                <input type="number" min={0} max={100}
+                                  value={editingSkill.damageVulnerabilityVal || 0}
+                                  onChange={(e) => handleUpdateSkillField('damageVulnerabilityVal', parseInt(e.target.value) || 0)}
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-fuchsia-800/60 rounded text-center text-xs font-mono text-fuchsia-300 font-bold" />
+                                <input type="number" min={1} max={10}
+                                  value={editingSkill.damageVulnerabilityDuration === 99999 ? 0 : (editingSkill.damageVulnerabilityDuration || 0)}
+                                  onChange={(e) => handleUpdateSkillField('damageVulnerabilityDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  title={editingSkill.damageVulnerabilityDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white" />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input type="checkbox"
+                                    checked={editingSkill.damageVulnerabilityDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('damageVulnerabilityDuration', e.target.checked ? 99999 : 1)}
+                                    className="rounded bg-slate-950 border-slate-800 text-fuchsia-500 focus:ring-0 w-3 h-3" />
+                                  <span className="text-[9px] text-fuchsia-400 font-mono">♾️ Infinito</span>
+                                </label>
+                              </div>
+                              <p className="text-[9px] text-slate-500 font-mono mt-1">O alvo marcado recebe +Val de dano extra de skills das classes abaixo.</p>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-fuchsia-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.damageVulnerabilityTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('damageVulnerabilityTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-fuchsia-300 focus:border-fuchsia-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                <span className="text-[9px] text-slate-500 font-mono mr-1">Classes afetadas:</span>
+                                {(['physical','mental','affliction','chakra','ranged','friendly'] as const).map(t => {
+                                  const current = editingSkill.damageVulnerabilityTypes;
+                                  const isChecked = !current || current.length === 0 || current.includes(t);
+                                  return (
+                                    <label key={t} className="flex items-center gap-0.5 cursor-pointer select-none text-[9px] text-slate-400 font-mono">
+                                      <input type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          const allTypes = ['physical','mental','affliction','chakra','ranged','friendly'];
+                                          const base = current && current.length > 0 ? [...current] : [...allTypes];
+                                          const idx = base.indexOf(t);
+                                          if (idx >= 0) base.splice(idx, 1); else base.push(t);
+                                          handleUpdateSkillField('damageVulnerabilityTypes', base.length > 0 && base.length < 6 ? base : undefined);
+                                        }}
+                                        className="rounded bg-slate-950 border-slate-700 text-fuchsia-500 focus:ring-0 w-2.5 h-2.5" />
+                                      {t === 'physical' ? '💪Físico' : t === 'mental' ? '🧠Mental' : t === 'affliction' ? '💀Aflição' : t === 'chakra' ? '⚡Chakra' : t === 'ranged' ? '🏹Distância' : '🤝Amigável'}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input type="checkbox"
+                                    checked={editingSkill.damageVulnerabilityIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('damageVulnerabilityIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-fuchsia-500 focus:ring-0 w-3 h-3" />
+                                  🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                  <select value={editingSkill.damageVulnerabilityRemoveType || 'none'}
+                                    onChange={(e) => handleUpdateSkillField('damageVulnerabilityRemoveType', e.target.value)}
+                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600">
+                                    <option value="none">Nenhum</option>
+                                    <option value="all">Todos</option>
+                                    <option value="buff">Buffs</option>
+                                    <option value="debuff">Debuffs</option>
+                                    <option value="stun">Stuns</option>
+                                    <option value="dot">DoTs</option>
+                                    <option value="bleeding">Sangra</option>
+                                    <option value="affliction">Aflição</option>
+                                    <option value="shield">Escudo</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* 12. Dano por Turno (DoT) */}
                           <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
                             <div>
@@ -6501,7 +6598,7 @@ const newSkill: Skill = {
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          const allTypes = ['affliction', 'dot', 'bleeding', 'stun', 'paralyze_cooldown', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage'];
+                                          const allTypes = ['affliction', 'dot', 'bleeding', 'stun', 'paralyze_cooldown', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage'];
                                           const isAllSelected = (editingSkill.cleanseDebuffTypes || []).length >= allTypes.length;
                                           handleUpdateSkillField('cleanseDebuffTypes', isAllSelected ? [] : allTypes);
                                         }}
@@ -6519,6 +6616,7 @@ const newSkill: Skill = {
                                         { value: 'stun', label: '⚡ Atordoamento', desc: 'Stuns / paralisias' },
                                         { value: 'paralyze_cooldown', label: '⏳ Paralisar Cooldown', desc: 'Trava de recarga' },
                                         { value: 'damage_debuff', label: '📉 Redução de Dano', desc: 'Debuff de dano' },
+                                        { value: 'damage_vulnerability', label: '🎯 Vulnerabilidade', desc: 'Dano extra por classe' },
                                         { value: 'cannot_reduce_damage', label: '🚫 Incapaz Reduzir', desc: 'Quebra de defesa' },
                                         { value: 'cannot_be_invulnerable', label: '🛡️ Incapaz Invulnerável', desc: 'Bloqueio de esquiva' },
                                         { value: 'cannot_receive_friendly', label: '🤝 Incapaz Amigável', desc: 'Bloqueio de cura/buff' },
@@ -6565,6 +6663,7 @@ const newSkill: Skill = {
                                           if (t === 'stun') return 'Stun';
                                           if (t === 'paralyze_cooldown') return 'Paralisar Cooldown';
                                           if (t === 'damage_debuff') return 'Redução de Dano';
+                                          if (t === 'damage_vulnerability') return 'Vulnerabilidade';
                                           if (t === 'cannot_reduce_damage') return 'Incapaz Reduzir Dano';
                                           if (t === 'cannot_be_invulnerable') return 'Incapaz Invulnerável';
                                           if (t === 'cannot_receive_friendly') return 'Incapaz Receber Amigável';

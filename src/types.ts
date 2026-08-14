@@ -143,6 +143,12 @@ export interface Skill {
   damageDebuffVal?: number;
   damageDebuffDuration?: number;
   damageDebuffTypes?: ('skill' | 'dot' | 'bleeding' | 'affliction' | 'direct_damage' | 'damage')[];
+  damageVulnerabilityVal?: number;
+  damageVulnerabilityDuration?: number;
+  damageVulnerabilityTypes?: string[]; // Classes de skill afetadas: physical, mental, affliction, chakra, ranged, friendly
+  damageVulnerabilityTarget?: TargetOverride;
+  damageVulnerabilityIrremovable?: boolean;
+  damageVulnerabilityRemoveType?: string;
   dotVal?: number;
   dotDuration?: number;
   dotInstant?: number;
@@ -448,6 +454,7 @@ export interface ActiveEffect {
   | 'ignore_stun'
   | 'damage_immunity'
   | 'damage_debuff'
+  | 'damage_vulnerability'
   | 'retaliate_damage'
   | 'immortal'
   | 'reveal_invisible'
@@ -506,6 +513,8 @@ export interface ActiveEffect {
   gainChakraTypes?: string[];
   /** Tipos de dano que este debuff afeta (para damage_debuff) */
   debuffTypes?: string[];
+  /** Classes de skill que recebem dano adicional enquanto este efeito estiver ativo (para damage_vulnerability): physical, mental, affliction, chakra, ranged, friendly */
+  vulnerabilityTypes?: string[];
   retaliateDamageVal?: number;
   retaliateDamageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'dot' | 'bleeding' | 'true';
   retaliateTargetScope?: 'self' | 'ally' | 'self_or_ally' | 'team';

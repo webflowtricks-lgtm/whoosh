@@ -55,6 +55,16 @@
     font-size: 13px;
 }
 
+.ninja-village-tag {
+  margin-top: -3px;
+  font-size: 9px;
+}
+
+.ninja-name-tag {
+  margin-top: -2px;
+ 
+}
+
 /* =========================================================
    CLASSE ÚNICA DO TAMANHO DA LOGO CENTRAL DO MENU (.menu-logo-central)
    =========================================================

@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo } from 'lucide-react';
-import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, getEffectiveTargetType, getEffectiveCooldown, Quest, QuestGoal } from '../types';
+import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, getEffectiveTargetType, getEffectiveCooldown, getSkillCombatTypes, Quest, QuestGoal } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
 import { calculateBattleXp, getRankProgress, checkRankChange } from '../lib/xpSystem';
@@ -316,7 +316,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
   if (!eff) return false;
   const debuffTypes = [
     'stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown',
-    'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase'
+    'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase'
   ];
   if (debuffTypes.includes(eff.type)) return true;
   const lowerName = (eff.name || '').toLowerCase();
@@ -331,6 +331,25 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
     lowerName.includes('paralisia') ||
     lowerName.includes('dreno')
   );
+}
+
+// Bônus de dano adicional que o alvo recebe de skills cuja classe bate com
+// vulnerabilityTypes do efeito damage_vulnerability (ex: mental, physical, ranged).
+// Se vulnerabilityTypes estiver vazio, vale para qualquer dano de skill.
+export function getTargetVulnerabilityBonus(t: CombatCharacter, skill: Skill | null): number {
+  if (!t || !t.activeEffects) return 0;
+  const skillTypes = getSkillCombatTypes(skill);
+  let bonus = 0;
+  for (const eff of t.activeEffects) {
+    if (eff.type !== 'damage_vulnerability') continue;
+    const types = eff.vulnerabilityTypes as string[] | undefined;
+    if (!types || types.length === 0) {
+      bonus += eff.value || 0;
+    } else if (skillTypes.some(st => types.includes(st))) {
+      bonus += eff.value || 0;
+    }
+  }
+  return bonus;
 }
 
 export function getSkillBaseName(eff: ActiveEffect): string {
@@ -451,6 +470,9 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     }
     case 'damage_debuff':
       rawPt = val > 0 ? `Fragilidade: Reduz o dano do alvo em ${val} por ${durText}` : `Fraqueza por ${durText}`;
+      break;
+    case 'damage_vulnerability':
+      rawPt = val > 0 ? `Vulnerabilidade: Alvo recebe +${val} de dano extra de skills das classes (${((effect.vulnerabilityTypes as string[]) || []).map(ct => ({ physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'Distância', friendly: 'Amigável' } as Record<string, string>)[ct] || ct).join(', ') || 'Todas'}) por ${durText}` : `Vulnerabilidade por ${durText}`;
       break;
     case 'damage_buff':
       rawPt = val > 0 ? `Aumenta o ataque de todas as suas habilidades em ${val}` : `Aumenta o ataque das habilidades por ${durText}`;
@@ -2795,7 +2817,7 @@ const handleTradeChakra = () => {
           if (eff.irremovable) return true;
 
           if (isAllDebuffs) {
-            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'chakra_cost_increase'].includes(eff.type);
+            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'chakra_cost_increase'].includes(eff.type);
             return !isDebuff;
           }
 
@@ -2805,6 +2827,7 @@ const handleTradeChakra = () => {
           if (debuffTypes.includes('stun') && eff.type === 'stun') return false;
           if (debuffTypes.includes('paralyze_cooldown') && eff.type === 'paralyze_cooldown') return false;
           if (debuffTypes.includes('damage_debuff') && eff.type === 'damage_debuff') return false;
+          if (debuffTypes.includes('damage_vulnerability') && eff.type === 'damage_vulnerability') return false;
           if (debuffTypes.includes('cannot_reduce_damage') && eff.type === 'cannot_reduce_damage') return false;
           if (debuffTypes.includes('cannot_be_invulnerable') && eff.type === 'cannot_be_invulnerable') return false;
           if (debuffTypes.includes('cannot_receive_friendly') && eff.type === 'cannot_receive_friendly') return false;
@@ -2823,6 +2846,7 @@ const handleTradeChakra = () => {
             if (d === 'stun') return 'Atordoamento';
             if (d === 'paralyze_cooldown') return 'Paralisar Cooldown';
             if (d === 'damage_debuff') return 'Redução de Dano';
+            if (d === 'damage_vulnerability') return 'Vulnerabilidade';
             if (d === 'cannot_reduce_damage') return 'Incapaz de Reduzir Dano';
             if (d === 'cannot_be_invulnerable') return 'Incapaz de Invulnerabilidade';
             if (d === 'cannot_receive_friendly') return 'Incapaz de Receber Efeitos Amigáveis';
@@ -3510,7 +3534,7 @@ const handleTradeChakra = () => {
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) - damageDebuffSum;
+          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
           if (!targetCannotReduce) {
@@ -3776,7 +3800,7 @@ splashOnlyTargets = splashPool.filter(c =>
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) - damageDebuffSum;
+          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
 
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
@@ -4252,6 +4276,33 @@ splashOnlyTargets = splashPool.filter(c =>
             type: 'buff',
           });
           addFloatingText(t.id, `${skill.name} Weakness`.toUpperCase(), 'effect');
+        });
+      }
+
+      // Damage Vulnerability (target takes extra damage from matching class skills)
+      if (skill.damageVulnerabilityVal && skill.damageVulnerabilityVal > 0) {
+        const targets = resolveEffectTargets(skill.damageVulnerabilityTarget || skill.shieldTarget || 'Target', target, source, sourceList, targetList, false);
+        targets.forEach(t => {
+          if (t.isDead) return;
+          const vulnDuration = skill.damageVulnerabilityDuration === 99999 ? 99999 : (skill.damageVulnerabilityDuration || 3);
+          pushActiveEffect(t, {
+            name: `${skill.name} Vulnerabilidade`,
+            sourceSkillName: skill.name,
+            type: 'damage_vulnerability',
+            value: skill.damageVulnerabilityVal!,
+            duration: vulnDuration,
+            icon: skill.icon,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            vulnerabilityTypes: skill.damageVulnerabilityTypes,
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `🎯 ${t.character.name} ficou VULNERÁVEL por ${skill.damageVulnerabilityVal} de dano extra${skill.damageVulnerabilityTypes && skill.damageVulnerabilityTypes.length > 0 ? ` (${skill.damageVulnerabilityTypes.join(', ')})` : ''} por ${vulnDuration === 99999 ? 'tempo indeterminado' : `${vulnDuration} turnos`}.`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, `VULNERÁVEL (+${skill.damageVulnerabilityVal})`, 'effect');
+          cleanseTargetEffects(t, skill.damageVulnerabilityRemoveType);
         });
       }
 
@@ -6922,7 +6973,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (eff.irremovable) return true;
 
           if (isAllDebuffs) {
-            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'chakra_cost_increase'].includes(eff.type);
+            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'chakra_cost_increase'].includes(eff.type);
             return !isDebuff;
           }
 
@@ -6932,6 +6983,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (debuffTypes.includes('stun') && eff.type === 'stun') return false;
           if (debuffTypes.includes('paralyze_cooldown') && eff.type === 'paralyze_cooldown') return false;
           if (debuffTypes.includes('damage_debuff') && eff.type === 'damage_debuff') return false;
+          if (debuffTypes.includes('damage_vulnerability') && eff.type === 'damage_vulnerability') return false;
           if (debuffTypes.includes('cannot_reduce_damage') && eff.type === 'cannot_reduce_damage') return false;
           if (debuffTypes.includes('cannot_be_invulnerable') && eff.type === 'cannot_be_invulnerable') return false;
           if (debuffTypes.includes('cannot_receive_friendly') && eff.type === 'cannot_receive_friendly') return false;
@@ -6950,6 +7002,7 @@ splashOnlyTargets = splashPool.filter(c =>
             if (d === 'stun') return 'Atordoamento';
             if (d === 'paralyze_cooldown') return 'Paralisar Cooldown';
             if (d === 'damage_debuff') return 'Redução de Dano';
+            if (d === 'damage_vulnerability') return 'Vulnerabilidade';
             if (d === 'cannot_reduce_damage') return 'Incapaz de Reduzir Dano';
             if (d === 'cannot_be_invulnerable') return 'Incapaz de Invulnerabilidade';
             if (d === 'cannot_receive_friendly') return 'Incapaz de Receber Efeitos Amigáveis';
@@ -7458,7 +7511,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           });
           const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           let costRuleDamageBoost = costRuleDamageBoost2;
-          let finalDamage = dmgVal + damageBuffSum + costRuleDamageBoost + getCaptureArrestBonusDamage(t, skill) - damageDebuffSum;
+          let finalDamage = dmgVal + damageBuffSum + costRuleDamageBoost + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
           if (!targetCannotReduce) {
@@ -7720,7 +7773,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) - damageDebuffSum;
+          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
 
           // Apply flat damage reduction on target
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
@@ -8257,6 +8310,32 @@ if (skill.redirectOffensiveToCaster) {
           });
           addFloatingText(t.id, `FRAQUEZA (-${skill.damageDebuffVal})`, 'effect');
           cleanseTargetEffects(t, skill.damageDebuffRemoveType);
+        });
+      }
+
+      // 4.3.5 APPLY DAMAGE VULNERABILITY
+      if (skill.damageVulnerabilityVal && skill.damageVulnerabilityVal > 0) {
+        const vulnTargets = resolveEffectTargets(skill.damageVulnerabilityTarget || skill.shieldTarget || 'Target', target, source, sourceList, targetList, false);
+        vulnTargets.forEach(t => {
+          if (t.isDead) return;
+          const vulnDuration = skill.damageVulnerabilityDuration === 99999 ? 99999 : (skill.damageVulnerabilityDuration || 3);
+          pushActiveEffect(t, {
+            name: `${skill.name} Vulnerabilidade`,
+            sourceSkillName: skill.name,
+            type: 'damage_vulnerability',
+            value: skill.damageVulnerabilityVal,
+            duration: vulnDuration,
+            icon: skill.icon,
+            irremovable: !!skill.damageVulnerabilityIrremovable,
+            vulnerabilityTypes: skill.damageVulnerabilityTypes,
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `🎯 ${t.character.name} ativou VULNERABILIDADE de [${skill.name}] recebendo +${skill.damageVulnerabilityVal} de dano extra${skill.damageVulnerabilityTypes && skill.damageVulnerabilityTypes.length > 0 ? ` (${skill.damageVulnerabilityTypes.join(', ')})` : ''} por ${vulnDuration === 99999 ? 'tempo indeterminado' : `${vulnDuration} turnos`}!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, `VULNERÁVEL (+${skill.damageVulnerabilityVal})`, 'effect');
+          cleanseTargetEffects(t, skill.damageVulnerabilityRemoveType);
         });
       }
 
@@ -9392,6 +9471,16 @@ if (skill.redirectOffensiveToCaster) {
         value: `Reduz o dano causado pelo inimigo em ${skill.damageDebuffVal} por ${skill.damageDebuffDuration || 1} ${skill.damageDebuffDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-rose-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageDebuffTarget, 'Alvo Principal')
+      });
+    }
+
+    // Informação: Skill torna o inimigo vulnerável (damage_vulnerability)
+    if (skill.damageVulnerabilityVal && skill.damageVulnerabilityVal > 0) {
+      effects.push({
+        label: 'Vulnerabilidade de Classe',
+        value: `Inimigo recebe +${skill.damageVulnerabilityVal} de dano extra${skill.damageVulnerabilityTypes && skill.damageVulnerabilityTypes.length > 0 ? ` de classes (${skill.damageVulnerabilityTypes.join(', ')})` : ''} por ${skill.damageVulnerabilityDuration === 99999 ? '∞ (Infinito)' : `${skill.damageVulnerabilityDuration || 1} ${skill.damageVulnerabilityDuration === 1 ? 'Turno' : 'Turnos'}`}`,
+        color: 'text-fuchsia-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.damageVulnerabilityTarget, 'Alvo Principal')
       });
     }
 
