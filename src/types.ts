@@ -63,6 +63,23 @@ export interface SkillIgnoreInvulnWhenActiveRule {
   activeOn?: 'target' | 'self';
 }
 
+export interface SkillStunWhenActiveRule {
+  activeSkillName: string; // Skill/efeito que, se ATIVO, faz esta skill stunnar o inimigo
+  /** Onde a habilidade condicional precisa estar ativa: 'target' (No Oponente - padrão) ou 'self' (Em Mim / Conjurador) */
+  activeOn?: 'target' | 'self';
+  /** Classes bloqueadas pelo stun: 'physical', 'chakra', 'mental', 'affliction' (vazio/ausente = Stun Completo) */
+  stunClasses?: string[];
+  /** Duração do stun em turnos (padrão: 1) */
+  stunTurns?: number;
+}
+
+export interface SkillCounterSuccessDamageRule {
+  /** Dano que o inimigo que atacou recebe quando o CONTRA-ATAQUE desta skill é efetuado com sucesso */
+  damage: number;
+  /** Tipo de dano: 'direct_damage' (Direto - padrão), 'damage' (Normal, consumido por escudo), 'dot' (Queimadura), 'bleeding' (Sangramento), 'affliction' (Aflição) */
+  damageType?: string;
+}
+
 export interface SkillHealRule {
   activeSkillName: string; // Active skill/effect required on character
   healBoost: number; // Extra healing when condition is active
@@ -116,6 +133,10 @@ export interface Skill {
   killWhenActiveRules?: SkillKillWhenActiveRule[];
   /** Regras condicionais: se a habilidade listada estiver ATIVA no Oponente, esta skill IGNORA a invulnerabilidade dele */
   ignoreInvulnWhenActiveRules?: SkillIgnoreInvulnWhenActiveRule[];
+  /** Regras condicionais de stun: se a habilidade listada estiver ATIVA (em mim ou no Oponente), esta skill STUNNA o inimigo */
+  stunWhenActiveRules?: SkillStunWhenActiveRule[];
+  /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou recebe dano direto */
+  counterSuccessDamageRules?: SkillCounterSuccessDamageRule[];
   healRules?: SkillHealRule[];
   costRuleActiveSkill?: string;
   costRuleReduceRand?: number;

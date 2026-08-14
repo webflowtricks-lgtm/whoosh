@@ -3939,7 +3939,28 @@
         "blocksOffensiveSkills": false,
         "stackable": false,
         "stackType": "",
-        "stackTarget": "Target"
+        "stackTarget": "Target",
+        "damage": 35,
+        "stunTurns": 1,
+        "stunType": [
+          "physical"
+        ],
+        "damageRules": [
+          {
+            "activeSkillName": "Cursed Seal Release",
+            "damageBoost": 40,
+            "damageType": "direct_damage",
+            "ignoreBaseDamage": true
+          }
+        ],
+        "stunWhenActiveRules": [
+          {
+            "activeSkillName": "Cursed Seal Release",
+            "activeOn": "self",
+            "stunClasses": [],
+            "stunTurns": 1
+          }
+        ]
       },
       {
         "name": "Cursed Counter",
@@ -3959,7 +3980,15 @@
         "stackType": "",
         "stackTarget": "Target",
         "counterAttack": true,
-        "counterAttackTarget": "Self"
+        "counterAttackTarget": "Self",
+        "counterSuccessDamageRules": [
+          {
+            "damage": 20,
+            "damageType": "direct_damage"
+          }
+        ],
+        "invisibleDuration": 1,
+        "invisible": true
       },
       {
         "name": "Cursed Seal Enhanced Sharingan",

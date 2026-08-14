@@ -2690,6 +2690,37 @@ const handleTradeChakra = () => {
       // Find target combatant
       const defaultTarget = targetList.find(c => c.id === action.targetId) || sourceList.find(c => c.id === action.targetId) || source;
 
+      // Conditional stun rules (stunWhenActiveRules): if the condition skill is active (on me or on the target),
+      // this skill stuns the enemy
+      if (skill.stunWhenActiveRules && skill.stunWhenActiveRules.length > 0 && defaultTarget && !defaultTarget.isDead) {
+        const isEnemyTarget = action.isPlayer ? defaultTarget.id.startsWith('enemy') : defaultTarget.id.startsWith('player');
+        if (isEnemyTarget) {
+          for (const rule of skill.stunWhenActiveRules) {
+            if (!rule.activeSkillName) continue;
+            const condMet = rule.activeOn === 'self' ? hasEffectWithName(source, rule.activeSkillName) : hasEffectWithName(defaultTarget, rule.activeSkillName);
+            if (!condMet) continue;
+            const classes = (rule.stunClasses || []).map(c => c.toLowerCase()).filter(Boolean);
+            const stunLabel = classes.length === 0 || classes.length >= 4 ? 'Stun Completo' : `Stun (${classes.join(' + ')})`;
+            const dur = Math.max(1, rule.stunTurns || 1);
+            pushActiveEffect(defaultTarget, {
+              name: `${skill.name} (${stunLabel})`,
+              type: 'stun',
+              duration: dur,
+              icon: skill.icon || source.character.portrait,
+              stunType: classes.length === 0 || classes.length >= 4 ? undefined : classes,
+              irremovable: false,
+            });
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🌀 [STUN CONDICIONAL] ${source.character.name} stunnou ${defaultTarget.character.name} com [${skill.name}] por ${dur} turno(s) (${stunLabel}) porque [${rule.activeSkillName}] está ativo ${rule.activeOn === 'self' ? 'em mim' : 'no alvo'}!`,
+              type: 'stun',
+            });
+            addFloatingText(defaultTarget.id, `STUN (${stunLabel})`, 'stun');
+            if (action.isPlayer) matchStatsRef.current.stunsApplied += 1;
+          }
+        }
+      }
+
       // Young Nagato: Air Bullets track target
       if ((skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets')) && defaultTarget && !defaultTarget.isDead) {
         airBulletsHitTargets.current.set(defaultTarget.id, skill.icon);
@@ -2836,9 +2867,9 @@ const handleTradeChakra = () => {
         }
       }
 
-      // Check Counter-Attack on source (attacker mode): nullifies the source's own offensive skills
+      // Check Counter-Attack on source (attacker mode): nullifies the source's own skills
       const attackerCounterEffect = source.activeEffects.find(e => e.type === 'counter_attack' && e.counterAttackType === 'attacker');
-      if (attackerCounterEffect && isOffensiveSkill && !skill.cannotBeCountered) {
+      if (attackerCounterEffect && !skill.cannotBeCountered) {
         newLogs.push({
           id: Math.random().toString(),
           turn,
@@ -2856,9 +2887,9 @@ const handleTradeChakra = () => {
         return; // Skill is cancelled due to counter-attack
       }
 
-      // Check Counter-Attack on target (only counter-attack cancels the skill)
+      // Check Counter-Attack on target (nullifies ANY skill used against the counter holder, except skills marked cannotBeCountered)
       const counterEffect = defaultTarget.activeEffects.find(e => e.type === 'counter_attack' || (e.type === 'counter' && e.counterAttackType === 'defender'));
-      if (counterEffect && isOffensiveSkill && !skill.cannotBeCountered) {
+      if (counterEffect && !skill.cannotBeCountered && source.id !== defaultTarget.id) {
         newLogs.push({
           id: Math.random().toString(),
           turn,
@@ -2873,6 +2904,62 @@ const handleTradeChakra = () => {
           counterEffect.duration = (counterEffect.duration || 1) - 1;
           if (counterEffect.duration <= 0) {
             defaultTarget.activeEffects = defaultTarget.activeEffects.filter(e => e !== counterEffect);
+          }
+        }
+        // 💥 CONTRA-ATAQUE BÔNUS (counterSuccessDamageRules): quando o contra-ataque desta skill funciona,
+        // o inimigo que atacou recebe o dano configurado do tipo escolhido
+        if (!source.isDead && counterEffect.sourceSkillName) {
+          const applierSkill = (defaultTarget.character.skills || []).find(s => s.name === counterEffect.sourceSkillName);
+          const bonusRules = (applierSkill?.counterSuccessDamageRules || []).filter(r => (r.damage || 0) > 0);
+          if (bonusRules.length > 0) {
+            if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️ ${defaultTarget.character.name} contra-atacou, mas ${source.character.name} é IMUNE ao dano bônus do contra-ataque!`,
+                type: 'buff',
+              });
+            } else {
+              const typeLabels: Record<string, string> = {
+                damage: 'dano',
+                direct_damage: 'dano direto',
+                true: 'dano direto',
+                piercing: 'dano direto',
+                dot: 'queimadura',
+                bleeding: 'sangramento',
+                affliction: 'aflição',
+              };
+              for (const r of bonusRules) {
+                const rDmg = r.damage || 0;
+                const rType = r.damageType || 'direct_damage';
+                let actualDmg = rDmg;
+                if (rType === 'damage' && (source.shield || 0) > 0) {
+                  if (source.shield >= actualDmg) {
+                    source.shield -= actualDmg;
+                    actualDmg = 0;
+                  } else {
+                    actualDmg -= source.shield;
+                    source.shield = 0;
+                  }
+                }
+                if (actualDmg > 0) {
+                  source.health = source.activeEffects?.some(e => e.type === 'immortal')
+                    ? Math.max(1, source.health - actualDmg)
+                    : Math.max(0, source.health - actualDmg);
+                  if (source.health <= 0 && !source.activeEffects?.some(e => e.type === 'immortal')) {
+                    source.isDead = true;
+                  }
+                }
+                const typeLabel = typeLabels[rType] || 'dano direto';
+                newLogs.push({
+                  id: Math.random().toString(),
+                  turn,
+                  message: `💥 [CONTRA-ATAQUE] ${defaultTarget.character.name} causou +${rDmg} de ${typeLabel} em ${source.character.name} ao contra-atacar com sucesso!`,
+                  type: 'damage',
+                });
+                addFloatingText(source.id, `-${rDmg} ${typeLabel.toUpperCase()}`, 'damage');
+              }
+            }
           }
         }
         return; // Skill is cancelled due to counter-attack
@@ -10313,6 +10400,47 @@ if (skill.redirectOffensiveToCaster) {
           value: `IGNORA a invulnerabilidade quando ${rule.activeSkillName} estiver ativo ${where}`,
           color: 'text-amber-950 font-extrabold',
           targetLabel: 'Condicional'
+        });
+      });
+    }
+
+    // Informação de stun condicional (stunWhenActiveRules)
+    if (skill.stunWhenActiveRules && skill.stunWhenActiveRules.length > 0) {
+      skill.stunWhenActiveRules.forEach(rule => {
+        if (!rule.activeSkillName) return;
+        const where = rule.activeOn === 'self' ? 'em MIM' : 'no Oponente';
+        const classes = (rule.stunClasses || []).map(c => c.toLowerCase()).filter(Boolean);
+        const blockLabel = classes.length === 0 || classes.length >= 4
+          ? 'Stun Completo'
+          : `Stun (${classes.join(' + ')})`;
+        effects.push({
+          label: `Stun Condicional (${rule.activeSkillName})`,
+          value: `STUNNA o inimigo por ${Math.max(1, rule.stunTurns || 1)} turno(s) (${blockLabel}) quando ${rule.activeSkillName} estiver ativo ${where}`,
+          color: 'text-yellow-950 font-extrabold',
+          targetLabel: 'Condicional'
+        });
+      });
+    }
+
+    // Informação de dano bônus no contra-ataque (counterSuccessDamageRules)
+    if (skill.counterSuccessDamageRules && skill.counterSuccessDamageRules.length > 0) {
+      const typeLabels: Record<string, string> = {
+        damage: 'Dano',
+        direct_damage: 'Dano Direto',
+        true: 'Dano Direto',
+        piercing: 'Dano Direto',
+        dot: 'Queimadura',
+        bleeding: 'Sangramento',
+        affliction: 'Aflição',
+      };
+      skill.counterSuccessDamageRules.forEach(r => {
+        if (!(r.damage || 0) || (r.damage || 0) <= 0) return;
+        const tLabel = typeLabels[r.damageType || 'direct_damage'] || 'Dano Direto';
+        effects.push({
+          label: 'Dano Bônus no Contra-Ataque',
+          value: `Quando o CONTRA-ATAQUE desta skill funciona, o inimigo que atacou recebe +${r.damage} de ${tLabel}`,
+          color: 'text-cyan-950 font-extrabold',
+          targetLabel: 'Contra-Ataque'
         });
       });
     }

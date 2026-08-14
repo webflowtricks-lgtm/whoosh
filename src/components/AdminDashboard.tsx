@@ -3733,6 +3733,210 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Conditional Stun Rules */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-yellow-400 font-mono">
+                              🌀 Stun Condicional
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Se a habilidade/efeito específico estiver ATIVO (em mim ou no Oponente), esta skill STUNNA o inimigo. Escolha quais classes o stun bloqueia.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.stunWhenActiveRules || [];
+                              handleUpdateSkillField('stunWhenActiveRules', [
+                                ...currentRules,
+                                { activeSkillName: '', activeOn: 'target', stunClasses: [], stunTurns: 1 }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-yellow-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.stunWhenActiveRules || editingSkill.stunWhenActiveRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de stun condicional configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.stunWhenActiveRules.map((rule, rIdx) => {
+                              const ruleClasses = rule.stunClasses || [];
+                              const toggleClass = (cls: string) => {
+                                const updated = [...(editingSkill.stunWhenActiveRules || [])];
+                                const next = ruleClasses.includes(cls) ? ruleClasses.filter(c => c !== cls) : [...ruleClasses, cls];
+                                updated[rIdx] = { ...updated[rIdx], stunClasses: next };
+                                handleUpdateSkillField('stunWhenActiveRules', updated);
+                              };
+                              return (
+                                <div key={rIdx} className="space-y-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-yellow-400 font-bold">Stunnar quando ativo:</span>
+                                    <select
+                                      value={rule.activeOn || 'target'}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.stunWhenActiveRules || [])];
+                                        updated[rIdx] = { ...updated[rIdx], activeOn: e.target.value === 'self' ? 'self' : 'target' };
+                                        handleUpdateSkillField('stunWhenActiveRules', updated);
+                                      }}
+                                      className="px-2 py-0.5 bg-slate-900 border border-yellow-800/60 rounded text-[10px] font-mono text-yellow-300 focus:border-yellow-500 outline-none"
+                                    >
+                                      <option value="target">No Oponente</option>
+                                      <option value="self">Em Mim (Conjurador)</option>
+                                    </select>
+                                    <input
+                                      type="text"
+                                      list="stunWhenSkills-suggestions"
+                                      value={rule.activeSkillName}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.stunWhenActiveRules || [])];
+                                        updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                        handleUpdateSkillField('stunWhenActiveRules', updated);
+                                      }}
+                                      placeholder="Ex: Two-Headed Wolf"
+                                      className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-yellow-500 rounded text-white outline-none text-[10px]"
+                                    />
+                                    <datalist id="stunWhenSkills-suggestions">
+                                      {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                        editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                      ) : <option value="" disabled />}
+                                    </datalist>
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={99}
+                                        value={rule.stunTurns || 1}
+                                        onChange={(e) => {
+                                          const updated = [...(editingSkill.stunWhenActiveRules || [])];
+                                          updated[rIdx] = { ...updated[rIdx], stunTurns: parseInt(e.target.value) || 1 };
+                                          handleUpdateSkillField('stunWhenActiveRules', updated);
+                                        }}
+                                        className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                      />
+                                      <span className="text-[9px] text-slate-500 font-mono">Turnos</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = (editingSkill.stunWhenActiveRules || []).filter((_, i) => i !== rIdx);
+                                        handleUpdateSkillField('stunWhenActiveRules', updated.length > 0 ? updated : undefined);
+                                      }}
+                                      className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                      title="Remover Regra"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-[9px] text-slate-400 uppercase font-bold">🧱 Bloquear classes:</span>
+                                    {[
+                                      { key: 'physical', label: 'Físico' },
+                                      { key: 'chakra', label: 'Chakra' },
+                                      { key: 'mental', label: 'Mental' },
+                                      { key: 'affliction', label: 'Aflição' },
+                                    ].map(opt => (
+                                      <label key={opt.key} className={`flex items-center gap-1 px-1.5 py-0.5 rounded cursor-pointer select-none border transition-all ${ruleClasses.includes(opt.key) ? 'bg-yellow-950/60 border-yellow-700/60 text-yellow-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-yellow-800/50'}`}>
+                                        <input
+                                          type="checkbox"
+                                          checked={ruleClasses.includes(opt.key)}
+                                          onChange={() => toggleClass(opt.key)}
+                                          className="rounded bg-slate-950 border-yellow-800/60 text-yellow-500 focus:ring-0 w-3 h-3"
+                                        />
+                                        <span className="text-[9px] font-mono">{opt.label}</span>
+                                      </label>
+                                    ))}
+                                    <span className="text-[9px] text-slate-500 italic">(nenhuma marcada = Stun Completo)</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Counter Success Damage Rules */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">
+                              💥 Dano Bônus no Contra-Ataque
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Quando o CONTRA-ATAQUE desta skill for efetuado com sucesso (anular uma habilidade ofensiva), o inimigo que atacou recebe o dano direto configurado.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.counterSuccessDamageRules || [];
+                              handleUpdateSkillField('counterSuccessDamageRules', [...current, { damage: 0 }]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Dano
+                          </button>
+                        </div>
+
+                        {(!editingSkill.counterSuccessDamageRules || editingSkill.counterSuccessDamageRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhum dano bônus de contra-ataque configurado para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.counterSuccessDamageRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-cyan-400 font-bold">Dano bônus no contra-ataque:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={99999}
+                                  value={rule.damage || 0}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.counterSuccessDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damage: parseInt(e.target.value) || 0 };
+                                    handleUpdateSkillField('counterSuccessDamageRules', updated);
+                                  }}
+                                  className="w-20 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px] text-center"
+                                />
+                                <select
+                                  value={rule.damageType || 'direct_damage'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.counterSuccessDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damageType: e.target.value as any };
+                                    handleUpdateSkillField('counterSuccessDamageRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px] font-mono"
+                                >
+                                  <option value="direct_damage">🎯 Direto</option>
+                                  <option value="damage">💥 Normal</option>
+                                  <option value="dot">🔥 Queimadura</option>
+                                  <option value="bleeding">🩸 Sangramento</option>
+                                  <option value="affliction">💀 Aflição</option>
+                                </select>
+                                <span className="text-[9px] text-slate-400">de dano ao inimigo</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.counterSuccessDamageRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('counterSuccessDamageRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       <div className="md:col-span-2">
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Descrição do Efeito / Detalhes</label>
                         <textarea
