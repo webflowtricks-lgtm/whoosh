@@ -3652,6 +3652,87 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Conditional Ignore Invulnerability Rules */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">
+                              ⛓️ Ignorar Invulnerabilidade (Condicional)
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Se a habilidade/efeito específico estiver ATIVO no Oponente, esta skill IGNORA a invulnerabilidade dele.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.ignoreInvulnWhenActiveRules || [];
+                              handleUpdateSkillField('ignoreInvulnWhenActiveRules', [
+                                ...currentRules,
+                                { activeSkillName: '' }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.ignoreInvulnWhenActiveRules || editingSkill.ignoreInvulnWhenActiveRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de invulnerabilidade condicional configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.ignoreInvulnWhenActiveRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-amber-400 font-bold">Ignorar invuln. quando ativo:</span>
+                                <select
+                                  value={rule.activeOn || 'target'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.ignoreInvulnWhenActiveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeOn: e.target.value === 'self' ? 'self' : 'target' };
+                                    handleUpdateSkillField('ignoreInvulnWhenActiveRules', updated);
+                                  }}
+                                  className="px-2 py-0.5 bg-slate-900 border border-amber-800/60 rounded text-[10px] font-mono text-amber-300 focus:border-amber-500 outline-none"
+                                >
+                                  <option value="target">No Oponente</option>
+                                  <option value="self">Em Mim (Conjurador)</option>
+                                </select>
+                                <input
+                                  type="text"
+                                  list="ignoreInvulnSkills-suggestions"
+                                  value={rule.activeSkillName}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.ignoreInvulnWhenActiveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                    handleUpdateSkillField('ignoreInvulnWhenActiveRules', updated);
+                                  }}
+                                  placeholder="Ex: Two-Headed Wolf"
+                                  className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <datalist id="ignoreInvulnSkills-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : <option value="" disabled />}
+                                </datalist>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.ignoreInvulnWhenActiveRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('ignoreInvulnWhenActiveRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       <div className="md:col-span-2">
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Descrição do Efeito / Detalhes</label>
                         <textarea
@@ -5189,6 +5270,73 @@ const newSkill: Skill = {
                             </div>
                           </div>
 
+                          {/* 10b. Sofrer Dano (Dano Amigável/Próprio) */}
+                          <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-violet-400 font-mono">Sofrer Dano (Próprio/Equipe)</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={editingSkill.friendlyDamageVal || 0}
+                                  onChange={(e) => handleUpdateSkillField('friendlyDamageVal', parseInt(e.target.value) || 0)}
+                                  placeholder="Valor"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={editingSkill.friendlyDamageDuration === 99999 ? 0 : (editingSkill.friendlyDamageDuration || 0)}
+                                  title={editingSkill.friendlyDamageDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
+                                  onChange={(e) => handleUpdateSkillField('friendlyDamageDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.friendlyDamageDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('friendlyDamageDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                </label>
+                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 mt-1">
+                                <div>
+                                  <span className="text-[9px] text-violet-400 font-mono uppercase font-bold block mb-0.5">⚔️ Tipo do Dano:</span>
+                                  <select
+                                    value={editingSkill.friendlyDamageType || 'damage'}
+                                    onChange={(e) => handleUpdateSkillField('friendlyDamageType', e.target.value as any)}
+                                    className="w-full px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-violet-300 focus:border-violet-600 outline-none"
+                                  >
+                                    <option value="damage">💥 Dano Normal</option>
+                                    <option value="direct_damage">🎯 Dano Direto</option>
+                                    <option value="dot">🔥 Queimadura (DoT)</option>
+                                    <option value="bleeding">🩸 Sangramento</option>
+                                    <option value="affliction">💀 Aflição</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-violet-400 font-mono uppercase font-bold block mb-0.5">🎯 Quem sofre:</span>
+                                  <select
+                                    value={editingSkill.friendlyDamageTarget || 'Self'}
+                                    onChange={(e) => handleUpdateSkillField('friendlyDamageTarget', e.target.value as any)}
+                                    className="w-full px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-violet-300 focus:border-violet-600 outline-none"
+                                  >
+                                    <option value="Self">Conjurador (Mim)</option>
+                                    <option value="Ally">Aliado</option>
+                                    <option value="AllAllies">Toda Minha Equipe</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <p className="text-[8px] text-slate-500 font-mono mt-0.5">Ao usar a skill, quem sofre perde {editingSkill.friendlyDamageVal || 0} de {editingSkill.friendlyDamageType === 'direct_damage' ? 'dano direto' : editingSkill.friendlyDamageType === 'dot' ? 'queimadura' : editingSkill.friendlyDamageType === 'bleeding' ? 'sangramento' : editingSkill.friendlyDamageType === 'affliction' ? 'aflição' : 'dano'} por turno durante {editingSkill.friendlyDamageDuration || 0} turnos.</p>
+                            </div>
+                          </div>
+
                           {/* 11. Reduzir Dano das Skills (Debuff) */}
                           <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
                             <div>
@@ -6593,8 +6741,8 @@ const newSkill: Skill = {
                                       type="text"
                                       value={editingSkill.stackType || ''}
                                       onChange={(e) => handleUpdateSkillField('stackType', e.target.value)}
-                                      placeholder="Tipo (ex: Marca)"
-                                      className="w-full px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-purple-300 focus:border-purple-500 outline-none"
+placeholder="Tipo (ex: Marca) — vazio usa o nome da skill"
+                                       className="w-full px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-purple-300 focus:border-purple-500 outline-none"
                                     />
                                     <span className="text-[10px] text-slate-500 font-mono shrink-0">Tipo de Stack</span>
                                   </div>
@@ -6629,13 +6777,75 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                                        {TARGET_OPTIONS.map(opt => (
                                          <option key={opt.value} value={opt.value}>{opt.label}</option>
                                        ))}
-                                     </select>
+</select>
                                      <span className="text-[10px] text-slate-500 font-mono">Aplicar Stacks em:</span>
                                    </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
+                                   <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                     <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                       <input
+                                         type="checkbox"
+                                         checked={editingSkill.stackStartActive || false}
+                                         onChange={(e) => handleUpdateSkillField('stackStartActive', e.target.checked)}
+                                         className="rounded bg-slate-950 border-purple-800/60 text-purple-500 focus:ring-0 w-3.5 h-3.5"
+                                       />
+                                       <span className="text-[10px] text-purple-300 font-mono font-bold">🌀 Passiva (ativa no início da batalha)</span>
+                                     </label>
+                                     {editingSkill.stackStartActive && (
+                                       <div className="flex items-center gap-1">
+                                         <input
+                                           type="number"
+                                           min={1}
+                                           max={99}
+                                           value={editingSkill.stackStartCount || 1}
+                                           onChange={(e) => handleUpdateSkillField('stackStartCount', e.target.value ? parseInt(e.target.value) : 1)}
+                                           className="w-14 px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-white"
+                                         />
+                                         <span className="text-[9px] text-slate-500 font-mono">stacks iniciais</span>
+                                       </div>
+                                     )}
+                                   </div>
+                                   <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                     <select
+                                       value={editingSkill.stackGainMode || 'none'}
+                                       onChange={(e) => handleUpdateSkillField('stackGainMode', e.target.value === 'none' ? undefined : e.target.value)}
+                                       className="px-2 py-0.5 bg-slate-900 border border-purple-800/60 rounded text-[10px] font-mono text-purple-300 focus:border-purple-500 outline-none w-full max-w-[220px]"
+                                     >
+                                       <option value="none">Nenhum (só ao usar a skill)</option>
+                                       <option value="turn">A cada turno</option>
+                                       <option value="skill">Ao usar qualquer skill</option>
+                                       <option value="both">A cada turno + ao usar skill</option>
+                                     </select>
+                                     {editingSkill.stackGainMode && (
+                                       <div className="flex items-center gap-1">
+                                         <input
+                                           type="number"
+                                           min={1}
+                                           max={99}
+                                           value={editingSkill.stackGainAmount || 1}
+                                           onChange={(e) => handleUpdateSkillField('stackGainAmount', e.target.value ? parseInt(e.target.value) : 1)}
+                                           className="w-14 px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-white"
+                                         />
+                                         <span className="text-[9px] text-slate-500 font-mono">stacks por ganho</span>
+                                       </div>
+                                     )}
+                                   </div>
+                                   <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                     <input
+                                       type="number"
+                                       min={2}
+                                       max={999}
+                                       value={editingSkill.stackCapReset || ''}
+                                       title="Quando a stack atingir esse valor, ela reseta para 1"
+                                       onChange={(e) => handleUpdateSkillField('stackCapReset', e.target.value ? parseInt(e.target.value) : undefined)}
+                                       placeholder="—"
+                                       className="w-14 px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-white"
+                                     />
+                                     <span className="text-[9px] text-slate-500 font-mono">🔄 Resetar p/ 1 ao chegar em (stacks)</span>
+                                   </div>
+                                 </>
+                               )}
+                             </div>
+                           </div>
 
                           {/* 21. Splash / Dano em Área */}
                           <div className="space-y-1 bg-orange-950/15 border border-orange-800/40 p-2.5 rounded-xl flex flex-col justify-between">

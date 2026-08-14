@@ -193,9 +193,14 @@ export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveE
   return false;
 }
 
-export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Skill | string | string[]): boolean {
+export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Skill | string | string[], caster?: CombatCharacter): boolean {
   if (!c || !c.activeEffects) return false;
   if (c.activeEffects.some(e => e.type === 'cannot_be_invulnerable')) return false;
+  // Conditional bypass: skill ignores invulnerability when the listed skill/effect is active
+  // (on the target by default, or on the caster if activeOn='self')
+  if (skillOrType && typeof skillOrType === 'object' && !Array.isArray(skillOrType) && hasConditionalInvulnBypass(c, skillOrType as Skill, caster)) {
+    return false;
+  }
   const invulEffects = c.activeEffects.filter(e => e.type === 'invulnerable');
   if (invulEffects.length === 0) return false;
 
@@ -277,6 +282,29 @@ function isSingleTypeProtected(typeStr: string, types: string[]): boolean {
   if (['aflição', 'aflicao'].includes(st) && types.includes('affliction')) return true;
   if (['à distância', 'distância', 'distancia', 'ranged'].includes(st) && types.includes('ranged')) return true;
   return false;
+}
+
+function hasEffectWithName(combatant: CombatCharacter | undefined, name: string): boolean {
+  if (!combatant || !name) return false;
+  const rn = name.trim().toLowerCase();
+  return (combatant.activeEffects || []).some(e => {
+    if (!e.name) return false;
+    const n = e.name.toLowerCase();
+    return n === rn || n.startsWith(rn) || n.includes(rn);
+  });
+}
+
+// Conditional invulnerability bypass: if the skill has ignoreInvulnWhenActiveRules and the
+// condition skill/effect is ACTIVE (on the target by default, or on the caster if activeOn='self'),
+// this skill ignores that combatant's invulnerability
+function hasConditionalInvulnBypass(c: CombatCharacter, skill: Skill, caster?: CombatCharacter): boolean {
+  if (!skill.ignoreInvulnWhenActiveRules || skill.ignoreInvulnWhenActiveRules.length === 0) return false;
+  return skill.ignoreInvulnWhenActiveRules.some(rule => {
+    const rn = (rule.activeSkillName || '').trim().toLowerCase();
+    if (!rn) return false;
+    if (rule.activeOn === 'self') return hasEffectWithName(caster, rule.activeSkillName);
+    return hasEffectWithName(c, rule.activeSkillName);
+  });
 }
 
 export function isEffectVisibleToViewer(
@@ -1436,6 +1464,51 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       isDead: false,
     }));
 
+    // Passive stacks: skills with stackStartActive are applied at battle start
+    const passiveInitMessages: string[] = [];
+    const applyStartOfBattleStacks = (combatant: CombatCharacter, allies: CombatCharacter[], enemies: CombatCharacter[]) => {
+      const casterSide = allies.includes(combatant) ? 'player' : 'enemy';
+      combatant.character.skills.forEach(skill => {
+        if (!skill.stackable || !skill.stackStartActive) return;
+        const effStackType = skill.stackType || skill.name;
+        const resolveInitTargets = (): CombatCharacter[] => {
+          const st = skill.stackTarget || 'Self';
+          if (st === 'Self') return [combatant];
+          if (st === 'Ally') return allies.filter(c => !c.isDead && c.id !== combatant.id).slice(0, 1);
+          if (st === 'AllAllies') return allies.filter(c => !c.isDead);
+          if (st === 'AllEnemies') return enemies.filter(c => !c.isDead);
+          return [combatant];
+        };
+        resolveInitTargets().forEach(st => {
+          if (st.isDead) return;
+          const startCount = Math.max(1, skill.stackStartCount || 1);
+          const existing = st.activeEffects.find(e => e.type === 'custom' && e.stackable && e.stackType === effStackType);
+          if (existing) {
+            existing.stacks = (existing.stacks || 0) + startCount;
+            existing.duration = Math.max(existing.duration, skill.stackDuration ?? 999);
+          } else {
+            st.activeEffects.push({
+              name: `${effStackType} (Stack)`,
+              type: 'custom',
+              value: 0,
+              stacks: startCount,
+              duration: skill.stackDuration ?? 999,
+              icon: skill.icon,
+              stackable: true,
+              stackType: effStackType,
+              casterId: combatant.id,
+              casterSide,
+              castTurn: 0,
+              sourceSkillName: skill.name,
+            });
+          }
+          passiveInitMessages.push(`🌀 PASSIVA [${effStackType}] aplicada em ${st.character.name} com ${startCount} stack(s) (via ${skill.name})!`);
+        });
+      });
+    };
+    pCombat.forEach(c => applyStartOfBattleStacks(c, pCombat, eCombat));
+    eCombat.forEach(c => applyStartOfBattleStacks(c, eCombat, pCombat));
+
     setPlayerCombatants(pCombat);
     setEnemyCombatants(eCombat);
 
@@ -1455,6 +1528,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e joga PRIMEIRO no Turno 1! (Inicia com 1 Chakra)'
           : '🎲 [INICIATIVA] O Oponente ganhou o sorteio e joga PRIMEIRO no Turno 1! (Você inicia com 3 Chakras)', type: 'system' },
       { id: '3', turn: 1, message: 'Gere seus chakras e escolha suas táticas!', type: 'system' },
+      ...passiveInitMessages.map((msg, i) => ({ id: `passive-${i}`, turn: 1, message: msg, type: 'buff' as const })),
     ];
     setLogs(initialLogs);
 
@@ -1887,7 +1961,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       // Skill targeting ALL ENEMIES
       if (effectiveTargetType === 'AllEnemies') {
         if (isTargetTeam && !combatant.isDead) {
-          const isInvulnerable = checkCombatantInvulnerable(combatant, skill);
+          const isInvulnerable = checkCombatantInvulnerable(combatant, skill, sourceChar);
           return !isInvulnerable || !!skill.ignoreInvulnerable;
         }
         return false;
@@ -1903,7 +1977,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
       // Single target check
       if (a.targetId === combatant.id) {
-        if (isTargetTeam && checkCombatantInvulnerable(combatant, skill) && !skill.ignoreInvulnerable) {
+        if (isTargetTeam && checkCombatantInvulnerable(combatant, skill, sourceChar) && !skill.ignoreInvulnerable) {
           return false;
         }
         return true;
@@ -1971,7 +2045,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       if (effectiveTargetType === 'AllEnemies') {
         // For AllEnemies, check if ALL living targets on that side are invulnerable
         const livingTargets = targetList.filter(c => !c.isDead);
-        const allInvulnerable = livingTargets.length > 0 && livingTargets.every(c => checkCombatantInvulnerable(c, skill));
+        const allInvulnerable = livingTargets.length > 0 && livingTargets.every(c => checkCombatantInvulnerable(c, skill, sourceChar));
         if (allInvulnerable && !skill.ignoreInvulnerable) {
           playCustomSound('Error');
           addFloatingText(targetId, 'TODOS INIMIGOS INVULNERÁVEIS!', 'invulnerable');
@@ -1984,7 +2058,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
           addFloatingText(targetId, 'ALVO INVISÍVEL!', 'stun');
           return;
         }
-        const isTargetInvulnerable = checkCombatantInvulnerable(targetChar, skill);
+        const isTargetInvulnerable = checkCombatantInvulnerable(targetChar, skill, sourceChar);
         if (isTargetInvulnerable && !skill.ignoreInvulnerable) {
           playCustomSound('Error');
           addFloatingText(targetId, 'ALVO INVULNERÁVEL!', 'invulnerable');
@@ -2110,6 +2184,7 @@ const handleTradeChakra = () => {
         existing.stacks = (existing.stacks || 1) + 1;
         existing.duration = Math.max(existing.duration, effect.duration);
         if (effectiveStackType && !existing.stackType) existing.stackType = effectiveStackType;
+        applyStackCapReset(character, existing);
         return;
       }
     }
@@ -2125,6 +2200,19 @@ const handleTradeChakra = () => {
       casterSide: effect.casterSide || (effect.casterId ? (effect.casterId.startsWith('player') ? 'player' : 'enemy') : (character.id.startsWith('player') ? 'player' : 'enemy')),
       castTurn: effect.castTurn ?? turn,
     });
+  };
+
+  // If the stack effect's origin skill has a cap (stackCapReset), reset stacks to 1 when the cap is reached
+  const applyStackCapReset = (character: CombatCharacter, eff: ActiveEffect): boolean => {
+    const originSkill = character.character.skills.find(s => s.name === eff.sourceSkillName);
+    const cap = originSkill?.stackCapReset;
+    if (!cap || cap <= 0) return false;
+    if ((eff.stacks || 1) >= cap) {
+      eff.stacks = 1;
+      addFloatingText(character.id, `🔄 RESET (${(eff.stackType || '').toUpperCase()})`, 'effect');
+      return true;
+    }
+    return false;
   };
 
   // Helper for drain, steal, or remove chakra actions safely
@@ -2512,9 +2600,55 @@ const handleTradeChakra = () => {
       const source = sourceList.find(c => c.id === action.sourceId);
       if (!source || source.isDead) return;
 
-      const skill = source.character.skills[action.skillIndex];
+      const rawSkill = source.character.skills[action.skillIndex];
+      const skill = (rawSkill.ignoreInvulnWhenActiveRules?.some(r => r.activeOn === 'self' && hasEffectWithName(source, r.activeSkillName)))
+        ? { ...rawSkill, ignoreInvulnerable: true }
+        : rawSkill;
       (source as any)._executingSkill = skill;
       currentSkillRef.current = skill;
+
+      // Stack gain on skill use (stackGainMode 'skill'/'both'): source's stack effects grow
+      source.activeEffects.forEach(eff => {
+        if (eff.type !== 'custom' || !eff.stackable || !eff.stackType) return;
+        const originSkill = source.character.skills.find(s => s.name === eff.sourceSkillName);
+        if (!originSkill || !originSkill.stackable) return;
+        if (originSkill.stackGainMode !== 'skill' && originSkill.stackGainMode !== 'both') return;
+        const gain = originSkill.stackGainAmount || 1;
+        eff.stacks = (eff.stacks || 1) + gain;
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: `📚 ${source.character.name} ganhou +${gain} stack(s) de [${eff.stackType}] ao usar [${skill.name}]! (${eff.stacks} total)`,
+          type: 'buff',
+        });
+        addFloatingText(source.id, `+${gain} ${eff.stackType.toUpperCase()}`, 'effect');
+        if (applyStackCapReset(source, eff)) {
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🔄 ${source.character.name} atingiu o limite de stacks de [${eff.stackType}] e resetou para 1!`,
+            type: 'buff',
+          });
+        }
+      });
+
+      // Conditional invulnerability ignore (ignoreInvulnWhenActiveRules): log when the condition is met
+      if (skill.ignoreInvulnWhenActiveRules && skill.ignoreInvulnWhenActiveRules.length > 0) {
+        const triggeredRules = skill.ignoreInvulnWhenActiveRules.filter(rule => {
+          const rn = (rule.activeSkillName || '').trim().toLowerCase();
+          if (!rn) return false;
+          if (rule.activeOn === 'self') return hasEffectWithName(source, rule.activeSkillName);
+          return allCombatants.some(cb => !cb.isDead && hasEffectWithName(cb, rule.activeSkillName));
+        });
+        if (triggeredRules.length > 0) {
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `⛓️ [${skill.name}] de ${source.character.name} IGNORA a invulnerabilidade porque [${triggeredRules.map(r => r.activeSkillName).join(', ')}] está ativo ${triggeredRules.some(r => r.activeOn === 'self') ? 'em mim' : 'no Oponente'}!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, 'IGNORA INVULN!', 'effect');
+        }
+      }
 
       // Regra única do Mubi: usar skill amigável/passiva remove DoTs infinitos marcados com removedOnFriendlySkillUse
       if (isFriendlyOrPassiveSkill(skill)) {
@@ -4023,7 +4157,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
         // Apply stack AFTER damage calculation so first hit uses existing stacks (not the new one)
         // Stack goes to stackTarget (e.g., Self), not damageTarget
-        if (skill.stackable && skill.stackType) {
+        if (skill.stackable) {
           const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
           stackTargets.forEach(st => {
             if (st.isDead) return;
@@ -4155,18 +4289,19 @@ splashOnlyTargets = splashPool.filter(c =>
         });
 
         // Apply stack to stackTarget (e.g., Target/Enemy) if skill is stackable
-        if (skill.stackable && skill.stackType) {
+        if (skill.stackable) {
+          const effStackType = skill.stackType || skill.name;
           const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
           stackTargets.forEach(st => {
             if (st.isDead) return;
             pushActiveEffect(st, {
-              name: `${skill.stackType || skill.name} (Stack)`,
+              name: `${effStackType} (Stack)`,
               type: 'custom',
               value: 0,
               duration: skill.stackDuration ?? 999,
               icon: skill.icon,
               stackable: true,
-              stackType: skill.stackType || skill.name,
+              stackType: effStackType,
               casterId: source.id,
               casterSide: action.isPlayer ? 'player' : 'enemy',
               sourceSkillName: skill.name,
@@ -4174,10 +4309,10 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `📚 ${st.character.name} recebeu stack [${skill.stackType}] de ${source.character.name} via [${skill.name}]!`,
+              message: `📚 ${st.character.name} recebeu stack [${effStackType}] de ${source.character.name} via [${skill.name}]!`,
               type: 'buff',
             });
-            addFloatingText(st.id, `+1 ${skill.stackType.toUpperCase()}`, 'effect');
+            addFloatingText(st.id, `+1 ${effStackType.toUpperCase()}`, 'effect');
           });
         }
       }
@@ -4449,6 +4584,68 @@ splashOnlyTargets = splashPool.filter(c =>
             type: 'buff',
           });
           addFloatingText(t.id, `${skill.name} Power`.toUpperCase(), 'effect');
+        });
+      }
+
+      // Sofrer Dano (Próprio/Equipe): o(s) alvo(s) escolhido(s) sofrem dano por X turnos ao usar a skill
+      if (skill.friendlyDamageVal && skill.friendlyDamageVal > 0) {
+        const friendlyDmgTargets = resolveEffectTargets(skill.friendlyDamageTarget || 'Self', target, source, sourceList, targetList, false);
+        friendlyDmgTargets.forEach(t => {
+          if (t.isDead) return;
+          const fDur = skill.friendlyDamageDuration && skill.friendlyDamageDuration > 0 ? skill.friendlyDamageDuration : 1;
+          const fType = skill.friendlyDamageType || 'damage';
+          const fVal = skill.friendlyDamageVal!;
+          const fTickType = fType === 'dot' ? 'dot' as const : fType === 'bleeding' ? 'bleeding' as const : fType === 'affliction' ? 'affliction' as const : fType === 'direct_damage' ? 'direct_damage' as const : 'damage' as const;
+
+          // Dano instantâneo (primeiro tick)
+          if (hasDamageImmunity(t)) {
+            const consumedFh = consumeFirstHitOnlyImmunity(t);
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu o dano próprio de [${skill.name}].${consumedFh ? ' (Imunidade de 1º dano usada!)' : ''}`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, 'IMUNE!', 'invulnerable');
+          } else {
+            let instantDmg = fVal;
+            if (fType === 'damage' && t.shield > 0) {
+              const absorbed = Math.min(t.shield, instantDmg);
+              t.shield -= absorbed;
+              instantDmg -= absorbed;
+              addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+            }
+            if (instantDmg > 0) {
+              const before = t.health;
+              t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - instantDmg) : Math.max(0, t.health - instantDmg);
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `💢 ${t.character.name} sofreu ${instantDmg} de dano próprio por [${skill.name}].`,
+                type: 'damage',
+              });
+              addFloatingText(t.id, `-${instantDmg} HP`, 'damage');
+              if (action.isPlayer) matchStatsRef.current.damageReceived += instantDmg;
+            }
+          }
+
+          // Ticks restantes (turnos - 1)
+          if (fDur > 1) {
+            pushActiveEffect(t, {
+              name: `${skill.name} (Dano Próprio)`,
+              type: fTickType,
+              value: fVal,
+              duration: fDur - 1,
+              icon: skill.icon,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `💢 ${t.character.name} sofrerá ${fVal} de dano por turno por mais ${fDur - 1} turnos (${skill.name}).`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `DANO PRÓPRIO (+${fVal})`, 'damage');
+          }
         });
       }
 
@@ -5042,23 +5239,31 @@ splashOnlyTargets = splashPool.filter(c =>
       }
 
       // Stack-only skill: apply stack even if skill has no damage/effects
-      if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !skill.permanent) {
+      if (skill.stackable && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !skill.permanent) {
+         const effStackType = skill.stackType || skill.name;
          const targets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
         targets.forEach(t => {
           if (t.isDead) return;
-          const existing = t.activeEffects.find(e => e.stackType === skill.stackType && e.type === 'custom' && e.sourceSkillName === skill.name);
+          const existing = t.activeEffects.find(e => e.stackType === effStackType && e.type === 'custom' && e.sourceSkillName === skill.name);
           if (existing) {
             existing.stacks = (existing.stacks || 1) + 1;
             existing.duration = Math.max(existing.duration, skill.stackDuration ?? 999);
+            if (applyStackCapReset(t, existing)) {
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `🔄 ${t.character.name} atingiu o limite de stacks de [${effStackType}] e resetou para 1!`,
+                type: 'buff',
+              });
+            }
           } else {
             t.activeEffects.push({
-              name: `${skill.stackType || skill.name} (Stack)`,
+              name: `${effStackType} (Stack)`,
               type: 'custom',
               value: 0,
               duration: skill.stackDuration ?? 999,
               icon: skill.icon,
               stackable: true,
-              stackType: skill.stackType || skill.name,
+              stackType: effStackType,
               casterId: source.id,
               casterSide: action.isPlayer ? 'player' : 'enemy',
               sourceSkillName: skill.name,
@@ -5066,15 +5271,15 @@ splashOnlyTargets = splashPool.filter(c =>
               castTurn: turn,
             });
           }
-          if (!newLogs.some(l => l.message.includes(`stack [${skill.stackType}]`))) {
+          if (!newLogs.some(l => l.message.includes(`stack [${effStackType}]`))) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `📚 ${t.character.name} recebeu stack [${skill.stackType}] de ${source.character.name} via [${skill.name}]!`,
+              message: `📚 ${t.character.name} recebeu stack [${effStackType}] de ${source.character.name} via [${skill.name}]!`,
               type: 'buff',
             });
           }
-          addFloatingText(t.id, `+1 ${skill.stackType.toUpperCase()}`, 'effect');
+          addFloatingText(t.id, `+1 ${effStackType.toUpperCase()}`, 'effect');
         });
       }
 
@@ -5414,6 +5619,31 @@ splashOnlyTargets = splashPool.filter(c =>
       combatantList.forEach(c => {
         if (c.isDead) return;
 
+        // Stack gain per turn (stackGainMode 'turn'/'both')
+        c.activeEffects.forEach(eff => {
+          if (eff.type !== 'custom' || !eff.stackable || !eff.stackType) return;
+          const originSkill = c.character.skills.find(s => s.name === eff.sourceSkillName);
+          if (!originSkill || !originSkill.stackable) return;
+          if (originSkill.stackGainMode !== 'turn' && originSkill.stackGainMode !== 'both') return;
+          const gain = originSkill.stackGainAmount || 1;
+          eff.stacks = (eff.stacks || 1) + gain;
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `📚 ${c.character.name} ganhou +${gain} stack(s) de [${eff.stackType}] por turno! (${eff.stacks} total)`,
+            type: 'buff',
+          });
+          addFloatingText(c.id, `+${gain} STACK (${eff.stackType.toUpperCase()})`, 'effect');
+          if (applyStackCapReset(c, eff)) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔄 ${c.character.name} atingiu o limite de stacks de [${eff.stackType}] e resetou para 1!`,
+              type: 'buff',
+            });
+          }
+        });
+
         // Busca a skill de origem do efeito para respeitar ignoreInvulnerable
         const getEffectSkill = (eff: ActiveEffect): Skill | null => {
           const caster = [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === eff.casterId);
@@ -5425,6 +5655,8 @@ splashOnlyTargets = splashPool.filter(c =>
         const isBlockedByInvuln = (eff: ActiveEffect, fallbackType: string): boolean => {
           const skill = getEffectSkill(eff);
           if (skill && skill.ignoreInvulnerable) return false;
+          const caster = [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === eff.casterId);
+          if (skill && hasConditionalInvulnBypass(c, skill, caster)) return false;
           return checkCombatantInvulnerable(c, fallbackType);
         };
 
@@ -8647,6 +8879,70 @@ if (skill.redirectOffensiveToCaster) {
         });
       }
 
+      // 4.3b SOFRER DANO (PRÓPRIO/EQUIPE): o(s) alvo(s) escolhido(s) sofrem dano por X turnos ao usar a skill
+      if (skill.friendlyDamageVal && skill.friendlyDamageVal > 0) {
+        const friendlyDmgTargets = resolveEffectTargets(skill.friendlyDamageTarget || 'Self', target, source, sourceList, targetList, false);
+        friendlyDmgTargets.forEach(t => {
+          if (t.isDead) return;
+          const fDur = skill.friendlyDamageDuration && skill.friendlyDamageDuration > 0 ? skill.friendlyDamageDuration : 1;
+          const fType = skill.friendlyDamageType || 'damage';
+          const fVal = skill.friendlyDamageVal!;
+          const fTickType = fType === 'dot' ? 'dot' as const : fType === 'bleeding' ? 'bleeding' as const : fType === 'affliction' ? 'affliction' as const : fType === 'direct_damage' ? 'direct_damage' as const : 'damage' as const;
+
+          // Dano instantâneo (primeiro tick)
+          if (hasDamageImmunity(t)) {
+            const consumedFh = consumeFirstHitOnlyImmunity(t);
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu o dano próprio de [${skill.name}].${consumedFh ? ' (Imunidade de 1º dano usada!)' : ''}`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, 'IMUNE!', 'invulnerable');
+          } else {
+            let instantDmg = fVal;
+            if (fType === 'damage' && t.shield > 0) {
+              const absorbed = Math.min(t.shield, instantDmg);
+              t.shield -= absorbed;
+              instantDmg -= absorbed;
+              addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+            }
+            if (instantDmg > 0) {
+              const before = t.health;
+              t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - instantDmg) : Math.max(0, t.health - instantDmg);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `💢 ${t.character.name} sofreu ${instantDmg} de dano próprio por [${skill.name}].`,
+                type: 'damage',
+              });
+              addFloatingText(t.id, `-${instantDmg} HP`, 'damage');
+            }
+          }
+
+          // Ticks restantes (turnos - 1)
+          if (fDur > 1) {
+            pushActiveEffect(t, {
+              name: `${skill.name} (Dano Próprio)`,
+              type: fTickType,
+              value: fVal,
+              duration: fDur - 1,
+              icon: skill.icon,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💢 ${t.character.name} sofrerá ${fVal} de dano por turno por mais ${fDur - 1} turnos (${skill.name}).`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `DANO PRÓPRIO (+${fVal})`, 'damage');
+          }
+        });
+      }
+
       // 4.4 APPLY INVULNERABILITY
       if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
         const invulTargets = resolveEffectTargets(skill.invulnerableTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
@@ -9660,6 +9956,14 @@ if (skill.redirectOffensiveToCaster) {
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
     }
+    if (skill.friendlyDamageVal && skill.friendlyDamageVal > 0) {
+      effects.push({
+        label: 'Sofrer Dano',
+        value: `-${skill.friendlyDamageVal} de ${skill.friendlyDamageType === 'direct_damage' ? 'Dano Direto' : skill.friendlyDamageType === 'dot' ? 'Queimadura' : skill.friendlyDamageType === 'bleeding' ? 'Sangramento' : skill.friendlyDamageType === 'affliction' ? 'Aflição' : 'Dano'} por ${skill.friendlyDamageDuration || 1} ${skill.friendlyDamageDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-violet-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.friendlyDamageTarget, 'Conjurador (Mim)')
+      });
+    }
     if (skill.damageRules && skill.damageRules.length > 0) {
       skill.damageRules.forEach(rule => {
         if (!rule.activeSkillName || rule.damageBoost <= 0) return;
@@ -9994,6 +10298,20 @@ if (skill.redirectOffensiveToCaster) {
           label: `Execução Instantânea (${rule.activeSkillName})`,
           value: `MATA instantaneamente o Oponente que estiver com ${rule.activeSkillName} ativo nele`,
           color: 'text-red-950 font-extrabold',
+          targetLabel: 'Condicional'
+        });
+      });
+    }
+
+    // Informação de ignorar invulnerabilidade condicional (ignoreInvulnWhenActiveRules)
+    if (skill.ignoreInvulnWhenActiveRules && skill.ignoreInvulnWhenActiveRules.length > 0) {
+      skill.ignoreInvulnWhenActiveRules.forEach(rule => {
+        if (!rule.activeSkillName) return;
+        const where = rule.activeOn === 'self' ? 'em MIM' : 'no Oponente';
+        effects.push({
+          label: `Ignorar Invuln. (${rule.activeSkillName})`,
+          value: `IGNORA a invulnerabilidade quando ${rule.activeSkillName} estiver ativo ${where}`,
+          color: 'text-amber-950 font-extrabold',
           targetLabel: 'Condicional'
         });
       });

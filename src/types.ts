@@ -57,6 +57,12 @@ export interface SkillKillWhenActiveRule {
   activeSkillName: string; // Skill/efeito ativo no Oponente que será morto instantaneamente
 }
 
+export interface SkillIgnoreInvulnWhenActiveRule {
+  activeSkillName: string; // Skill/efeito que, se ATIVO, faz esta skill ignorar a invulnerabilidade
+  /** Onde a habilidade condicional precisa estar ativa: 'target' (No Oponente - padrão) ou 'self' (Em Mim / Conjurador) */
+  activeOn?: 'target' | 'self';
+}
+
 export interface SkillHealRule {
   activeSkillName: string; // Active skill/effect required on character
   healBoost: number; // Extra healing when condition is active
@@ -108,6 +114,8 @@ export interface Skill {
   chakraRemoveRules?: SkillChakraRemoveRule[];
   /** Regras condicionais de morte instantânea: mata o Oponente que estiver com a habilidade ativa */
   killWhenActiveRules?: SkillKillWhenActiveRule[];
+  /** Regras condicionais: se a habilidade listada estiver ATIVA no Oponente, esta skill IGNORA a invulnerabilidade dele */
+  ignoreInvulnWhenActiveRules?: SkillIgnoreInvulnWhenActiveRule[];
   healRules?: SkillHealRule[];
   costRuleActiveSkill?: string;
   costRuleReduceRand?: number;
@@ -145,6 +153,11 @@ export interface Skill {
   damageBuffVal?: number;
   damageBuffTypes?: string[]; // Classes de skill que o buff aumenta (vazio = todas: physical, mental, affliction, chakra, ranged, friendly)
   damageBuffDuration?: number;
+  /** Sofrer Dano: o(s) alvo(s) escolhido(s) (conjurador, aliado, equipe) sofrem dano por X turnos ao usar a skill */
+  friendlyDamageVal?: number;
+  friendlyDamageDuration?: number;
+  friendlyDamageTarget?: TargetOverride;
+  friendlyDamageType?: 'damage' | 'direct_damage' | 'dot' | 'bleeding' | 'affliction';
   damageDebuffVal?: number;
   damageDebuffDuration?: number;
   damageDebuffTypes?: ('skill' | 'dot' | 'bleeding' | 'affliction' | 'direct_damage' | 'damage')[];
@@ -379,6 +392,16 @@ cannotBeReflected?: boolean;
    stackDuration?: number;
    /** Onde aplicar as stacks quando a skill é usada (padrão: 'Target') */
    stackTarget?: TargetOverride;
+   /** Se true, a stack já está ativa no início da batalha (passiva, sem precisar usar a skill) */
+   stackStartActive?: boolean;
+   /** Quantidade de stacks iniciais quando stackStartActive é true (padrão: 1) */
+   stackStartCount?: number;
+   /** Como a stack ganha stacks adicionais: 'turn' (a cada turno), 'skill' (quando o personagem usa qualquer skill) ou 'both' */
+   stackGainMode?: 'turn' | 'skill' | 'both';
+   /** Quantidade de stacks ganhas por ganho (por turno ou por skill usada) (padrão: 1) */
+   stackGainAmount?: number;
+   /** Se definido, quando a stack atingir esse valor ela reseta para 1 (limite + reset) */
+   stackCapReset?: number;
 
   // ==============================
   // SPLASH/AOE DAMAGE - Dano em área
