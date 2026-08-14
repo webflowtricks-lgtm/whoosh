@@ -3583,6 +3583,247 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Target Change On Stacks Rules (Mudança de Alvo por Marcação) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono">
+                              🎯 Mudança de Alvo por Marcação (Stack)
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Quando a marcação tiver X stacks (em mim), esta skill muda o alvo para o tipo selecionado por X turnos (ex: mim mesmo, todos os inimigos, minha equipe...). <strong>O efeito some quando o turno acabar.</strong>
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.targetChangeOnStacksRules || [];
+                              handleUpdateSkillField('targetChangeOnStacksRules', [
+                                ...currentRules,
+                                { markingSkillName: '', requiredStacks: 1, overrideTarget: 'AllEnemies', durationTurns: 1 }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.targetChangeOnStacksRules || editingSkill.targetChangeOnStacksRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de mudança de alvo por marcação configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.targetChangeOnStacksRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-rose-400 font-bold">Marcação:</span>
+                                <input
+                                  type="text"
+                                  list="targetChangeStackSkills-suggestions"
+                                  value={rule.markingSkillName}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.targetChangeOnStacksRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], markingSkillName: e.target.value };
+                                    handleUpdateSkillField('targetChangeOnStacksRules', updated);
+                                  }}
+                                  placeholder="Ex: Marcação"
+                                  className="flex-1 min-w-[110px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <datalist id="targetChangeStackSkills-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : <option value="" disabled />}
+                                </datalist>
+                                <span className="text-slate-400 font-bold">com</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={999}
+                                  value={rule.requiredStacks || 1}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.targetChangeOnStacksRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], requiredStacks: parseInt(e.target.value) || 1 };
+                                    handleUpdateSkillField('targetChangeOnStacksRules', updated);
+                                  }}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px] text-center"
+                                />
+                                <span className="text-slate-400 font-bold">stacks, muda o alvo para:</span>
+                                <select
+                                  value={rule.overrideTarget || 'AllEnemies'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.targetChangeOnStacksRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], overrideTarget: e.target.value as any };
+                                    handleUpdateSkillField('targetChangeOnStacksRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-[10px] font-mono text-rose-300 font-bold outline-none"
+                                >
+                                  <option value="AllEnemies">👥 Todos os Inimigos</option>
+                                  <option value="Enemy">👤 Um Inimigo</option>
+                                  <option value="AllAllies">🛡️ Todos os Aliados (Minha Equipe)</option>
+                                  <option value="Ally">👤 Um Aliado</option>
+                                  <option value="Self">🌀 Mim Mesmo</option>
+                                  <option value="SelfAndAlly">🌀 Mim Mesmo e Aliado</option>
+                                </select>
+                                <span className="text-slate-400 font-bold">por</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={99}
+                                  value={rule.durationTurns || 1}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.targetChangeOnStacksRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], durationTurns: parseInt(e.target.value) || 1 };
+                                    handleUpdateSkillField('targetChangeOnStacksRules', updated);
+                                  }}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px] text-center"
+                                />
+                                <span className="text-slate-400 text-[9px]">turnos (some no fim do turno)</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.targetChangeOnStacksRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('targetChangeOnStacksRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Bonus Damage On Stacks Rules (Dano Adicional por Marcação) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-orange-400 font-mono">
+                              💥 Dano Adicional por Marcação (Stack)
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Quando a marcação tiver X stacks (em mim), esta skill dá X de dano adicional que eu escolher por X turnos. <strong>O efeito some quando o turno acabar.</strong>
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.bonusDamageOnStacksRules || [];
+                              handleUpdateSkillField('bonusDamageOnStacksRules', [
+                                ...currentRules,
+                                { markingSkillName: '', requiredStacks: 1, bonusDamage: 10, durationTurns: 1 }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-orange-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.bonusDamageOnStacksRules || editingSkill.bonusDamageOnStacksRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de dano adicional por marcação configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.bonusDamageOnStacksRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-orange-400 font-bold">Marcação:</span>
+                                <input
+                                  type="text"
+                                  list="bonusStackSkills-suggestions"
+                                  value={rule.markingSkillName}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.bonusDamageOnStacksRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], markingSkillName: e.target.value };
+                                    handleUpdateSkillField('bonusDamageOnStacksRules', updated);
+                                  }}
+                                  placeholder="Ex: Marcação"
+                                  className="flex-1 min-w-[110px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <datalist id="bonusStackSkills-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : <option value="" disabled />}
+                                </datalist>
+                                <span className="text-slate-400 font-bold">com</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={999}
+                                  value={rule.requiredStacks || 1}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.bonusDamageOnStacksRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], requiredStacks: parseInt(e.target.value) || 1 };
+                                    handleUpdateSkillField('bonusDamageOnStacksRules', updated);
+                                  }}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px] text-center"
+                                />
+                                <span className="text-slate-400 font-bold">stacks, dá +</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={99999}
+                                  value={rule.bonusDamage || 0}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.bonusDamageOnStacksRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], bonusDamage: parseInt(e.target.value) || 0 };
+                                    handleUpdateSkillField('bonusDamageOnStacksRules', updated);
+                                  }}
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px] text-center"
+                                />
+                                <select
+                                  value={rule.damageType || 'damage'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.bonusDamageOnStacksRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damageType: e.target.value as any };
+                                    handleUpdateSkillField('bonusDamageOnStacksRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px] font-mono"
+                                >
+                                  <option value="damage">💥 Normal</option>
+                                  <option value="direct_damage">🎯 Direto</option>
+                                  <option value="physical">🤜 Físico</option>
+                                  <option value="chakra">⚡ Chakra</option>
+                                  <option value="mental">🧠 Mental</option>
+                                  <option value="ranged">🏹 Distância</option>
+                                  <option value="affliction">💀 Aflição</option>
+                                  <option value="dot">🔥 Queimadura</option>
+                                  <option value="bleeding">🩸 Sangramento</option>
+                                </select>
+                                <span className="text-slate-400 font-bold">de dano por</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={99}
+                                  value={rule.durationTurns || 1}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.bonusDamageOnStacksRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], durationTurns: parseInt(e.target.value) || 1 };
+                                    handleUpdateSkillField('bonusDamageOnStacksRules', updated);
+                                  }}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px] text-center"
+                                />
+                                <span className="text-slate-400 text-[9px]">turnos (some no fim do turno)</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.bonusDamageOnStacksRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('bonusDamageOnStacksRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Conditional Kill Rules (Execução Instantânea) */}
                       <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
                         <div className="flex justify-between items-center">

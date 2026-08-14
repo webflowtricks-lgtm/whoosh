@@ -80,6 +80,32 @@ export interface SkillCounterSuccessDamageRule {
   damageType?: string;
 }
 
+export type SkillTargetType = 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies';
+
+export interface SkillTargetChangeOnStacksRule {
+  /** Marcação (stack) que precisa ter X stacks para ativar */
+  markingSkillName: string;
+  /** Quantidade de stacks necessária na marcação */
+  requiredStacks: number;
+  /** Novo alvo da skill enquanto o efeito estiver ativo: 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies' */
+  overrideTarget?: SkillTargetType;
+  /** Duração em turnos do efeito (some quando o turno acabar) */
+  durationTurns?: number;
+}
+
+export interface SkillBonusDamageOnStacksRule {
+  /** Marcação (stack) que precisa ter X stacks para ativar */
+  markingSkillName: string;
+  /** Quantidade de stacks necessária na marcação */
+  requiredStacks: number;
+  /** Dano adicional desta skill enquanto o efeito estiver ativo */
+  bonusDamage: number;
+  /** Tipo do dano adicional: 'damage' (Normal), 'direct_damage' (Direto), 'physical' (Físico), 'chakra', 'mental', 'ranged', 'affliction', 'dot', 'bleeding' */
+  damageType?: string;
+  /** Duração em turnos do efeito (some quando o turno acabar) */
+  durationTurns?: number;
+}
+
 export interface SkillHealRule {
   activeSkillName: string; // Active skill/effect required on character
   healBoost: number; // Extra healing when condition is active
@@ -137,6 +163,10 @@ export interface Skill {
   stunWhenActiveRules?: SkillStunWhenActiveRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou recebe dano direto */
   counterSuccessDamageRules?: SkillCounterSuccessDamageRule[];
+  /** Quando a marcação tiver X stacks, muda o alvo desta skill por X turnos (some quando o turno acabar) */
+  targetChangeOnStacksRules?: SkillTargetChangeOnStacksRule[];
+  /** Quando a marcação tiver X stacks, esta skill dá X de dano adicional por X turnos (some quando o turno acabar) */
+  bonusDamageOnStacksRules?: SkillBonusDamageOnStacksRule[];
   healRules?: SkillHealRule[];
   costRuleActiveSkill?: string;
   costRuleReduceRand?: number;
@@ -526,9 +556,13 @@ export interface ActiveEffect {
   | 'capture_arrest_debuff'
   | 'chakra_cost_increase'
   | 'redirect_offensive'
-  | 'revive_on_death';
+  | 'revive_on_death'
+  | 'temporary_target_change'
+  | 'temporary_damage_boost';
   value?: number; // magnitude of shield, reduction, damage, etc.
   buffAtCast?: number; // damage_buff value included at cast time (for dynamic tick recomputation)
+  /** Novo alvo aplicado pelo efeito temporary_target_change */
+  newTargetType?: string;
   duration: number; // remaining turns
   damageType?: string;
   icon?: string; // Icon of the skill that caused this effect/debuff
@@ -894,6 +928,19 @@ export function getEffectiveTargetType(
 
       if (isReqActive && rule.overrideTarget) {
         return rule.overrideTarget;
+      }
+    }
+  }
+
+  // Regras de mudança de alvo por marcação (stack): quando a janela temporária estiver ativa no conjurador
+  if (sourceChar && sourceChar.activeEffects && skill.targetChangeOnStacksRules && skill.targetChangeOnStacksRules.length > 0) {
+    for (const rule of skill.targetChangeOnStacksRules) {
+      if (!rule.markingSkillName || !rule.overrideTarget) continue;
+      const hasWindow = sourceChar.activeEffects.some(e =>
+        e.type === 'temporary_target_change' && (e.stackType || '') === rule.markingSkillName
+      );
+      if (hasWindow) {
+        return rule.overrideTarget as 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies';
       }
     }
   }

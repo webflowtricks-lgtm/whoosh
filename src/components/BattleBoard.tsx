@@ -2607,6 +2607,78 @@ const handleTradeChakra = () => {
       (source as any)._executingSkill = skill;
       currentSkillRef.current = skill;
 
+      // Helper: encontra a marcação (efeito de stack) pelo nome da skill de marcação
+      const findMarkingEffect = (c: CombatCharacter, markingName: string) => {
+        const mn = (markingName || '').trim().toLowerCase();
+        if (!mn) return null;
+        return c.activeEffects.find(e => {
+          const st = (e.stackType || '').toLowerCase();
+          const sn = (e.sourceSkillName || '').toLowerCase();
+          const nm = (e.name || '').toLowerCase();
+          return st === mn || sn === mn || nm === mn || nm.startsWith(mn + ' ') || nm.includes(mn);
+        }) || null;
+      };
+
+      // Janela temporária: MUDANÇA DE ALVO quando a marcação tiver X stacks (some quando o turno acabar)
+      if (rawSkill.targetChangeOnStacksRules && rawSkill.targetChangeOnStacksRules.length > 0) {
+        rawSkill.targetChangeOnStacksRules.forEach(rule => {
+          if (!rule.markingSkillName || !rule.overrideTarget) return;
+          const markEff = findMarkingEffect(source, rule.markingSkillName);
+          const required = Math.max(1, rule.requiredStacks || 1);
+          if (!markEff || (markEff.stacks || 1) < required) return;
+          if (source.activeEffects.some(e => e.type === 'temporary_target_change' && (e.stackType || '') === rule.markingSkillName)) return;
+          const dur = Math.max(1, rule.durationTurns || 1);
+          pushActiveEffect(source, {
+            name: `${rawSkill.name} (Alvo: ${rule.overrideTarget})`,
+            type: 'temporary_target_change',
+            value: 0,
+            duration: dur,
+            stackType: rule.markingSkillName,
+            newTargetType: rule.overrideTarget,
+            icon: rawSkill.icon,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🎯 [MUDANÇA DE ALVO] ${source.character.name} tinha ${markEff.stacks} stacks de [${rule.markingSkillName}] e [${rawSkill.name}] agora tem alvo ${rule.overrideTarget} por ${dur} turno(s)!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, `ALVO: ${rule.overrideTarget}`, 'effect');
+        });
+      }
+
+      // Janela temporária: DANO ADICIONAL quando a marcação tiver X stacks (some quando o turno acabar)
+      if (rawSkill.bonusDamageOnStacksRules && rawSkill.bonusDamageOnStacksRules.length > 0) {
+        rawSkill.bonusDamageOnStacksRules.forEach(rule => {
+          if (!rule.markingSkillName || !(rule.bonusDamage > 0)) return;
+          const markEff = findMarkingEffect(source, rule.markingSkillName);
+          const required = Math.max(1, rule.requiredStacks || 1);
+          if (!markEff || (markEff.stacks || 1) < required) return;
+          if (source.activeEffects.some(e => e.type === 'temporary_damage_boost' && (e.stackType || '') === rule.markingSkillName)) return;
+          const dur = Math.max(1, rule.durationTurns || 1);
+          pushActiveEffect(source, {
+            name: `${rawSkill.name} (Dano +${rule.bonusDamage})`,
+            type: 'temporary_damage_boost',
+            value: rule.bonusDamage,
+            duration: dur,
+            stackType: rule.markingSkillName,
+            damageType: rule.damageType || 'damage',
+            icon: rawSkill.icon,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `💥 [DANO ADICIONAL] ${source.character.name} tinha ${markEff.stacks} stacks de [${rule.markingSkillName}] e [${rawSkill.name}] agora causa +${rule.bonusDamage} de dano por ${dur} turno(s)!`,
+            type: 'damage',
+          });
+          addFloatingText(source.id, `DANO +${rule.bonusDamage}`, 'effect');
+        });
+      }
+
       // Stack gain on skill use (stackGainMode 'skill'/'both'): source's stack effects grow
       source.activeEffects.forEach(eff => {
         if (eff.type !== 'custom' || !eff.stackable || !eff.stackType) return;
@@ -3034,7 +3106,7 @@ const handleTradeChakra = () => {
           }
         }
       }
-      let directDamage = skill.directDamage || 0;
+let directDamage = skill.directDamage || 0;
 
       // Process Damage Rules (Regras de Dano)
       let costRuleDamageBoost = 0;
@@ -4239,6 +4311,66 @@ splashOnlyTargets = splashPool.filter(c =>
           if (t.health === 0 && startingHealth > 0 && action.isPlayer) {
             matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
             matchStatsRef.current.killRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name });
+          }
+
+          // Dano adicional por marcação (bonusDamageOnStacksRules) — aplicado com o TIPO de dano escolhido
+          const tempBoostEffects = source.activeEffects.filter(e => e.type === 'temporary_damage_boost' && (e.value || 0) > 0);
+          if (tempBoostEffects.length > 0 && !t.isDead) {
+            const typeLabels: Record<string, string> = {
+              damage: 'dano', direct_damage: 'dano direto', true: 'dano direto', piercing: 'dano direto',
+              physical: 'dano físico', chakra: 'dano de chakra', mental: 'dano mental', ranged: 'dano à distância',
+              affliction: 'aflição', dot: 'queimadura', bleeding: 'sangramento',
+            };
+            tempBoostEffects.forEach(boost => {
+              const boostVal = boost.value || 0;
+              const boostType = boost.damageType || 'damage';
+              const typeLabel = typeLabels[boostType] || 'dano';
+              if (hasDamageImmunity(t)) {
+                consumeFirstHitOnlyImmunity(t);
+                newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou o dano adicional de [${skill.name}].`, type: 'buff' });
+                addFloatingText(t.id, 'IMUNE!', 'invulnerable');
+                return;
+              }
+              if (checkCombatantInvulnerable(t, boostType) && !skill.ignoreInvulnerable) {
+                newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é INVULNERÁVEL a ${typeLabel} e ignorou o dano adicional de [${skill.name}].`, type: 'buff' });
+                addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
+                return;
+              }
+              let remaining = boostVal;
+              if (boostType !== 'direct_damage' && boostType !== 'true' && boostType !== 'piercing') {
+                const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
+                const reductions = targetCannotReduce ? [] : t.activeEffects.filter(e => e.type === 'damage_reduction');
+                const reductionSum = reductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
+                remaining = Math.max(0, remaining - reductionSum);
+                if ((t.shield || 0) > 0 && remaining > 0) {
+                  const absorbed = Math.min(t.shield || 0, remaining);
+                  t.shield = (t.shield || 0) - absorbed;
+                  remaining -= absorbed;
+                  if (absorbed > 0) addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+                }
+              }
+              if (remaining > 0) {
+                t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - remaining) : Math.max(0, t.health - remaining);
+                newLogs.push({
+                  id: Math.random().toString(),
+                  turn,
+                  message: `💥 ${source.character.name} causou +${boostVal} de ${typeLabel} em ${t.character.name} (dano adicional de [${skill.name}])!`,
+                  type: 'damage',
+                });
+                addFloatingText(t.id, `-${boostVal} ${typeLabel.toUpperCase()}`, 'damage');
+                if (action.isPlayer) {
+                  matchStatsRef.current.damageDealt += remaining;
+                  matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: `${skill.name} (+${typeLabel})`, amount: remaining });
+                } else {
+                  matchStatsRef.current.damageReceived += remaining;
+                  matchStatsRef.current.damageReceivedRecords.push({ charName: t.character.name, tags: t.character.tags || [], amount: remaining });
+                }
+                if (t.health === 0 && startingHealth > 0 && action.isPlayer) {
+                  matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
+                  matchStatsRef.current.killRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name });
+                }
+              }
+            });
           }
 });
 
@@ -10441,6 +10573,45 @@ if (skill.redirectOffensiveToCaster) {
           value: `Quando o CONTRA-ATAQUE desta skill funciona, o inimigo que atacou recebe +${r.damage} de ${tLabel}`,
           color: 'text-cyan-950 font-extrabold',
           targetLabel: 'Contra-Ataque'
+        });
+      });
+    }
+
+    // Informação de mudança de alvo por marcação (targetChangeOnStacksRules)
+    if (skill.targetChangeOnStacksRules && skill.targetChangeOnStacksRules.length > 0) {
+      skill.targetChangeOnStacksRules.forEach(rule => {
+        if (!rule.markingSkillName) return;
+        const targetMap: Record<string, string> = {
+          'AllEnemies': 'Todos os Inimigos',
+          'Enemy': 'Um Inimigo',
+          'AllAllies': 'Todos os Aliados',
+          'Ally': 'Um Aliado',
+          'Self': 'Mim Mesmo',
+          'SelfAndAlly': 'Mim Mesmo e Aliado',
+        };
+        effects.push({
+          label: `Mudança de Alvo (${rule.markingSkillName})`,
+          value: `Quando ${rule.markingSkillName} tiver ${Math.max(1, rule.requiredStacks || 1)} stacks, o alvo vira ${targetMap[rule.overrideTarget || 'AllEnemies'] || rule.overrideTarget} por ${Math.max(1, rule.durationTurns || 1)} turno(s)`,
+          color: 'text-rose-950 font-extrabold',
+          targetLabel: 'Stack'
+        });
+      });
+    }
+
+    // Informação de dano adicional por marcação (bonusDamageOnStacksRules)
+    if (skill.bonusDamageOnStacksRules && skill.bonusDamageOnStacksRules.length > 0) {
+      skill.bonusDamageOnStacksRules.forEach(rule => {
+        if (!rule.markingSkillName) return;
+        const typeLabels: Record<string, string> = {
+          damage: 'Dano', direct_damage: 'Dano Direto', true: 'Dano Direto', piercing: 'Dano Direto',
+          physical: 'Dano Físico', chakra: 'Dano de Chakra', mental: 'Dano Mental', ranged: 'Dano à Distância',
+          affliction: 'Aflição', dot: 'Queimadura', bleeding: 'Sangramento',
+        };
+        effects.push({
+          label: `Dano Adicional (${rule.markingSkillName})`,
+          value: `Quando ${rule.markingSkillName} tiver ${Math.max(1, rule.requiredStacks || 1)} stacks, dá +${rule.bonusDamage || 0} de ${typeLabels[rule.damageType || 'damage'] || 'Dano'} por ${Math.max(1, rule.durationTurns || 1)} turno(s)`,
+          color: 'text-orange-950 font-extrabold',
+          targetLabel: 'Stack'
         });
       });
     }
