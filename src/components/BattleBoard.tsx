@@ -3687,6 +3687,7 @@ let directDamage = skill.directDamage || 0;
           if (!rule.activeSkillName) continue;
           const targetNameLower = rule.activeSkillName.trim().toLowerCase();
           const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
+          let killedAny = false;
           targetSide.forEach(t => {
             if (t.isDead) return;
             const hasActiveEffect = (t.activeEffects || []).some(e => {
@@ -3695,6 +3696,7 @@ let directDamage = skill.directDamage || 0;
               return n === targetNameLower || n.startsWith(targetNameLower) || n.includes(targetNameLower);
             });
             if (hasActiveEffect) {
+              killedAny = true;
               t.health = 0;
               t.isDead = true;
               newLogs.push({
@@ -3708,6 +3710,17 @@ let directDamage = skill.directDamage || 0;
               }
             }
           });
+          // Opção "Mim e o Oponente": o conjurador também morre (sacrifício)
+          if (rule.killScope === 'self_and_target' && killedAny && !source.isDead) {
+            source.health = 0;
+            source.isDead = true;
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `💀 [EXECUÇÃO] ${source.character.name} SE SACRIFICOU e morreu junto ao executar [${skill.name}]!`,
+              type: 'damage',
+            });
+            addFloatingText(source.id, 'SACRIFÍCIO!', 'damage');
+          }
         }
       }
 
@@ -8192,6 +8205,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           if (!rule.activeSkillName) continue;
           const targetNameLower = rule.activeSkillName.trim().toLowerCase();
           const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
+          let killedAny = false;
           targetSide.forEach(t => {
             if (t.isDead) return;
             const hasActiveEffect = (t.activeEffects || []).some(e => {
@@ -8200,6 +8214,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               return n === targetNameLower || n.startsWith(targetNameLower) || n.includes(targetNameLower);
             });
             if (hasActiveEffect) {
+              killedAny = true;
               t.health = 0;
               t.isDead = true;
               newLogs.push({
@@ -8213,6 +8228,17 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               }
             }
           });
+          // Opção "Mim e o Oponente": o conjurador também morre (sacrifício)
+          if (rule.killScope === 'self_and_target' && killedAny && !source.isDead) {
+            source.health = 0;
+            source.isDead = true;
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `💀 [EXECUÇÃO] ${source.character.name} SE SACRIFICOU e morreu junto ao executar [${skill.name}]!`,
+              type: 'damage',
+            });
+            addFloatingText(source.id, 'SACRIFÍCIO!', 'damage');
+          }
         }
       }
 
@@ -10515,7 +10541,7 @@ if (skill.redirectOffensiveToCaster) {
         if (!rule.activeSkillName) return;
         effects.push({
           label: `Execução Instantânea (${rule.activeSkillName})`,
-          value: `MATA instantaneamente o Oponente que estiver com ${rule.activeSkillName} ativo nele`,
+          value: `MATA instantaneamente o Oponente que estiver com ${rule.activeSkillName} ativo nele${rule.killScope === 'self_and_target' ? ' — e VOCÊ também morre (sacrifício)' : ''}`,
           color: 'text-red-950 font-extrabold',
           targetLabel: 'Condicional'
         });

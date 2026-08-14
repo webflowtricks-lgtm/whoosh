@@ -55,6 +55,8 @@ export interface SkillChakraRemoveRule {
 
 export interface SkillKillWhenActiveRule {
   activeSkillName: string; // Skill/efeito ativo no Oponente que será morto instantaneamente
+  /** Quem morre ao executar: 'target' (Somente o Oponente - padrão) ou 'self_and_target' (Mim e o Oponente / sacrifício) */
+  killScope?: 'target' | 'self_and_target';
 }
 
 export interface SkillIgnoreInvulnWhenActiveRule {

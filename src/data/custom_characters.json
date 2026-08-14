@@ -4041,27 +4041,50 @@
     "folder": "anko-mitarashi",
     "skills": [
       {
+        "name": "Dual Pin",
+        "desc": "Anko Mitarashi executa [Dual Pin], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/anko-mitarashi/DualPin.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Melee"
+        ],
+        "damage": 10,
+        "cannotReduceDamageDuration": 1,
+        "stackable": true,
+        "stackType": "Dual Pin",
+        "stackTarget": "Self",
+        "stackDuration": 1
+      },
+      {
         "name": "Dragon Flame",
         "desc": "Anko Mitarashi executa [Dragon Flame], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/anko-mitarashi/DragonFlame.jpg",
         "cost": [
-          "Tai",
-          "Rand"
+          "Nin"
         ],
-        "cooldown": 0,
+        "cooldown": 2,
         "currentCooldown": 0,
-        "targetType": "Enemy",
+        "targetType": "AllEnemies",
         "classes": [
           "Chakra",
-          "Corpo a Corpo"
-        ]
+          "Corpo a Corpo",
+          "A distancia"
+        ],
+        "afflictionVal": 10,
+        "afflictionDuration": 2
       },
       {
         "name": "Striking Shadow Snakes",
         "desc": "Anko Mitarashi executa [Striking Shadow Snakes], desferindo um golpe poderoso que causa 40 de dano ao oponente selecionado.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/anko-mitarashi/StrikingShadowSnakes.jpg",
         "cost": [
-          "Tai"
+          "Nin"
         ],
         "cooldown": 1,
         "currentCooldown": 0,
@@ -4069,23 +4092,10 @@
         "classes": [
           "Físico",
           "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Dual Pin",
-        "desc": "Anko Mitarashi executa [Dual Pin], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/anko-mitarashi/DualPin.jpg",
-        "cost": [
-          "Gen",
-          "Rand"
         ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "Corpo a Corpo"
-        ]
+        "afflictionInstant": 5,
+        "afflictionVal": 5,
+        "afflictionDuration": 2
       },
       {
         "name": "Twin Snake Sacrifice",
@@ -4093,15 +4103,25 @@
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/anko-mitarashi/TwinSnakeSacrifice.jpg",
         "cost": [
           "Nin",
-          "Rand"
+          "Nin"
         ],
-        "cooldown": 0,
+        "cooldown": 2,
         "currentCooldown": 0,
         "targetType": "Enemy",
         "classes": [
-          "Mental",
-          "À Distância"
-        ]
+          "Aflição",
+          "Melee"
+        ],
+        "requireTargetEffect": "Dual Pin",
+        "requireEffect": "Dual Pin",
+        "killWhenActiveRules": [
+          {
+            "activeSkillName": "Dual Pin",
+            "killScope": "self_and_target"
+          }
+        ],
+        "cannotBeReflected": true,
+        "cannotBeCountered": true
       },
       {
         "name": "Quick Reflexes",

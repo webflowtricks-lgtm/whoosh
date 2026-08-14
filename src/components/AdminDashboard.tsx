@@ -3841,7 +3841,7 @@ const newSkill: Skill = {
                               const currentRules = editingSkill.killWhenActiveRules || [];
                               handleUpdateSkillField('killWhenActiveRules', [
                                 ...currentRules,
-                                { activeSkillName: '' }
+                                { activeSkillName: '', killScope: 'target' }
                               ]);
                             }}
                             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-red-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
@@ -3876,6 +3876,19 @@ const newSkill: Skill = {
                                     editingChar.skills.map(s => <option key={s.name} value={s.name} />)
                                   ) : <option value="" disabled />}
                                 </datalist>
+                                <span className="text-red-400 font-bold">Quem morre:</span>
+                                <select
+                                  value={rule.killScope || 'target'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.killWhenActiveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], killScope: e.target.value === 'self_and_target' ? 'self_and_target' : 'target' };
+                                    handleUpdateSkillField('killWhenActiveRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-red-800/60 rounded text-[10px] font-mono text-red-300 focus:border-red-500 outline-none"
+                                >
+                                  <option value="target">Somente o Oponente</option>
+                                  <option value="self_and_target">Mim e o Oponente (Sacrifício)</option>
+                                </select>
                                 <button
                                   type="button"
                                   onClick={() => {
