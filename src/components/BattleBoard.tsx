@@ -2277,15 +2277,6 @@ const handleTradeChakra = () => {
     return caster.character.skills.find(s => !!s.name && (s.name === baseName || effName.startsWith(s.name))) || null;
   };
 
-  const getCasterDamageBuffSum = (eff: ActiveEffect, allCombatants: CombatCharacter[]): number => {
-    const caster = eff.casterId ? allCombatants.find(cb => cb.id === eff.casterId) : null;
-    if (!caster || caster.isDead) return 0;
-    const skill = getEffectSkillFromCaster(eff, caster);
-    return caster.activeEffects
-      .filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill))
-      .reduce((a, e) => a + (e.value || 0), 0);
-  };
-
   // Process revivals (revive_on_death) and removal of effects whose caster died
   const processDeathEvents = (combatantList: CombatCharacter[], logs: CombatLog[]) => {
     // 1) Revivals: dead combatants with a revive_on_death effect come back with X HP (1 stack consumida)
@@ -2867,6 +2858,14 @@ const handleTradeChakra = () => {
         baseDamage = 0;
         directDamage = 0;
       }
+      // BÔNUS DE DANO: +valor UMA vez por cast, na skill física/chakra do conjurador.
+      const damageBuffSum = source.activeEffects
+        .filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill))
+        .reduce((a, e) => a + (e.value || 0), 0);
+      // O buff entra APENAS no dano principal da skill: dano normal > dano direto > dano instantâneo
+      const dmgBuffNormal = (baseDamage > 0 || costRuleDamageBoost > 0 || (skill.damageDuration && skill.damageDuration > 1)) ? damageBuffSum : 0;
+      const dmgBuffDirect = dmgBuffNormal === 0 && (directDamage > 0 || ruleDirectDamage > 0) ? damageBuffSum : 0;
+      const dmgBuffInstant = dmgBuffNormal === 0 && dmgBuffDirect === 0 ? damageBuffSum : 0;
       const dotInstant = skill.dotInstant || 0;
       const bleedingInstant = skill.bleedingInstant || 0;
       const afflictionInstant = skill.afflictionInstant || 0;
@@ -3052,8 +3051,7 @@ const handleTradeChakra = () => {
           }
         }
       }
-      const sourceBuffsDd = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill));
-      const damageBuffSumDd = sourceBuffsDd.reduce((acc, curr) => acc + (curr.value || 0), 0);
+      const damageBuffSumDd = dmgBuffDirect;
       let dd = directDamage + missingHpDirect + ruleDirectDamage + stackDamageBonusForDd + damageBuffSumDd;
       // Reduce by source's damage debuffs (qualquer tipo)
       const srcDdReduction = source.activeEffects
@@ -3248,7 +3246,7 @@ const handleTradeChakra = () => {
       }
 
       // INSTANT DOT / BLEEDING / AFFLICTION (with missing HP)
-      const instantBuffSum = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill)).reduce((a, e) => a + (e.value || 0), 0);
+      const instantBuffSum = dmgBuffInstant;
       const totalDotInstant = dotInstant + missingHpDot + instantBuffSum;
       const totalBleedInstant = bleedingInstant + missingHpBleed + instantBuffSum;
       const totalAfflictionInstant = afflictionInstant + missingHpAffliction + instantBuffSum;
@@ -3507,8 +3505,6 @@ const handleTradeChakra = () => {
           // Deal immediate first tick
           const startingShield = t.shield;
           const startingHealth = t.health;
-          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill));
-          const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
             if ((e as any).excludeAffliction) {
@@ -3655,7 +3651,7 @@ const handleTradeChakra = () => {
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
+          let finalDamage = baseDamage + dmgBuffNormal + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
           if (!targetCannotReduce) {
@@ -3724,7 +3720,7 @@ const handleTradeChakra = () => {
             pushActiveEffect(t, {
               name: `${skill.name} (Dano Contínuo)`,
               type: 'damage',
-              value: baseDamage,
+              value: baseDamage + dmgBuffNormal,
               duration: duration === 99999 ? 99999 : (duration - 1),
               icon: skill.icon,
               irremovable: !!skill.damageIrremovable,
@@ -3773,8 +3769,6 @@ splashOnlyTargets = splashPool.filter(c =>
           const startingShield = t.shield;
           const startingHealth = t.health;
 
-          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill));
-          const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
             if ((e as any).excludeAffliction) {
@@ -3921,7 +3915,7 @@ splashOnlyTargets = splashPool.filter(c =>
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
+          let finalDamage = baseDamage + dmgBuffNormal + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
 
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
@@ -4571,7 +4565,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // Affliction - debuff & immediate damage on target
       const totalAfflictionVal = (hasActiveDamageRuleIgnoreBase && ruleAfflictionDamage > 0) ? ruleAfflictionDamage : ((skill.afflictionVal || 0) + ruleAfflictionDamage);
-      const afflCastBuff = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill)).reduce((a, e) => a + (e.value || 0), 0);
+      const afflCastBuff = dmgBuffInstant;
       const afflInstantDmg = totalAfflictionVal + afflCastBuff;
       if (totalAfflictionVal > 0) {
         const afflictionTargets = resolveEffectTargets(skill.afflictionTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
@@ -5181,7 +5175,7 @@ splashOnlyTargets = splashPool.filter(c =>
       if (source.activeEffects && source.activeEffects.length > 0) {
         source.activeEffects.forEach(eff => {
           if (eff.type !== 'on_skill_use_damage') return;
-          const dmgVal = (eff.value || 0) + getCasterDamageBuffSum(eff, [...sourceList, ...targetList]);
+          const dmgVal = eff.value || 0;
           if (dmgVal <= 0 || source.isDead) return;
 
           if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
@@ -5287,7 +5281,7 @@ splashOnlyTargets = splashPool.filter(c =>
             }
 
             // Apply Retaliation Damage to source (attacker)
-            const baseRVal = (eff.retaliateDamageVal || eff.value || 0) + getCasterDamageBuffSum(eff, [...sourceList, ...targetList]);
+            const baseRVal = eff.retaliateDamageVal || eff.value || 0;
             const stacks = (eff as any).stacks || 1;
             const rVal = baseRVal * stacks;
             const rType = eff.retaliateDamageType || 'damage';
@@ -5442,8 +5436,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
-            const dotBuff = getCasterDamageBuffSum(dot, [...updatedPlayer, ...updatedEnemy]);
-            const dotVal = Math.max(0, (dot.value || 0) + dotBuff);
+            const dotVal = Math.max(0, dot.value || 0);
             c.health = Math.max(0, c.health - dotVal);
             newLogs.push({
               id: Math.random().toString(),
@@ -5472,7 +5465,7 @@ splashOnlyTargets = splashPool.filter(c =>
             const targetCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
             const targetReductions = targetCannotReduce ? [] : c.activeEffects.filter(e => e.type === 'damage_reduction');
             const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
-            const netDmg = Math.max(0, (dmg.value || 0) - reductionSum + getCasterDamageBuffSum(dmg, [...updatedPlayer, ...updatedEnemy]));
+            const netDmg = Math.max(0, (dmg.value || 0) - reductionSum);
             c.health = Math.max(0, c.health - netDmg);
             newLogs.push({
               id: Math.random().toString(),
@@ -5533,14 +5526,12 @@ splashOnlyTargets = splashPool.filter(c =>
               }
               const missingHpDirect = ddSkill.missingHpDamageType === 'direct' ? Math.max(0, ddCaster.maxHealth - ddCaster.health) : 0;
               const ddBase = ruleIgnoresBase ? 0 : (ddSkill.directDamage || 0);
-              const ddBuffs = ddCaster.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, ddSkill)).reduce((a, e) => a + (e.value || 0), 0);
+              // O buff de dano já foi aplicado no cast (buffAtCast) e permanece fixo nos ticks
               const ddDebuffs = ddCaster.activeEffects.filter(e => e.type === 'damage_debuff').reduce((a, e) => a + (e.value || 0), 0);
-              dd.value = Math.max(0, ddBase + ruleDirect + stackBonus + missingHpDirect + ddBuffs - ddDebuffs);
+              dd.value = Math.max(0, ddBase + ruleDirect + stackBonus + missingHpDirect + (dd.buffAtCast || 0) - ddDebuffs);
             }
           } else if (ddCaster) {
-            // Sem regras de dano: valor base (sem o buff do cast) + buffs de dano atuais do conjurador
-            const ddBuffsNow = getCasterDamageBuffSum(dd, [...updatedPlayer, ...updatedEnemy]);
-            dd.value = Math.max(0, (dd.value || 0) - (dd.buffAtCast || 0) + ddBuffsNow);
+            // Sem regras de dano: mantém o valor armazenado no cast (já inclui o buff aplicado no cast)
           }
           if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
@@ -5577,8 +5568,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
-            const bleedBuff = getCasterDamageBuffSum(bleed, [...updatedPlayer, ...updatedEnemy]);
-            const bleedVal = Math.max(0, (bleed.value || 0) + bleedBuff);
+            const bleedVal = Math.max(0, bleed.value || 0);
             c.health = Math.max(0, c.health - bleedVal);
             newLogs.push({
               id: Math.random().toString(),
@@ -5598,8 +5588,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
-            const affBuff = getCasterDamageBuffSum(aff, [...updatedPlayer, ...updatedEnemy]);
-            const affVal = Math.max(0, (aff.value || 0) + affBuff);
+            const affVal = Math.max(0, aff.value || 0);
             c.health = Math.max(0, c.health - affVal);
             newLogs.push({
               id: Math.random().toString(),
@@ -7117,6 +7106,13 @@ splashOnlyTargets = splashPool.filter(c =>
         baseDamage = 0;
         directDamage = 0;
       }
+      // BÔNUS DE DANO: +valor UMA vez por cast, na skill física/chakra do conjurador.
+      const damageBuffSum = source.activeEffects
+        .filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill))
+        .reduce((a, e) => a + (e.value || 0), 0);
+      const dmgBuffNormal = (baseDamage > 0 || costRuleDamageBoost2 > 0 || (skill.damageDuration && skill.damageDuration > 1)) ? damageBuffSum : 0;
+      const dmgBuffDirect = dmgBuffNormal === 0 && (directDamage > 0 || ruleDirectDamage2 > 0) ? damageBuffSum : 0;
+      const dmgBuffInstant = dmgBuffNormal === 0 && dmgBuffDirect === 0 ? damageBuffSum : 0;
 
       if (skill.missingHpDamageType === 'normal') {
         baseDamage += Math.max(0, source.maxHealth - source.health);
@@ -7454,7 +7450,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         }
       }
       const missingHpDirect2 = skill.missingHpDamageType === 'direct' || skill.missingHpDamageType === 'normal' ? source.maxHealth - source.health : 0;
-      let ddTotal = directDamage + missingHpDirect2 + ruleDirectDamage2 + stackDamageBonusForDd2;
+      let ddTotal = directDamage + missingHpDirect2 + ruleDirectDamage2 + stackDamageBonusForDd2 + dmgBuffDirect;
       // Reduce by source's damage debuffs (qualquer tipo)
       const srcDdReduction2 = source.activeEffects
         .filter((e: ActiveEffect) => e.type === 'damage_debuff')
@@ -7470,6 +7466,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               name: `${skill.name} (Dano Direto Contínuo)`,
               type: 'direct_damage',
               value: ddTotal,
+              buffAtCast: dmgBuffDirect,
               duration,
               icon: skill.icon,
               irremovable: !!skill.directDamageIrremovable,
@@ -7556,9 +7553,9 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
       const missDot2 = skill.missingHpDamageType === 'dot' ? source.maxHealth - source.health : 0;
       const missBleed2 = skill.missingHpDamageType === 'bleeding' ? source.maxHealth - source.health : 0;
       const missAffl2 = skill.missingHpDamageType === 'affliction' ? source.maxHealth - source.health : 0;
-      const totalDotInstant2 = dotInstant + missDot2;
-      const totalBleedInstant2 = bleedingInstant + missBleed2;
-      const totalAfflictionInstant2 = afflictionInstant + missAffl2;
+      const totalDotInstant2 = dotInstant + missDot2 + dmgBuffInstant;
+      const totalBleedInstant2 = bleedingInstant + missBleed2 + dmgBuffInstant;
+      const totalAfflictionInstant2 = afflictionInstant + missAffl2 + dmgBuffInstant;
       if (totalDotInstant2 > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalDotInstant2);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant2;
@@ -7779,8 +7776,6 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           // Deal immediate first tick
           const startingShield = t.shield;
           const startingHealth = t.health;
-          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill));
-          const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
             if ((e as any).excludeAffliction) {
@@ -7796,7 +7791,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           });
           const damageDebuffSum = sourceDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           let costRuleDamageBoost = costRuleDamageBoost2;
-          let finalDamage = dmgVal + damageBuffSum + costRuleDamageBoost + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
+          let finalDamage = dmgVal + dmgBuffNormal + costRuleDamageBoost + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
           if (!targetCannotReduce) {
@@ -7862,7 +7857,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             pushActiveEffect(t, {
               name: `${skill.name} (Dano Contínuo)`,
               type: 'damage',
-              value: dmgVal,
+              value: dmgVal + dmgBuffNormal,
               duration: duration - 1,
               icon: skill.icon,
               irremovable: !!skill.damageIrremovable,
@@ -7909,9 +7904,6 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           if (t.isDead) return;
           const startingShield = t.shield;
           const startingHealth = t.health;
-          // Apply damage buff from source effects
-          const sourceBuffs = source.activeEffects.filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill));
-          const damageBuffSum = sourceBuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
             if (e.type !== 'damage_debuff') return false;
             if ((e as any).excludeAffliction) {
@@ -8058,7 +8050,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               }
             }
           }
-          let finalDamage = baseDamage + damageBuffSum + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
+          let finalDamage = baseDamage + dmgBuffNormal + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
 
           // Apply flat damage reduction on target
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
@@ -8626,7 +8618,12 @@ if (skill.redirectOffensiveToCaster) {
 
       // 4.4 APPLY DAMAGE BUFF
       if (skill.damageBuffVal && skill.damageBuffVal > 0) {
-        const buffTargets = resolveEffectTargets(skill.damageBuffTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
+        // Se o usuário definiu explicitamente o alvo do buff, respeitar exatamente (sem o redirect
+        // de efeito benéfico que manda para o conjurador quando o alvo é inimigo).
+        const buffTarget = skill.damageBuffTarget || skill.shieldTarget || 'Self';
+        const buffTargets = skill.damageBuffTarget
+          ? resolveEffectTargets(skill.damageBuffTarget, target, source, sourceList, targetList, false)
+          : resolveEffectTargets(buffTarget, target, source, sourceList, targetList, true);
         buffTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.damageBuffDuration || 3;
@@ -8636,6 +8633,7 @@ if (skill.redirectOffensiveToCaster) {
             value: skill.damageBuffVal,
             duration,
             icon: skill.icon,
+            buffTypes: skill.damageBuffTypes,
             irremovable: !!skill.damageBuffIrremovable,
           });
           newLogs.push({
@@ -8729,6 +8727,7 @@ if (skill.redirectOffensiveToCaster) {
 
       // 4.7 APPLY AFFLICTION (AFLIÇÃO)
       const totalAfflictionVal2 = (hasActiveDamageRuleIgnoreBase2 && ruleAfflictionDamage2 > 0) ? ruleAfflictionDamage2 : ((skill.afflictionVal || 0) + ruleAfflictionDamage2);
+      const afflCastDmg2 = totalAfflictionVal2 + dmgBuffInstant;
       if (totalAfflictionVal2 > 0) {
         const afflictionTargets = resolveEffectTargets(skill.afflictionTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         afflictionTargets.forEach(t => {
@@ -8747,7 +8746,7 @@ if (skill.redirectOffensiveToCaster) {
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           } else {
             const startingHealth = t.health;
-            t.health = Math.max(0, t.health - totalAfflictionVal2);
+            t.health = Math.max(0, t.health - afflCastDmg2);
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
               if (action.isPlayer) {

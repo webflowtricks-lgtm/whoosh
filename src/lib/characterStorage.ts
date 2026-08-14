@@ -10,6 +10,10 @@ import { safeFetchJson } from './api';
 
 const STORAGE_KEY = 'naruto_combat_characters';
 
+// Cache em memória: garante que dados novos vindos do servidor sejam usados
+// mesmo quando o localStorage estoura a cota (QuotaExceededError) e não atualiza.
+let memoryCache: Character[] | null = null;
+
 export function enrichCharacters(characters: Character[]): Character[] {
   if (!Array.isArray(characters)) return characters;
   const enriched = characters.map(char => ({
@@ -34,6 +38,9 @@ export function enrichCharacters(characters: Character[]): Character[] {
 }
 
 export function getCharacters(): Character[] {
+  if (memoryCache && memoryCache.length > 0) {
+    return memoryCache;
+  }
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
     try {
@@ -53,6 +60,7 @@ export async function fetchCharactersFromServer(): Promise<Character[]> {
     const data = await safeFetchJson<{ success?: boolean; characters?: Character[] }>('/api/characters');
     if (data && data.success && Array.isArray(data.characters) && data.characters.length > 0) {
       const enriched = enrichCharacters(data.characters);
+      memoryCache = enriched;
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
       } catch (e) {
@@ -68,6 +76,7 @@ export async function fetchCharactersFromServer(): Promise<Character[]> {
 
 export async function saveCharacters(characters: Character[]): Promise<Character[]> {
   const enriched = enrichCharacters(characters);
+  memoryCache = enriched;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
   } catch (e) {
@@ -96,6 +105,7 @@ export async function saveCharacters(characters: Character[]): Promise<Character
 
 export async function resetToDefaultCharacters(): Promise<Character[]> {
   const enriched = enrichCharacters(DEFAULT_CHARACTERS);
+  memoryCache = enriched;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
   } catch (e) {
