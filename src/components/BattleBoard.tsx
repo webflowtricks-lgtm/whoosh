@@ -2137,6 +2137,7 @@ const handleTradeChakra = () => {
   const [isPreparing, setIsPreparing] = useState(false);
   const [passedPlayersThisTurn, setPassedPlayersThisTurn] = useState<('player' | 'enemy')[]>([]);
   const [lastResolutionError, setLastResolutionError] = useState<string | null>(null);
+  const [lastAIError, setLastAIError] = useState<string | null>(null);
 
   const hasDamageImmunity = (character: CombatCharacter) =>
     character?.activeEffects?.some((e: ActiveEffect) => e.type === 'damage_immunity') ?? false;
@@ -2825,7 +2826,7 @@ const handleTradeChakra = () => {
       }
 
       // Young Kakashi: Implanted Sharingan reaction check when marked target uses a skill
-      const sharinganTargetEffect = source.activeEffects.find(e => e.name === 'Implanted Sharingan Target' || e.name.includes('Sharingan Target') || e.name === 'Implanted Sharingan');
+      const sharinganTargetEffect = source.activeEffects.find(e => e.name && (e.name === 'Implanted Sharingan Target' || e.name.includes('Sharingan Target') || e.name === 'Implanted Sharingan'));
       if (sharinganTargetEffect) {
         const kakashiCaster = allCombatants.find(c => c.id === sharinganTargetEffect.casterId && !c.isDead);
         if (kakashiCaster) {
@@ -6605,8 +6606,9 @@ splashOnlyTargets = splashPool.filter(c =>
     // through the AI effect or the matchmaking poll — never via this handler.
     // This closes the rapid double-click hole where a second click, after the
     // planner already switched to 'enemy', would pass the enemy side and end
-    // the turn prematurely.
-    if (!isSandbox && activePlanner !== 'player') {
+    // the turn prematurely. Auto-pass via the 60s timer (skipActions=true)
+    // is still allowed as a last-resort guarantee that the turn always advances.
+    if (!isSandbox && activePlanner !== 'player' && !skipActions) {
       isEndingTurnRef.current = false;
       turnActionLockedRef.current = false;
       setIsEndingTurn(false);
@@ -6694,6 +6696,7 @@ splashOnlyTargets = splashPool.filter(c =>
         const aiActions: CuedAction[] = [];
         let tempAiChakra = { ...enemyChakra };
 
+        try {
         // 1. SMART CHAKRA TRADING (4 -> 1):
         // If AI has 4+ of an element and lacks 1 element for a key skill, trade 4->1
         const elements: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
@@ -6956,6 +6959,11 @@ splashOnlyTargets = splashPool.filter(c =>
               if (tempAiChakra[highestElement] > 0) tempAiChakra[highestElement]--;
             }
           }
+        }
+
+        } catch (aiErr) {
+          console.error('[BattleBoard] Erro ao montar as ações da IA:', aiErr);
+          try { setLastAIError(String((aiErr as any)?.message || aiErr)); } catch {}
         }
 
         if (passedPlayersRef.current.includes('enemy')) return;
@@ -12215,7 +12223,12 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 </span>
                 {lastResolutionError && (
                   <span className="text-[9px] font-mono font-bold text-red-300 bg-black/50 px-2 py-0.5 rounded max-w-full truncate">
-                    ERRO: {lastResolutionError}
+                    ERRO RESOL: {lastResolutionError}
+                  </span>
+                )}
+                {lastAIError && (
+                  <span className="text-[9px] font-mono font-bold text-orange-300 bg-black/50 px-2 py-0.5 rounded max-w-full truncate">
+                    ERRO IA: {lastAIError}
                   </span>
                 )}
               </div>
