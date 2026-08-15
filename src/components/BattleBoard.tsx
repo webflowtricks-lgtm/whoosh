@@ -3719,6 +3719,7 @@ const startingHealth = t.health;
           if (remainingDuration > 0 && !t.isDead) {
             pushActiveEffect(t, {
               name: `${skill.name} Roubo de Vida`,
+              sourceSkillName: skill.name,
               type: 'life_steal',
               value: skill.stealLifeVal,
               duration: remainingDuration,
@@ -6312,46 +6313,11 @@ splashOnlyTargets = splashPool.filter(c =>
       });
     };
 
-    applyTurnEndUpdates(updatedPlayer, 'Player');
-    applyTurnEndUpdates(updatedEnemy, 'Enemy');
-
-    // Process revivals & caster-death effect removals after end-of-turn damage
-    processDeathEvents([...updatedPlayer, ...updatedEnemy], newLogs);
-
-    // Check immortal threshold for all combatants (HP ≤ threshold triggers immortality)
-    const checkImmortalThreshold = (combatantList: CombatCharacter[], sideChar: CombatCharacter[]) => {
-      combatantList.forEach(c => {
-        if (c.isDead) return;
-        const immortalSkill = c.character.skills.find(s => s.immortalHpThreshold && s.immortalHpThreshold > 0 && c.health <= s.immortalHpThreshold);
-        const skillEffectActive = immortalSkill ? c.activeEffects.some(e => e.name.startsWith(immortalSkill.name)) : false;
-        if (immortalSkill && !c.activeEffects.some(e => e.type === 'immortal') && skillEffectActive) {
-          const immDuration = immortalSkill.immortalDuration || 3;
-          pushActiveEffect(c, {
-            name: `${immortalSkill.name} (Imortal)`,
-            type: 'immortal',
-            duration: immDuration,
-            icon: immortalSkill.icon,
-            casterId: c.id,
-            casterSide: sideChar === updatedPlayer ? 'player' : 'enemy',
-          });
-          newLogs.push({
-            id: Math.random().toString(), turn,
-            message: `💪 ${c.character.name} ativou IMORTALIDADE por ${immortalSkill.immortalDuration || 3} turnos (HP ≤ ${immortalSkill.immortalHpThreshold})!`,
-            type: 'buff',
-          });
-          addFloatingText(c.id, '💪 IMORTAL', 'effect');
-        }
-      });
-    };
-    checkImmortalThreshold(updatedPlayer, updatedPlayer);
-    checkImmortalThreshold(updatedEnemy, updatedEnemy);
-
     // Check continuous chakra remove rules for active damage effects
     {
       const allCombatants = [...updatedPlayer, ...updatedEnemy];
-      const continuousTypes = new Set(['damage', 'direct_damage', 'dot', 'bleeding', 'affliction']);
+      const continuousTypes = new Set(['damage', 'direct_damage', 'dot', 'bleeding', 'affliction', 'life_steal']);
       const processedSkills = new Set<string>();
-
       allCombatants.forEach(target => {
         if (target.isDead) return;
         const continuousEffects = target.activeEffects.filter(e => continuousTypes.has(e.type) && e.casterId);
@@ -6360,12 +6326,10 @@ splashOnlyTargets = splashPool.filter(c =>
           const skillKey = `${eff.casterId}_${effSkillName}`;
           if (processedSkills.has(skillKey)) return;
           processedSkills.add(skillKey);
-
           const caster = allCombatants.find(c => c.id === eff.casterId);
           if (!caster || caster.isDead) return;
           const skill = caster.character.skills.find(s => s.name === effSkillName);
           if (!skill || !skill.chakraRemoveRules || skill.chakraRemoveRules.length === 0) return;
-
           const targetIsPlayer = updatedPlayer.some(p => p.id === target.id);
           for (const rule of skill.chakraRemoveRules) {
             if (!rule.activeSkillName || rule.removeAmount <= 0) continue;
@@ -6413,12 +6377,12 @@ splashOnlyTargets = splashPool.filter(c =>
     // Check continuous chakra steal rules for active damage effects
     {
       const allCombatants = [...updatedPlayer, ...updatedEnemy];
-      const continuousTypes = new Set(['damage', 'direct_damage', 'dot', 'bleeding', 'affliction']);
+      const continuousTypes = new Set(['damage', 'direct_damage', 'dot', 'bleeding', 'affliction', 'life_steal']);
       const processedSkills = new Set<string>();
 
       allCombatants.forEach(target => {
         if (target.isDead) return;
-        const continuousEffects = target.activeEffects.filter(e => continuousTypes.has(e.type) && e.casterId);
+        const continuousEffects = target.activeEffects.filter(e => continuousTypes.has(e.type) && e.casterId && (e.castTurn === undefined || e.castTurn !== turn));
         continuousEffects.forEach(eff => {
           const effSkillName = eff.sourceSkillName || eff.name.replace(/\s*\(Dano Contínuo\)$/, '').replace(/\s*\(.*?\)$/, '').trim();
           const skillKey = `${eff.casterId}_${effSkillName}`;
@@ -6431,6 +6395,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (!skill || !skill.chakraStealRules || skill.chakraStealRules.length === 0) return;
 
           const casterIsPlayer = updatedPlayer.some(p => p.id === caster.id);
+          const skillInvulnIgnored = !!skill.ignoreInvulnerable;
           for (const rule of skill.chakraStealRules) {
             if (!rule.activeSkillName || rule.chakraAmount <= 0) continue;
             const targetNameLower = rule.activeSkillName.trim().toLowerCase();
@@ -6441,7 +6406,10 @@ splashOnlyTargets = splashPool.filter(c =>
                 return eNameLower === targetNameLower || eNameLower.includes(targetNameLower);
               })
             );
-            if (isCondActive) {
+            if (!isCondActive) continue;
+            // Não rouba se o alvo estiver invulnerável (exceto com o debuff "incapaz de ficar invulnerável" ou se a regra/skill ignorar)
+            if (checkCombatantInvulnerable(target, skill) && !(skillInvulnIgnored || rule.ignoreInvulnerable)) continue;
+            {
               const victimSetter = casterIsPlayer ? setEnemyChakra : setPlayerChakra;
               const thiefSetter = casterIsPlayer ? setPlayerChakra : setEnemyChakra;
               victimSetter(prevVictim => {
@@ -6484,6 +6452,41 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       });
     }
+
+    applyTurnEndUpdates(updatedPlayer, 'Player');
+    applyTurnEndUpdates(updatedEnemy, 'Enemy');
+
+    // Process revivals & caster-death effect removals after end-of-turn damage
+    processDeathEvents([...updatedPlayer, ...updatedEnemy], newLogs);
+
+    // Check immortal threshold for all combatants (HP ≤ threshold triggers immortality)
+    const checkImmortalThreshold = (combatantList: CombatCharacter[], sideChar: CombatCharacter[]) => {
+      combatantList.forEach(c => {
+        if (c.isDead) return;
+        const immortalSkill = c.character.skills.find(s => s.immortalHpThreshold && s.immortalHpThreshold > 0 && c.health <= s.immortalHpThreshold);
+        const skillEffectActive = immortalSkill ? c.activeEffects.some(e => e.name.startsWith(immortalSkill.name)) : false;
+        if (immortalSkill && !c.activeEffects.some(e => e.type === 'immortal') && skillEffectActive) {
+          const immDuration = immortalSkill.immortalDuration || 3;
+          pushActiveEffect(c, {
+            name: `${immortalSkill.name} (Imortal)`,
+            type: 'immortal',
+            duration: immDuration,
+            icon: immortalSkill.icon,
+            casterId: c.id,
+            casterSide: sideChar === updatedPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `💪 ${c.character.name} ativou IMORTALIDADE por ${immortalSkill.immortalDuration || 3} turnos (HP ≤ ${immortalSkill.immortalHpThreshold})!`,
+            type: 'buff',
+          });
+          addFloatingText(c.id, '💪 IMORTAL', 'effect');
+        }
+      });
+    };
+    checkImmortalThreshold(updatedPlayer, updatedPlayer);
+    checkImmortalThreshold(updatedEnemy, updatedEnemy);
+
 
     playerRef.current = updatedPlayer;
     enemyRef.current = updatedEnemy;
@@ -8449,6 +8452,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           if (remainingDuration > 0 && !t.isDead) {
             pushActiveEffect(t, {
               name: `${skill.name} Roubo de Vida`,
+              sourceSkillName: skill.name,
               type: 'life_steal',
               value: skill.stealLifeVal,
               duration: remainingDuration,
