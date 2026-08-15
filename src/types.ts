@@ -294,9 +294,11 @@ export interface Skill {
   bleedingVal?: number;
   bleedingDuration?: number;
   bleedingInstant?: number;
+  bleedingDelay?: number; // Turnos de atraso antes do sangramento começar a causar dano (não causa agora)
   afflictionVal?: number;
   afflictionDuration?: number;
   afflictionInstant?: number;
+  afflictionDelay?: number; // Turnos de atraso antes da aflição começar a causar dano (não causa agora)
   // Roubo de Vida (Vampirismo): rouba vida do alvo por turno; o conjurador recupera o dano causado (Dano Normal: sofre redução e escudo)
   stealLifeVal?: number;
   stealLifeDuration?: number;
@@ -675,6 +677,8 @@ counterAttackType?: 'attacker' | 'defender';
   permanent?: boolean;
   /** Cópia de Habilidades: as habilidades ORIGINAIS do conjurador guardadas para restaurar quando o efeito expirar */
   storedSkills?: Skill[];
+  /** Turnos restantes de atraso antes do efeito (bleeding/affliction) começar a causar dano */
+  delayTurns?: number;
 }
 
 export interface CombatCharacter {

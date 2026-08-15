@@ -4405,7 +4405,10 @@
         ],
         "directDamage": 20,
         "bleedingVal": 10,
-        "bleedingDuration": 1
+        "bleedingDuration": 1,
+        "afflictionDelay": 0,
+        "afflictionDuration": 0,
+        "bleedingDelay": 1
       },
       {
         "name": "Blade Rend",

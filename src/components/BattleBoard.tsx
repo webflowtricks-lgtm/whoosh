@@ -526,12 +526,16 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'damage':
       rawPt = val > 0 ? `Queimadura: Recebe ${val} de dano contínuo por turno por ${durText}` : `Dano contínuo por ${durText}`;
       break;
-    case 'bleeding':
-      rawPt = val > 0 ? `Sangramento: Recebe ${val} de dano por turno por ${durText}` : `Sangramento por ${durText}`;
+    case 'bleeding': {
+      const delayInfo = (effect.delayTurns || 0) > 0 ? ` (começa a causar dano em ${effect.delayTurns} ${effect.delayTurns === 1 ? 'turno' : 'turnos'})` : '';
+      rawPt = val > 0 ? `Sangramento: Recebe ${val} de dano por turno por ${durText}${delayInfo}` : `Sangramento por ${durText}`;
       break;
-    case 'affliction':
-      rawPt = val > 0 ? `Aflição: Recebe ${val} de dano por turno por ${durText}` : `Aflição por ${durText}`;
+    }
+    case 'affliction': {
+      const delayInfo = (effect.delayTurns || 0) > 0 ? ` (começa a causar dano em ${effect.delayTurns} ${effect.delayTurns === 1 ? 'turno' : 'turnos'})` : '';
+      rawPt = val > 0 ? `Aflição: Recebe ${val} de dano por turno por ${durText}${delayInfo}` : `Aflição por ${durText}`;
       break;
+    }
     case 'direct_damage':
       rawPt = val > 0 ? `Dano Direto: Sofre ${val} de dano por turno por ${durText}` : `Dano direto por ${durText}`;
       break;
@@ -5300,6 +5304,34 @@ splashOnlyTargets = splashPool.filter(c =>
         bleedTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.bleedingDuration || 3;
+          const bleedDelay = Math.max(0, skill.bleedingDelay || 0);
+
+          // Sangramento com ATRASO: o alvo NÃO sofre agora; só começa a sangrar
+          // depois de `bleedDelay` turnos, causando dano por turno por `duration` turnos.
+          if (bleedDelay > 0) {
+            pushActiveEffect(t, {
+              name: `${skill.name} Bleed`,
+              type: 'bleeding',
+              value: totalBleedingVal,
+              duration,
+              delayTurns: bleedDelay,
+              icon: skill.icon,
+              irremovable: !!skill.bleedingIrremovable,
+              cannotBeCountered: !!skill.cannotBeCountered,
+              cannotBeReflected: !!skill.cannotBeReflected,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⏳ ${t.character.name} começará a sangrar com [${skill.name}] em ${bleedDelay} ${bleedDelay === 1 ? 'turno' : 'turnos'} sofrendo ${totalBleedingVal} de dano por turno por ${duration} turnos!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `SANGRAMENTO EM ${bleedDelay} TURNOS`, 'effect');
+            cleanseTargetEffects(t, skill.bleedingRemoveType);
+            return;
+          }
 
           // Sangramento de 1 turno acontece INSTANTANEAMENTE (igual aflição).
           // O sangramento ignora DEFESA, ESCUDO e INVULNERABILIDADE: o dano é
@@ -5383,6 +5415,34 @@ splashOnlyTargets = splashPool.filter(c =>
         afflictionTargets.forEach(t => {
           if (t.isDead) return;
           const rawDuration = skill.afflictionDuration !== undefined && skill.afflictionDuration > 0 ? skill.afflictionDuration : 1;
+          const afflDelay = Math.max(0, skill.afflictionDelay || 0);
+
+          // Aflição com ATRASO: o alvo NÃO sofre agora; só começa a sofrer depois de
+          // `afflDelay` turnos, causando dano por turno por `rawDuration` turnos.
+          if (afflDelay > 0) {
+            pushActiveEffect(t, {
+              name: `${skill.name} Affliction`,
+              type: 'affliction',
+              value: totalAfflictionVal,
+              duration: rawDuration,
+              delayTurns: afflDelay,
+              icon: skill.icon,
+              irremovable: !!skill.afflictionIrremovable,
+              cannotBeCountered: !!skill.cannotBeCountered,
+              cannotBeReflected: !!skill.cannotBeReflected,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⏳ ${t.character.name} sofrerá ${totalAfflictionVal} de dano por aflição de [${skill.name}] em ${afflDelay} ${afflDelay === 1 ? 'turno' : 'turnos'}, durante ${rawDuration} ${rawDuration === 1 ? 'turno' : 'turnos'}!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `AFLIÇÃO EM ${afflDelay} TURNOS`, 'effect');
+            cleanseTargetEffects(t, skill.afflictionRemoveType);
+            return;
+          }
 
           // Deduct health immediately upon applying affliction
           if (hasDamageImmunity(t)) {
@@ -6414,6 +6474,10 @@ splashOnlyTargets = splashPool.filter(c =>
         // Apply Bleeding (Sangramento)
         const bleedingEffects = c.activeEffects.filter(e => e.type === 'bleeding');
         bleedingEffects.forEach(bleed => {
+          if ((bleed.delayTurns || 0) > 0) {
+            bleed.delayTurns = (bleed.delayTurns || 0) - 1;
+            return;
+          }
           if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
@@ -6434,6 +6498,10 @@ splashOnlyTargets = splashPool.filter(c =>
         // Apply Affliction (Aflição)
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
+          if ((aff.delayTurns || 0) > 0) {
+            aff.delayTurns = (aff.delayTurns || 0) - 1;
+            return;
+          }
           if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
@@ -7127,8 +7195,8 @@ splashOnlyTargets = splashPool.filter(c =>
 
                   const rawDmg = (skill.damage || 0) + (skill.directDamage || 0);
                   const dotDmg = Math.min((skill.dotVal || 0) * (skill.dotDuration || 1), 400) +
-                                 ((skill.bleedingVal || 0) * (skill.bleedingDuration || 1)) +
-                                 ((skill.afflictionVal || 0) * (skill.afflictionDuration || 1));
+                                 ((skill.bleedingVal || 0) * Math.max(0, (skill.bleedingDuration || 1) - (skill.bleedingDelay || 0))) +
+                                 ((skill.afflictionVal || 0) * Math.max(0, (skill.afflictionDuration || 1) - (skill.afflictionDelay || 0)));
                   const totalDmg = rawDmg + dotDmg;
 
                   score += totalDmg * 2;
@@ -10070,6 +10138,27 @@ if (skill.redirectOffensiveToCaster) {
         bleedTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.bleedingDuration || 3;
+          const bleedDelay2 = Math.max(0, skill.bleedingDelay || 0);
+          if (bleedDelay2 > 0) {
+            pushActiveEffect(t, {
+              name: `${skill.name} Sangramento`,
+              type: 'bleeding',
+              value: totalBleedingVal2,
+              duration,
+              delayTurns: bleedDelay2,
+              icon: skill.icon,
+              irremovable: !!skill.bleedingIrremovable,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⏳ ${t.character.name} começará a sangrar com [${skill.name}] em ${bleedDelay2} ${bleedDelay2 === 1 ? 'turno' : 'turnos'} sofrendo ${totalBleedingVal2} de dano por turno por ${duration} turnos!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `SANGRAMENTO EM ${bleedDelay2} TURNOS`, 'effect');
+            cleanseTargetEffects(t, skill.bleedingRemoveType);
+            return;
+          }
           pushActiveEffect(t, {
             name: `${skill.name} Sangramento`,
             type: 'bleeding',
@@ -10097,6 +10186,28 @@ if (skill.redirectOffensiveToCaster) {
         afflictionTargets.forEach(t => {
           if (t.isDead) return;
           const rawDuration = skill.afflictionDuration !== undefined && skill.afflictionDuration > 0 ? skill.afflictionDuration : 1;
+          const afflDelay2 = Math.max(0, skill.afflictionDelay || 0);
+
+          if (afflDelay2 > 0) {
+            pushActiveEffect(t, {
+              name: `${skill.name} Aflição`,
+              type: 'affliction',
+              value: totalAfflictionVal2,
+              duration: rawDuration,
+              delayTurns: afflDelay2,
+              icon: skill.icon,
+              irremovable: !!skill.afflictionIrremovable,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⏳ ${t.character.name} sofrerá ${totalAfflictionVal2} de dano por aflição de [${skill.name}] em ${afflDelay2} ${afflDelay2 === 1 ? 'turno' : 'turnos'}, durante ${rawDuration} ${rawDuration === 1 ? 'turno' : 'turnos'}!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `AFLIÇÃO EM ${afflDelay2} TURNOS`, 'effect');
+            cleanseTargetEffects(t, skill.afflictionRemoveType);
+            return;
+          }
 
           // Deduct health immediately upon applying affliction
           if (hasDamageImmunity(t)) {
@@ -10588,6 +10699,10 @@ if (skill.redirectOffensiveToCaster) {
         // Apply Bleeding (Sangramento)
         const bleedingEffects = c.activeEffects.filter(e => e.type === 'bleeding');
         bleedingEffects.forEach(bleed => {
+          if ((bleed.delayTurns || 0) > 0) {
+            bleed.delayTurns = (bleed.delayTurns || 0) - 1;
+            return;
+          }
           if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o Sangramento (${bleed.name}).`, type: 'buff' });
@@ -10607,6 +10722,10 @@ if (skill.redirectOffensiveToCaster) {
         // Apply Affliction (Aflição)
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
+          if ((aff.delayTurns || 0) > 0) {
+            aff.delayTurns = (aff.delayTurns || 0) - 1;
+            return;
+          }
           if (hasDamageImmunity(c)) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a Aflição (${aff.name}).`, type: 'buff' });
@@ -11155,7 +11274,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.bleedingVal && skill.bleedingVal > 0) {
       effects.push({
         label: 'Sangramento (Bleeding)',
-        value: `${skill.bleedingVal} de dano por turno por ${skill.bleedingDuration || 1} ${skill.bleedingDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `${skill.bleedingVal} de dano por turno por ${skill.bleedingDuration || 1} ${skill.bleedingDuration === 1 ? 'Turno' : 'Turnos'}${(skill.bleedingDelay || 0) > 0 ? ` (só a partir de ${skill.bleedingDelay} ${skill.bleedingDelay === 1 ? 'Turno' : 'Turnos'})` : ''}`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.bleedingTarget, 'Alvo Principal')
       });
@@ -11163,7 +11282,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.afflictionVal && skill.afflictionVal > 0) {
       effects.push({
         label: 'Aflição (Aflicção)',
-        value: `${skill.afflictionVal} de dano por turno por ${skill.afflictionDuration || 1} ${skill.afflictionDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `${skill.afflictionVal} de dano por turno por ${skill.afflictionDuration || 1} ${skill.afflictionDuration === 1 ? 'Turno' : 'Turnos'}${(skill.afflictionDelay || 0) > 0 ? ` (só a partir de ${skill.afflictionDelay} ${skill.afflictionDelay === 1 ? 'Turno' : 'Turnos'})` : ''}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.afflictionTarget, 'Alvo Principal')
       });
