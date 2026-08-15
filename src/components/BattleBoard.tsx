@@ -5952,6 +5952,9 @@ splashOnlyTargets = splashPool.filter(c =>
   const executeTurnEndResolution = () => {
     if (isResolvingTurnEndRef.current) return;
     isResolvingTurnEndRef.current = true;
+    console.log(`[TURN] RESOLVER RODADA início: turn=${turn} ref=[${passedPlayersRef.current}]`);
+    let advanced = false;
+    try {
     const newLogs: CombatLog[] = [];
     const srcPlayer = playerRef.current.length ? playerRef.current : playerCombatants;
     const srcEnemy = enemyRef.current.length ? enemyRef.current : enemyCombatants;
@@ -6507,6 +6510,7 @@ splashOnlyTargets = splashPool.filter(c =>
     setActivePlanner(newFirstPlayer);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
+    advanced = true;
 
     // Roll chakra for the new turn (1 per alive character on each team)
     const alivePlayerCount = updatedPlayer.filter(c => !c.isDead).length;
@@ -6524,6 +6528,31 @@ splashOnlyTargets = splashPool.filter(c =>
     });
 
     setLogs(prev => [...prev, ...newLogs]);
+    } catch (err) {
+      console.error(`[BattleBoard] Erro na resolução da rodada ${turn}:`, err);
+      if (!advanced) {
+        try {
+          const fbTurn = turn + 1;
+          setTurn(fbTurn);
+          setActivePlanner(Math.random() < 0.5 ? 'player' : 'enemy');
+          setPassedPlayersThisTurn([]);
+          passedPlayersRef.current = [];
+          setLogs(prev => [
+            ...prev,
+            {
+              id: Math.random().toString(),
+              turn: fbTurn,
+              message: `⚠️ Erro ao resolver a rodada ${turn} — o turno foi avançado automaticamente.`,
+              type: 'system',
+            }
+          ]);
+        } catch (e2) {
+          console.error('[BattleBoard] Falha no fallback de resolução:', e2);
+        }
+      }
+    } finally {
+      isResolvingTurnEndRef.current = false;
+    }
   };
 
   // Reset turn lock when turn or active planner updates
@@ -6533,6 +6562,17 @@ splashOnlyTargets = splashPool.filter(c =>
     isResolvingTurnEndRef.current = false;
     setIsEndingTurn(false);
   }, [turn, activePlanner]);
+
+  // Watchdog: se os DOIS lados já passaram nesta rodada mas o jogador ainda está
+  // planejando (estado que nunca deveria existir), a rodada travou sem resolver.
+  // Força a resolução para o turno avançar e o oponente nunca ser pulado.
+  useEffect(() => {
+    if (gameOver || isSandbox) return;
+    if (activePlanner === 'player' && passedPlayersRef.current.length >= 2 && !isResolvingTurnEndRef.current && !isEndingTurnRef.current && !turnActionLockedRef.current) {
+      console.warn(`[TURN] WATCHDOG: rodada travada com ambos os lados passados (ref=[${passedPlayersRef.current}]) — forçando resolução.`);
+      executeTurnEndResolution();
+    }
+  }, [activePlanner, turn, gameOver, isSandbox, playerCombatants, enemyCombatants]);
 
   // Release the rand-modal confirm lock only when the turn advances
   useEffect(() => {
@@ -6569,6 +6609,8 @@ splashOnlyTargets = splashPool.filter(c =>
       return;
     }
 
+    console.log(`[TURN] handleEndTurn turn=${turn} active=${activePlanner} ref=[${passedPlayersRef.current}] actions=${skipActions ? 0 : cuedActions.length} online=${!!onlineParams?.isOnline} sandbox=${isSandbox}`);
+
     isEndingTurnRef.current = true;
     turnActionLockedRef.current = true;
     setIsEndingTurn(true);
@@ -6581,7 +6623,12 @@ splashOnlyTargets = splashPool.filter(c =>
 
     const isCurrentPlayer = activePlanner === 'player';
 
-    const isGameOver = executeSideActions(currentActions, isCurrentPlayer, customRandAllocation);
+    let isGameOver = false;
+    try {
+      isGameOver = executeSideActions(currentActions, isCurrentPlayer, customRandAllocation);
+    } catch (err) {
+      console.error('[BattleBoard] Erro ao executar as ações do turno (a passagem de turno continuará):', err);
+    }
     if (isGameOver) {
       isEndingTurnRef.current = false;
       turnActionLockedRef.current = false;
@@ -6605,6 +6652,8 @@ splashOnlyTargets = splashPool.filter(c =>
     const newPassed = [...passedPlayersRef.current, activePlanner];
     passedPlayersRef.current = newPassed;
     setPassedPlayersThisTurn(newPassed);
+
+    console.log(`[TURN] pass gravado: newPassed=[${newPassed}] -> ${newPassed.length < 2 ? 'trocar planner' : 'RESOLVER RODADA'}`);
 
     if (newPassed.length < 2) {
       const nextPlanner = activePlanner === 'player' ? 'enemy' : 'player';
@@ -6906,7 +6955,34 @@ splashOnlyTargets = splashPool.filter(c =>
         }
 
         if (passedPlayersRef.current.includes('enemy')) return;
-        const isGameOver = executeSideActions(aiActions, false);
+        console.log(`[TURN] IA executando: turn=${turn} active=${activePlanner} ref=[${passedPlayersRef.current}] acoes=${aiActions.length}`);
+        if (aiActions.length === 0) {
+          setLogs(prev => [
+            ...prev,
+            {
+              id: Math.random().toString(),
+              turn,
+              message: `🤖 Oponente não tinha habilidades utilizáveis (sem chakra, em recarga ou atordoado) e pulou a fase.`,
+              type: 'system',
+            }
+          ]);
+        } else {
+          setLogs(prev => [
+            ...prev,
+            {
+              id: Math.random().toString(),
+              turn,
+              message: `🤖 Oponente executou ${aiActions.length} habilidade(s).`,
+              type: 'system',
+            }
+          ]);
+        }
+        let isGameOver = false;
+        try {
+          isGameOver = executeSideActions(aiActions, false);
+        } catch (err) {
+          console.error('[BattleBoard] Erro ao executar as ações do oponente (IA), a passagem de turno continuará:', err);
+        }
         if (isGameOver) return;
 
         const newPassed: ('player' | 'enemy')[] = [...passedPlayersRef.current, 'enemy'];
@@ -7227,7 +7303,23 @@ splashOnlyTargets = splashPool.filter(c =>
               }));
 
               if (passedPlayersRef.current.includes('enemy')) return;
-              executeSideActions(mappedOppActions, false);
+              console.log(`[TURN] poll oponente: turn=${turn} active=${activePlanner} ref=[${passedPlayersRef.current}] acoes=${mappedOppActions.length}`);
+              setLogs(l => [
+                ...l,
+                {
+                  id: Math.random().toString(),
+                  turn,
+                  message: mappedOppActions.length === 0
+                    ? `🤖 Oponente finalizou a fase sem ações e pulou a vez.`
+                    : `🤖 Oponente executou ${mappedOppActions.length} habilidade(s).`,
+                  type: 'system',
+                }
+              ]);
+              try {
+                executeSideActions(mappedOppActions, false);
+              } catch (err) {
+                console.error('[BattleBoard] Erro ao executar as ações do oponente (online), a passagem de turno continuará:', err);
+              }
 
               const newPassed: ('player' | 'enemy')[] = [...passedPlayersRef.current, 'enemy'];
               passedPlayersRef.current = newPassed;
