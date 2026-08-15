@@ -36,14 +36,14 @@ export interface SkillDamageRule {
   activeSkillName: string; // Active skill/effect required on character
   damageBoost: number; // Damage amount when condition is active
   icon?: string; // Icon of the boosting skill
-  damageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'bleeding' | 'dot'; // Tipo de dano da regra
+  damageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'bleeding' | 'dot' | 'life_steal'; // Tipo de dano da regra
   ignoreBaseDamage?: boolean; // Se true, ignora o dano base/direto normal da habilidade quando a regra é ativada
 }
 
 export interface SkillOnSkillUseDamageRule {
   damage: number; // Dano sofrido ao usar qualquer habilidade
   duration: number; // Duração em turnos do efeito de punição
-  damageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'bleeding' | 'dot'; // Tipo de dano
+  damageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'bleeding' | 'dot' | 'life_steal'; // Tipo de dano
   target?: 'target' | 'self' | 'enemies' | 'allies'; // Alvo que recebe a regra (padrão: 'target')
   irremovable?: boolean; // Se não pode ser removido por cleanse
 }
@@ -51,6 +51,15 @@ export interface SkillOnSkillUseDamageRule {
 export interface SkillChakraRemoveRule {
   activeSkillName: string; // Active skill/effect required on any combatant
   removeAmount: number; // Quantity of chakra to remove from enemy stock when condition is active
+}
+
+export interface SkillChakraStealRule {
+  /** Nome da skill/efeito que deve estar ativo para acionar o roubo */
+  activeSkillName: string;
+  /** Quantidade de chakras a roubar por ativação */
+  chakraAmount: number;
+  /** Se true, ignora a invulnerabilidade do oponente (rouba mesmo se invulneravel) */
+  ignoreInvulnerable?: boolean;
 }
 
 export interface SkillKillWhenActiveRule {
@@ -125,7 +134,7 @@ export interface SkillStackDamageRule {
   /** Se definido, aplica o dano como efeito contínuo por turno com esta duração */
   duration?: number;
   /** Tipo de dano contínuo (padrão: 'dot') */
-  damageType?: 'dot' | 'bleeding' | 'affliction' | 'direct_damage' | 'damage';
+  damageType?: 'dot' | 'bleeding' | 'affliction' | 'direct_damage' | 'damage' | 'life_steal';
   /** Se true, ignora o dano base da skill quando o alvo tiver stacks (só aplica o dano por stack) */
   ignoreBaseDamage?: boolean;
 }
@@ -136,7 +145,7 @@ export interface SkillSelfStackDamageRule {
   /** Dano adicional por stack que eu possuo */
   damagePerStack: number;
   /** Tipo de dano da stack (padrão: 'damage') */
-  damageType?: 'dot' | 'bleeding' | 'affliction' | 'direct_damage' | 'damage';
+  damageType?: 'dot' | 'bleeding' | 'affliction' | 'direct_damage' | 'damage' | 'life_steal';
 }
 
 export interface SkillStackDurationRule {
@@ -157,6 +166,10 @@ export interface Skill {
   damageRules?: SkillDamageRule[];
   onSkillUseDamageRules?: SkillOnSkillUseDamageRule[];
   chakraRemoveRules?: SkillChakraRemoveRule[];
+  /** Regras de roubo de chakras: quando a skill listada abaixo estiver ATIVA no conjurador,
+   * esta skill rouba X chakras do stock do oponente (respecta invulnerabilidade,
+   * exceto se o oponente tiver debuff "incapaz de ficar invulneravel") */
+  chakraStealRules?: SkillChakraStealRule[];
   /** Regras condicionais de morte instantânea: mata o Oponente que estiver com a habilidade ativa */
   killWhenActiveRules?: SkillKillWhenActiveRule[];
   /** Regras condicionais: se a habilidade listada estiver ATIVA no Oponente, esta skill IGNORA a invulnerabilidade dele */
@@ -260,6 +273,12 @@ export interface Skill {
   afflictionVal?: number;
   afflictionDuration?: number;
   afflictionInstant?: number;
+  // Roubo de Vida (Vampirismo): rouba vida do alvo por turno; o conjurador recupera o dano causado (Dano Normal: sofre redução e escudo)
+  stealLifeVal?: number;
+  stealLifeDuration?: number;
+  stealLifeTarget?: TargetOverride;
+  stealLifeIrremovable?: boolean;
+  stealLifeRemoveType?: string;
   paralyzeCooldownDuration?: number;
   cannotReduceDamageDuration?: number;
   cannotBeInvulnerableDuration?: number;
@@ -560,7 +579,8 @@ export interface ActiveEffect {
   | 'redirect_offensive'
   | 'revive_on_death'
   | 'temporary_target_change'
-  | 'temporary_damage_boost';
+  | 'temporary_damage_boost'
+  | 'life_steal';
   value?: number; // magnitude of shield, reduction, damage, etc.
   buffAtCast?: number; // damage_buff value included at cast time (for dynamic tick recomputation)
   /** Novo alvo aplicado pelo efeito temporary_target_change */

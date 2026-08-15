@@ -344,7 +344,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
   if (!eff) return false;
   const debuffTypes = [
     'stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown',
-    'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase', 'life_steal'
+    'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase'
   ];
   if (debuffTypes.includes(eff.type)) return true;
   const lowerName = (eff.name || '').toLowerCase();
@@ -526,9 +526,6 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       break;
     case 'direct_damage':
       rawPt = val > 0 ? `Dano Direto: Sofre ${val} de dano por turno por ${durText}` : `Dano direto por ${durText}`;
-      break;
-    case 'life_steal':
-      rawPt = val > 0 ? `Roubo de Vida: ${val} de dano ao oponente (vampirismo) por ${durText}` : `Roubo de Vida por ${durText}`;
       break;
     case 'heal':
       rawPt = val > 0 ? `Regenera ${val} de vida por turno por ${durText}` : `Efeito de cura por ${durText}`;
@@ -3668,75 +3665,6 @@ const startingHealth = t.health;
         });
       }
 
-      // ROUBAR VIDA (Vampirismo) — roubo instantâneo + efeito contínuo por turno
-      if (skill.stealLifeVal && skill.stealLifeVal > 0) {
-        const stealLifeTargets = resolveEffectTargets(skill.stealLifeTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
-        const rawDuration = skill.stealLifeDuration || 1;
-        stealLifeTargets.forEach(t => {
-          if (t.isDead) return;
-          const isInvul = checkCombatantInvulnerable(t, 'damage');
-          const hasInvulDebuff = t.activeEffects.some(e => (e.name || '').toLowerCase().includes('incapaz de ficar invulneravel'));
-          if (isInvul && !hasInvulDebuff) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é INVULNERÁVEL e [${skill.name}] não conseguiu roubar vida!`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
-            return;
-          }
-          if (hasDamageImmunity(t)) {
-            consumeFirstHitOnlyImmunity(t);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou o roubo de vida!`, type: 'buff' });
-            addFloatingText(t.id, 'IMUNE!', 'invulnerable');
-            return;
-          }
-          let actualDmg = skill.stealLifeVal;
-          const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
-          if (!targetCannotReduce) {
-            const reductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
-            const reductionSum = reductions.reduce((a, e) => a + (e.value || 0), 0);
-            actualDmg = Math.max(0, actualDmg - reductionSum);
-          }
-          if ((t.shield || 0) > 0 && actualDmg > 0) {
-            const absorbed = Math.min(t.shield, actualDmg);
-            t.shield -= absorbed;
-            actualDmg -= absorbed;
-            addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
-          }
-          const actualDealt = Math.min(actualDmg, t.health);
-          t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - actualDealt) : Math.max(0, t.health - actualDealt);
-          if (actualDealt > 0) {
-            const healAmt = Math.min(actualDealt, (source.maxHealth || source.health) - source.health);
-            source.health = Math.min(source.maxHealth || source.health, source.health + actualDealt);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🧛 [${skill.name}] de ${source.character.name} roubou ${actualDealt} de vida de ${t.character.name} e recuperou ${healAmt} HP!`, type: 'damage' });
-            addFloatingText(t.id, `-${actualDealt} HP`, 'damage');
-            addFloatingText(source.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
-          }
-          if (t.health <= 0 && !t.activeEffects?.some(e => e.type === 'immortal')) {
-            t.isDead = true;
-            newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${t.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
-            addFloatingText(t.id, 'DERROTADO', 'damage');
-          }
-          // Efeito contínuo: dura (rawDuration - 1) turnos adicionais, ticando no fim do turno do alvo
-          const remainingDuration = rawDuration === 99999 ? 99999 : (rawDuration - 1);
-          if (remainingDuration > 0 && !t.isDead) {
-            pushActiveEffect(t, {
-              name: `${skill.name} Roubo de Vida`,
-              type: 'life_steal',
-              value: skill.stealLifeVal,
-              duration: remainingDuration,
-              castTurn: turn,
-              icon: skill.icon,
-              irremovable: !!skill.stealLifeIrremovable,
-              cannotBeCountered: !!skill.cannotBeCountered,
-              cannotBeReflected: !!skill.cannotBeReflected,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-            });
-            newLogs.push({ id: Math.random().toString(), turn, message: `🧛 ${t.character.name} continuará com vida roubada por [${skill.name}] por mais ${remainingDuration === 99999 ? '∞' : remainingDuration} ${remainingDuration === 1 ? 'turno' : 'turnos'}!`, type: 'damage' });
-            addFloatingText(t.id, `ROUBO DE VIDA (+${remainingDuration === 99999 ? '∞' : remainingDuration})`, 'effect');
-          }
-          cleanseTargetEffects(t, skill.stealLifeRemoveType);
-        });
-      }
-
       // CHAKRA REMOVE RULES (conditional remove chakra when an ability is active)
       if (skill.chakraRemoveRules && skill.chakraRemoveRules.length > 0) {
         for (const rule of skill.chakraRemoveRules) {
@@ -6152,42 +6080,6 @@ splashOnlyTargets = splashPool.filter(c =>
           }
         });
 
-        // Apply Life Steal (Roubo de Vida) — causa dano ao alvo e cura o conjurador
-        const lifeStealEffects = c.activeEffects.filter(e => e.type === 'life_steal' && e.castTurn !== turn);
-        lifeStealEffects.forEach(ls => {
-          const lsCaster = ls.casterId ? [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === ls.casterId) : null;
-          if (lsCaster && lsCaster.isDead) return;
-          if (isBlockedByInvuln(ls, 'damage') || hasDamageImmunity(c)) {
-            consumeFirstHitOnlyImmunity(c);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o roubo de vida (${ls.name}).`, type: 'buff' });
-            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
-          } else {
-            const lsCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
-            const lsReductions = lsCannotReduce ? [] : c.activeEffects.filter(e => e.type === 'damage_reduction');
-            const lsReductionSum = lsReductions.reduce((acc, e) => acc + (e.value || 0), 0);
-            let netLs = Math.max(0, (ls.value || 0) - lsReductionSum);
-            if (netLs > 0 && (c.shield || 0) > 0) {
-              const absorbed = Math.min(c.shield || 0, netLs);
-              c.shield = (c.shield || 0) - absorbed;
-              netLs -= absorbed;
-              addFloatingText(c.id, `-${absorbed} ESCUDO`, 'shield');
-            }
-            c.health = c.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, c.health - netLs) : Math.max(0, c.health - netLs);
-            if (netLs > 0 && lsCaster) {
-              const healAmt = Math.min(netLs, (lsCaster.maxHealth || lsCaster.health) - lsCaster.health);
-              lsCaster.health = Math.min(lsCaster.maxHealth || lsCaster.health, lsCaster.health + netLs);
-              newLogs.push({ id: Math.random().toString(), turn, message: `🧛 ${c.character.name} perdeu ${netLs} de vida por roubo de vida e ${lsCaster.character.name} recuperou ${healAmt} HP!`, type: 'damage' });
-              addFloatingText(c.id, `-${netLs} HP (ROUBO DE VIDA)`, 'damage');
-              addFloatingText(lsCaster.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
-            }
-            if (c.health <= 0 && !c.activeEffects?.some(e => e.type === 'immortal')) {
-              c.isDead = true;
-              newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
-              addFloatingText(c.id, 'DERROTADO', 'damage');
-            }
-          }
-        });
-
         // Apply dynamic Healing over time
         const activeHealEffects = c.activeEffects.filter(e => e.type === 'heal');
         activeHealEffects.forEach(hl => {
@@ -8291,75 +8183,6 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         });
       }
 
-      // ROUBAR VIDA (Vampirismo) — roubo instantâneo + efeito contínuo por turno
-      if (skill.stealLifeVal && skill.stealLifeVal > 0) {
-        const stealLifeTargets = resolveEffectTargets(skill.stealLifeTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
-        const rawDuration = skill.stealLifeDuration || 1;
-        stealLifeTargets.forEach(t => {
-          if (t.isDead) return;
-          const isInvul = checkCombatantInvulnerable(t, 'damage');
-          const hasInvulDebuff = t.activeEffects.some(e => (e.name || '').toLowerCase().includes('incapaz de ficar invulneravel'));
-          if (isInvul && !hasInvulDebuff) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é INVULNERÁVEL e [${skill.name}] não conseguiu roubar vida!`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
-            return;
-          }
-          if (hasDamageImmunity(t)) {
-            consumeFirstHitOnlyImmunity(t);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou o roubo de vida!`, type: 'buff' });
-            addFloatingText(t.id, 'IMUNE!', 'invulnerable');
-            return;
-          }
-          let actualDmg = skill.stealLifeVal;
-          const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
-          if (!targetCannotReduce) {
-            const reductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
-            const reductionSum = reductions.reduce((a, e) => a + (e.value || 0), 0);
-            actualDmg = Math.max(0, actualDmg - reductionSum);
-          }
-          if ((t.shield || 0) > 0 && actualDmg > 0) {
-            const absorbed = Math.min(t.shield, actualDmg);
-            t.shield -= absorbed;
-            actualDmg -= absorbed;
-            addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
-          }
-          const actualDealt = Math.min(actualDmg, t.health);
-          t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - actualDealt) : Math.max(0, t.health - actualDealt);
-          if (actualDealt > 0) {
-            const healAmt = Math.min(actualDealt, (source.maxHealth || source.health) - source.health);
-            source.health = Math.min(source.maxHealth || source.health, source.health + actualDealt);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🧛 [${skill.name}] de ${source.character.name} roubou ${actualDealt} de vida de ${t.character.name} e recuperou ${healAmt} HP!`, type: 'damage' });
-            addFloatingText(t.id, `-${actualDealt} HP`, 'damage');
-            addFloatingText(source.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
-          }
-          if (t.health <= 0 && !t.activeEffects?.some(e => e.type === 'immortal')) {
-            t.isDead = true;
-            newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${t.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
-            addFloatingText(t.id, 'DERROTADO', 'damage');
-          }
-          // Efeito contínuo: dura (rawDuration - 1) turnos adicionais, ticando no fim do turno do alvo
-          const remainingDuration = rawDuration === 99999 ? 99999 : (rawDuration - 1);
-          if (remainingDuration > 0 && !t.isDead) {
-            pushActiveEffect(t, {
-              name: `${skill.name} Roubo de Vida`,
-              type: 'life_steal',
-              value: skill.stealLifeVal,
-              duration: remainingDuration,
-              castTurn: turn,
-              icon: skill.icon,
-              irremovable: !!skill.stealLifeIrremovable,
-              cannotBeCountered: !!skill.cannotBeCountered,
-              cannotBeReflected: !!skill.cannotBeReflected,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-            });
-            newLogs.push({ id: Math.random().toString(), turn, message: `🧛 ${t.character.name} continuará com vida roubada por [${skill.name}] por mais ${remainingDuration === 99999 ? '∞' : remainingDuration} ${remainingDuration === 1 ? 'turno' : 'turnos'}!`, type: 'damage' });
-            addFloatingText(t.id, `ROUBO DE VIDA (+${remainingDuration === 99999 ? '∞' : remainingDuration})`, 'effect');
-          }
-          cleanseTargetEffects(t, skill.stealLifeRemoveType);
-        });
-      }
-
       // CHAKRA REMOVE RULES (conditional remove chakra when an ability is active)
       if (skill.chakraRemoveRules && skill.chakraRemoveRules.length > 0) {
         for (const rule of skill.chakraRemoveRules) {
@@ -9990,42 +9813,6 @@ if (skill.redirectOffensiveToCaster) {
               type: 'damage',
             });
             addFloatingText(c.id, `-${(aff.value || 0)} HP (AFLIÇÃO)`, 'damage');
-          }
-        });
-
-        // Apply Life Steal (Roubo de Vida) — causa dano ao alvo e cura o conjurador
-        const lifeStealEffects = c.activeEffects.filter(e => e.type === 'life_steal' && e.castTurn !== turn);
-        lifeStealEffects.forEach(ls => {
-          const lsCaster = ls.casterId ? [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === ls.casterId) : null;
-          if (lsCaster && lsCaster.isDead) return;
-          if (isBlockedByInvuln(ls, 'damage') || hasDamageImmunity(c)) {
-            consumeFirstHitOnlyImmunity(c);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o roubo de vida (${ls.name}).`, type: 'buff' });
-            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
-          } else {
-            const lsCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
-            const lsReductions = lsCannotReduce ? [] : c.activeEffects.filter(e => e.type === 'damage_reduction');
-            const lsReductionSum = lsReductions.reduce((acc, e) => acc + (e.value || 0), 0);
-            let netLs = Math.max(0, (ls.value || 0) - lsReductionSum);
-            if (netLs > 0 && (c.shield || 0) > 0) {
-              const absorbed = Math.min(c.shield || 0, netLs);
-              c.shield = (c.shield || 0) - absorbed;
-              netLs -= absorbed;
-              addFloatingText(c.id, `-${absorbed} ESCUDO`, 'shield');
-            }
-            c.health = c.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, c.health - netLs) : Math.max(0, c.health - netLs);
-            if (netLs > 0 && lsCaster) {
-              const healAmt = Math.min(netLs, (lsCaster.maxHealth || lsCaster.health) - lsCaster.health);
-              lsCaster.health = Math.min(lsCaster.maxHealth || lsCaster.health, lsCaster.health + netLs);
-              newLogs.push({ id: Math.random().toString(), turn, message: `🧛 ${c.character.name} perdeu ${netLs} de vida por roubo de vida e ${lsCaster.character.name} recuperou ${healAmt} HP!`, type: 'damage' });
-              addFloatingText(c.id, `-${netLs} HP (ROUBO DE VIDA)`, 'damage');
-              addFloatingText(lsCaster.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
-            }
-            if (c.health <= 0 && !c.activeEffects?.some(e => e.type === 'immortal')) {
-              c.isDead = true;
-              newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
-              addFloatingText(c.id, 'DERROTADO', 'damage');
-            }
           }
         });
 

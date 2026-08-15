@@ -4093,7 +4093,7 @@
           "Físico",
           "Corpo a Corpo"
         ],
-        "afflictionInstant": 5,
+        "afflictionInstant": 10,
         "afflictionVal": 5,
         "afflictionDuration": 2
       },
@@ -4142,6 +4142,121 @@
         "stackType": "",
         "stackTarget": "Target",
         "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "yoroi-akado",
+    "name": "Yoroi Akado",
+    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
+    "tags": [
+      "Clã Shinobi",
+      "Clássico"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/yoroi-akado/icon.jpg",
+    "folder": "yoroi-akado",
+    "skills": [
+      {
+        "name": "Chakra Focus",
+        "desc": "Yoroi Akado ativa [Chakra Focus], concentrando seu chakra para ganhar 20 de Escudo por 3 turnos ou obter vantagens táticas no combate.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/yoroi-akado/ChakraFocus.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 2,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Chakra"
+        ],
+        "stackable": true,
+        "stackTarget": "Self",
+        "stackType": "Chakra Focus",
+        "stackDuration": 2,
+        "costRules": [
+          {
+            "activeSkillName": "Chackra Block",
+            "overrideCost": []
+          }
+        ]
+      },
+      {
+        "name": "Energy Drain",
+        "desc": "Yoroi Akado executa [Energy Drain], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/yoroi-akado/EnergyDrain.jpg",
+        "cost": [
+          "Tai",
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "Melee"
+        ],
+        "stealLifeVal": 20,
+        "damageDebuffTypes": [
+          "skill",
+          "dot",
+          "bleeding",
+          "direct_damage",
+          "damage"
+        ],
+        "damageDebuffVal": 5,
+        "chakraStealRules": [
+          {
+            "activeSkillName": "Chakra Focus",
+            "chakraAmount": 1
+          }
+        ],
+        "damageDebuffDuration": 1
+      },
+      {
+        "name": "Draining Assault",
+        "desc": "Yoroi Akado executa [Draining Assault], desferindo um golpe poderoso que causa 40 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/yoroi-akado/DrainingAssault.jpg",
+        "cost": [
+          "Tai",
+          "Rand",
+          "Rand"
+        ],
+        "cooldown": 3,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Chakra",
+          "Melee"
+        ],
+        "stealLifeVal": 15,
+        "stealLifeDuration": 3,
+        "chakraStealRules": [
+          {
+            "activeSkillName": "Chakra Focus",
+            "chakraAmount": 1
+          }
+        ]
+      },
+      {
+        "name": "Chackra Block",
+        "desc": "Yoroi Akado executa [Deflect], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/yoroi-akado/Deflect.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 4,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Corpo a Corpo",
+          "Chakra",
+          "Amigável"
+        ],
+        "invulnerableDuration": 1,
+        "invulnerableTypes": [
+          "chakra"
+        ]
       }
     ],
     "skins": []
@@ -15898,81 +16013,6 @@
         "targetType": "Self",
         "classes": [
           "Chakra"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "yoroi-akado",
-    "name": "Yoroi Akado",
-    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
-    "tags": [
-      "Clã Shinobi",
-      "Clássico"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/yoroi-akado/icon.jpg",
-    "folder": "yoroi-akado",
-    "skills": [
-      {
-        "name": "Chakra Focus",
-        "desc": "Yoroi Akado ativa [Chakra Focus], concentrando seu chakra para ganhar 20 de Escudo por 3 turnos ou obter vantagens táticas no combate.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/yoroi-akado/ChakraFocus.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Chakra"
-        ]
-      },
-      {
-        "name": "Deflect",
-        "desc": "Yoroi Akado executa [Deflect], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/yoroi-akado/Deflect.jpg",
-        "cost": [
-          "Gen",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Draining Assault",
-        "desc": "Yoroi Akado executa [Draining Assault], desferindo um golpe poderoso que causa 40 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/yoroi-akado/DrainingAssault.jpg",
-        "cost": [
-          "Nin"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Energy Drain",
-        "desc": "Yoroi Akado executa [Energy Drain], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/yoroi-akado/EnergyDrain.jpg",
-        "cost": [
-          "Tai",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "Corpo a Corpo"
         ]
       }
     ],

@@ -2906,6 +2906,7 @@ const newSkill: Skill = {
                                   <option value="affliction">💀 Dano de Aflição</option>
                                   <option value="bleeding">🩸 Dano de Sangramento</option>
                                   <option value="dot">🔥 DoT (Turnos)</option>
+                                  <option value="life_steal">🧛 Roubo de Vida</option>
                                 </select>
                                 <label className="flex items-center gap-1.5 cursor-pointer bg-slate-900/80 px-2 py-1 rounded border border-slate-800/80" title="Quando a regra estiver ativa, o dano base/direto padrão da habilidade é zerado para não acumular">
                                   <input
@@ -3031,6 +3032,7 @@ const newSkill: Skill = {
                                   <option value="affliction">💀 Dano de Aflição</option>
                                   <option value="bleeding">🩸 Sangramento</option>
                                   <option value="dot">🔥 DoT</option>
+                                  <option value="life_steal">🧛 Roubo de Vida</option>
                                 </select>
 
                                 <span className="text-slate-400 font-bold">Alvo:</span>
@@ -3207,6 +3209,7 @@ const newSkill: Skill = {
                                       <option value="dot">🔥 DOT</option>
                                       <option value="bleeding">🩸 Sangramento</option>
                                       <option value="affliction">💀 Aflição</option>
+                                      <option value="life_steal">🧛 Roubo de Vida</option>
                                       <option value="direct_damage">🎯 Direto</option>
                                       <option value="damage">💥 Normal</option>
                                     </select>
@@ -3583,6 +3586,85 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Chakra Steal Rules (Roubo de Chakras quando skill ativa) */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-pink-400 font-mono">Roubo de Chakra</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.chakraStealRules || [];
+                              handleUpdateSkillField('chakraStealRules', [
+                                ...currentRules,
+                                { activeSkillName: '', chakraAmount: 1 }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-purple-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.chakraStealRules || editingSkill.chakraStealRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de roubo de chakra configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.chakraStealRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-slate-400 font-bold">Quando ativa:</span>
+                                <input
+                                  type="text"
+                                  list="stealSkills-suggestions"
+                                  value={rule.activeSkillName}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.chakraStealRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                    handleUpdateSkillField('chakraStealRules', updated);
+                                  }}
+                                  placeholder="Ex: Two-Headed Wolf"
+                                  className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-purple-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <datalist id="stealSkills-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : <option value="" disabled />}
+                                </datalist>
+                                <span className="text-slate-400 font-bold">Roubar:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={99}
+                                  value={rule.chakraAmount}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 1;
+                                    const updated = [...(editingSkill.chakraStealRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], chakraAmount: val };
+                                    handleUpdateSkillField('chakraStealRules', updated);
+                                  }}
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-purple-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-slate-400 text-[9px]">chakra(s)</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.chakraStealRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('chakraStealRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Target Change On Stacks Rules (Mudança de Alvo por Marcação) */}
                       <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
                         <div className="flex justify-between items-center">
@@ -3792,6 +3874,7 @@ const newSkill: Skill = {
                                   <option value="affliction">💀 Aflição</option>
                                   <option value="dot">🔥 Queimadura</option>
                                   <option value="bleeding">🩸 Sangramento</option>
+                                  <option value="life_steal">🧛 Roubo de Vida</option>
                                 </select>
                                 <span className="text-slate-400 font-bold">de dano por</span>
                                 <input
@@ -4172,6 +4255,7 @@ const newSkill: Skill = {
                                   <option value="dot">🔥 Queimadura</option>
                                   <option value="bleeding">🩸 Sangramento</option>
                                   <option value="affliction">💀 Aflição</option>
+                                  <option value="life_steal">🧛 Roubo de Vida</option>
                                 </select>
                                 <span className="text-[9px] text-slate-400">de dano ao inimigo</span>
                                 <button
@@ -7756,6 +7840,92 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                                   </div>
                                 </motion.div>
                               )}
+                            </div>
+                          </div>
+
+                        {/* 14b. Roubar Vida (Vampirismo) */}
+                          <div className="space-y-1 bg-lime-950/15 border border-lime-800/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-lime-400 font-mono">🧛 Roubar Vida (Vampirismo)</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={editingSkill.stealLifeVal || 0}
+                                  onChange={(e) => handleUpdateSkillField('stealLifeVal', parseInt(e.target.value) || 0)}
+                                  placeholder="Val"
+                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-lime-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={editingSkill.stealLifeDuration === 99999 ? 0 : (editingSkill.stealLifeDuration || 1)}
+                                  title={editingSkill.stealLifeDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
+                                  onChange={(e) => handleUpdateSkillField('stealLifeDuration', parseInt(e.target.value) || 1)}
+                                  placeholder="Dur"
+                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-lime-900/60 rounded text-center text-xs font-mono text-white"
+                                />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.stealLifeDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('stealLifeDuration', e.target.checked ? 99999 : 1)}
+                                    className="rounded bg-slate-950 border-slate-800 text-lime-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-lime-400 font-mono">♾️ Infinito</span>
+                                </label>
+                                <span className="text-[9px] text-slate-500 font-mono">por turno</span>
+                              </div>
+                              {(editingSkill.stealLifeVal || 0) > 0 && (
+                                <p className="text-[9px] text-lime-300 font-mono leading-normal bg-lime-950/30 border border-lime-900/40 p-2 rounded-lg mt-1">
+                                  🧛 <span className="font-bold text-white uppercase">Resumo:</span> Todo turno que você pular, rouba <span className="font-bold text-white">{editingSkill.stealLifeVal}</span> de vida do alvo por {editingSkill.stealLifeDuration === 99999 ? '♾️ turnos' : `${editingSkill.stealLifeDuration} ${editingSkill.stealLifeDuration === 1 ? 'turno' : 'turnos'}`} — o inimigo perde e VOCÊ recupera o dano causado. Age como Dano Normal (sofre redução de dano e escudo). Se o inimigo ficar invulnerável, o roubo não acontece.
+                                </p>
+                              )}
+                              <div className="flex items-center gap-1.5 mt-1 pt-1 border-t border-lime-900/30">
+                                <span className="text-[9px] text-lime-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.stealLifeTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('stealLifeTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-lime-900/50 rounded text-[10px] font-mono text-lime-300 focus:border-lime-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.stealLifeIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('stealLifeIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-lime-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                  <select
+                                    value={editingSkill.stealLifeRemoveType || 'none'}
+                                    onChange={(e) => handleUpdateSkillField('stealLifeRemoveType', e.target.value)}
+                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
+                                  >
+                                    <option value="none">Nenhum</option>
+                                    <option value="all">Todos</option>
+                                    <option value="buff">Buffs</option>
+                                    <option value="debuff">Debuffs</option>
+                                    <option value="stun">Stuns</option>
+                                    <option value="dot">DoTs</option>
+                                    <option value="bleeding">Sangra</option>
+                                    <option value="affliction">Aflição</option>
+                                    <option value="shield">Escudo</option>
+                                  </select>
+                                </div>
+                              </div>
                             </div>
                           </div>
 
