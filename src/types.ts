@@ -101,7 +101,7 @@ export interface SkillReflectByStackRule {
   durationTurns?: number;
 }
 
-export type SkillTargetType = 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies';
+export type SkillTargetType = 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies' | 'AnyLiving';
 
 export interface SkillTargetChangeOnStacksRule {
   /** Marcação (stack) que precisa ter X stacks para ativar */
@@ -203,7 +203,7 @@ export interface Skill {
   costRuleReduceSpecificAmount?: number;
   cooldown: number; // max cooldown
   currentCooldown: number; // remaining cooldown turns
-  targetType: 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies';
+  targetType: SkillTargetType;
   classes: string[]; // ['Physical', 'Melee', 'Chakra', etc.]
   requireEffect?: string; // e.g. "Shadow Clones"
   requirePreviousSkill?: string; // Skill name that must have been used on the previous turn
@@ -230,6 +230,16 @@ export interface Skill {
   shieldRegenTurns?: number; // Quantos turnos a skill gera shieldVal ADICIONAL de escudo por turno
   damageReductionVal?: number;
   damageReductionDuration?: number;
+  /** Redução de Dano Imune a Perfuração: igual ao damageReductionVal (Guard), mas TAMBÉM reduz dano direto/perfuração */
+  damageReductionPierceVal?: number;
+  damageReductionPierceDuration?: number;
+  damageReductionPierceTarget?: SkillTargetType;
+  damageReductionPierceRemoveType?: string;
+  damageReductionPierceIrremovable?: boolean;
+  /** Cópia de Habilidades: substitui minhas habilidades pelas habilidades do alvo selecionado por X turnos */
+  skillCopyDuration?: number;
+  /** Alvo da cópia de habilidades (padrão: 'AnyLiving' = qualquer personagem vivo) */
+  skillCopyTarget?: SkillTargetType;
   damageBuffVal?: number;
   damageBuffTypes?: string[]; // Classes de skill que o buff aumenta (vazio = todas: physical, mental, affliction, chakra, ranged, friendly)
   damageBuffDuration?: number;
@@ -561,6 +571,7 @@ export interface ActiveEffect {
   type:
   'shield'
   | 'damage_reduction'
+  | 'damage_reduction_pierce'
   | 'damage_buff'
   | 'stun'
   | 'invulnerable'
@@ -595,7 +606,8 @@ export interface ActiveEffect {
   | 'temporary_target_change'
   | 'temporary_damage_boost'
   | 'life_steal'
-  | 'redirect_by_stack';
+  | 'redirect_by_stack'
+  | 'skill_copy';
   value?: number; // magnitude of shield, reduction, damage, etc.
   buffAtCast?: number; // damage_buff value included at cast time (for dynamic tick recomputation)
   /** Novo alvo aplicado pelo efeito temporary_target_change */
@@ -661,6 +673,8 @@ counterAttackType?: 'attacker' | 'defender';
   redirectCasterId?: string;
   excludeAffliction?: boolean;
   permanent?: boolean;
+  /** Cópia de Habilidades: as habilidades ORIGINAIS do conjurador guardadas para restaurar quando o efeito expirar */
+  storedSkills?: Skill[];
 }
 
 export interface CombatCharacter {
@@ -938,7 +952,7 @@ export function getEffectiveTargetType(
   skill: Skill,
   sourceChar?: CombatCharacter,
   allCombatants?: CombatCharacter[]
-): 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies' {
+): SkillTargetType {
   if (!skill) return 'Enemy';
   const defaultTarget = skill.targetType || 'Enemy';
 
@@ -977,7 +991,7 @@ export function getEffectiveTargetType(
         e.type === 'temporary_target_change' && (e.stackType || '') === rule.markingSkillName
       );
       if (hasWindow) {
-        return rule.overrideTarget as 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies';
+        return rule.overrideTarget as SkillTargetType;
       }
     }
   }

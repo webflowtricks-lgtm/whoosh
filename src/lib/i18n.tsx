@@ -153,6 +153,7 @@ export function translateTargetType(targetType: string | undefined, lang: Langua
       case 'Self': return 'Próprio';
       case 'Ally': return 'Aliado Único';
       case 'AllAllies': return 'Todos os Aliados';
+      case 'AnyLiving': return 'Qualquer Personagem Vivo';
       default: return targetType;
     }
   } else {
@@ -162,6 +163,7 @@ export function translateTargetType(targetType: string | undefined, lang: Langua
       case 'Self': return 'Self';
       case 'Ally': return 'Single Ally';
       case 'AllAllies': return 'All Allies';
+      case 'AnyLiving': return 'Any Living Character';
       default: return targetType;
     }
   }

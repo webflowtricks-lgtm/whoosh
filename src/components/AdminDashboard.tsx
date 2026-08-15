@@ -28,6 +28,7 @@ const TARGET_OPTIONS = [
   { value: 'Ally', label: 'Aliado (Outra Pessoa)' },
   { value: 'AllAllies', label: 'Toda Minha Equipe' },
   { value: 'AllEnemies', label: 'Todos os Inimigos' },
+  { value: 'AnyLiving', label: 'Qualquer Personagem Vivo (à escolha)' },
   { value: 'AllLiving', label: 'Todos os Personagens Vivos' },
   { value: 'AllNonInvulnerable', label: 'Todos os Personagens NÃO Invulneráveis' },
   { value: 'AllInvulnerable', label: 'Todos os Personagens Invulneráveis' },
@@ -128,6 +129,8 @@ const getEffectNameSuggestions = (): string[] => {
       names.add(sk.name);
       if (sk.shieldVal) names.add(`${sk.name} Shield`);
       if (sk.damageReductionVal) names.add(`${sk.name} Guard`);
+      if (sk.damageReductionPierceVal) names.add(`${sk.name} AntiPerfuração`);
+      if (sk.skillCopyDuration) names.add(`${sk.name} (Cópia de Habilidades)`);
       if (sk.damageBuffVal) names.add(`${sk.name} Power`);
       if (sk.dotVal) names.add(`${sk.name} Burn`);
       if (sk.blocksOffensiveSkills) names.add(`${sk.name} Impedimento Ofensivo`);
@@ -2326,6 +2329,7 @@ const newSkill: Skill = {
                             <option value="SelfAndAlly">Mim e um Aliado (à escolha)</option>
                             <option value="AllEnemies">Todos os Inimigos</option>
                             <option value="AllAllies">Todos os Aliados</option>
+                            <option value="AnyLiving">Qualquer Personagem Vivo</option>
                           </select>
                         </div>
                       </div>
@@ -5782,6 +5786,121 @@ const newSkill: Skill = {
                                   </select>
                                 </div>
                               </div>
+                            </div>
+                          </div>
+
+                          {/* 9.1 Redução de Dano Imune a Perfuração */}
+                          <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-purple-400 font-mono">Redução de Dano Imune a Perfuração</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={editingSkill.damageReductionPierceVal || 0}
+                                  onChange={(e) => handleUpdateSkillField('damageReductionPierceVal', parseInt(e.target.value) || 0)}
+                                  placeholder="Valor"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={editingSkill.damageReductionPierceDuration === 99999 ? 0 : (editingSkill.damageReductionPierceDuration || 0)}
+                                  title={editingSkill.damageReductionPierceDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
+                                  onChange={(e) => handleUpdateSkillField('damageReductionPierceDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageReductionPierceDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('damageReductionPierceDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-purple-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-purple-400 font-mono">♾️ Infinito</span>
+                                </label>
+                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.damageReductionPierceTarget || 'Self'}
+                                  onChange={(e) => handleUpdateSkillField('damageReductionPierceTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-slate-300 focus:border-purple-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <p className="text-[9px] text-slate-500 font-mono italic mt-1">Igual à Redução de Dano (Guard), mas <strong className="text-purple-400">também reduz dano direto (perfuração)</strong>.</p>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageReductionPierceIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('damageReductionPierceIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-slate-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                  <select
+                                    value={editingSkill.damageReductionPierceRemoveType || 'none'}
+                                    onChange={(e) => handleUpdateSkillField('damageReductionPierceRemoveType', e.target.value)}
+                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
+                                  >
+                                    <option value="none">Nenhum</option>
+                                    <option value="all">Todos</option>
+                                    <option value="buff">Buffs</option>
+                                    <option value="debuff">Debuffs</option>
+                                    <option value="stun">Stuns</option>
+                                    <option value="dot">DoTs</option>
+                                    <option value="bleeding">Sangra</option>
+                                    <option value="affliction">Aflição</option>
+                                    <option value="shield">Escudo</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 9.2 Cópia de Habilidades */}
+                          <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-fuchsia-400 font-mono">🪞 Cópia de Habilidades</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={99}
+                                  value={editingSkill.skillCopyDuration || 0}
+                                  onChange={(e) => handleUpdateSkillField('skillCopyDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                />
+                                <span className="text-[9px] text-slate-500 font-mono">Turnos de duração</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">🎯 Copiar de:</span>
+                                <select
+                                  value={editingSkill.skillCopyTarget || 'AnyLiving'}
+                                  onChange={(e) => handleUpdateSkillField('skillCopyTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-slate-300 focus:border-fuchsia-600 outline-none w-full max-w-[150px]"
+                                >
+                                  <option value="AnyLiving">Qualquer Personagem Vivo</option>
+                                  <option value="Enemy">Inimigo Único</option>
+                                  <option value="Ally">Aliado Único</option>
+                                  <option value="Self">Próprio (Self)</option>
+                                </select>
+                              </div>
+                              <p className="text-[9px] text-slate-500 font-mono italic mt-1">Escolha um personagem e <strong className="text-fuchsia-400">substitua suas habilidades pelas dele por X turnos</strong> (nomes, imagens, custos e funções). Quando acabar, suas habilidades voltam ao normal.</p>
                             </div>
                           </div>
 

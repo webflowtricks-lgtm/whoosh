@@ -118,7 +118,7 @@ export interface EffectDisplayItem {
 export function isOffensiveSkill(skill: Skill | null): boolean {
   if (!skill) return false;
   const target = skill.targetType || 'Enemy';
-  if (target === 'Self' || target === 'Ally' || target === 'AllAllies' || target === 'SelfAndAlly') {
+  if (target === 'Self' || target === 'Ally' || target === 'AllAllies' || target === 'SelfAndAlly' || target === 'AnyLiving') {
     return false;
   }
   if (target === 'Enemy' || target === 'AllEnemies' || target === 'EnemyAndAlly') {
@@ -511,6 +511,14 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'damage_reduction':
       rawPt = val > 0 ? `Redução de ${val} de dano por ${durText}` : `Redução de dano por ${durText}`;
       break;
+    case 'damage_reduction_pierce':
+      rawPt = val > 0 ? `Redução de ${val} de dano (imune a perfuração, reduz dano direto também) por ${durText}` : `Redução de dano imune a perfuração por ${durText}`;
+      break;
+    case 'skill_copy': {
+      const copiedName = (effect.name.match(/\(Cópia:\s*([^)]+)\)/) || [])[1] || effect.sourceSkillName || effect.name;
+      rawPt = `🪞 Suas habilidades foram substituídas pelas de ${copiedName.trim()} por ${durText}`;
+      break;
+    }
     case 'shield':
       rawPt = val > 0 ? `Escudo protetor absorvendo ${val} de dano por ${durText}` : `Escudo protetor por ${durText}`;
       break;
@@ -2008,13 +2016,18 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Target restriction checks depending on source team
     const expectedEnemyTarget = isSourceEnemy ? false : true;
-    if (effectiveTargetType === 'Enemy' && isEnemyTarget !== expectedEnemyTarget) return;
-    if (effectiveTargetType === 'Ally' && isEnemyTarget === expectedEnemyTarget) return;
-    if (effectiveTargetType === 'SelfAndAlly' && isEnemyTarget === expectedEnemyTarget) return;
-    if (effectiveTargetType === 'AllEnemies' && isEnemyTarget !== expectedEnemyTarget) return;
-    if (effectiveTargetType === 'AllAllies' && isEnemyTarget === expectedEnemyTarget) return;
+    const isAnyLivingTarget = effectiveTargetType === 'AnyLiving';
+    if (!isAnyLivingTarget) {
+      if (effectiveTargetType === 'Enemy' && isEnemyTarget !== expectedEnemyTarget) return;
+      if (effectiveTargetType === 'Ally' && isEnemyTarget === expectedEnemyTarget) return;
+      if (effectiveTargetType === 'SelfAndAlly' && isEnemyTarget === expectedEnemyTarget) return;
+      if (effectiveTargetType === 'AllEnemies' && isEnemyTarget !== expectedEnemyTarget) return;
+      if (effectiveTargetType === 'AllAllies' && isEnemyTarget === expectedEnemyTarget) return;
+    }
 
-    const targetList = isEnemyTarget ? enemyCombatants : playerCombatants;
+    const targetList = isAnyLivingTarget
+      ? [...playerCombatants, ...enemyCombatants]
+      : (isEnemyTarget ? enemyCombatants : playerCombatants);
     const targetChar = targetList.find(c => c.id === targetId);
     if (!targetChar || targetChar.isDead) return;
 
@@ -2140,6 +2153,11 @@ const handleTradeChakra = () => {
 
   const hasDamageImmunity = (character: CombatCharacter) =>
     character?.activeEffects?.some((e: ActiveEffect) => e.type === 'damage_immunity') ?? false;
+
+  // Tipos de redução de dano: Guard reduz dano normal (não perfuração);
+  // damage_reduction_pierce (Imune a Perfuração) reduz dano normal E dano direto/perfuração.
+  const NORMAL_DAMAGE_REDUCTION_TYPES = ['damage_reduction', 'damage_reduction_pierce'];
+  const PIERCE_DAMAGE_REDUCTION_TYPES = ['damage_reduction_pierce'];
 
   const consumeFirstHitOnlyImmunity = (character: CombatCharacter): boolean => {
     const idx = character?.activeEffects?.findIndex((e: ActiveEffect) => e.type === 'damage_immunity' && e.firstHitOnly) ?? -1;
@@ -2602,6 +2620,10 @@ const handleTradeChakra = () => {
 
       if (isAllAllies) {
         return sourceList.filter(c => !c.isDead);
+      }
+
+      if (targetOverride === 'AnyLiving') {
+        return defaultTarget && !defaultTarget.isDead ? [defaultTarget] : [];
       }
 
       if (!targetOverride || targetOverride === 'Target') {
@@ -3379,7 +3401,7 @@ let directDamage = skill.directDamage || 0;
           t.activeEffects = t.activeEffects.filter(e => e.irremovable);
           addFloatingText(t.id, 'PURIFICADO (TODOS)', 'heal');
         } else if (removeType === 'debuff') {
-          t.activeEffects = t.activeEffects.filter(e => e.irremovable || ['shield', 'damage_buff', 'damage_reduction', 'invulnerable', 'counter', 'counter_attack', 'reflect'].includes(e.type));
+          t.activeEffects = t.activeEffects.filter(e => e.irremovable || ['shield', 'damage_buff', 'damage_reduction', 'damage_reduction_pierce', 'invulnerable', 'counter', 'counter_attack', 'reflect'].includes(e.type));
           addFloatingText(t.id, 'DEBUFFS REMOVIDOS', 'heal');
         } else if (removeType === 'buff') {
           t.activeEffects = t.activeEffects.filter(e => e.irremovable || ['stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'paralyze_cooldown'].includes(e.type));
@@ -3556,7 +3578,7 @@ const startingHealth = t.health;
             addFloatingText(t.id, `DANO DIRETO (${duration}T)`, 'damage');
           } else {
             const targetCannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage');
-            const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction');
+            const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter((e: ActiveEffect) => PIERCE_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             const netDd = hasDamageImmunity(t) ? 0 : Math.max(0, (dd + getCaptureArrestBonusDamage(t, skill)) - reductionSum);
@@ -3828,7 +3850,7 @@ const startingHealth = t.health;
           let actualDmg = effectiveStealVal;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           if (!targetCannotReduce) {
-            const reductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
+            const reductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const reductionSum = reductions.reduce((a, e) => a + (e.value || 0), 0);
             actualDmg = Math.max(0, actualDmg - reductionSum);
           }
@@ -4222,7 +4244,7 @@ const startingHealth = t.health;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
           if (!targetCannotReduce) {
-            const targetReductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
+            const targetReductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
             if (skill.ignoreDamageReduction) reductionSum = 0;
             else if (typeof (skill as any).ignoreDamageReductionVal === 'number' && (skill as any).ignoreDamageReductionVal > 0)
@@ -4473,7 +4495,7 @@ splashOnlyTargets = splashPool.filter(c =>
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
           if (!targetCannotReduce) {
-            const targetReductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
+            const targetReductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
             if (skill.ignoreDamageReduction) {
               reductionSum = 0;
@@ -4583,17 +4605,18 @@ splashOnlyTargets = splashPool.filter(c =>
                 return;
               }
               let remaining = boostVal;
-              if (boostType !== 'direct_damage' && boostType !== 'true' && boostType !== 'piercing') {
-                const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
-                const reductions = targetCannotReduce ? [] : t.activeEffects.filter(e => e.type === 'damage_reduction');
-                const reductionSum = reductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
-                remaining = Math.max(0, remaining - reductionSum);
-                if ((t.shield || 0) > 0 && remaining > 0) {
-                  const absorbed = Math.min(t.shield || 0, remaining);
-                  t.shield = (t.shield || 0) - absorbed;
-                  remaining -= absorbed;
-                  if (absorbed > 0) addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
-                }
+              // Dano direto/perfuração só é reduzido pela "Redução de Dano Imune a Perfuração";
+              // dano normal é reduzido pelo Guard e pela redução imune a perfuração.
+              const isPierceBoost = boostType === 'direct_damage' || boostType === 'true' || boostType === 'piercing';
+              const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
+              const reductions = targetCannotReduce ? [] : t.activeEffects.filter(e => (isPierceBoost ? PIERCE_DAMAGE_REDUCTION_TYPES : NORMAL_DAMAGE_REDUCTION_TYPES).includes(e.type));
+              const reductionSum = reductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
+              remaining = Math.max(0, remaining - reductionSum);
+              if ((t.shield || 0) > 0 && remaining > 0) {
+                const absorbed = Math.min(t.shield || 0, remaining);
+                t.shield = (t.shield || 0) - absorbed;
+                remaining -= absorbed;
+                if (absorbed > 0) addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
               }
               if (remaining > 0) {
                 t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - remaining) : Math.max(0, t.health - remaining);
@@ -4971,6 +4994,79 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
+      // Damage Reduction Immune to Piercing buff (reduz dano normal E dano direto/perfuração)
+      if (skill.damageReductionPierceVal && skill.damageReductionPierceVal > 0) {
+        const targets = resolveEffectTargets(skill.damageReductionPierceTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
+        targets.forEach(t => {
+          if (t.isDead) return;
+          const reducDuration = skill.permanent ? 99999 : (skill.damageReductionPierceDuration || 3);
+          pushActiveEffect(t, {
+            name: `${skill.name} AntiPerfuração`,
+            type: 'damage_reduction_pierce',
+            value: skill.damageReductionPierceVal!,
+            duration: reducDuration,
+            icon: skill.icon,
+            sourceSkillName: skill.name,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `🪡 ${t.character.name} recebeu [${skill.name} AntiPerfuração] por ${skill.damageReductionPierceDuration || 3} turnos (reduz dano normal E perfuração).`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, `${skill.name} ANTI-PERFURAÇÃO`.toUpperCase(), 'effect');
+        });
+      }
+
+      // Cópia de Habilidades: substitui as skills do conjurador pelas do alvo por X turnos
+      if (skill.skillCopyDuration && skill.skillCopyDuration > 0) {
+        const copyTargets = resolveEffectTargets(skill.skillCopyTarget || 'AnyLiving', target, source, sourceList, targetList, false);
+        copyTargets.forEach(t => {
+          if (t.isDead || t.id === source.id || !t.character.skills || t.character.skills.length === 0) return;
+          const existingCopy = source.activeEffects.find(e => e.type === 'skill_copy');
+          if (!existingCopy && source.activeEffects.some(e => e.type === 'cannot_receive_friendly')) {
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🚫 ${source.character.name} está IMPOSSIBILITADO de receber a cópia de habilidades de ${t.character.name}!`,
+              type: 'system',
+            });
+            addFloatingText(source.id, 'BLOQUEADO (SKILL AMIGÁVEL)', 'stun');
+            return;
+          }
+          const copyDur = skill.permanent ? 99999 : (Math.max(1, skill.skillCopyDuration || 3));
+          const originalSkills = existingCopy && Array.isArray(existingCopy.storedSkills)
+            ? existingCopy.storedSkills
+            : JSON.parse(JSON.stringify(source.character.skills || []));
+          if (existingCopy) {
+            existingCopy.duration = copyDur;
+            existingCopy.name = `${skill.name} (Cópia: ${t.character.name})`;
+            existingCopy.icon = skill.icon;
+            existingCopy.sourceSkillName = skill.name;
+          } else {
+            pushActiveEffect(source, {
+              name: `${skill.name} (Cópia: ${t.character.name})`,
+              type: 'skill_copy',
+              value: 0,
+              duration: copyDur,
+              icon: skill.icon,
+              sourceSkillName: skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              irremovable: true,
+              storedSkills: originalSkills,
+            });
+          }
+          source.character.skills = JSON.parse(JSON.stringify(t.character.skills));
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `🪞 ${source.character.name} COPIOU as habilidades de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, 'HABILIDADES COPIADAS', 'effect');
+        });
+      }
+
       // Damage Debuff (reduces damage dealt by target)
       if (skill.damageDebuffVal && skill.damageDebuffVal > 0) {
         const targets = resolveEffectTargets(skill.damageDebuffTarget || skill.shieldTarget || 'Target', target, source, sourceList, targetList, false);
@@ -5204,6 +5300,57 @@ splashOnlyTargets = splashPool.filter(c =>
         bleedTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.bleedingDuration || 3;
+
+          // Sangramento de 1 turno acontece INSTANTANEAMENTE (igual aflição).
+          // O sangramento ignora DEFESA, ESCUDO e INVULNERABILIDADE: o dano é
+          // aplicado direto no HP (a invulnerabilidade só impede a aplicação de
+          // um sangramento NOVO; se o alvo já estiver sangrando, mesmo invulnerável
+          // ele sofre o sangramento).
+          if (duration === 1) {
+            const startingHealth = t.health;
+            t.health = Math.max(0, t.health - totalBleedingVal);
+            const healthReduced = startingHealth - t.health;
+            if (healthReduced > 0) {
+              if (action.isPlayer) {
+                matchStatsRef.current.damageDealt += healthReduced;
+                matchStatsRef.current.damageDealtRecords.push({
+                  charName: source.character.name,
+                  tags: source.character.tags || [],
+                  skillName: skill.name,
+                  amount: healthReduced
+                });
+              } else {
+                matchStatsRef.current.damageReceived += healthReduced;
+                matchStatsRef.current.damageReceivedRecords.push({
+                  charName: t.character.name,
+                  tags: t.character.tags || [],
+                  amount: healthReduced
+                });
+              }
+            }
+
+            if (t.health <= 0 && !t.activeEffects.some(e => e.type === 'immortal')) {
+              t.isDead = true;
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `💀 ${t.character.name} CAIU EM BATALHA POR SANGRAMENTO!`,
+                type: 'death',
+              });
+              addFloatingText(t.id, 'DERROTADO', 'damage');
+            }
+
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🩸 ${t.character.name} sofreu ${totalBleedingVal} de dano INSTANTÂNEO de sangramento de [${skill.name}] (ignora defesa, escudo e invulnerabilidade)!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `SANGRAMENTO (-${totalBleedingVal} HP)`, 'damage');
+            cleanseTargetEffects(t, skill.bleedingRemoveType);
+            return;
+          }
+
           pushActiveEffect(t, {
             name: `${skill.name} Bleed`,
             type: 'bleeding',
@@ -5680,7 +5827,7 @@ splashOnlyTargets = splashPool.filter(c =>
       // Permanent skill auto-effect: if skill is permanent and no other effect was applied, add a custom buff
       if (skill.permanent && defaultTarget && !defaultTarget.isDead) {
         const hasAppliedEffect = !!(skill.damage || skill.directDamage || skill.heal || skill.shieldVal ||
-          skill.damageReductionVal || skill.damageBuffVal || skill.damageDebuffVal || skill.dotVal ||
+          skill.damageReductionVal || skill.damageReductionPierceVal || skill.damageBuffVal || skill.skillCopyDuration || skill.damageDebuffVal || skill.dotVal ||
           skill.bleedingVal || skill.afflictionVal || skill.stunTurns || skill.invulnerableDuration ||
           skill.gainChakra || skill.drainChakra || skill.removeChakra || skill.stealChakra ||
           skill.invisible || skill.paralyzeCooldownDuration || skill.cannotReduceDamageDuration ||
@@ -5706,7 +5853,7 @@ splashOnlyTargets = splashPool.filter(c =>
       }
 
       // Stack-only skill: apply stack even if skill has no damage/effects
-      if (skill.stackable && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !skill.permanent) {
+      if (skill.stackable && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageReductionPierceVal && !skill.skillCopyDuration && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !skill.permanent) {
          const effStackType = skill.stackType || skill.name;
          const targets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
         targets.forEach(t => {
@@ -6167,7 +6314,7 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const targetCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
-            const targetReductions = targetCannotReduce ? [] : c.activeEffects.filter(e => e.type === 'damage_reduction');
+            const targetReductions = targetCannotReduce ? [] : c.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
             const netDmg = Math.max(0, (dmg.value || 0) - reductionSum);
             c.health = Math.max(0, c.health - netDmg);
@@ -6243,7 +6390,7 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
-              : c.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+              : c.activeEffects.filter((e: ActiveEffect) => PIERCE_DAMAGE_REDUCTION_TYPES.includes(e.type)).reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             const netDd = Math.max(0, (dd.value || 0) - dr);
             let remainingDd = netDd;
@@ -6315,7 +6462,7 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const lsCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
-            const lsReductions = lsCannotReduce ? [] : c.activeEffects.filter(e => e.type === 'damage_reduction');
+            const lsReductions = lsCannotReduce ? [] : c.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const lsReductionSum = lsReductions.reduce((acc, e) => acc + (e.value || 0), 0);
             let netLs = Math.max(0, (ls.value || 0) - lsReductionSum);
             if (netLs > 0 && (c.shield || 0) > 0) {
@@ -6403,6 +6550,19 @@ splashOnlyTargets = splashPool.filter(c =>
           }
           c.shieldExpiresTurn = undefined;
         }
+
+        // Restaura as habilidades originais quando a cópia de habilidades expira
+        c.activeEffects.filter((e: ActiveEffect) => e.type === 'skill_copy' && e.duration <= 1 && e.castTurn !== turn).forEach(copyEff => {
+          if (Array.isArray(copyEff.storedSkills) && copyEff.storedSkills.length > 0) {
+            c.character.skills = JSON.parse(JSON.stringify(copyEff.storedSkills));
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🔄 ${c.character.name} recuperou suas habilidades ORIGINAIS (fim da cópia de [${copyEff.sourceSkillName || copyEff.name}])!`,
+              type: 'system',
+            });
+            addFloatingText(c.id, 'SKILLS ORIGINAIS', 'effect');
+          }
+        });
 
         // Decrement effect durations (skip effects cast in the current turn, skip permanent effects)
         c.activeEffects = c.activeEffects
@@ -6903,6 +7063,10 @@ splashOnlyTargets = splashPool.filter(c =>
                     hasValidTarget = aliveAllies.some(t => 
                       t.activeEffects.some(e => e.name && (e.name.toLowerCase() === reqLower || e.name.toLowerCase().startsWith(reqLower) || e.name.toLowerCase().includes(reqLower)))
                     );
+                  } else if (skill.targetType === 'AnyLiving') {
+                    hasValidTarget = [...alivePlayers, ...aliveAllies].some(t =>
+                      t.activeEffects.some(e => e.name && (e.name.toLowerCase() === reqLower || e.name.toLowerCase().startsWith(reqLower) || e.name.toLowerCase().includes(reqLower)))
+                    );
                   }
                   
                   if (!hasValidTarget) return false;
@@ -6923,6 +7087,8 @@ splashOnlyTargets = splashPool.filter(c =>
                 candidateTargets = [aiChar];
               } else if (skill.targetType === 'Enemy' || skill.targetType === 'AllEnemies') {
                 candidateTargets = alivePlayers;
+              } else if (skill.targetType === 'AnyLiving') {
+                candidateTargets = [...alivePlayers, ...aliveAllies];
               }
 
               for (const target of candidateTargets) {
@@ -7035,6 +7201,15 @@ splashOnlyTargets = splashPool.filter(c =>
 
                   if (skill.damageReductionVal && skill.damageReductionVal > 0) {
                     score += skill.damageReductionVal * 2 + 300;
+                  }
+
+                  if (skill.damageReductionPierceVal && skill.damageReductionPierceVal > 0) {
+                    score += skill.damageReductionPierceVal * 2 + 350;
+                  }
+
+                  if (skill.skillCopyDuration && skill.skillCopyDuration > 0) {
+                    const targetHasSkills = (target.character.skills || []).length > 0;
+                    if (targetHasSkills) score += 450 + (skill.skillCopyDuration * 60);
                   }
 
                   if (skill.damageBuffVal && skill.damageBuffVal > 0) {
@@ -7589,6 +7764,8 @@ splashOnlyTargets = splashPool.filter(c =>
 
         if (isAllAllies) {
           resultTargets = sourceList.filter(c => !c.isDead);
+        } else if (targetOverride === 'AnyLiving') {
+          resultTargets = defaultTarget && !defaultTarget.isDead ? [defaultTarget] : [];
         } else if (!targetOverride || targetOverride === 'Target') {
           if (isBeneficial) {
             const sourceIsPlayer = updatedPlayer.some(p => p.id === source.id);
@@ -8083,6 +8260,16 @@ splashOnlyTargets = splashPool.filter(c =>
         effectType = 'damage_reduction';
         effectDuration = skill.damageReductionDuration || 3;
         effectVal = skill.damageReductionVal;
+      } else if (skill.damageReductionPierceVal) {
+        effectName = `${skill.name} AntiPerfuração`;
+        effectType = 'damage_reduction_pierce';
+        effectDuration = skill.damageReductionPierceDuration || 3;
+        effectVal = skill.damageReductionPierceVal;
+      } else if (skill.skillCopyDuration) {
+        effectName = `${skill.name} (Cópia de Habilidades)`;
+        effectType = 'skill_copy';
+        effectDuration = skill.skillCopyDuration;
+        effectVal = 0;
       } else if (skill.damageBuffVal) {
         effectName = `${skill.name} Power`;
         effectType = 'damage_buff';
@@ -8112,7 +8299,7 @@ splashOnlyTargets = splashPool.filter(c =>
       // Permanent auto-effect: ensure a custom buff shows even if no effect fields are configured
       if (skill.permanent && !effectName && target && !target.isDead) {
         const checkFields = skill.damage || skill.directDamage || skill.heal || skill.shieldVal ||
-          skill.damageReductionVal || skill.damageBuffVal || skill.damageDebuffVal || skill.dotVal ||
+          skill.damageReductionVal || skill.damageReductionPierceVal || skill.damageBuffVal || skill.skillCopyDuration || skill.damageDebuffVal || skill.dotVal ||
           skill.bleedingVal || skill.afflictionVal || skill.stunTurns || skill.invulnerableDuration ||
           skill.gainChakra || skill.drainChakra || skill.removeChakra || skill.stealChakra ||
           skill.invisible || skill.paralyzeCooldownDuration || skill.cannotReduceDamageDuration ||
@@ -8140,7 +8327,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
           if (removeType === 'all') return false;
           if (removeType === 'buff') {
-            return !['shield', 'damage_reduction', 'damage_buff', 'invulnerable', 'invisible', 'heal'].includes(eff.type);
+            return !['shield', 'damage_reduction', 'damage_reduction_pierce', 'damage_buff', 'invulnerable', 'invisible', 'heal'].includes(eff.type);
           }
           if (removeType === 'debuff') {
             return !['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'chakra_cost_increase'].includes(eff.type);
@@ -8400,7 +8587,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           } else {
             const cannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage');
             const reductionTotal = cannotReduce ? 0
-              : t.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+              : t.activeEffects.filter((e: ActiveEffect) => PIERCE_DAMAGE_REDUCTION_TYPES.includes(e.type)).reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
             const netDdTotal = hasDamageImmunity(t) ? 0 : Math.max(0, (ddTotal + getCaptureArrestBonusDamage(t, skill)) - reductionTotal);
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             let remainingDdTotal = netDdTotal;
@@ -8647,7 +8834,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           let actualDmg = effectiveStealVal;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           if (!targetCannotReduce) {
-            const reductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
+            const reductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const reductionSum = reductions.reduce((a, e) => a + (e.value || 0), 0);
             actualDmg = Math.max(0, actualDmg - reductionSum);
           }
@@ -8832,7 +9019,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
           if (!targetCannotReduce) {
-            const targetReductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
+            const targetReductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
             if (skill.ignoreDamageReduction) reductionSum = 0;
             else if (typeof (skill as any).ignoreDamageReductionVal === 'number' && (skill as any).ignoreDamageReductionVal > 0)
@@ -9091,7 +9278,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
 
           // Apply flat damage reduction on target
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
-          const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter(e => e.type === 'damage_reduction');
+          const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
           const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
           finalDamage = Math.max(0, finalDamage - reductionSum);
 
@@ -9602,6 +9789,82 @@ if (skill.redirectOffensiveToCaster) {
         });
       }
 
+      // 4.2.1 APPLY DAMAGE REDUCTION IMMUNE TO PIERCING
+      if (skill.damageReductionPierceVal && skill.damageReductionPierceVal > 0) {
+        const pierceShieldTargets = resolveEffectTargets(skill.damageReductionPierceTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
+        pierceShieldTargets.forEach(t => {
+          if (t.isDead) return;
+          const duration = skill.damageReductionPierceDuration || 3;
+          pushActiveEffect(t, {
+            name: `${skill.name} AntiPerfuração`,
+            type: 'damage_reduction_pierce',
+            value: skill.damageReductionPierceVal,
+            duration,
+            icon: skill.icon,
+            irremovable: !!skill.damageReductionPierceIrremovable,
+            sourceSkillName: skill.name,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🪡 ${t.character.name} ativou redução de dano imune a perfuração de [${skill.name}] reduzindo ${skill.damageReductionPierceVal} de dano normal e perfuração por ${duration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, `ANTI-PERFURAÇÃO (+${skill.damageReductionPierceVal})`, 'effect');
+          cleanseTargetEffects(t, skill.damageReductionPierceRemoveType);
+        });
+      }
+
+      // 4.2.2 APPLY COPY SKILLS (substitui as skills do conjurador pelas do alvo por X turnos)
+      if (skill.skillCopyDuration && skill.skillCopyDuration > 0) {
+        const copyTargets = resolveEffectTargets(skill.skillCopyTarget || 'AnyLiving', target, source, sourceList, targetList, false);
+        copyTargets.forEach(t => {
+          if (t.isDead || t.id === source.id || !t.character.skills || t.character.skills.length === 0) return;
+          const existingCopy = source.activeEffects.find(e => e.type === 'skill_copy');
+          if (!existingCopy && source.activeEffects.some(e => e.type === 'cannot_receive_friendly')) {
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🚫 ${source.character.name} está IMPOSSIBILITADO de receber a cópia de habilidades de ${t.character.name}!`,
+              type: 'system',
+            });
+            addFloatingText(source.id, 'BLOQUEADO (SKILL AMIGÁVEL)', 'stun');
+            return;
+          }
+          const copyDur = skill.permanent ? 99999 : (Math.max(1, skill.skillCopyDuration || 3));
+          const originalSkills = existingCopy && Array.isArray(existingCopy.storedSkills)
+            ? existingCopy.storedSkills
+            : JSON.parse(JSON.stringify(source.character.skills || []));
+          if (existingCopy) {
+            existingCopy.duration = copyDur;
+            existingCopy.name = `${skill.name} (Cópia: ${t.character.name})`;
+            existingCopy.icon = skill.icon;
+            existingCopy.sourceSkillName = skill.name;
+          } else {
+            pushActiveEffect(source, {
+              name: `${skill.name} (Cópia: ${t.character.name})`,
+              type: 'skill_copy',
+              value: 0,
+              duration: copyDur,
+              icon: skill.icon,
+              sourceSkillName: skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              irremovable: true,
+              storedSkills: originalSkills,
+            });
+          }
+          source.character.skills = JSON.parse(JSON.stringify(t.character.skills));
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `🪞 ${source.character.name} COPIOU as habilidades de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, 'HABILIDADES COPIADAS', 'effect');
+        });
+      }
+
       // 4.3 APPLY DAMAGE DEBUFF
       if (skill.damageDebuffVal && skill.damageDebuffVal > 0) {
         const debuffTargets = resolveEffectTargets(skill.damageDebuffTarget || skill.shieldTarget || 'Target', target, source, sourceList, targetList, false);
@@ -10080,7 +10343,7 @@ if (skill.redirectOffensiveToCaster) {
       }
 
       // Legacy effect fallback
-      if (effectName && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.invulnerableDuration && !skill.dotVal) {
+      if (effectName && !skill.shieldVal && !skill.damageReductionVal && !skill.damageReductionPierceVal && !skill.skillCopyDuration && !skill.damageBuffVal && !skill.invulnerableDuration && !skill.dotVal) {
         if (effectType === 'shield') {
           const isShieldSealed = target.activeEffects.some(e => e.name.startsWith('Selamento de Escudo'));
           if (isShieldSealed) {
@@ -10126,7 +10389,7 @@ if (skill.redirectOffensiveToCaster) {
       }
 
       // Stack-only skill: apply stack even if skill has no damage/effects
-      if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !effectName) {
+      if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageReductionPierceVal && !skill.skillCopyDuration && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !effectName) {
          const stackTgts = resolveEffectTargets(skill.stackTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, false);
         stackTgts.forEach(t => {
           if (t.isDead) return;
@@ -10265,7 +10528,7 @@ if (skill.redirectOffensiveToCaster) {
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
-              : c.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_reduction').reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+              : c.activeEffects.filter((e: ActiveEffect) => PIERCE_DAMAGE_REDUCTION_TYPES.includes(e.type)).reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             const netDd = Math.max(0, (dd.value || 0) - dr);
             let remainingDd = netDd;
@@ -10371,7 +10634,7 @@ if (skill.redirectOffensiveToCaster) {
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const lsCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
-            const lsReductions = lsCannotReduce ? [] : c.activeEffects.filter(e => e.type === 'damage_reduction');
+            const lsReductions = lsCannotReduce ? [] : c.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const lsReductionSum = lsReductions.reduce((acc, e) => acc + (e.value || 0), 0);
             let netLs = Math.max(0, (ls.value || 0) - lsReductionSum);
             if (netLs > 0 && (c.shield || 0) > 0) {
@@ -10569,6 +10832,19 @@ if (skill.redirectOffensiveToCaster) {
           }
           c.shieldExpiresTurn = undefined;
         }
+
+        // Restaura as habilidades originais quando a cópia de habilidades expira
+        c.activeEffects.filter((e: ActiveEffect) => e.type === 'skill_copy' && e.duration <= 1).forEach(copyEff => {
+          if (Array.isArray(copyEff.storedSkills) && copyEff.storedSkills.length > 0) {
+            c.character.skills = JSON.parse(JSON.stringify(copyEff.storedSkills));
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🔄 ${c.character.name} recuperou suas habilidades ORIGINAIS (fim da cópia de [${copyEff.sourceSkillName || copyEff.name}])!`,
+              type: 'system',
+            });
+            addFloatingText(c.id, 'SKILLS ORIGINAIS', 'effect');
+          }
+        });
 
         // Decrement effect durations (skip permanent effects)
         c.activeEffects = c.activeEffects
@@ -11225,6 +11501,7 @@ if (skill.redirectOffensiveToCaster) {
           'Ally': 'Um Aliado',
           'Self': 'Mim Mesmo',
           'SelfAndAlly': 'Mim Mesmo e Aliado',
+          'AnyLiving': 'Qualquer Personagem Vivo',
         };
         effects.push({
           label: `Mudança de Alvo (${rule.markingSkillName})`,
@@ -11263,6 +11540,7 @@ if (skill.redirectOffensiveToCaster) {
           'Ally': 'Um Aliado',
           'Self': 'Si Mesmo',
           'SelfAndAlly': 'Si Mesmo e Aliado',
+          'AnyLiving': 'Qualquer Personagem Vivo',
         };
         const targetLabel = targetMap[rule.overrideTarget] || rule.overrideTarget;
         effects.push({
@@ -12506,6 +12784,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       {inspectedSkill.skill.targetType === 'Ally' && 'Aliado Único'}
                       {inspectedSkill.skill.targetType === 'AllEnemies' && 'Todos Inimigos'}
                       {inspectedSkill.skill.targetType === 'AllAllies' && 'Todos Aliados'}
+                      {inspectedSkill.skill.targetType === 'AnyLiving' && 'Qualquer Vivo'}
                     </p>
                   </div>
                 </div>
