@@ -1505,6 +1505,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
               sourceSkillName: skill.name,
             });
           }
+          maybeAttachReflectByStackMarker(st, skill, effStackType, combatant.id, casterSide);
           passiveInitMessages.push(`🌀 PASSIVA [${effStackType}] aplicada em ${st.character.name} com ${startCount} stack(s) (via ${skill.name})!`);
         });
       });
@@ -2088,8 +2089,6 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       nonInvulTargets.forEach(t => {
         addFloatingText(t.id, 'Alvo Marcado!', 'effect');
       });
-    } else {
-      addFloatingText(targetId, 'Alvo Selecionado!', 'effect');
     }
   };
 
@@ -2178,6 +2177,12 @@ const handleTradeChakra = () => {
     const sourceName = effect.sourceSkillName || execSkill?.name || skill?.name || effect.name;
     const effectiveStackType = stackType || (isStackable ? sourceName : undefined);
 
+    // Reflect by Stack: attach the reflection marker whenever a stack from a skill
+    // with reflectByStackRules is applied (covers stun-section stacks via pushActiveEffect).
+    if (isStackable && effectiveStackType) {
+      maybeAttachReflectByStackMarker(character, execSkill, effectiveStackType, effect.casterId, (effect.casterSide || (effect.casterId ? (effect.casterId.startsWith('player') ? 'player' : 'enemy') : (character.id.startsWith('player') ? 'player' : 'enemy'))));
+    }
+
     if (isStackable || effectiveStackType || effect.type === 'retaliate_damage') {
       const sameStackKind = e => e.type === effect.type || (e.type === 'custom' && effect.type === 'custom');
       const existing = character.activeEffects.find(
@@ -2205,6 +2210,53 @@ const handleTradeChakra = () => {
       casterSide: effect.casterSide || (effect.casterId ? (effect.casterId.startsWith('player') ? 'player' : 'enemy') : (character.id.startsWith('player') ? 'player' : 'enemy')),
       castTurn: effect.castTurn ?? turn,
     });
+  };
+
+  // Attach a "Reflexão por Stack" marker whenever a stack (from a skill configured
+  // with reflectByStackRules) is applied to a combatant. While the marker + the stack
+  // are both active on the defender, offensive skills used by the attacker on the
+  // defender are redirected to an enemy with the stack. The marker respects the rule's
+  // durationTurns (default: permanent / 999).
+  const maybeAttachReflectByStackMarker = (
+    character: CombatCharacter,
+    sourceSkill: Skill | null | undefined,
+    effStackType: string,
+    casterId: string | undefined,
+    casterSide: 'player' | 'enemy'
+  ) => {
+    if (!sourceSkill?.reflectByStackRules || sourceSkill.reflectByStackRules.length === 0) return;
+    const effTypeLower = (effStackType || '').toLowerCase();
+    const matchedRule = sourceSkill.reflectByStackRules.find(rule => {
+      const rName = (rule.activeStackName || '').trim().toLowerCase();
+      if (!rName) return true;
+      return effTypeLower.includes(rName) || rName.includes(effTypeLower);
+    });
+    if (!matchedRule) return;
+    const markerDuration = matchedRule.durationTurns && matchedRule.durationTurns > 0 ? matchedRule.durationTurns : 999;
+    const existingMarker = character.activeEffects.find(e => e.type === 'redirect_by_stack' && e.stackType === effStackType);
+    if (existingMarker) {
+      // Re-aplicação da stack renova a janela de reflexão
+      existingMarker.duration = markerDuration;
+      existingMarker.castTurn = turn;
+      existingMarker.casterId = casterId;
+      existingMarker.casterSide = casterSide;
+      addFloatingText(character.id, '🔁 REFLEXO DE STACK', 'effect');
+      return;
+    }
+    character.activeEffects.push({
+      name: `Reflexão de Stack (${effStackType})`,
+      type: 'redirect_by_stack',
+      value: 0,
+      duration: markerDuration,
+      icon: sourceSkill.icon,
+      stackType: effStackType,
+      stackable: false,
+      casterId,
+      casterSide,
+      sourceSkillName: sourceSkill.name,
+      castTurn: turn,
+    });
+    addFloatingText(character.id, '🔁 REFLEXO DE STACK', 'effect');
   };
 
   // If the stack effect's origin skill has a cap (stackCapReset), reset stacks to 1 when the cap is reached
@@ -3071,6 +3123,89 @@ const handleTradeChakra = () => {
 
       let target = defaultTarget;
       let isReflected = false;
+
+      // Reflect by Stack (NEW RULE): when the DEFENDER has a stack-reflection config
+      // AND the DEFENDER has the required stack, the attacker's offensive skill is redirected
+      // to an ENEMY who has the required stack (preferring the ATTACKER himself when he has
+      // the stack; otherwise the attacker's living ALLY who has the stack). Exception: skills
+      // marked "Esta habilidade não pode ser refletida" / cannotBeReflected are NOT reflected.
+      const stackReflectMarker = defaultTarget.activeEffects.find((e: ActiveEffect) => e.type === 'redirect_by_stack');
+      let requiredStack: string | null = stackReflectMarker && stackReflectMarker.stackType ? stackReflectMarker.stackType : null;
+      if (!requiredStack) {
+        // Fallback: defender has a stack whose ORIGIN skill is configured with reflectByStackRules
+        const defStacks = defaultTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'custom' && e.stackable && e.stackType && (e.stacks ?? 1) > 0);
+        for (const st of defStacks) {
+          if (!st.sourceSkillName) continue;
+          const originSkill = [...sourceList, ...targetList].flatMap(c => c.character.skills).find(s => s.name === st.sourceSkillName);
+          if (originSkill && originSkill.reflectByStackRules && originSkill.reflectByStackRules.length > 0) {
+            const stLower = (st.stackType || '').toLowerCase();
+            const matchedRule = originSkill.reflectByStackRules.find(r => {
+              const rName = (r.activeStackName || '').trim().toLowerCase();
+              if (!rName) return true;
+              return stLower.includes(rName) || rName.includes(stLower);
+            });
+            if (matchedRule) {
+              const elapsed = turn - (st.castTurn ?? 0);
+              const ruleDur = matchedRule.durationTurns && matchedRule.durationTurns > 0 ? matchedRule.durationTurns : 999;
+              if (elapsed < ruleDur) {
+                requiredStack = st.stackType;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (requiredStack && (isOffensiveSkill || (skill.damageRules && skill.damageRules.some(r => (r.damageBoost || 0) > 0))) && !skill.cannotBeReflected) {
+        const hasStack = (c: CombatCharacter) => c.activeEffects.some((e: ActiveEffect) => e.type === 'custom' && e.stackable && e.stackType === requiredStack && (e.stacks ?? 1) > 0);
+        if (hasStack(defaultTarget)) {
+          const attackerAllies = sourceList.filter(c => c.id !== source.id && !c.isDead);
+          const stackReceiver = hasStack(source) ? source : (attackerAllies.find(c => hasStack(c)) || null);
+          if (stackReceiver) {
+            isReflected = true;
+            target = stackReceiver;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔁 [REFLEXÃO POR STACK] A habilidade [${skill.name}] de ${source.character.name} em ${defaultTarget.character.name} foi REFLETIDA e atingiu ${stackReceiver.character.name}!`,
+              type: 'buff',
+            });
+            addFloatingText(defaultTarget.id, 'REFLETIDO POR STACK!', 'effect');
+            addFloatingText(stackReceiver.id, 'ATINGIDO!', 'damage');
+          } else {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔁 [REFLEXÃO POR STACK] ${defaultTarget.character.name} refletiria [${skill.name}] de ${source.character.name}, mas NENHUM inimigo do time do atacante está com a stack [${requiredStack}]!`,
+              type: 'buff',
+            });
+          }
+        } else {
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🔁 [REFLEXÃO POR STACK] ${defaultTarget.character.name} NÃO refletiu [${skill.name}]: a stack [${requiredStack}] não está mais ativa no portador (defensor).`,
+            type: 'buff',
+          });
+        }
+      } else if (requiredStack && skill.cannotBeReflected) {
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: `🔁 [REFLEXÃO POR STACK] ${defaultTarget.character.name} NÃO refletiu [${skill.name}]: a skill do atacante é marcada como "não pode ser refletida".`,
+          type: 'buff',
+        });
+      } else if (!requiredStack && isOffensiveSkill && !skill.cannotBeReflected) {
+        const defStacks = defaultTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'custom' && e.stackable && e.stackType && (e.stacks ?? 1) > 0);
+        if (defStacks.length > 0) {
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🔁 [REFLEXÃO POR STACK] ${defaultTarget.character.name} tem stack(s) [${defStacks.map(s => s.stackType).join(', ')}] mas NENHUMA delas está configurada para refletir (marcador ausente / regra não encontrada).`,
+            type: 'buff',
+          });
+        }
+      }
 
       // Check Redirection / Bodyguard on target (redirects offensive skill to Caster unless cannotBeReflected)
       const redirectEffect = defaultTarget.activeEffects.find(e => e.type === 'redirect_offensive' || e.redirectCasterId);
@@ -5603,6 +5738,8 @@ splashOnlyTargets = splashPool.filter(c =>
               castTurn: turn,
             });
           }
+          // Reflect by Stack: attach the reflection marker on stack application
+          maybeAttachReflectByStackMarker(t, skill, effStackType, source.id, action.isPlayer ? 'player' : 'enemy');
           if (!newLogs.some(l => l.message.includes(`stack [${effStackType}]`))) {
             newLogs.push({
               id: Math.random().toString(),

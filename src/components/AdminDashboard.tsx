@@ -4275,6 +4275,83 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Reflect by Stack Rules */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-purple-400 font-mono">
+                              🔁 Reflexão por Stack
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Quando o inimigo que possui esta stack (marca) atacar o portador que <strong>TAMBÉM</strong> possui a stack, a skill ofensiva do atacante usada no portador é <strong>redirecionada ao ALIADO do atacante</strong> (em vez de acertar o portador). Só <strong>não</strong> redireciona se a skill inimiga estiver marcada como <strong>"Esta habilidade não pode ser refletida"</strong>. A reflexão dura os <strong>turnos</strong> configurados em cada regra (vazio/0 = enquanto a stack estiver ativa).
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.reflectByStackRules || [];
+                              handleUpdateSkillField('reflectByStackRules', [...current, { activeStackName: '' }]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-purple-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Stack
+                          </button>
+                        </div>
+
+                        {(!editingSkill.reflectByStackRules || editingSkill.reflectByStackRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma stack de reflexão configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.reflectByStackRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-purple-400 font-bold">Stack a refletir:</span>
+                                <input
+                                  type="text"
+                                  value={rule.activeStackName || ''}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.reflectByStackRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeStackName: e.target.value };
+                                    handleUpdateSkillField('reflectByStackRules', updated);
+                                  }}
+                                  placeholder="ex: Marca do Diabo"
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-purple-500 rounded text-white outline-none text-[10px] flex-1 min-w-[160px]"
+                                />
+                                <span className="text-[9px] text-slate-500 italic">(vazio = própria stack desta skill)</span>
+                                <span className="text-slate-400 font-bold">Turnos:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={rule.durationTurns ?? ''}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    const parsed = v === '' ? undefined : Math.max(0, Math.floor(Number(v) || 0));
+                                    const updated = [...(editingSkill.reflectByStackRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], durationTurns: parsed };
+                                    handleUpdateSkillField('reflectByStackRules', updated);
+                                  }}
+                                  placeholder="0 = ∞"
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-purple-500 rounded text-white outline-none text-[10px] w-16 text-center"
+                                />
+                                <span className="text-[9px] text-slate-500 italic">(0/vazio = permanente)</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.reflectByStackRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('reflectByStackRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       <div className="md:col-span-2">
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Descrição do Efeito / Detalhes</label>
                         <textarea

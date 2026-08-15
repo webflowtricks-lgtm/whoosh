@@ -4316,7 +4316,15 @@
         "stackable": true,
         "stackType": "Soft Physique Modification",
         "stackDuration": 2,
-        "stackTarget": "Both"
+        "stackTarget": "Both",
+        "cannotBeReflected": false,
+        "cannotBeCountered": false,
+        "reflectByStackRules": [
+          {
+            "activeStackName": "Soft Physique Modification",
+            "durationTurns": 2
+          }
+        ]
       },
       {
         "name": "Tighten Joints",

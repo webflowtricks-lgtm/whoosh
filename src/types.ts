@@ -91,6 +91,16 @@ export interface SkillCounterSuccessDamageRule {
   damageType?: string;
 }
 
+export interface SkillReflectByStackRule {
+  /** Nome do stackType que deve estar ativo NO PORTADOR (alvo desta skill) E NO ATACANTE
+   * para que skills ofensivas do atacante sejam redirecionadas ao ALIADO do atacante.
+   * Vazio/omitido = aplica à própria stack desta skill. */
+  activeStackName: string;
+  /** Duração da REFLEXÃO em turnos. Vazio/0/omitido = reflexão permanente enquanto a stack estiver ativa.
+   * Ex: 2 = a reflexão só funciona nos 2 primeiros turnos após a stack ser aplicada. */
+  durationTurns?: number;
+}
+
 export type SkillTargetType = 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies';
 
 export interface SkillTargetChangeOnStacksRule {
@@ -178,6 +188,10 @@ export interface Skill {
   stunWhenActiveRules?: SkillStunWhenActiveRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou recebe dano direto */
   counterSuccessDamageRules?: SkillCounterSuccessDamageRule[];
+  /** Reflexão por Stack: quando o portador desta stack E o atacante inimigo possuírem a stack,
+   * as skills ofensivas do atacante usadas no portador são redirecionadas ao ALIADO do atacante
+   * (exceto skills marcadas como "não pode ser refletida"). */
+  reflectByStackRules?: SkillReflectByStackRule[];
   /** Quando a marcação tiver X stacks, muda o alvo desta skill por X turnos (some quando o turno acabar) */
   targetChangeOnStacksRules?: SkillTargetChangeOnStacksRule[];
   /** Quando a marcação tiver X stacks, esta skill dá X de dano adicional por X turnos (some quando o turno acabar) */
@@ -580,7 +594,8 @@ export interface ActiveEffect {
   | 'revive_on_death'
   | 'temporary_target_change'
   | 'temporary_damage_boost'
-  | 'life_steal';
+  | 'life_steal'
+  | 'redirect_by_stack';
   value?: number; // magnitude of shield, reduction, damage, etc.
   buffAtCast?: number; // damage_buff value included at cast time (for dynamic tick recomputation)
   /** Novo alvo aplicado pelo efeito temporary_target_change */
