@@ -3769,6 +3769,38 @@ const startingHealth = t.health;
         }
       }
 
+      // ROUBO DE CHAKRA RULES (roubar chakra do estoque inimigo quando uma skill estiver ativa)
+      if (skill.chakraStealRules && skill.chakraStealRules.length > 0) {
+        for (const rule of skill.chakraStealRules) {
+          if (!rule.activeSkillName || rule.chakraAmount <= 0) continue;
+          const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+          const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+          const isReqActive = allActiveEffects.some(e => {
+            if (!e.name) return false;
+            const eNameLower = e.name.toLowerCase();
+            return (
+              eNameLower === targetNameLower ||
+              eNameLower.startsWith(targetNameLower) ||
+              eNameLower.includes(targetNameLower)
+            );
+          });
+          if (isReqActive) {
+            const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
+            const livingTargets = targetSide.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill.ignoreInvulnerable || rule.ignoreInvulnerable));
+            if (livingTargets.length > 0) {
+              const t = livingTargets[0];
+              const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
+              performChakraAction(tIsPlayer, rule.chakraAmount, source.character.name, t.character.name, skill.name, action.isPlayer, 'steal', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `💰 [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e roubou ${rule.chakraAmount} chakra aleatório do estoque inimigo!`,
+                type: 'chakra',
+              });
+            }
+          }
+        }
+      }
+
       // CONDITIONAL INSTANT KILL RULES (matar instantaneamente quando habilidade ativa no Oponente)
       if (skill.killWhenActiveRules && skill.killWhenActiveRules.length > 0) {
         for (const rule of skill.killWhenActiveRules) {
@@ -6378,6 +6410,81 @@ splashOnlyTargets = splashPool.filter(c =>
       });
     }
 
+    // Check continuous chakra steal rules for active damage effects
+    {
+      const allCombatants = [...updatedPlayer, ...updatedEnemy];
+      const continuousTypes = new Set(['damage', 'direct_damage', 'dot', 'bleeding', 'affliction']);
+      const processedSkills = new Set<string>();
+
+      allCombatants.forEach(target => {
+        if (target.isDead) return;
+        const continuousEffects = target.activeEffects.filter(e => continuousTypes.has(e.type) && e.casterId);
+        continuousEffects.forEach(eff => {
+          const effSkillName = eff.sourceSkillName || eff.name.replace(/\s*\(Dano Contínuo\)$/, '').replace(/\s*\(.*?\)$/, '').trim();
+          const skillKey = `${eff.casterId}_${effSkillName}`;
+          if (processedSkills.has(skillKey)) return;
+          processedSkills.add(skillKey);
+
+          const caster = allCombatants.find(c => c.id === eff.casterId);
+          if (!caster || caster.isDead) return;
+          const skill = caster.character.skills.find(s => s.name === effSkillName);
+          if (!skill || !skill.chakraStealRules || skill.chakraStealRules.length === 0) return;
+
+          const casterIsPlayer = updatedPlayer.some(p => p.id === caster.id);
+          for (const rule of skill.chakraStealRules) {
+            if (!rule.activeSkillName || rule.chakraAmount <= 0) continue;
+            const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+            const isCondActive = allCombatants.some(c =>
+              c.activeEffects.some(e => {
+                if (!e.name) return false;
+                const eNameLower = e.name.toLowerCase();
+                return eNameLower === targetNameLower || eNameLower.includes(targetNameLower);
+              })
+            );
+            if (isCondActive) {
+              const victimSetter = casterIsPlayer ? setEnemyChakra : setPlayerChakra;
+              const thiefSetter = casterIsPlayer ? setPlayerChakra : setEnemyChakra;
+              victimSetter(prevVictim => {
+                const pool = { ...prevVictim };
+                const types = (Object.keys(pool) as (keyof ChakraPool)[]).filter(k => pool[k] > 0);
+                let stolen = 0;
+                const stolenTypes: (keyof ChakraPool)[] = [];
+                for (let i = 0; i < rule.chakraAmount; i++) {
+                  if (types.length === 0) break;
+                  const randIdx = Math.floor(Math.random() * types.length);
+                  const randType = types[randIdx];
+                  pool[randType]--;
+                  if (pool[randType] <= 0) types.splice(randIdx, 1);
+                  stolen++;
+                  stolenTypes.push(randType);
+                }
+                if (stolen > 0) {
+                  const affectedStr = stolenTypes.map(k => getChakraName(k)).join(', ');
+                  thiefSetter(prevThief => {
+                    const uThief = { ...prevThief };
+                    stolenTypes.forEach(k => { uThief[k] = (uThief[k] || 0) + 1; });
+                    return uThief;
+                  });
+                  newLogs.push({
+                    id: Math.random().toString(), turn,
+                    message: `💰 [CONTÍNUO] ${caster.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e roubou ${stolen} chakra aleatório do estoque inimigo (${affectedStr})!`,
+                    type: 'chakra',
+                  });
+                  addFloatingText(target.id, `+${stolen} CHAKRA ROUBADO`, 'effect');
+                  if (casterIsPlayer) {
+                    triggerChakraToast(`💰 [${skill.name}] roubou ${stolen} chakra (${affectedStr}) do estoque do oponente!`, 'stolen');
+                  } else {
+                    triggerChakraToast(`⚠️ [${skill.name}] roubou ${stolen} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
+                  }
+                }
+                return pool;
+              });
+            }
+          }
+        });
+      });
+    }
+
     playerRef.current = updatedPlayer;
     enemyRef.current = updatedEnemy;
     setPlayerCombatants(updatedPlayer);
@@ -8385,6 +8492,38 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               newLogs.push({
                 id: Math.random().toString(), turn,
                 message: `🔥 [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e removeu ${rule.removeAmount} chakra aleatório do estoque inimigo!`,
+                type: 'chakra',
+              });
+            }
+          }
+        }
+      }
+
+      // ROUBO DE CHAKRA RULES (roubar chakra do estoque inimigo quando uma skill estiver ativa)
+      if (skill.chakraStealRules && skill.chakraStealRules.length > 0) {
+        for (const rule of skill.chakraStealRules) {
+          if (!rule.activeSkillName || rule.chakraAmount <= 0) continue;
+          const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+          const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
+          const isReqActive = allActiveEffects.some(e => {
+            if (!e.name) return false;
+            const eNameLower = e.name.toLowerCase();
+            return (
+              eNameLower === targetNameLower ||
+              eNameLower.startsWith(targetNameLower) ||
+              eNameLower.includes(targetNameLower)
+            );
+          });
+          if (isReqActive) {
+            const targetSide = action.isPlayer ? updatedEnemy : updatedPlayer;
+            const livingTargets = targetSide.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill.ignoreInvulnerable || rule.ignoreInvulnerable));
+            if (livingTargets.length > 0) {
+              const t = livingTargets[0];
+              const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
+              performChakraAction(tIsPlayer, rule.chakraAmount, source.character.name, t.character.name, skill.name, action.isPlayer, 'steal', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `💰 [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e roubou ${rule.chakraAmount} chakra aleatório do estoque inimigo!`,
                 type: 'chakra',
               });
             }
@@ -10758,6 +10897,21 @@ if (skill.redirectOffensiveToCaster) {
             label: `Remover Chakra (${rule.activeSkillName})`,
             value: `Remove ${rule.removeAmount} chakra aleatório do estoque inimigo quando ${rule.activeSkillName} estiver ativo`,
             color: 'text-purple-950 font-extrabold',
+            targetLabel: 'Condicional'
+          });
+        }
+      });
+    }
+
+    // Informação de roubo de chakra do estoque inimigo (chakraStealRules)
+    if (skill.chakraStealRules && skill.chakraStealRules.length > 0) {
+      skill.chakraStealRules.forEach(rule => {
+        if (!rule.activeSkillName) return;
+        if (rule.chakraAmount && rule.chakraAmount > 0) {
+          effects.push({
+            label: `Roubar Chakra (${rule.activeSkillName})`,
+            value: `Rouba ${rule.chakraAmount} chakra aleatório do estoque inimigo quando ${rule.activeSkillName} estiver ativo${rule.ignoreInvulnerable ? ' (ignora invulnerabilidade)' : ''}`,
+            color: 'text-cyan-950 font-extrabold',
             targetLabel: 'Condicional'
           });
         }
