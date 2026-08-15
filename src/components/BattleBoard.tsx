@@ -2481,6 +2481,10 @@ const handleTradeChakra = () => {
     const updatedPlayer = srcPlayer.map(c => ({ ...c, lastTurnStatus: null }));
     const updatedEnemy = srcEnemy.map(c => ({ ...c, lastTurnStatus: null }));
 
+    // Air Bullets (Young Nagato) marks are scoped to THIS turn/phase only:
+    // clear any marks from previous turns so the stun combo never persists.
+    airBulletsHitTargets.current.clear();
+
     // Process revivals & caster-death effect removals from previous phases
     processDeathEvents([...updatedPlayer, ...updatedEnemy], newLogs);
 
@@ -2591,13 +2595,34 @@ const handleTradeChakra = () => {
       return [defaultTarget];
     };
 
+    // Air Bullets combo stun (Young Nagato): only triggers when the target was
+    // marked by an Air Bullets that was the FIRST action of this turn, and only
+    // when the CURRENT skill (not Air Bullets itself) deals damage to that target.
+    const applyAirBulletsStun = (t: CombatCharacter, stunSource: CombatCharacter, isPlayerAction: boolean, triggeringSkill: Skill) => {
+      if (!airBulletsHitTargets.current.has(t.id)) return;
+      if (triggeringSkill.name === 'Air Bullets' || triggeringSkill.name.toLowerCase().includes('air bullets')) return;
+      if (t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) return;
+      pushActiveEffect(t, {
+        name: 'Air Bullets Stun',
+        type: 'stun',
+        duration: 1,
+        stunType: undefined,
+        icon: airBulletsHitTargets.current.get(t.id) || 'https://i.ibb.co/tMhVgCJ5/aa.webp',
+        casterId: stunSource.id,
+        casterSide: isPlayerAction ? 'player' : 'enemy',
+        castTurn: turn,
+      });
+      newLogs.push({ id: Math.random().toString(), turn, message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`, type: 'stun' });
+      addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
+    };
+
     const formattedActions = sideActions.map(a => ({ ...a, isPlayer: isPlayerSide }));
 
     if (formattedActions.length > 0) {
       playCustomSound('ApplySkill');
     }
 
-    formattedActions.forEach(action => {
+    formattedActions.forEach((action, actionIndex) => {
       const sourceList = action.isPlayer ? updatedPlayer : updatedEnemy;
       const targetList = action.isPlayer ? updatedEnemy : updatedPlayer;
       const allCombatants = [...updatedPlayer, ...updatedEnemy];
@@ -2798,8 +2823,10 @@ const handleTradeChakra = () => {
         }
       }
 
-      // Young Nagato: Air Bullets track target
-      if ((skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets')) && defaultTarget && !defaultTarget.isDead) {
+      // Young Nagato: Air Bullets track target — ONLY counts when Air Bullets is
+      // the FIRST action of this turn (actionIndex === 0). Damage from any other
+      // ally skill on the marked target in this same turn triggers the stun.
+      if ((skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets')) && defaultTarget && !defaultTarget.isDead && actionIndex === 0) {
         airBulletsHitTargets.current.set(defaultTarget.id, skill.icon);
       }
 
@@ -3198,14 +3225,12 @@ let directDamage = skill.directDamage || 0;
         }
       }
       const healAmt = skill.heal || 0;
-      let stunApplied = (skill.stunTurns && skill.stunTurns > 0) ? true : false;
+      // Air Bullets (Young Nagato) never self-stuns: its stun only comes from the
+      // combo (used first + any other ally damage on the marked target this turn).
+      const isAirBulletsSkill = skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets');
+      let stunApplied = !isAirBulletsSkill && (skill.stunTurns && skill.stunTurns > 0) ? true : false;
       let stunDuration = skill.stunTurns || 1;
       let finalStunType: string[] | undefined = skill.stunType;
-      if (skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets')) {
-        stunApplied = true;
-        stunDuration = 1;
-        finalStunType = skill.stunType || [];
-      }
       if (source.activeEffects.some(e => e.name === 'Sharingan Stun Buff')) {
         stunApplied = true;
         stunDuration = 1;
@@ -3522,27 +3547,8 @@ const startingHealth = t.health;
             }
           }
 
-          // Air Bullets stun check for direct damage
-          if ((skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets') || airBulletsHitTargets.current.has(t.id))
-            && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
-            pushActiveEffect(t, {
-              name: 'Air Bullets Stun',
-              type: 'stun',
-              duration: 1,
-              stunType: skill.stunType || [],
-              icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-              castTurn: turn,
-            });
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`,
-              type: 'stun',
-            });
-            addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
-          }
+          // Air Bullets combo stun (only for targets marked by Air Bullets this turn)
+          applyAirBulletsStun(t, source, action.isPlayer, skill);
         });
       }
 
@@ -3571,6 +3577,11 @@ const startingHealth = t.health;
       }
       if ((totalDotInstant > 0 || totalBleedInstant > 0 || totalAfflictionInstant > 0) && hasDamageImmunity(target)) {
         consumeFirstHitOnlyImmunity(target);
+      }
+
+      // Air Bullets combo stun for instant DoT / bleeding / affliction damage
+      if (target && !target.isDead && (totalDotInstant > 0 || totalBleedInstant > 0 || totalAfflictionInstant > 0)) {
+        applyAirBulletsStun(target, source, action.isPlayer, skill);
       }
 
       // GAIN CHAKRA
@@ -3700,6 +3711,8 @@ const startingHealth = t.health;
             newLogs.push({ id: Math.random().toString(), turn, message: `🧛 [${skill.name}] de ${source.character.name} roubou ${actualDealt} de vida de ${t.character.name} e recuperou ${healAmt} HP!`, type: 'damage' });
             addFloatingText(t.id, `-${actualDealt} HP`, 'damage');
             addFloatingText(source.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
+            // Air Bullets combo stun for life steal damage
+            applyAirBulletsStun(t, source, action.isPlayer, skill);
           }
           if (t.health <= 0 && !t.activeEffects?.some(e => e.type === 'immortal')) {
             t.isDead = true;
@@ -4106,22 +4119,8 @@ const startingHealth = t.health;
             t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
             newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
-            // Air Bullets stun check for normal damage
-            if ((airBulletsHitTargets.current.has(t.id) || skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets'))
-              && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
-              t.activeEffects.push({
-                name: 'Air Bullets Stun',
-                type: 'stun',
-                duration: 1,
-                stunType: skill.stunType || [],
-                icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
-                casterId: source.id,
-                casterSide: action.isPlayer ? 'player' : 'enemy',
-                castTurn: turn,
-              });
-              newLogs.push({ id: Math.random().toString(), turn, message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`, type: 'stun' });
-              addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
-            }
+            // Air Bullets combo stun (only for targets marked by Air Bullets this turn)
+            applyAirBulletsStun(t, source, action.isPlayer, skill);
             if (action.isPlayer) {
               matchStatsRef.current.damageDealt += finalDamage;
               matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name, amount: finalDamage });
@@ -4384,22 +4383,8 @@ splashOnlyTargets = splashPool.filter(c =>
               type: 'damage',
             });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
-            // Air Bullets stun check for normal damage
-            if ((airBulletsHitTargets.current.has(t.id) || skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets'))
-              && !t.activeEffects.some((e: ActiveEffect) => e.name === 'Air Bullets Stun')) {
-              t.activeEffects.push({
-                name: 'Air Bullets Stun',
-                type: 'stun',
-                duration: 1,
-                stunType: skill.stunType || [],
-                icon: airBulletsHitTargets.current.get(t.id) || skill.icon,
-                casterId: source.id,
-                casterSide: action.isPlayer ? 'player' : 'enemy',
-                castTurn: turn,
-              });
-              newLogs.push({ id: Math.random().toString(), turn, message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`, type: 'stun' });
-              addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
-            }
+            // Air Bullets combo stun (only for targets marked by Air Bullets this turn)
+            applyAirBulletsStun(t, source, action.isPlayer, skill);
             if (action.isPlayer) {
               matchStatsRef.current.damageDealt += finalDamage;
               matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name, amount: finalDamage });
@@ -4532,6 +4517,8 @@ splashOnlyTargets = splashPool.filter(c =>
               type: 'damage',
             });
             addFloatingText(splashT.id, `-${splashVal} HP (SPLASH)`, 'damage');
+            // Air Bullets combo stun for splash damage
+            applyAirBulletsStun(splashT, source, action.isPlayer, skill);
             if (action.isPlayer) {
               matchStatsRef.current.damageDealt += splashVal;
               matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: `${skill.name} (Splash)`, amount: splashVal });

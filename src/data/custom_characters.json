@@ -4270,6 +4270,107 @@
     "skins": []
   },
   {
+    "id": "misumi-tsurugi",
+    "name": "Misumi Tsurugi",
+    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
+    "tags": [
+      "Clã Shinobi",
+      "Clássico"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/misumi-tsurugi/icon.jpg",
+    "folder": "misumi-tsurugi",
+    "skills": [
+      {
+        "name": "Flexible Twisting Joints",
+        "desc": "Misumi Tsurugi executa [Flexible Twisting Joints], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/misumi-tsurugi/FlexibleTwistingJoints.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Melee"
+        ],
+        "damage": 20,
+        "ignoreInvulnerable": true,
+        "permanent": true
+      },
+      {
+        "name": "Soft Physique Modification",
+        "desc": "Misumi Tsurugi executa [Soft Physique Modification], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/misumi-tsurugi/SoftPhysiqueModification.jpg",
+        "cost": [
+          "Rand",
+          "Rand"
+        ],
+        "cooldown": 4,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Melee"
+        ],
+        "stackable": true,
+        "stackType": "Soft Physique Modification",
+        "stackDuration": 2,
+        "stackTarget": "Both"
+      },
+      {
+        "name": "Tighten Joints",
+        "desc": "Misumi Tsurugi executa [Tighten Joints], desferindo um golpe poderoso que causa 30 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/misumi-tsurugi/TightenJoints.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Amigável",
+          "Físico"
+        ],
+        "shieldVal": 15,
+        "stunWhenActiveRules": [
+          {
+            "activeSkillName": "Soft Physique Modification",
+            "activeOn": "target",
+            "stunClasses": [],
+            "stunTurns": 1
+          }
+        ],
+        "damage": 0,
+        "damageRules": [
+          {
+            "activeSkillName": "Soft Physique Modification",
+            "damageBoost": 20,
+            "damageType": "damage",
+            "ignoreBaseDamage": true
+          }
+        ]
+      },
+      {
+        "name": "Block",
+        "desc": "Misumi Tsurugi entra em uma postura defensiva absoluta com [Block], tornando-se invulnerável a todos os ataques e habilidades recebidos por 1 turno.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/misumi-tsurugi/Block.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 3,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Amigável",
+          "Físico"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
     "id": "kakashi",
     "name": "Kakashi Hatake",
     "description": "O líder Jonin de elite do Time 7. Conhecido mundialmente como o Ninja Copiador, Kakashi usa seu Sharingan para antecipar movimentos, se esconde no subsolo e desfere sua icônica Espada Relâmpago.",
@@ -12058,81 +12159,6 @@
         "classes": [
           "Físico",
           "Corpo a Corpo"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "misumi-tsurugi",
-    "name": "Misumi Tsurugi",
-    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
-    "tags": [
-      "Clã Shinobi",
-      "Clássico"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/misumi-tsurugi/icon.jpg",
-    "folder": "misumi-tsurugi",
-    "skills": [
-      {
-        "name": "Flexible Twisting Joints",
-        "desc": "Misumi Tsurugi executa [Flexible Twisting Joints], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/misumi-tsurugi/FlexibleTwistingJoints.jpg",
-        "cost": [
-          "Gen"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Mental",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Soft Physique Modification",
-        "desc": "Misumi Tsurugi executa [Soft Physique Modification], desferindo um golpe poderoso que causa 35 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/misumi-tsurugi/SoftPhysiqueModification.jpg",
-        "cost": [
-          "Nin",
-          "Rand"
-        ],
-        "cooldown": 1,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Físico",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Tighten Joints",
-        "desc": "Misumi Tsurugi executa [Tighten Joints], desferindo um golpe poderoso que causa 30 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/misumi-tsurugi/TightenJoints.jpg",
-        "cost": [
-          "Gen",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Block",
-        "desc": "Misumi Tsurugi entra em uma postura defensiva absoluta com [Block], tornando-se invulnerável a todos os ataques e habilidades recebidos por 1 turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/misumi-tsurugi/Block.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Físico"
         ]
       }
     ],
