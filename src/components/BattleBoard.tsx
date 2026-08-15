@@ -3351,7 +3351,7 @@ let directDamage = skill.directDamage || 0;
         }
       }
       const damageBuffSumDd = dmgBuffDirect;
-      let dd = directDamage + missingHpDirect + ruleDirectDamage + ruleLifeStealDamage + stackDamageBonusForDd + damageBuffSumDd;
+      let dd = directDamage + missingHpDirect + ruleDirectDamage + stackDamageBonusForDd + damageBuffSumDd;
       // Reduce by source's damage debuffs (qualquer tipo)
       const srcDdReduction = source.activeEffects
         .filter((e: ActiveEffect) => {
@@ -3451,19 +3451,6 @@ const startingHealth = t.health;
                 type: 'buff',
               });
               addFloatingText(t.id, 'IMUNE!', 'invulnerable');
-            }
-            // Roubo de Vida das Regras de Dano
-            if (ruleLifeStealDamage > 0 && !t.isDead && healthReduced > 0 && source && !source.isDead) {
-              source.health = source.activeEffects?.some(e => e.type === 'immortal')
-                ? Math.max(1, source.health - healthReduced)
-                : Math.max(0, source.health - healthReduced);
-              newLogs.push({
-                id: Math.random().toString(),
-                turn,
-                message: `🧛 ${source.character.name} roubou ${healthReduced} de vida em ${t.character.name}!`,
-                type: 'damage',
-              });
-              addFloatingText(source.id, `+${healthReduced} HP (ROUBO DE VIDA)`, 'effect');
             }
           }
           cleanseTargetEffects(t, skill.directDamageRemoveType);
@@ -3669,7 +3656,10 @@ const startingHealth = t.health;
       }
 
       // ROUBAR VIDA (Vampirismo) — roubo instantâneo + efeito contínuo por turno
-      if (skill.stealLifeVal && skill.stealLifeVal > 0) {
+      if ((skill.stealLifeVal && skill.stealLifeVal > 0) || ruleLifeStealDamage > 0) {
+        const effectiveStealVal = hasActiveDamageRuleIgnoreBase
+          ? ruleLifeStealDamage
+          : (skill.stealLifeVal || 0) + ruleLifeStealDamage;
         const stealLifeTargets = resolveEffectTargets(skill.stealLifeTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         const rawDuration = skill.stealLifeDuration || 1;
         stealLifeTargets.forEach(t => {
@@ -3687,7 +3677,7 @@ const startingHealth = t.health;
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
             return;
           }
-          let actualDmg = skill.stealLifeVal;
+          let actualDmg = effectiveStealVal;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           if (!targetCannotReduce) {
             const reductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
@@ -3721,7 +3711,7 @@ const startingHealth = t.health;
               name: `${skill.name} Roubo de Vida`,
               sourceSkillName: skill.name,
               type: 'life_steal',
-              value: skill.stealLifeVal,
+              value: effectiveStealVal,
               duration: remainingDuration,
               castTurn: turn,
               icon: skill.icon,
@@ -7767,6 +7757,7 @@ splashOnlyTargets = splashPool.filter(c =>
       let ruleAfflictionDamage2 = 0;
       let ruleBleedingDamage2 = 0;
       let ruleDotDamage2 = 0;
+      let ruleLifeStealDamage2 = 0;
       let hasActiveDamageRuleIgnoreBase2 = false;
 
       if (skill.damageRules && skill.damageRules.length > 0) {
@@ -7792,6 +7783,8 @@ splashOnlyTargets = splashPool.filter(c =>
                 ruleBleedingDamage2 += rule.damageBoost;
               } else if (dtype === 'dot') {
                 ruleDotDamage2 += rule.damageBoost;
+              } else if (dtype === 'life_steal') {
+                ruleLifeStealDamage2 += rule.damageBoost;
               } else {
                 costRuleDamageBoost2 += rule.damageBoost;
               }
@@ -8402,7 +8395,10 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
       }
 
       // ROUBAR VIDA (Vampirismo) — roubo instantâneo + efeito contínuo por turno
-      if (skill.stealLifeVal && skill.stealLifeVal > 0) {
+      if ((skill.stealLifeVal && skill.stealLifeVal > 0) || ruleLifeStealDamage2 > 0) {
+        const effectiveStealVal = hasActiveDamageRuleIgnoreBase2
+          ? ruleLifeStealDamage2
+          : (skill.stealLifeVal || 0) + ruleLifeStealDamage2;
         const stealLifeTargets = resolveEffectTargets(skill.stealLifeTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         const rawDuration = skill.stealLifeDuration || 1;
         stealLifeTargets.forEach(t => {
@@ -8420,7 +8416,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
             return;
           }
-          let actualDmg = skill.stealLifeVal;
+          let actualDmg = effectiveStealVal;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           if (!targetCannotReduce) {
             const reductions = t.activeEffects.filter(e => e.type === 'damage_reduction');
@@ -8454,7 +8450,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               name: `${skill.name} Roubo de Vida`,
               sourceSkillName: skill.name,
               type: 'life_steal',
-              value: skill.stealLifeVal,
+              value: effectiveStealVal,
               duration: remainingDuration,
               castTurn: turn,
               icon: skill.icon,

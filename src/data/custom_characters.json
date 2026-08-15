@@ -4211,7 +4211,15 @@
             "chakraAmount": 1
           }
         ],
-        "damageDebuffDuration": 1
+        "damageDebuffDuration": 1,
+        "damageRules": [
+          {
+            "activeSkillName": "Draining Assault",
+            "damageBoost": 25,
+            "damageType": "life_steal",
+            "ignoreBaseDamage": true
+          }
+        ]
       },
       {
         "name": "Draining Assault",
