@@ -12204,6 +12204,13 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 )}
               </div>
 
+              {/* DEBUG TURN STATE (temporary diagnostic) */}
+              <div className="flex flex-col items-center justify-center gap-0.5 pt-1 text-center select-none">
+                <span className="text-[9px] font-mono font-bold text-amber-200/90 bg-black/40 px-2 py-0.5 rounded">
+                  DBG turno:{turn} vez:{activePlanner} pass:[{passedPlayersThisTurn.join(',')}] fim:{isEndingTurn ? '1' : '0'} resol:{isResolvingTurnEndRef.current ? '1' : '0'} wait:{isWaitingForOpponent ? '1' : '0'}
+                </span>
+              </div>
+
               {/* Chakra Header Row */}
               <div className="flex flex-col items-center justify-center gap-1 pt-0.5 text-center">
                 <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-amber-100 font-extrabold drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)]">
