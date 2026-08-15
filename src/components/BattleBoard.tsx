@@ -2136,6 +2136,7 @@ const handleTradeChakra = () => {
   const [activePlanner, setActivePlanner] = useState<'player' | 'enemy'>('player');
   const [isPreparing, setIsPreparing] = useState(false);
   const [passedPlayersThisTurn, setPassedPlayersThisTurn] = useState<('player' | 'enemy')[]>([]);
+  const [lastResolutionError, setLastResolutionError] = useState<string | null>(null);
 
   const hasDamageImmunity = (character: CombatCharacter) =>
     character?.activeEffects?.some((e: ActiveEffect) => e.type === 'damage_immunity') ?? false;
@@ -6515,8 +6516,8 @@ splashOnlyTargets = splashPool.filter(c =>
     // Roll chakra for the new turn (1 per alive character on each team)
     const alivePlayerCount = updatedPlayer.filter(c => !c.isDead).length;
     const aliveEnemyCount = updatedEnemy.filter(c => !c.isDead).length;
-    rollChakraForTurn(true, alivePlayerCount);
-    rollChakraForTurn(false, aliveEnemyCount);
+    try { rollChakraForTurn(true, alivePlayerCount); } catch (e) { console.error('[BattleBoard] Falha ao rolar chakra do jogador:', e); }
+    try { rollChakraForTurn(false, aliveEnemyCount); } catch (e) { console.error('[BattleBoard] Falha ao rolar chakra do oponente:', e); }
 
     newLogs.push({
       id: Math.random().toString(),
@@ -6530,6 +6531,7 @@ splashOnlyTargets = splashPool.filter(c =>
     setLogs(prev => [...prev, ...newLogs]);
     } catch (err) {
       console.error(`[BattleBoard] Erro na resolução da rodada ${turn}:`, err);
+      try { setLastResolutionError(String((err as any)?.message || err)); } catch {} 
       if (!advanced) {
         try {
           const fbTurn = turn + 1;
@@ -6537,12 +6539,14 @@ splashOnlyTargets = splashPool.filter(c =>
           setActivePlanner(Math.random() < 0.5 ? 'player' : 'enemy');
           setPassedPlayersThisTurn([]);
           passedPlayersRef.current = [];
+          try { rollChakraForTurn(true, Math.max(1, playerCombatants.filter(c => !c.isDead).length)); } catch (e) { console.error('[BattleBoard] Falha no chakra do jogador no fallback:', e); }
+          try { rollChakraForTurn(false, Math.max(1, enemyCombatants.filter(c => !c.isDead).length)); } catch (e) { console.error('[BattleBoard] Falha no chakra do oponente no fallback:', e); }
           setLogs(prev => [
             ...prev,
             {
               id: Math.random().toString(),
               turn: fbTurn,
-              message: `⚠️ Erro ao resolver a rodada ${turn} — o turno foi avançado automaticamente.`,
+              message: `⚠️ Erro ao resolver a rodada ${turn} — o turno foi avançado automaticamente (chakra rolado).`,
               type: 'system',
             }
           ]);
@@ -12209,6 +12213,11 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 <span className="text-[9px] font-mono font-bold text-amber-200/90 bg-black/40 px-2 py-0.5 rounded">
                   DBG turno:{turn} vez:{activePlanner} pass:[{passedPlayersThisTurn.join(',')}] fim:{isEndingTurn ? '1' : '0'} resol:{isResolvingTurnEndRef.current ? '1' : '0'} wait:{isWaitingForOpponent ? '1' : '0'}
                 </span>
+                {lastResolutionError && (
+                  <span className="text-[9px] font-mono font-bold text-red-300 bg-black/50 px-2 py-0.5 rounded max-w-full truncate">
+                    ERRO: {lastResolutionError}
+                  </span>
+                )}
               </div>
 
               {/* Chakra Header Row */}
