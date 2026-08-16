@@ -607,6 +607,14 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       rawPt = `Aumento de Custo: Habilidades${stLabel ? ` de ${stLabel}` : ''} custam +1 ${ctLabel || 'chakra'} por ${durText}`;
       break;
     }
+    case 'chakra_cost_reduce': {
+      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+      const skillLbl: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+      const ctLabel = (effect.costReduceChakraTypes || []).map(ct => chakraLbl[ct] || ct).join(' + ');
+      const stLabel = (effect.costReduceSkillTypes || []).map(st => skillLbl[st] || st).join(' + ');
+      rawPt = `Custo Reduzido: Habilidades${stLabel ? ` de ${stLabel}` : ''} custam -${effect.value || 1} ${ctLabel || 'chakra'} por ${durText}`;
+      break;
+    }
     case 'retaliate_damage': {
       const baseVal = effect.retaliateDamageVal || effect.value || 0;
       const stacks = (effect as any).stacks || 1;
@@ -4874,6 +4882,38 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           addFloatingText(t.id, 'CUSTO +1', 'effect');
         });
+      }
+
+      // REDUZIR CUSTO DE CHAKRA DAS SKILLS DO ALVO (BUFF): as skills do(s) alvo(s) custam menos do tipo escolhido por X turnos
+      if (skill.chakraCostReduceRules && skill.chakraCostReduceRules.length > 0) {
+        const reduceTargets = resolveEffectTargets('Target', target, source, sourceList, targetList, false);
+        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+        for (const rule of skill.chakraCostReduceRules) {
+          if (!rule.chakraTypes || rule.chakraTypes.length === 0 || (rule.amount || 0) <= 0 || (rule.durationTurns || 0) <= 0) continue;
+          const dur = Math.max(1, rule.durationTurns || 1);
+          const costTypesLabel = rule.chakraTypes.map(ct => chakraLabels[ct] || ct).join(' + ');
+          reduceTargets.forEach(t => {
+            if (t.isDead) return;
+            pushActiveEffect(t, {
+              name: `${skill.name} (Custo Reduzido)`,
+              type: 'chakra_cost_reduce',
+              duration: dur,
+              value: Math.max(1, rule.amount || 1),
+              icon: skill.icon || source.character.portrait,
+              costReduceChakraTypes: rule.chakraTypes,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💧 ${t.character.name} teve o CUSTO REDUZIDO (-${rule.amount} ${costTypesLabel}) das skills por [${skill.name}] de ${source.character.name} por ${dur} ${dur === 1 ? 'turno' : 'turnos'}!`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, `CUSTO -${rule.amount}`, 'effect');
+          });
+        }
       }
 
       // 4. SHIELDS & BUFFS
@@ -9634,6 +9674,38 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         });
       }
 
+      // REDUZIR CUSTO DE CHAKRA DAS SKILLS DO ALVO (BUFF): as skills do(s) alvo(s) custam menos do tipo escolhido por X turnos
+      if (skill.chakraCostReduceRules && skill.chakraCostReduceRules.length > 0) {
+        const reduceTargets = resolveEffectTargets('Target', target, source, sourceList, targetList, false);
+        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+        for (const rule of skill.chakraCostReduceRules) {
+          if (!rule.chakraTypes || rule.chakraTypes.length === 0 || (rule.amount || 0) <= 0 || (rule.durationTurns || 0) <= 0) continue;
+          const dur = Math.max(1, rule.durationTurns || 1);
+          const costTypesLabel = rule.chakraTypes.map(ct => chakraLabels[ct] || ct).join(' + ');
+          reduceTargets.forEach(t => {
+            if (t.isDead) return;
+            pushActiveEffect(t, {
+              name: `${skill.name} (Custo Reduzido)`,
+              type: 'chakra_cost_reduce',
+              duration: dur,
+              value: Math.max(1, rule.amount || 1),
+              icon: skill.icon || source.character.portrait,
+              costReduceChakraTypes: rule.chakraTypes,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💧 ${t.character.name} teve o CUSTO REDUZIDO (-${rule.amount} ${costTypesLabel}) das skills por [${skill.name}] de ${source.character.name} por ${dur} ${dur === 1 ? 'turno' : 'turnos'}!`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, `CUSTO -${rule.amount}`, 'effect');
+          });
+        }
+      }
+
       // 4. APPLY BUFFER SHIELDS & OTHER CUSTOM EFFECT BUFFS
       if (skill.shieldVal && skill.shieldVal > 0) {
         const shieldTargets = resolveEffectTargets(skill.shieldTarget, target, source, sourceList, targetList, true);
@@ -11342,6 +11414,19 @@ if (skill.redirectOffensiveToCaster) {
         value: `Aumenta o custo (+1 ${ctLabel})${stLabel ? ` das habilidades de ${stLabel}` : ''} por ${skill.chakraCostIncreaseDuration} ${skill.chakraCostIncreaseDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-cyan-950 font-extrabold',
         targetLabel: getTargetLabel(skill.chakraCostIncreaseTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.chakraCostReduceRules && skill.chakraCostReduceRules.length > 0) {
+      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+      skill.chakraCostReduceRules.forEach(rule => {
+        if (!rule.chakraTypes || rule.chakraTypes.length === 0 || (rule.amount || 0) <= 0 || (rule.durationTurns || 0) <= 0) return;
+        const ctLabel = rule.chakraTypes.map(ct => chakraLbl[ct] || ct).join(' + ');
+        effects.push({
+          label: 'Reduzir Custo de Chakra',
+          value: `Skills do alvo custam -${rule.amount} ${ctLabel} por ${rule.durationTurns} ${rule.durationTurns === 1 ? 'Turno' : 'Turnos'}`,
+          color: 'text-sky-950 font-extrabold',
+          targetLabel: 'Alvos da Skill'
+        });
       });
     }
     if (skill.revealInvisibleDuration && skill.revealInvisibleDuration > 0) {

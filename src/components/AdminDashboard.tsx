@@ -4462,6 +4462,114 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Reduzir Custo de Chakra do Alvo */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">
+                              💧 Reduzir Custo de Chakra do Alvo
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              As skills do(s) alvo(s) desta skill passam a custar MENOS do tipo de chakra escolhido pela quantidade definida por X turnos. Ex.: alvo = sua equipe, reduz -1 de chakra aleatório nas skills que tenham chakra aleatório no custo.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.chakraCostReduceRules || [];
+                              handleUpdateSkillField('chakraCostReduceRules', [...current, { chakraTypes: ['Rand'], amount: 1, durationTurns: 2 }]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.chakraCostReduceRules || editingSkill.chakraCostReduceRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma redução de custo de chakra configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.chakraCostReduceRules.map((rule, rIdx) => {
+                              const ruleTypes = rule.chakraTypes || [];
+                              return (
+                                <div key={rIdx} className="space-y-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-cyan-400 font-bold">Reduzir:</span>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={99}
+                                      value={rule.amount || 1}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.chakraCostReduceRules || [])];
+                                        updated[rIdx] = { ...updated[rIdx], amount: parseInt(e.target.value) || 1 };
+                                        handleUpdateSkillField('chakraCostReduceRules', updated);
+                                      }}
+                                      className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px] text-center"
+                                    />
+                                    <span className="text-[9px] text-slate-400">chakra por</span>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={99}
+                                      value={rule.durationTurns || 1}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.chakraCostReduceRules || [])];
+                                        updated[rIdx] = { ...updated[rIdx], durationTurns: parseInt(e.target.value) || 1 };
+                                        handleUpdateSkillField('chakraCostReduceRules', updated);
+                                      }}
+                                      className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px] text-center"
+                                    />
+                                    <span className="text-[9px] text-slate-400">turno(s)</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = (editingSkill.chakraCostReduceRules || []).filter((_, i) => i !== rIdx);
+                                        handleUpdateSkillField('chakraCostReduceRules', updated.length > 0 ? updated : undefined);
+                                      }}
+                                      className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                      title="Remover"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <span className="text-[9px] text-slate-400 uppercase font-bold">🧬 Tipos de Chakra a reduzir:</span>
+                                    {([
+                                      { value: 'Tai', label: '🥋 Tai' },
+                                      { value: 'Nin', label: '🌀 Nin' },
+                                      { value: 'Gen', label: '🧠 Gen' },
+                                      { value: 'Blood', label: '🩸 Blood' },
+                                      { value: 'Rand', label: '🎲 Rand' },
+                                    ] as { value: ChakraType; label: string }[]).map(opt => {
+                                      const isSelected = ruleTypes.includes(opt.value);
+                                      return (
+                                        <button
+                                          key={opt.value}
+                                          type="button"
+                                          onClick={() => {
+                                            const updated = [...(editingSkill.chakraCostReduceRules || [])];
+                                            const next = isSelected ? ruleTypes.filter(t => t !== opt.value) : [...ruleTypes, opt.value];
+                                            updated[rIdx] = { ...updated[rIdx], chakraTypes: next };
+                                            handleUpdateSkillField('chakraCostReduceRules', updated);
+                                          }}
+                                          className={`px-1.5 py-0.5 rounded cursor-pointer select-none border transition-all ${isSelected ? 'bg-cyan-950/60 border-cyan-700/60 text-cyan-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-cyan-800/50'}`}
+                                        >
+                                          <span className="text-[9px] font-mono">{opt.label}</span>
+                                        </button>
+                                      );
+                                    })}
+                                    <span className="text-[9px] text-slate-500 italic">(só afeta skills que tenham o tipo escolhido no custo)</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
                       <div className="md:col-span-2">
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Descrição do Efeito / Detalhes</label>
                         <textarea

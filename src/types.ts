@@ -100,6 +100,15 @@ export interface SkillCounterSuccessStunRule {
   damageClasses?: string[];
 }
 
+export interface SkillChakraCostReduceRule {
+  /** Tipos de chakra cujo custo das skills do alvo será reduzido: Tai, Nin, Gen, Blood, Rand */
+  chakraTypes: ChakraType[];
+  /** Quantidade reduzida do custo (ex: 1 = remove 1 chakra do tipo escolhido do custo da skill) */
+  amount: number;
+  /** Duração em turnos do buff no alvo */
+  durationTurns: number;
+}
+
 export interface SkillReflectByStackRule {
   /** Nome do stackType que deve estar ativo NO PORTADOR (alvo desta skill) E NO ATACANTE
    * para que skills ofensivas do atacante sejam redirecionadas ao ALIADO do atacante.
@@ -199,6 +208,8 @@ export interface Skill {
   counterSuccessDamageRules?: SkillCounterSuccessDamageRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou fica STUNADO e recebe dano adicional de skills das classes escolhidas */
   counterSuccessStunRules?: SkillCounterSuccessStunRule[];
+  /** Quando esta skill é usada, as skills do(s) alvo(s) têm o custo de chakra dos tipos escolhidos reduzido pela quantidade definida por X turnos */
+  chakraCostReduceRules?: SkillChakraCostReduceRule[];
   /** Reflexão por Stack: quando o portador desta stack E o atacante inimigo possuírem a stack,
    * as skills ofensivas do atacante usadas no portador são redirecionadas ao ALIADO do atacante
    * (exceto skills marcadas como "não pode ser refletida"). */
@@ -614,6 +625,7 @@ export interface ActiveEffect {
   | 'capture_arrest_trap'
   | 'capture_arrest_debuff'
   | 'chakra_cost_increase'
+  | 'chakra_cost_reduce'
   | 'redirect_offensive'
   | 'revive_on_death'
   | 'temporary_target_change'
@@ -667,6 +679,10 @@ counterAttackType?: 'attacker' | 'defender';
   costIncreaseChakraTypes?: ChakraType[];
   /** Tipos de skill afetados pelo aumento de custo (physical, mental, affliction, chakra, ranged, friendly) */
   costIncreaseSkillTypes?: string[];
+  /** Tipos de chakra cujo custo das skills do portador é REDUZIDO enquanto este buff estiver ativo */
+  costReduceChakraTypes?: ChakraType[];
+  /** Tipos de skill afetados pela redução de custo (physical, mental, affliction, chakra, ranged, friendly) */
+  costReduceSkillTypes?: string[];
   /** Se true, este debuff (ex: DoT infinito) é removido quando o alvo usa uma skill amigável/passiva */
   removedOnFriendlySkillUse?: boolean;
   /** Se true, esta imunidade a dano é consumida após bloquear o primeiro dano recebido */
@@ -943,6 +959,26 @@ export function getEffectiveSkillCost(skill: Skill, sourceChar?: CombatCharacter
       }
       for (const ct of eff.costIncreaseChakraTypes) {
         currentCost.push(ct);
+      }
+    }
+  }
+
+  // Chakra cost reduction buff: lowers the cost of matching chakra types for matching skill types.
+  // Só reduz chakra dos tipos escolhidos presentes no custo da skill (skills que não possuam o tipo não são afetadas).
+  if (sourceChar && sourceChar.activeEffects) {
+    const skillTypes = getSkillCombatTypes(skill);
+    for (const eff of sourceChar.activeEffects) {
+      if (eff.type !== 'chakra_cost_reduce') continue;
+      if (!eff.costReduceChakraTypes || eff.costReduceChakraTypes.length === 0) continue;
+      if (eff.costReduceSkillTypes && eff.costReduceSkillTypes.length > 0) {
+        const matchesSkillType = eff.costReduceSkillTypes.some(t => skillTypes.includes(t));
+        if (!matchesSkillType) continue;
+      }
+      const amt = Math.max(0, eff.value || 1);
+      for (let i = 0; i < amt; i++) {
+        const idx = currentCost.findIndex(c => eff.costReduceChakraTypes!.includes(c));
+        if (idx === -1) break;
+        currentCost.splice(idx, 1);
       }
     }
   }
