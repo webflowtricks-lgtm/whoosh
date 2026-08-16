@@ -206,6 +206,25 @@ export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Ski
 
   return invulEffects.some(eff => {
     const types = eff.invulnerableTypes;
+    const invClasses = eff.invulnerableClasses;
+
+    // 0. Proteção por classe é AUTORITATIVA quando definida: o alvo fica invulnerável
+    // contra skills que tenham UMA das classes protegidas (independente de invulnerableTypes).
+    // Esse gate vem ANTES dos short-circuits de types para não ser ignorado por
+    // invulnerableTypes vazio/indefinido.
+    if (invClasses && invClasses.length > 0) {
+      // Sem contexto de skill (aura/AI): considerado protegido
+      if (!skillOrType) return true;
+      if (typeof skillOrType === 'object' && !Array.isArray(skillOrType)) {
+        const skill = skillOrType as Skill;
+        const classes = (skill.classes || []).map(cls => cls.toLowerCase());
+        const normInv = invClasses.map(ic => ic.trim().toLowerCase()).filter(Boolean);
+        return normInv.length > 0 && classes.some(cls => normInv.includes(cls));
+      }
+      // skillOrType é string/array de tipos: sem contexto de classe → protegido
+      return true;
+    }
+
     // No types specified = protects against all by default
     if (!types) return true;
     // Explicitly empty array = protects against nothing
@@ -583,7 +602,9 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       break;
     case 'invulnerable': {
       const summary = formatInvulnerableSummary(effect.invulnerableTypes);
-      rawPt = `Inviolável: Imune ${summary} por ${durText}`;
+      const invClasses = effect.invulnerableClasses;
+      const classText = invClasses && invClasses.length > 0 ? ` (apenas contra classes: ${invClasses.join(', ')})` : '';
+      rawPt = `Inviolável: Imune ${summary}${classText} por ${durText}`;
       break;
     }
     case 'counter':
@@ -3714,6 +3735,11 @@ let directDamage = skill.directDamage || 0;
         const directTargets = resolveEffectTargets(skill.directDamageTarget || skill.damageTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         directTargets.forEach(t => {
           if (t.isDead) return;
+          if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            return;
+          }
 const startingHealth = t.health;
           const duration = skill.directDamageDuration || 1;
           if (duration > 1) {
@@ -4284,6 +4310,11 @@ const startingHealth = t.health;
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         damageTargets.forEach(t => {
           if (t.isDead) return;
+          if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            return;
+          }
           // Deal immediate first tick
           const startingShield = t.shield;
           const startingHealth = t.health;
@@ -4313,8 +4344,8 @@ const startingHealth = t.health;
                   const selfBonusDmg = selfStackCount * selfRule.damagePerStack;
                   const selfDmgType = selfRule.damageType || 'damage';
                   if (selfDmgType === 'direct_damage') {
-                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
+                    if (hasDamageImmunity(t, [selfDmgType])) consumeFirstHitOnlyImmunity(t, [selfDmgType]);
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [selfDmgType])) {
                       let remainingDmg = selfBonusDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -4354,8 +4385,8 @@ const startingHealth = t.health;
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
                     const totalDmg = stackCount * stackRule.damagePerStack;
                     // Dano instantâneo no golpe
-                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
+                    if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
                         id: Math.random().toString(),
@@ -4392,8 +4423,8 @@ const startingHealth = t.health;
                     const stackDmg = stackCount * stackRule.damagePerStack;
                     const dmgType = stackRule.damageType || 'damage';
                     if (dmgType === 'direct_damage') {
-                      if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
+                      if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                         let remainingDmg = stackDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -4541,6 +4572,11 @@ splashOnlyTargets = splashPool.filter(c =>
         // Apply full damage to primary targets
         primaryTargets.forEach(t => {
           if (t.isDead) return;
+          if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            return;
+          }
           const startingShield = t.shield;
           const startingHealth = t.health;
 
@@ -4570,8 +4606,8 @@ splashOnlyTargets = splashPool.filter(c =>
                   const selfBonusDmg = selfStackCount * selfRule.damagePerStack;
                   const selfDmgType = selfRule.damageType || 'damage';
                   if (selfDmgType === 'direct_damage') {
-                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
+                    if (hasDamageImmunity(t, [selfDmgType])) consumeFirstHitOnlyImmunity(t, [selfDmgType]);
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [selfDmgType])) {
                       let remainingDmg = selfBonusDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -4611,8 +4647,8 @@ splashOnlyTargets = splashPool.filter(c =>
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
                     const totalDmg = stackCount * stackRule.damagePerStack;
                     // Dano instantâneo no golpe
-                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
+                    if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
                         id: Math.random().toString(),
@@ -4649,8 +4685,8 @@ splashOnlyTargets = splashPool.filter(c =>
                     const stackDmg = stackCount * stackRule.damagePerStack;
                     const dmgType = stackRule.damageType || 'damage';
                     if (dmgType === 'direct_damage') {
-                      if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
+                      if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                         let remainingDmg = stackDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -4853,6 +4889,11 @@ splashOnlyTargets = splashPool.filter(c =>
         // === Apply splash damage to splash-only targets (once, outside the primary loop) ===
         if (splashVal > 0) {
           splashOnlyTargets.forEach(splashT => {
+            if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(splashT, skill)) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${splashT.character.name} está INVULNERÁVEL contra o SPLASH de [${skill.name}]!`, type: 'buff' });
+              addFloatingText(splashT.id, 'INVULNERÁVEL', 'invulnerable');
+              return;
+            }
             splashT.health = Math.max(0, splashT.health - splashVal);
             newLogs.push({
               id: Math.random().toString(),
@@ -5478,6 +5519,7 @@ splashOnlyTargets = splashPool.filter(c =>
             duration: skill.invulnerableDuration!,
             icon: skill.icon,
             invulnerableTypes: skill.invulnerableTypes,
+            invulnerableClasses: skill.invulnerableClasses,
             irremovable: !!skill.invulnerableIrremovable,
             casterId: source.id,
             casterSide: action.isPlayer ? 'player' : 'enemy',
@@ -7458,7 +7500,7 @@ splashOnlyTargets = splashPool.filter(c =>
                 let score = 0;
 
                 const targetIsEnemy = target.id.startsWith('player');
-                const hasInvulnerable = checkCombatantInvulnerable(target);
+                const hasInvulnerable = checkCombatantInvulnerable(target, skill);
                 const hasInvisible = target.activeEffects.some(e => e.type === 'invisible');
                 const hasReflect = target.activeEffects.some(e => e.type === 'reflect');
                 const hasCounter = target.activeEffects.some(e => e.type === 'counter_attack' || e.type === 'counter');
@@ -8996,6 +9038,11 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         const directTargets = resolveEffectTargets(skill.directDamageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         directTargets.forEach(t => {
           if (t.isDead) return;
+          if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            return;
+          }
           if (skill.directDamageDuration && skill.directDamageDuration > 1) {
             const duration = skill.directDamageDuration;
             pushActiveEffect(t, {
@@ -9432,6 +9479,11 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
 
         damageTargets.forEach(t => {
           if (t.isDead) return;
+          if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            return;
+          }
           // Deal immediate first tick
           const startingShield = t.shield;
           const startingHealth = t.health;
@@ -9547,6 +9599,11 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
 
         damageTargets.forEach(t => {
           if (t.isDead) return;
+          if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            return;
+          }
           const startingShield = t.shield;
           const startingHealth = t.health;
           const sourceDebuffs = source.activeEffects.filter((e: ActiveEffect) => {
@@ -9575,8 +9632,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                   const selfBonusDmg = selfStackCount * selfRule.damagePerStack;
                   const selfDmgType = selfRule.damageType || 'damage';
                   if (selfDmgType === 'direct_damage') {
-                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
+                    if (hasDamageImmunity(t, [selfDmgType])) consumeFirstHitOnlyImmunity(t, [selfDmgType]);
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [selfDmgType])) {
                       let remainingDmg = selfBonusDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -9616,8 +9673,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
                     const totalDmg = stackCount * stackRule.damagePerStack;
                     // Dano instantâneo no golpe
-                    if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
+                    if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
                         id: Math.random().toString(),
@@ -9654,8 +9711,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                     const stackDmg = stackCount * stackRule.damagePerStack;
                     const dmgType = stackRule.damageType || 'damage';
                     if (dmgType === 'direct_damage') {
-                      if (hasDamageImmunity(t)) consumeFirstHitOnlyImmunity(t);
-                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t)) {
+                      if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
+                    if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                         let remainingDmg = stackDmg;
                       if (remainingDmg > 0 && (t.shield || 0) > 0) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
@@ -10478,6 +10535,7 @@ if (skill.redirectOffensiveToCaster) {
             duration: skill.invulnerableDuration!,
             icon: skill.icon,
             invulnerableTypes: skill.invulnerableTypes,
+            invulnerableClasses: skill.invulnerableClasses,
             irremovable: !!skill.invulnerableIrremovable,
           });
           newLogs.push({
@@ -11948,7 +12006,7 @@ if (skill.redirectOffensiveToCaster) {
       const invulSummary = formatInvulnerableSummary(skill.invulnerableTypes);
       effects.push({
         label: 'Invulnerabilidade',
-        value: `Fica invulnerável ${invulSummary} por ${skill.invulnerableDuration} ${skill.invulnerableDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Fica invulnerável ${invulSummary}${skill.invulnerableClasses && skill.invulnerableClasses.length > 0 ? ` (classes: ${skill.invulnerableClasses.join(', ')})` : ''} por ${skill.invulnerableDuration} ${skill.invulnerableDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });

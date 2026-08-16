@@ -106,6 +106,7 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   // Feedback messages
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [invulnClassInput, setInvulnClassInput] = useState('');
 
   // Editing forms state
   const [editingChar, setEditingChar] = useState<Character | null>(null);
@@ -6666,6 +6667,54 @@ const newSkill: Skill = {
                                     );
                                   })}
                                 </div>
+                              </div>
+                              <div className="mt-2">
+                                <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold">🏷️ Classes protegidas (digite a classe):</span>
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  {(editingSkill.invulnerableClasses || []).map(cls => (
+                                    <span key={cls} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-700/50 text-[9px] font-mono text-cyan-300">
+                                      {cls}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateSkillField('invulnerableClasses', (editingSkill.invulnerableClasses || []).filter(c => c !== cls))}
+                                        className="text-cyan-500 hover:text-red-400 cursor-pointer"
+                                        title="Remover"
+                                      >×</button>
+                                    </span>
+                                  ))}
+                                  <input
+                                    type="text"
+                                    value={invulnClassInput}
+                                    onChange={(e) => setInvulnClassInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && invulnClassInput.trim()) {
+                                        e.preventDefault();
+                                        const val = invulnClassInput.trim();
+                                        const current = editingSkill.invulnerableClasses || [];
+                                        if (!current.some(c => c.toLowerCase() === val.toLowerCase())) {
+                                          handleUpdateSkillField('invulnerableClasses', [...current, val]);
+                                        }
+                                        setInvulnClassInput('');
+                                      }
+                                    }}
+                                    placeholder="ex.: Taijutsu"
+                                    className="flex-1 min-w-[110px] px-2 py-0.5 bg-slate-900 border border-cyan-900/50 rounded text-[10px] font-mono text-cyan-300 placeholder-slate-600 focus:border-cyan-600 outline-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const val = invulnClassInput.trim();
+                                      if (!val) return;
+                                      const current = editingSkill.invulnerableClasses || [];
+                                      if (!current.some(c => c.toLowerCase() === val.toLowerCase())) {
+                                        handleUpdateSkillField('invulnerableClasses', [...current, val]);
+                                      }
+                                      setInvulnClassInput('');
+                                    }}
+                                    className="px-2 py-0.5 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-700/60 rounded text-[9px] font-mono text-cyan-300 cursor-pointer transition-all"
+                                  >+ Adicionar</button>
+                                </div>
+                                <p className="text-[9px] text-slate-500 italic mt-0.5">A proteção só vale contra skills que tenham UMA dessas classes (vazio = protege pelos tipos acima).</p>
                               </div>
                             </div>
                             <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">

@@ -302,6 +302,8 @@ export interface Skill {
   removeCounterReflectTarget?: TargetOverride;
   invulnerableDuration?: number;
   invulnerableTypes?: ('damage' | 'direct_damage' | 'affliction' | 'bleeding' | 'dot' | 'mental' | 'physical' | 'chakra' | 'ranged' | 'friendly' | 'stun' | 'all')[];
+  /** Classes de skill (skill.classes) contra as quais o alvo fica invulnerável (protegido delas). Vazio = proteção por tipos. */
+  invulnerableClasses?: string[];
   gainChakra?: number;
   gainChakraDuration?: number;
   /** Tipos de chakra gerados pelo gainChakra: 'Tai' | 'Nin' | 'Gen' | 'Blood' | 'Rand' | 'Existing' (vazio = aleatório) */
@@ -669,6 +671,7 @@ export interface ActiveEffect {
   sourceSkillName?: string; // Base skill name for grouping debuffs
   stunType?: ('mental' | 'physical' | 'affliction' | 'chakra' | 'ranged' | 'friendly' | string)[];
   invulnerableTypes?: ('damage' | 'direct_damage' | 'affliction' | 'bleeding' | 'dot' | 'mental' | 'physical' | 'chakra' | 'ranged' | 'friendly' | 'stun' | 'all')[];
+  invulnerableClasses?: string[];
   irremovable?: boolean;
   regenPerTurn?: boolean; // Se true, gera value de escudo ADICIONAL a cada turno (escudo por turno)
   regenMaxVal?: number; // Limite máximo de escudo para a geração por turno

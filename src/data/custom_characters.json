@@ -4700,7 +4700,7 @@
         "targetType": "Enemy",
         "classes": [
           "Físico",
-          "Corpo a Corpo"
+          "Melee"
         ],
         "damage": 20,
         "damageDebuffVal": 5,
@@ -5111,7 +5111,13 @@
         "stackTarget": "Target",
         "damage": 15,
         "invulnerableDuration": 1,
-        "damageImmunityDuration": 0
+        "damageImmunityDuration": 0,
+        "invulnerableTypes": [
+          "direct_damage"
+        ],
+        "invulnerableClasses": [
+          "Melee"
+        ]
       },
       {
         "name": "Bo Combat",
@@ -9555,8 +9561,8 @@
     "skins": []
   },
   {
-    "id": "inoichi-yamanaka",
-    "name": "Inoichi Yamanaka",
+    "id": "inoichi-yamanaka-s",
+    "name": "Inoichi Yamanaka (S)",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "tags": [
       "Clã Shinobi",
@@ -9564,7 +9570,7 @@
       "Vila da Folha"
     ],
     "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/inoichi-yamanaka/icon.jpg",
-    "folder": "inoichi-yamanaka",
+    "folder": "inoichi-yamanaka-s",
     "skills": [
       {
         "name": "Mental Invasion",
@@ -17064,6 +17070,35 @@
         ],
         "afflictionVal": 10,
         "afflictionDuration": 10
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "yamanaka-inoichi",
+    "name": "Yamanaka Inoichi",
+    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+    "folder": "yamanaka-inoichi",
+    "skills": [
+      {
+        "name": "Golpe Básico",
+        "desc": "Causa 20 de dano físico a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ]
       }
     ],
     "skins": []
