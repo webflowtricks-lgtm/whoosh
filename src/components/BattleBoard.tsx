@@ -4647,27 +4647,6 @@ splashOnlyTargets = splashPool.filter(c =>
           }
 });
 
-        // Apply stack AFTER damage calculation so first hit uses existing stacks (not the new one)
-        // Stack goes to stackTarget (e.g., Self), not damageTarget
-        if (skill.stackable) {
-          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
-          stackTargets.forEach(st => {
-            if (st.isDead) return;
-            pushActiveEffect(st, {
-              name: `${skill.stackType || skill.name} (Stack)`,
-              type: 'custom',
-              value: 0,
-              duration: skill.stackDuration ?? 999,
-              icon: skill.icon,
-              stackable: true,
-              stackType: skill.stackType || skill.name,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-              sourceSkillName: skill.name,
-            });
-          });
-        }
-
         // === Apply splash damage to splash-only targets (once, outside the primary loop) ===
         if (splashVal > 0) {
           splashOnlyTargets.forEach(splashT => {
@@ -4781,34 +4760,6 @@ splashOnlyTargets = splashPool.filter(c =>
           addFloatingText(t.id, `STUN (${stunDuration}T)`, 'stun');
           cleanseTargetEffects(t, skill.stunRemoveType);
         });
-
-        // Apply stack to stackTarget (e.g., Target/Enemy) if skill is stackable
-        if (skill.stackable) {
-          const effStackType = skill.stackType || skill.name;
-          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
-          stackTargets.forEach(st => {
-            if (st.isDead) return;
-            pushActiveEffect(st, {
-              name: `${effStackType} (Stack)`,
-              type: 'custom',
-              value: 0,
-              duration: skill.stackDuration ?? 999,
-              icon: skill.icon,
-              stackable: true,
-              stackType: effStackType,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-              sourceSkillName: skill.name,
-            });
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `📚 ${st.character.name} recebeu stack [${effStackType}] de ${source.character.name} via [${skill.name}]!`,
-              type: 'buff',
-            });
-            addFloatingText(st.id, `+1 ${effStackType.toUpperCase()}`, 'effect');
-          });
-        }
       }
 
       // 3.1 BLOQUEAR SKILLS OFENSIVAS
@@ -5912,8 +5863,8 @@ splashOnlyTargets = splashPool.filter(c =>
         }
       }
 
-      // Stack-only skill: apply stack even if skill has no damage/effects
-      if (skill.stackable && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageReductionPierceVal && !skill.skillCopyDuration && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !skill.permanent) {
+      // Stack: apply a stack to stackTarget whenever the skill is stackable
+      if (skill.stackable) {
          const effStackType = skill.stackType || skill.name;
          const targets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
         targets.forEach(t => {
@@ -9168,27 +9119,6 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
 
-        // Apply stack AFTER damage calculation so first hit uses existing stacks (not the new one)
-        // Stack goes to stackTarget (e.g., Self), not damageTarget
-        if (skill.stackable && skill.stackType) {
-          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
-          stackTargets.forEach(st => {
-            if (st.isDead) return;
-            pushActiveEffect(st, {
-              name: `${skill.stackType || skill.name} (Stack)`,
-              type: 'custom',
-              value: 0,
-              duration: skill.stackDuration ?? 999,
-              icon: skill.icon,
-              stackable: true,
-              stackType: skill.stackType || skill.name,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-              sourceSkillName: skill.name,
-            });
-          });
-        }
-
       } else if (baseDamage > 0 || (skill.damage || 0) > 0 || (skill.damageRules && skill.damageRules.length > 0) || (skill.stackDamageRules && skill.stackDamageRules.length > 0) || (skill.selfStackDamageRules && skill.selfStackDamageRules.length > 0) || (skill.bonusDamagePerMissingHp && skill.bonusDamagePerMissingHp > 0)) {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
 
@@ -9416,27 +9346,6 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           }
         });
 
-        // Apply stack AFTER damage calculation so first hit uses existing stacks (not the new one)
-        // Stack goes to stackTarget (e.g., Self), not damageTarget
-        if (skill.stackable && skill.stackType) {
-          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
-          stackTargets.forEach(st => {
-            if (st.isDead) return;
-            pushActiveEffect(st, {
-              name: `${skill.stackType || skill.name} (Stack)`,
-              type: 'custom',
-              value: 0,
-              duration: skill.stackDuration ?? 999,
-              icon: skill.icon,
-              stackable: true,
-              stackType: skill.stackType || skill.name,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-              sourceSkillName: skill.name,
-            });
-          });
-        }
-
       }
 
       // 2. APPLY HEALING
@@ -9554,33 +9463,6 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           addFloatingText(t.id, floatingTextStr, 'stun');
           cleanseTargetEffects(t, skill.stunRemoveType);
         });
-
-        // Apply stack to stackTarget (e.g., Target/Enemy) if skill is stackable
-        if (skill.stackable && skill.stackType) {
-          const stackTargets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
-          stackTargets.forEach(st => {
-            if (st.isDead) return;
-            pushActiveEffect(st, {
-              name: `${skill.stackType || skill.name} (Stack)`,
-              type: 'custom',
-              value: 0,
-              duration: skill.stackDuration ?? 999,
-              icon: skill.icon,
-              stackable: true,
-              stackType: skill.stackType || skill.name,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-              sourceSkillName: skill.name,
-            });
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `📚 ${st.character.name} recebeu stack [${skill.stackType}] de ${source.character.name} via [${skill.name}]!`,
-              type: 'buff',
-            });
-            addFloatingText(st.id, `+1 ${skill.stackType.toUpperCase()}`, 'effect');
-          });
-        }
       }
 
       if (skill.blocksOffensiveSkills) {
@@ -10499,8 +10381,8 @@ if (skill.redirectOffensiveToCaster) {
         }
       }
 
-      // Stack-only skill: apply stack even if skill has no damage/effects
-      if (skill.stackable && skill.stackType && !skill.damage && !skill.directDamage && !skill.shieldVal && !skill.damageReductionVal && !skill.damageReductionPierceVal && !skill.skillCopyDuration && !skill.damageBuffVal && !skill.damageDebuffVal && !skill.dotVal && !skill.bleedingVal && !skill.afflictionVal && !skill.stunTurns && !skill.invulnerableDuration && !skill.counterAttack && !skill.reflect && !skill.heal && !skill.paralyzeCooldownDuration && !skill.cannotReduceDamageDuration && !skill.cannotBeInvulnerableDuration && !skill.cannotReceiveFriendlyDuration && !skill.immortalHpThreshold && !skill.invisibleDuration && !skill.removeShieldDuration && !skill.damageDuration && !skill.directDamageDuration && !skill.healDuration && !effectName) {
+      // Stack: apply a stack to stackTarget whenever the skill is stackable
+      if (skill.stackable && skill.stackType) {
          const stackTgts = resolveEffectTargets(skill.stackTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, false);
         stackTgts.forEach(t => {
           if (t.isDead) return;

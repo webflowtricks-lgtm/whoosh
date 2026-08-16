@@ -4495,6 +4495,101 @@
     "skins": []
   },
   {
+    "id": "hayate-gekko",
+    "name": "Hayate Gekko",
+    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
+    "tags": [
+      "Clã Shinobi",
+      "Clássico"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hayate-gekko/icon.jpg",
+    "folder": "hayate-gekko",
+    "skills": [
+      {
+        "name": "Crescent Moon Slash",
+        "desc": "Hayate Gekko executa [Secret Sword], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hayate-gekko/SecretSword.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Melee"
+        ],
+        "directDamage": 15,
+        "stackable": true,
+        "stackType": "Crescent Moon Slash",
+        "stackDuration": 99999,
+        "selfStackDamageRules": [
+          {
+            "stackType": "Crescent Moon Slash",
+            "damagePerStack": 5,
+            "damageType": "direct_damage"
+          }
+        ],
+        "stackTarget": "Self"
+      },
+      {
+        "name": "Crescent Moon Dance",
+        "desc": "Hayate Gekko executa [Crescent Moon Dance], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hayate-gekko/CrescentMoonDance.jpg",
+        "cost": [
+          "Gen",
+          "Rand"
+        ],
+        "cooldown": 1,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Mental",
+          "Melee"
+        ],
+        "damage": 30,
+        "counterAttack": true,
+        "counterAttackTarget": "Self"
+      },
+      {
+        "name": "Meld into Shadows",
+        "desc": "Hayate Gekko executa [Transparency Technique], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hayate-gekko/TransparencyTechnique.jpg",
+        "cost": [
+          "Gen"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Amigável",
+          "Mental"
+        ],
+        "damageReductionVal": 15,
+        "damageReductionDuration": 2,
+        "damageBuffVal": 10,
+        "damageBuffDuration": 2
+      },
+      {
+        "name": "Dodge",
+        "desc": "Hayate Gekko entra em uma postura defensiva absoluta com [Dodge], tornando-se invulnerável a todos os ataques e habilidades recebidos por 1 turno.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hayate-gekko/Dodge.jpg",
+        "cost": [
+          "Rand"
+        ],
+        "cooldown": 4,
+        "currentCooldown": 0,
+        "targetType": "Self",
+        "classes": [
+          "Amigável",
+          "Físico"
+        ],
+        "invulnerableDuration": 1
+      }
+    ],
+    "skins": []
+  },
+  {
     "id": "kakashi",
     "name": "Kakashi Hatake",
     "description": "O líder Jonin de elite do Time 7. Conhecido mundialmente como o Ninja Copiador, Kakashi usa seu Sharingan para antecipar movimentos, se esconde no subsolo e desfere sua icônica Espada Relâmpago.",
@@ -8257,81 +8352,6 @@
         "classes": [
           "Chakra",
           "Corpo a Corpo"
-        ]
-      }
-    ],
-    "skins": []
-  },
-  {
-    "id": "hayate-gekko",
-    "name": "Hayate Gekko",
-    "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
-    "tags": [
-      "Clã Shinobi",
-      "Clássico"
-    ],
-    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hayate-gekko/icon.jpg",
-    "folder": "hayate-gekko",
-    "skills": [
-      {
-        "name": "Crescent Moon Dance",
-        "desc": "Hayate Gekko executa [Crescent Moon Dance], desferindo um golpe poderoso que causa 25 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hayate-gekko/CrescentMoonDance.jpg",
-        "cost": [
-          "Tai",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Secret Sword",
-        "desc": "Hayate Gekko executa [Secret Sword], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hayate-gekko/SecretSword.jpg",
-        "cost": [
-          "Tai",
-          "Rand"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "Corpo a Corpo"
-        ]
-      },
-      {
-        "name": "Transparency Technique",
-        "desc": "Hayate Gekko executa [Transparency Technique], desferindo um golpe poderoso que causa 20 de dano ao oponente selecionado.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hayate-gekko/TransparencyTechnique.jpg",
-        "cost": [
-          "Nin"
-        ],
-        "cooldown": 0,
-        "currentCooldown": 0,
-        "targetType": "Enemy",
-        "classes": [
-          "Chakra",
-          "À Distância"
-        ]
-      },
-      {
-        "name": "Dodge",
-        "desc": "Hayate Gekko entra em uma postura defensiva absoluta com [Dodge], tornando-se invulnerável a todos os ataques e habilidades recebidos por 1 turno.",
-        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hayate-gekko/Dodge.jpg",
-        "cost": [
-          "Rand"
-        ],
-        "cooldown": 3,
-        "currentCooldown": 0,
-        "targetType": "Self",
-        "classes": [
-          "Físico"
         ]
       }
     ],
