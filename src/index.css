@@ -654,6 +654,26 @@ e-squad-name {
   100% { border-color: #d97706; box-shadow: 0 0 8px rgba(251,191,36,0.6), 0 0 18px rgba(217,119,6,0.3); }
 }
 
+@keyframes shield-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 6px rgba(56, 189, 248, 0.6),
+      0 0 14px rgba(59, 130, 246, 0.35);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow:
+      0 0 12px rgba(56, 189, 248, 0.95),
+      0 0 26px rgba(59, 130, 246, 0.6),
+      0 0 40px rgba(37, 99, 235, 0.3);
+    transform: scale(1.07);
+  }
+}
+
+.shield-badge-anim {
+  animation: shield-glow 1.6s ease-in-out infinite;
+}
+
 /* =========================================================
    ARENA BATTLE BOARD LAYOUT & COLUMN WIDTH CONFIGURATION
    ========================================================= */

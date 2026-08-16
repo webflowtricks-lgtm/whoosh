@@ -12099,11 +12099,22 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                     <div className="flex-1 space-y-1.5">
                       <div className="flex justify-between items-start">
                         <h4 className="font-bold text-sm tracking-tight">{combatant.character.name}</h4>
-                        {combatant.shield > 0 && (
-                          <span className="text-[9px] bg-blue-500/10 border border-blue-500/30 text-blue-400 px-1.5 py-0.5 rounded font-mono font-bold">
-                            Escudo {combatant.shield}
-                          </span>
-                        )}
+                        {combatant.shield > 0 && (() => {
+                          const shieldRemaining = combatant.shieldExpiresTurn ? combatant.shieldExpiresTurn - turn : null;
+                          return (
+                            <span className="shield-badge-anim inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-sky-500 to-blue-600 border border-sky-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-bold">
+                              <svg className="w-2.5 h-2.5 fill-current text-white shrink-0 drop-shadow" viewBox="0 0 24 24">
+                                <path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3z" />
+                              </svg>
+                              {combatant.shield}
+                              {shieldRemaining !== null && (
+                                <span className="text-white/90 font-black">
+                                  · {shieldRemaining > 0 ? shieldRemaining : 0}T
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       {/* Health bar */}
@@ -13180,11 +13191,22 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     <div className="flex-1 space-y-1.5">
                       <div className="flex justify-between items-start">
                         <h4 className="font-bold text-sm tracking-tight">{combatant.character.name}</h4>
-                        {combatant.shield > 0 && (
-                          <span className="text-[9px] bg-blue-500/10 border border-blue-500/30 text-blue-400 px-1.5 py-0.5 rounded font-mono font-bold">
-                            Escudo {combatant.shield}
-                          </span>
-                        )}
+                        {combatant.shield > 0 && (() => {
+                          const shieldRemaining = combatant.shieldExpiresTurn ? combatant.shieldExpiresTurn - turn : null;
+                          return (
+                            <span className="shield-badge-anim inline-flex items-center gap-1 text-[9px] bg-gradient-to-r from-sky-500 to-blue-600 border border-sky-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-bold">
+                              <svg className="w-2.5 h-2.5 fill-current text-white shrink-0 drop-shadow" viewBox="0 0 24 24">
+                                <path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3z" />
+                              </svg>
+                              {combatant.shield}
+                              {shieldRemaining !== null && (
+                                <span className="text-white/90 font-black">
+                                  · {shieldRemaining > 0 ? shieldRemaining : 0}T
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       {/* Health bar */}
