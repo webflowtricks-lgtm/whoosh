@@ -91,6 +91,15 @@ export interface SkillCounterSuccessDamageRule {
   damageType?: string;
 }
 
+export interface SkillCounterSuccessStunRule {
+  /** Turnos que o inimigo que atacou fica STUNADO quando o CONTRA-ATAQUE desta skill é efetuado com sucesso */
+  stunTurns: number;
+  /** Dano adicional que o inimigo que atacou recebe de skills das classes escolhidas (vazio = qualquer classe) */
+  bonusDamage: number;
+  /** Classes de skill que causam o dano adicional nele: physical, chakra, mental, affliction (vazio = qualquer classe) */
+  damageClasses?: string[];
+}
+
 export interface SkillReflectByStackRule {
   /** Nome do stackType que deve estar ativo NO PORTADOR (alvo desta skill) E NO ATACANTE
    * para que skills ofensivas do atacante sejam redirecionadas ao ALIADO do atacante.
@@ -188,6 +197,8 @@ export interface Skill {
   stunWhenActiveRules?: SkillStunWhenActiveRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou recebe dano direto */
   counterSuccessDamageRules?: SkillCounterSuccessDamageRule[];
+  /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou fica STUNADO e recebe dano adicional de skills das classes escolhidas */
+  counterSuccessStunRules?: SkillCounterSuccessStunRule[];
   /** Reflexão por Stack: quando o portador desta stack E o atacante inimigo possuírem a stack,
    * as skills ofensivas do atacante usadas no portador são redirecionadas ao ALIADO do atacante
    * (exceto skills marcadas como "não pode ser refletida"). */

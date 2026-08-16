@@ -4281,6 +4281,110 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Counter Success Stun Rules */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-yellow-400 font-mono">
+                              ⛓️ Stun no Contra-Ataque
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Quando o CONTRA-ATAQUE desta skill for efetuado com sucesso (anular uma habilidade ofensiva), o inimigo que atacou fica stunado por X turnos e recebe dano adicional de skills das classes escolhidas.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.counterSuccessStunRules || [];
+                              handleUpdateSkillField('counterSuccessStunRules', [...current, { stunTurns: 1, bonusDamage: 0, damageClasses: [] }]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-yellow-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.counterSuccessStunRules || editingSkill.counterSuccessStunRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhum stun de contra-ataque configurado para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.counterSuccessStunRules.map((rule, rIdx) => {
+                              const ruleClasses = rule.damageClasses || [];
+                              return (
+                                <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                  <span className="text-yellow-400 font-bold">Stun no contra-ataque:</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={99}
+                                    value={rule.stunTurns || 1}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.counterSuccessStunRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], stunTurns: parseInt(e.target.value) || 1 };
+                                      handleUpdateSkillField('counterSuccessStunRules', updated);
+                                    }}
+                                    className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-yellow-500 rounded text-white outline-none text-[10px] text-center"
+                                  />
+                                  <span className="text-[9px] text-slate-400">turno(s) de stun</span>
+                                  <span className="text-yellow-400 font-bold">+ dano:</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={99999}
+                                    value={rule.bonusDamage || 0}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.counterSuccessStunRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], bonusDamage: parseInt(e.target.value) || 0 };
+                                      handleUpdateSkillField('counterSuccessStunRules', updated);
+                                    }}
+                                    className="w-20 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-yellow-500 rounded text-white outline-none text-[10px] text-center"
+                                  />
+                                  <span className="text-[9px] text-slate-400">de dano adicional</span>
+                                  <div className="flex flex-wrap items-center gap-1 w-full pt-1">
+                                    <span className="text-[9px] text-slate-400 uppercase font-bold">⚔️ Classes que dão o dano adicional nele:</span>
+                                    {[
+                                      { key: 'physical', label: 'Físico' },
+                                      { key: 'chakra', label: 'Chakra' },
+                                      { key: 'mental', label: 'Mental' },
+                                      { key: 'affliction', label: 'Aflição' },
+                                    ].map(opt => (
+                                      <label key={opt.key} className={`flex items-center gap-1 px-1.5 py-0.5 rounded cursor-pointer select-none border transition-all ${ruleClasses.includes(opt.key) ? 'bg-yellow-950/60 border-yellow-700/60 text-yellow-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-yellow-800/50'}`}>
+                                        <input
+                                          type="checkbox"
+                                          checked={ruleClasses.includes(opt.key)}
+                                          onChange={() => {
+                                            const updated = [...(editingSkill.counterSuccessStunRules || [])];
+                                            const next = ruleClasses.includes(opt.key) ? ruleClasses.filter(c => c !== opt.key) : [...ruleClasses, opt.key];
+                                            updated[rIdx] = { ...updated[rIdx], damageClasses: next };
+                                            handleUpdateSkillField('counterSuccessStunRules', updated);
+                                          }}
+                                          className="rounded bg-slate-950 border-yellow-800/60 text-yellow-500 focus:ring-0 w-3 h-3"
+                                        />
+                                        <span className="text-[9px] font-mono">{opt.label}</span>
+                                      </label>
+                                    ))}
+                                    <span className="text-[9px] text-slate-500 italic">(nenhuma marcada = dano adicional em qualquer classe)</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = (editingSkill.counterSuccessStunRules || []).filter((_, i) => i !== rIdx);
+                                      handleUpdateSkillField('counterSuccessStunRules', updated.length > 0 ? updated : undefined);
+                                    }}
+                                    className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                    title="Remover"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Reflect by Stack Rules */}
                       <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
                         <div className="flex justify-between items-center">

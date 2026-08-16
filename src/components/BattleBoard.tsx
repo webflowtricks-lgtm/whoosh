@@ -3144,6 +3144,60 @@ const handleTradeChakra = () => {
             }
           }
         }
+        // ⛓️ STUN NO CONTRA-ATAQUE (counterSuccessStunRules): quando o contra-ataque desta skill funciona,
+        // o inimigo que atacou fica stunado por X turnos e recebe dano adicional de skills das classes escolhidas
+        if (!source.isDead && counterEffect.sourceSkillName) {
+          const applierSkill = (defaultTarget.character.skills || []).find(s => s.name === counterEffect.sourceSkillName);
+          const stunRules = (applierSkill?.counterSuccessStunRules || []).filter(r => (r.stunTurns || 0) > 0);
+          if (stunRules.length > 0) {
+            const isImmuneToStun = source.activeEffects?.some(e => e.type === 'ignore_stun');
+            for (const r of stunRules) {
+              const stunDur = Math.max(1, r.stunTurns || 1);
+              const stunClasses = (r.damageClasses || []).map(c => c.toLowerCase()).filter(Boolean);
+              const stunLabel = stunClasses.length === 0 || stunClasses.length >= 4 ? 'Stun Completo' : `Stun (${stunClasses.join(' + ')})`;
+              if (isImmuneToStun) {
+                newLogs.push({
+                  id: Math.random().toString(),
+                  turn,
+                  message: `🛡️ ${defaultTarget.character.name} tentou stunnar ${source.character.name} no contra-ataque, mas ele é IMUNE a stun!`,
+                  type: 'buff',
+                });
+                continue;
+              }
+              pushActiveEffect(source, {
+                name: `${applierSkill?.name || 'Contra-Ataque'} (${stunLabel})`,
+                type: 'stun',
+                duration: stunDur,
+                icon: applierSkill?.icon || defaultTarget.character.portrait,
+                stunType: stunClasses.length === 0 || stunClasses.length >= 4 ? undefined : stunClasses,
+                casterId: defaultTarget.id,
+                casterSide: action.isPlayer ? 'enemy' : 'player',
+                sourceSkillName: applierSkill?.name,
+              });
+              if ((r.bonusDamage || 0) > 0) {
+                pushActiveEffect(source, {
+                  name: `Vulnerabilidade (${applierSkill?.name || 'Contra-Ataque'})`,
+                  type: 'damage_vulnerability',
+                  value: r.bonusDamage || 0,
+                  duration: stunDur,
+                  vulnerabilityTypes: r.damageClasses || [],
+                  icon: applierSkill?.icon || defaultTarget.character.portrait,
+                  casterId: defaultTarget.id,
+                  casterSide: action.isPlayer ? 'enemy' : 'player',
+                  sourceSkillName: applierSkill?.name,
+                });
+              }
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `⛓️ [CONTRA-ATAQUE] ${defaultTarget.character.name} STUNNOU ${source.character.name} por ${stunDur} turno(s) (${stunLabel})${(r.bonusDamage || 0) > 0 ? ` e ele receberá +${r.bonusDamage} de dano de ${stunClasses.length > 0 ? stunClasses.join('/') : 'qualquer'} classe(s)` : ''}!`,
+                type: 'stun',
+              });
+              addFloatingText(source.id, `STUN (${stunLabel})`, 'stun');
+              if (action.isPlayer) matchStatsRef.current.stunsApplied += 1;
+            }
+          }
+        }
         return; // Skill is cancelled due to counter-attack
       }
 
@@ -8069,6 +8123,62 @@ splashOnlyTargets = splashPool.filter(c =>
             if (counterEffect.duration <= 0) {
               target.activeEffects = target.activeEffects.filter(e => e !== counterEffect);
             }
+            // ⛓️ STUN NO CONTRA-ATAQUE (counterSuccessStunRules): quando o contra-ataque desta skill funciona,
+            // o inimigo que atacou fica stunado por X turnos e recebe dano adicional de skills das classes escolhidas
+            if (!source.isDead && counterEffect.sourceSkillName) {
+              const applierSkill = (target.character.skills || []).find(s => s.name === counterEffect.sourceSkillName);
+              const stunRules = (applierSkill?.counterSuccessStunRules || []).filter(r => (r.stunTurns || 0) > 0);
+              if (stunRules.length > 0) {
+                const isImmuneToStun = source.activeEffects?.some(e => e.type === 'ignore_stun');
+                for (const r of stunRules) {
+                  const stunDur = Math.max(1, r.stunTurns || 1);
+                  const stunClasses = (r.damageClasses || []).map(c => c.toLowerCase()).filter(Boolean);
+                  const stunLabel = stunClasses.length === 0 || stunClasses.length >= 4 ? 'Stun Completo' : `Stun (${stunClasses.join(' + ')})`;
+                  if (isImmuneToStun) {
+                    newLogs.push({
+                      id: Math.random().toString(),
+                      turn,
+                      message: `🛡️ ${target.character.name} tentou stunnar ${source.character.name} no contra-ataque, mas ele é IMUNE a stun!`,
+                      type: 'buff',
+                    });
+                    continue;
+                  }
+                  source.activeEffects.push({
+                    name: `${applierSkill?.name || 'Contra-Ataque'} (${stunLabel})`,
+                    type: 'stun',
+                    duration: stunDur,
+                    icon: applierSkill?.icon || target.character.portrait,
+                    stunType: stunClasses.length === 0 || stunClasses.length >= 4 ? undefined : stunClasses,
+                    casterId: target.id,
+                    casterSide: action.isPlayer ? 'enemy' : 'player',
+                    sourceSkillName: applierSkill?.name,
+                    stacks: 1,
+                  });
+                  if ((r.bonusDamage || 0) > 0) {
+                    source.activeEffects.push({
+                      name: `Vulnerabilidade (${applierSkill?.name || 'Contra-Ataque'})`,
+                      type: 'damage_vulnerability',
+                      value: r.bonusDamage || 0,
+                      duration: stunDur,
+                      vulnerabilityTypes: r.damageClasses || [],
+                      icon: applierSkill?.icon || target.character.portrait,
+                      casterId: target.id,
+                      casterSide: action.isPlayer ? 'enemy' : 'player',
+                      sourceSkillName: applierSkill?.name,
+                      stacks: 1,
+                    });
+                  }
+                  newLogs.push({
+                    id: Math.random().toString(),
+                    turn,
+                    message: `⛓️ [CONTRA-ATAQUE] ${target.character.name} STUNNOU ${source.character.name} por ${stunDur} turno(s) (${stunLabel})${(r.bonusDamage || 0) > 0 ? ` e ele receberá +${r.bonusDamage} de dano de ${stunClasses.length > 0 ? stunClasses.join('/') : 'qualquer'} classe(s)` : ''}!`,
+                    type: 'stun',
+                  });
+                  addFloatingText(source.id, `STUN (${stunLabel})`, 'stun');
+                  if (action.isPlayer) matchStatsRef.current.stunsApplied += 1;
+                }
+              }
+            }
             return; // pula toda a skill
           }
         }
@@ -11486,6 +11596,27 @@ if (skill.redirectOffensiveToCaster) {
           label: 'Dano Bônus no Contra-Ataque',
           value: `Quando o CONTRA-ATAQUE desta skill funciona, o inimigo que atacou recebe +${r.damage} de ${tLabel}`,
           color: 'text-cyan-950 font-extrabold',
+          targetLabel: 'Contra-Ataque'
+        });
+      });
+    }
+
+    // Informação de stun no contra-ataque (counterSuccessStunRules)
+    if (skill.counterSuccessStunRules && skill.counterSuccessStunRules.length > 0) {
+      const classLabels: Record<string, string> = {
+        physical: 'Físico',
+        chakra: 'Chakra',
+        mental: 'Mental',
+        affliction: 'Aflição',
+      };
+      skill.counterSuccessStunRules.forEach(r => {
+        if (!(r.stunTurns || 0) || (r.stunTurns || 0) <= 0) return;
+        const cls = (r.damageClasses || []).map(c => classLabels[c.toLowerCase()] || c);
+        const clsLabel = cls.length === 0 ? 'qualquer classe' : cls.join(' + ');
+        effects.push({
+          label: 'Stun no Contra-Ataque',
+          value: `Quando o CONTRA-ATAQUE desta skill funciona, o inimigo que atacou fica STUNADO por ${r.stunTurns} turno(s)${(r.bonusDamage || 0) > 0 ? ` e recebe +${r.bonusDamage} de dano de skills ${clsLabel}` : ''}`,
+          color: 'text-purple-950 font-extrabold',
           targetLabel: 'Contra-Ataque'
         });
       });
