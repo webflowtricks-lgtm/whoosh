@@ -249,6 +249,20 @@ export interface Skill {
   shieldVal?: number;
   shieldDuration?: number;
   shieldMaxVal?: number;
+  /** CONVERSÃO DE DANO EM ESCUDO: enquanto durar, TODO o dano que o alvo receber vira escudo */
+  damageToShieldDuration?: number;
+  /** Duração do escudo gerado pela conversão (99999 = infinito) */
+  damageToShieldShieldTurns?: number;
+  /** Alvo do efeito de conversão de dano em escudo */
+  damageToShieldTarget?: TargetOverride;
+  /** Efeito de conversão de dano em escudo não pode ser removido */
+  damageToShieldIrremovable?: boolean;
+  /** Tipos de dano que serão convertidos em escudo (vazio/undefined = TODOS os tipos) */
+  damageToShieldTypes?: string[];
+  /** Se true, apenas o PRIMEIRO dano recebido durante a duração será convertido em escudo */
+  damageToShieldFirstHitOnly?: boolean;
+  /** Tipos de dano dos quais o alvo fica imune (vazio/undefined = TODO o dano) */
+  damageImmunityTypes?: string[];
   shieldRegenTurns?: number; // Quantos turnos a skill gera shieldVal ADICIONAL de escudo por turno
   damageReductionVal?: number;
   damageReductionDuration?: number;
@@ -604,6 +618,7 @@ export interface ActiveEffect {
   name: string; // name of skill or effect (e.g. "Shadow Clones", "Sand Coffin")
   type:
   'shield'
+  | 'damage_to_shield'
   | 'damage_reduction'
   | 'damage_reduction_pierce'
   | 'damage_buff'
@@ -694,6 +709,16 @@ counterAttackType?: 'attacker' | 'defender';
   costReduceChakraTypes?: ChakraType[];
   /** Tipos de skill afetados pela redução de custo (physical, mental, affliction, chakra, ranged, friendly) */
   costReduceSkillTypes?: string[];
+  /** Duração em turnos do escudo gerado pela conversão de dano em escudo (99999 = infinito) */
+  shieldDurationTurns?: number;
+  /** Tipos de dano cobertos pela conversão em escudo (vazio/undefined = TODOS) */
+  shieldDamageTypes?: string[];
+  /** Se true, apenas o PRIMEIRO dano recebido será convertido em escudo */
+  shieldFirstHitOnly?: boolean;
+  /** Marca se a conversão de 1º dano já foi consumida */
+  conversionConsumed?: boolean;
+  /** Tipos de dano cobertos pela imunidade a dano (vazio/undefined = TODO o dano) */
+  immunityTypes?: string[];
   /** Se true, este debuff (ex: DoT infinito) é removido quando o alvo usa uma skill amigável/passiva */
   removedOnFriendlySkillUse?: boolean;
   /** Se true, esta imunidade a dano é consumida após bloquear o primeiro dano recebido */

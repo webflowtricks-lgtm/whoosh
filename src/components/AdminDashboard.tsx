@@ -37,6 +37,50 @@ const TARGET_OPTIONS = [
   { value: 'SelfAndAllEnemies', label: 'Mim e Todos os Inimigos' },
 ];
 
+const DAMAGE_TYPE_OPTIONS = [
+  { key: 'physical', label: 'Físico' },
+  { key: 'chakra', label: 'Chakra' },
+  { key: 'mental', label: 'Mental' },
+  { key: 'affliction', label: 'Aflição' },
+  { key: 'ranged', label: 'Alcance' },
+  { key: 'friendly', label: 'Amigável' },
+  { key: 'direct_damage', label: 'Perfuração' },
+  { key: 'damage', label: 'Dano Normal' },
+  { key: 'dot', label: 'Queimadura' },
+  { key: 'bleeding', label: 'Sangramento' },
+  { key: 'life_steal', label: 'Roubo de Vida' },
+];
+
+function DamageTypeToggles({ selected, onChange, title, activeClass, checkClass, hoverClass }: {
+  selected: string[];
+  onChange: (next: string[]) => void;
+  title: string;
+  activeClass: string;
+  checkClass: string;
+  hoverClass: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1 w-full pt-1">
+      <span className="text-[9px] text-slate-400 uppercase font-bold">{title}:</span>
+      {DAMAGE_TYPE_OPTIONS.map(opt => (
+        <label key={opt.key} className={`flex items-center gap-1 px-1.5 py-0.5 rounded cursor-pointer select-none border transition-all ${selected.includes(opt.key) ? activeClass : `bg-slate-900 border-slate-800 text-slate-400 ${hoverClass}`}`}>
+          <input
+            type="checkbox"
+            checked={selected.includes(opt.key)}
+            onChange={() => {
+              const next = selected.includes(opt.key) ? selected.filter(c => c !== opt.key) : [...selected, opt.key];
+              onChange(next.length > 0 ? next : undefined);
+            }}
+            className={`rounded bg-slate-950 focus:ring-0 w-3 h-3 ${checkClass}`}
+          />
+          <span className="text-[9px] font-mono">{opt.label}</span>
+        </label>
+      ))}
+      <span className="text-[9px] text-slate-500 italic">(nenhuma marcada = todos os tipos)</span>
+    </div>
+  );
+}
+
 interface AdminDashboardProps {
   onBack: () => void;
   playClickSound: () => void;
@@ -7074,6 +7118,102 @@ const newSkill: Skill = {
                             </div>
                           </div>
 
+                          {/* 15.2 Conversão de Dano em Escudo */}
+                          <div className="space-y-1 bg-emerald-950/20 border border-emerald-800/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400 font-mono">🛡️ Conversão de Dano em Escudo</label>
+                              <p className="text-[9px] text-slate-400 mt-0.5">
+                                Enquanto durar, o dano recebido vira escudo em vez de reduzir a vida (ex.: 10 de aflição + 45 de piercing no turno → +55 de escudo).
+                              </p>
+                              <DamageTypeToggles
+                                title="⚔️ Tipos de dano convertidos"
+                                selected={editingSkill.damageToShieldTypes || []}
+                                onChange={(next) => handleUpdateSkillField('damageToShieldTypes', next)}
+                                activeClass="bg-emerald-950/60 border-emerald-700/60 text-emerald-300"
+                                checkClass="text-emerald-500"
+                                hoverClass="hover:border-emerald-800/50"
+                              />
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={99}
+                                  value={editingSkill.damageToShieldDuration === 99999 ? 0 : (editingSkill.damageToShieldDuration || 0)}
+                                  title={editingSkill.damageToShieldDuration === 99999 ? '♾️ Infinito' : 'Duração da conversão em turnos'}
+                                  onChange={(e) => handleUpdateSkillField('damageToShieldDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-emerald-800/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageToShieldDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('damageToShieldDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-emerald-400 font-mono">♾️ Infinito</span>
+                                </label>
+                                <span className="text-[10px] text-slate-500 font-mono">Duração da conversão</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={99}
+                                  value={editingSkill.damageToShieldShieldTurns === 99999 ? 0 : (editingSkill.damageToShieldShieldTurns || 0)}
+                                  title={editingSkill.damageToShieldShieldTurns === 99999 ? '♾️ Infinito' : 'Duração do escudo gerado em turnos'}
+                                  onChange={(e) => handleUpdateSkillField('damageToShieldShieldTurns', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-emerald-800/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageToShieldShieldTurns === 99999}
+                                    onChange={(e) => handleUpdateSkillField('damageToShieldShieldTurns', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-emerald-400 font-mono">♾️ Infinito</span>
+                                </label>
+                                <span className="text-[10px] text-slate-500 font-mono">Duração do escudo gerado</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-emerald-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.damageToShieldTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('damageToShieldTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-emerald-900/50 rounded text-[10px] font-mono text-emerald-300 focus:border-emerald-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageToShieldIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('damageToShieldIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  🔒 Nunca Remover
+                                </label>
+                                <label className="text-[9px] text-emerald-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.damageToShieldFirstHitOnly || false}
+                                    onChange={(e) => handleUpdateSkillField('damageToShieldFirstHitOnly', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  🎯 Só o 1º Dano: apenas o PRIMEIRO dano recebido vira escudo
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* 16. Invisível para o Oponente */}
                           <div className="space-y-1 bg-slate-950/20 border border-slate-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div>
@@ -7562,6 +7702,14 @@ const newSkill: Skill = {
                                   ))}
                                 </select>
                               </div>
+                              <DamageTypeToggles
+                                title="⚔️ Tipos de dano imunes"
+                                selected={editingSkill.damageImmunityTypes || []}
+                                onChange={(next) => handleUpdateSkillField('damageImmunityTypes', next)}
+                                activeClass="bg-yellow-950/60 border-yellow-700/60 text-yellow-300"
+                                checkClass="text-yellow-500"
+                                hoverClass="hover:border-yellow-800/50"
+                              />
                             </div>
                             <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
                               <div className="flex items-center justify-between gap-2">

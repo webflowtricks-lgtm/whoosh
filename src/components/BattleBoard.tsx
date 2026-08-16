@@ -380,6 +380,33 @@ export function getTargetVulnerabilityBonus(t: CombatCharacter, skill: Skill | n
   return bonus;
 }
 
+// Conversão de dano em escudo: enquanto o efeito damage_to_shield estiver ativo no alvo,
+// TODO o dano que ele receber é convertido em escudo (não reduz a vida).
+// incomingTypes: tipos de dano do ataque (combat classes e/ou tipos específicos como
+// 'direct_damage', 'dot', 'bleeding', 'affliction', 'life_steal'). Se o efeito tiver
+// tipos configurados, só converte os que casarem (vazio = converte TODOS).
+// Retorna true se o dano foi convertido.
+export function convertDamageToShield(t: CombatCharacter, rawDamage: number, currentTurn: number, incomingTypes?: string[]): boolean {
+  if (!t || !t.activeEffects || rawDamage <= 0) return false;
+  const conv = t.activeEffects.find(e => e.type === 'damage_to_shield');
+  if (!conv) return false;
+  const cfgTypes = (conv as any).shieldDamageTypes as string[] | undefined;
+  if (cfgTypes && cfgTypes.length > 0) {
+    if (!incomingTypes || incomingTypes.length === 0) return false;
+    if (!incomingTypes.some(tp => cfgTypes.includes(tp))) return false;
+  }
+  if ((conv as any).shieldFirstHitOnly && (conv as any).conversionConsumed) return false;
+  t.shield = (t.shield || 0) + rawDamage;
+  if ((conv as any).shieldFirstHitOnly) (conv as any).conversionConsumed = true;
+  const st = (conv as any).shieldDurationTurns;
+  if (st && st !== 99999 && st > 0) {
+    t.shieldExpiresTurn = Math.max(t.shieldExpiresTurn || 0, currentTurn + st);
+  } else {
+    t.shieldExpiresTurn = 99999;
+  }
+  return true;
+}
+
 export function getSkillBaseName(eff: ActiveEffect): string {
   if (eff.stackType) return eff.stackType;
   if (eff.sourceSkillName) return eff.sourceSkillName;
@@ -522,6 +549,15 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'shield':
       rawPt = val > 0 ? `Escudo protetor absorvendo ${val} de dano por ${durText}` : `Escudo protetor por ${durText}`;
       break;
+    case 'damage_to_shield': {
+      const st = (effect as any).shieldDurationTurns;
+      const shieldDurText = st && st !== 99999 ? ` por ${st} ${st === 1 ? 'turno' : 'turnos'}` : ' por tempo indeterminado';
+      const d2sTypes = (effect as any).shieldDamageTypes as string[] | undefined;
+      const typeText = d2sTypes && d2sTypes.length > 0 ? ` (tipos: ${d2sTypes.join(', ')})` : ' (todos os tipos)';
+      const firstHitText = (effect as any).shieldFirstHitOnly ? ' — apenas o PRIMEIRO dano recebido' : '';
+      rawPt = `Conversão de Dano em Escudo${typeText}${firstHitText}: o dano recebido vira escudo${shieldDurText} enquanto durar (${durText})`;
+      break;
+    }
     case 'dot':
     case 'damage':
       rawPt = val > 0 ? `Queimadura: Recebe ${val} de dano contínuo por turno por ${durText}` : `Dano contínuo por ${durText}`;
@@ -581,9 +617,12 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'ignore_stun':
       rawPt = `Imune a Stun: Stuns ignorados por ${durText}`;
       break;
-    case 'damage_immunity':
-      rawPt = `Imune a Dano: Todo dano anulado por ${durText}${effect.firstHitOnly ? ' (Só o 1º dano - consumida após bloquear)' : ''}`;
+    case 'damage_immunity': {
+      const immTypes = (effect as any).immunityTypes as string[] | undefined;
+      const immTypeText = immTypes && immTypes.length > 0 ? ` aos tipos (${immTypes.join(', ')})` : ' a Todo dano';
+      rawPt = `Imune a Dano${immTypeText} por ${durText}${effect.firstHitOnly ? ' (Só o 1º dano - consumida após bloquear)' : ''}`;
       break;
+    }
     case 'immortal':
       rawPt = `Imortal: Não pode morrer enquanto este efeito estiver ativo por ${durText}`;
       break;
@@ -2166,16 +2205,32 @@ const handleTradeChakra = () => {
   const [lastResolutionError, setLastResolutionError] = useState<string | null>(null);
   const [lastAIError, setLastAIError] = useState<string | null>(null);
 
-  const hasDamageImmunity = (character: CombatCharacter) =>
-    character?.activeEffects?.some((e: ActiveEffect) => e.type === 'damage_immunity') ?? false;
+  const hasDamageImmunity = (character: CombatCharacter, incomingTypes?: string[]) =>
+    character?.activeEffects?.some((e: ActiveEffect) => {
+      if (e.type !== 'damage_immunity') return false;
+      const cfgTypes = e.immunityTypes as string[] | undefined;
+      if (cfgTypes && cfgTypes.length > 0) {
+        if (!incomingTypes || incomingTypes.length === 0) return false;
+        return incomingTypes.some(tp => cfgTypes.includes(tp));
+      }
+      return true;
+    }) ?? false;
 
   // Tipos de redução de dano: Guard reduz dano normal (não perfuração);
   // damage_reduction_pierce (Imune a Perfuração) reduz dano normal E dano direto/perfuração.
   const NORMAL_DAMAGE_REDUCTION_TYPES = ['damage_reduction', 'damage_reduction_pierce'];
   const PIERCE_DAMAGE_REDUCTION_TYPES = ['damage_reduction_pierce'];
 
-  const consumeFirstHitOnlyImmunity = (character: CombatCharacter): boolean => {
-    const idx = character?.activeEffects?.findIndex((e: ActiveEffect) => e.type === 'damage_immunity' && e.firstHitOnly) ?? -1;
+  const consumeFirstHitOnlyImmunity = (character: CombatCharacter, incomingTypes?: string[]): boolean => {
+    const idx = character?.activeEffects?.findIndex((e: ActiveEffect) => {
+      if (e.type !== 'damage_immunity' || !e.firstHitOnly) return false;
+      const cfgTypes = e.immunityTypes as string[] | undefined;
+      if (cfgTypes && cfgTypes.length > 0) {
+        if (!incomingTypes || incomingTypes.length === 0) return false;
+        return incomingTypes.some(tp => cfgTypes.includes(tp));
+      }
+      return true;
+    }) ?? -1;
     if (idx === -1) return false;
     character.activeEffects.splice(idx, 1);
     return true;
@@ -3123,7 +3178,7 @@ const handleTradeChakra = () => {
           const applierSkill = (defaultTarget.character.skills || []).find(s => s.name === counterEffect.sourceSkillName);
           const bonusRules = (applierSkill?.counterSuccessDamageRules || []).filter(r => (r.damage || 0) > 0);
           if (bonusRules.length > 0) {
-            if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
+            if (checkCombatantInvulnerable(source)) {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
@@ -3143,6 +3198,16 @@ const handleTradeChakra = () => {
               for (const r of bonusRules) {
                 const rDmg = r.damage || 0;
                 const rType = r.damageType || 'direct_damage';
+                if (hasDamageImmunity(source, [rType])) {
+                  const consumedFh = consumeFirstHitOnlyImmunity(source, [rType]);
+                  newLogs.push({
+                    id: Math.random().toString(),
+                    turn,
+                    message: `🛡️ ${defaultTarget.character.name} contra-atacou, mas ${source.character.name} é IMUNE ao dano bônus de ${typeLabels[rType] || 'dano direto'} do contra-ataque!${consumedFh ? ' (Imunidade de 1º dano usada!)' : ''}`,
+                    type: 'buff',
+                  });
+                  continue;
+                }
                 let actualDmg = rDmg;
                 if (rType === 'damage' && (source.shield || 0) > 0) {
                   if (source.shield >= actualDmg) {
@@ -3152,6 +3217,11 @@ const handleTradeChakra = () => {
                     actualDmg -= source.shield;
                     source.shield = 0;
                   }
+                }
+                if (actualDmg > 0 && convertDamageToShield(source, actualDmg, turn, [rType])) {
+                  newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${source.character.name} converteu ${actualDmg} de dano bônus do contra-ataque em escudo!`, type: 'buff' });
+                  addFloatingText(source.id, `+${actualDmg} ESCUDO`, 'shield');
+                  actualDmg = 0;
                 }
                 if (actualDmg > 0) {
                   source.health = source.activeEffects?.some(e => e.type === 'immortal')
@@ -3670,8 +3740,13 @@ const startingHealth = t.health;
             const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter((e: ActiveEffect) => PIERCE_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
-            const netDd = hasDamageImmunity(t) ? 0 : Math.max(0, (dd + getCaptureArrestBonusDamage(t, skill)) - reductionSum);
+            const netDd = hasDamageImmunity(t, ['direct_damage', 'piercing']) ? 0 : Math.max(0, (dd + getCaptureArrestBonusDamage(t, skill)) - reductionSum);
             let remainingDd = netDd;
+            if (remainingDd > 0 && convertDamageToShield(t, remainingDd, turn, ['direct_damage', 'piercing'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${remainingDd} de dano direto de [${skill.name}] em escudo!`, type: 'buff' });
+              addFloatingText(t.id, `+${remainingDd} ESCUDO`, 'shield');
+              remainingDd = 0;
+            }
             if (remainingDd > 0 && (t.shield || 0) > 0) {
               const absorbed = Math.min(t.shield || 0, remainingDd);
               t.shield = (t.shield || 0) - absorbed;
@@ -3715,8 +3790,8 @@ const startingHealth = t.health;
                 type: 'damage',
               });
               addFloatingText(t.id, `-${netDd} HP (DIRETO)`, 'damage');
-            } else if (hasDamageImmunity(t)) {
-              const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
+            } else if (hasDamageImmunity(t, ['direct_damage', 'piercing'])) {
+              const consumedFirstHit = consumeFirstHitOnlyImmunity(t, ['direct_damage', 'piercing']);
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
@@ -3821,8 +3896,8 @@ const startingHealth = t.health;
         newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${totalAfflictionInstant} HP (AFLICAO)${missingHpAffliction > 0 ? ` [HP Perdido: ${missingHpAffliction}]` : ''}`, type: 'damage' });
         addFloatingText(target.id, `-${totalAfflictionInstant} HP (AFLICAO)`, 'damage');
       }
-      if ((totalDotInstant > 0 || totalBleedInstant > 0 || totalAfflictionInstant > 0) && hasDamageImmunity(target)) {
-        consumeFirstHitOnlyImmunity(target);
+      if ((totalDotInstant > 0 || totalBleedInstant > 0 || totalAfflictionInstant > 0) && hasDamageImmunity(target, ['dot', 'bleeding', 'affliction'])) {
+        consumeFirstHitOnlyImmunity(target, ['dot', 'bleeding', 'affliction']);
       }
 
       // Air Bullets combo stun for instant DoT / bleeding / affliction damage
@@ -3930,8 +4005,8 @@ const startingHealth = t.health;
             addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
             return;
           }
-          if (hasDamageImmunity(t)) {
-            consumeFirstHitOnlyImmunity(t);
+          if (hasDamageImmunity(t, ['life_steal'])) {
+            consumeFirstHitOnlyImmunity(t, ['life_steal']);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou o roubo de vida!`, type: 'buff' });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
             return;
@@ -4369,8 +4444,15 @@ const startingHealth = t.health;
               reductionSum = Math.max(0, reductionSum - (skill as any).ignoreDamageReductionVal);
           }
           finalDamage = Math.max(0, finalDamage - reductionSum);
-          if (hasDamageImmunity(t)) finalDamage = 0;
-          if (t.shield > 0) {
+          if (hasDamageImmunity(t, ['damage', ...getSkillCombatTypes(skill)])) finalDamage = 0;
+          let convertedToShield = false;
+          if (finalDamage > 0 && convertDamageToShield(t, finalDamage, turn, ['damage', ...getSkillCombatTypes(skill)])) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
+            addFloatingText(t.id, `+${finalDamage} ESCUDO`, 'shield');
+            convertedToShield = true;
+            finalDamage = 0;
+          }
+          if (!convertedToShield && t.shield > 0) {
             if (t.shield >= finalDamage) {
               t.shield -= finalDamage;
               newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`, type: 'buff' });
@@ -4383,9 +4465,9 @@ const startingHealth = t.health;
               t.shield = 0;
             }
           }
-          if (hasDamageImmunity(t)) {
+          if (hasDamageImmunity(t, ['damage', ...getSkillCombatTypes(skill)])) {
             finalDamage = 0;
-            const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
+            const consumedFirstHit = consumeFirstHitOnlyImmunity(t, ['damage', ...getSkillCombatTypes(skill)]);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`, type: 'buff' });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           }
@@ -4623,7 +4705,14 @@ splashOnlyTargets = splashPool.filter(c =>
           }
           finalDamage = Math.max(0, finalDamage - reductionSum);
 
-          if (t.shield > 0) {
+          let convertedToShield = false;
+          if (finalDamage > 0 && convertDamageToShield(t, finalDamage, turn, ['damage', ...getSkillCombatTypes(skill)])) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
+            addFloatingText(t.id, `+${finalDamage} ESCUDO`, 'shield');
+            convertedToShield = true;
+            finalDamage = 0;
+          }
+          if (!convertedToShield && t.shield > 0) {
             if (t.shield >= finalDamage) {
               t.shield -= finalDamage;
               newLogs.push({
@@ -4711,8 +4800,8 @@ splashOnlyTargets = splashPool.filter(c =>
               const boostVal = boost.value || 0;
               const boostType = boost.damageType || 'damage';
               const typeLabel = typeLabels[boostType] || 'dano';
-              if (hasDamageImmunity(t)) {
-                consumeFirstHitOnlyImmunity(t);
+              if (hasDamageImmunity(t, [boostType])) {
+                consumeFirstHitOnlyImmunity(t, [boostType]);
                 newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou o dano adicional de [${skill.name}].`, type: 'buff' });
                 addFloatingText(t.id, 'IMUNE!', 'invulnerable');
                 return;
@@ -5022,6 +5111,40 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
+      // 4.1 CONVERSÃO DE DANO EM ESCUDO: enquanto durar, TODO o dano que o alvo receber vira escudo
+      if (skill.damageToShieldDuration && skill.damageToShieldDuration > 0) {
+        const conversionTargets = resolveEffectTargets(skill.damageToShieldTarget, target, source, sourceList, targetList, true);
+        conversionTargets.forEach(t => {
+          if (t.isDead) return;
+          const alreadyActive = t.activeEffects.some(e => e.type === 'damage_to_shield' && (e.sourceSkillName || '') === (skill.name || ''));
+          if (alreadyActive) return;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Conversão de Dano em Escudo)`,
+            type: 'damage_to_shield',
+            value: skill.damageToShieldDuration,
+            duration: skill.damageToShieldDuration === 99999 ? 99999 : skill.damageToShieldDuration,
+            shieldDurationTurns: skill.damageToShieldShieldTurns,
+            shieldDamageTypes: skill.damageToShieldTypes,
+            shieldFirstHitOnly: !!skill.damageToShieldFirstHitOnly,
+            icon: skill.icon,
+            irremovable: !!skill.damageToShieldIrremovable,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            sourceSkillName: skill.name,
+          });
+          const shieldDurText = skill.damageToShieldShieldTurns && skill.damageToShieldShieldTurns !== 99999
+            ? ` por ${skill.damageToShieldShieldTurns} ${skill.damageToShieldShieldTurns === 1 ? 'turno' : 'turnos'}`
+            : ' por tempo indeterminado';
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🛡️✨ ${t.character.name} converte TODO o dano recebido em escudo${shieldDurText} por ${skill.damageToShieldDuration === 99999 ? '∞' : skill.damageToShieldDuration + ' turno(s)'} com [${skill.name}]!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, `DANO → ESCUDO${skill.damageToShieldDuration === 99999 ? ' (♾️)' : ` (${skill.damageToShieldDuration}T)`}`, 'shield');
+        });
+      }
+
       // 5. BUFFS & DEBUFFS (damage_reduction, damage_buff, invulnerable, dot, bleeding, affliction, counter, reflect)
       // Helper to push a buff effect
       const applyBuffEffect = (name: string, type: ActiveEffect['type'], duration: number, value: number = 0, isSelfTarget: boolean = true, isDebuffOnTarget: boolean = false) => {
@@ -5262,8 +5385,8 @@ splashOnlyTargets = splashPool.filter(c =>
           const fTickType = fType === 'dot' ? 'dot' as const : fType === 'bleeding' ? 'bleeding' as const : fType === 'affliction' ? 'affliction' as const : fType === 'direct_damage' ? 'direct_damage' as const : 'damage' as const;
 
           // Dano instantâneo (primeiro tick)
-          if (hasDamageImmunity(t)) {
-            const consumedFh = consumeFirstHitOnlyImmunity(t);
+          if (hasDamageImmunity(t, [fTickType])) {
+            const consumedFh = consumeFirstHitOnlyImmunity(t, [fTickType]);
             newLogs.push({
               id: Math.random().toString(), turn,
               message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu o dano próprio de [${skill.name}].${consumedFh ? ' (Imunidade de 1º dano usada!)' : ''}`,
@@ -5272,6 +5395,15 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           } else {
             let instantDmg = fVal;
+            if (instantDmg > 0 && convertDamageToShield(t, instantDmg, turn, [fTickType])) {
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `🛡️✨ ${t.character.name} converteu ${instantDmg} de dano próprio de [${skill.name}] em escudo!`,
+                type: 'buff',
+              });
+              addFloatingText(t.id, `+${instantDmg} ESCUDO`, 'shield');
+              instantDmg = 0;
+            }
             if (fType === 'damage' && t.shield > 0) {
               const absorbed = Math.min(t.shield, instantDmg);
               t.shield -= absorbed;
@@ -5437,7 +5569,10 @@ splashOnlyTargets = splashPool.filter(c =>
           // ele sofre o sangramento).
           if (duration === 1) {
             const startingHealth = t.health;
-            t.health = Math.max(0, t.health - totalBleedingVal);
+            const convertedBleed = convertDamageToShield(t, totalBleedingVal, turn, ['bleeding']);
+            if (!convertedBleed) {
+              t.health = Math.max(0, t.health - totalBleedingVal);
+            }
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
               if (action.isPlayer) {
@@ -5469,13 +5604,23 @@ splashOnlyTargets = splashPool.filter(c =>
               addFloatingText(t.id, 'DERROTADO', 'damage');
             }
 
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🩸 ${t.character.name} sofreu ${totalBleedingVal} de dano INSTANTÂNEO de sangramento de [${skill.name}] (ignora defesa, escudo e invulnerabilidade)!`,
-              type: 'damage',
-            });
-            addFloatingText(t.id, `SANGRAMENTO (-${totalBleedingVal} HP)`, 'damage');
+            if (convertedBleed) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️✨ ${t.character.name} converteu ${totalBleedingVal} de sangramento instantâneo de [${skill.name}] em escudo!`,
+                type: 'buff',
+              });
+              addFloatingText(t.id, `+${totalBleedingVal} ESCUDO (SANGRAMENTO)`, 'shield');
+            } else {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🩸 ${t.character.name} sofreu ${totalBleedingVal} de dano INSTANTÂNEO de sangramento de [${skill.name}] (ignora defesa, escudo e invulnerabilidade)!`,
+                type: 'damage',
+              });
+              addFloatingText(t.id, `SANGRAMENTO (-${totalBleedingVal} HP)`, 'damage');
+            }
             cleanseTargetEffects(t, skill.bleedingRemoveType);
             return;
           }
@@ -5542,8 +5687,8 @@ splashOnlyTargets = splashPool.filter(c =>
           }
 
           // Deduct health immediately upon applying affliction
-          if (hasDamageImmunity(t)) {
-            const consumedAfflHit = consumeFirstHitOnlyImmunity(t);
+          if (hasDamageImmunity(t, ['affliction'])) {
+            const consumedAfflHit = consumeFirstHitOnlyImmunity(t, ['affliction']);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -5553,7 +5698,10 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           } else {
             const startingHealth = t.health;
-            t.health = Math.max(0, t.health - afflInstantDmg);
+            const convertedAffl = convertDamageToShield(t, afflInstantDmg, turn, ['affliction']);
+            if (!convertedAffl) {
+              t.health = Math.max(0, t.health - afflInstantDmg);
+            }
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
               if (action.isPlayer) {
@@ -5585,13 +5733,23 @@ splashOnlyTargets = splashPool.filter(c =>
               addFloatingText(t.id, 'DERROTADO', 'damage');
             }
 
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `💀 ${t.character.name} sofreu ${afflInstantDmg} de dano por aflição de [${skill.name}]!`,
-              type: 'damage',
-            });
-            addFloatingText(t.id, `AFLIÇÃO (-${afflInstantDmg} HP)`, 'damage');
+            if (convertedAffl) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️✨ ${t.character.name} converteu ${afflInstantDmg} de aflição instantânea de [${skill.name}] em escudo!`,
+                type: 'buff',
+              });
+              addFloatingText(t.id, `+${afflInstantDmg} ESCUDO (AFLIÇÃO)`, 'shield');
+            } else {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `💀 ${t.character.name} sofreu ${afflInstantDmg} de dano por aflição de [${skill.name}]!`,
+                type: 'damage',
+              });
+              addFloatingText(t.id, `AFLIÇÃO (-${afflInstantDmg} HP)`, 'damage');
+            }
           }
 
           // If duration > 1, push active effect for remaining turns
@@ -5801,6 +5959,7 @@ splashOnlyTargets = splashPool.filter(c =>
             icon: skill.icon,
             irremovable: !!skill.damageImmunityIrremovable,
             firstHitOnly: !!skill.damageImmunityFirstHitOnly,
+            immunityTypes: skill.damageImmunityTypes,
             cannotBeCountered: !!skill.cannotBeCountered,
             cannotBeReflected: !!skill.cannotBeReflected,
             casterId: source.id,
@@ -6088,7 +6247,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (isOffensive) {
             source.activeEffects = source.activeEffects.filter(e => e !== trapEff);
 
-            if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
+            if (checkCombatantInvulnerable(source) || hasDamageImmunity(source, ['damage'])) {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
@@ -6156,7 +6315,7 @@ splashOnlyTargets = splashPool.filter(c =>
           const dmgVal = eff.value || 0;
           if (dmgVal <= 0 || source.isDead) return;
 
-          if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
+          if (checkCombatantInvulnerable(source) || hasDamageImmunity(source, ['damage'])) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -6265,7 +6424,7 @@ splashOnlyTargets = splashPool.filter(c =>
             const rType = eff.retaliateDamageType || 'damage';
 
             if (rVal > 0 && !source.isDead) {
-              if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
+              if (checkCombatantInvulnerable(source) || hasDamageImmunity(source, [rType])) {
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
@@ -6439,27 +6598,32 @@ splashOnlyTargets = splashPool.filter(c =>
         // Apply active DoTs (e.g. Amaterasu)
         const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
         dotEffects.forEach(dot => {
-          if (isBlockedByInvuln(dot, 'dot') || hasDamageImmunity(c)) {
+          if (isBlockedByInvuln(dot, 'dot') || hasDamageImmunity(c, ['dot'])) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const dotVal = Math.max(0, dot.value || 0);
-            c.health = Math.max(0, c.health - dotVal);
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🔥 ${c.character.name} sofreu ${dotVal} de dano de queima por ${dot.name}.`,
-              type: 'damage',
-            });
-            addFloatingText(c.id, `-${dotVal} HP (QUEIMA)`, 'damage');
+            if (convertDamageToShield(c, dotVal, turn, ['dot'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${dotVal} de dano de queima em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${dotVal} ESCUDO (QUEIMA)`, 'shield');
+            } else {
+              c.health = Math.max(0, c.health - dotVal);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🔥 ${c.character.name} sofreu ${dotVal} de dano de queima por ${dot.name}.`,
+                type: 'damage',
+              });
+              addFloatingText(c.id, `-${dotVal} HP (QUEIMA)`, 'damage');
+            }
           }
         });
 
         // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
         const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
         activeDamageEffects.forEach(dmg => {
-          const isInvulnerable = isBlockedByInvuln(dmg, 'damage') || hasDamageImmunity(c);
+          const isInvulnerable = isBlockedByInvuln(dmg, 'damage') || hasDamageImmunity(c, ['damage']);
           if (isInvulnerable) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({
@@ -6474,14 +6638,19 @@ splashOnlyTargets = splashPool.filter(c =>
             const targetReductions = targetCannotReduce ? [] : c.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
             const netDmg = Math.max(0, (dmg.value || 0) - reductionSum);
-            c.health = Math.max(0, c.health - netDmg);
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `💥 ${c.character.name} sofreu ${netDmg} de dano contínuo por ${dmg.name}.`,
-              type: 'damage',
-            });
-            addFloatingText(c.id, `-${netDmg} HP (DANO)`, 'damage');
+            if (convertDamageToShield(c, netDmg, turn, ['damage'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${netDmg} de dano contínuo de ${dmg.name} em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${netDmg} ESCUDO (DANO)`, 'shield');
+            } else {
+              c.health = Math.max(0, c.health - netDmg);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `💥 ${c.character.name} sofreu ${netDmg} de dano contínuo por ${dmg.name}.`,
+                type: 'damage',
+              });
+              addFloatingText(c.id, `-${netDmg} HP (DANO)`, 'damage');
+            }
           }
         });
 
@@ -6541,8 +6710,8 @@ splashOnlyTargets = splashPool.filter(c =>
           } else if (ddCaster) {
             // Sem regras de dano: mantém o valor armazenado no cast (já inclui o buff aplicado no cast)
           }
-          if (hasDamageImmunity(c)) {
-            consumeFirstHitOnlyImmunity(c);
+          if (hasDamageImmunity(c, ['direct_damage', 'piercing'])) {
+            consumeFirstHitOnlyImmunity(c, ['direct_damage', 'piercing']);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo por ${dd.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -6551,6 +6720,11 @@ splashOnlyTargets = splashPool.filter(c =>
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             const netDd = Math.max(0, (dd.value || 0) - dr);
             let remainingDd = netDd;
+            if (remainingDd > 0 && convertDamageToShield(c, remainingDd, turn, ['direct_damage', 'piercing'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${remainingDd} de dano direto contínuo de ${dd.name} em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${remainingDd} ESCUDO (DIRETO)`, 'shield');
+              remainingDd = 0;
+            }
             if (remainingDd > 0 && (c.shield || 0) > 0) {
               const absorbed = Math.min(c.shield || 0, remainingDd);
               c.shield = (c.shield || 0) - absorbed;
@@ -6575,20 +6749,25 @@ splashOnlyTargets = splashPool.filter(c =>
             bleed.delayTurns = (bleed.delayTurns || 0) - 1;
             return;
           }
-          if (hasDamageImmunity(c)) {
-            consumeFirstHitOnlyImmunity(c);
+          if (hasDamageImmunity(c, ['bleeding'])) {
+            consumeFirstHitOnlyImmunity(c, ['bleeding']);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const bleedVal = Math.max(0, bleed.value || 0);
-            c.health = Math.max(0, c.health - bleedVal);
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🩸 ${c.character.name} sofreu ${bleedVal} de dano por sangramento (${bleed.name}).`,
-              type: 'damage',
-            });
-            addFloatingText(c.id, `-${bleedVal} HP (SANGRAMENTO)`, 'damage');
+            if (convertDamageToShield(c, bleedVal, turn, ['bleeding'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${bleedVal} de dano de sangramento em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${bleedVal} ESCUDO (SANGRAMENTO)`, 'shield');
+            } else {
+              c.health = Math.max(0, c.health - bleedVal);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🩸 ${c.character.name} sofreu ${bleedVal} de dano por sangramento (${bleed.name}).`,
+                type: 'damage',
+              });
+              addFloatingText(c.id, `-${bleedVal} HP (SANGRAMENTO)`, 'damage');
+            }
           }
         });
 
@@ -6599,20 +6778,25 @@ splashOnlyTargets = splashPool.filter(c =>
             aff.delayTurns = (aff.delayTurns || 0) - 1;
             return;
           }
-          if (hasDamageImmunity(c)) {
-            consumeFirstHitOnlyImmunity(c);
+          if (hasDamageImmunity(c, ['affliction'])) {
+            consumeFirstHitOnlyImmunity(c, ['affliction']);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const affVal = Math.max(0, aff.value || 0);
-            c.health = Math.max(0, c.health - affVal);
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `💀 ${c.character.name} sofreu ${affVal} de dano por aflição (${aff.name}).`,
-              type: 'damage',
-            });
-            addFloatingText(c.id, `-${affVal} HP (AFLIÇÃO)`, 'damage');
+            if (convertDamageToShield(c, affVal, turn, ['affliction'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${affVal} de dano de aflição em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${affVal} ESCUDO (AFLIÇÃO)`, 'shield');
+            } else {
+              c.health = Math.max(0, c.health - affVal);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `💀 ${c.character.name} sofreu ${affVal} de dano por aflição (${aff.name}).`,
+                type: 'damage',
+              });
+              addFloatingText(c.id, `-${affVal} HP (AFLIÇÃO)`, 'damage');
+            }
           }
         });
 
@@ -6621,7 +6805,7 @@ splashOnlyTargets = splashPool.filter(c =>
         lifeStealEffects.forEach(ls => {
           const lsCaster = ls.casterId ? [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === ls.casterId) : null;
           if (lsCaster && lsCaster.isDead) return;
-          if (isBlockedByInvuln(ls, 'damage') || hasDamageImmunity(c)) {
+          if (isBlockedByInvuln(ls, 'damage') || hasDamageImmunity(c, ['life_steal'])) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o roubo de vida (${ls.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -6630,6 +6814,11 @@ splashOnlyTargets = splashPool.filter(c =>
             const lsReductions = lsCannotReduce ? [] : c.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const lsReductionSum = lsReductions.reduce((acc, e) => acc + (e.value || 0), 0);
             let netLs = Math.max(0, (ls.value || 0) - lsReductionSum);
+            if (netLs > 0 && convertDamageToShield(c, netLs, turn, ['life_steal'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${netLs} de dano de roubo de vida em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${netLs} ESCUDO (ROUBO)`, 'shield');
+              netLs = 0;
+            }
             if (netLs > 0 && (c.shield || 0) > 0) {
               const absorbed = Math.min(c.shield || 0, netLs);
               c.shield = (c.shield || 0) - absorbed;
@@ -8339,7 +8528,7 @@ splashOnlyTargets = splashPool.filter(c =>
             const rType = eff.retaliateDamageType || 'damage';
 
             if (rVal > 0 && !source.isDead) {
-              if (checkCombatantInvulnerable(source) || hasDamageImmunity(source)) {
+              if (checkCombatantInvulnerable(source) || hasDamageImmunity(source, [rType])) {
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
@@ -8829,9 +9018,14 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             const cannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage');
             const reductionTotal = cannotReduce ? 0
               : t.activeEffects.filter((e: ActiveEffect) => PIERCE_DAMAGE_REDUCTION_TYPES.includes(e.type)).reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
-            const netDdTotal = hasDamageImmunity(t) ? 0 : Math.max(0, (ddTotal + getCaptureArrestBonusDamage(t, skill)) - reductionTotal);
+            const netDdTotal = hasDamageImmunity(t, ['direct_damage', 'piercing']) ? 0 : Math.max(0, (ddTotal + getCaptureArrestBonusDamage(t, skill)) - reductionTotal);
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             let remainingDdTotal = netDdTotal;
+            if (remainingDdTotal > 0 && convertDamageToShield(t, remainingDdTotal, turn, ['direct_damage', 'piercing'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${remainingDdTotal} de dano direto de [${skill.name}] em escudo!`, type: 'buff' });
+              addFloatingText(t.id, `+${remainingDdTotal} ESCUDO`, 'shield');
+              remainingDdTotal = 0;
+            }
             if (remainingDdTotal > 0 && (t.shield || 0) > 0) {
               const absorbed = Math.min(t.shield || 0, remainingDdTotal);
               t.shield = (t.shield || 0) - absorbed;
@@ -8860,8 +9054,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                 type: 'damage',
               });
               addFloatingText(t.id, `-${netDdTotal} HP (DIRETO)`, 'damage');
-            } else if (hasDamageImmunity(t)) {
-              const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
+            } else if (hasDamageImmunity(t, ['direct_damage', 'piercing'])) {
+              const consumedFirstHit = consumeFirstHitOnlyImmunity(t, ['direct_damage', 'piercing']);
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
@@ -8921,8 +9115,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${totalAfflictionInstant2} HP (AFLICAO)${missAffl2 > 0 ? ` [HP Perdido: ${missAffl2}]` : ''}`, type: 'damage' });
         addFloatingText(target.id, `-${totalAfflictionInstant2} HP (AFLICAO)`, 'damage');
       }
-      if ((totalDotInstant2 > 0 || totalBleedInstant2 > 0 || totalAfflictionInstant2 > 0) && hasDamageImmunity(target)) {
-        consumeFirstHitOnlyImmunity(target);
+      if ((totalDotInstant2 > 0 || totalBleedInstant2 > 0 || totalAfflictionInstant2 > 0) && hasDamageImmunity(target, ['dot', 'bleeding', 'affliction'])) {
+        consumeFirstHitOnlyImmunity(target, ['dot', 'bleeding', 'affliction']);
       }
 
       // 0.3 DRENO / GANHO DE CHAKRA
@@ -9066,8 +9260,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
             return;
           }
-          if (hasDamageImmunity(t)) {
-            consumeFirstHitOnlyImmunity(t);
+          if (hasDamageImmunity(t, ['life_steal'])) {
+            consumeFirstHitOnlyImmunity(t, ['life_steal']);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou o roubo de vida!`, type: 'buff' });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
             return;
@@ -9267,8 +9461,15 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               reductionSum = Math.max(0, reductionSum - (skill as any).ignoreDamageReductionVal);
           }
           finalDamage = Math.max(0, finalDamage - reductionSum);
-          if (hasDamageImmunity(t)) finalDamage = 0;
-          if (t.shield > 0) {
+          if (hasDamageImmunity(t, ['damage', ...getSkillCombatTypes(skill)])) finalDamage = 0;
+          let convertedToShield = false;
+          if (finalDamage > 0 && convertDamageToShield(t, finalDamage, turn, ['damage', ...getSkillCombatTypes(skill)])) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
+            addFloatingText(t.id, `+${finalDamage} ESCUDO`, 'shield');
+            convertedToShield = true;
+            finalDamage = 0;
+          }
+          if (!convertedToShield && t.shield > 0) {
             if (t.shield >= finalDamage) {
               t.shield -= finalDamage;
               newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`, type: 'buff' });
@@ -9281,9 +9482,9 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               t.shield = 0;
             }
           }
-          if (hasDamageImmunity(t)) {
+          if (hasDamageImmunity(t, ['damage', ...getSkillCombatTypes(skill)])) {
             finalDamage = 0;
-            const consumedFirstHit = consumeFirstHitOnlyImmunity(t);
+            const consumedFirstHit = consumeFirstHitOnlyImmunity(t, ['damage', ...getSkillCombatTypes(skill)]);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`, type: 'buff' });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           }
@@ -9503,7 +9704,14 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           finalDamage = Math.max(0, finalDamage - reductionSum);
 
           // Apply to shields first
-          if (t.shield > 0) {
+          let convertedToShield = false;
+          if (finalDamage > 0 && convertDamageToShield(t, finalDamage, turn, ['damage', ...getSkillCombatTypes(skill)])) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
+            addFloatingText(t.id, `+${finalDamage} ESCUDO`, 'shield');
+            convertedToShield = true;
+            finalDamage = 0;
+          }
+          if (!convertedToShield && t.shield > 0) {
             if (t.shield >= finalDamage) {
               t.shield -= finalDamage;
               newLogs.push({
@@ -9849,6 +10057,40 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         });
       }
 
+      // 4.1b CONVERSÃO DE DANO EM ESCUDO (espelho do caminho morto)
+      if (skill.damageToShieldDuration && skill.damageToShieldDuration > 0) {
+        const conversionTargets = resolveEffectTargets(skill.damageToShieldTarget, target, source, sourceList, targetList, true);
+        conversionTargets.forEach(t => {
+          if (t.isDead) return;
+          const alreadyActive = t.activeEffects.some(e => e.type === 'damage_to_shield' && (e.sourceSkillName || '') === (skill.name || ''));
+          if (alreadyActive) return;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Conversão de Dano em Escudo)`,
+            type: 'damage_to_shield',
+            value: skill.damageToShieldDuration,
+            duration: skill.damageToShieldDuration === 99999 ? 99999 : skill.damageToShieldDuration,
+            shieldDurationTurns: skill.damageToShieldShieldTurns,
+            shieldDamageTypes: skill.damageToShieldTypes,
+            shieldFirstHitOnly: !!skill.damageToShieldFirstHitOnly,
+            icon: skill.icon,
+            irremovable: !!skill.damageToShieldIrremovable,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            sourceSkillName: skill.name,
+          });
+          const shieldDurText = skill.damageToShieldShieldTurns && skill.damageToShieldShieldTurns !== 99999
+            ? ` por ${skill.damageToShieldShieldTurns} ${skill.damageToShieldShieldTurns === 1 ? 'turno' : 'turnos'}`
+            : ' por tempo indeterminado';
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🛡️✨ ${t.character.name} converte TODO o dano recebido em escudo${shieldDurText} por ${skill.damageToShieldDuration === 99999 ? '∞' : skill.damageToShieldDuration + ' turno(s)'} com [${skill.name}]!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, `DANO → ESCUDO${skill.damageToShieldDuration === 99999 ? ' (♾️)' : ` (${skill.damageToShieldDuration}T)`}`, 'shield');
+        });
+      }
+
       // 4.2b APPLY COUNTER ATTACK
       if (skill.counterAttack) {
         const cTargets = resolveEffectTargets(skill.counterAttackTarget, target, source, sourceList, targetList, true);
@@ -10162,8 +10404,8 @@ if (skill.redirectOffensiveToCaster) {
           const fTickType = fType === 'dot' ? 'dot' as const : fType === 'bleeding' ? 'bleeding' as const : fType === 'affliction' ? 'affliction' as const : fType === 'direct_damage' ? 'direct_damage' as const : 'damage' as const;
 
           // Dano instantâneo (primeiro tick)
-          if (hasDamageImmunity(t)) {
-            const consumedFh = consumeFirstHitOnlyImmunity(t);
+          if (hasDamageImmunity(t, [fTickType])) {
+            const consumedFh = consumeFirstHitOnlyImmunity(t, [fTickType]);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -10173,6 +10415,16 @@ if (skill.redirectOffensiveToCaster) {
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           } else {
             let instantDmg = fVal;
+            if (instantDmg > 0 && convertDamageToShield(t, instantDmg, turn, [fTickType])) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️✨ ${t.character.name} converteu ${instantDmg} de dano próprio de [${skill.name}] em escudo!`,
+                type: 'buff',
+              });
+              addFloatingText(t.id, `+${instantDmg} ESCUDO`, 'shield');
+              instantDmg = 0;
+            }
             if (fType === 'damage' && t.shield > 0) {
               const absorbed = Math.min(t.shield, instantDmg);
               t.shield -= absorbed;
@@ -10346,8 +10598,8 @@ if (skill.redirectOffensiveToCaster) {
           }
 
           // Deduct health immediately upon applying affliction
-          if (hasDamageImmunity(t)) {
-            const consumedAfflHit = consumeFirstHitOnlyImmunity(t);
+          if (hasDamageImmunity(t, ['affliction'])) {
+            const consumedAfflHit = consumeFirstHitOnlyImmunity(t, ['affliction']);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -10357,7 +10609,10 @@ if (skill.redirectOffensiveToCaster) {
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           } else {
             const startingHealth = t.health;
-            t.health = Math.max(0, t.health - afflCastDmg2);
+            const convertedAfflDead = convertDamageToShield(t, afflCastDmg2, turn, ['affliction']);
+            if (!convertedAfflDead) {
+              t.health = Math.max(0, t.health - afflCastDmg2);
+            }
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
               if (action.isPlayer) {
@@ -10389,13 +10644,23 @@ if (skill.redirectOffensiveToCaster) {
               addFloatingText(t.id, 'DERROTADO', 'damage');
             }
 
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `💜 ${t.character.name} sofreu ${totalAfflictionVal2} de dano por aflição de [${skill.name}]!`,
-              type: 'damage',
-            });
-            addFloatingText(t.id, `AFLIÇÃO (-${totalAfflictionVal2} HP)`, 'damage');
+            if (convertedAfflDead) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️✨ ${t.character.name} converteu ${afflCastDmg2} de aflição instantânea de [${skill.name}] em escudo!`,
+                type: 'buff',
+              });
+              addFloatingText(t.id, `+${afflCastDmg2} ESCUDO (AFLIÇÃO)`, 'shield');
+            } else {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `💜 ${t.character.name} sofreu ${totalAfflictionVal2} de dano por aflição de [${skill.name}]!`,
+                type: 'damage',
+              });
+              addFloatingText(t.id, `AFLIÇÃO (-${totalAfflictionVal2} HP)`, 'damage');
+            }
           }
 
           // If duration > 1, push active effect for remaining turns
@@ -10593,6 +10858,8 @@ if (skill.redirectOffensiveToCaster) {
             duration,
             icon: skill.icon,
             irremovable: !!skill.damageImmunityIrremovable,
+            firstHitOnly: !!skill.damageImmunityFirstHitOnly,
+            immunityTypes: skill.damageImmunityTypes,
             cannotBeCountered: !!skill.cannotBeCountered,
             cannotBeReflected: !!skill.cannotBeReflected,
             casterId: source.id,
@@ -10754,26 +11021,32 @@ if (skill.redirectOffensiveToCaster) {
         // Apply active DoTs (e.g. Amaterasu)
         const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
         dotEffects.forEach(dot => {
-          if (isBlockedByInvuln(dot, 'dot') || hasDamageImmunity(c)) {
+          if (isBlockedByInvuln(dot, 'dot') || hasDamageImmunity(c, ['dot'])) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
-            c.health = Math.max(0, c.health - (dot.value || 0));
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🔥 ${c.character.name} sofreu ${(dot.value || 0)} de dano de queima por ${dot.name}.`,
-              type: 'damage',
-            });
-            addFloatingText(c.id, `-${(dot.value || 0)} HP (QUEIMA)`, 'damage');
+            const dotValDead = Math.max(0, dot.value || 0);
+            if (convertDamageToShield(c, dotValDead, turn, ['dot'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${dotValDead} de dano de queima em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${dotValDead} ESCUDO (QUEIMA)`, 'shield');
+            } else {
+              c.health = Math.max(0, c.health - dotValDead);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🔥 ${c.character.name} sofreu ${dotValDead} de dano de queima por ${dot.name}.`,
+                type: 'damage',
+              });
+              addFloatingText(c.id, `-${dotValDead} HP (QUEIMA)`, 'damage');
+            }
           }
         });
 
         // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
         const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
         activeDamageEffects.forEach(dmg => {
-          const isInvulnerable = isBlockedByInvuln(dmg, 'damage') || hasDamageImmunity(c);
+          const isInvulnerable = isBlockedByInvuln(dmg, 'damage') || hasDamageImmunity(c, ['damage']);
           if (isInvulnerable) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({
@@ -10784,22 +11057,28 @@ if (skill.redirectOffensiveToCaster) {
             });
             addFloatingText(c.id, 'INVULNERÁVEL', 'invulnerable');
           } else {
-            c.health = Math.max(0, c.health - (dmg.value || 0));
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `💥 ${c.character.name} sofreu ${(dmg.value || 0)} de dano contínuo de ${dmg.name}.`,
-              type: 'damage',
-            });
-            addFloatingText(c.id, `-${(dmg.value || 0)} HP (DANO)`, 'damage');
+            const dmgValDead = Math.max(0, dmg.value || 0);
+            if (convertDamageToShield(c, dmgValDead, turn, ['damage'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${dmgValDead} de dano contínuo de ${dmg.name} em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${dmgValDead} ESCUDO (DANO)`, 'shield');
+            } else {
+              c.health = Math.max(0, c.health - dmgValDead);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `💥 ${c.character.name} sofreu ${dmgValDead} de dano contínuo de ${dmg.name}.`,
+                type: 'damage',
+              });
+              addFloatingText(c.id, `-${dmgValDead} HP (DANO)`, 'damage');
+            }
           }
         });
 
         // Apply dynamic Direct Damage over time (direct_damage)
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
-          if (hasDamageImmunity(c)) {
-            consumeFirstHitOnlyImmunity(c);
+          if (hasDamageImmunity(c, ['direct_damage', 'piercing'])) {
+            consumeFirstHitOnlyImmunity(c, ['direct_damage', 'piercing']);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo de ${dd.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
@@ -10808,6 +11087,11 @@ if (skill.redirectOffensiveToCaster) {
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             const netDd = Math.max(0, (dd.value || 0) - dr);
             let remainingDd = netDd;
+            if (remainingDd > 0 && convertDamageToShield(c, remainingDd, turn, ['direct_damage', 'piercing'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${remainingDd} de dano direto contínuo de ${dd.name} em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${remainingDd} ESCUDO (DIRETO)`, 'shield');
+              remainingDd = 0;
+            }
             if (remainingDd > 0 && (c.shield || 0) > 0) {
               const absorbed = Math.min(c.shield || 0, remainingDd);
               c.shield = (c.shield || 0) - absorbed;
@@ -10868,19 +11152,25 @@ if (skill.redirectOffensiveToCaster) {
             bleed.delayTurns = (bleed.delayTurns || 0) - 1;
             return;
           }
-          if (hasDamageImmunity(c)) {
-            consumeFirstHitOnlyImmunity(c);
+          if (hasDamageImmunity(c, ['bleeding'])) {
+            consumeFirstHitOnlyImmunity(c, ['bleeding']);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o Sangramento (${bleed.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
-            c.health = Math.max(0, c.health - (bleed.value || 0));
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🩸 ${c.character.name} sofreu ${(bleed.value || 0)} de dano por Sangramento (${bleed.name}).`,
-              type: 'damage',
-            });
-            addFloatingText(c.id, `-${(bleed.value || 0)} HP (SANGRAMENTO)`, 'damage');
+            const bleedValDead = Math.max(0, bleed.value || 0);
+            if (convertDamageToShield(c, bleedValDead, turn, ['bleeding'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${bleedValDead} de dano de Sangramento em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${bleedValDead} ESCUDO (SANGRAMENTO)`, 'shield');
+            } else {
+              c.health = Math.max(0, c.health - bleedValDead);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🩸 ${c.character.name} sofreu ${bleedValDead} de dano por Sangramento (${bleed.name}).`,
+                type: 'damage',
+              });
+              addFloatingText(c.id, `-${bleedValDead} HP (SANGRAMENTO)`, 'damage');
+            }
           }
         });
 
@@ -10891,19 +11181,25 @@ if (skill.redirectOffensiveToCaster) {
             aff.delayTurns = (aff.delayTurns || 0) - 1;
             return;
           }
-          if (hasDamageImmunity(c)) {
-            consumeFirstHitOnlyImmunity(c);
+          if (hasDamageImmunity(c, ['affliction'])) {
+            consumeFirstHitOnlyImmunity(c, ['affliction']);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a Aflição (${aff.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
-            c.health = Math.max(0, c.health - (aff.value || 0));
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `💜 ${c.character.name} sofreu ${(aff.value || 0)} de dano por Aflição (${aff.name}).`,
-              type: 'damage',
-            });
-            addFloatingText(c.id, `-${(aff.value || 0)} HP (AFLIÇÃO)`, 'damage');
+            const affValDead = Math.max(0, aff.value || 0);
+            if (convertDamageToShield(c, affValDead, turn, ['affliction'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${affValDead} de dano de Aflição em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${affValDead} ESCUDO (AFLIÇÃO)`, 'shield');
+            } else {
+              c.health = Math.max(0, c.health - affValDead);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `💜 ${c.character.name} sofreu ${affValDead} de dano por Aflição (${aff.name}).`,
+                type: 'damage',
+              });
+              addFloatingText(c.id, `-${affValDead} HP (AFLIÇÃO)`, 'damage');
+            }
           }
         });
 
@@ -10912,7 +11208,7 @@ if (skill.redirectOffensiveToCaster) {
         lifeStealEffects.forEach(ls => {
           const lsCaster = ls.casterId ? [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === ls.casterId) : null;
           if (lsCaster && lsCaster.isDead) return;
-          if (isBlockedByInvuln(ls, 'damage') || hasDamageImmunity(c)) {
+          if (isBlockedByInvuln(ls, 'damage') || hasDamageImmunity(c, ['life_steal'])) {
             consumeFirstHitOnlyImmunity(c);
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o roubo de vida (${ls.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -10921,6 +11217,11 @@ if (skill.redirectOffensiveToCaster) {
             const lsReductions = lsCannotReduce ? [] : c.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const lsReductionSum = lsReductions.reduce((acc, e) => acc + (e.value || 0), 0);
             let netLs = Math.max(0, (ls.value || 0) - lsReductionSum);
+            if (netLs > 0 && convertDamageToShield(c, netLs, turn, ['life_steal'])) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${netLs} de dano de roubo de vida em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${netLs} ESCUDO (ROUBO)`, 'shield');
+              netLs = 0;
+            }
             if (netLs > 0 && (c.shield || 0) > 0) {
               const absorbed = Math.min(c.shield || 0, netLs);
               c.shield = (c.shield || 0) - absorbed;
@@ -11487,6 +11788,33 @@ if (skill.redirectOffensiveToCaster) {
         value: `Cada skill usada pelo alvo ganha +${skill.cooldownIncreaseAmount} de cooldown por ${skill.cooldownIncreaseDuration} ${skill.cooldownIncreaseDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-orange-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cooldownIncreaseTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.damageToShieldDuration && skill.damageToShieldDuration > 0) {
+      const d2sShieldText = skill.damageToShieldShieldTurns && skill.damageToShieldShieldTurns !== 99999
+        ? ` por ${skill.damageToShieldShieldTurns} ${skill.damageToShieldShieldTurns === 1 ? 'Turno' : 'Turnos'}`
+        : ' por tempo indeterminado';
+      const d2sTypesText = skill.damageToShieldTypes && skill.damageToShieldTypes.length > 0
+        ? skill.damageToShieldTypes.join(', ')
+        : 'Todos os tipos';
+      const d2sFirstHitText = skill.damageToShieldFirstHitOnly ? ' (só o 1º dano)' : '';
+      effects.push({
+        label: 'Conversão de Dano em Escudo',
+        value: `O dano recebido (${d2sTypesText})${d2sFirstHitText} vira escudo${d2sShieldText} durante ${skill.damageToShieldDuration === 99999 ? '∞' : skill.damageToShieldDuration + ' Turnos'}`,
+        color: 'text-emerald-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.damageToShieldTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.damageImmunityDuration && skill.damageImmunityDuration > 0) {
+      const immTypesText = skill.damageImmunityTypes && skill.damageImmunityTypes.length > 0
+        ? skill.damageImmunityTypes.join(', ')
+        : 'Todos os tipos';
+      const immFirstHitText = skill.damageImmunityFirstHitOnly ? ' (só o 1º dano)' : '';
+      effects.push({
+        label: 'Imunidade a Dano',
+        value: `Imune ao dano (${immTypesText})${immFirstHitText} por ${skill.damageImmunityDuration === 99999 ? '∞' : skill.damageImmunityDuration + ' Turnos'}`,
+        color: 'text-sky-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.damageImmunityTarget, 'Alvo Principal')
       });
     }
     if (skill.cannotReduceDamageDuration && skill.cannotReduceDamageDuration > 0) {
