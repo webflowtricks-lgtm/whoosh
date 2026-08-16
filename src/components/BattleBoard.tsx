@@ -344,7 +344,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
   if (!eff) return false;
   const debuffTypes = [
     'stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown',
-    'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase', 'life_steal'
+    'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase', 'life_steal', 'cooldown_increase'
   ];
   if (debuffTypes.includes(eff.type)) return true;
   const lowerName = (eff.name || '').toLowerCase();
@@ -562,6 +562,9 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       break;
     case 'paralyze_cooldown':
       rawPt = `Recargas de habilidades paralisadas por ${durText}`;
+      break;
+    case 'cooldown_increase':
+      rawPt = `Recarga Aumentada: cada habilidade que este personagem usar ganha +${effect.value || 1} de cooldown por ${durText}`;
       break;
     case 'invisible':
       rawPt = `Efeito Invisível [${effect.sourceSkillName || effect.name}] (Invisível para o oponente) por ${durText}`;
@@ -2859,6 +2862,24 @@ const handleTradeChakra = () => {
       const effectiveCd = getEffectiveCooldown(skill, source, allCombatants);
       skill.currentCooldown = effectiveCd;
 
+      // Recarga Aumentada (cooldown_increase): enquanto o debuff estiver ativo em quem usa a skill,
+      // cada habilidade usada ganha +X de cooldown (ex.: skill de 1 cooldown vira 2)
+      if (skill.currentCooldown > 0 && source.activeEffects) {
+        const cdBoost = source.activeEffects
+          .filter(e => e.type === 'cooldown_increase')
+          .reduce((sum, e) => sum + (e.value || 0), 0);
+        if (cdBoost > 0) {
+          skill.currentCooldown += cdBoost;
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⏱️ ${source.character.name} usou [${skill.name}], mas seu cooldown foi AUMENTADO em +${cdBoost} (agora ${skill.currentCooldown}) pela maldição de recarga!`,
+            type: 'stun',
+          });
+          addFloatingText(source.id, `CD +${cdBoost}`, 'stun');
+        }
+      }
+
       // Stun check
       if (isSkillBlockedByStun(skill, source.activeEffects)) {
         newLogs.push({
@@ -3470,7 +3491,7 @@ let directDamage = skill.directDamage || 0;
           t.activeEffects = t.activeEffects.filter(e => e.irremovable || ['shield', 'damage_buff', 'damage_reduction', 'damage_reduction_pierce', 'invulnerable', 'counter', 'counter_attack', 'reflect'].includes(e.type));
           addFloatingText(t.id, 'DEBUFFS REMOVIDOS', 'heal');
         } else if (removeType === 'buff') {
-          t.activeEffects = t.activeEffects.filter(e => e.irremovable || ['stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'paralyze_cooldown'].includes(e.type));
+          t.activeEffects = t.activeEffects.filter(e => e.irremovable || ['stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'paralyze_cooldown', 'cooldown_increase'].includes(e.type));
           addFloatingText(t.id, 'BUFFS REMOVIDOS', 'damage');
         }
       };
@@ -3484,7 +3505,7 @@ let directDamage = skill.directDamage || 0;
           if (eff.irremovable) return true;
 
           if (isAllDebuffs) {
-            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'chakra_cost_increase'].includes(eff.type);
+            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'cooldown_increase', 'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'chakra_cost_increase'].includes(eff.type);
             return !isDebuff;
           }
 
@@ -3493,6 +3514,7 @@ let directDamage = skill.directDamage || 0;
           if (debuffTypes.includes('bleeding') && eff.type === 'bleeding') return false;
           if (debuffTypes.includes('stun') && eff.type === 'stun') return false;
           if (debuffTypes.includes('paralyze_cooldown') && eff.type === 'paralyze_cooldown') return false;
+          if (debuffTypes.includes('cooldown_increase') && eff.type === 'cooldown_increase') return false;
           if (debuffTypes.includes('damage_debuff') && eff.type === 'damage_debuff') return false;
           if (debuffTypes.includes('damage_vulnerability') && eff.type === 'damage_vulnerability') return false;
           if (debuffTypes.includes('cannot_reduce_damage') && eff.type === 'cannot_reduce_damage') return false;
@@ -3512,6 +3534,7 @@ let directDamage = skill.directDamage || 0;
             if (d === 'bleeding') return 'Sangramento';
             if (d === 'stun') return 'Atordoamento';
             if (d === 'paralyze_cooldown') return 'Paralisar Cooldown';
+            if (d === 'cooldown_increase') return 'Aumento de Cooldown';
             if (d === 'damage_debuff') return 'Redução de Dano';
             if (d === 'damage_vulnerability') return 'Vulnerabilidade';
             if (d === 'cannot_reduce_damage') return 'Incapaz de Reduzir Dano';
@@ -4098,6 +4121,35 @@ const startingHealth = t.health;
           });
           addFloatingText(t.id, 'COOLDOWNS PARALISADOS', 'stun');
           cleanseTargetEffects(t, skill.paralyzeCooldownRemoveType);
+        });
+      }
+
+      // AUMENTAR COOLDOWN DAS SKILLS DO ALVO (DEBUFF): enquanto durar, cada skill que o alvo usar ganha +X de cooldown
+      if (skill.cooldownIncreaseDuration && skill.cooldownIncreaseDuration > 0 && (skill.cooldownIncreaseAmount || 0) > 0) {
+        const cdIncTargets = resolveEffectTargets(skill.cooldownIncreaseTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        cdIncTargets.forEach(t => {
+          if (t.isDead) return;
+          const cdDur = skill.cooldownIncreaseDuration || 1;
+          const cdAmt = Math.max(1, skill.cooldownIncreaseAmount || 1);
+          pushActiveEffect(t, {
+            name: `${skill.name} (Recarga Aumentada)`,
+            type: 'cooldown_increase',
+            duration: cdDur,
+            value: cdAmt,
+            icon: skill.icon,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            sourceSkillName: skill.name,
+            irremovable: !!skill.cooldownIncreaseIrremovable,
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⏱️ ${t.character.name} recebeu RECARGA AUMENTADA (+${cdAmt} de cooldown por habilidade usada) por [${skill.name}] por ${cdDur} ${cdDur === 1 ? 'turno' : 'turnos'}!`,
+            type: 'system',
+          });
+          addFloatingText(t.id, `CD +${cdAmt}`, 'stun');
+          cleanseTargetEffects(t, skill.cooldownIncreaseRemoveType);
         });
       }
 
@@ -7992,6 +8044,24 @@ splashOnlyTargets = splashPool.filter(c =>
       // Lock cooldown
       skill.currentCooldown = skill.cooldown;
 
+      // Recarga Aumentada (cooldown_increase): enquanto o debuff estiver ativo em quem usa a skill,
+      // cada habilidade usada ganha +X de cooldown (ex.: skill de 1 cooldown vira 2)
+      if (skill.currentCooldown > 0 && source.activeEffects) {
+        const cdBoost = source.activeEffects
+          .filter(e => e.type === 'cooldown_increase')
+          .reduce((sum, e) => sum + (e.value || 0), 0);
+        if (cdBoost > 0) {
+          skill.currentCooldown += cdBoost;
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⏱️ ${source.character.name} usou [${skill.name}], mas seu cooldown foi AUMENTADO em +${cdBoost} (agora ${skill.currentCooldown}) pela maldição de recarga!`,
+            type: 'stun',
+          });
+          addFloatingText(source.id, `CD +${cdBoost}`, 'stun');
+        }
+      }
+
       // 1. CHECK OUTGOING NEGATE (counter_attack debuff on source/attacker)
       const isOffensive = (skill.damage && skill.damage > 0) ||
                           (skill.directDamage && skill.directDamage > 0) ||
@@ -8529,7 +8599,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (eff.irremovable) return true;
 
           if (isAllDebuffs) {
-            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'chakra_cost_increase'].includes(eff.type);
+            const isDebuff = ['stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown', 'cooldown_increase', 'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'chakra_cost_increase'].includes(eff.type);
             return !isDebuff;
           }
 
@@ -8538,6 +8608,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (debuffTypes.includes('bleeding') && eff.type === 'bleeding') return false;
           if (debuffTypes.includes('stun') && eff.type === 'stun') return false;
           if (debuffTypes.includes('paralyze_cooldown') && eff.type === 'paralyze_cooldown') return false;
+          if (debuffTypes.includes('cooldown_increase') && eff.type === 'cooldown_increase') return false;
           if (debuffTypes.includes('damage_debuff') && eff.type === 'damage_debuff') return false;
           if (debuffTypes.includes('damage_vulnerability') && eff.type === 'damage_vulnerability') return false;
           if (debuffTypes.includes('cannot_reduce_damage') && eff.type === 'cannot_reduce_damage') return false;
@@ -8557,6 +8628,7 @@ splashOnlyTargets = splashPool.filter(c =>
             if (d === 'bleeding') return 'Sangramento';
             if (d === 'stun') return 'Atordoamento';
             if (d === 'paralyze_cooldown') return 'Paralisar Cooldown';
+            if (d === 'cooldown_increase') return 'Aumento de Cooldown';
             if (d === 'damage_debuff') return 'Redução de Dano';
             if (d === 'damage_vulnerability') return 'Vulnerabilidade';
             if (d === 'cannot_reduce_damage') return 'Incapaz de Reduzir Dano';
@@ -10367,6 +10439,35 @@ if (skill.redirectOffensiveToCaster) {
         });
       }
 
+      // AUMENTAR COOLDOWN DAS SKILLS DO ALVO (DEBUFF): enquanto durar, cada skill que o alvo usar ganha +X de cooldown
+      if (skill.cooldownIncreaseDuration && skill.cooldownIncreaseDuration > 0 && (skill.cooldownIncreaseAmount || 0) > 0) {
+        const cdIncTargets = resolveEffectTargets(skill.cooldownIncreaseTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        cdIncTargets.forEach(t => {
+          if (t.isDead) return;
+          const cdDur = skill.cooldownIncreaseDuration || 1;
+          const cdAmt = Math.max(1, skill.cooldownIncreaseAmount || 1);
+          pushActiveEffect(t, {
+            name: `${skill.name} (Recarga Aumentada)`,
+            type: 'cooldown_increase',
+            duration: cdDur,
+            value: cdAmt,
+            icon: skill.icon,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            sourceSkillName: skill.name,
+            irremovable: !!skill.cooldownIncreaseIrremovable,
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⏱️ ${t.character.name} recebeu RECARGA AUMENTADA (+${cdAmt} de cooldown por habilidade usada) por [${skill.name}] por ${cdDur} ${cdDur === 1 ? 'turno' : 'turnos'}!`,
+            type: 'system',
+          });
+          addFloatingText(t.id, `CD +${cdAmt}`, 'stun');
+          cleanseTargetEffects(t, skill.cooldownIncreaseRemoveType);
+        });
+      }
+
       // 4.9 APPLY CANNOT REDUCE DAMAGE (INCAPAZ DE REDUZIR DANO)
       if (skill.cannotReduceDamageDuration && skill.cannotReduceDamageDuration > 0) {
         const cannotReduceTargets = resolveEffectTargets(skill.cannotReduceDamageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
@@ -11378,6 +11479,14 @@ if (skill.redirectOffensiveToCaster) {
         value: `Paralisa cooldowns por ${skill.paralyzeCooldownDuration} ${skill.paralyzeCooldownDuration === 1 ? 'Turno' : 'Turnos'}`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.paralyzeCooldownTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.cooldownIncreaseDuration && skill.cooldownIncreaseDuration > 0 && (skill.cooldownIncreaseAmount || 0) > 0) {
+      effects.push({
+        label: 'Aumentar Cooldown',
+        value: `Cada skill usada pelo alvo ganha +${skill.cooldownIncreaseAmount} de cooldown por ${skill.cooldownIncreaseDuration} ${skill.cooldownIncreaseDuration === 1 ? 'Turno' : 'Turnos'}`,
+        color: 'text-orange-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.cooldownIncreaseTarget, 'Alvo Principal')
       });
     }
     if (skill.cannotReduceDamageDuration && skill.cannotReduceDamageDuration > 0) {

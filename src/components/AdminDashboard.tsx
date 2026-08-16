@@ -6987,6 +6987,93 @@ const newSkill: Skill = {
                             </div>
                           </div>
 
+                          {/* 15.1 Aumentar Cooldown de Skills */}
+                          <div className="space-y-1 bg-orange-950/10 border border-orange-900/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-orange-500 font-mono">⏱️ Aumentar Cooldown de Skills</label>
+                              <p className="text-[9px] text-slate-400 mt-0.5">
+                                Enquanto o debuff durar, cada skill que o alvo usar ganha +X de cooldown (ex.: skill de 1 cooldown vira 2).
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={10}
+                                  value={editingSkill.cooldownIncreaseAmount || 0}
+                                  onChange={(e) => handleUpdateSkillField('cooldownIncreaseAmount', parseInt(e.target.value) || 0)}
+                                  placeholder="+CD"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-orange-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <span className="text-[10px] text-slate-500 font-mono">+X cooldown por skill usada</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={99}
+                                  value={editingSkill.cooldownIncreaseDuration === 99999 ? 0 : (editingSkill.cooldownIncreaseDuration || 0)}
+                                  title={editingSkill.cooldownIncreaseDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
+                                  onChange={(e) => handleUpdateSkillField('cooldownIncreaseDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-orange-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.cooldownIncreaseDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('cooldownIncreaseDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-orange-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-orange-400 font-mono">♾️ Infinito</span>
+                                </label>
+                                <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-orange-500 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.cooldownIncreaseTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('cooldownIncreaseTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-orange-900/50 rounded text-[10px] font-mono text-orange-300 focus:border-orange-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.cooldownIncreaseIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('cooldownIncreaseIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-orange-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                  <select
+                                    value={editingSkill.cooldownIncreaseRemoveType || 'none'}
+                                    onChange={(e) => handleUpdateSkillField('cooldownIncreaseRemoveType', e.target.value)}
+                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
+                                  >
+                                    <option value="none">Nenhum</option>
+                                    <option value="all">Todos</option>
+                                    <option value="buff">Buffs</option>
+                                    <option value="debuff">Debuffs</option>
+                                    <option value="stun">Stuns</option>
+                                    <option value="dot">DoTs</option>
+                                    <option value="bleeding">Sangra</option>
+                                    <option value="affliction">Aflição</option>
+                                    <option value="shield">Escudo</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* 16. Invisível para o Oponente */}
                           <div className="space-y-1 bg-slate-950/20 border border-slate-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div>

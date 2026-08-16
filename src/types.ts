@@ -328,6 +328,16 @@ export interface Skill {
   stealLifeIrremovable?: boolean;
   stealLifeRemoveType?: string;
   paralyzeCooldownDuration?: number;
+  /** AUMENTAR COOLDOWN: enquanto o debuff durar, cada skill que o alvo usar ganha +X de cooldown (ex.: skill de 1 cooldown vira 2) */
+  cooldownIncreaseAmount?: number;
+  /** Duração do debuff de aumento de cooldown em turnos */
+  cooldownIncreaseDuration?: number;
+  /** Alvo do debuff de aumento de cooldown (ex: Target, AllEnemies) */
+  cooldownIncreaseTarget?: TargetOverride;
+  /** Debuff de aumento de cooldown não pode ser removido */
+  cooldownIncreaseIrremovable?: boolean;
+  /** Purificação: remove efeitos do alvo ao aplicar (all, debuff, etc.) */
+  cooldownIncreaseRemoveType?: string;
   cannotReduceDamageDuration?: number;
   cannotBeInvulnerableDuration?: number;
   cannotReceiveFriendlyDuration?: number;
@@ -608,6 +618,7 @@ export interface ActiveEffect {
   | 'bleeding'
   | 'affliction'
   | 'paralyze_cooldown'
+  | 'cooldown_increase'
   | 'damage'
   | 'direct_damage'
   | 'heal'
