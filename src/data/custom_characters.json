@@ -5036,7 +5036,8 @@
           "affliction",
           "friendly"
         ],
-        "requirePreviousSkill": "Master Shadow Imitation"
+        "requirePreviousSkill": "Master Shadow Imitation",
+        "stunTarget": "AllEnemiesExceptTarget"
       },
       {
         "name": "Run",
@@ -5230,7 +5231,7 @@
         ],
         "cooldown": 1,
         "currentCooldown": 0,
-        "targetType": "Enemy",
+        "targetType": "AllEnemies",
         "classes": [
           "À Distância",
           "Mental"
@@ -5271,7 +5272,8 @@
         "stackType": "",
         "stackTarget": "Target",
         "reflect": true,
-        "reflectMode": "RandomAlly"
+        "reflectMode": "RandomAlly",
+        "counterAttack": false
       },
       {
         "name": "Instinct",

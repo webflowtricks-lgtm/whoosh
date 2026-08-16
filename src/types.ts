@@ -596,7 +596,9 @@ export type TargetOverride =
   | 'OneInvulnerableAlly'
   | 'SelfAndAllEnemies'
   | 'RandomEnemy'
-  | 'RandomAlly';
+  | 'RandomAlly'
+  | 'AllEnemiesExceptTarget'
+  | 'AllAlliesExceptTarget';
 
 export interface CharacterSkin {
   id: string;

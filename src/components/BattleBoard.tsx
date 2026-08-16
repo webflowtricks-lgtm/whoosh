@@ -2765,6 +2765,12 @@ const handleTradeChakra = () => {
         const allies = sourceList.filter(c => !c.isDead);
         return allies.length > 0 ? [allies[Math.floor(Math.random() * allies.length)]] : [];
       }
+      if (targetOverride === 'AllEnemiesExceptTarget') {
+        return targetList.filter(c => !c.isDead && c.id !== defaultTarget.id && (!checkCombatantInvulnerable(c, skill) || skill?.ignoreInvulnerable));
+      }
+      if (targetOverride === 'AllAlliesExceptTarget') {
+        return sourceList.filter(c => !c.isDead && c.id !== defaultTarget.id);
+      }
       return [defaultTarget];
     };
 
@@ -7725,6 +7731,7 @@ splashOnlyTargets = splashPool.filter(c =>
   }, [activePlanner, passedPlayersThisTurn.includes('enemy'), gameOver, isSandbox, onlineParams?.isOnline, turn]);
 
   const [showSurrenderModal, setShowSurrenderModal] = useState(false);
+  const [showReloadModal, setShowReloadModal] = useState(false);
   const [showNoInternetModal, setShowNoInternetModal] = useState(false);
   const [showSandboxConfirmModal, setShowSandboxConfirmModal] = useState(false);
   const [dontShowSandboxConfirmAgain, setDontShowSandboxConfirmAgain] = useState(false);
@@ -7944,6 +7951,20 @@ splashOnlyTargets = splashPool.filter(c =>
         console.error('Error sending surrender signal:', err);
       }
     }
+  };
+
+  const handleReloadBattle = () => {
+    playClickSound();
+    playScrollSound();
+    setShowReloadModal(true);
+  };
+
+  const confirmReloadBattle = () => {
+    playClickSound();
+    setShowReloadModal(false);
+    // F5 da batalha: recarrega a página. O App restaura o progresso automaticamente
+    // via 'active_match_save' (localStorage), sem voltar à página inicial.
+    window.location.reload();
   };
 
   // 60-Second Turn Timer State & Effect
@@ -8222,6 +8243,10 @@ splashOnlyTargets = splashPool.filter(c =>
         } else if (targetOverride === 'RandomAlly') {
           const allies = sourceList.filter(c => !c.isDead);
           resultTargets = allies.length > 0 ? [allies[Math.floor(Math.random() * allies.length)]] : [];
+        } else if (targetOverride === 'AllEnemiesExceptTarget') {
+          resultTargets = targetList.filter(c => !c.isDead && c.id !== defaultTarget.id && (!checkCombatantInvulnerable(c, currentSkill) || currentSkill?.ignoreInvulnerable));
+        } else if (targetOverride === 'AllAlliesExceptTarget') {
+          resultTargets = sourceList.filter(c => !c.isDead && c.id !== defaultTarget.id);
         } else {
           resultTargets = [defaultTarget];
         }
@@ -12443,6 +12468,18 @@ if (skill.redirectOffensiveToCaster) {
         
         <div className="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-10 flex justify-between items-center">
           <div className="flex items-center gap-2 sm:gap-4">
+            {/* Recarregar Batalha button */}
+            {!gameOver && !onlineParams?.isOnline && (
+              <button
+                onClick={handleReloadBattle}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-slate-950/40 border border-slate-500/50 transition-all cursor-pointer active:scale-95"
+                title="Recarregar Batalha (atualizar sem perder progresso)"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Recarregar</span>
+              </button>
+            )}
+
             {/* Render-se button */}
             {!gameOver && (
               <button
@@ -14790,6 +14827,61 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     onClick={() => {
                       playClickSound();
                       setShowSurrenderModal(false);
+                    }}
+                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-[#d3ad75]/90 hover:bg-[#c49a5d] text-stone-950 font-black text-xs uppercase tracking-wider border-2 border-[#7a4e25] shadow-md transition cursor-pointer active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* RELOAD BATTLE CONFIRMATION PARCHMENT MODAL */}
+      <AnimatePresence>
+        {showReloadModal && (
+          <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 15 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative rounded-3xl overflow-hidden shadow-2xl max-w-md w-full min-h-[250px] flex flex-col justify-between p-8 sm:p-10"
+            >
+              {/* Background Pergaminho Image */}
+              <img
+                src="/static/img/ui/pergaminho.webp"
+                alt="Pergaminho Shinobi"
+                className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
+              />
+
+              {/* Parchment Content */}
+              <div className="relative z-10 flex flex-col items-center justify-between text-center space-y-6 h-full">
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <RefreshCw className="w-6 h-6 text-slate-800 animate-spin" />
+                    <h3 className="text-xl font-black uppercase tracking-tight text-stone-950 font-sans">
+                      Recarregar Batalha?
+                    </h3>
+                  </div>
+                  <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
+                    Recarregue a página para corrigir travamentos ou bugs. Seu progresso nesta batalha será mantido automaticamente.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full pt-1">
+                  <button
+                    onClick={confirmReloadBattle}
+                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-slate-950/40 border border-slate-500/50 transition cursor-pointer active:scale-95"
+                  >
+                    Sim, Recarregar
+                  </button>
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      setShowReloadModal(false);
                     }}
                     className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-[#d3ad75]/90 hover:bg-[#c49a5d] text-stone-950 font-black text-xs uppercase tracking-wider border-2 border-[#7a4e25] shadow-md transition cursor-pointer active:scale-95"
                   >

@@ -37,6 +37,8 @@ const TARGET_OPTIONS = [
   { value: 'SelfAndAllEnemies', label: 'Mim e Todos os Inimigos' },
   { value: 'RandomEnemy', label: 'Inimigo Aleatório' },
   { value: 'RandomAlly', label: 'Aliado Aleatório' },
+  { value: 'AllEnemiesExceptTarget', label: 'Todos os Inimigos (menos o Alvo Principal)' },
+  { value: 'AllAlliesExceptTarget', label: 'Todos os Aliados (menos o Alvo Aliado)' },
 ];
 
 const DAMAGE_TYPE_OPTIONS = [
