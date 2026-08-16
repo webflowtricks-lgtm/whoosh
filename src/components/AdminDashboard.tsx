@@ -35,6 +35,8 @@ const TARGET_OPTIONS = [
   { value: 'OneInvulnerable', label: 'Um Personagem Invulnerável' },
   { value: 'OneInvulnerableAlly', label: 'Um Aliado Invulnerável' },
   { value: 'SelfAndAllEnemies', label: 'Mim e Todos os Inimigos' },
+  { value: 'RandomEnemy', label: 'Inimigo Aleatório' },
+  { value: 'RandomAlly', label: 'Aliado Aleatório' },
 ];
 
 const DAMAGE_TYPE_OPTIONS = [

@@ -2757,6 +2757,14 @@ const handleTradeChakra = () => {
       if (targetOverride === 'SelfAndAllEnemies') {
         return [source, ...targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill?.ignoreInvulnerable))];
       }
+      if (targetOverride === 'RandomEnemy') {
+        const enemies = targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill?.ignoreInvulnerable));
+        return enemies.length > 0 ? [enemies[Math.floor(Math.random() * enemies.length)]] : [];
+      }
+      if (targetOverride === 'RandomAlly') {
+        const allies = sourceList.filter(c => !c.isDead);
+        return allies.length > 0 ? [allies[Math.floor(Math.random() * allies.length)]] : [];
+      }
       return [defaultTarget];
     };
 
@@ -8208,6 +8216,12 @@ splashOnlyTargets = splashPool.filter(c =>
           resultTargets = allies.length > 0 ? [allies[0]] : [];
         } else if (targetOverride === 'SelfAndAllEnemies') {
           resultTargets = [source, ...targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, currentSkill) || currentSkill?.ignoreInvulnerable))];
+        } else if (targetOverride === 'RandomEnemy') {
+          const enemies = targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, currentSkill) || currentSkill?.ignoreInvulnerable));
+          resultTargets = enemies.length > 0 ? [enemies[Math.floor(Math.random() * enemies.length)]] : [];
+        } else if (targetOverride === 'RandomAlly') {
+          const allies = sourceList.filter(c => !c.isDead);
+          resultTargets = allies.length > 0 ? [allies[Math.floor(Math.random() * allies.length)]] : [];
         } else {
           resultTargets = [defaultTarget];
         }
