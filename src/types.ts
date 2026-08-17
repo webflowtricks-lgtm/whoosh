@@ -25,11 +25,20 @@ export interface SkillCostRule {
 export interface SkillTargetRule {
   activeSkillName: string; // Skill/Efeito ativo necessário no combatente ou equipe
   overrideTarget: 'Enemy' | 'AllEnemies' | 'Ally' | 'AllAllies' | 'Self' | 'SelfAndAlly'; // Novo Alvo quando ativo
+  /** Só altera o alvo na PRIMEIRA skill usada por ativação da condição. Depois volta ao normal; reativar a condição reseta. */
+  oncePerActivation?: boolean;
 }
 
 export interface SkillCooldownRule {
   activeSkillName: string; // Skill/Efeito ativo necessário no combatente ou equipe
   overrideCooldown: number; // Novo Cooldown quando ativo (ex: 0)
+}
+
+export interface SkillCountdownDamageRule {
+  damage: number; // Dano aplicado quando o timer acabar (contagem regressiva)
+  duration: number; // Turnos até explodir (ex: 2 = em 2 turnos o alvo recebe o dano)
+  damageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'bleeding' | 'dot' | 'true'; // Tipo de dano ao explodir
+  target?: 'holder' | 'enemy'; // Quem recebe o dano: 'holder' = quem tem a bomba (padrão), 'enemy' = um inimigo do portador
 }
 
 export interface SkillDamageRule {
@@ -46,6 +55,26 @@ export interface SkillOnSkillUseDamageRule {
   damageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'bleeding' | 'dot' | 'life_steal'; // Tipo de dano
   target?: 'target' | 'self' | 'enemies' | 'allies'; // Alvo que recebe a regra (padrão: 'target')
   irremovable?: boolean; // Se não pode ser removido por cleanse
+}
+
+export interface SkillStackUseEffectRule {
+  /** Ao usar a skill com esta quantidade de stacks do próprio conjurador (combo), aplica os efeitos abaixo.
+   * Ex: 1ª vez = ganha stack (nada acontece), 2ª vez = stun, 3ª vez = remove chakra + stun.
+   * Se a stack sumir (não usar a skill a tempo), o combo reinicia. */
+  requiredStacks: number;
+  /** Stuna o alvo da skill ao atingir esta quantidade de stacks */
+  stun?: boolean;
+  /** Turnos de stun (padrão 1) */
+  stunDuration?: number;
+  /** Tipos de stun bloqueados (vazio = Stun Completo) */
+  stunType?: string[];
+  /** Remove X chakras do estoque do oponente ao atingir esta quantidade de stacks */
+  chakraRemove?: number;
+  /** StackType a contar (vazio = usa o stackType da própria skill) */
+  stackType?: string;
+  /** Se true (padrão), a regra continua ativa para stacks MAIORES (ex: "3 em diante" = ativa no 3, 4, 5...).
+   * Se false, ativa apenas quando a quantidade for EXATAMENTE requiredStacks. */
+  onwards?: boolean;
 }
 
 export interface SkillChakraRemoveRule {
@@ -176,6 +205,17 @@ export interface SkillSelfStackDamageRule {
   damageType?: 'dot' | 'bleeding' | 'affliction' | 'direct_damage' | 'damage' | 'life_steal';
 }
 
+export interface SkillSelfStackReductionRule {
+  /** Nome do stackType que será verificado em mim mesmo */
+  stackType: string;
+  /** Tipo de redução: 'damage_reduction' (Guard) ou 'damage_reduction_pierce' (imune a perfuração) */
+  reductionType?: 'damage_reduction' | 'damage_reduction_pierce';
+  /** Valor de redução por stack que eu possuo */
+  reductionValue: number;
+  /** Duração em turnos (99999 = infinito) */
+  duration?: number;
+}
+
 export interface SkillStackDurationRule {
   /** Nome do stackType que será verificado no alvo (ex: 'Marca', 'Veneno', 'Cortes') */
   stackType: string;
@@ -193,6 +233,10 @@ export interface Skill {
   cooldownRules?: SkillCooldownRule[];
   damageRules?: SkillDamageRule[];
   onSkillUseDamageRules?: SkillOnSkillUseDamageRule[];
+  /** Combo por stacks: ao usar a skill com X stacks do conjurador, aplica os efeitos da regra (stun, remover chakra...) */
+  stackUseEffectRules?: SkillStackUseEffectRule[];
+  /** Contagem regressiva (bomba): ao usar a skill no alvo, ele recebe um timer de X turnos; quando o tempo acabar, recebe o dano configurado */
+  countdownDamageRules?: SkillCountdownDamageRule[];
   chakraRemoveRules?: SkillChakraRemoveRule[];
   /** Regras de roubo de chakras: quando a skill listada abaixo estiver ATIVA no conjurador,
    * esta skill rouba X chakras do stock do oponente (respecta invulnerabilidade,
@@ -566,6 +610,8 @@ cannotBeReflected?: boolean;
   stackDurationRules?: SkillStackDurationRule[];
   /** Aumento de dano por stack em mim mesmo */
   selfStackDamageRules?: SkillSelfStackDamageRule[];
+  /** Redução de dano por stack em mim mesmo (buff de redução no conjurador escalando com minhas stacks) */
+  selfStackReductionRules?: SkillSelfStackReductionRule[];
 
   // ==============================
   // CHAKRA COST INCREASE - Aumentar custo de chakra do inimigo
@@ -664,13 +710,18 @@ export interface ActiveEffect {
   | 'temporary_damage_boost'
   | 'life_steal'
   | 'redirect_by_stack'
+  | 'countdown_bomb'
   | 'skill_copy';
   value?: number; // magnitude of shield, reduction, damage, etc.
   buffAtCast?: number; // damage_buff value included at cast time (for dynamic tick recomputation)
   /** Novo alvo aplicado pelo efeito temporary_target_change */
   newTargetType?: string;
+  /** Turno em que a regra de alvo "uma vez por ativação" foi consumida (reseta ao reativar a condição) */
+  targetRuleConsumedAt?: number;
   duration: number; // remaining turns
   damageType?: string;
+  /** Quem recebe o dano da bomba (countdown_bomb) quando o tempo acabar: 'holder' = quem tem a bomba, 'enemy' = um inimigo do portador */
+  bombTarget?: 'holder' | 'enemy';
   icon?: string; // Icon of the skill that caused this effect/debuff
   sourceSkillName?: string; // Base skill name for grouping debuffs
   stunType?: ('mental' | 'physical' | 'affliction' | 'chakra' | 'ranged' | 'friendly' | string)[];
@@ -1045,7 +1096,8 @@ export function getSkillCombatTypes(skill: Skill | null): string[] {
 export function getEffectiveTargetType(
   skill: Skill,
   sourceChar?: CombatCharacter,
-  allCombatants?: CombatCharacter[]
+  allCombatants?: CombatCharacter[],
+  currentTurn?: number
 ): SkillTargetType {
   if (!skill) return 'Enemy';
   const defaultTarget = skill.targetType || 'Enemy';
@@ -1058,10 +1110,10 @@ export function getEffectiveTargetType(
     ];
 
     for (const rule of skill.targetRules) {
-      if (!rule.activeSkillName) continue;
+      if (!rule.activeSkillName || !rule.overrideTarget) continue;
       const targetNameLower = rule.activeSkillName.trim().toLowerCase();
 
-      const isReqActive = allActiveEffects.some(e => {
+      const matchedEffect = allActiveEffects.find(e => {
         if (!e.name) return false;
         const eNameLower = e.name.toLowerCase();
         return (
@@ -1071,9 +1123,15 @@ export function getEffectiveTargetType(
         );
       });
 
-      if (isReqActive && rule.overrideTarget) {
-        return rule.overrideTarget;
+      if (!matchedEffect) continue;
+
+      // Regra "uma vez por ativação": o marcador guarda o turno do 1º uso.
+      // Usos no MESMO turno (a própria resolução) ainda valem; turnos seguintes ignoram até reativar a condição.
+      if (rule.oncePerActivation && (matchedEffect as any).targetRuleConsumedAt && (matchedEffect as any).targetRuleConsumedAt !== currentTurn) {
+        continue;
       }
+
+      return rule.overrideTarget;
     }
   }
 

@@ -2786,6 +2786,25 @@ const newSkill: Skill = {
                                     <option value="SelfAndAlly">🌀 Si Mesmo e Aliado</option>
                                   </select>
                                 </div>
+
+                                <label className="flex items-start gap-2 bg-slate-900/60 p-2 rounded-lg border border-slate-800/80 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!rule.oncePerActivation}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.targetRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], oncePerActivation: e.target.checked };
+                                      handleUpdateSkillField('targetRules', updated);
+                                    }}
+                                    className="accent-indigo-500 mt-0.5"
+                                  />
+                                  <span className="flex flex-col">
+                                    <span className="text-indigo-300 font-bold text-[9.5px]">🔄 Só na 1ª Vez por Ativação</span>
+                                    <span className="text-[8.5px] text-slate-400">
+                                      O alvo só muda na PRIMEIRA skill usada enquanto a condição estiver ativa. Depois de atacar, volta ao alvo normal. Para mudar de novo, reative a habilidade condição (RESETA).
+                                    </span>
+                                  </span>
+                                </label>
                               </div>
                             ))}
                           </div>
@@ -3383,6 +3402,125 @@ const newSkill: Skill = {
                                   onClick={() => {
                                     const updated = (editingSkill.selfStackDamageRules || []).filter((_, i) => i !== rIdx);
                                     handleUpdateSkillField('selfStackDamageRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Redução de Dano por Stack em Mim */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400 font-mono">
+                              🛡️ Redução de Dano por Stack em Mim
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Ao usar a skill, você ganha redução de dano baseada na quantidade de stacks que VOCÊ possui do tipo especificado.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.selfStackReductionRules || [];
+                              handleUpdateSkillField('selfStackReductionRules', [
+                                ...currentRules,
+                                { stackType: '', reductionValue: 5, reductionType: 'damage_reduction', duration: 3 }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.selfStackReductionRules || editingSkill.selfStackReductionRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de redução por stack configurada.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.selfStackReductionRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-slate-400 font-bold">StackType:</span>
+                                <input
+                                  type="text"
+                                  list="stackType-suggestions"
+                                  value={rule.stackType}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.selfStackReductionRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], stackType: e.target.value };
+                                    handleUpdateSkillField('selfStackReductionRules', updated);
+                                  }}
+                                  placeholder="Ex: Marca, Veneno, Cortes"
+                                  className="flex-1 min-w-[110px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-slate-400 font-bold">Redução/Stack:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={99}
+                                  value={rule.reductionValue}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 1;
+                                    const updated = [...(editingSkill.selfStackReductionRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], reductionValue: val };
+                                    handleUpdateSkillField('selfStackReductionRules', updated);
+                                  }}
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-slate-400 font-bold ml-1">Tipo Redução:</span>
+                                <select
+                                  value={rule.reductionType || 'damage_reduction'}
+                                  onChange={(e) => {
+                                    const val = e.target.value as any;
+                                    const updated = [...(editingSkill.selfStackReductionRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], reductionType: val };
+                                    handleUpdateSkillField('selfStackReductionRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded text-white outline-none text-[10px]"
+                                >
+                                  <option value="damage_reduction">Redução de Dano (Guard)</option>
+                                  <option value="damage_reduction_pierce">Redução Imune a Perfuração</option>
+                                </select>
+                                <span className="text-slate-400 font-bold ml-1">Turnos:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={rule.duration && rule.duration !== 99999 ? rule.duration : ''}
+                                  placeholder="∞"
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    const updated = [...(editingSkill.selfStackReductionRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], duration: raw === '' ? 99999 : (parseInt(raw) || 1) };
+                                    handleUpdateSkillField('selfStackReductionRules', updated);
+                                  }}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={!rule.duration || rule.duration === 99999}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.selfStackReductionRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], duration: e.target.checked ? 99999 : 3 };
+                                      handleUpdateSkillField('selfStackReductionRules', updated);
+                                    }}
+                                    className="accent-emerald-500"
+                                  />
+                                  <span className="text-[9px] text-slate-400 font-bold">♾️ Infinito</span>
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.selfStackReductionRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('selfStackReductionRules', updated.length > 0 ? updated : undefined);
                                   }}
                                   className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
                                   title="Remover Regra"
@@ -4615,6 +4753,167 @@ const newSkill: Skill = {
                                 </div>
                               );
                             })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ⚡ Combo por Stacks (Efeitos ao usar a skill com X stacks) */}
+                      <div className="md:col-span-2 bg-purple-950/20 p-3 rounded-xl border border-purple-800/50 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-purple-400 font-mono">
+                              ⚡ Combo por Stacks (Efeitos ao usar com X stacks)
+                            </span>
+                            <p className="text-[9px] text-purple-200/70">
+                              Ao usar a skill com determinada quantidade de stacks do conjurador, aplica os efeitos configurados. Ex.: 1ª vez = nada (só ganha a stack), 2ª vez = Stun, 3ª vez = Remove Chakra + Stun. Se a stack sumir (não usar a skill a tempo), o combo reinicia.
+                            </p>
+                            <p className="text-[9px] text-amber-300/80 mt-1 bg-purple-950/50 border border-purple-900/50 p-1.5 rounded-lg">
+                              💡 <span className="font-bold">Importante:</span> a skill precisa estar com <span className="font-bold text-white">"Stackable (Acumulável)" ativo + Stack Gain "Ao usar a skill" + duração da stack de 1 turno</span> para o combo funcionar como no exemplo.
+                            </p>
+                            <p className="text-[9px] text-slate-400 mt-1">
+                              🔀 <span className="font-bold text-purple-300">"↗ Em diante":</span> ativa o combo com X stacks <span className="text-white">ou mais</span> (ex.: "3 em diante" = 3x, 4x, 5x... sempre o maior satisfeito). Desativado = só ativa com o número exato de stacks.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.stackUseEffectRules || [];
+                              const nextStacks = current.length > 0 ? Math.max(...current.map(r => r.requiredStacks || 1)) + 1 : 2;
+                              handleUpdateSkillField('stackUseEffectRules', [...current, { requiredStacks: nextStacks, onwards: true, stun: true, stunDuration: 1, stunType: [], chakraRemove: 0, stackType: '' }]);
+                            }}
+                            className="px-2.5 py-1 bg-purple-900/40 hover:bg-purple-800/50 text-purple-300 border border-purple-800/60 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Etapa do Combo
+                          </button>
+                        </div>
+
+                        {(!editingSkill.stackUseEffectRules || editingSkill.stackUseEffectRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma etapa de combo configurada.
+                          </p>
+                        ) : (
+                          <div className="space-y-3 pt-1">
+                            {editingSkill.stackUseEffectRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="bg-slate-950 rounded-lg border border-purple-900/50 text-[10px] font-mono overflow-hidden">
+                                <div className="flex flex-wrap items-center gap-2 px-2 py-1.5 bg-slate-900/60 border-b border-purple-900/40">
+                                  <span className="text-purple-400 font-bold">Com o combo em:</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={99}
+                                    value={rule.requiredStacks}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.stackUseEffectRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], requiredStacks: parseInt(e.target.value) || 1 };
+                                      handleUpdateSkillField('stackUseEffectRules', updated);
+                                    }}
+                                    className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-purple-500 rounded text-white outline-none text-[10px] text-center"
+                                  />
+                                  <label className="flex items-center gap-1 cursor-pointer select-none bg-slate-900/80 px-2 py-1 rounded border border-slate-800/80">
+                                    <input
+                                      type="checkbox"
+                                      checked={rule.onwards !== false}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.stackUseEffectRules || [])];
+                                        updated[rIdx] = { ...updated[rIdx], onwards: e.target.checked };
+                                        handleUpdateSkillField('stackUseEffectRules', updated);
+                                      }}
+                                      className="accent-purple-500 rounded cursor-pointer"
+                                    />
+                                    <span className="text-[9px] text-purple-300 font-bold">{rule.onwards !== false ? '↗ em diante' : 'exato'}</span>
+                                  </label>
+                                  <span className="text-[9px] text-slate-400">{rule.onwards !== false ? '→ aplica:' : 'stack(s) → aplica:'}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = (editingSkill.stackUseEffectRules || []).filter((_, i) => i !== rIdx);
+                                      handleUpdateSkillField('stackUseEffectRules', updated.length > 0 ? updated : undefined);
+                                    }}
+                                    className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                    title="Remover etapa"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 px-2 py-2">
+                                  <label className="flex items-center gap-1 cursor-pointer select-none bg-slate-900/80 px-2 py-1 rounded border border-slate-800/80">
+                                    <input
+                                      type="checkbox"
+                                      checked={rule.stun || false}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.stackUseEffectRules || [])];
+                                        updated[rIdx] = { ...updated[rIdx], stun: e.target.checked };
+                                        handleUpdateSkillField('stackUseEffectRules', updated);
+                                      }}
+                                      className="accent-purple-500 rounded cursor-pointer"
+                                    />
+                                    <span className="text-[9px] text-purple-300 font-bold">⚡ Stun</span>
+                                  </label>
+                                  {rule.stun && (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[9px] text-slate-400">por</span>
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={10}
+                                        value={rule.stunDuration || 1}
+                                        onChange={(e) => {
+                                          const updated = [...(editingSkill.stackUseEffectRules || [])];
+                                          updated[rIdx] = { ...updated[rIdx], stunDuration: parseInt(e.target.value) || 1 };
+                                          handleUpdateSkillField('stackUseEffectRules', updated);
+                                        }}
+                                        className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-purple-500 rounded text-white outline-none text-[10px] text-center"
+                                      />
+                                      <span className="text-[9px] text-slate-400">turno(s)</span>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[9px] text-slate-400 font-bold">🔥 Remove Chakra:</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={99}
+                                      value={rule.chakraRemove || 0}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.stackUseEffectRules || [])];
+                                        updated[rIdx] = { ...updated[rIdx], chakraRemove: parseInt(e.target.value) || 0 };
+                                        handleUpdateSkillField('stackUseEffectRules', updated);
+                                      }}
+                                      className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-purple-500 rounded text-white outline-none text-[10px] text-center"
+                                    />
+                                  </div>
+                                </div>
+                                {rule.stun && (
+                                  <div className="flex flex-wrap items-center gap-1 px-2 pb-2">
+                                    <span className="text-[9px] text-slate-400 uppercase font-bold">🚫 Bloquear tipos de skill (vazio = Stun Completo):</span>
+                                    {([
+                                      { value: 'physical', label: '🥋 Físico' },
+                                      { value: 'mental', label: '🧠 Mental' },
+                                      { value: 'affliction', label: '💀 Aflição' },
+                                      { value: 'chakra', label: '🌀 Chakra' },
+                                    ] as { value: string; label: string }[]).map(opt => {
+                                      const ruleTypes = rule.stunType || [];
+                                      const isSelected = ruleTypes.includes(opt.value);
+                                      return (
+                                        <button
+                                          key={opt.value}
+                                          type="button"
+                                          onClick={() => {
+                                            const updated = [...(editingSkill.stackUseEffectRules || [])];
+                                            const next = isSelected ? ruleTypes.filter(t => t !== opt.value) : [...ruleTypes, opt.value];
+                                            updated[rIdx] = { ...updated[rIdx], stunType: next };
+                                            handleUpdateSkillField('stackUseEffectRules', updated);
+                                          }}
+                                          className={`px-1.5 py-0.5 rounded cursor-pointer select-none border transition-all ${isSelected ? 'bg-purple-950/60 border-purple-700/60 text-purple-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-purple-800/50'}`}
+                                        >
+                                          <span className="text-[9px] font-mono">{opt.label}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -8694,6 +8993,114 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                                   </select>
                                 </div>
                               </div>
+                            </div>
+                          </div>
+
+                          {/* 💣 Contagem Regressiva (Bomba): dano quando o TEMPO acabar */}
+                          <div className="space-y-2 bg-amber-950/20 border border-amber-800/50 p-3.5 rounded-xl flex flex-col justify-between md:col-span-2">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono flex items-center gap-1">
+                                💣 Contagem Regressiva (Dano após X Turnos)
+                              </label>
+                              <p className="text-[9px] text-amber-200/70 font-mono leading-relaxed mt-1 bg-amber-950/40 border border-amber-900/50 p-2 rounded-lg">
+                                ⏳ <span className="font-bold text-amber-300">Como funciona:</span> ao usar a skill no alvo, ele recebe um timer de <span className="font-bold text-white">X turnos</span> (aparece como debuff contando os turnos). Quando o <span className="font-bold text-white uppercase">tempo acabar</span>, ele recebe o dano configurado (ex.: 2 turnos → recebe 20 de dano).
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const current = editingSkill.countdownDamageRules || [];
+                                  handleUpdateSkillField('countdownDamageRules', [
+                                    ...current,
+                                    { damage: 20, duration: 2, damageType: 'damage', target: 'holder' }
+                                  ]);
+                                }}
+                                className="mt-2 px-2.5 py-1 bg-amber-900/40 hover:bg-amber-800/50 text-amber-300 border border-amber-800/60 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                + Adicionar Bomba (Contagem Regressiva)
+                              </button>
+                              {(!editingSkill.countdownDamageRules || editingSkill.countdownDamageRules.length === 0) ? (
+                                <p className="text-[9px] text-slate-500 font-mono italic mt-1.5">
+                                  Nenhuma bomba de contagem regressiva configurada.
+                                </p>
+                              ) : (
+                                <div className="space-y-2 pt-1.5">
+                                  {editingSkill.countdownDamageRules.map((rule, rIdx) => (
+                                    <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-amber-900/50 text-[10px] font-mono">
+                                      <span className="text-slate-400 font-bold">Dano:</span>
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={500}
+                                        value={rule.damage}
+                                        onChange={(e) => {
+                                          const val = parseInt(e.target.value) || 1;
+                                          const updated = [...(editingSkill.countdownDamageRules || [])];
+                                          updated[rIdx] = { ...updated[rIdx], damage: val };
+                                          handleUpdateSkillField('countdownDamageRules', updated);
+                                        }}
+                                        className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-white outline-none text-[10px]"
+                                      />
+                                      <span className="text-slate-400 font-bold">Tipo:</span>
+                                      <select
+                                        value={rule.damageType || 'damage'}
+                                        onChange={(e) => {
+                                          const updated = [...(editingSkill.countdownDamageRules || [])];
+                                          updated[rIdx] = { ...updated[rIdx], damageType: e.target.value as any };
+                                          handleUpdateSkillField('countdownDamageRules', updated);
+                                        }}
+                                        className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-amber-300 outline-none text-[10px]"
+                                      >
+                                        <option value="damage">💥 Dano Normal (sofre redução)</option>
+                                        <option value="direct_damage">🎯 Dano Direto (ignora redução)</option>
+                                        <option value="piercing">🗡️ Dano Perfurante</option>
+                                        <option value="true">☠️ Dano Verdadeiro</option>
+                                        <option value="affliction">💀 Dano de Aflição</option>
+                                        <option value="bleeding">🩸 Dano de Sangramento</option>
+                                        <option value="dot">🔥 Dano de Queimadura</option>
+                                      </select>
+                                      <span className="text-slate-400 font-bold">Em turnos:</span>
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={99}
+                                        value={rule.duration}
+                                        onChange={(e) => {
+                                          const val = parseInt(e.target.value) || 1;
+                                          const updated = [...(editingSkill.countdownDamageRules || [])];
+                                          updated[rIdx] = { ...updated[rIdx], duration: val };
+                                          handleUpdateSkillField('countdownDamageRules', updated);
+                                        }}
+                                        title="Contagem regressiva: turnos até a bomba explodir"
+                                        className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-white outline-none text-[10px]"
+                                      />
+                                      <span className="text-slate-400 font-bold">Quem recebe:</span>
+                                      <select
+                                        value={rule.target || 'holder'}
+                                        onChange={(e) => {
+                                          const updated = [...(editingSkill.countdownDamageRules || [])];
+                                          updated[rIdx] = { ...updated[rIdx], target: e.target.value as any };
+                                          handleUpdateSkillField('countdownDamageRules', updated);
+                                        }}
+                                        className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-amber-300 outline-none text-[10px]"
+                                      >
+                                        <option value="holder">🎯 Quem tem a bomba (Padrão)</option>
+                                        <option value="enemy">⚔️ Um inimigo do portador</option>
+                                      </select>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = (editingSkill.countdownDamageRules || []).filter((_, i) => i !== rIdx);
+                                          handleUpdateSkillField('countdownDamageRules', updated.length > 0 ? updated : undefined);
+                                        }}
+                                        className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer"
+                                        title="Remover Regra"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
 

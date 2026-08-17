@@ -363,7 +363,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
   if (!eff) return false;
   const debuffTypes = [
     'stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown',
-    'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase', 'life_steal', 'cooldown_increase'
+    'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase', 'life_steal', 'cooldown_increase', 'countdown_bomb'
   ];
   if (debuffTypes.includes(eff.type)) return true;
   const lowerName = (eff.name || '').toLowerCase();
@@ -511,7 +511,11 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
   let desc = (effect as any).description || '';
   if (desc && desc !== 'Efeito invisível ativo') return translateGameText(desc, lang);
 
-  const durText = effect.duration === 1 ? (lang === 'en' ? '1 turn' : '1 turno') : `${effect.duration} ${lang === 'en' ? 'turns' : 'turnos'}`;
+  const durText = effect.duration >= 99999
+    ? (lang === 'en' ? 'infinite' : 'Infinito')
+    : effect.duration === 1
+      ? (lang === 'en' ? '1 turn' : '1 turno')
+      : `${effect.duration} ${lang === 'en' ? 'turns' : 'turnos'}`;
   const val = effect.value || 0;
 
   let rawPt = '';
@@ -687,6 +691,22 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       const rModeText = effect.retaliateTriggerMode === 'first_only' ? ' (apenas 1º inimigo)' : '';
       const stackText = stacks > 1 ? ` (${stacks}x stacks = ${rVal} de dano)` : '';
       rawPt = `Retaliação: Se oponente usar skill ${rScopeText}, sofre ${rVal} de dano${rModeText}${stackText} por ${durText}`;
+      break;
+    }
+    case 'countdown_bomb': {
+      const bombTypeMap: Record<string, string> = {
+        'damage': 'Dano Normal',
+        'direct_damage': 'Dano Direto',
+        'piercing': 'Dano Perfurante',
+        'true': 'Dano Verdadeiro',
+        'affliction': 'Dano de Aflição',
+        'bleeding': 'Dano de Sangramento',
+        'dot': 'Dano de Queimadura',
+      };
+      const bombType = bombTypeMap[(effect as any).damageType] || 'Dano';
+      rawPt = val > 0
+        ? `💣 Bomba (Contagem Regressiva): em ${durText} este personagem sofrerá ${val} de ${bombType}`
+        : `💣 Bomba (Contagem Regressiva): explodirá em ${durText}`;
       break;
     }
     default:
@@ -2277,11 +2297,21 @@ const handleTradeChakra = () => {
       return;
     }
 
+    // Reativar o mesmo efeito/skill reseta o consumo de regras de alvo "uma vez por ativação"
+    character.activeEffects.forEach(e => {
+      if ((e as any).targetRuleConsumedAt && e.name === effect.name) {
+        delete (e as any).targetRuleConsumedAt;
+      }
+    });
+
     // Check if this effect is stackable
     const execSkill = currentSkillRef.current;
     const skill = character.character.skills.find(s => s.name === effect.name || effect.name.startsWith(s.name));
-    const isStackable = effect.stackable ?? execSkill?.stackable ?? skill?.stackable ?? false;
-    const stackType = effect.stackType ?? execSkill?.stackType ?? skill?.stackType;
+    // Apenas efeitos 'custom' (marcadores de stack reais) herdam stackable/stackType da skill executada.
+    // Buffs comuns (redução de dano, escudo, etc.) NÃO devem virar "stacks fantasma".
+    const isStackEffect = effect.type === 'custom';
+    const isStackable = effect.stackable ?? (isStackEffect ? (execSkill?.stackable ?? skill?.stackable ?? false) : false);
+    const stackType = effect.stackType ?? (isStackEffect ? (execSkill?.stackType ?? skill?.stackType) : undefined);
     const skillInvisible = execSkill?.invisible || (execSkill?.invisibleDuration !== undefined && execSkill?.invisibleDuration > 0);
     const sourceName = effect.sourceSkillName || execSkill?.name || skill?.name || effect.name;
     const effectiveStackType = stackType || (isStackable ? sourceName : undefined);
@@ -2304,6 +2334,19 @@ const handleTradeChakra = () => {
         existing.duration = Math.max(existing.duration, effect.duration);
         if (effectiveStackType && !existing.stackType) existing.stackType = effectiveStackType;
         applyStackCapReset(character, existing);
+        return;
+      }
+    }
+
+    // Efeitos não-stack de skills stackable (ex.: redução de dano): reaplicar a skill
+    // refresca a duração do efeito existente, sem duplicar nem inflar stacks fantasma.
+    if (!isStackable && !effectiveStackType && effect.sourceSkillName && effect.type !== 'retaliate_damage' && (execSkill?.stackable || skill?.stackable)) {
+      const existing = character.activeEffects.find(
+        e => e.type === effect.type && e.sourceSkillName === effect.sourceSkillName && !e.stackable && !e.stackType
+      );
+      if (existing) {
+        existing.duration = Math.max(existing.duration, effect.duration);
+        existing.value = effect.value;
         return;
       }
     }
@@ -2698,7 +2741,7 @@ const handleTradeChakra = () => {
       isBeneficial: boolean = false
     ): CombatCharacter[] => {
       const skill = (source as any)?._executingSkill || source.character.skills[0];
-      const effectiveTargetType = skill ? getEffectiveTargetType(skill, source, [...sourceList, ...targetList]) : 'Enemy';
+      const effectiveTargetType = skill ? getEffectiveTargetType(skill, source, [...sourceList, ...targetList], turn) : 'Enemy';
       const isAllEnemies = targetOverride === 'AllEnemies' ||
                            ((!targetOverride || targetOverride === 'Target') && effectiveTargetType === 'AllEnemies');
 
@@ -2815,6 +2858,32 @@ const handleTradeChakra = () => {
         : rawSkill;
       (source as any)._executingSkill = skill;
       currentSkillRef.current = skill;
+
+      // Regra de alvo "uma vez por ativação": marca o consumo na 1ª skill usada enquanto a condição está ativa.
+      // Depois disso, o alvo volta ao normal até a condição ser REATIVADA (reseta o marcador no pushActiveEffect).
+      if (skill.targetRules && skill.targetRules.length > 0) {
+        const allEffects = [
+          ...source.activeEffects,
+          ...[...sourceList, ...targetList].filter(c => c.id !== source.id).flatMap(c => c.activeEffects),
+        ];
+        for (const rule of skill.targetRules) {
+          if (!rule.oncePerActivation || !rule.activeSkillName) continue;
+          const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+          const condEffect = allEffects.find(e => {
+            if (!e.name) return false;
+            const eNameLower = e.name.toLowerCase();
+            return eNameLower === targetNameLower || eNameLower.startsWith(targetNameLower) || eNameLower.includes(targetNameLower);
+          });
+          if (condEffect && !(condEffect as any).targetRuleConsumedAt) {
+            (condEffect as any).targetRuleConsumedAt = turn;
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🎯 ${source.character.name} usou [${skill.name}] com alvo alterado (${rule.activeSkillName} ativo) — SÓ NESTA VEZ; o alvo volta ao normal até reativar ${rule.activeSkillName}!`,
+              type: 'buff',
+            });
+          }
+        }
+      }
 
       // Helper: encontra a marcação (efeito de stack) pelo nome da skill de marcação
       const findMarkingEffect = (c: CombatCharacter, markingName: string) => {
@@ -4929,6 +4998,43 @@ splashOnlyTargets = splashPool.filter(c =>
         }
       }
 
+      // 💣 Contagem Regressiva (Bomba): aplica o timer no alvo; quando o tempo acabar, ele recebe o dano
+      if (skill.countdownDamageRules && skill.countdownDamageRules.length > 0) {
+        const bombTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        bombTargets.forEach(bt => {
+          if (bt.isDead) return;
+          if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(bt, skill)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${bt.character.name} está INVULNERÁVEL e não recebeu a bomba de [${skill.name}]!`, type: 'buff' });
+            addFloatingText(bt.id, 'INVULNERÁVEL', 'invulnerable');
+            return;
+          }
+          skill.countdownDamageRules!.forEach(rule => {
+            if (!rule.damage || rule.damage <= 0) return;
+            const dur = Math.max(1, rule.duration || 1);
+            pushActiveEffect(bt, {
+              name: `${skill.name} (💣 ${dur}T)`,
+              type: 'countdown_bomb',
+              value: rule.damage,
+              duration: dur,
+              damageType: rule.damageType || 'damage',
+              bombTarget: rule.target || 'holder',
+              icon: skill.icon,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+              irremovable: true,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💣 ${bt.character.name} recebeu uma bomba de [${skill.name}] — em ${dur} turno(s) sofrerá ${rule.damage} de dano!`,
+              type: 'buff',
+            });
+            addFloatingText(bt.id, `💣 BOMBA (${dur}T)`, 'effect');
+          });
+        });
+      }
+
       // 2. HEALING (with heal rule boost)
       if (healAmt > 0) {
         let healRuleBoost = 0;
@@ -5296,6 +5402,43 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           addFloatingText(t.id, `${skill.name} ANTI-PERFURAÇÃO`.toUpperCase(), 'effect');
         });
+      }
+
+      // Redução de Dano por Stack em Mim (buff de redução no conjurador escalando com minhas stacks)
+      if (skill.selfStackReductionRules && skill.selfStackReductionRules.length > 0) {
+        for (const redRule of skill.selfStackReductionRules) {
+          if (!redRule.stackType || !redRule.reductionValue) continue;
+          const selfStackEffect = source.activeEffects.find(e => e.stackType === redRule.stackType || e.name === redRule.stackType);
+          let selfStackCount = selfStackEffect?.stacks || 0;
+          // A stack que ESTA skill está aplicando agora no conjurador também conta (o bloco de stacks roda depois)
+          if (skill.stackable && (skill.stackType || skill.name) === redRule.stackType) {
+            const stackTgts = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
+            if (stackTgts.some(t => t.id === source.id)) selfStackCount += 1;
+          }
+          if (selfStackCount <= 0) continue;
+          const redType = redRule.reductionType === 'damage_reduction_pierce' ? 'damage_reduction_pierce' : 'damage_reduction';
+          const redName = redType === 'damage_reduction_pierce' ? `${skill.name} AntiPerfuração` : `${skill.name} Guard`;
+          const dur = (redRule.duration && redRule.duration > 0) ? redRule.duration : 99999;
+          const totalRed = selfStackCount * redRule.reductionValue;
+          pushActiveEffect(source, {
+            name: redName,
+            type: redType,
+            value: totalRed,
+            duration: dur,
+            icon: skill.icon,
+            sourceSkillName: skill.name,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: redType === 'damage_reduction_pierce'
+              ? `🪡 ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano normal e perfuração por ${dur === 99999 ? '∞' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`
+              : `🛡️ ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano por ${dur === 99999 ? '∞' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, redType === 'damage_reduction_pierce' ? `ANTI-PERFURAÇÃO (+${totalRed})` : `DEFESA (+${totalRed})`, 'effect');
+        }
       }
 
       // Cópia de Habilidades: substitui as skills do conjurador pelas do alvo por X turnos
@@ -6233,7 +6376,8 @@ splashOnlyTargets = splashPool.filter(c =>
           const existing = t.activeEffects.find(e => e.stackType === effStackType && e.type === 'custom' && e.sourceSkillName === skill.name);
           if (existing) {
             existing.stacks = (existing.stacks || 1) + 1;
-            existing.duration = Math.max(existing.duration, skill.stackDuration ?? 999);
+            existing.duration = skill.stackDuration ?? 999;
+            existing.castTurn = turn;
             if (applyStackCapReset(t, existing)) {
               newLogs.push({
                 id: Math.random().toString(), turn,
@@ -6269,6 +6413,67 @@ splashOnlyTargets = splashPool.filter(c =>
           }
           addFloatingText(t.id, `+1 ${effStackType.toUpperCase()}`, 'effect');
         });
+      }
+
+      // ⚡ Combo por Stacks (stackUseEffectRules): ao usar a skill com X stacks do conjurador, aplica os efeitos da regra
+      if (skill.stackUseEffectRules && skill.stackUseEffectRules.length > 0) {
+        const applicable = skill.stackUseEffectRules
+          .filter(r => r.requiredStacks > 0)
+          .map(r => ({ rule: r, count: (source.activeEffects.find(e => e.stackable && e.stackType && e.stackType === (r.stackType || skill.stackType || skill.name))?.stacks || 0) }))
+          .filter(x => x.count >= x.rule.requiredStacks && (x.rule.onwards !== false ? true : x.count === x.rule.requiredStacks))
+          .sort((a, b) => b.rule.requiredStacks - a.rule.requiredStacks);
+        if (applicable.length > 0) {
+          const { rule, count } = applicable[0];
+          const comboLabel = `${skill.name} (Combo ${count}x)`;
+          const comboEffects: string[] = [];
+          const comboTargets = resolveEffectTargets(undefined, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+          comboTargets.forEach(ct => {
+            if (ct.isDead) return;
+            if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(ct, skill)) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${ct.character.name} está INVULNERÁVEL e não sofreu os efeitos do combo de [${comboLabel}]!`, type: 'buff' });
+              addFloatingText(ct.id, 'INVULNERÁVEL', 'invulnerable');
+              return;
+            }
+            if (rule.stun) {
+              const stunDur = Math.max(1, rule.stunDuration || 1);
+              const stunTypes = rule.stunType && rule.stunType.length > 0 ? rule.stunType : ['physical', 'mental', 'affliction', 'chakra'];
+              pushActiveEffect(ct, {
+                name: `${comboLabel} (Stun de Combo)`,
+                type: 'stun',
+                duration: stunDur,
+                stunType: stunTypes,
+                icon: skill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+              });
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `⚡ [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`,
+                type: 'stun',
+              });
+              addFloatingText(ct.id, `STUN (COMBO ${count}x)`, 'stun');
+              comboEffects.push('Stun');
+            }
+            if (rule.chakraRemove && rule.chakraRemove > 0) {
+              const ctIsPlayer = updatedPlayer.some(p => p.id === ct.id);
+              performChakraAction(ctIsPlayer, rule.chakraRemove, source.character.name, ct.character.name, skill.name, action.isPlayer, 'remove', source.id, ct.id, newLogs, localPlayerChakra, localEnemyChakra);
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `🔥 [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`,
+                type: 'chakra',
+              });
+              addFloatingText(ct.id, `CHAKRA -${rule.chakraRemove}`, 'effect');
+              comboEffects.push('Chakra Removido');
+            }
+          });
+          if (comboEffects.length > 0) {
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `⚡⚡ [COMBO ${count}x] ${source.character.name} ativou os efeitos de combo de [${skill.name}]: ${comboEffects.join(' + ')}!`,
+              type: 'buff',
+            });
+          }
+        }
       }
 
       // CAPTURE AND ARREST TRAP APPLICATION (Iruka Umino)
@@ -6973,6 +7178,64 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(c.id, 'SKILLS ORIGINAIS', 'effect');
           }
         });
+
+        // 💣 Contagem regressiva: quando a bomba (countdown_bomb) expira, o portador recebe o dano configurado
+        {
+          const expiringBombs = c.activeEffects.filter(eff =>
+            eff.type === 'countdown_bomb' && eff.duration === 1 && eff.castTurn !== turn && eff.duration < 99999
+          );
+          const allCombatantsHere = [...updatedPlayer, ...updatedEnemy];
+          expiringBombs.forEach(bomb => {
+            const bombDmg = bomb.value || 0;
+            if (bombDmg <= 0) return;
+            const ruleTarget = (bomb as any).bombTarget || 'holder';
+            const dmgType = (bomb as any).damageType || 'damage';
+            const originSkill = allCombatantsHere.flatMap(cb => cb.character.skills || []).find(s => s.name === bomb.sourceSkillName);
+            let dmgTarget: CombatCharacter | undefined;
+            if (ruleTarget === 'enemy') {
+              dmgTarget = allCombatantsHere.find(x => !x.isDead && (x.id.startsWith('player') !== c.id.startsWith('player')));
+            } else {
+              dmgTarget = c;
+            }
+            if (!dmgTarget || dmgTarget.isDead) return;
+            if (originSkill && checkCombatantInvulnerable(dmgTarget, originSkill)) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${dmgTarget.character.name} está INVULNERÁVEL e não sofreu o dano da bomba de [${originSkill.name}]!`, type: 'buff' });
+              addFloatingText(dmgTarget.id, 'INVULNERÁVEL', 'invulnerable');
+              return;
+            }
+            const isDirect = dmgType === 'direct_damage' || dmgType === 'true' || dmgType === 'piercing';
+            let finalDamage = bombDmg;
+            if (!isDirect) {
+              const effDamageDebuffs = dmgTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_debuff' && (!(e as any).debuffTypes || (e as any).debuffTypes.length === 0 || (e as any).debuffTypes.includes('skill')));
+              const debuffSum = effDamageDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
+              const effDamageBuff = dmgTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_buff');
+              const buffSum = effDamageBuff.reduce((acc, curr) => acc + (curr.value || 0), 0);
+              finalDamage = Math.max(0, finalDamage - debuffSum + buffSum);
+            }
+            const typeKey = dmgType === 'damage' ? 'damage' : dmgType;
+            if (hasDamageImmunity(dmgTarget, [typeKey, ...(originSkill ? getSkillCombatTypes(originSkill) : [])])) {
+              consumeFirstHitOnlyImmunity(dmgTarget, [typeKey, ...(originSkill ? getSkillCombatTypes(originSkill) : [])]);
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${dmgTarget.character.name} é IMUNE a dano e não sofreu a bomba de [${bomb.sourceSkillName}].`, type: 'buff' });
+              addFloatingText(dmgTarget.id, 'IMUNE!', 'invulnerable');
+              return;
+            }
+            if (finalDamage > 0 && (dmgTarget.shield || 0) > 0) {
+              const absorbed = Math.min(dmgTarget.shield, finalDamage);
+              dmgTarget.shield -= absorbed;
+              finalDamage -= absorbed;
+              addFloatingText(dmgTarget.id, `-${absorbed} ESCUDO`, 'shield');
+            }
+            if (finalDamage > 0) {
+              dmgTarget.health = dmgTarget.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, dmgTarget.health - finalDamage) : Math.max(0, dmgTarget.health - finalDamage);
+              newLogs.push({ id: Math.random().toString(), turn, message: `💣 [EXPLODIU] A bomba de [${bomb.sourceSkillName}] explodiu em ${c.character.name} e ${dmgTarget.character.name} recebeu ${finalDamage} de dano${dmgType !== 'damage' ? ` (${dmgType})` : ''}!`, type: 'damage' });
+              addFloatingText(dmgTarget.id, `-${finalDamage} 💥`, 'damage');
+              if (dmgTarget.health === 0 && !dmgTarget.isDead) {
+                dmgTarget.isDead = true;
+                newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${dmgTarget.character.name} foi derrotado pela bomba de [${bomb.sourceSkillName}]!`, type: 'system' });
+              }
+            }
+          });
+        }
 
         // Decrement effect durations (skip effects cast in the current turn, skip permanent effects)
         c.activeEffects = c.activeEffects
@@ -8281,6 +8544,32 @@ splashOnlyTargets = splashPool.filter(c =>
       const skill = source.character.skills[action.skillIndex];
       (source as any)._executingSkill = skill;
       currentSkillRef.current = skill;
+
+      // Regra de alvo "uma vez por ativação": marca o consumo na 1ª skill usada enquanto a condição está ativa.
+      if (skill.targetRules && skill.targetRules.length > 0) {
+        const allEffects = [
+          ...source.activeEffects,
+          ...[...sourceList, ...targetList].filter(c => c.id !== source.id).flatMap(c => c.activeEffects),
+        ];
+        for (const rule of skill.targetRules) {
+          if (!rule.oncePerActivation || !rule.activeSkillName) continue;
+          const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+          const condEffect = allEffects.find(e => {
+            if (!e.name) return false;
+            const eNameLower = e.name.toLowerCase();
+            return eNameLower === targetNameLower || eNameLower.startsWith(targetNameLower) || eNameLower.includes(targetNameLower);
+          });
+          if (condEffect && !(condEffect as any).targetRuleConsumedAt) {
+            (condEffect as any).targetRuleConsumedAt = turn;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🎯 ${source.character.name} usou [${skill.name}] com alvo alterado (${rule.activeSkillName} ativo) — SÓ NESTA VEZ; o alvo volta ao normal até reativar ${rule.activeSkillName}!`,
+              type: 'buff',
+            });
+          }
+        }
+      }
 
       // Regra única do Mubi: usar skill amigável/passiva remove DoTs infinitos marcados com removedOnFriendlySkillUse
       if (isFriendlyOrPassiveSkill(skill)) {
@@ -9945,6 +10234,104 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           addFloatingText(t.id, `+${totalHeal} HP`, 'heal');
           cleanseTargetEffects(t, skill.healRemoveType);
         });
+}
+
+      // 💣 Contagem Regressiva (Bomba): aplica o timer no alvo; quando o tempo acabar, ele recebe o dano
+      if (skill.countdownDamageRules && skill.countdownDamageRules.length > 0) {
+        const bombTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        bombTargets.forEach(bt => {
+          if (bt.isDead) return;
+          if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(bt, skill)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${bt.character.name} está INVULNERÁVEL e não recebeu a bomba de [${skill.name}]!`, type: 'buff' });
+            addFloatingText(bt.id, 'INVULNERÁVEL', 'invulnerable');
+            return;
+          }
+          skill.countdownDamageRules!.forEach(rule => {
+            if (!rule.damage || rule.damage <= 0) return;
+            const dur = Math.max(1, rule.duration || 1);
+            pushActiveEffect(bt, {
+              name: `${skill.name} (💣 ${dur}T)`,
+              type: 'countdown_bomb',
+              value: rule.damage,
+              duration: dur,
+              damageType: rule.damageType || 'damage',
+              bombTarget: rule.target || 'holder',
+              icon: skill.icon,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+              irremovable: true,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💣 ${bt.character.name} recebeu uma bomba de [${skill.name}] — em ${dur} turno(s) sofrerá ${rule.damage} de dano!`,
+              type: 'buff',
+            });
+            addFloatingText(bt.id, `💣 BOMBA (${dur}T)`, 'effect');
+          });
+        });
+      }
+
+      // ⚡ Combo por Stacks (stackUseEffectRules): ao usar a skill com X stacks do conjurador, aplica os efeitos da regra
+      if (skill.stackUseEffectRules && skill.stackUseEffectRules.length > 0) {
+        const applicable = skill.stackUseEffectRules
+          .filter(r => r.requiredStacks > 0)
+          .map(r => ({ rule: r, count: (source.activeEffects.find(e => e.stackable && e.stackType && e.stackType === (r.stackType || skill.stackType || skill.name))?.stacks || 0) }))
+          .filter(x => x.count >= x.rule.requiredStacks && (x.rule.onwards !== false ? true : x.count === x.rule.requiredStacks))
+          .sort((a, b) => b.rule.requiredStacks - a.rule.requiredStacks);
+        if (applicable.length > 0) {
+          const { rule, count } = applicable[0];
+          const comboLabel = `${skill.name} (Combo ${count}x)`;
+          const comboEffects: string[] = [];
+          const comboTargets = resolveEffectTargets(undefined, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+          comboTargets.forEach(ct => {
+            if (ct.isDead) return;
+            if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(ct, skill)) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${ct.character.name} está INVULNERÁVEL e não sofreu os efeitos do combo de [${comboLabel}]!`, type: 'buff' });
+              addFloatingText(ct.id, 'INVULNERÁVEL', 'invulnerable');
+              return;
+            }
+            if (rule.stun) {
+              const stunDur = Math.max(1, rule.stunDuration || 1);
+              const stunTypes = rule.stunType && rule.stunType.length > 0 ? rule.stunType : ['physical', 'mental', 'affliction', 'chakra'];
+              pushActiveEffect(ct, {
+                name: `${comboLabel} (Stun de Combo)`,
+                type: 'stun',
+                duration: stunDur,
+                stunType: stunTypes,
+                icon: skill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+              });
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `⚡ [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`,
+                type: 'stun',
+              });
+              addFloatingText(ct.id, `STUN (COMBO ${count}x)`, 'stun');
+              comboEffects.push('Stun');
+            }
+            if (rule.chakraRemove && rule.chakraRemove > 0) {
+              const ctIsPlayer = updatedPlayer.some(p => p.id === ct.id);
+              performChakraAction(ctIsPlayer, rule.chakraRemove, source.character.name, ct.character.name, skill.name, action.isPlayer, 'remove', source.id, ct.id, newLogs, localPlayerChakra, localEnemyChakra);
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `🔥 [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`,
+                type: 'chakra',
+              });
+              addFloatingText(ct.id, `CHAKRA -${rule.chakraRemove}`, 'effect');
+              comboEffects.push('Chakra Removido');
+            }
+          });
+          if (comboEffects.length > 0) {
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `⚡⚡ [COMBO ${count}x] ${source.character.name} ativou os efeitos de combo de [${skill.name}]: ${comboEffects.join(' + ')}!`,
+              type: 'buff',
+            });
+          }
+        }
       }
 
       // 3. APPLY STUNS
@@ -9954,7 +10341,6 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         };
         const resolvedStunTypes: string[] = finalStunType || [];
         const isAllTypes = resolvedStunTypes.length >= 4;
-
         const stunTypeName = resolvedStunTypes.length === 0
           ? 'Stun Completo'
           : isAllTypes
@@ -10357,6 +10743,44 @@ if (skill.redirectOffensiveToCaster) {
           addFloatingText(t.id, `ANTI-PERFURAÇÃO (+${skill.damageReductionPierceVal})`, 'effect');
           cleanseTargetEffects(t, skill.damageReductionPierceRemoveType);
         });
+      }
+
+      // 4.2.1.1 REDUÇÃO DE DANO POR STACK EM MIM (buff de redução no conjurador escalando com minhas stacks)
+      if (skill.selfStackReductionRules && skill.selfStackReductionRules.length > 0) {
+        for (const redRule of skill.selfStackReductionRules) {
+          if (!redRule.stackType || !redRule.reductionValue) continue;
+          const selfStackEffect = source.activeEffects.find(e => e.stackType === redRule.stackType || e.name === redRule.stackType);
+          let selfStackCount = selfStackEffect?.stacks || 0;
+          // A stack que ESTA skill está aplicando agora no conjurador também conta (o bloco de stacks roda depois)
+          if (skill.stackable && (skill.stackType || skill.name) === redRule.stackType) {
+            const stackTgts = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
+            if (stackTgts.some(t => t.id === source.id)) selfStackCount += 1;
+          }
+          if (selfStackCount <= 0) continue;
+          const redType = redRule.reductionType === 'damage_reduction_pierce' ? 'damage_reduction_pierce' : 'damage_reduction';
+          const redName = redType === 'damage_reduction_pierce' ? `${skill.name} AntiPerfuração` : `${skill.name} Guard`;
+          const dur = (redRule.duration && redRule.duration > 0) ? redRule.duration : 99999;
+          const totalRed = selfStackCount * redRule.reductionValue;
+          pushActiveEffect(source, {
+            name: redName,
+            type: redType,
+            value: totalRed,
+            duration: dur,
+            icon: skill.icon,
+            sourceSkillName: skill.name,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: redType === 'damage_reduction_pierce'
+              ? `🪡 ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano normal e perfuração por ${dur === 99999 ? '∞' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`
+              : `🛡️ ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano por ${dur === 99999 ? '∞' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, redType === 'damage_reduction_pierce' ? `ANTI-PERFURAÇÃO (+${totalRed})` : `DEFESA (+${totalRed})`, 'effect');
+        }
       }
 
       // 4.2.2 APPLY COPY SKILLS (substitui as skills do conjurador pelas do alvo por X turnos)
@@ -11528,9 +11952,67 @@ if (skill.redirectOffensiveToCaster) {
           }
         });
 
-        // Decrement effect durations (skip permanent effects)
+        // 💣 Contagem regressiva: quando a bomba (countdown_bomb) expira, o portador recebe o dano configurado
+        {
+          const expiringBombs = c.activeEffects.filter(eff =>
+            eff.type === 'countdown_bomb' && eff.duration === 1 && eff.duration < 99999
+          );
+          const allCombatantsHere = [...updatedPlayer, ...updatedEnemy];
+          expiringBombs.forEach(bomb => {
+            const bombDmg = bomb.value || 0;
+            if (bombDmg <= 0) return;
+            const ruleTarget = (bomb as any).bombTarget || 'holder';
+            const dmgType = (bomb as any).damageType || 'damage';
+            const originSkill = allCombatantsHere.flatMap(cb => cb.character.skills || []).find(s => s.name === bomb.sourceSkillName);
+            let dmgTarget: CombatCharacter | undefined;
+            if (ruleTarget === 'enemy') {
+              dmgTarget = allCombatantsHere.find(x => !x.isDead && (x.id.startsWith('player') !== c.id.startsWith('player')));
+            } else {
+              dmgTarget = c;
+            }
+            if (!dmgTarget || dmgTarget.isDead) return;
+            if (originSkill && checkCombatantInvulnerable(dmgTarget, originSkill)) {
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${dmgTarget.character.name} está INVULNERÁVEL e não sofreu o dano da bomba de [${originSkill.name}]!`, type: 'buff' });
+              addFloatingText(dmgTarget.id, 'INVULNERÁVEL', 'invulnerable');
+              return;
+            }
+            const isDirect = dmgType === 'direct_damage' || dmgType === 'true' || dmgType === 'piercing';
+            let finalDamage = bombDmg;
+            if (!isDirect) {
+              const effDamageDebuffs = dmgTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_debuff' && (!(e as any).debuffTypes || (e as any).debuffTypes.length === 0 || (e as any).debuffTypes.includes('skill')));
+              const debuffSum = effDamageDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
+              const effDamageBuff = dmgTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_buff');
+              const buffSum = effDamageBuff.reduce((acc, curr) => acc + (curr.value || 0), 0);
+              finalDamage = Math.max(0, finalDamage - debuffSum + buffSum);
+            }
+            const typeKey = dmgType === 'damage' ? 'damage' : dmgType;
+            if (hasDamageImmunity(dmgTarget, [typeKey, ...(originSkill ? getSkillCombatTypes(originSkill) : [])])) {
+              consumeFirstHitOnlyImmunity(dmgTarget, [typeKey, ...(originSkill ? getSkillCombatTypes(originSkill) : [])]);
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${dmgTarget.character.name} é IMUNE a dano e não sofreu a bomba de [${bomb.sourceSkillName}].`, type: 'buff' });
+              addFloatingText(dmgTarget.id, 'IMUNE!', 'invulnerable');
+              return;
+            }
+            if (finalDamage > 0 && (dmgTarget.shield || 0) > 0) {
+              const absorbed = Math.min(dmgTarget.shield, finalDamage);
+              dmgTarget.shield -= absorbed;
+              finalDamage -= absorbed;
+              addFloatingText(dmgTarget.id, `-${absorbed} ESCUDO`, 'shield');
+            }
+            if (finalDamage > 0) {
+              dmgTarget.health = dmgTarget.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, dmgTarget.health - finalDamage) : Math.max(0, dmgTarget.health - finalDamage);
+              newLogs.push({ id: Math.random().toString(), turn, message: `💣 [EXPLODIU] A bomba de [${bomb.sourceSkillName}] explodiu em ${c.character.name} e ${dmgTarget.character.name} recebeu ${finalDamage} de dano${dmgType !== 'damage' ? ` (${dmgType})` : ''}!`, type: 'damage' });
+              addFloatingText(dmgTarget.id, `-${finalDamage} 💥`, 'damage');
+              if (dmgTarget.health === 0 && !dmgTarget.isDead) {
+                dmgTarget.isDead = true;
+                newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${dmgTarget.character.name} foi derrotado pela bomba de [${bomb.sourceSkillName}]!`, type: 'system' });
+              }
+            }
+          });
+        }
+
+        // Decrement effect durations (skip effects cast in the current turn, skip permanent effects)
         c.activeEffects = c.activeEffects
-          .map(eff => eff.duration >= 99999 ? eff : { ...eff, duration: eff.duration - 1 })
+          .map(eff => (eff.castTurn === turn || eff.duration >= 99999) ? eff : { ...eff, duration: eff.duration - 1 })
           .filter(eff => eff.duration > 0);
 
         // Decrement cooldowns (unless paralisia de cooldown is active)
@@ -11656,6 +12138,8 @@ if (skill.redirectOffensiveToCaster) {
   const renderSkillCustomEffects = (skill: Skill) => {
     const effects: { label: string; value: string; color: string; targetLabel?: string }[] = [];
 
+    const fmtDur = (d?: number) => (d && d >= 99999 ? 'Infinito' : `${d || 1} ${(d || 1) === 1 ? 'Turno' : 'Turnos'}`);
+
     const getTargetLabel = (override?: string, defaultT: string = 'Alvo Principal') => {
       if (!override) return defaultT;
       return TARGET_LABELS[override] || override;
@@ -11689,7 +12173,7 @@ if (skill.redirectOffensiveToCaster) {
       const blockDur = skill.stunTurns || skill.duration || 1;
       effects.push({
         label: 'Stun Ofensivo (Impedimento Ofensivo)',
-        value: `Bloqueia APENAS habilidades OFENSIVAS do alvo por ${blockDur} ${blockDur === 1 ? 'Turno' : 'Turnos'} (Habilidades amigáveis ou em si mesmo continuam liberadas)`,
+        value: `Bloqueia APENAS habilidades OFENSIVAS do alvo por ${fmtDur(blockDur)} (Habilidades amigáveis ou em si mesmo continuam liberadas)`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.stunTarget || skill.targetType, 'Alvo Principal')
       });
@@ -11715,15 +12199,13 @@ if (skill.redirectOffensiveToCaster) {
 
       effects.push({
         label: 'Atordoar (Stun)',
-        value: `${skill.stunTurns} ${skill.stunTurns === 1 ? 'Turno' : 'Turnos'} (${stunText})`,
+        value: `${fmtDur(skill.stunTurns)} (${stunText})`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.stunTarget, 'Alvo Principal')
       });
     }
     if (skill.shieldVal && skill.shieldVal > 0) {
-      const shieldDurText = skill.shieldDuration && skill.shieldDuration > 0 && skill.shieldDuration < 99999
-        ? `${skill.shieldDuration} ${skill.shieldDuration === 1 ? 'Turno' : 'Turnos'}`
-        : 'Infinito';
+const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       effects.push({
         label: 'Escudo (Shield)',
         value: `+${skill.shieldVal} Escudo por ${shieldDurText}${skill.shieldMaxVal && skill.shieldMaxVal > 0 ? ` (Limite Máx: ${skill.shieldMaxVal})` : ''}`,
@@ -11733,7 +12215,7 @@ if (skill.redirectOffensiveToCaster) {
       if (skill.shieldRegenTurns && skill.shieldRegenTurns > 0) {
         effects.push({
           label: 'Escudo por Turno (Adicional)',
-          value: `+${skill.shieldVal} de escudo ADICIONAL por turno, durante ${skill.shieldRegenTurns} ${skill.shieldRegenTurns === 1 ? 'Turno' : 'Turnos'}`,
+          value: `+${skill.shieldVal} de escudo ADICIONAL por turno, durante ${fmtDur(skill.shieldRegenTurns)}`,
           color: 'text-blue-950 font-extrabold',
           targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
         });
@@ -11742,7 +12224,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.damageReductionVal && skill.damageReductionVal > 0) {
       effects.push({
         label: 'Redução de Dano',
-        value: `-${skill.damageReductionVal} de Dano Recebido por ${skill.damageReductionDuration || 1} ${skill.damageReductionDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `-${skill.damageReductionVal} de Dano Recebido por ${fmtDur(skill.damageReductionDuration)}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -11750,7 +12232,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.damageBuffVal && skill.damageBuffVal > 0) {
       effects.push({
         label: 'Aumento de Dano',
-        value: `+${skill.damageBuffVal} de Dano causado por ${skill.damageBuffDuration || 1} ${skill.damageBuffDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `+${skill.damageBuffVal} de Dano causado por ${fmtDur(skill.damageBuffDuration)}`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -11758,7 +12240,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.friendlyDamageVal && skill.friendlyDamageVal > 0) {
       effects.push({
         label: 'Sofrer Dano',
-        value: `-${skill.friendlyDamageVal} de ${skill.friendlyDamageType === 'direct_damage' ? 'Dano Direto' : skill.friendlyDamageType === 'dot' ? 'Queimadura' : skill.friendlyDamageType === 'bleeding' ? 'Sangramento' : skill.friendlyDamageType === 'affliction' ? 'Aflição' : 'Dano'} por ${skill.friendlyDamageDuration || 1} ${skill.friendlyDamageDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `-${skill.friendlyDamageVal} de ${skill.friendlyDamageType === 'direct_damage' ? 'Dano Direto' : skill.friendlyDamageType === 'dot' ? 'Queimadura' : skill.friendlyDamageType === 'bleeding' ? 'Sangramento' : skill.friendlyDamageType === 'affliction' ? 'Aflição' : 'Dano'} por ${fmtDur(skill.friendlyDamageDuration)}`,
         color: 'text-violet-950 font-extrabold',
         targetLabel: getTargetLabel(skill.friendlyDamageTarget, 'Conjurador (Mim)')
       });
@@ -11820,7 +12302,7 @@ if (skill.redirectOffensiveToCaster) {
           : 'Dano';
         effects.push({
           label: 'Punição por Habilidade',
-          value: `Sofre ${rule.damage} de ${typeLabel} a cada skill usada por ${rule.duration || 1} ${(rule.duration || 1) === 1 ? 'Turno' : 'Turnos'}`,
+          value: `Sofre ${rule.damage} de ${typeLabel} a cada skill usada por ${fmtDur(rule.duration)}`,
           color: 'text-amber-950 font-extrabold',
           targetLabel: getTargetLabel(rule.target, 'Inimigo (Alvo)')
         });
@@ -11829,7 +12311,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.dotVal && skill.dotVal > 0) {
       effects.push({
         label: 'Dano Contínuo (DoT)',
-        value: `${skill.dotVal} de dano por turno por ${skill.dotDuration === 99999 ? '∞ (Infinito)' : `${skill.dotDuration || 1} ${skill.dotDuration === 1 ? 'Turno' : 'Turnos'}`}`,
+        value: `${skill.dotVal} de dano por turno por ${fmtDur(skill.dotDuration)}`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.dotTarget, 'Alvo Principal')
       });
@@ -11837,7 +12319,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.bleedingVal && skill.bleedingVal > 0) {
       effects.push({
         label: 'Sangramento (Bleeding)',
-        value: `${skill.bleedingVal} de dano por turno por ${skill.bleedingDuration || 1} ${skill.bleedingDuration === 1 ? 'Turno' : 'Turnos'}${(skill.bleedingDelay || 0) > 0 ? ` (só a partir de ${skill.bleedingDelay} ${skill.bleedingDelay === 1 ? 'Turno' : 'Turnos'})` : ''}`,
+        value: `${skill.bleedingVal} de dano por turno por ${fmtDur(skill.bleedingDuration)}${(skill.bleedingDelay || 0) > 0 ? ` (só a partir de ${fmtDur(skill.bleedingDelay)})` : ''}`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.bleedingTarget, 'Alvo Principal')
       });
@@ -11845,7 +12327,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.afflictionVal && skill.afflictionVal > 0) {
       effects.push({
         label: 'Aflição (Aflicção)',
-        value: `${skill.afflictionVal} de dano por turno por ${skill.afflictionDuration || 1} ${skill.afflictionDuration === 1 ? 'Turno' : 'Turnos'}${(skill.afflictionDelay || 0) > 0 ? ` (só a partir de ${skill.afflictionDelay} ${skill.afflictionDelay === 1 ? 'Turno' : 'Turnos'})` : ''}`,
+        value: `${skill.afflictionVal} de dano por turno por ${fmtDur(skill.afflictionDuration)}${(skill.afflictionDelay || 0) > 0 ? ` (só a partir de ${fmtDur(skill.afflictionDelay)})` : ''}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.afflictionTarget, 'Alvo Principal')
       });
@@ -11855,7 +12337,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.damageDebuffVal && skill.damageDebuffVal > 0) {
       effects.push({
         label: 'Reduz Dano do Inimigo',
-        value: `Reduz o dano causado pelo inimigo em ${skill.damageDebuffVal} por ${skill.damageDebuffDuration || 1} ${skill.damageDebuffDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Reduz o dano causado pelo inimigo em ${skill.damageDebuffVal} por ${fmtDur(skill.damageDebuffDuration)}`,
         color: 'text-rose-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageDebuffTarget, 'Alvo Principal')
       });
@@ -11865,7 +12347,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.damageVulnerabilityVal && skill.damageVulnerabilityVal > 0) {
       effects.push({
         label: 'Vulnerabilidade de Classe',
-        value: `Inimigo recebe +${skill.damageVulnerabilityVal} de dano extra${skill.damageVulnerabilityTypes && skill.damageVulnerabilityTypes.length > 0 ? ` de classes (${skill.damageVulnerabilityTypes.join(', ')})` : ''} por ${skill.damageVulnerabilityDuration === 99999 ? '∞ (Infinito)' : `${skill.damageVulnerabilityDuration || 1} ${skill.damageVulnerabilityDuration === 1 ? 'Turno' : 'Turnos'}`}`,
+        value: `Inimigo recebe +${skill.damageVulnerabilityVal} de dano extra${skill.damageVulnerabilityTypes && skill.damageVulnerabilityTypes.length > 0 ? ` de classes (${skill.damageVulnerabilityTypes.join(', ')})` : ''} por ${fmtDur(skill.damageVulnerabilityDuration)}`,
         color: 'text-fuchsia-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageVulnerabilityTarget, 'Alvo Principal')
       });
@@ -11874,7 +12356,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.paralyzeCooldownDuration && skill.paralyzeCooldownDuration > 0) {
       effects.push({
         label: 'Paralisar Cooldown',
-        value: `Paralisa cooldowns por ${skill.paralyzeCooldownDuration} ${skill.paralyzeCooldownDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Paralisa cooldowns por ${fmtDur(skill.paralyzeCooldownDuration)}`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.paralyzeCooldownTarget, 'Alvo Principal')
       });
@@ -11882,14 +12364,14 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.cooldownIncreaseDuration && skill.cooldownIncreaseDuration > 0 && (skill.cooldownIncreaseAmount || 0) > 0) {
       effects.push({
         label: 'Aumentar Cooldown',
-        value: `Cada skill usada pelo alvo ganha +${skill.cooldownIncreaseAmount} de cooldown por ${skill.cooldownIncreaseDuration} ${skill.cooldownIncreaseDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Cada skill usada pelo alvo ganha +${skill.cooldownIncreaseAmount} de cooldown por ${fmtDur(skill.cooldownIncreaseDuration)}`,
         color: 'text-orange-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cooldownIncreaseTarget, 'Alvo Principal')
       });
     }
     if (skill.damageToShieldDuration && skill.damageToShieldDuration > 0) {
       const d2sShieldText = skill.damageToShieldShieldTurns && skill.damageToShieldShieldTurns !== 99999
-        ? ` por ${skill.damageToShieldShieldTurns} ${skill.damageToShieldShieldTurns === 1 ? 'Turno' : 'Turnos'}`
+        ? ` por ${fmtDur(skill.damageToShieldShieldTurns)}`
         : ' por tempo indeterminado';
       const d2sTypesText = skill.damageToShieldTypes && skill.damageToShieldTypes.length > 0
         ? skill.damageToShieldTypes.join(', ')
@@ -11897,7 +12379,7 @@ if (skill.redirectOffensiveToCaster) {
       const d2sFirstHitText = skill.damageToShieldFirstHitOnly ? ' (só o 1º dano)' : '';
       effects.push({
         label: 'Conversão de Dano em Escudo',
-        value: `O dano recebido (${d2sTypesText})${d2sFirstHitText} vira escudo${d2sShieldText} durante ${skill.damageToShieldDuration === 99999 ? '∞' : skill.damageToShieldDuration + ' Turnos'}`,
+        value: `O dano recebido (${d2sTypesText})${d2sFirstHitText} vira escudo${d2sShieldText} durante ${fmtDur(skill.damageToShieldDuration)}`,
         color: 'text-emerald-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageToShieldTarget, 'Alvo Principal')
       });
@@ -11909,7 +12391,7 @@ if (skill.redirectOffensiveToCaster) {
       const immFirstHitText = skill.damageImmunityFirstHitOnly ? ' (só o 1º dano)' : '';
       effects.push({
         label: 'Imunidade a Dano',
-        value: `Imune ao dano (${immTypesText})${immFirstHitText} por ${skill.damageImmunityDuration === 99999 ? '∞' : skill.damageImmunityDuration + ' Turnos'}`,
+        value: `Imune ao dano (${immTypesText})${immFirstHitText} por ${fmtDur(skill.damageImmunityDuration)}`,
         color: 'text-sky-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageImmunityTarget, 'Alvo Principal')
       });
@@ -11917,7 +12399,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.cannotReduceDamageDuration && skill.cannotReduceDamageDuration > 0) {
       effects.push({
         label: 'Incapaz de Reduzir Dano',
-        value: `Incapaz de reduzir dano por ${skill.cannotReduceDamageDuration} ${skill.cannotReduceDamageDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Incapaz de reduzir dano por ${fmtDur(skill.cannotReduceDamageDuration)}`,
         color: 'text-rose-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cannotReduceDamageTarget, 'Alvo Principal')
       });
@@ -11925,7 +12407,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.cannotBeInvulnerableDuration && skill.cannotBeInvulnerableDuration > 0) {
       effects.push({
         label: 'Incapaz de Ficar Invulnerável',
-        value: `Incapaz de ficar invulnerável por ${skill.cannotBeInvulnerableDuration} ${skill.cannotBeInvulnerableDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Incapaz de ficar invulnerável por ${fmtDur(skill.cannotBeInvulnerableDuration)}`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cannotBeInvulnerableTarget, 'Alvo Principal')
       });
@@ -11933,7 +12415,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.cannotReceiveFriendlyDuration && skill.cannotReceiveFriendlyDuration > 0) {
       effects.push({
         label: 'Incapaz de Receber Skills Amigáveis',
-        value: `Incapaz de receber habilidades amigáveis por ${skill.cannotReceiveFriendlyDuration} ${skill.cannotReceiveFriendlyDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Incapaz de receber habilidades amigáveis por ${fmtDur(skill.cannotReceiveFriendlyDuration)}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cannotReceiveFriendlyTarget, 'Alvo Principal')
       });
@@ -11945,7 +12427,7 @@ if (skill.redirectOffensiveToCaster) {
       const stLabel = (skill.chakraCostIncreaseSkillTypes || []).map(st => skillLbl[st] || st).join(' + ');
       effects.push({
         label: 'Aumentar Custo de Chakra',
-        value: `Aumenta o custo (+1 ${ctLabel})${stLabel ? ` das habilidades de ${stLabel}` : ''} por ${skill.chakraCostIncreaseDuration} ${skill.chakraCostIncreaseDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Aumenta o custo (+1 ${ctLabel})${stLabel ? ` das habilidades de ${stLabel}` : ''} por ${fmtDur(skill.chakraCostIncreaseDuration)}`,
         color: 'text-cyan-950 font-extrabold',
         targetLabel: getTargetLabel(skill.chakraCostIncreaseTarget, 'Alvo Principal')
       });
@@ -11957,7 +12439,7 @@ if (skill.redirectOffensiveToCaster) {
         const ctLabel = rule.chakraTypes.map(ct => chakraLbl[ct] || ct).join(' + ');
         effects.push({
           label: 'Reduzir Custo de Chakra',
-          value: `Skills do alvo custam -${rule.amount} ${ctLabel} por ${rule.durationTurns} ${rule.durationTurns === 1 ? 'Turno' : 'Turnos'}`,
+          value: `Skills do alvo custam -${rule.amount} ${ctLabel} por ${fmtDur(rule.durationTurns)}`,
           color: 'text-sky-950 font-extrabold',
           targetLabel: 'Alvos da Skill'
         });
@@ -11966,7 +12448,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.revealInvisibleDuration && skill.revealInvisibleDuration > 0) {
       effects.push({
         label: 'Revelar Skills Invisíveis',
-        value: `Revela habilidades e efeitos invisíveis por ${skill.revealInvisibleDuration} ${skill.revealInvisibleDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Revela habilidades e efeitos invisíveis por ${fmtDur(skill.revealInvisibleDuration)}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.revealInvisibleTarget, 'Alvo Principal')
       });
@@ -11974,7 +12456,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.ignoreStunDuration && skill.ignoreStunDuration > 0) {
       effects.push({
         label: 'Ignorar Stun',
-        value: `Imune a stuns por ${skill.ignoreStunDuration} ${skill.ignoreStunDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Imune a stuns por ${fmtDur(skill.ignoreStunDuration)}`,
         color: 'text-indigo-950 font-extrabold',
         targetLabel: getTargetLabel(skill.ignoreStunTarget, 'Alvo Principal')
       });
@@ -11984,7 +12466,7 @@ if (skill.redirectOffensiveToCaster) {
         label: skill.damageImmunityFirstHitOnly ? 'Imunidade a Dano (1º Dano)' : 'Imunidade a Dano',
         value: skill.damageImmunityFirstHitOnly
           ? `Imune apenas ao PRIMEIRO dano recebido (a imunidade é consumida após bloquear)`
-          : `Imune a todo dano por ${skill.damageImmunityDuration} ${skill.damageImmunityDuration === 1 ? 'Turno' : 'Turnos'}`,
+          : `Imune a todo dano por ${fmtDur(skill.damageImmunityDuration)}`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageImmunityTarget, 'Alvo Principal')
       });
@@ -11996,7 +12478,7 @@ if (skill.redirectOffensiveToCaster) {
         gcTypes.filter(t => ['Tai', 'Nin', 'Gen', 'Blood'].includes(t)).join('+');
       effects.push({
         label: 'Gerar Chakra',
-        value: `Gera ${skill.gainChakra} chakra por turno por ${skill.gainChakraDuration || 1} ${skill.gainChakraDuration === 1 ? 'Turno' : 'Turnos'}${gcLabel ? ` ${gcLabel}` : ''}`,
+        value: `Gera ${skill.gainChakra} chakra por turno por ${fmtDur(skill.gainChakraDuration)}${gcLabel ? ` ${gcLabel}` : ''}`,
         color: 'text-blue-950 font-extrabold',
         targetLabel: getTargetLabel(skill.gainChakraTarget, 'Conjurador (Mim)')
       });
@@ -12004,7 +12486,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.drainChakra && skill.drainChakra > 0) {
       effects.push({
         label: 'Drenar Chakra',
-        value: `Drena ${skill.drainChakra} chakra por turno por ${skill.drainChakraDuration || 1} ${skill.drainChakraDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Drena ${skill.drainChakra} chakra por turno por ${fmtDur(skill.drainChakraDuration)}`,
         color: 'text-indigo-950 font-extrabold',
         targetLabel: getTargetLabel(skill.drainChakraTarget, 'Alvo Principal')
       });
@@ -12012,7 +12494,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.removeChakra && skill.removeChakra > 0) {
       effects.push({
         label: 'Remover Chakra',
-        value: `Remove ${skill.removeChakra} chakra${skill.removeChakraMode === 'choice' ? ' (Escolha)' : ' (Aleatório)'} por ${skill.removeChakraDuration || 1} ${skill.removeChakraDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Remove ${skill.removeChakra} chakra${skill.removeChakraMode === 'choice' ? ' (Escolha)' : ' (Aleatório)'} por ${fmtDur(skill.removeChakraDuration)}`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.removeChakraTarget, 'Alvo Principal')
       });
@@ -12020,7 +12502,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.stealChakra && skill.stealChakra > 0) {
       effects.push({
         label: 'Roubar Chakra',
-        value: `Rouba ${skill.stealChakra} chakra aleatório por ${skill.stealChakraDuration || 1} ${skill.stealChakraDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Rouba ${skill.stealChakra} chakra aleatório por ${fmtDur(skill.stealChakraDuration)}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.stealChakraTarget, 'Alvo Principal')
       });
@@ -12028,7 +12510,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.removeShield) {
       effects.push({
         label: 'Destruir Escudos',
-        value: `Remove escudos ativos por ${skill.removeShieldDuration || 1} ${skill.removeShieldDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Remove escudos ativos por ${fmtDur(skill.removeShieldDuration)}`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Alvo Principal')
       });
@@ -12045,7 +12527,7 @@ if (skill.redirectOffensiveToCaster) {
       const invulSummary = formatInvulnerableSummary(skill.invulnerableTypes);
       effects.push({
         label: 'Invulnerabilidade',
-        value: `Fica invulnerável ${invulSummary}${skill.invulnerableClasses && skill.invulnerableClasses.length > 0 ? ` (classes: ${skill.invulnerableClasses.join(', ')})` : ''} por ${skill.invulnerableDuration} ${skill.invulnerableDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Fica invulnerável ${invulSummary}${skill.invulnerableClasses && skill.invulnerableClasses.length > 0 ? ` (classes: ${skill.invulnerableClasses.join(', ')})` : ''} por ${fmtDur(skill.invulnerableDuration)}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -12057,7 +12539,7 @@ if (skill.redirectOffensiveToCaster) {
         : 'Ao usar a habilidade';
       effects.push({
         label: 'Imortalidade',
-        value: `Fica imortal por ${skill.permanent ? 'tempo indeterminado (Permanente)' : `${skill.immortalDuration || 3} ${skill.immortalDuration === 1 ? 'Turno' : 'Turnos'}`} (${conditionStr})`,
+        value: `Fica imortal por ${skill.permanent ? 'tempo indeterminado (Permanente)' : fmtDur(skill.immortalDuration || 3)} (${conditionStr})`,
         color: 'text-green-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -12075,7 +12557,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.invisible && skill.invisibleDuration && skill.invisibleDuration > 0) {
       effects.push({
         label: 'Efeitos Invisíveis',
-        value: `Efeitos ocultos do oponente por ${skill.invisibleDuration} ${skill.invisibleDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Efeitos ocultos do oponente por ${fmtDur(skill.invisibleDuration)}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -12084,7 +12566,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.counterAttack) {
       effects.push({
         label: 'Contra-Ataque (Anular)',
-        value: `${skill.counterAttackMode === 'all' ? 'Anula TODAS as habilidades' : 'Anula somente a 1ª habilidade'} ${skill.counterAttackType === 'attacker' ? 'ofensivas usadas pelo alvo' : 'recebidas pelo alvo'} por ${skill.counterAttackDuration || 1} ${skill.counterAttackDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `${skill.counterAttackMode === 'all' ? 'Anula TODAS as habilidades' : 'Anula somente a 1ª habilidade'} ${skill.counterAttackType === 'attacker' ? 'ofensivas usadas pelo alvo' : 'recebidas pelo alvo'} por ${fmtDur(skill.counterAttackDuration)}`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.counterAttackTarget, 'Conjurador (Mim)')
       });
@@ -12092,7 +12574,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.reflect) {
       effects.push({
         label: 'Reflect',
-        value: `Reflete a próxima habilidade recebida (${skill.reflectMode === 'RandomAlly' ? 'para um aliado aleatório' : 'de volta pro atacante'}) por ${skill.reflectDuration || 1} ${skill.reflectDuration === 1 ? 'Turno' : 'Turnos'}`,
+        value: `Reflete a próxima habilidade recebida (${skill.reflectMode === 'RandomAlly' ? 'para um aliado aleatório' : 'de volta pro atacante'}) por ${fmtDur(skill.reflectDuration)}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.reflectTarget, 'Conjurador (Mim)')
       });
@@ -12190,7 +12672,7 @@ if (skill.redirectOffensiveToCaster) {
           : `Stun (${classes.join(' + ')})`;
         effects.push({
           label: `Stun Condicional (${rule.activeSkillName})`,
-          value: `STUNNA o inimigo por ${Math.max(1, rule.stunTurns || 1)} turno(s) (${blockLabel}) quando ${rule.activeSkillName} estiver ativo ${where}`,
+          value: `STUNNA o inimigo por ${fmtDur(rule.stunTurns || 1)} (${blockLabel}) quando ${rule.activeSkillName} estiver ativo ${where}`,
           color: 'text-yellow-950 font-extrabold',
           targetLabel: 'Condicional'
         });
@@ -12234,7 +12716,7 @@ if (skill.redirectOffensiveToCaster) {
         const clsLabel = cls.length === 0 ? 'qualquer classe' : cls.join(' + ');
         effects.push({
           label: 'Stun no Contra-Ataque',
-          value: `Quando o CONTRA-ATAQUE desta skill funciona, o inimigo que atacou fica STUNADO por ${r.stunTurns} turno(s)${(r.bonusDamage || 0) > 0 ? ` e recebe +${r.bonusDamage} de dano de skills ${clsLabel}` : ''}`,
+          value: `Quando o CONTRA-ATAQUE desta skill funciona, o inimigo que atacou fica STUNADO por ${fmtDur(r.stunTurns)}${(r.bonusDamage || 0) > 0 ? ` e recebe +${r.bonusDamage} de dano de skills ${clsLabel}` : ''}`,
           color: 'text-purple-950 font-extrabold',
           targetLabel: 'Contra-Ataque'
         });
@@ -12256,7 +12738,7 @@ if (skill.redirectOffensiveToCaster) {
         };
         effects.push({
           label: `Mudança de Alvo (${rule.markingSkillName})`,
-          value: `Quando ${rule.markingSkillName} tiver ${Math.max(1, rule.requiredStacks || 1)} stacks, o alvo vira ${targetMap[rule.overrideTarget || 'AllEnemies'] || rule.overrideTarget} por ${Math.max(1, rule.durationTurns || 1)} turno(s)`,
+          value: `Quando ${rule.markingSkillName} tiver ${Math.max(1, rule.requiredStacks || 1)} stacks, o alvo vira ${targetMap[rule.overrideTarget || 'AllEnemies'] || rule.overrideTarget} por ${fmtDur(rule.durationTurns || 1)}`,
           color: 'text-rose-950 font-extrabold',
           targetLabel: 'Stack'
         });
@@ -12274,7 +12756,7 @@ if (skill.redirectOffensiveToCaster) {
         };
         effects.push({
           label: `Dano Adicional (${rule.markingSkillName})`,
-          value: `Quando ${rule.markingSkillName} tiver ${Math.max(1, rule.requiredStacks || 1)} stacks, dá +${rule.bonusDamage || 0} de ${typeLabels[rule.damageType || 'damage'] || 'Dano'} por ${Math.max(1, rule.durationTurns || 1)} turno(s)`,
+          value: `Quando ${rule.markingSkillName} tiver ${Math.max(1, rule.requiredStacks || 1)} stacks, dá +${rule.bonusDamage || 0} de ${typeLabels[rule.damageType || 'damage'] || 'Dano'} por ${fmtDur(rule.durationTurns || 1)}`,
           color: 'text-orange-950 font-extrabold',
           targetLabel: 'Stack'
         });
@@ -12296,7 +12778,7 @@ if (skill.redirectOffensiveToCaster) {
         const targetLabel = targetMap[rule.overrideTarget] || rule.overrideTarget;
         effects.push({
           label: `Novo Alvo (${rule.activeSkillName})`,
-          value: `Altera o alvo para [${targetLabel}] quando ${rule.activeSkillName} estiver ativo`,
+          value: `Altera o alvo para [${targetLabel}] quando ${rule.activeSkillName} estiver ativo${rule.oncePerActivation ? ' — SÓ NA 1ª VEZ POR ATIVAÇÃO (depois volta ao normal; reativar a condição reseta)' : ''}`,
           color: 'text-indigo-950 font-extrabold',
           targetLabel: 'Condicional'
         });
@@ -12311,6 +12793,43 @@ if (skill.redirectOffensiveToCaster) {
           value: `Altera a recarga para [${rule.overrideCooldown} Turno(s)] quando ${rule.activeSkillName} estiver ativo`,
           color: 'text-cyan-950 font-extrabold',
           targetLabel: 'Condicional'
+        });
+      });
+    }
+
+    if (skill.countdownDamageRules && skill.countdownDamageRules.length > 0) {
+      skill.countdownDamageRules.forEach(rule => {
+        if (!rule.damage || rule.damage <= 0) return;
+        const dmgMap: Record<string, string> = {
+          'damage': 'Dano Normal',
+          'direct_damage': 'Dano Direto',
+          'piercing': 'Dano Perfurante',
+          'true': 'Dano Verdadeiro',
+          'affliction': 'Dano de Aflição',
+          'bleeding': 'Dano de Sangramento',
+          'dot': 'Dano de Queimadura',
+        };
+        effects.push({
+          label: `💣 Contagem Regressiva`,
+          value: `Ao usar a skill no alvo, ele recebe um timer de ${Math.max(1, rule.duration || 1)} turno(s); quando o tempo acabar, ${rule.target === 'enemy' ? 'um inimigo do portador' : 'quem tem a bomba'} recebe ${rule.damage} de ${dmgMap[rule.damageType || 'damage'] || 'Dano'}`,
+          color: 'text-amber-900 font-extrabold',
+          targetLabel: 'Timer'
+        });
+      });
+    }
+
+    if (skill.stackUseEffectRules && skill.stackUseEffectRules.length > 0) {
+      skill.stackUseEffectRules.forEach(rule => {
+        if (!rule.requiredStacks || rule.requiredStacks <= 0) return;
+        const parts: string[] = [];
+        if (rule.stun) parts.push(`Stun por ${Math.max(1, rule.stunDuration || 1)} turno(s)`);
+        if (rule.chakraRemove && rule.chakraRemove > 0) parts.push(`Remove ${rule.chakraRemove} chakra(s)`);
+        if (parts.length === 0) return;
+        effects.push({
+          label: `⚡ Combo ${rule.requiredStacks}x`,
+          value: `Ao usar a skill com ${rule.requiredStacks} stack(s) (${rule.stackType || skill.stackType || skill.name}): ${parts.join(' + ')}. Se a stack sumir, o combo reinicia`,
+          color: 'text-purple-900 font-extrabold',
+          targetLabel: 'Combo'
         });
       });
     }
@@ -12357,7 +12876,7 @@ if (skill.redirectOffensiveToCaster) {
           : rule.damageType === 'bleeding' ? 'Sangramento'
           : rule.damageType === 'affliction' ? 'Aflição'
           : 'Dano Adicional';
-        const durStr = rule.duration && rule.duration > 1 ? ` por ${rule.duration} turnos` : '';
+        const durStr = rule.duration && rule.duration >= 99999 ? ' por tempo indeterminado' : rule.duration && rule.duration > 1 ? ` por ${rule.duration} turnos` : '';
         const remStr = rule.removeStacks && rule.removeStacks > 0 ? ` (consome ${rule.removeStacks} stack(s))` : '';
         effects.push({
           label: `Dano por Stack no Alvo (${rule.stackType})`,
@@ -13280,6 +13799,15 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                       {skill.selfStackDamageRules.map((rule, idx) => (
                                         <span key={idx} className="font-bold">
                                           ⚡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Mim
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {skill.selfStackReductionRules && skill.selfStackReductionRules.length > 0 && (
+                                    <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-emerald-300 bg-emerald-950/80 p-1 rounded border border-emerald-800/80">
+                                      {skill.selfStackReductionRules.map((rule, idx) => (
+                                        <span key={idx} className="font-bold">
+                                          🛡️ -{rule.reductionValue} Redução/stack ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? 'AntiPerfuração' : 'Guard'} em Mim
                                         </span>
                                       ))}
                                     </div>
@@ -14393,15 +14921,24 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                      </div>
                                    )}
 
-                                   {skill.selfStackDamageRules && skill.selfStackDamageRules.length > 0 && (
-                                      <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-amber-300 bg-amber-950/80 p-1 rounded border border-amber-800/80">
-                                        {skill.selfStackDamageRules.map((rule, idx) => (
-                                          <span key={idx} className="font-bold">
-                                            ⚡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Si
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
+{skill.selfStackDamageRules && skill.selfStackDamageRules.length > 0 && (
+                                       <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-amber-300 bg-amber-950/80 p-1 rounded border border-amber-800/80">
+                                         {skill.selfStackDamageRules.map((rule, idx) => (
+                                           <span key={idx} className="font-bold">
+                                             ⚡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Si
+                                           </span>
+                                         ))}
+                                       </div>
+                                     )}
+                                     {skill.selfStackReductionRules && skill.selfStackReductionRules.length > 0 && (
+                                       <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-emerald-300 bg-emerald-950/80 p-1 rounded border border-emerald-800/80">
+                                         {skill.selfStackReductionRules.map((rule, idx) => (
+                                           <span key={idx} className="font-bold">
+                                             🛡️ -{rule.reductionValue} Redução/stack ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? 'AntiPerfuração' : 'Guard'} em Si
+                                           </span>
+                                         ))}
+                                       </div>
+                                     )}
                                     {skill.stackDamageRules && skill.stackDamageRules.length > 0 && (
                                       <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-rose-300 bg-rose-950/80 p-1 rounded border border-rose-800/80">
                                         {skill.stackDamageRules.map((rule, idx) => (
@@ -14490,6 +15027,15 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                       {skill.selfStackDamageRules.map((rule, idx) => (
                                         <span key={idx} className="font-bold">
                                           ⚡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Si
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {skill.selfStackReductionRules && skill.selfStackReductionRules.length > 0 && (
+                                    <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-emerald-300 bg-emerald-950/80 p-1 rounded border border-emerald-800/80">
+                                      {skill.selfStackReductionRules.map((rule, idx) => (
+                                        <span key={idx} className="font-bold">
+                                          🛡️ -{rule.reductionValue} Redução/stack ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? 'AntiPerfuração' : 'Guard'} em Si
                                         </span>
                                       ))}
                                     </div>
