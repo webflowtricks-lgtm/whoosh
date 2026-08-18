@@ -2277,6 +2277,15 @@ const handleTradeChakra = () => {
     return true;
   };
 
+  // Shield Stun Immunity: enquanto o alvo tiver escudo ativo (com a proteção marcada
+  // por shield_stun_immunity), stuns são bloqueados.
+  const hasShieldStunImmunity = (c: CombatCharacter): boolean => {
+    if ((c.shield || 0) <= 0) return false;
+    if (!c.activeEffects.some(e => e.type === 'shield_stun_immunity')) return false;
+    if (c.shieldExpiresTurn && c.shieldExpiresTurn < turn) return false;
+    return true;
+  };
+
   const pushActiveEffect = (character: CombatCharacter, effect: ActiveEffect) => {
     // Check stackDurationRules for duration override (skip for stack damage DOT effects)
     if (!effect.stackable && currentSkillRef.current?.stackDurationRules && !effect.name?.includes('DOT)') && !effect.name?.includes('Imunidade a Dano')) {
@@ -2289,6 +2298,12 @@ const handleTradeChakra = () => {
           break;
         }
       }
+    }
+
+    // Shield Stun Immunity: while the target has an active shield with this protection, stuns are blocked
+    if (effect.type === 'stun' && hasShieldStunImmunity(character)) {
+      addFloatingText(character.id, 'IMUNE A STUN (ESCUDO)', 'effect');
+      return;
     }
 
     // Check if character is blocked from receiving friendly skills
@@ -3097,7 +3112,7 @@ const handleTradeChakra = () => {
       }
 
       // Young Kakashi: Implanted Sharingan mark target
-      if ((skill.name === 'Implanted Sharingan' || skill.name === 'Sharingan' || skill.name.toLowerCase().includes('sharingan')) && (source.character.folder === 'young-kakashi' || source.character.name.toLowerCase().includes('kakashi'))) {
+      if ((skill.name === 'Implanted Sharingan' || skill.name === 'Sharingan' || skill.name.toLowerCase().includes('sharingan')) && source.character.folder === 'young-kakashi') {
         if (defaultTarget && !defaultTarget.isDead) {
           pushActiveEffect(defaultTarget, {
             name: 'Implanted Sharingan Target',
@@ -3913,7 +3928,7 @@ const startingHealth = t.health;
           cleanseTargetEffects(t, skill.directDamageRemoveType);
 
           // Amateur Raikiri & White Light Blade custom target debuff, self buff & elimination buff
-          if ((skill.name === 'Amateur Raikiri' || skill.name === 'Lightning Blade' || skill.name === 'White Light Blade' || skill.name.toLowerCase().includes('white light') || skill.name.toLowerCase().includes('raikiri')) && (source.character.folder === 'young-kakashi' || source.character.name.toLowerCase().includes('kakashi'))) {
+          if ((skill.name === 'Amateur Raikiri' || skill.name === 'Lightning Blade' || skill.name === 'White Light Blade' || skill.name.toLowerCase().includes('white light')) && source.character.folder === 'young-kakashi') {
             if (!source.activeEffects.some(e => (e.name === 'Amateur Raikiri (Buff +5 Dano)' || e.name === 'White Light Blade (Buff +5 Dano)' || e.name.includes('Buff +5 Dano')) && e.castTurn === turn)) {
               pushActiveEffect(source, {
                 name: 'Amateur Raikiri (Buff +5 Dano)',
@@ -3974,6 +3989,117 @@ const startingHealth = t.health;
                 type: 'buff',
               });
               addFloatingText(source.id, '+5 DANO PERM!', 'effect');
+            }
+          }
+
+          // Anbu Kakashi: Raikiri stack logic
+          if (source.character.folder === 'anbu-kakashi' || source.character.id === 'anbu-kakashi') {
+            const raikiriSkill = source.character.skills?.find(s => s.name === 'Raikiri');
+            const isLightningBladeSkill = skill.name === 'Lightning Blade' || skill.name.toLowerCase() === 'lightning blade';
+            const isRaikiriPreserveSkill = skill.name === 'Earth Release: Mud Wall' || skill.name === 'Implanted Sharingan';
+
+            if (!raikiriSkill) {
+              if (isLightningBladeSkill) {
+                newLogs.push({ id: Math.random().toString(), turn, message: `⚡ [Lightning Blade] não gerou stack de Raikiri porque o personagem não possui a skill Raikiri.`, type: 'buff' });
+              }
+            } else {
+              const raikiriStack = source.activeEffects.find(e => e.stackType === 'Raikiri' && e.type === 'custom' && e.casterId === source.id);
+
+              if (isLightningBladeSkill) {
+                if (raikiriStack) {
+                  raikiriStack.stacks = (raikiriStack.stacks || 0) + 1;
+                  raikiriStack.duration = raikiriSkill.stackDuration ?? 1;
+                  raikiriStack.castTurn = turn;
+                  raikiriStack.icon = raikiriSkill.icon;
+                  raikiriStack.sourceSkillName = 'Raikiri';
+                } else {
+                  pushActiveEffect(source, {
+                    name: 'Raikiri (Stack)',
+                    type: 'custom',
+                    value: 0,
+                    duration: raikiriSkill.stackDuration ?? 1,
+                    icon: raikiriSkill.icon,
+                    stackable: true,
+                    stackType: 'Raikiri',
+                    casterId: source.id,
+                    casterSide: action.isPlayer ? 'player' : 'enemy',
+                    sourceSkillName: 'Raikiri',
+                    stacks: 1,
+                    castTurn: turn,
+                  });
+                }
+
+                const currentStack = source.activeEffects.find(e => e.stackType === 'Raikiri' && e.type === 'custom' && e.casterId === source.id);
+                const stackCount = currentStack?.stacks || 0;
+                if (currentStack && stackCount >= 2 && raikiriSkill.stackUseEffectRules?.length) {
+                  const applicable = raikiriSkill.stackUseEffectRules
+                    .filter(r => r.requiredStacks > 0)
+                    .map(r => ({ rule: r, count: stackCount }))
+                    .filter(x => x.count >= x.rule.requiredStacks && (x.rule.onwards !== false ? true : x.count === x.rule.requiredStacks))
+                    .sort((a, b) => b.rule.requiredStacks - a.rule.requiredStacks);
+
+                  if (applicable.length > 0) {
+                    const { rule, count } = applicable[0];
+                    const comboLabel = `Lightning Blade (Raikiri Finisher ${count}x)`;
+                    const comboTargets = resolveEffectTargets(undefined, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+                    comboTargets.forEach(ct => {
+                      if (ct.isDead) return;
+                      if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(ct, skill)) {
+                        newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${ct.character.name} está INVULNERÁVEL e não sofreu os efeitos de [${comboLabel}]!`, type: 'buff' });
+                        addFloatingText(ct.id, 'INVULNERÁVEL', 'invulnerable');
+                        return;
+                      }
+                      if (rule.stun) {
+                        const stunDur = Math.max(1, rule.stunDuration || 1);
+                        const stunTypes = rule.stunType && rule.stunType.length > 0 ? rule.stunType : ['physical', 'mental', 'affliction', 'chakra'];
+                        pushActiveEffect(ct, {
+                          name: `${comboLabel} (Stun)`,
+                          type: 'stun',
+                          duration: stunDur,
+                          stunType: stunTypes,
+                          icon: skill.icon,
+                          casterId: source.id,
+                          casterSide: action.isPlayer ? 'player' : 'enemy',
+                        });
+                        newLogs.push({ id: Math.random().toString(), turn, message: `⚡ [${comboLabel}] ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`, type: 'stun' });
+                        addFloatingText(ct.id, `STUN (FINISHER ${count}x)`, 'stun');
+                      }
+                      if (rule.chakraRemove && rule.chakraRemove > 0) {
+                        const ctIsPlayer = updatedPlayer.some(p => p.id === ct.id);
+                        performChakraAction(ctIsPlayer, rule.chakraRemove, source.character.name, ct.character.name, skill.name, action.isPlayer, 'remove', source.id, ct.id, newLogs, localPlayerChakra, localEnemyChakra);
+                        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${comboLabel}] removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`, type: 'chakra' });
+                      }
+                    });
+                  }
+                }
+
+                if (currentStack && stackCount >= 2 && raikiriSkill.stackUseEffectRules?.length) {
+                  const triggered = raikiriSkill.stackUseEffectRules
+                    .filter(r => r.requiredStacks > 0)
+                    .map(r => ({ rule: r, count: stackCount }))
+                    .filter(x => x.count >= x.rule.requiredStacks && (x.rule.onwards !== false ? true : x.count === x.rule.requiredStacks))
+                    .sort((a, b) => b.rule.requiredStacks - a.rule.requiredStacks);
+
+                  if (triggered.length > 0) {
+                    newLogs.push({
+                      id: Math.random().toString(),
+                      turn,
+                      message: `⚡ [Lightning Blade] ativou o finisher de Raikiri.`,
+                      type: 'buff',
+                    });
+                  }
+                }
+              }
+
+              if (isRaikiriPreserveSkill && raikiriStack && (raikiriStack.stacks || 0) > 0) {
+                raikiriStack.frozenUntilTurn = turn;
+                newLogs.push({
+                  id: Math.random().toString(),
+                  turn,
+                  message: `⚡ [${skill.name}] preservou a stack de Raikiri (${raikiriStack.stacks}x) congelando sua expiração por este turno!`,
+                  type: 'buff',
+                });
+              }
             }
           }
 
@@ -4343,6 +4469,7 @@ const startingHealth = t.health;
         removeShieldTargets.forEach(t => {
           if (t.isDead) return;
           t.shield = 0;
+          t.activeEffects = t.activeEffects.filter(e => e.type !== 'shield_stun_immunity');
           newLogs.push({
             id: Math.random().toString(),
             turn,
@@ -5229,6 +5356,27 @@ splashOnlyTargets = splashPool.filter(c =>
           const actualAdded = t.shield - prevShield;
           if (skill.shieldDuration && skill.shieldDuration > 0 && skill.shieldDuration < 99999) {
             t.shieldExpiresTurn = Math.max(t.shieldExpiresTurn || 0, turn + skill.shieldDuration);
+          }
+          if (skill.shieldStunImmunity) {
+            const shieldImmunityDuration = skill.shieldDuration && skill.shieldDuration > 0 && skill.shieldDuration < 99999 ? skill.shieldDuration : 99999;
+            pushActiveEffect(t, {
+              name: `${skill.name} (Imune a Stun por Escudo)`,
+              type: 'shield_stun_immunity',
+              value: 0,
+              duration: shieldImmunityDuration,
+              icon: skill.icon,
+              sourceSkillName: skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+            });
+            if (!newLogs.some(l => l.message.includes('imune a stun enquanto tiver escudo'))) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️⚡ ${t.character.name} está imune a stun enquanto tiver escudo de [${skill.name}]!`,
+                type: 'buff',
+              });
+            }
           }
           if (action.isPlayer) {
             matchStatsRef.current.shieldGenerated += actualAdded;
@@ -7164,6 +7312,7 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(c.id, 'ESCUDO EXPIRADO', 'shield');
           }
           c.shieldExpiresTurn = undefined;
+          c.activeEffects = c.activeEffects.filter(e => e.type !== 'shield_stun_immunity');
         }
 
         // Restaura as habilidades originais quando a cópia de habilidades expira
@@ -7240,7 +7389,7 @@ splashOnlyTargets = splashPool.filter(c =>
         // Decrement effect durations (skip effects cast in the current turn, skip permanent effects)
         c.activeEffects = c.activeEffects
           .map(eff => {
-            if (eff.castTurn === turn || eff.duration >= 99999) {
+            if (eff.castTurn === turn || eff.duration >= 99999 || (eff.stackType === 'Raikiri' && (eff as any).frozenUntilTurn === turn)) {
               return eff;
             }
             return { ...eff, duration: eff.duration - 1 };
@@ -7543,105 +7692,98 @@ splashOnlyTargets = splashPool.filter(c =>
 
   // Main End Turn / Pass Turn handler
   const handleEndTurn = (customRandAllocation?: ChakraPool, skipActions?: boolean) => {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      playCustomSound('Error');
-      setShowNoInternetModal(true);
-      isEndingTurnRef.current = false;
-      turnActionLockedRef.current = false;
-      setIsEndingTurn(false);
-      return;
-    }
-
-    if (passedPlayersRef.current.includes(activePlanner)) {
-      isEndingTurnRef.current = false;
-      turnActionLockedRef.current = false;
-      setIsEndingTurn(false);
-      return;
-    }
-
-    // In online/offline (non-sandbox) matches, the enemy side only passes
-    // through the AI effect or the matchmaking poll — never via this handler.
-    // This closes the rapid double-click hole where a second click, after the
-    // planner already switched to 'enemy', would pass the enemy side and end
-    // the turn prematurely. Auto-pass via the 60s timer (skipActions=true)
-    // is still allowed as a last-resort guarantee that the turn always advances.
-    if (!isSandbox && activePlanner !== 'player' && !skipActions) {
-      isEndingTurnRef.current = false;
-      turnActionLockedRef.current = false;
-      setIsEndingTurn(false);
-      return;
-    }
-
-    console.log(`[TURN] handleEndTurn turn=${turn} active=${activePlanner} ref=[${passedPlayersRef.current}] actions=${skipActions ? 0 : cuedActions.length} online=${!!onlineParams?.isOnline} sandbox=${isSandbox}`);
-
-    isEndingTurnRef.current = true;
-    turnActionLockedRef.current = true;
-    setIsEndingTurn(true);
-
-    playCustomSound('NextTurn');
-
-    const currentActions = skipActions ? [] : [...cuedActions];
-    setCuedActions([]);
-    setSelectedSkill(null);
-
-    const isCurrentPlayer = activePlanner === 'player';
-
-    let isGameOver = false;
     try {
-      isGameOver = executeSideActions(currentActions, isCurrentPlayer, customRandAllocation);
-    } catch (err) {
-      console.error('[BattleBoard] Erro ao executar as ações do turno (a passagem de turno continuará):', err);
-    }
-    if (isGameOver) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        playCustomSound('Error');
+        setShowNoInternetModal(true);
+        return;
+      }
+
+      if (passedPlayersRef.current.includes(activePlanner)) {
+        return;
+      }
+
+      // In online/offline (non-sandbox) matches, the enemy side only passes
+      // through the AI effect or the matchmaking poll — never via this handler.
+      // This closes the rapid double-click hole where a second click, after the
+      // planner already switched to 'enemy', would pass the enemy side and end
+      // the turn prematurely. Auto-pass via the 60s timer (skipActions=true)
+      // is still allowed as a last-resort guarantee that the turn always advances.
+      if (!isSandbox && activePlanner !== 'player' && !skipActions) {
+        return;
+      }
+
+      console.log(`[TURN] handleEndTurn turn=${turn} active=${activePlanner} ref=[${passedPlayersRef.current}] actions=${skipActions ? 0 : cuedActions.length} online=${!!onlineParams?.isOnline} sandbox=${isSandbox}`);
+
+      isEndingTurnRef.current = true;
+      turnActionLockedRef.current = true;
+      setIsEndingTurn(true);
+
+      playCustomSound('NextTurn');
+
+      const currentActions = skipActions ? [] : [...cuedActions];
+      setCuedActions([]);
+      setSelectedSkill(null);
+
+      const isCurrentPlayer = activePlanner === 'player';
+
+      let isGameOver = false;
+      try {
+        isGameOver = executeSideActions(currentActions, isCurrentPlayer, customRandAllocation);
+      } catch (err) {
+        console.error('[BattleBoard] Erro ao executar as ações do turno (a passagem de turno continuará):', err);
+      }
+      if (isGameOver) {
+        return;
+      }
+
+      if (onlineParams?.isOnline) {
+        fetch('/api/match/submit-turn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomId: onlineParams.roomId,
+            username: user.username,
+            turn: turn,
+            actions: currentActions
+          })
+        }).catch(err => console.error("Error submitting turn online:", err));
+      }
+
+      const newPassed = [...passedPlayersRef.current];
+      if (!newPassed.includes(activePlanner)) {
+        newPassed.push(activePlanner);
+      }
+      passedPlayersRef.current = newPassed;
+      setPassedPlayersThisTurn(newPassed);
+
+      console.log(`[TURN] pass gravado: newPassed=[${newPassed}] -> ${newPassed.length < 2 ? 'trocar planner' : 'RESOLVER RODADA'}`);
+
+      if (newPassed.length < 2) {
+        const nextPlanner = activePlanner === 'player' ? 'enemy' : 'player';
+        setActivePlanner(nextPlanner);
+        if (onlineParams?.isOnline) {
+          setIsWaitingForOpponent(true);
+        }
+        const passedName = activePlanner === 'player' ? 'VOCÊ' : 'OPONENTE';
+        setLogs(prev => [
+          ...prev,
+          {
+            id: Math.random().toString(),
+            turn,
+            message: `⚔️ ${passedName} finalizou a fase de planejamento. Vez de ${nextPlanner === 'player' ? 'VOCÊ' : 'OPONENTE'} planejar.`,
+            type: 'system',
+          }
+        ]);
+      } else {
+        setIsWaitingForOpponent(false);
+        executeTurnEndResolution();
+      }
+    } finally {
       isEndingTurnRef.current = false;
       turnActionLockedRef.current = false;
       setIsEndingTurn(false);
-      return;
     }
-
-    if (onlineParams?.isOnline) {
-      fetch('/api/match/submit-turn', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: onlineParams.roomId,
-          username: user.username,
-          turn: turn,
-          actions: currentActions
-        })
-      }).catch(err => console.error("Error submitting turn online:", err));
-    }
-
-    const newPassed = [...passedPlayersRef.current, activePlanner];
-    passedPlayersRef.current = newPassed;
-    setPassedPlayersThisTurn(newPassed);
-
-    console.log(`[TURN] pass gravado: newPassed=[${newPassed}] -> ${newPassed.length < 2 ? 'trocar planner' : 'RESOLVER RODADA'}`);
-
-    if (newPassed.length < 2) {
-      const nextPlanner = activePlanner === 'player' ? 'enemy' : 'player';
-      setActivePlanner(nextPlanner);
-      if (onlineParams?.isOnline) {
-        setIsWaitingForOpponent(true);
-      }
-      const passedName = activePlanner === 'player' ? 'VOCÊ' : 'OPONENTE';
-      setLogs(prev => [
-        ...prev,
-        {
-          id: Math.random().toString(),
-          turn,
-          message: `⚔️ ${passedName} finalizou a fase de planejamento. Vez de ${nextPlanner === 'player' ? 'VOCÊ' : 'OPONENTE'} planejar.`,
-          type: 'system',
-        }
-      ]);
-    } else {
-      setIsWaitingForOpponent(false);
-      executeTurnEndResolution();
-    }
-
-    isEndingTurnRef.current = false;
-    turnActionLockedRef.current = false;
-    setIsEndingTurn(false);
   };
 
   // AI Turn Trigger Effect for Offline Mode (ADVANCED TACTICAL HARD AI)
@@ -8049,6 +8191,11 @@ splashOnlyTargets = splashPool.filter(c =>
   };
 
   const checkAndProceedWithEndTurn = (customRandAllocation?: ChakraPool) => {
+    if (turnActionLockedRef.current || isEndingTurnRef.current || randConfirmLockRef.current) {
+      console.warn(`[TURN] checkAndProceedWithEndTurn bloqueado por lock: active=${activePlanner} lock=${turnActionLockedRef.current} ending=${isEndingTurnRef.current} randLock=${randConfirmLockRef.current}`);
+      return;
+    }
+
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       playCustomSound('Error');
       setShowNoInternetModal(true);
@@ -8172,6 +8319,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
   const handleEndTurnClick = () => {
     if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current) return;
+    if (passedPlayersRef.current.includes(activePlanner)) return;
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       playCustomSound('Error');
       setShowNoInternetModal(true);
@@ -12010,9 +12158,9 @@ if (skill.redirectOffensiveToCaster) {
           });
         }
 
-        // Decrement effect durations (skip effects cast in the current turn, skip permanent effects)
+        // Decrement effect durations (skip effects cast in the current turn, skip permanent effects, skip frozen Raikiri stacks)
         c.activeEffects = c.activeEffects
-          .map(eff => (eff.castTurn === turn || eff.duration >= 99999) ? eff : { ...eff, duration: eff.duration - 1 })
+          .map(eff => (eff.castTurn === turn || eff.duration >= 99999 || (eff.stackType === 'Raikiri' && (eff as any).frozenUntilTurn === turn)) ? eff : { ...eff, duration: eff.duration - 1 })
           .filter(eff => eff.duration > 0);
 
         // Decrement cooldowns (unless paralisia de cooldown is active)
@@ -12204,11 +12352,11 @@ if (skill.redirectOffensiveToCaster) {
         targetLabel: getTargetLabel(skill.stunTarget, 'Alvo Principal')
       });
     }
-    if (skill.shieldVal && skill.shieldVal > 0) {
+if (skill.shieldVal && skill.shieldVal > 0) {
 const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       effects.push({
         label: 'Escudo (Shield)',
-        value: `+${skill.shieldVal} Escudo por ${shieldDurText}${skill.shieldMaxVal && skill.shieldMaxVal > 0 ? ` (Limite Máx: ${skill.shieldMaxVal})` : ''}`,
+        value: `+${skill.shieldVal} Escudo por ${shieldDurText}${skill.shieldStunImmunity ? ' (Imune a Stun enquanto durar)' : ''}${skill.shieldMaxVal && skill.shieldMaxVal > 0 ? ` (Limite Máx: ${skill.shieldMaxVal})` : ''}`,
         color: 'text-blue-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });

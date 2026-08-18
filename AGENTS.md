@@ -52,3 +52,20 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 - Do NOT commit secrets; `.env` has `GEMINI_API_KEY` / `APP_URL` (leave as-is).
 - BattleBoard sanitizes chat server-side (no emojis/html/urls/media).
 - Vite ignores `**/src/data/**` for HMR (data served via API).
+
+## ANBU Kakashi — Raikiri Stack Mechanic (Custom Implementation)
+**Location**: `src/components/BattleBoard.tsx` lines ~3995–4110 + `src/data/custom_characters.json` (ANBU Kakashi)
+
+**How it works**:
+- **Lightning Blade** (`stackable: false`, `stackType: "Raikiri"`) — manually generates/increments Raikiri stacks on self instead of creating its own stack.
+- Raikiri stacks: `stackDuration: 1` (expires end of turn if not refreshed).
+- Each use of **Lightning Blade** increments stack count (1x → 2x → 3x→ ...).
+- When stacks reach 2+, finisher rules trigger (stun + chakra removal).
+- **Earth Release: Mud Wall** / **Implanted Sharingan** preserve the stack for 1 more turn (freezes duration decrement during that turn).
+- Stack only expires naturally if neither Raikiri nor Lightning Blade is used that turn.
+
+**Key code sections**:
+- Stack creation/increment: line ~4010 (checks `sourceSkillName === 'Raikiri'`)
+- Finisher trigger: line ~4033+ (applies stun/chakra removal from `stackUseEffectRules`)
+- Stack preservation: line ~4095+ (for preserve skills)
+

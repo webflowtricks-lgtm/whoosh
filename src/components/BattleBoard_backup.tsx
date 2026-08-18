@@ -2799,7 +2799,7 @@ const handleTradeChakra = () => {
       }
 
       // Young Kakashi: Implanted Sharingan mark target
-      if ((skill.name === 'Implanted Sharingan' || skill.name === 'Sharingan' || skill.name.toLowerCase().includes('sharingan')) && (source.character.folder === 'young-kakashi' || source.character.name.toLowerCase().includes('kakashi'))) {
+      if ((skill.name === 'Implanted Sharingan' || skill.name === 'Sharingan' || skill.name.toLowerCase().includes('sharingan')) && source.character.folder === 'young-kakashi') {
         if (defaultTarget && !defaultTarget.isDead) {
           pushActiveEffect(defaultTarget, {
             name: 'Implanted Sharingan Target',
@@ -3466,7 +3466,7 @@ const startingHealth = t.health;
           cleanseTargetEffects(t, skill.directDamageRemoveType);
 
           // Amateur Raikiri & White Light Blade custom target debuff, self buff & elimination buff
-          if ((skill.name === 'Amateur Raikiri' || skill.name === 'Lightning Blade' || skill.name === 'White Light Blade' || skill.name.toLowerCase().includes('white light') || skill.name.toLowerCase().includes('raikiri')) && (source.character.folder === 'young-kakashi' || source.character.name.toLowerCase().includes('kakashi'))) {
+          if ((skill.name === 'Amateur Raikiri' || skill.name === 'Lightning Blade' || skill.name === 'White Light Blade' || skill.name.toLowerCase().includes('white light')) && source.character.folder === 'young-kakashi') {
             if (!source.activeEffects.some(e => (e.name === 'Amateur Raikiri (Buff +5 Dano)' || e.name === 'White Light Blade (Buff +5 Dano)' || e.name.includes('Buff +5 Dano')) && e.castTurn === turn)) {
               pushActiveEffect(source, {
                 name: 'Amateur Raikiri (Buff +5 Dano)',
@@ -3552,6 +3552,117 @@ const startingHealth = t.health;
             addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
           }
         });
+      }
+
+      // Anbu Kakashi: Raikiri stack interactions (backup)
+      if (source.character.folder === 'anbu-kakashi') {
+        targetList.forEach(t => {
+          // If Raikiri has stack, Earth Release: Mud Wall or Implanted Sharingan add another stack
+          if ((skill.name === 'Earth Release: Mud Wall' || skill.name === 'Implanted Sharingan') && source.activeEffects.some(e => e.stackType === 'Raikiri' && e.stacks && e.stacks > 0)) {
+            const raikiriStack = source.activeEffects.find(e => e.stackType === 'Raikiri');
+            if (raikiriStack) {
+              raikiriStack.stacks = (raikiriStack.stacks || 1) + 1;
+              raikiriStack.duration = Math.max(raikiriStack.duration, 999);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `⚡ [${skill.name}] incrementou o stack de Raikiri! (${raikiriStack.stacks}x)`,
+                type: 'buff',
+              });
+              addFloatingText(source.id, `+1 RAIKIRI (TOTAL: ${raikiriStack.stacks})`, 'effect');
+            }
+          }
+        });
+      }
+
+      // Anbu Kakashi: Lightning Blade uses Raikiri stack effects (backup)
+      if (skill.name === 'Lightning Blade' && source.character.folder === 'anbu-kakashi') {
+        const raikiriStack = source.activeEffects.find(e => e.stackType === 'Raikiri');
+        if (raikiriStack && raikiriStack.stacks && raikiriStack.stacks > 0) {
+          // Find Raikiri skill to get its stackUseEffectRules
+          const raikiriSkill = source.character.skills?.find(s => s.name === 'Raikiri');
+          if (raikiriSkill && raikiriSkill.stackUseEffectRules && raikiriSkill.stackUseEffectRules.length > 0) {
+            const applicable = raikiriSkill.stackUseEffectRules
+              .filter(r => r.requiredStacks > 0)
+              .map(r => ({ rule: r, count: raikiriStack.stacks || 0 }))
+              .filter(x => x.count >= x.rule.requiredStacks && (x.rule.onwards !== false ? true : x.count === x.rule.requiredStacks))
+              .sort((a, b) => b.rule.requiredStacks - a.rule.requiredStacks);
+            
+            if (applicable.length > 0) {
+              const { rule, count } = applicable[0];
+              const comboLabel = `Lightning Blade (Raikiri Finisher ${count}x)`;
+              const comboTargets = resolveEffectTargets(undefined, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+              comboTargets.forEach(ct => {
+                if (ct.isDead) return;
+                if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(ct, skill)) {
+                  newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${ct.character.name} está INVULNERÁVEL e não sofreu os efeitos de [${comboLabel}]!`, type: 'buff' });
+                  addFloatingText(ct.id, 'INVULNERÁVEL', 'invulnerable');
+                  return;
+                }
+                if (rule.stun) {
+                  const stunDur = Math.max(1, rule.stunDuration || 1);
+                  const stunTypes = rule.stunType && rule.stunType.length > 0 ? rule.stunType : ['physical', 'mental', 'affliction', 'chakra'];
+                  pushActiveEffect(ct, {
+                    name: `${comboLabel} (Stun)`,
+                    type: 'stun',
+                    duration: stunDur,
+                    stunType: stunTypes,
+                    icon: skill.icon,
+                    casterId: source.id,
+                    casterSide: action.isPlayer ? 'player' : 'enemy',
+                  });
+                  newLogs.push({
+                    id: Math.random().toString(), turn,
+                    message: `⚡ [${comboLabel}] ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`,
+                    type: 'stun',
+                  });
+                  addFloatingText(ct.id, `STUN (FINISHER ${count}x)`, 'stun');
+                }
+                if (rule.chakraRemove && rule.chakraRemove > 0) {
+                  const ctIsPlayer = updatedPlayer.some(p => p.id === ct.id);
+                  performChakraAction(ctIsPlayer, rule.chakraRemove, source.character.name, ct.character.name, skill.name, action.isPlayer, 'remove', source.id, ct.id, newLogs, localPlayerChakra, localEnemyChakra);
+                  newLogs.push({
+                    id: Math.random().toString(), turn,
+                    message: `🔥 [${comboLabel}] removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`,
+                    type: 'chakra',
+                  });
+                }
+              });
+            }
+          }
+        }
+
+        // Lightning Blade also generates Raikiri stack (using Raikiri's icon) (backup)
+        const raikiriSkill = source.character.skills?.find(s => s.name === 'Raikiri');
+        if (raikiriSkill && !source.isDead) {
+          const existing = source.activeEffects.find(e => e.stackType === 'Raikiri' && e.type === 'custom' && e.sourceSkillName === 'Lightning Blade');
+          if (existing) {
+            existing.stacks = (existing.stacks || 1) + 1;
+            existing.duration = Math.max(existing.duration, raikiriSkill.stackDuration ?? 999);
+          } else {
+            source.activeEffects.push({
+              name: 'Raikiri (Stack)',
+              type: 'custom',
+              value: 0,
+              duration: raikiriSkill.stackDuration ?? 999,
+              icon: raikiriSkill.icon,
+              stackable: true,
+              stackType: 'Raikiri',
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: 'Lightning Blade',
+              stacks: 1,
+              castTurn: turn,
+            });
+          }
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⚡ [Lightning Blade] gerou stack de Raikiri! (${source.activeEffects.find(e => e.stackType === 'Raikiri' && e.sourceSkillName === 'Lightning Blade')?.stacks}x)`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, `+1 RAIKIRI (Lightning)`, 'effect');
+        }
       }
 
       // INSTANT DOT / BLEEDING / AFFLICTION (with missing HP)

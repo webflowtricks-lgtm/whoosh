@@ -293,6 +293,8 @@ export interface Skill {
   shieldVal?: number;
   shieldDuration?: number;
   shieldMaxVal?: number;
+  /** Enquanto o alvo tiver escudo desta skill, ele não pode ser stunado */
+  shieldStunImmunity?: boolean;
   /** CONVERSÃO DE DANO EM ESCUDO: enquanto durar, TODO o dano que o alvo receber vira escudo */
   damageToShieldDuration?: number;
   /** Duração do escudo gerado pela conversão (99999 = infinito) */
@@ -693,6 +695,7 @@ export interface ActiveEffect {
   | 'cannot_be_invulnerable'
   | 'cannot_receive_friendly'
   | 'ignore_stun'
+  | 'shield_stun_immunity'
   | 'damage_immunity'
   | 'damage_debuff'
   | 'damage_vulnerability'

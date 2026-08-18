@@ -6248,6 +6248,15 @@ const newSkill: Skill = {
                                   />
                                   🔒 Nunca Remover
                                 </label>
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.shieldStunImmunity || false}
+                                    onChange={(e) => handleUpdateSkillField('shieldStunImmunity', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-slate-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  ⚡ Enquanto o escudo durar, o alvo não pode ser stunado
+                                </label>
                                 <div className="flex items-center gap-1">
                                   <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
                                   <select
@@ -8317,8 +8326,8 @@ const newSkill: Skill = {
                                         onChange={(e) => handleUpdateSkillField('chakraCostIncreaseIrremovable', e.target.checked)}
                                         className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
                                       />
-                                      🔒 Nunca Remover
-                                    </label>
+🔒 Nunca Remover
+                                </label>
                                     <p className="text-[9px] text-cyan-300 font-mono italic leading-tight">
                                       💡 Resumo: Ao usar esta habilidade, o(s) alvo(s) terá(ão) +1 de custo em {(editingSkill.chakraCostIncreaseTypes || []).map(ct => ct === 'Tai' ? 'Taijutsu' : ct === 'Nin' ? 'Ninjutsu' : ct === 'Gen' ? 'Genjutsu' : ct === 'Blood' ? 'Kekkei Genkai' : ct === 'Rand' ? 'Aleatório' : ct).join(' + ') || 'chakra'}{(editingSkill.chakraCostIncreaseSkillTypes && editingSkill.chakraCostIncreaseSkillTypes.length > 0 ? ` nas skills de ${editingSkill.chakraCostIncreaseSkillTypes.map(st => st === 'physical' ? 'Físico' : st === 'mental' ? 'Mental' : st === 'affliction' ? 'Aflição' : st === 'chakra' ? 'Chakra' : st === 'ranged' ? 'A Distância' : st === 'friendly' ? 'Amigável' : st).join(' + ')}` : '')} por {editingSkill.chakraCostIncreaseDuration} {editingSkill.chakraCostIncreaseDuration === 1 ? 'turno' : 'turnos'}!
                                     </p>
@@ -8622,10 +8631,10 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                                       onChange={(e) => handleUpdateSkillField('retaliateDamageIrremovable', e.target.checked)}
                                       className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0 w-3 h-3"
                                     />
-                                    🔒 Nunca Remover
-                                  </label>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
                                     <select
                                       value={editingSkill.retaliateDamageRemoveType || 'none'}
                                       onChange={(e) => handleUpdateSkillField('retaliateDamageRemoveType', e.target.value)}
