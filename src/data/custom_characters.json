@@ -5688,7 +5688,28 @@
           "Chakra"
         ],
         "damage": 20,
-        "negateFriendlyDuration": 1
+        "negateFriendlyDuration": 1,
+        "costRules": [
+          {
+            "activeSkillName": "Wood Arm Binding",
+            "overrideCost": [
+              "Rand"
+            ]
+          }
+        ],
+        "cooldownRules": [
+          {
+            "activeSkillName": "Wood Arm Binding",
+            "overrideCooldown": 1
+          }
+        ],
+        "stackDamageRules": [
+          {
+            "stackType": "Water Release: Geyser Spring",
+            "damagePerStack": 10,
+            "stackSource": "target"
+          }
+        ]
       },
       {
         "name": "Water Release: Geyser Spring",
@@ -5705,11 +5726,24 @@
           "Físico"
         ],
         "blocksOffensiveSkills": false,
-        "stackable": false,
-        "stackType": "",
+        "stackable": true,
+        "stackType": "Water Release: Geyser Spring",
         "stackTarget": "Target",
         "shieldVal": 10,
-        "shieldTarget": "AllAllies"
+        "shieldTarget": "AllAllies",
+        "retaliateDamage": true,
+        "retaliateDamageVal": 10,
+        "retaliateClasses": [
+          "Chakra",
+          "Melee",
+          "Físico",
+          "A distancia",
+          "Corpo a Corpo",
+          "Amigável"
+        ],
+        "stackApplyOnAttack": true,
+        "stackNonCumulative": true,
+        "stackDuration": 99999
       },
       {
         "name": "Wood Release: Wooden Spire Prison",

@@ -14,6 +14,21 @@ const STORAGE_KEY = 'naruto_combat_characters';
 // mesmo quando o localStorage estoura a cota (QuotaExceededError) e não atualiza.
 let memoryCache: Character[] | null = null;
 
+// Imagens base64 gigantes (portraits/icons) não cabem na cota do localStorage
+// (~5MB); o cache persiste sem elas e o memoryCache mantém os dados completos.
+const stripHeavyData = (obj: any): any => {
+  if (Array.isArray(obj)) return obj.map(stripHeavyData);
+  if (obj && typeof obj === 'object') {
+    const out: any = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (typeof v === 'string' && v.startsWith('data:image/') && v.length > 2000) continue;
+      out[k] = stripHeavyData(v);
+    }
+    return out;
+  }
+  return obj;
+};
+
 export function enrichCharacters(characters: Character[]): Character[] {
   if (!Array.isArray(characters)) return characters;
   const enriched = characters.map(char => ({
@@ -62,7 +77,7 @@ export async function fetchCharactersFromServer(): Promise<Character[]> {
       const enriched = enrichCharacters(data.characters);
       memoryCache = enriched;
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stripHeavyData(enriched)));
       } catch (e) {
         console.warn("Failed to update localStorage cache from server data:", e);
       }
@@ -78,7 +93,7 @@ export async function saveCharacters(characters: Character[]): Promise<Character
   const enriched = enrichCharacters(characters);
   memoryCache = enriched;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stripHeavyData(enriched)));
   } catch (e) {
     console.warn("Failed to save characters to localStorage quota:", e);
   }
@@ -107,7 +122,7 @@ export async function resetToDefaultCharacters(): Promise<Character[]> {
   const enriched = enrichCharacters(DEFAULT_CHARACTERS);
   memoryCache = enriched;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stripHeavyData(enriched)));
   } catch (e) {
     console.warn("Failed to save default characters to localStorage quota:", e);
   }

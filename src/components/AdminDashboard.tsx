@@ -3258,7 +3258,7 @@ const newSkill: Skill = {
                                   type="number"
                                   min={0}
                                   max={20}
-                                  value={rule.duration ?? 0}
+                                  value={rule.duration === 99999 ? 0 : (rule.duration ?? 0)}
                                   onChange={(e) => {
                                     const val = parseInt(e.target.value) || 0;
                                     const updated = [...(editingSkill.stackDamageRules || [])];
@@ -3268,6 +3268,19 @@ const newSkill: Skill = {
                                   placeholder="0 = instantâneo"
                                   className="w-10 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-yellow-500 rounded text-white outline-none text-[10px]"
                                 />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={rule.duration === 99999}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.stackDamageRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], duration: e.target.checked ? 99999 : undefined };
+                                      handleUpdateSkillField('stackDamageRules', updated);
+                                    }}
+                                    className="rounded bg-slate-950 border-yellow-800/60 text-yellow-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-yellow-400 font-mono">♾️ Infinito</span>
+                                </label>
                                 {rule.duration && rule.duration > 0 ? (
                                   <>
                                     <span className="text-slate-400 font-bold text-[9px]">Tipo:</span>
@@ -8474,6 +8487,49 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                                      <label className="flex items-center gap-1.5 cursor-pointer select-none">
                                        <input
                                          type="checkbox"
+                                         checked={editingSkill.stackApplyOnAttack || false}
+                                         onChange={(e) => handleUpdateSkillField('stackApplyOnAttack', e.target.checked)}
+                                         className="rounded bg-slate-950 border-purple-800/60 text-purple-500 focus:ring-0 w-3.5 h-3.5"
+                                       />
+                                       <span className="text-[10px] text-purple-300 font-mono font-bold">🎯 Marcar quem atacar o portador (aplica a stack no inimigo que atacar)</span>
+                                     </label>
+                                     {editingSkill.stackApplyOnAttack && (
+                                       <div className="flex flex-wrap items-center gap-2">
+                                         <input
+                                           type="number"
+                                           min={1}
+                                           max={999}
+                                           value={editingSkill.stackApplyOnAttackDuration === 99999 ? 0 : (editingSkill.stackApplyOnAttackDuration ?? 1)}
+                                           title="Duração da marca no atacante (turnos)"
+                                           onChange={(e) => handleUpdateSkillField('stackApplyOnAttackDuration', e.target.value ? parseInt(e.target.value) : undefined)}
+                                           className="w-14 px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-white"
+                                         />
+                                         <label className="flex items-center gap-1 cursor-pointer select-none">
+                                           <input
+                                             type="checkbox"
+                                             checked={editingSkill.stackApplyOnAttackDuration === 99999}
+                                             onChange={(e) => handleUpdateSkillField('stackApplyOnAttackDuration', e.target.checked ? 99999 : undefined)}
+                                             className="rounded bg-slate-950 border-slate-800 text-purple-500 focus:ring-0 w-3 h-3"
+                                           />
+                                           <span className="text-[9px] text-purple-400 font-mono">♾️ Infinito</span>
+                                         </label>
+                                         <span className="text-[10px] text-slate-500 font-mono">Duração da marca no atacante (turnos)</span>
+                                       </div>
+                                     )}
+                                     <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                       <input
+                                         type="checkbox"
+                                         checked={editingSkill.stackNonCumulative || false}
+                                         onChange={(e) => handleUpdateSkillField('stackNonCumulative', e.target.checked)}
+                                         className="rounded bg-slate-950 border-purple-800/60 text-purple-500 focus:ring-0 w-3.5 h-3.5"
+                                       />
+                                       <span className="text-[10px] text-purple-300 font-mono font-bold">🔒 Não Acumulativa (fica sempre 1x)</span>
+                                     </label>
+                                   </div>
+                                   <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                     <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                       <input
+                                         type="checkbox"
                                          checked={editingSkill.stackStartActive || false}
                                          onChange={(e) => handleUpdateSkillField('stackStartActive', e.target.checked)}
                                          className="rounded bg-slate-950 border-purple-800/60 text-purple-500 focus:ring-0 w-3.5 h-3.5"
@@ -8675,6 +8731,41 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                                       <option value="always">Sempre que qualquer inimigo usar skill</option>
                                       <option value="first_only">Apenas o 1º inimigo que usar skill (outros não)</option>
                                     </select>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] text-red-400 font-mono uppercase font-bold block">Classes que Disparam a Retaliação (vazio = todas):</span>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {['Melee', 'Chakra', 'Mental', 'Físico', 'A distancia', 'Corpo a Corpo', 'Amigável'].map(cls => {
+                                        const isOn = (editingSkill.retaliateClasses || []).includes(cls);
+                                        return (
+                                          <label
+                                            key={cls}
+                                            className={`flex items-center gap-1 cursor-pointer select-none px-2 py-0.5 rounded border transition-colors ${
+                                              isOn ? 'bg-red-900/40 border-red-500/70 text-red-200' : 'bg-slate-900/70 border-slate-800 text-slate-400 hover:border-red-500/40'
+                                            }`}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={isOn}
+                                              onChange={(e) => {
+                                                const cur = editingSkill.retaliateClasses || [];
+                                                const next = e.target.checked ? [...cur, cls] : cur.filter(c => c !== cls);
+                                                handleUpdateSkillField('retaliateClasses', next);
+                                              }}
+                                              className="rounded bg-slate-950 border-red-800/60 text-red-500 focus:ring-0 w-3 h-3"
+                                            />
+                                            <span className="text-[10px] font-mono font-bold">{cls}</span>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                    <button
+                                      onClick={() => handleUpdateSkillField('retaliateClasses', [])}
+                                      className="text-[9px] text-slate-500 font-mono underline hover:text-red-400 transition-colors"
+                                    >
+                                      Limpar (todas as classes)
+                                    </button>
                                   </div>
 
                                   <div className="flex items-center gap-1.5 mt-1">

@@ -59,6 +59,8 @@ export default function App() {
   
   const [reconnectData, setReconnectData] = useState<any | null>(null);
   const [restoredState, setRestoredState] = useState<any | null>(null);
+  const [reconnectChecking, setReconnectChecking] = useState(false);
+  const [reconnectRoomLost, setReconnectRoomLost] = useState(false);
   
   // Active Quest State
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
@@ -109,26 +111,27 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.playerCombatants && parsed.playerCombatants.length > 0) {
+          // Show the modal IMMEDIATELY; for online matches verify the room in background.
+          setReconnectData(parsed);
+          setReconnectRoomLost(false);
           if (parsed.onlineParams?.isOnline) {
+            setReconnectChecking(true);
             fetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`)
               .then(r => r.json())
               .then(data => {
+                setReconnectChecking(false);
                 if (data.status === 'matched' && data.roomId === parsed.onlineParams.roomId) {
-                  setReconnectData(parsed);
+                  setReconnectRoomLost(false);
                 } else {
                   // Server match is no longer active
-                  try {
-                    localStorage.removeItem('active_match_save');
-                  } catch {}
+                  setReconnectRoomLost(true);
                 }
               })
               .catch(() => {
                 // Network error, allow to try resuming anyway
-                setReconnectData(parsed);
+                setReconnectChecking(false);
+                setReconnectRoomLost(false);
               });
-          } else {
-            // Offline/Sandbox match, can always resume!
-            setReconnectData(parsed);
           }
         }
       } catch (e) {
@@ -149,6 +152,8 @@ export default function App() {
     setRestoredState(savedState);
     setScreen('battle');
     setReconnectData(null);
+    setReconnectChecking(false);
+    setReconnectRoomLost(false);
   };
 
   const handleDeclineReconnect = async () => {
@@ -171,6 +176,8 @@ export default function App() {
       localStorage.removeItem('active_match_save');
     } catch {}
     setReconnectData(null);
+    setReconnectChecking(false);
+    setReconnectRoomLost(false);
   };
 
   // Global sound effect triggers
@@ -365,30 +372,57 @@ export default function App() {
                   <div className="flex items-center justify-center gap-2">
                     <Swords className="w-6 h-6 text-orange-800 animate-pulse" />
                     <h2 className="text-xl font-black uppercase tracking-tight text-stone-950 font-sans">
-                      Combate Ativo Encontrado!
+                      {reconnectChecking ? 'Verificando Sala...' : reconnectRoomLost ? 'Sala Perdida' : 'Combate Ativo Encontrado!'}
                     </h2>
                   </div>
-                  <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                    Você possui uma batalha em andamento na Arena. Deseja retornar ao confronto ou declarar rendição?
-                  </p>
+                  {reconnectChecking ? (
+                    <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
+                      Sua batalha em andamento foi encontrada. Verificando a sala no servidor...
+                    </p>
+                  ) : reconnectRoomLost ? (
+                    <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
+                      A sala desta batalha não existe mais no servidor, então o combate será encerrado.
+                    </p>
+                  ) : (
+                    <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
+                      Você possui uma batalha em andamento na Arena. Deseja retornar ao confronto ou declarar rendição?
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full pt-1">
-                  <button
-                    onClick={() => handleRestoreGame(reconnectData)}
-                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-orange-950/40 border border-orange-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
-                  >
-                    <Swords className="w-4 h-4" />
-                    <span>Voltar à Batalha</span>
-                  </button>
+                  {reconnectChecking ? (
+                    <div className="flex items-center justify-center gap-3 py-1 w-full">
+                      <img src="/static/img/icon/star.svg" alt="Verificando" className="w-8 h-8 animate-spin object-contain" />
+                      <span className="text-xs text-stone-700 font-mono font-bold uppercase tracking-wider">Aguarde...</span>
+                    </div>
+                  ) : reconnectRoomLost ? (
+                    <button
+                      onClick={handleDeclineReconnect}
+                      className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-600 hover:to-slate-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-slate-950/40 border border-slate-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <Flag className="w-4 h-4" />
+                      <span>Encerrar Batalha</span>
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleRestoreGame(reconnectData)}
+                        className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-orange-950/40 border border-orange-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Swords className="w-4 h-4" />
+                        <span>Voltar à Batalha</span>
+                      </button>
 
-                  <button
-                    onClick={handleDeclineReconnect}
-                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
-                  >
-                    <Flag className="w-4 h-4" />
-                    <span>Render-se</span>
-                  </button>
+                      <button
+                        onClick={handleDeclineReconnect}
+                        className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Flag className="w-4 h-4" />
+                        <span>Render-se</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </motion.div>

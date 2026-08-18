@@ -339,7 +339,7 @@ export function hasNegateFriendlyEffects(c?: CombatCharacter | null): boolean {
 export function hasImmortalEffect(c?: CombatCharacter | null): boolean {
   if (!c) return false;
   if (hasNegateFriendlyEffects(c)) return false;
-  return hasImmortalEffect(c);
+  return !!c.activeEffects && c.activeEffects.some(e => e.type === 'immortal');
 }
 
 export function isEffectVisibleToViewer(
@@ -710,7 +710,8 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       const rScopeText = rScope === 'self' ? 'nele' : rScope === 'ally' ? 'em um aliado' : rScope === 'self_or_ally' ? 'nele ou em um aliado' : 'no time';
       const rModeText = effect.retaliateTriggerMode === 'first_only' ? ' (apenas 1º inimigo)' : '';
       const stackText = stacks > 1 ? ` (${stacks}x stacks = ${rVal} de dano)` : '';
-      rawPt = `Retaliação: Se oponente usar skill ${rScopeText}, sofre ${rVal} de dano${rModeText}${stackText} por ${durText}`;
+      const rClassesText = effect.retaliateClasses && effect.retaliateClasses.length > 0 ? ` (só com skills de ${effect.retaliateClasses.join(' / ')})` : '';
+      rawPt = `Retaliação: Se oponente usar skill ${rScopeText}, sofre ${rVal} de dano${rModeText}${stackText}${rClassesText} por ${durText}`;
       break;
     }
     case 'countdown_bomb': {
@@ -1622,6 +1623,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
               icon: skill.icon,
               stackable: true,
               stackType: effStackType,
+              stackApplyOnAttack: skill.stackApplyOnAttack || false,
+              stackApplyOnAttackDuration: skill.stackApplyOnAttackDuration,
               casterId: combatant.id,
               casterSide,
               castTurn: 0,
@@ -2349,6 +2352,9 @@ const handleTradeChakra = () => {
     const isStackEffect = effect.type === 'custom';
     const isStackable = effect.stackable ?? (isStackEffect ? (execSkill?.stackable ?? skill?.stackable ?? false) : false);
     const stackType = effect.stackType ?? (isStackEffect ? (execSkill?.stackType ?? skill?.stackType) : undefined);
+    const nonCumulative = effect.stackNonCumulative ?? (execSkill?.stackNonCumulative ?? skill?.stackNonCumulative) ?? false;
+    const applyOnAttack = effect.stackApplyOnAttack ?? (execSkill?.stackApplyOnAttack ?? skill?.stackApplyOnAttack) ?? false;
+    const applyOnAttackDuration = effect.stackApplyOnAttackDuration ?? (execSkill?.stackApplyOnAttackDuration ?? skill?.stackApplyOnAttackDuration);
     const skillInvisible = execSkill?.invisible || (execSkill?.invisibleDuration !== undefined && execSkill?.invisibleDuration > 0);
     const sourceName = effect.sourceSkillName || execSkill?.name || skill?.name || effect.name;
     const effectiveStackType = stackType || (isStackable ? sourceName : undefined);
@@ -2367,7 +2373,7 @@ const handleTradeChakra = () => {
              (e.type === effect.type && (e.sourceSkillName === sourceName || e.name === effect.name))
       );
       if (existing) {
-        existing.stacks = (existing.stacks || 1) + 1;
+        existing.stacks = nonCumulative ? 1 : (existing.stacks || 1) + 1;
         existing.duration = Math.max(existing.duration, effect.duration);
         if (effectiveStackType && !existing.stackType) existing.stackType = effectiveStackType;
         applyStackCapReset(character, existing);
@@ -2393,6 +2399,9 @@ const handleTradeChakra = () => {
       stacks: effect.stacks ?? 1,
       stackable: isStackable,
       stackType: effectiveStackType,
+      stackNonCumulative: nonCumulative,
+      stackApplyOnAttack: applyOnAttack,
+      stackApplyOnAttackDuration: applyOnAttackDuration,
       icon: effect.icon || execSkill?.icon || skill?.icon,
       sourceSkillName: sourceName,
       isInvisible: effect.isInvisible !== undefined ? effect.isInvisible : (skillInvisible || effect.type === 'invisible'),
@@ -3350,7 +3359,7 @@ const handleTradeChakra = () => {
                   continue;
                 }
                 let actualDmg = rDmg;
-                if (rType === 'damage' && (source.shield || 0) > 0) {
+                if (rType === 'damage' && (source.shield || 0) > 0 && !hasNegateFriendlyEffects(source)) {
                   if (source.shield >= actualDmg) {
                     source.shield -= actualDmg;
                     actualDmg = 0;
@@ -6487,6 +6496,7 @@ splashOnlyTargets = splashPool.filter(c =>
             retaliateDamageType: skill.retaliateDamageType || 'damage',
             retaliateTargetScope: skill.retaliateTargetScope || 'self',
             retaliateTriggerMode: skill.retaliateTriggerMode || 'always',
+            retaliateClasses: skill.retaliateClasses || [],
             icon: skill.icon,
             irremovable: !!skill.retaliateDamageIrremovable,
             sourceSkillName: skill.name,
@@ -6864,6 +6874,13 @@ splashOnlyTargets = splashPool.filter(c =>
           defender.activeEffects.forEach(eff => {
             if (eff.type !== 'retaliate_damage') return;
 
+            // Filtro por classes: se configurado, só reage a skills com uma das classes permitidas
+            if (eff.retaliateClasses && eff.retaliateClasses.length > 0) {
+              const allowed = eff.retaliateClasses.map(c => c.toLowerCase());
+              const attackClasses = (skill.classes || []).map(c => c.toLowerCase());
+              if (!attackClasses.some(c => allowed.includes(c))) return;
+            }
+
             const isSelfTargeted = defender.id === target.id;
             const isAllyTargeted = defender.id !== target.id && defendingTeam.some(c => c.id === target.id);
             const scope = eff.retaliateTargetScope || 'self';
@@ -6937,6 +6954,40 @@ splashOnlyTargets = splashPool.filter(c =>
                 addFloatingText(source.id, `-${rVal} RETALIAÇÃO`, 'damage');
               }
             }
+          });
+        });
+      }
+
+      // STACK NO ATACANTE: se o defensor atacado tiver uma stack com "marcar quem atacar",
+      // o inimigo que usou a skill recebe a mesma stack (fica marcado).
+      if (isEnemyAction) {
+        defendingTeam.forEach(defender => {
+          if (defender.isDead) return;
+          defender.activeEffects.forEach(eff => {
+            if (!eff.stackable || !eff.stackType) return;
+            if (!eff.stackApplyOnAttack) return;
+            if (source.isDead) return;
+            pushActiveEffect(source, {
+              name: eff.name,
+              type: eff.type,
+              value: eff.value,
+              duration: eff.stackApplyOnAttackDuration && eff.stackApplyOnAttackDuration > 0 ? eff.stackApplyOnAttackDuration : eff.duration,
+              icon: eff.icon,
+              stackable: true,
+              stackType: eff.stackType,
+              stackApplyOnAttack: false,
+              stackNonCumulative: eff.stackNonCumulative,
+              sourceSkillName: eff.sourceSkillName,
+              casterId: defender.id,
+              casterSide: defender.id.startsWith('player') ? 'player' : 'enemy',
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `📚 ${source.character.name} foi MARCADO com [${eff.stackType}] ao atacar ${defender.character.name}!`,
+              type: 'stun',
+            });
+            addFloatingText(source.id, `📚 MARCADO (${eff.stackType})`, 'effect');
           });
         });
       }
@@ -8587,7 +8638,7 @@ splashOnlyTargets = splashPool.filter(c =>
         if (obj && typeof obj === 'object') {
           const out: any = {};
           for (const [k, v] of Object.entries(obj)) {
-            if (typeof v === 'string' && v.startsWith('data:image/') && v.length > 2000) continue;
+            if (typeof v === 'string' && v.length > 1000) continue;
             out[k] = stripHeavyData(v);
           }
           return out;

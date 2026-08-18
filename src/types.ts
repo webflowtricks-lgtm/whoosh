@@ -491,6 +491,8 @@ export interface Skill {
   retaliateTriggerMode?: 'always' | 'first_only';
   retaliateDamageTarget?: TargetOverride;
   retaliateDamageIrremovable?: boolean;
+  /** Classes de skill que disparam a retaliação (vazio = todas) */
+  retaliateClasses?: string[];
 
   // Irremovable effect overrides (protected)
   damageIrremovable?: boolean;
@@ -597,8 +599,14 @@ cannotBeReflected?: boolean;
    stackGainMode?: 'turn' | 'skill' | 'both';
    /** Quantidade de stacks ganhas por ganho (por turno ou por skill usada) (padrão: 1) */
    stackGainAmount?: number;
-   /** Se definido, quando a stack atingir esse valor ela reseta para 1 (limite + reset) */
-   stackCapReset?: number;
+/** Se definido, quando a stack atingir esse valor ela reseta para 1 (limite + reset) */
+    stackCapReset?: number;
+    /** Se true, o inimigo que ATACAR o portador desta stack recebe a mesma stack (marca quem atacou) */
+    stackApplyOnAttack?: boolean;
+    /** Duração em turnos da stack aplicada no inimigo que atacou (99999 = infinito). Vazio = usa a duração da própria stack */
+    stackApplyOnAttackDuration?: number;
+    /** Se true, a stack NÃO acumula: fica sempre em 1x mesmo sendo reaplicada */
+    stackNonCumulative?: boolean;
 
   // ==============================
   // SPLASH/AOE DAMAGE - Dano em área
@@ -770,6 +778,12 @@ counterAttackType?: 'attacker' | 'defender';
   stackType?: string;
   /** Se o efeito é stackable (pode acumular) */
   stackable?: boolean;
+  /** Se true, o inimigo que ATACAR o portador desta stack recebe a mesma stack (marca quem atacou) */
+  stackApplyOnAttack?: boolean;
+  /** Duração em turnos da stack aplicada no inimigo que atacou (99999 = infinito). Vazio = usa a duração da própria stack */
+  stackApplyOnAttackDuration?: number;
+  /** Se true, a stack NÃO acumula: fica sempre em 1x mesmo sendo reaplicada */
+  stackNonCumulative?: boolean;
   /** Tipos de chakra cujo custo aumenta enquanto este debuff estiver ativo */
   costIncreaseChakraTypes?: ChakraType[];
   /** Tipos de skill afetados pelo aumento de custo (physical, mental, affliction, chakra, ranged, friendly) */
@@ -804,6 +818,8 @@ counterAttackType?: 'attacker' | 'defender';
   retaliateTargetScope?: 'self' | 'ally' | 'self_or_ally' | 'team';
   retaliateTriggerMode?: 'always' | 'first_only';
   retaliateTriggeredCount?: number;
+  /** Classes de skill que disparam a retaliação (vazio = todas) */
+  retaliateClasses?: string[];
   redirectCasterId?: string;
   excludeAffliction?: boolean;
   permanent?: boolean;
