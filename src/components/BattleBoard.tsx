@@ -6587,11 +6587,14 @@ splashOnlyTargets = splashPool.filter(c =>
         targets.forEach(t => {
           if (t.isDead) return;
           const existing = t.activeEffects.find(e => e.stackType === effStackType && e.type === 'custom' && e.sourceSkillName === skill.name);
-          if (existing) {
-            existing.stacks = (existing.stacks || 1) + 1;
-            existing.duration = skill.stackDuration ?? 999;
-            existing.castTurn = turn;
-            if (applyStackCapReset(t, existing)) {
+           if (existing) {
+             existing.stacks = (existing.stacks || 1) + 1;
+             existing.duration = skill.stackDuration ?? 999;
+             existing.castTurn = turn;
+             existing.stackApplyOnAttack = skill.stackApplyOnAttack || false;
+             existing.stackApplyOnAttackDuration = skill.stackApplyOnAttackDuration;
+             existing.stackNonCumulative = skill.stackNonCumulative;
+             if (applyStackCapReset(t, existing)) {
               newLogs.push({
                 id: Math.random().toString(), turn,
                 message: `🔄 ${t.character.name} atingiu o limite de stacks de [${effStackType}] e resetou para 1!`,
@@ -6599,20 +6602,23 @@ splashOnlyTargets = splashPool.filter(c =>
               });
             }
           } else {
-            t.activeEffects.push({
-              name: `${effStackType} (Stack)`,
-              type: 'custom',
-              value: 0,
-              duration: skill.stackDuration ?? 999,
-              icon: skill.icon,
-              stackable: true,
-              stackType: effStackType,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-              sourceSkillName: skill.name,
-              stacks: 1,
-              castTurn: turn,
-            });
+             t.activeEffects.push({
+               name: `${effStackType} (Stack)`,
+               type: 'custom',
+               value: 0,
+               duration: skill.stackDuration ?? 999,
+               icon: skill.icon,
+               stackable: true,
+               stackType: effStackType,
+               casterId: source.id,
+               casterSide: action.isPlayer ? 'player' : 'enemy',
+               sourceSkillName: skill.name,
+               stacks: 1,
+               castTurn: turn,
+               stackApplyOnAttack: skill.stackApplyOnAttack || false,
+               stackApplyOnAttackDuration: skill.stackApplyOnAttackDuration,
+               stackNonCumulative: skill.stackNonCumulative,
+             });
           }
           // Reflect by Stack: attach the reflection marker on stack application
           maybeAttachReflectByStackMarker(t, skill, effStackType, source.id, action.isPlayer ? 'player' : 'enemy');
@@ -7794,12 +7800,12 @@ splashOnlyTargets = splashPool.filter(c =>
     setIsEndingTurn(false);
   }, [turn, activePlanner]);
 
-  // Watchdog: se os DOIS lados já passaram nesta rodada mas o jogador ainda está
-  // planejando (estado que nunca deveria existir), a rodada travou sem resolver.
-  // Força a resolução para o turno avançar e o oponente nunca ser pulado.
+  // Watchdog: se os DOIS lados já passaram nesta rodada, a rodada está travada
+  // sem resolver. Isso também precisa funcionar em sandbox, porque o oponente
+  // pode ficar como planner ativo e a partida ainda precisa avançar.
   useEffect(() => {
-    if (gameOver || isSandbox) return;
-    if (activePlanner === 'player' && passedPlayersRef.current.length >= 2 && !isResolvingTurnEndRef.current && !isEndingTurnRef.current && !turnActionLockedRef.current) {
+    if (gameOver) return;
+    if (passedPlayersRef.current.length >= 2 && !isResolvingTurnEndRef.current && !isEndingTurnRef.current && !turnActionLockedRef.current) {
       console.warn(`[TURN] WATCHDOG: rodada travada com ambos os lados passados (ref=[${passedPlayersRef.current}]) — forçando resolução.`);
       executeTurnEndResolution();
     }
@@ -11741,25 +11747,31 @@ if (skill.redirectOffensiveToCaster) {
         stackTgts.forEach(t => {
           if (t.isDead) return;
           const existing = t.activeEffects.find(e => e.stackType === skill.stackType && e.type === 'custom' && e.sourceSkillName === skill.name);
-          if (existing) {
-            existing.stacks = (existing.stacks || 1) + 1;
-            existing.duration = Math.max(existing.duration, skill.stackDuration ?? 999);
-          } else {
-            t.activeEffects.push({
-              name: `${skill.stackType || skill.name} (Stack)`,
-              type: 'custom',
-              value: 0,
-              duration: skill.stackDuration ?? 999,
-              icon: skill.icon,
-              stackable: true,
-              stackType: skill.stackType || skill.name,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-              sourceSkillName: skill.name,
-              isInvisible: isSkillInvisible,
-              stacks: 1,
-              castTurn: turn,
-            });
+           if (existing) {
+             existing.stacks = (existing.stacks || 1) + 1;
+             existing.duration = Math.max(existing.duration, skill.stackDuration ?? 999);
+             existing.stackApplyOnAttack = skill.stackApplyOnAttack || false;
+             existing.stackApplyOnAttackDuration = skill.stackApplyOnAttackDuration;
+             existing.stackNonCumulative = skill.stackNonCumulative;
+           } else {
+             t.activeEffects.push({
+               name: `${skill.stackType || skill.name} (Stack)`,
+               type: 'custom',
+               value: 0,
+               duration: skill.stackDuration ?? 999,
+               icon: skill.icon,
+               stackable: true,
+               stackType: skill.stackType || skill.name,
+               casterId: source.id,
+               casterSide: action.isPlayer ? 'player' : 'enemy',
+               sourceSkillName: skill.name,
+               isInvisible: isSkillInvisible,
+               stacks: 1,
+               castTurn: turn,
+               stackApplyOnAttack: skill.stackApplyOnAttack || false,
+               stackApplyOnAttackDuration: skill.stackApplyOnAttackDuration,
+               stackNonCumulative: skill.stackNonCumulative,
+             });
           }
           newLogs.push({
             id: Math.random().toString(),

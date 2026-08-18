@@ -5743,7 +5743,8 @@
         ],
         "stackApplyOnAttack": true,
         "stackNonCumulative": true,
-        "stackDuration": 99999
+        "stackDuration": 1,
+        "stackApplyOnAttackDuration": 99999
       },
       {
         "name": "Wood Release: Wooden Spire Prison",
