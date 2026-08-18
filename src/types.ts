@@ -758,6 +758,8 @@ counterAttackType?: 'attacker' | 'defender';
   castTurn?: number;
   /** Quantidade de stacks acumuladas */
   stacks?: number;
+  /** Turno até o qual a expiração da stack fica congelada (mecânica Raikiri de ANBU Kakashi) */
+  frozenUntilTurn?: number;
   /** Nome do tipo de stack para agrupar */
   stackType?: string;
   /** Se o efeito é stackable (pode acumular) */

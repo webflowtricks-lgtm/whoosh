@@ -3992,120 +3992,121 @@ const startingHealth = t.health;
             }
           }
 
-          // Anbu Kakashi: Raikiri stack logic
-          if (source.character.folder === 'anbu-kakashi' || source.character.id === 'anbu-kakashi') {
-            const raikiriSkill = source.character.skills?.find(s => s.name === 'Raikiri');
-            const isLightningBladeSkill = skill.name === 'Lightning Blade' || skill.name.toLowerCase() === 'lightning blade';
-            const isRaikiriPreserveSkill = skill.name === 'Earth Release: Mud Wall' || skill.name === 'Implanted Sharingan';
+          // Air Bullets combo stun (only for targets marked by Air Bullets this turn)
+          applyAirBulletsStun(t, source, action.isPlayer, skill);
+        });
+      }
 
-            if (!raikiriSkill) {
-              if (isLightningBladeSkill) {
-                newLogs.push({ id: Math.random().toString(), turn, message: `⚡ [Lightning Blade] não gerou stack de Raikiri porque o personagem não possui a skill Raikiri.`, type: 'buff' });
-              }
+      // Anbu Kakashi: Raikiri stack logic (runs for ANY skill, not just direct damage)
+      if (source.character.folder === 'anbu-kakashi' || source.character.id === 'anbu-kakashi') {
+        const raikiriSkill = source.character.skills?.find(s => s.name === 'Raikiri');
+        const isLightningBladeSkill = skill.name === 'Lightning Blade' || skill.name.toLowerCase() === 'lightning blade';
+        const isRaikiriPreserveSkill = skill.name === 'Earth Release: Mud Wall' || skill.name === 'Implanted Sharingan';
+
+        if (!raikiriSkill) {
+          if (isLightningBladeSkill) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `⚡ [Lightning Blade] não gerou stack de Raikiri porque o personagem não possui a skill Raikiri.`, type: 'buff' });
+          }
+        } else {
+          const raikiriStack = source.activeEffects.find(e => e.stackType === 'Raikiri' && e.type === 'custom' && e.casterId === source.id);
+
+          if (isLightningBladeSkill) {
+            if (raikiriStack) {
+              raikiriStack.stacks = (raikiriStack.stacks || 0) + 1;
+              raikiriStack.duration = raikiriSkill.stackDuration ?? 1;
+              raikiriStack.castTurn = turn;
+              raikiriStack.icon = raikiriSkill.icon;
+              raikiriStack.sourceSkillName = 'Raikiri';
             } else {
-              const raikiriStack = source.activeEffects.find(e => e.stackType === 'Raikiri' && e.type === 'custom' && e.casterId === source.id);
+              pushActiveEffect(source, {
+                name: 'Raikiri (Stack)',
+                type: 'custom',
+                value: 0,
+                duration: raikiriSkill.stackDuration ?? 1,
+                icon: raikiriSkill.icon,
+                stackable: true,
+                stackType: 'Raikiri',
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                sourceSkillName: 'Raikiri',
+                stacks: 1,
+                castTurn: turn,
+              });
+            }
 
-              if (isLightningBladeSkill) {
-                if (raikiriStack) {
-                  raikiriStack.stacks = (raikiriStack.stacks || 0) + 1;
-                  raikiriStack.duration = raikiriSkill.stackDuration ?? 1;
-                  raikiriStack.castTurn = turn;
-                  raikiriStack.icon = raikiriSkill.icon;
-                  raikiriStack.sourceSkillName = 'Raikiri';
-                } else {
-                  pushActiveEffect(source, {
-                    name: 'Raikiri (Stack)',
-                    type: 'custom',
-                    value: 0,
-                    duration: raikiriSkill.stackDuration ?? 1,
-                    icon: raikiriSkill.icon,
-                    stackable: true,
-                    stackType: 'Raikiri',
-                    casterId: source.id,
-                    casterSide: action.isPlayer ? 'player' : 'enemy',
-                    sourceSkillName: 'Raikiri',
-                    stacks: 1,
-                    castTurn: turn,
-                  });
-                }
+            const currentStack = source.activeEffects.find(e => e.stackType === 'Raikiri' && e.type === 'custom' && e.casterId === source.id);
+            const stackCount = currentStack?.stacks || 0;
+            if (currentStack && stackCount >= 2 && raikiriSkill.stackUseEffectRules?.length) {
+              const applicable = raikiriSkill.stackUseEffectRules
+                .filter(r => r.requiredStacks > 0)
+                .map(r => ({ rule: r, count: stackCount }))
+                .filter(x => x.count >= x.rule.requiredStacks && (x.rule.onwards !== false ? true : x.count === x.rule.requiredStacks))
+                .sort((a, b) => b.rule.requiredStacks - a.rule.requiredStacks);
 
-                const currentStack = source.activeEffects.find(e => e.stackType === 'Raikiri' && e.type === 'custom' && e.casterId === source.id);
-                const stackCount = currentStack?.stacks || 0;
-                if (currentStack && stackCount >= 2 && raikiriSkill.stackUseEffectRules?.length) {
-                  const applicable = raikiriSkill.stackUseEffectRules
-                    .filter(r => r.requiredStacks > 0)
-                    .map(r => ({ rule: r, count: stackCount }))
-                    .filter(x => x.count >= x.rule.requiredStacks && (x.rule.onwards !== false ? true : x.count === x.rule.requiredStacks))
-                    .sort((a, b) => b.rule.requiredStacks - a.rule.requiredStacks);
-
-                  if (applicable.length > 0) {
-                    const { rule, count } = applicable[0];
-                    const comboLabel = `Lightning Blade (Raikiri Finisher ${count}x)`;
-                    const comboTargets = resolveEffectTargets(undefined, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
-                    comboTargets.forEach(ct => {
-                      if (ct.isDead) return;
-                      if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(ct, skill)) {
-                        newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${ct.character.name} está INVULNERÁVEL e não sofreu os efeitos de [${comboLabel}]!`, type: 'buff' });
-                        addFloatingText(ct.id, 'INVULNERÁVEL', 'invulnerable');
-                        return;
-                      }
-                      if (rule.stun) {
-                        const stunDur = Math.max(1, rule.stunDuration || 1);
-                        const stunTypes = rule.stunType && rule.stunType.length > 0 ? rule.stunType : ['physical', 'mental', 'affliction', 'chakra'];
-                        pushActiveEffect(ct, {
-                          name: `${comboLabel} (Stun)`,
-                          type: 'stun',
-                          duration: stunDur,
-                          stunType: stunTypes,
-                          icon: skill.icon,
-                          casterId: source.id,
-                          casterSide: action.isPlayer ? 'player' : 'enemy',
-                        });
-                        newLogs.push({ id: Math.random().toString(), turn, message: `⚡ [${comboLabel}] ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`, type: 'stun' });
-                        addFloatingText(ct.id, `STUN (FINISHER ${count}x)`, 'stun');
-                      }
-                      if (rule.chakraRemove && rule.chakraRemove > 0) {
-                        const ctIsPlayer = updatedPlayer.some(p => p.id === ct.id);
-                        performChakraAction(ctIsPlayer, rule.chakraRemove, source.character.name, ct.character.name, skill.name, action.isPlayer, 'remove', source.id, ct.id, newLogs, localPlayerChakra, localEnemyChakra);
-                        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${comboLabel}] removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`, type: 'chakra' });
-                      }
-                    });
+              if (applicable.length > 0) {
+                const { rule, count } = applicable[0];
+                const comboLabel = `Lightning Blade (Raikiri Finisher ${count}x)`;
+                const comboTargets = resolveEffectTargets(undefined, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+                comboTargets.forEach(ct => {
+                  if (ct.isDead) return;
+                  if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(ct, skill)) {
+                    newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${ct.character.name} está INVULNERÁVEL e não sofreu os efeitos de [${comboLabel}]!`, type: 'buff' });
+                    addFloatingText(ct.id, 'INVULNERÁVEL', 'invulnerable');
+                    return;
                   }
-                }
-
-                if (currentStack && stackCount >= 2 && raikiriSkill.stackUseEffectRules?.length) {
-                  const triggered = raikiriSkill.stackUseEffectRules
-                    .filter(r => r.requiredStacks > 0)
-                    .map(r => ({ rule: r, count: stackCount }))
-                    .filter(x => x.count >= x.rule.requiredStacks && (x.rule.onwards !== false ? true : x.count === x.rule.requiredStacks))
-                    .sort((a, b) => b.rule.requiredStacks - a.rule.requiredStacks);
-
-                  if (triggered.length > 0) {
-                    newLogs.push({
-                      id: Math.random().toString(),
-                      turn,
-                      message: `⚡ [Lightning Blade] ativou o finisher de Raikiri.`,
-                      type: 'buff',
+                  if (rule.stun) {
+                    const stunDur = Math.max(1, rule.stunDuration || 1);
+                    const stunTypes = rule.stunType && rule.stunType.length > 0 ? rule.stunType : ['physical', 'mental', 'affliction', 'chakra'];
+                    pushActiveEffect(ct, {
+                      name: `${comboLabel} (Stun)`,
+                      type: 'stun',
+                      duration: stunDur,
+                      stunType: stunTypes,
+                      icon: skill.icon,
+                      casterId: source.id,
+                      casterSide: action.isPlayer ? 'player' : 'enemy',
                     });
+                    newLogs.push({ id: Math.random().toString(), turn, message: `⚡ [${comboLabel}] ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`, type: 'stun' });
+                    addFloatingText(ct.id, `STUN (FINISHER ${count}x)`, 'stun');
                   }
-                }
+                  if (rule.chakraRemove && rule.chakraRemove > 0) {
+                    const ctIsPlayer = updatedPlayer.some(p => p.id === ct.id);
+                    performChakraAction(ctIsPlayer, rule.chakraRemove, source.character.name, ct.character.name, skill.name, action.isPlayer, 'remove', source.id, ct.id, newLogs, localPlayerChakra, localEnemyChakra);
+                    newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${comboLabel}] removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`, type: 'chakra' });
+                  }
+                });
               }
+            }
 
-              if (isRaikiriPreserveSkill && raikiriStack && (raikiriStack.stacks || 0) > 0) {
-                raikiriStack.frozenUntilTurn = turn;
+            if (currentStack && stackCount >= 2 && raikiriSkill.stackUseEffectRules?.length) {
+              const triggered = raikiriSkill.stackUseEffectRules
+                .filter(r => r.requiredStacks > 0)
+                .map(r => ({ rule: r, count: stackCount }))
+                .filter(x => x.count >= x.rule.requiredStacks && (x.rule.onwards !== false ? true : x.count === x.rule.requiredStacks))
+                .sort((a, b) => b.rule.requiredStacks - a.rule.requiredStacks);
+
+              if (triggered.length > 0) {
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `⚡ [${skill.name}] preservou a stack de Raikiri (${raikiriStack.stacks}x) congelando sua expiração por este turno!`,
+                  message: `⚡ [Lightning Blade] ativou o finisher de Raikiri.`,
                   type: 'buff',
                 });
               }
             }
           }
 
-          // Air Bullets combo stun (only for targets marked by Air Bullets this turn)
-          applyAirBulletsStun(t, source, action.isPlayer, skill);
-        });
+          if (isRaikiriPreserveSkill && raikiriStack && (raikiriStack.stacks || 0) > 0) {
+            raikiriStack.frozenUntilTurn = turn;
+            console.log(`[RAIKIRI] PRESERVE ${skill.name} turn=${turn} stacks=${raikiriStack.stacks} frozenUntilTurn=${raikiriStack.frozenUntilTurn} castTurn=${raikiriStack.castTurn} dur=${raikiriStack.duration}`, raikiriStack);
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⚡ [${skill.name}] preservou a stack de Raikiri (${raikiriStack.stacks}x) congelando sua expiração por este turno!`,
+              type: 'buff',
+            });
+          }
+        }
       }
 
       // INSTANT DOT / BLEEDING / AFFLICTION (with missing HP)
@@ -7389,6 +7390,9 @@ splashOnlyTargets = splashPool.filter(c =>
         // Decrement effect durations (skip effects cast in the current turn, skip permanent effects)
         c.activeEffects = c.activeEffects
           .map(eff => {
+            if (eff.stackType === 'Raikiri' && eff.type === 'custom') {
+              console.log(`[RAIKIRI] DECREMENT turn=${turn} castTurn=${eff.castTurn} frozenUntilTurn=${(eff as any).frozenUntilTurn} dur=${eff.duration} skip=${eff.castTurn === turn || eff.duration >= 99999 || ((eff as any).frozenUntilTurn === turn)}`);
+            }
             if (eff.castTurn === turn || eff.duration >= 99999 || (eff.stackType === 'Raikiri' && (eff as any).frozenUntilTurn === turn)) {
               return eff;
             }
@@ -8511,7 +8515,22 @@ splashOnlyTargets = splashPool.filter(c =>
     if (playerCombatants.length === 0 || enemyCombatants.length === 0) return;
 
     try {
-      const compressCombatant = (c: CombatCharacter) => ({
+      // Remove heavy base64 images from the saved state (localStorage quota).
+      // On restore, hydrateCombatants() refills portraits/icons from getCharacters().
+      const stripHeavyData = (obj: any): any => {
+        if (Array.isArray(obj)) return obj.map(stripHeavyData);
+        if (obj && typeof obj === 'object') {
+          const out: any = {};
+          for (const [k, v] of Object.entries(obj)) {
+            if (typeof v === 'string' && v.startsWith('data:image/') && v.length > 2000) continue;
+            out[k] = stripHeavyData(v);
+          }
+          return out;
+        }
+        return obj;
+      };
+
+      const compressCombatant = (c: CombatCharacter) => stripHeavyData({
         id: c.id,
         health: c.health,
         maxHealth: c.maxHealth,
