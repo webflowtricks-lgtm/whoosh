@@ -5744,7 +5744,8 @@
         "stackApplyOnAttack": true,
         "stackNonCumulative": true,
         "stackDuration": 1,
-        "stackApplyOnAttackDuration": 99999
+        "stackApplyOnAttackDuration": 99999,
+        "retaliateDamageTarget": "AllAllies"
       },
       {
         "name": "Wood Release: Wooden Spire Prison",
