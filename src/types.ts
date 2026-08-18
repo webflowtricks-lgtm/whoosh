@@ -403,6 +403,11 @@ export interface Skill {
   cannotReduceDamageDuration?: number;
   cannotBeInvulnerableDuration?: number;
   cannotReceiveFriendlyDuration?: number;
+  /** Negação de efeitos amigáveis: enquanto ativo no alvo, TODOS os efeitos amigáveis (buff de dano, invulnerabilidade, redução de dano, cura, escudo etc.) são IGNORADOS por esta duração */
+  negateFriendlyDuration?: number;
+  negateFriendlyTarget?: TargetOverride;
+  negateFriendlyIrremovable?: boolean;
+  negateFriendlyRemoveType?: string;
   ignoreStunDuration?: number;
   damageImmunityDuration?: number;
   /** Se true, a imunidade a dano só bloqueia o PRIMEIRO dano recebido e depois é consumida */
@@ -694,6 +699,7 @@ export interface ActiveEffect {
   | 'cannot_reduce_damage'
   | 'cannot_be_invulnerable'
   | 'cannot_receive_friendly'
+  | 'negate_friendly_effects'
   | 'ignore_stun'
   | 'shield_stun_immunity'
   | 'damage_immunity'

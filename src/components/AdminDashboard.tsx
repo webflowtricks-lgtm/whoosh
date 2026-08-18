@@ -7944,6 +7944,78 @@ const newSkill: Skill = {
                             </div>
                           </div>
 
+                          {/* 18c. Anulação de Efeitos Amigáveis */}
+                          <div className="space-y-1 bg-rose-950/10 border border-rose-900/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono">🚫 Anulação de Efeitos Amigáveis (Ignora Buffs/Invulnerabilidade/Redução/Curas)</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={10}
+                                  value={editingSkill.negateFriendlyDuration === 99999 ? 0 : (editingSkill.negateFriendlyDuration || 0)}
+                                  title={editingSkill.negateFriendlyDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
+                                  onChange={(e) => handleUpdateSkillField('negateFriendlyDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="Turnos"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-rose-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.negateFriendlyDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('negateFriendlyDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-rose-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-rose-400 font-mono">♾️ Infinito</span>
+                                </label>
+                                <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-rose-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                                <select
+                                  value={editingSkill.negateFriendlyTarget || 'Target'}
+                                  onChange={(e) => handleUpdateSkillField('negateFriendlyTarget', e.target.value)}
+                                  className="px-2 py-0.5 bg-slate-900 border border-rose-900/50 rounded text-[10px] font-mono text-rose-300 focus:border-rose-600 outline-none w-full max-w-[150px]"
+                                >
+                                  {TARGET_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.negateFriendlyIrremovable || false}
+                                    onChange={(e) => handleUpdateSkillField('negateFriendlyIrremovable', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-rose-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  🔒 Nunca Remover
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                                  <select
+                                    value={editingSkill.negateFriendlyRemoveType || 'none'}
+                                    onChange={(e) => handleUpdateSkillField('negateFriendlyRemoveType', e.target.value)}
+                                    className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
+                                  >
+                                    <option value="none">Nenhum</option>
+                                    <option value="all">Todos</option>
+                                    <option value="buff">Buffs</option>
+                                    <option value="debuff">Debuffs</option>
+                                    <option value="stun">Stuns</option>
+                                    <option value="dot">DoTs</option>
+                                    <option value="bleeding">Sangra</option>
+                                    <option value="affliction">Aflição</option>
+                                    <option value="shield">Escudo</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* 19. Ignorar Stun */}
                           <div className="space-y-1 bg-indigo-950/10 border border-indigo-900/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div>

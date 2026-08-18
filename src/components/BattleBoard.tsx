@@ -196,6 +196,8 @@ export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveE
 export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Skill | string | string[], caster?: CombatCharacter): boolean {
   if (!c || !c.activeEffects) return false;
   if (c.activeEffects.some(e => e.type === 'cannot_be_invulnerable')) return false;
+  // Negação de efeitos amigáveis: invulnerabilidade é ignorada enquanto ativa
+  if (hasNegateFriendlyEffects(c)) return false;
   // Conditional bypass: skill ignores invulnerability when the listed skill/effect is active
   // (on the target by default, or on the caster if activeOn='self')
   if (skillOrType && typeof skillOrType === 'object' && !Array.isArray(skillOrType) && hasConditionalInvulnBypass(c, skillOrType as Skill, caster)) {
@@ -326,6 +328,20 @@ function hasConditionalInvulnBypass(c: CombatCharacter, skill: Skill, caster?: C
   });
 }
 
+// Negação de efeitos amigáveis: enquanto ativo no combatente, buffs de dano,
+// invulnerabilidade, redução de dano, curas, escudos, counters, reflect, retaliate,
+// imortalidade, revives e imunidades são todos IGNORADOS.
+export function hasNegateFriendlyEffects(c?: CombatCharacter | null): boolean {
+  return !!c && !!c.activeEffects && c.activeEffects.some(e => e.type === 'negate_friendly_effects');
+}
+
+// Imortalidade também é efeito amigável: anulada sob negate_friendly_effects.
+export function hasImmortalEffect(c?: CombatCharacter | null): boolean {
+  if (!c) return false;
+  if (hasNegateFriendlyEffects(c)) return false;
+  return hasImmortalEffect(c);
+}
+
 export function isEffectVisibleToViewer(
   eff: ActiveEffect,
   viewerSide: 'player' | 'enemy' = 'player',
@@ -363,7 +379,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
   if (!eff) return false;
   const debuffTypes = [
     'stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown',
-    'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase', 'life_steal', 'cooldown_increase', 'countdown_bomb'
+    'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase', 'life_steal', 'cooldown_increase', 'countdown_bomb', 'negate_friendly_effects'
   ];
   if (debuffTypes.includes(eff.type)) return true;
   const lowerName = (eff.name || '').toLowerCase();
@@ -407,6 +423,7 @@ export function getTargetVulnerabilityBonus(t: CombatCharacter, skill: Skill | n
 // Retorna true se o dano foi convertido.
 export function convertDamageToShield(t: CombatCharacter, rawDamage: number, currentTurn: number, incomingTypes?: string[]): boolean {
   if (!t || !t.activeEffects || rawDamage <= 0) return false;
+  if (hasNegateFriendlyEffects(t)) return false;
   const conv = t.activeEffects.find(e => e.type === 'damage_to_shield');
   if (!conv) return false;
   const cfgTypes = (conv as any).shieldDamageTypes as string[] | undefined;
@@ -656,6 +673,9 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       break;
     case 'cannot_receive_friendly':
       rawPt = `Bloqueio Amigável: Não pode receber habilidades de aliados por ${durText}`;
+      break;
+    case 'negate_friendly_effects':
+      rawPt = `Anulação Amigável: TODOS os efeitos amigáveis (buffs, invulnerabilidade, redução de dano, curas) são ignorados por ${durText}`;
       break;
     case 'on_skill_use_damage':
       rawPt = val > 0 ? `Punição por Habilidade: Sofre ${val} de dano a cada habilidade que usar por ${durText}` : `Punição por usar habilidade por ${durText}`;
@@ -2164,7 +2184,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
           return;
         }
       } else {
-        const isTargetInvisible = targetChar.activeEffects.some(e => e.type === 'invisible');
+        const isTargetInvisible = hasNegateFriendlyEffects(targetChar) ? false : targetChar.activeEffects.some(e => e.type === 'invisible');
         if (isTargetInvisible) {
           playCustomSound('Error');
           addFloatingText(targetId, 'ALVO INVISÍVEL!', 'stun');
@@ -2246,8 +2266,9 @@ const handleTradeChakra = () => {
   const [lastResolutionError, setLastResolutionError] = useState<string | null>(null);
   const [lastAIError, setLastAIError] = useState<string | null>(null);
 
-  const hasDamageImmunity = (character: CombatCharacter, incomingTypes?: string[]) =>
-    character?.activeEffects?.some((e: ActiveEffect) => {
+  const hasDamageImmunity = (character: CombatCharacter, incomingTypes?: string[]) => {
+    if (hasNegateFriendlyEffects(character)) return false;
+    return character?.activeEffects?.some((e: ActiveEffect) => {
       if (e.type !== 'damage_immunity') return false;
       const cfgTypes = e.immunityTypes as string[] | undefined;
       if (cfgTypes && cfgTypes.length > 0) {
@@ -2256,6 +2277,7 @@ const handleTradeChakra = () => {
       }
       return true;
     }) ?? false;
+  };
 
   // Tipos de redução de dano: Guard reduz dano normal (não perfuração);
   // damage_reduction_pierce (Imune a Perfuração) reduz dano normal E dano direto/perfuração.
@@ -2307,7 +2329,7 @@ const handleTradeChakra = () => {
     }
 
     // Check if character is blocked from receiving friendly skills
-    if (character.activeEffects.some(e => e.type === 'cannot_receive_friendly') && !isDebuffEffect(effect)) {
+    if ((character.activeEffects.some(e => e.type === 'cannot_receive_friendly') || hasNegateFriendlyEffects(character)) && !isDebuffEffect(effect)) {
       addFloatingText(character.id, 'BLOQUEADO (SKILL AMIGÁVEL)', 'stun');
       return;
     }
@@ -2594,7 +2616,7 @@ const handleTradeChakra = () => {
     // 1) Revivals: dead combatants with a revive_on_death effect come back with X HP (1 stack consumida)
     combatantList.forEach(c => {
       if (!c.isDead) return;
-      const reviveEff = c.activeEffects.find(e => e.type === 'revive_on_death');
+      const reviveEff = hasNegateFriendlyEffects(c) ? undefined : c.activeEffects.find(e => e.type === 'revive_on_death');
       if (!reviveEff) return;
       const reviveVal = Math.min(Math.max(1, reviveEff.value || 0), c.maxHealth);
       c.isDead = false;
@@ -3253,7 +3275,7 @@ const handleTradeChakra = () => {
       }
 
       // Check Counter-Attack on source (attacker mode): nullifies the source's own skills
-      const attackerCounterEffect = source.activeEffects.find(e => e.type === 'counter_attack' && e.counterAttackType === 'attacker');
+      const attackerCounterEffect = hasNegateFriendlyEffects(source) ? undefined : source.activeEffects.find(e => e.type === 'counter_attack' && e.counterAttackType === 'attacker');
       if (attackerCounterEffect && !skill.cannotBeCountered) {
         newLogs.push({
           id: Math.random().toString(),
@@ -3273,7 +3295,7 @@ const handleTradeChakra = () => {
       }
 
       // Check Counter-Attack on target (nullifies ANY skill used against the counter holder, except skills marked cannotBeCountered)
-      const counterEffect = defaultTarget.activeEffects.find(e => e.type === 'counter_attack' || (e.type === 'counter' && e.counterAttackType === 'defender'));
+      const counterEffect = hasNegateFriendlyEffects(defaultTarget) ? undefined : defaultTarget.activeEffects.find(e => e.type === 'counter_attack' || (e.type === 'counter' && e.counterAttackType === 'defender'));
       if (counterEffect && !skill.cannotBeCountered && source.id !== defaultTarget.id) {
         newLogs.push({
           id: Math.random().toString(),
@@ -3343,10 +3365,10 @@ const handleTradeChakra = () => {
                   actualDmg = 0;
                 }
                 if (actualDmg > 0) {
-                  source.health = source.activeEffects?.some(e => e.type === 'immortal')
+                  source.health = hasImmortalEffect(source)
                     ? Math.max(1, source.health - actualDmg)
                     : Math.max(0, source.health - actualDmg);
-                  if (source.health <= 0 && !source.activeEffects?.some(e => e.type === 'immortal')) {
+                  if (source.health <= 0 && !hasImmortalEffect(source)) {
                     source.isDead = true;
                   }
                 }
@@ -3525,7 +3547,7 @@ const handleTradeChakra = () => {
       }
 
       // Check Reflect on target (reflects any offensive skill, including chakra steal/drain/removal)
-      const reflectEffect = target.activeEffects.find(e => e.type === 'reflect');
+      const reflectEffect = hasNegateFriendlyEffects(target) ? undefined : target.activeEffects.find(e => e.type === 'reflect');
 
       if (reflectEffect && isOffensiveSkill && !skill.cannotBeReflected) {
         isReflected = true;
@@ -3620,7 +3642,8 @@ let directDamage = skill.directDamage || 0;
         directDamage = 0;
       }
       // BÔNUS DE DANO: +valor UMA vez por cast, na skill física/chakra do conjurador.
-      const damageBuffSum = source.activeEffects
+      // Negação de efeitos amigáveis no conjurador: buffs de dano são ignorados.
+      const damageBuffSum = hasNegateFriendlyEffects(source) ? 0 : source.activeEffects
         .filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill))
         .reduce((a, e) => a + (e.value || 0), 0);
       // O buff entra APENAS no dano principal da skill: dano normal > dano direto > dano instantâneo
@@ -3860,7 +3883,7 @@ const startingHealth = t.health;
             });
             addFloatingText(t.id, `DANO DIRETO (${duration}T)`, 'damage');
           } else {
-            const targetCannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage');
+            const targetCannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
             const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter((e: ActiveEffect) => PIERCE_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
@@ -3871,7 +3894,7 @@ const startingHealth = t.health;
               addFloatingText(t.id, `+${remainingDd} ESCUDO`, 'shield');
               remainingDd = 0;
             }
-            if (remainingDd > 0 && (t.shield || 0) > 0) {
+            if (remainingDd > 0 && (t.shield || 0) > 0 && !hasNegateFriendlyEffects(t)) {
               const absorbed = Math.min(t.shield || 0, remainingDd);
               t.shield = (t.shield || 0) - absorbed;
               remainingDd -= absorbed;
@@ -4248,20 +4271,20 @@ const startingHealth = t.health;
             return;
           }
           let actualDmg = effectiveStealVal;
-          const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
+          const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
           if (!targetCannotReduce) {
             const reductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const reductionSum = reductions.reduce((a, e) => a + (e.value || 0), 0);
             actualDmg = Math.max(0, actualDmg - reductionSum);
           }
-          if ((t.shield || 0) > 0 && actualDmg > 0) {
+          if ((t.shield || 0) > 0 && actualDmg > 0 && !hasNegateFriendlyEffects(t)) {
             const absorbed = Math.min(t.shield, actualDmg);
             t.shield -= absorbed;
             actualDmg -= absorbed;
             addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
           }
           const actualDealt = Math.min(actualDmg, t.health);
-          t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - actualDealt) : Math.max(0, t.health - actualDealt);
+          t.health = hasImmortalEffect(t) ? Math.max(1, t.health - actualDealt) : Math.max(0, t.health - actualDealt);
           if (actualDealt > 0) {
             const healAmt = Math.min(actualDealt, (source.maxHealth || source.health) - source.health);
             source.health = Math.min(source.maxHealth || source.health, source.health + actualDealt);
@@ -4271,7 +4294,7 @@ const startingHealth = t.health;
             // Air Bullets combo stun for life steal damage
             applyAirBulletsStun(t, source, action.isPlayer, skill);
           }
-          if (t.health <= 0 && !t.activeEffects?.some(e => e.type === 'immortal')) {
+          if (t.health <= 0 && !hasImmortalEffect(t)) {
             t.isDead = true;
             newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${t.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
             addFloatingText(t.id, 'DERROTADO', 'damage');
@@ -4558,7 +4581,7 @@ const startingHealth = t.health;
                     if (hasDamageImmunity(t, [selfDmgType])) consumeFirstHitOnlyImmunity(t, [selfDmgType]);
                     if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [selfDmgType])) {
                       let remainingDmg = selfBonusDmg;
-                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                      if (remainingDmg > 0 && (t.shield || 0) > 0 && !hasNegateFriendlyEffects(t)) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
                         t.shield = (t.shield || 0) - absorbed;
                         remainingDmg -= absorbed;
@@ -4637,7 +4660,7 @@ const startingHealth = t.health;
                       if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
                     if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                         let remainingDmg = stackDmg;
-                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                      if (remainingDmg > 0 && (t.shield || 0) > 0 && !hasNegateFriendlyEffects(t)) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
                         t.shield = (t.shield || 0) - absorbed;
                         remainingDmg -= absorbed;
@@ -4676,7 +4699,7 @@ const startingHealth = t.health;
             }
           }
           let finalDamage = baseDamage + dmgBuffNormal + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
-          const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
+          const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
           let reductionSum = 0;
           if (!targetCannotReduce) {
             const targetReductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
@@ -4715,7 +4738,7 @@ const startingHealth = t.health;
           }
           if (finalDamage > 0) {
             const before = t.health;
-            t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
+            t.health = hasImmortalEffect(t) ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
             newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
             // Air Bullets combo stun (only for targets marked by Air Bullets this turn)
@@ -4820,7 +4843,7 @@ splashOnlyTargets = splashPool.filter(c =>
                     if (hasDamageImmunity(t, [selfDmgType])) consumeFirstHitOnlyImmunity(t, [selfDmgType]);
                     if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [selfDmgType])) {
                       let remainingDmg = selfBonusDmg;
-                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                      if (remainingDmg > 0 && (t.shield || 0) > 0 && !hasNegateFriendlyEffects(t)) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
                         t.shield = (t.shield || 0) - absorbed;
                         remainingDmg -= absorbed;
@@ -4899,7 +4922,7 @@ splashOnlyTargets = splashPool.filter(c =>
                       if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
                     if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                         let remainingDmg = stackDmg;
-                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                      if (remainingDmg > 0 && (t.shield || 0) > 0 && !hasNegateFriendlyEffects(t)) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
                         t.shield = (t.shield || 0) - absorbed;
                         remainingDmg -= absorbed;
@@ -4939,7 +4962,7 @@ splashOnlyTargets = splashPool.filter(c =>
           }
           let finalDamage = baseDamage + dmgBuffNormal + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
 
-          const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
+          const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
           let reductionSum = 0;
           if (!targetCannotReduce) {
             const targetReductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
@@ -4985,7 +5008,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
           if (finalDamage > 0) {
             const before = t.health;
-            t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
+            t.health = hasImmortalEffect(t) ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
             console.log(`[DMG] ${source.character.name} -> ${t.character.name}: -${finalDamage} HP (${before} -> ${t.health}) shield:${t.shield} dead:${t.isDead}`);
             newLogs.push({
               id: Math.random().toString(),
@@ -5062,18 +5085,18 @@ splashOnlyTargets = splashPool.filter(c =>
               // Dano direto/perfuração só é reduzido pela "Redução de Dano Imune a Perfuração";
               // dano normal é reduzido pelo Guard e pela redução imune a perfuração.
               const isPierceBoost = boostType === 'direct_damage' || boostType === 'true' || boostType === 'piercing';
-              const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
+              const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
               const reductions = targetCannotReduce ? [] : t.activeEffects.filter(e => (isPierceBoost ? PIERCE_DAMAGE_REDUCTION_TYPES : NORMAL_DAMAGE_REDUCTION_TYPES).includes(e.type));
               const reductionSum = reductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
               remaining = Math.max(0, remaining - reductionSum);
-              if ((t.shield || 0) > 0 && remaining > 0) {
+              if ((t.shield || 0) > 0 && remaining > 0 && !hasNegateFriendlyEffects(t)) {
                 const absorbed = Math.min(t.shield || 0, remaining);
                 t.shield = (t.shield || 0) - absorbed;
                 remaining -= absorbed;
                 if (absorbed > 0) addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
               }
               if (remaining > 0) {
-                t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - remaining) : Math.max(0, t.health - remaining);
+                t.health = hasImmortalEffect(t) ? Math.max(1, t.health - remaining) : Math.max(0, t.health - remaining);
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
@@ -5184,14 +5207,17 @@ splashOnlyTargets = splashPool.filter(c =>
         const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
-          if (t.activeEffects.some(e => e.type === 'cannot_receive_friendly')) {
+          const negateFriendly = hasNegateFriendlyEffects(t);
+          if (t.activeEffects.some(e => e.type === 'cannot_receive_friendly') || negateFriendly) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🚫 ${t.character.name} não pôde ser curado por [${skill.name}] por estar impossibilitado de receber habilidades amigáveis!`,
+              message: negateFriendly
+                ? `🚫 ${t.character.name} tem efeitos amigáveis ANULADOS e não pôde ser curado por [${skill.name}]!`
+                : `🚫 ${t.character.name} não pôde ser curado por [${skill.name}] por estar impossibilitado de receber habilidades amigáveis!`,
               type: 'stun',
             });
-            addFloatingText(t.id, 'CURA BLOQUEADA', 'stun');
+            addFloatingText(t.id, negateFriendly ? 'CURA ANULADA' : 'CURA BLOQUEADA', 'stun');
             return;
           }
           const startingHealth = t.health;
@@ -5759,7 +5785,7 @@ splashOnlyTargets = splashPool.filter(c =>
             }
             if (instantDmg > 0) {
               const before = t.health;
-              t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - instantDmg) : Math.max(0, t.health - instantDmg);
+              t.health = hasImmortalEffect(t) ? Math.max(1, t.health - instantDmg) : Math.max(0, t.health - instantDmg);
               newLogs.push({
                 id: Math.random().toString(), turn,
                 message: `💢 ${t.character.name} sofreu ${instantDmg} de dano próprio por [${skill.name}].`,
@@ -5941,7 +5967,7 @@ splashOnlyTargets = splashPool.filter(c =>
               }
             }
 
-            if (t.health <= 0 && !t.activeEffects.some(e => e.type === 'immortal')) {
+            if (t.health <= 0 && !hasImmortalEffect(t)) {
               t.isDead = true;
               newLogs.push({
                 id: Math.random().toString(),
@@ -6070,7 +6096,7 @@ splashOnlyTargets = splashPool.filter(c =>
               }
             }
 
-            if (t.health <= 0 && !t.activeEffects.some(e => e.type === 'immortal')) {
+            if (t.health <= 0 && !hasImmortalEffect(t)) {
               t.isDead = true;
               newLogs.push({
                 id: Math.random().toString(),
@@ -6238,6 +6264,34 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
+      // Negate Friendly Effects - debuff on target (ignora TODOS os efeitos amigáveis ativos e futuros)
+      if (skill.negateFriendlyDuration && skill.negateFriendlyDuration > 0) {
+        const negateFriendlyTargets = resolveEffectTargets(skill.negateFriendlyTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        negateFriendlyTargets.forEach(t => {
+          if (t.isDead) return;
+          const duration = skill.negateFriendlyDuration!;
+          pushActiveEffect(t, {
+            name: `${skill.name} (Anulação Amigável)`,
+            type: 'negate_friendly_effects',
+            duration,
+            icon: skill.icon,
+            irremovable: !!skill.negateFriendlyIrremovable,
+            cannotBeCountered: !!skill.cannotBeCountered,
+            cannotBeReflected: !!skill.cannotBeReflected,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🚫 ${t.character.name} teve todos os efeitos amigáveis ANULADOS por [${skill.name}] por ${duration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'ANULAÇÃO AMIGÁVEL', 'effect');
+          cleanseTargetEffects(t, skill.negateFriendlyRemoveType);
+        });
+      }
+
       // Reveal Invisible
       if (skill.revealInvisibleDuration && skill.revealInvisibleDuration > 0) {
         const revealTargets = resolveEffectTargets(skill.revealInvisibleTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
@@ -6329,7 +6383,7 @@ splashOnlyTargets = splashPool.filter(c =>
       const isImmortalByThreshold = skill.immortalHpThreshold && skill.immortalHpThreshold > 0 && source.health <= skill.immortalHpThreshold && source.activeEffects.some(e => e.name.startsWith(skill.name));
       if (isImmortalByImmediate || isImmortalByThreshold) {
         const immDuration = skill.immortalDuration || 3;
-        const alreadyImmortal = source.activeEffects.some(e => e.type === 'immortal');
+        const alreadyImmortal = hasImmortalEffect(source);
         if (!alreadyImmortal) {
           pushActiveEffect(source, {
             name: `${skill.name} (Imortal)`,
@@ -6678,12 +6732,12 @@ splashOnlyTargets = splashPool.filter(c =>
               }
 
               if (actualDmg > 0) {
-                source.health = source.activeEffects?.some(e => e.type === 'immortal')
+                source.health = hasImmortalEffect(source)
                   ? Math.max(1, source.health - actualDmg)
                   : Math.max(0, source.health - actualDmg);
               }
 
-              if (source.health <= 0 && !source.activeEffects?.some(e => e.type === 'immortal')) {
+              if (source.health <= 0 && !hasImmortalEffect(source)) {
                 source.isDead = true;
               }
 
@@ -6749,12 +6803,12 @@ splashOnlyTargets = splashPool.filter(c =>
             }
 
             if (actualDmg > 0) {
-              source.health = source.activeEffects?.some(e => e.type === 'immortal')
+              source.health = hasImmortalEffect(source)
                 ? Math.max(1, source.health - actualDmg)
                 : Math.max(0, source.health - actualDmg);
             }
 
-            if (source.health <= 0 && !source.activeEffects?.some(e => e.type === 'immortal')) {
+            if (source.health <= 0 && !hasImmortalEffect(source)) {
               source.isDead = true;
             }
 
@@ -6806,6 +6860,7 @@ splashOnlyTargets = splashPool.filter(c =>
       if (isEnemyAction) {
         defendingTeam.forEach(defender => {
           if (defender.isDead) return;
+          if (hasNegateFriendlyEffects(defender)) return;
           defender.activeEffects.forEach(eff => {
             if (eff.type !== 'retaliate_damage') return;
 
@@ -6857,12 +6912,12 @@ splashOnlyTargets = splashPool.filter(c =>
                 }
 
                 if (actualDmg > 0) {
-                  source.health = source.activeEffects?.some(e => e.type === 'immortal')
+                  source.health = hasImmortalEffect(source)
                     ? Math.max(1, source.health - actualDmg)
                     : Math.max(0, source.health - actualDmg);
                 }
 
-                if (source.health <= 0 && !source.activeEffects?.some(e => e.type === 'immortal')) {
+                if (source.health <= 0 && !hasImmortalEffect(source)) {
                   source.isDead = true;
                 }
 
@@ -6888,7 +6943,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // Check deaths immediately after actions
       sourceList.forEach(c => {
-        if (c.health <= 0 && !c.isDead && !c.activeEffects.some(e => e.type === 'immortal')) {
+        if (c.health <= 0 && !c.isDead && !hasImmortalEffect(c)) {
           c.isDead = true;
           newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA!`, type: 'death' });
           playCustomSound('Death');
@@ -6897,7 +6952,7 @@ splashOnlyTargets = splashPool.filter(c =>
         // Activate immortality if HP drops below threshold
         const immSkill = c.character.skills.find(s => s.immortalHpThreshold && s.immortalHpThreshold > 0 && c.health <= s.immortalHpThreshold);
         const skillEffectActive = immSkill ? c.activeEffects.some(e => e.name.startsWith(immSkill.name)) : false;
-        if (immSkill && !c.activeEffects.some(e => e.type === 'immortal') && skillEffectActive) {
+        if (immSkill && !hasImmortalEffect(c) && skillEffectActive) {
           const immDur = immSkill.immortalDuration || 3;
           pushActiveEffect(c, {
             name: `${immSkill.name} (Imortal)`,
@@ -6912,7 +6967,7 @@ splashOnlyTargets = splashPool.filter(c =>
         }
       });
       targetList.forEach(c => {
-        if (c.health <= 0 && !c.isDead && !c.activeEffects.some(e => e.type === 'immortal')) {
+        if (c.health <= 0 && !c.isDead && !hasImmortalEffect(c)) {
           c.isDead = true;
           newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA!`, type: 'death' });
           playCustomSound('Death');
@@ -7044,7 +7099,7 @@ splashOnlyTargets = splashPool.filter(c =>
             });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
-            const targetCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
+            const targetCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(c);
             const targetReductions = targetCannotReduce ? [] : c.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
             const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
             const netDmg = Math.max(0, (dmg.value || 0) - reductionSum);
@@ -7135,7 +7190,7 @@ splashOnlyTargets = splashPool.filter(c =>
               addFloatingText(c.id, `+${remainingDd} ESCUDO (DIRETO)`, 'shield');
               remainingDd = 0;
             }
-            if (remainingDd > 0 && (c.shield || 0) > 0) {
+            if (remainingDd > 0 && (c.shield || 0) > 0 && !hasNegateFriendlyEffects(c)) {
               const absorbed = Math.min(c.shield || 0, remainingDd);
               c.shield = (c.shield || 0) - absorbed;
               remainingDd -= absorbed;
@@ -7229,13 +7284,13 @@ splashOnlyTargets = splashPool.filter(c =>
               addFloatingText(c.id, `+${netLs} ESCUDO (ROUBO)`, 'shield');
               netLs = 0;
             }
-            if (netLs > 0 && (c.shield || 0) > 0) {
+            if (netLs > 0 && (c.shield || 0) > 0 && !hasNegateFriendlyEffects(c)) {
               const absorbed = Math.min(c.shield || 0, netLs);
               c.shield = (c.shield || 0) - absorbed;
               netLs -= absorbed;
               addFloatingText(c.id, `-${absorbed} ESCUDO`, 'shield');
             }
-            c.health = c.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, c.health - netLs) : Math.max(0, c.health - netLs);
+            c.health = hasImmortalEffect(c) ? Math.max(1, c.health - netLs) : Math.max(0, c.health - netLs);
             if (netLs > 0 && lsCaster) {
               const healAmt = Math.min(netLs, (lsCaster.maxHealth || lsCaster.health) - lsCaster.health);
               lsCaster.health = Math.min(lsCaster.maxHealth || lsCaster.health, lsCaster.health + netLs);
@@ -7243,7 +7298,7 @@ splashOnlyTargets = splashPool.filter(c =>
               addFloatingText(c.id, `-${netLs} HP (ROUBO DE VIDA)`, 'damage');
               addFloatingText(lsCaster.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
             }
-            if (c.health <= 0 && !c.activeEffects?.some(e => e.type === 'immortal')) {
+            if (c.health <= 0 && !hasImmortalEffect(c)) {
               c.isDead = true;
               newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
               addFloatingText(c.id, 'DERROTADO', 'damage');
@@ -7254,6 +7309,16 @@ splashOnlyTargets = splashPool.filter(c =>
         // Apply dynamic Healing over time
         const activeHealEffects = c.activeEffects.filter(e => e.type === 'heal');
         activeHealEffects.forEach(hl => {
+          if (hasNegateFriendlyEffects(c)) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🚫 ${c.character.name} tem efeitos amigáveis ANULADOS e não recuperou vida por ${hl.name}.`,
+              type: 'stun',
+            });
+            addFloatingText(c.id, 'CURA ANULADA', 'stun');
+            return;
+          }
           const startingHealth = c.health;
           c.health = Math.min(100, c.health + (hl.value || 0));
           const actualHealed = c.health - startingHealth;
@@ -7270,7 +7335,7 @@ splashOnlyTargets = splashPool.filter(c =>
         });
 
         // Shield per turn (escudo ADICIONAL gerado a cada turno)
-        const shieldPerTurnEffects = c.activeEffects.filter(e => e.type === 'shield' && e.regenPerTurn && e.castTurn !== turn);
+        const shieldPerTurnEffects = hasNegateFriendlyEffects(c) ? [] : c.activeEffects.filter(e => e.type === 'shield' && e.regenPerTurn && e.castTurn !== turn);
         shieldPerTurnEffects.forEach(re => {
           const cap = re.regenMaxVal && re.regenMaxVal > 0 ? re.regenMaxVal : Infinity;
           const prevShield = c.shield || 0;
@@ -7288,7 +7353,7 @@ splashOnlyTargets = splashPool.filter(c =>
         });
 
         // Check if dead now
-        if (c.health <= 0 && !c.activeEffects.some(e => e.type === 'immortal')) {
+        if (c.health <= 0 && !hasImmortalEffect(c)) {
           c.isDead = true;
           newLogs.push({
             id: Math.random().toString(),
@@ -7358,7 +7423,7 @@ splashOnlyTargets = splashPool.filter(c =>
             if (!isDirect) {
               const effDamageDebuffs = dmgTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_debuff' && (!(e as any).debuffTypes || (e as any).debuffTypes.length === 0 || (e as any).debuffTypes.includes('skill')));
               const debuffSum = effDamageDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
-              const effDamageBuff = dmgTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_buff');
+              const effDamageBuff = hasNegateFriendlyEffects(dmgTarget) ? [] : dmgTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_buff');
               const buffSum = effDamageBuff.reduce((acc, curr) => acc + (curr.value || 0), 0);
               finalDamage = Math.max(0, finalDamage - debuffSum + buffSum);
             }
@@ -7369,14 +7434,14 @@ splashOnlyTargets = splashPool.filter(c =>
               addFloatingText(dmgTarget.id, 'IMUNE!', 'invulnerable');
               return;
             }
-            if (finalDamage > 0 && (dmgTarget.shield || 0) > 0) {
+            if (finalDamage > 0 && (dmgTarget.shield || 0) > 0 && !hasNegateFriendlyEffects(dmgTarget)) {
               const absorbed = Math.min(dmgTarget.shield, finalDamage);
               dmgTarget.shield -= absorbed;
               finalDamage -= absorbed;
               addFloatingText(dmgTarget.id, `-${absorbed} ESCUDO`, 'shield');
             }
             if (finalDamage > 0) {
-              dmgTarget.health = dmgTarget.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, dmgTarget.health - finalDamage) : Math.max(0, dmgTarget.health - finalDamage);
+              dmgTarget.health = hasImmortalEffect(dmgTarget) ? Math.max(1, dmgTarget.health - finalDamage) : Math.max(0, dmgTarget.health - finalDamage);
               newLogs.push({ id: Math.random().toString(), turn, message: `💣 [EXPLODIU] A bomba de [${bomb.sourceSkillName}] explodiu em ${c.character.name} e ${dmgTarget.character.name} recebeu ${finalDamage} de dano${dmgType !== 'damage' ? ` (${dmgType})` : ''}!`, type: 'damage' });
               addFloatingText(dmgTarget.id, `-${finalDamage} 💥`, 'damage');
               if (dmgTarget.health === 0 && !dmgTarget.isDead) {
@@ -7570,7 +7635,7 @@ splashOnlyTargets = splashPool.filter(c =>
         if (c.isDead) return;
         const immortalSkill = c.character.skills.find(s => s.immortalHpThreshold && s.immortalHpThreshold > 0 && c.health <= s.immortalHpThreshold);
         const skillEffectActive = immortalSkill ? c.activeEffects.some(e => e.name.startsWith(immortalSkill.name)) : false;
-        if (immortalSkill && !c.activeEffects.some(e => e.type === 'immortal') && skillEffectActive) {
+        if (immortalSkill && !hasImmortalEffect(c) && skillEffectActive) {
           const immDuration = immortalSkill.immortalDuration || 3;
           pushActiveEffect(c, {
             name: `${immortalSkill.name} (Imortal)`,
@@ -9088,12 +9153,12 @@ splashOnlyTargets = splashPool.filter(c =>
                 }
 
                 if (actualDmg > 0) {
-                  source.health = source.activeEffects?.some(e => e.type === 'immortal')
+                  source.health = hasImmortalEffect(source)
                     ? Math.max(1, source.health - actualDmg)
                     : Math.max(0, source.health - actualDmg);
                 }
 
-                if (source.health <= 0 && !source.activeEffects?.some(e => e.type === 'immortal')) {
+                if (source.health <= 0 && !hasImmortalEffect(source)) {
                   source.isDead = true;
                 }
 
@@ -9815,14 +9880,14 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             const reductionSum = reductions.reduce((a, e) => a + (e.value || 0), 0);
             actualDmg = Math.max(0, actualDmg - reductionSum);
           }
-          if ((t.shield || 0) > 0 && actualDmg > 0) {
+          if ((t.shield || 0) > 0 && actualDmg > 0 && !hasNegateFriendlyEffects(t)) {
             const absorbed = Math.min(t.shield, actualDmg);
             t.shield -= absorbed;
             actualDmg -= absorbed;
             addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
           }
           const actualDealt = Math.min(actualDmg, t.health);
-          t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - actualDealt) : Math.max(0, t.health - actualDealt);
+          t.health = hasImmortalEffect(t) ? Math.max(1, t.health - actualDealt) : Math.max(0, t.health - actualDealt);
           if (actualDealt > 0) {
             const healAmt = Math.min(actualDealt, (source.maxHealth || source.health) - source.health);
             source.health = Math.min(source.maxHealth || source.health, source.health + actualDealt);
@@ -9830,7 +9895,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             addFloatingText(t.id, `-${actualDealt} HP`, 'damage');
             addFloatingText(source.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
           }
-          if (t.health <= 0 && !t.activeEffects?.some(e => e.type === 'immortal')) {
+          if (t.health <= 0 && !hasImmortalEffect(t)) {
             t.isDead = true;
             newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${t.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
             addFloatingText(t.id, 'DERROTADO', 'damage');
@@ -10037,7 +10102,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           }
           if (finalDamage > 0) {
             const before = t.health;
-            t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
+            t.health = hasImmortalEffect(t) ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
             newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
             // Air Bullets stun check for normal damage
@@ -10130,7 +10195,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                     if (hasDamageImmunity(t, [selfDmgType])) consumeFirstHitOnlyImmunity(t, [selfDmgType]);
                     if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [selfDmgType])) {
                       let remainingDmg = selfBonusDmg;
-                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                      if (remainingDmg > 0 && (t.shield || 0) > 0 && !hasNegateFriendlyEffects(t)) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
                         t.shield = (t.shield || 0) - absorbed;
                         remainingDmg -= absorbed;
@@ -10209,7 +10274,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                       if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
                     if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                         let remainingDmg = stackDmg;
-                      if (remainingDmg > 0 && (t.shield || 0) > 0) {
+                      if (remainingDmg > 0 && (t.shield || 0) > 0 && !hasNegateFriendlyEffects(t)) {
                         const absorbed = Math.min(t.shield || 0, remainingDmg);
                         t.shield = (t.shield || 0) - absorbed;
                         remainingDmg -= absorbed;
@@ -10289,7 +10354,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
 
           // Apply remaining damage to health
           if (finalDamage > 0) {
-            t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
+            t.health = hasImmortalEffect(t) ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -11120,7 +11185,7 @@ if (skill.redirectOffensiveToCaster) {
             }
             if (instantDmg > 0) {
               const before = t.health;
-              t.health = t.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, t.health - instantDmg) : Math.max(0, t.health - instantDmg);
+              t.health = hasImmortalEffect(t) ? Math.max(1, t.health - instantDmg) : Math.max(0, t.health - instantDmg);
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
@@ -11321,7 +11386,7 @@ if (skill.redirectOffensiveToCaster) {
               }
             }
 
-            if (t.health <= 0 && !t.activeEffects.some(e => e.type === 'immortal')) {
+            if (t.health <= 0 && !hasImmortalEffect(t)) {
               t.isDead = true;
               newLogs.push({
                 id: Math.random().toString(),
@@ -11780,7 +11845,7 @@ if (skill.redirectOffensiveToCaster) {
               addFloatingText(c.id, `+${remainingDd} ESCUDO (DIRETO)`, 'shield');
               remainingDd = 0;
             }
-            if (remainingDd > 0 && (c.shield || 0) > 0) {
+            if (remainingDd > 0 && (c.shield || 0) > 0 && !hasNegateFriendlyEffects(c)) {
               const absorbed = Math.min(c.shield || 0, remainingDd);
               c.shield = (c.shield || 0) - absorbed;
               remainingDd -= absorbed;
@@ -11816,7 +11881,7 @@ if (skill.redirectOffensiveToCaster) {
         });
 
         // Shield per turn (escudo ADICIONAL gerado a cada turno)
-        const shieldPerTurnEffects = c.activeEffects.filter(e => e.type === 'shield' && e.regenPerTurn && e.castTurn !== turn);
+        const shieldPerTurnEffects = hasNegateFriendlyEffects(c) ? [] : c.activeEffects.filter(e => e.type === 'shield' && e.regenPerTurn && e.castTurn !== turn);
         shieldPerTurnEffects.forEach(re => {
           const cap = re.regenMaxVal && re.regenMaxVal > 0 ? re.regenMaxVal : Infinity;
           const prevShield = c.shield || 0;
@@ -11910,13 +11975,13 @@ if (skill.redirectOffensiveToCaster) {
               addFloatingText(c.id, `+${netLs} ESCUDO (ROUBO)`, 'shield');
               netLs = 0;
             }
-            if (netLs > 0 && (c.shield || 0) > 0) {
+            if (netLs > 0 && (c.shield || 0) > 0 && !hasNegateFriendlyEffects(c)) {
               const absorbed = Math.min(c.shield || 0, netLs);
               c.shield = (c.shield || 0) - absorbed;
               netLs -= absorbed;
               addFloatingText(c.id, `-${absorbed} ESCUDO`, 'shield');
             }
-            c.health = c.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, c.health - netLs) : Math.max(0, c.health - netLs);
+            c.health = hasImmortalEffect(c) ? Math.max(1, c.health - netLs) : Math.max(0, c.health - netLs);
             if (netLs > 0 && lsCaster) {
               const healAmt = Math.min(netLs, (lsCaster.maxHealth || lsCaster.health) - lsCaster.health);
               lsCaster.health = Math.min(lsCaster.maxHealth || lsCaster.health, lsCaster.health + netLs);
@@ -11924,7 +11989,7 @@ if (skill.redirectOffensiveToCaster) {
               addFloatingText(c.id, `-${netLs} HP (ROUBO DE VIDA)`, 'damage');
               addFloatingText(lsCaster.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
             }
-            if (c.health <= 0 && !c.activeEffects?.some(e => e.type === 'immortal')) {
+            if (c.health <= 0 && !hasImmortalEffect(c)) {
               c.isDead = true;
               newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
               addFloatingText(c.id, 'DERROTADO', 'damage');
@@ -12023,7 +12088,7 @@ if (skill.redirectOffensiveToCaster) {
         }
 
         // Check if dead now
-        if (c.health <= 0 && !c.activeEffects.some(e => e.type === 'immortal')) {
+        if (c.health <= 0 && !hasImmortalEffect(c)) {
           c.isDead = true;
           newLogs.push({
             id: Math.random().toString(),
@@ -12148,7 +12213,7 @@ if (skill.redirectOffensiveToCaster) {
             if (!isDirect) {
               const effDamageDebuffs = dmgTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_debuff' && (!(e as any).debuffTypes || (e as any).debuffTypes.length === 0 || (e as any).debuffTypes.includes('skill')));
               const debuffSum = effDamageDebuffs.reduce((acc, curr) => acc + (curr.value || 0), 0);
-              const effDamageBuff = dmgTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_buff');
+              const effDamageBuff = hasNegateFriendlyEffects(dmgTarget) ? [] : dmgTarget.activeEffects.filter((e: ActiveEffect) => e.type === 'damage_buff');
               const buffSum = effDamageBuff.reduce((acc, curr) => acc + (curr.value || 0), 0);
               finalDamage = Math.max(0, finalDamage - debuffSum + buffSum);
             }
@@ -12159,14 +12224,14 @@ if (skill.redirectOffensiveToCaster) {
               addFloatingText(dmgTarget.id, 'IMUNE!', 'invulnerable');
               return;
             }
-            if (finalDamage > 0 && (dmgTarget.shield || 0) > 0) {
+            if (finalDamage > 0 && (dmgTarget.shield || 0) > 0 && !hasNegateFriendlyEffects(dmgTarget)) {
               const absorbed = Math.min(dmgTarget.shield, finalDamage);
               dmgTarget.shield -= absorbed;
               finalDamage -= absorbed;
               addFloatingText(dmgTarget.id, `-${absorbed} ESCUDO`, 'shield');
             }
             if (finalDamage > 0) {
-              dmgTarget.health = dmgTarget.activeEffects?.some(e => e.type === 'immortal') ? Math.max(1, dmgTarget.health - finalDamage) : Math.max(0, dmgTarget.health - finalDamage);
+              dmgTarget.health = hasImmortalEffect(dmgTarget) ? Math.max(1, dmgTarget.health - finalDamage) : Math.max(0, dmgTarget.health - finalDamage);
               newLogs.push({ id: Math.random().toString(), turn, message: `💣 [EXPLODIU] A bomba de [${bomb.sourceSkillName}] explodiu em ${c.character.name} e ${dmgTarget.character.name} recebeu ${finalDamage} de dano${dmgType !== 'damage' ? ` (${dmgType})` : ''}!`, type: 'damage' });
               addFloatingText(dmgTarget.id, `-${finalDamage} 💥`, 'damage');
               if (dmgTarget.health === 0 && !dmgTarget.isDead) {
@@ -12585,6 +12650,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         value: `Incapaz de receber habilidades amigáveis por ${fmtDur(skill.cannotReceiveFriendlyDuration)}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cannotReceiveFriendlyTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.negateFriendlyDuration && skill.negateFriendlyDuration > 0) {
+      effects.push({
+        label: 'Anulação de Efeitos Amigáveis',
+        value: `TODOS os efeitos amigáveis (buffs, invulnerabilidade, redução de dano, curas) são ignorados por ${fmtDur(skill.negateFriendlyDuration)}`,
+        color: 'text-rose-900 font-extrabold',
+        targetLabel: getTargetLabel(skill.negateFriendlyTarget, 'Alvo Principal')
       });
     }
     if (skill.chakraCostIncreaseDuration && skill.chakraCostIncreaseDuration > 0 && skill.chakraCostIncreaseTypes && skill.chakraCostIncreaseTypes.length > 0) {
