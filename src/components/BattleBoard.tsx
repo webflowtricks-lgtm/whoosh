@@ -197,6 +197,22 @@ export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveE
   return false;
 }
 
+// 🔓 Liberação Atrasada: retorna true se a skill está bloqueada pela regra delayedUnlockSkills.
+// Enquanto a fase for 'locked', a skill listada fica bloqueada. Na fase 'window', fica liberada.
+// Se não houver efeito ativo com a skill listada, ela NÃO é bloqueada por esta regra.
+export function isSkillBlockedByDelayedUnlock(skill: Skill | null, activeEffects: ActiveEffect[]): boolean {
+  if (!skill || !activeEffects || activeEffects.length === 0) return false;
+  const skillName = (skill.name || '').toLowerCase();
+  for (const eff of activeEffects) {
+    if (eff.type !== 'custom' || !Array.isArray(eff.delayedUnlockSkills)) continue;
+    const listed = eff.delayedUnlockSkills.map(s => (s || '').toLowerCase());
+    if (!listed.includes(skillName)) continue;
+    // A skill está listada: bloqueada na fase 'locked', liberada na fase 'window'.
+    if (eff.delayedUnlockPhase === 'locked') return true;
+  }
+  return false;
+}
+
 export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Skill | string | string[], caster?: CombatCharacter): boolean {
   if (!c || !c.activeEffects) return false;
   if (c.activeEffects.some(e => e.type === 'cannot_be_invulnerable')) return false;
@@ -771,11 +787,13 @@ function getGroupedActiveEffects(
 
     let groupKey: string;
     if (isDebuff) {
-      // Group ALL debuffs from the same skill under ONE group key
-      groupKey = `DEBUFF_${skillBaseName}_${eff.icon || ''}`;
+      // Group ALL debuffs from the same skill under ONE group key.
+      // NÃO incluir o ícone na chave: efeitos da mesma skill às vezes têm ícone ausente/diferente,
+      // o que fazia o mesmo grupo ser dividido em 2/3 tooltips duplicados.
+      groupKey = `DEBUFF_${skillBaseName}`;
     } else {
       // Group ALL buffs from the same skill under ONE group key
-      groupKey = `BUFF_${skillBaseName}_${eff.icon || ''}`;
+      groupKey = `BUFF_${skillBaseName}`;
     }
 
     let group = groupsMap.get(groupKey);
@@ -1664,6 +1682,36 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     pCombat.forEach(c => applyStartOfBattleStacks(c, pCombat, eCombat));
     eCombat.forEach(c => applyStartOfBattleStacks(c, eCombat, pCombat));
 
+    // 🔓 Liberação Atrasada: skills marcadas como bloqueadas já iniciam a batalha BLOQUEADAS.
+    // NÃO conta os turnos de bloqueio desde o início — fica bloqueada indefinidamente até a skill-chave
+    // ser usada. A contagem do bloqueio (delayedUnlockDuration) só começa ao usar a skill.
+    const applyStartOfBattleDelayedLocks = (combatant: CombatCharacter) => {
+      const casterSide = combatant.id.startsWith('player') ? 'player' : 'enemy';
+      combatant.character.skills.forEach(skill => {
+        if (!skill.delayedUnlockSkills || skill.delayedUnlockSkills.length === 0) return;
+        const alreadyActive = combatant.activeEffects.some(e => e.type === 'custom' && e.sourceSkillName === skill.name && Array.isArray(e.delayedUnlockSkills));
+        if (alreadyActive) return;
+        // Bloqueio inicial infinito: só sai da fase 'locked' quando a skill-chave for usada.
+        combatant.activeEffects.push({
+          name: `${skill.name} (Bloqueio)`,
+          sourceSkillName: skill.name,
+          type: 'custom',
+          value: 0,
+          duration: 99999,
+          icon: skill.icon,
+          casterId: combatant.id,
+          casterSide,
+          castTurn: 0,
+          delayedUnlockPhase: 'locked',
+          delayedUnlockSkills: skill.delayedUnlockSkills,
+          delayedUnlockWindowTurns: skill.delayedUnlockWindowTurns || 1,
+        });
+        passiveInitMessages.push(`🔒 [${skill.name}] iniciou bloqueando ${skill.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${combatant.character.name}!`);
+      });
+    };
+    pCombat.forEach(c => applyStartOfBattleDelayedLocks(c));
+    eCombat.forEach(c => applyStartOfBattleDelayedLocks(c));
+
     setPlayerCombatants(pCombat);
     setEnemyCombatants(eCombat);
 
@@ -2008,6 +2056,12 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     // Stun check
     if (isSkillBlockedByStun(skill, combatant.activeEffects)) {
       addFloatingText(charId, 'ATORDOADO!', 'stun');
+      return;
+    }
+
+    // 🔓 Liberação Atrasada: skill bloqueada enquanto o efeito não termina
+    if (isSkillBlockedByDelayedUnlock(skill, combatant.activeEffects)) {
+      addFloatingText(charId, 'SKILL BLOQUEADA!', 'stun');
       return;
     }
 
@@ -3132,6 +3186,18 @@ const handleTradeChakra = () => {
           type: 'system',
         });
         addFloatingText(source.id, 'ATORDOADO!', 'stun');
+        return;
+      }
+
+      // 🔓 Liberação Atrasada: skill bloqueada enquanto o efeito de bloqueio não termina
+      if (isSkillBlockedByDelayedUnlock(skill, source.activeEffects)) {
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: `🔒 ${source.character.name} tentou usar [${skill.name}], mas ela está BLOQUEADA até o efeito terminar!`,
+          type: 'system',
+        });
+        addFloatingText(source.id, 'SKILL BLOQUEADA!', 'stun');
         return;
       }
 
@@ -6667,6 +6733,51 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
+      // 🔓 Liberação Atrasada de Skills: bloqueia as skills listadas no conjurador enquanto o efeito
+      // durar; ao terminar, abre uma janela de X turnos onde elas podem ser usadas; depois volta a bloquear.
+      if (skill.delayedUnlockSkills && skill.delayedUnlockSkills.length > 0 && (skill.delayedUnlockDuration || 0) > 0) {
+        const lockDur = skill.delayedUnlockDuration || 1;
+        const windowTurns = skill.delayedUnlockWindowTurns || 1;
+        // Se já existe um efeito desta skill (ex.: o bloqueio inicial do começo da batalha), reinicia o ciclo de bloqueio.
+        const existing = source.activeEffects.find(e => e.type === 'custom' && e.sourceSkillName === skill.name && Array.isArray(e.delayedUnlockSkills));
+        if (existing) {
+          existing.delayedUnlockPhase = 'locked';
+          existing.duration = lockDur;
+          existing.delayedUnlockSkills = skill.delayedUnlockSkills;
+          existing.delayedUnlockWindowTurns = windowTurns;
+          existing.castTurn = turn;
+          existing.name = `${skill.name} (Bloqueio)`;
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🔒 [${skill.name}] reiniciou o bloqueio de ${skill.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} por ${lockDur} turno(s). Depois, ficarão liberadas por ${windowTurns} turno(s)!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, 'SKILLS BLOQUEADAS', 'stun');
+        } else {
+          pushActiveEffect(source, {
+            name: `${skill.name} (Bloqueio)`,
+            sourceSkillName: skill.name,
+            type: 'custom',
+            duration: lockDur,
+            icon: skill.icon,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            castTurn: turn,
+            delayedUnlockPhase: 'locked',
+            delayedUnlockSkills: skill.delayedUnlockSkills,
+            delayedUnlockWindowTurns: windowTurns,
+          });
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🔒 [${skill.name}] bloqueou ${skill.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} por ${lockDur} turno(s). Depois, ficarão liberadas por ${windowTurns} turno(s)!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, 'SKILLS BLOQUEADAS', 'stun');
+        }
+      }
+
       // Reflect (applied as debuff on the selected target)
       if (skill.reflect) {
         applyBuffEffect(`${skill.name} Reflect`, 'reflect', skill.reflectDuration || 2, 0, false, true);
@@ -7981,6 +8092,42 @@ splashOnlyTargets = splashPool.filter(c =>
             }
           });
         }
+
+        // 🔓 Liberação Atrasada: transições de fase no fim do turno.
+        //  - 'locked' → 'window' quando o bloqueio expira (abre a janela de liberação).
+        //  - 'window' → 'locked' quando a janela expira (skills voltam a ser bloqueadas até a skill ser reusada).
+        c.activeEffects.forEach(eff => {
+          if (eff.type !== 'custom' || !Array.isArray(eff.delayedUnlockSkills)) return;
+          const willExpire = !(eff.castTurn === turn || eff.duration >= 99999) && (eff.duration - 1) <= 0;
+          if (!willExpire) return;
+          if (eff.delayedUnlockPhase === 'locked') {
+            eff.delayedUnlockPhase = 'window';
+            eff.duration = Math.max(1, eff.delayedUnlockWindowTurns || 1);
+            eff.castTurn = turn;
+            eff.name = `${eff.sourceSkillName || eff.name} (Liberada)`;
+            eff.isInvisible = false;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔓 As skills ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} agora estão LIBERADAS por ${eff.duration} turno(s)!`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, 'SKILLS LIBERADAS', 'effect');
+          } else if (eff.delayedUnlockPhase === 'window') {
+            eff.delayedUnlockPhase = 'locked';
+            eff.duration = 99999; // fica bloqueada até a skill ser reusada
+            eff.castTurn = turn;
+            eff.name = `${eff.sourceSkillName || eff.name} (Bloqueio)`;
+            eff.isInvisible = false;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔒 A janela terminou: ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} voltaram a ficar BLOQUEADAS!`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, 'SKILLS BLOQUEADAS', 'stun');
+          }
+        });
 
         // Decrement effect durations (skip effects cast in the current turn, skip permanent effects)
         c.activeEffects = c.activeEffects
@@ -12820,6 +12967,42 @@ if (skill.redirectOffensiveToCaster) {
           });
         }
 
+        // 🔓 Liberação Atrasada: transições de fase no fim do turno.
+        //  - 'locked' → 'window' quando o bloqueio expira (abre a janela de liberação).
+        //  - 'window' → 'locked' quando a janela expira (skills voltam a ser bloqueadas até a skill ser reusada).
+        c.activeEffects.forEach(eff => {
+          if (eff.type !== 'custom' || !Array.isArray(eff.delayedUnlockSkills)) return;
+          const willExpire = !(eff.castTurn === turn || eff.duration >= 99999) && (eff.duration - 1) <= 0;
+          if (!willExpire) return;
+          if (eff.delayedUnlockPhase === 'locked') {
+            eff.delayedUnlockPhase = 'window';
+            eff.duration = Math.max(1, eff.delayedUnlockWindowTurns || 1);
+            eff.castTurn = turn;
+            eff.name = `${eff.sourceSkillName || eff.name} (Liberada)`;
+            eff.isInvisible = false;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔓 As skills ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} agora estão LIBERADAS por ${eff.duration} turno(s)!`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, 'SKILLS LIBERADAS', 'effect');
+          } else if (eff.delayedUnlockPhase === 'window') {
+            eff.delayedUnlockPhase = 'locked';
+            eff.duration = 99999;
+            eff.castTurn = turn;
+            eff.name = `${eff.sourceSkillName || eff.name} (Bloqueio)`;
+            eff.isInvisible = false;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔒 A janela terminou: ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} voltaram a ficar BLOQUEADAS!`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, 'SKILLS BLOQUEADAS', 'stun');
+          }
+        });
+
         // Decrement effect durations (skip effects cast in the current turn, skip permanent effects, skip frozen Raikiri stacks)
         c.activeEffects = c.activeEffects
           .map(eff => (eff.castTurn === turn || eff.duration >= 99999 || (eff.stackType === 'Raikiri' && (eff as any).frozenUntilTurn === turn)) ? eff : { ...eff, duration: eff.duration - 1 })
@@ -14446,6 +14629,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                             const prevSkillsUsed = lastTurnUsedSkills.current[combatant.id];
                             const isPrevSkillLocked = skill.requirePreviousSkill ? !(prevSkillsUsed && prevSkillsUsed.has(skill.requirePreviousSkill)) : false;
                             const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
+                            const isDelayedUnlockLocked = isSkillBlockedByDelayedUnlock(skill, combatant.activeEffects);
 
                             return (
                               <div
@@ -14454,6 +14638,10 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                   e.stopPropagation();
                                   if (isStunBlocked) {
                                     addFloatingText(combatant.id, `⚡ ATORDOADO! (${skill.name})`, 'stun');
+                                    return;
+                                  }
+                                  if (isDelayedUnlockLocked) {
+                                    addFloatingText(combatant.id, `🔒 BLOQUEADA! (${skill.name})`, 'stun');
                                     return;
                                   }
                                   if (isRequiredEffectLocked) {
@@ -14505,19 +14693,30 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                     </div>
                                   )}
 
-                                  {/* Required Effect Locked Overlay (🔒) */}
-                                  {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
-                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                      <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
-                                    </div>
-                                  )}
+                                   {/* Required Effect Locked Overlay (🔒) */}
+                                   {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
+                                     <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                       <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                     </div>
+                                   )}
 
-                                  {/* Previous Skill Locked Overlay (🔒) */}
-                                  {isPrevSkillLocked && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && (
-                                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                      <span className="text-cyan-500 font-bold drop-shadow-md text-xs">🔒</span>
-                                    </div>
-                                  )}
+                                   {/* Delayed Unlock Locked Overlay (selo) */}
+                                   {isDelayedUnlockLocked && !isCooldown && !isStunBlocked && (
+                                     <div className="absolute inset-0 bg-slate-950/45 flex items-center justify-center z-10">
+                                       <img
+                                         src="/static/img/icon/selo.svg"
+                                         alt="Bloqueada"
+                                         className="selo-lock-anim w-3/4 h-3/4 object-contain"
+                                       />
+                                     </div>
+                                   )}
+
+                                   {/* Previous Skill Locked Overlay (🔒) */}
+                                   {isPrevSkillLocked && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && (
+                                     <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                                       <span className="text-cyan-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                     </div>
+                                   )}
 
                                   {/* HP Threshold Locked Overlay */}
                                   {skill.requireHpBelow && skill.requireHpBelow > 0 && combatant.health > skill.requireHpBelow && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
@@ -15568,6 +15767,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                             const prevSkillsUsed = lastTurnUsedSkills.current[combatant.id];
                             const isPrevSkillLocked = skill.requirePreviousSkill ? !(prevSkillsUsed && prevSkillsUsed.has(skill.requirePreviousSkill)) : false;
                             const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
+                            const isDelayedUnlockLocked = isSkillBlockedByDelayedUnlock(skill, combatant.activeEffects);
 
                             if (isSandbox) {
                               return (
@@ -15632,6 +15832,17 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
                                       <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
                                         <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                      </div>
+                                    )}
+
+                                    {/* Delayed Unlock Locked Overlay (selo) */}
+                                    {isDelayedUnlockLocked && !isCooldown && !isStunBlocked && (
+                                      <div className="absolute inset-0 bg-slate-950/45 flex items-center justify-center z-10">
+                                        <img
+                                          src="/static/img/icon/selo.svg"
+                                          alt="Bloqueada"
+                                          className="selo-lock-anim w-3/4 h-3/4 object-contain"
+                                        />
                                       </div>
                                     )}
 

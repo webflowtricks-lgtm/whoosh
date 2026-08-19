@@ -791,11 +791,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
                       {/* Locked Badge */}
                       {isLocked && (
-                        <div className="absolute inset-0 bg-amber-950/85 flex flex-col items-center justify-center rounded-md gap-0.5">
-                          <Lock className="w-4 h-4 text-red-400 animate-pulse" />
-                          <span className="text-[7px] font-mono font-bold text-red-300 uppercase tracking-widest px-1 py-0.5 bg-red-950/90 rounded border border-red-500/40">
-                            BLOQUEADO
-                          </span>
+                        <div className="absolute inset-0 bg-slate-950/45 flex items-center justify-center rounded-md">
+                          <img
+                            src="/static/img/icon/selo.svg"
+                            alt="Bloqueado"
+                            className="selo-lock-anim w-3/5 h-3/5 object-contain"
+                          />
                         </div>
                       )}
                     </div>

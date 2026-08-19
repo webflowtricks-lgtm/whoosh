@@ -404,6 +404,14 @@ export interface Skill {
   ignoreInvulnerable?: boolean;
   removedOnTargetSkillUse?: boolean; // Remove os efeitos desta skill do alvo quando ele usar uma habilidade (mesmo que infinita)
   removedOnCasterDeath?: boolean; // Remove os efeitos desta skill dos alvos quando o conjurador morrer
+  /** 🔓 Liberação atrasada de skills: enquanto este efeito durar (delayedUnlockDuration turnos), as skills
+   * listadas ficam BLOQUEADAS no conjurador; quando o efeito termina, elas ficam liberadas por
+   * delayedUnlockWindowTurns turnos. Passada a janela, voltam a ficar bloqueadas. */
+  delayedUnlockSkills?: string[];
+  /** Turnos que o bloqueio inicial dura antes de abrir a janela de liberação */
+  delayedUnlockDuration?: number;
+  /** Turnos que a janela de liberação dura depois do bloqueio terminar */
+  delayedUnlockWindowTurns?: number;
   ignoreDamageReduction?: boolean;
   ignoreDamageReductionVal?: number;
   missingHpDamageType?: '' | 'normal' | 'direct' | 'dot' | 'bleeding' | 'affliction'; // Damage = caster's missing HP
@@ -815,6 +823,12 @@ counterAttackType?: 'attacker' | 'defender';
   counterAttackClasses?: string[];
   /** Persiste (duração infinita) até efetivamente contra-atacar uma habilidade */
   counterAttackUntilTriggered?: boolean;
+  /** Fase do efeito de liberação atrasada: 'locked' (bloqueando) → 'window' (janela liberada) */
+  delayedUnlockPhase?: 'locked' | 'window';
+  /** Nomes das skills afetadas pela liberação atrasada */
+  delayedUnlockSkills?: string[];
+  /** Duração (turnos) da janela em que as skills ficam liberadas após o efeito terminar */
+  delayedUnlockWindowTurns?: number;
   castTurn?: number;
   /** Quantidade de stacks acumuladas */
   stacks?: number;

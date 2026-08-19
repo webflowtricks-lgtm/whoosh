@@ -9448,7 +9448,109 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                                   <div className="text-[9px] text-amber-300 font-mono leading-normal bg-amber-950/30 border border-amber-900/40 p-2 rounded-lg">
                                     🌳 <span className="font-bold">Resumo:</span> Aliado recebe -{editingSkill.prisonRule?.allyReduction ?? 15} de dano (não-Aflição){editingSkill.prisonRule?.cleanseAlly ?? true ? ' + limpeza de debuffs' : ''}{editingSkill.prisonRule?.resetCooldownsAlly ?? true ? ' + cooldowns zerados' : ''}. Inimigo sofre -{editingSkill.prisonRule?.enemyReduction ?? 15} de dano (não-Mental) e {editingSkill.prisonRule?.punishmentDamage ?? 15} de dano por turno sem usar skill ofensiva. Duração: {editingSkill.prisonRule?.duration ?? 2} turno(s). Com Geyser Spring: -{(editingSkill.prisonRule?.geyserBoost ?? 25)}.
                                   </div>
-                                </motion.div>
+                                 </motion.div>
+                              )}
+                            </div>
+                          </div>
+
+                        {/* 25. Liberação Atrasada de Skills */}
+                          <div className="space-y-3 bg-indigo-950/20 border border-indigo-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-indigo-400 font-mono">
+                                  🔓 Liberação Atrasada de Skills
+                                </label>
+                                {(editingSkill.delayedUnlockSkills && editingSkill.delayedUnlockSkills.length > 0) ? (
+                                  <span className="text-[9px] bg-indigo-500/20 border border-indigo-500/50 text-indigo-300 px-1.5 py-0.5 rounded font-mono font-bold animate-pulse">
+                                    ⚡ ATIVO
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] bg-slate-800 border border-slate-700 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                                    Inativo
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[9px] text-indigo-200/70 leading-relaxed">
+                                Ao usar esta skill, as skills escolhidas ficam <span className="font-bold text-white">BLOQUEADAS</span> por X turnos. Quando o bloqueio termina, elas ficam <span className="font-bold text-white">LIBERADAS</span> por Y turnos. Passada essa janela, voltam a ficar bloqueadas (só liberam de novo se reusar esta skill).
+                              </p>
+
+                              <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[9px] text-indigo-400 font-mono uppercase font-bold">🔒 Bloqueio:</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={20}
+                                    value={editingSkill.delayedUnlockDuration || 0}
+                                    onChange={(e) => handleUpdateSkillField('delayedUnlockDuration', parseInt(e.target.value) || 0)}
+                                    className="w-14 px-2 py-1 bg-slate-900 border border-indigo-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                  />
+                                  <span className="text-[9px] text-slate-500 font-mono">turnos</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[9px] text-indigo-400 font-mono uppercase font-bold">🔓 Janela:</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={20}
+                                    value={editingSkill.delayedUnlockWindowTurns || 1}
+                                    onChange={(e) => handleUpdateSkillField('delayedUnlockWindowTurns', parseInt(e.target.value) || 1)}
+                                    className="w-14 px-2 py-1 bg-slate-900 border border-indigo-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                  />
+                                  <span className="text-[9px] text-slate-500 font-mono">turnos</span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <span className="text-[9px] text-indigo-400 font-mono uppercase font-bold block">🎯 Skills afetadas (bloqueadas → liberadas):</span>
+                                {(editingSkill.delayedUnlockSkills || []).map((skName, dIdx) => (
+                                  <div key={dIdx} className="flex items-center gap-1.5">
+                                    <input
+                                      list={`delayed-unlock-skill-list-${editingSkillIndex}`}
+                                      type="text"
+                                      value={skName}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.delayedUnlockSkills || [])];
+                                        updated[dIdx] = e.target.value;
+                                        handleUpdateSkillField('delayedUnlockSkills', updated);
+                                      }}
+                                      placeholder="Nome de uma skill deste personagem"
+                                      className="flex-1 px-2 py-1 bg-slate-900 border border-indigo-900/60 rounded text-white outline-none text-[10px] font-mono focus:border-indigo-500"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = (editingSkill.delayedUnlockSkills || []).filter((_, i) => i !== dIdx);
+                                        handleUpdateSkillField('delayedUnlockSkills', updated.length > 0 ? updated : undefined);
+                                      }}
+                                      className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer"
+                                      title="Remover skill"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...(editingSkill.delayedUnlockSkills || []), ''];
+                                    handleUpdateSkillField('delayedUnlockSkills', updated);
+                                  }}
+                                  className="px-2.5 py-1 bg-indigo-900/40 hover:bg-indigo-800/50 text-indigo-300 border border-indigo-800/60 rounded-lg text-[9px] font-mono font-bold uppercase transition-all cursor-pointer"
+                                >
+                                  + Adicionar Skill
+                                </button>
+                                <datalist id={`delayed-unlock-skill-list-${editingSkillIndex}`}>
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : null}
+                                </datalist>
+                              </div>
+
+                              {(editingSkill.delayedUnlockSkills && editingSkill.delayedUnlockSkills.length > 0) && (
+                                <div className="text-[9px] text-indigo-300 font-mono leading-normal bg-indigo-950/30 border border-indigo-900/40 p-2 rounded-lg">
+                                  🔓 <span className="font-bold">Resumo:</span> {editingSkill.delayedUnlockSkills.filter(Boolean).map(s => `[${s}]`).join(', ') || '(nenhuma)'} ficam bloqueadas por {editingSkill.delayedUnlockDuration || 0} turno(s), depois liberadas por {editingSkill.delayedUnlockWindowTurns || 1} turno(s), e então voltam a ser bloqueadas.
+                                </div>
                               )}
                             </div>
                           </div>

@@ -675,6 +675,26 @@ e-squad-name {
 }
 
 /* =========================================================
+   SELO DE BLOQUEIO (skills/personagens bloqueados)
+   Blur vermelho pulsante (soft) com o selo aumentando/diminuindo.
+   ========================================================= */
+@keyframes selo-lock-pulse {
+  0%, 100% {
+    filter: brightness(0) saturate(100%) invert(19%) sepia(96%) saturate(6000%) hue-rotate(357deg) brightness(95%) contrast(115%)
+             drop-shadow(0 0 3px rgba(220, 38, 38, 0.5));
+  }
+  50% {
+    filter: brightness(0) saturate(100%) invert(19%) sepia(96%) saturate(6000%) hue-rotate(357deg) brightness(120%) contrast(130%)
+             drop-shadow(0 0 22px rgba(239, 68, 68, 1)) drop-shadow(0 0 36px rgba(220, 38, 38, 0.85));
+  }
+}
+
+.selo-lock-anim {
+  animation: selo-lock-pulse 1.3s ease-in-out infinite;
+  will-change: filter;
+}
+
+/* =========================================================
    ARENA BATTLE BOARD LAYOUT & COLUMN WIDTH CONFIGURATION
    ========================================================= */
 :root {

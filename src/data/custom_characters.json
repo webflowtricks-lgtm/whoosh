@@ -5947,7 +5947,13 @@
           "Amigável"
         ],
         "shieldVal": 10,
-        "shieldRegenTurns": 5
+        "shieldRegenTurns": 5,
+        "delayedUnlockSkills": [
+          "Drilling Air Bullet",
+          "True Awakening"
+        ],
+        "delayedUnlockWindowTurns": 3,
+        "delayedUnlockDuration": 5
       },
       {
         "name": "Thick Sand Coat",
@@ -6012,9 +6018,11 @@
           "Mental"
         ],
         "blocksOffensiveSkills": false,
-        "stackable": false,
-        "stackType": "",
-        "stackTarget": "Target"
+        "stackable": true,
+        "stackType": "True Awakening",
+        "stackTarget": "Target",
+        "stackDuration": 1,
+        "stackNonCumulative": true
       }
     ],
     "skins": []
