@@ -822,6 +822,8 @@ counterAttackType?: 'attacker' | 'defender';
   retaliateClasses?: string[];
   redirectCasterId?: string;
   excludeAffliction?: boolean;
+  /** Classes de skill que NÃO sofrem o debuff (fraqueza por classe, ex: excludeClasses: ['mental']) */
+  excludeClasses?: string[];
   permanent?: boolean;
   /** Cópia de Habilidades: as habilidades ORIGINAIS do conjurador guardadas para restaurar quando o efeito expirar */
   storedSkills?: Skill[];

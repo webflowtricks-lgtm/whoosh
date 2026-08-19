@@ -1242,6 +1242,8 @@ export default function BattleBoard({
   // Track skills used per character per turn (for requirePreviousSkill)
   const currentTurnUsedSkills = useRef<Record<string, Set<string>>>({});
   const lastTurnUsedSkills = useRef<Record<string, Set<string>>>({});
+  // Marca quem usou skill OFENSIVA neste turno (Wood Spire Prison pune quem não usar)
+  const usedOffensiveThisTurnRef = useRef<Record<string, boolean>>({});
   const currentSkillRef = useRef<Skill | null>(null);
   // Map<targetId, airBulletsIcon>
   const airBulletsHitTargets = useRef<Map<string, string>>(new Map());
@@ -2308,6 +2310,19 @@ const handleTradeChakra = () => {
   const NORMAL_DAMAGE_REDUCTION_TYPES = ['damage_reduction', 'damage_reduction_pierce'];
   const PIERCE_DAMAGE_REDUCTION_TYPES = ['damage_reduction_pierce'];
 
+  // Reduções de dano que valem para a skill em questão: effects com excludeAffliction
+  // (Wood Spire Prison aliado) NÃO reduzem dano de skills da classe Aflição.
+  const getEffectiveTargetReductions = (target: CombatCharacter, skill: Skill | null, pierce: boolean = false): ActiveEffect[] => {
+    const base = target.activeEffects.filter(e => (pierce ? PIERCE_DAMAGE_REDUCTION_TYPES : NORMAL_DAMAGE_REDUCTION_TYPES).includes(e.type));
+    if (!skill || base.length === 0) return base;
+    const isAfflictionSkill = (skill.classes || []).some((c: string) => {
+      const lower = c.toLowerCase();
+      return lower.includes('afli') || lower.includes('affliction') || lower.includes('aflicao');
+    });
+    if (!isAfflictionSkill) return base;
+    return base.filter(e => !(e as any).excludeAffliction);
+  };
+
   const consumeFirstHitOnlyImmunity = (character: CombatCharacter, incomingTypes?: string[]): boolean => {
     const idx = character?.activeEffects?.findIndex((e: ActiveEffect) => {
       if (e.type !== 'damage_immunity' || !e.firstHitOnly) return false;
@@ -3121,6 +3136,16 @@ const handleTradeChakra = () => {
       // Track skill usage for requirePreviousSkill
       if (!currentTurnUsedSkills.current[source.id]) currentTurnUsedSkills.current[source.id] = new Set();
       currentTurnUsedSkills.current[source.id].add(skill.name);
+      {
+        // Mesma definição de isOffensiveSkill (módulo) — a const local do bloco sombreia o nome aqui
+        const skTarget = skill.targetType || 'Enemy';
+        const skIsOffensive = !['Self', 'Ally', 'AllAllies', 'SelfAndAlly', 'AnyLiving'].includes(skTarget)
+          && !((skill.classes || []).some((c: string) => {
+            const l = c.toLowerCase();
+            return l.includes('friendly') || l.includes('amigável') || l.includes('suporte') || l.includes('cura') || l.includes('heal');
+          }));
+        if (skIsOffensive) usedOffensiveThisTurnRef.current[source.id] = true;
+      }
 
       // Find target combatant
       const defaultTarget = targetList.find(c => c.id === action.targetId) || sourceList.find(c => c.id === action.targetId) || source;
@@ -3914,7 +3939,7 @@ const startingHealth = t.health;
             addFloatingText(t.id, `DANO DIRETO (${duration}T)`, 'damage');
           } else {
             const targetCannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
-            const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter((e: ActiveEffect) => PIERCE_DAMAGE_REDUCTION_TYPES.includes(e.type));
+            const targetReductions = targetCannotReduce ? [] : getEffectiveTargetReductions(t, skill, true);
             const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             const netDd = hasDamageImmunity(t, ['direct_damage', 'piercing']) ? 0 : Math.max(0, (dd + getCaptureArrestBonusDamage(t, skill)) - reductionSum);
@@ -4162,6 +4187,101 @@ const startingHealth = t.health;
         }
       }
 
+      // ANBU Kinoe: Wood Release: Wooden Spire Prison (regra customizada)
+      if ((source.character.folder === 'anbu-kinoe' || source.character.id === 'anbu-kinoe') && skill.name === 'Wood Release: Wooden Spire Prison') {
+        const spireTargets = resolveEffectTargets(skill.targetType || 'AnyLiving', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        spireTargets.forEach(st => {
+          if (st.isDead) return;
+          if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(st, skill)) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${st.character.name} está INVULNERÁVEL e não recebeu os efeitos de [${skill.name}]!`, type: 'buff' });
+            addFloatingText(st.id, 'INVULNERÁVEL', 'invulnerable');
+            return;
+          }
+          const stIsPlayer = updatedPlayer.some(p => p.id === st.id);
+          const srcIsPlayer = updatedPlayer.some(p => p.id === source.id);
+          const isAlly = stIsPlayer === srcIsPlayer;
+          const hasGeyser = st.activeEffects.some(e => e.stackType === 'Water Release: Geyser Spring' || (e.name || '').includes('Water Release: Geyser Spring'));
+          const dmgReduction = hasGeyser ? 25 : 15;
+
+          if (isAlly) {
+            // 1) Remove todos os efeitos negativos
+            cleanseSpecificDebuffs(st, ['all_debuffs']);
+            // 2) Zera os cooldowns de todas as habilidades
+            let cdResetCount = 0;
+            st.character.skills.forEach(sk => {
+              if (sk.currentCooldown > 0) {
+                sk.currentCooldown = 0;
+                cdResetCount++;
+              }
+            });
+            if (cdResetCount > 0) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🌳 [${skill.name}] de ${source.character.name} ZEROU o cooldown de ${cdResetCount} habilidade(s) de ${st.character.name}!`,
+                type: 'buff',
+              });
+              addFloatingText(st.id, `COOLDOWNS ZERADOS (${cdResetCount})`, 'heal');
+            }
+            // 3) Redução de dano recebido de skills que NÃO sejam Aflição por 2 turnos
+            pushActiveEffect(st, {
+              name: 'Wood Spire Prison (Redução)',
+              type: 'damage_reduction',
+              value: dmgReduction,
+              duration: 2,
+              icon: skill.icon,
+              sourceSkillName: skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              excludeAffliction: true,
+              castTurn: turn,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🌳 [${skill.name}] de ${source.character.name}: ${st.character.name} sofrerá -${dmgReduction} de dano de habilidades NÃO-AFLIÇÃO por 2 turnos${hasGeyser ? ' (Geyser Spring intensifica para 25)' : ''}!`,
+              type: 'buff',
+            });
+            addFloatingText(st.id, `-${dmgReduction} DANO (NÃO-AFLIÇÃO)`, 'effect');
+          } else {
+            // 1) Fraqueza: habilidades que NÃO sejam Mental causam 15 a menos (25 se tiver Geyser Spring)
+            pushActiveEffect(st, {
+              name: 'Wood Spire Prison (Fraqueza)',
+              type: 'damage_debuff',
+              value: dmgReduction,
+              duration: 2,
+              debuffTypes: ['skill'],
+              excludeClasses: ['mental'],
+              icon: skill.icon,
+              sourceSkillName: skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              castTurn: turn,
+            });
+            // 2) Punição: sofre 15 de dano por turno se não usar habilidade ofensiva (2 turnos)
+            pushActiveEffect(st, {
+              name: 'Wood Spire Prison (Punição)',
+              type: 'custom',
+              value: 15,
+              duration: 2,
+              stackType: 'WoodSpirePunish',
+              icon: skill.icon,
+              sourceSkillName: skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              castTurn: turn,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🌳 [${skill.name}] de ${source.character.name}: habilidades NÃO-MENTAIS de ${st.character.name} causarão -${dmgReduction} de dano e ele sofrerá 15 de dano por turno se não usar uma habilidade ofensiva, por 2 turnos${hasGeyser ? ' (Geyser Spring intensifica a redução para 25)' : ''}!`,
+              type: 'buff',
+            });
+            addFloatingText(st.id, `-${dmgReduction} DANO (NÃO-MENTAL)`, 'damage');
+          }
+        });
+      }
+
       // INSTANT DOT / BLEEDING / AFFLICTION (with missing HP)
       const instantBuffSum = dmgBuffInstant;
       const totalDotInstant = dotInstant + missingHpDot + instantBuffSum;
@@ -4303,7 +4423,7 @@ const startingHealth = t.health;
           let actualDmg = effectiveStealVal;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
           if (!targetCannotReduce) {
-            const reductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
+            const reductions = getEffectiveTargetReductions(t, skill);
             const reductionSum = reductions.reduce((a, e) => a + (e.value || 0), 0);
             actualDmg = Math.max(0, actualDmg - reductionSum);
           }
@@ -4732,7 +4852,7 @@ const startingHealth = t.health;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
           let reductionSum = 0;
           if (!targetCannotReduce) {
-            const targetReductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
+            const targetReductions = getEffectiveTargetReductions(t, skill);
             reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
             if (skill.ignoreDamageReduction) reductionSum = 0;
             else if (typeof (skill as any).ignoreDamageReductionVal === 'number' && (skill as any).ignoreDamageReductionVal > 0)
@@ -4995,7 +5115,7 @@ splashOnlyTargets = splashPool.filter(c =>
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
           let reductionSum = 0;
           if (!targetCannotReduce) {
-            const targetReductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
+            const targetReductions = getEffectiveTargetReductions(t, skill);
             reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
             if (skill.ignoreDamageReduction) {
               reductionSum = 0;
@@ -5116,7 +5236,7 @@ splashOnlyTargets = splashPool.filter(c =>
               // dano normal é reduzido pelo Guard e pela redução imune a perfuração.
               const isPierceBoost = boostType === 'direct_damage' || boostType === 'true' || boostType === 'piercing';
               const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
-              const reductions = targetCannotReduce ? [] : t.activeEffects.filter(e => (isPierceBoost ? PIERCE_DAMAGE_REDUCTION_TYPES : NORMAL_DAMAGE_REDUCTION_TYPES).includes(e.type));
+              const reductions = targetCannotReduce ? [] : getEffectiveTargetReductions(t, skill, isPierceBoost);
               const reductionSum = reductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
               remaining = Math.max(0, remaining - reductionSum);
               if ((t.shield || 0) > 0 && remaining > 0 && !hasNegateFriendlyEffects(t)) {
@@ -7163,6 +7283,45 @@ splashOnlyTargets = splashPool.filter(c =>
           }
         });
 
+        // ANBU Kinoe: Wood Spire Prison — punição por não usar habilidade ofensiva no turno
+        const spirePunish = c.activeEffects.find(e => e.type === 'custom' && e.stackType === 'WoodSpirePunish');
+        if (spirePunish && (spirePunish.value || 0) > 0) {
+          const usedSet = currentTurnUsedSkills.current[c.id] || new Set<string>();
+          const usedOffensive = c.character.skills.some(sk => usedSet.has(sk.name) && isOffensiveSkill(sk));
+          if (!usedOffensive) {
+            if (isBlockedByInvuln(spirePunish, 'damage') || hasDamageImmunity(c, ['damage'])) {
+              consumeFirstHitOnlyImmunity(c);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🛡️ ${c.character.name} é IMUNE A DANO e não sofreu a punição de [Wood Spire Prison].`,
+                type: 'buff',
+              });
+              addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+            } else {
+              const punishVal = spirePunish.value || 0;
+              if (convertDamageToShield(c, punishVal, turn, ['damage'])) {
+                newLogs.push({
+                  id: Math.random().toString(),
+                  turn,
+                  message: `🛡️✨ ${c.character.name} converteu ${punishVal} de dano da punição de [Wood Spire Prison] em escudo!`,
+                  type: 'buff',
+                });
+                addFloatingText(c.id, `+${punishVal} ESCUDO`, 'shield');
+              } else {
+                c.health = Math.max(0, c.health - punishVal);
+                newLogs.push({
+                  id: Math.random().toString(),
+                  turn,
+                  message: `🌳 ${c.character.name} sofreu ${punishVal} de dano de [Wood Spire Prison] por não usar uma habilidade ofensiva!`,
+                  type: 'damage',
+                });
+                addFloatingText(c.id, `-${punishVal} HP (PRISÃO)`, 'damage');
+              }
+            }
+          }
+        }
+
         // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
         const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
         activeDamageEffects.forEach(dmg => {
@@ -7178,7 +7337,8 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const targetCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(c);
-            const targetReductions = targetCannotReduce ? [] : c.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
+            const dmgSkill = getEffectSkill(dmg);
+            const targetReductions = targetCannotReduce ? [] : getEffectiveTargetReductions(c, dmgSkill);
             const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
             const netDmg = Math.max(0, (dmg.value || 0) - reductionSum);
             if (convertDamageToShield(c, netDmg, turn, ['damage'])) {
@@ -7755,6 +7915,7 @@ splashOnlyTargets = splashPool.filter(c =>
     // Save current turn skill usage for requirePreviousSkill
     lastTurnUsedSkills.current = currentTurnUsedSkills.current;
     currentTurnUsedSkills.current = {};
+    usedOffensiveThisTurnRef.current = {};
 
     // Advance turn
     const nextTurn = turn + 1;
@@ -9985,7 +10146,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           let actualDmg = effectiveStealVal;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           if (!targetCannotReduce) {
-            const reductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
+            const reductions = getEffectiveTargetReductions(t, skill);
             const reductionSum = reductions.reduce((a, e) => a + (e.value || 0), 0);
             actualDmg = Math.max(0, actualDmg - reductionSum);
           }
@@ -10165,6 +10326,11 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               });
               if (isAffliction) return false;
             }
+            const exClasses = (e as any).excludeClasses as string[] | undefined;
+            if (exClasses && exClasses.length > 0) {
+              const skillClasses = (skill.classes || []).map((c: string) => c.toLowerCase());
+              if (skillClasses.some(sc => exClasses.some((ec: string) => sc.includes(ec.toLowerCase())))) return false;
+            }
             const types = (e as any).debuffTypes as string[] | undefined;
             if (!types || types.length === 0) return true;
             return types.includes('skill');
@@ -10175,7 +10341,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
           let reductionSum = 0;
           if (!targetCannotReduce) {
-            const targetReductions = t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
+            const targetReductions = getEffectiveTargetReductions(t, skill);
             reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
             if (skill.ignoreDamageReduction) reductionSum = 0;
             else if (typeof (skill as any).ignoreDamageReductionVal === 'number' && (skill as any).ignoreDamageReductionVal > 0)
@@ -10283,6 +10449,11 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                 return lower.includes('aflição') || lower.includes('affliction');
               });
               if (isAffliction) return false;
+            }
+            const exClasses = (e as any).excludeClasses as string[] | undefined;
+            if (exClasses && exClasses.length > 0) {
+              const skillClasses = (skill.classes || []).map((c: string) => c.toLowerCase());
+              if (skillClasses.some(sc => exClasses.some((ec: string) => sc.includes(ec.toLowerCase())))) return false;
             }
             const types = (e as any).debuffTypes as string[] | undefined;
             if (!types || types.length === 0) return true;
@@ -10425,7 +10596,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
 
           // Apply flat damage reduction on target
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
-          const targetReductions = targetCannotReduce ? [] : t.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
+          const targetReductions = targetCannotReduce ? [] : getEffectiveTargetReductions(t, skill);
           const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
           finalDamage = Math.max(0, finalDamage - reductionSum);
 
@@ -12393,6 +12564,7 @@ if (skill.redirectOffensiveToCaster) {
     // Save current turn skill usage for requirePreviousSkill
     lastTurnUsedSkills.current = currentTurnUsedSkills.current;
     currentTurnUsedSkills.current = {};
+    usedOffensiveThisTurnRef.current = {};
 
     // Check game over
     const allPlayerDead = updatedPlayer.length > 0 && updatedPlayer.every(p => p.isDead);
