@@ -10,6 +10,7 @@ import { UserProfile } from '../types';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { useLanguage } from '../lib/i18n';
+import MangekyoLoader from './MangekyoLoader';
 
 export interface ProfileCardData {
   id?: string;
@@ -170,11 +171,12 @@ export default function ProfileCardModal({
                 <div className={`w-20 h-20 rounded-full overflow-hidden bg-slate-950 flex items-center justify-center relative shadow-2xl ${
                   !profile.equippedFrameUrl ? frameStyle : ''
                 }`}>
-                  <img
+                  <MangekyoLoader
                     src={profile.photoUrl || 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg'}
                     alt={profile.name}
-                    className={`w-full h-full object-cover rounded-full ${!isSelf ? 'scale-x-[-1]' : ''}`}
-                    referrerPolicy="no-referrer"
+                    className="w-full h-full rounded-full"
+                    imgClassName={`rounded-full ${!isSelf ? 'scale-x-[-1]' : ''}`}
+                    iconScale={0.55}
                   />
                 </div>
 

@@ -32,7 +32,16 @@ function ScreenLoadingFallback() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-100 select-none gpu-accelerated">
       <div className="relative flex items-center justify-center mb-6">
-        <img src="/static/img/icon/star.svg" alt="Loading" className="w-16 h-16 animate-spin object-contain" />
+        <img
+          src="/static/img/icon/mangeky.svg"
+          alt="Loading"
+          className="w-16 h-16 animate-spin object-contain"
+          style={{
+            filter: 'hue-rotate(-25deg) saturate(2) brightness(1.1) drop-shadow(0 0 10px rgba(239, 68, 68, 0.8))',
+            animationDuration: '900ms',
+            animationTimingFunction: 'linear',
+          }}
+        />
       </div>
       <div className="flex flex-col items-center gap-2">
         <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-orange-400 animate-pulse">
@@ -204,7 +213,10 @@ export default function App() {
       setShowAuth(true);
       return;
     }
-    setShowArenaLoading(true);
+    // DESATIVADO TEMPORARIAMENTE (preload/download de tudo antes da arena):
+    // entra direto na seleção de time sem a tela de download.
+    // Reativar: troque a linha abaixo por setShowArenaLoading(true);
+    setScreen('character-select');
   };
 
   const handleSelectQuest = (quest: Quest) => {
@@ -321,7 +333,9 @@ export default function App() {
       localStorage.setItem('naruto_user_profile', JSON.stringify(safeProfile));
     } catch {}
     setShowAuth(false);
-    setShowArenaLoading(true);
+    // DESATIVADO TEMPORARIAMENTE (preload/download de tudo antes da arena)
+    // Reativar: descomente a linha abaixo
+    // setShowArenaLoading(true);
   };
 
   const handleLogout = () => {

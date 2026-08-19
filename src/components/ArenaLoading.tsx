@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Swords, Flame } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import { getCharacters } from '../lib/characterStorage';
 import { getRanks } from '../lib/rankStorage';
 import { getShopItems } from '../lib/shopStorage';
@@ -192,7 +192,14 @@ export default function ArenaLoading({ onComplete }: { onComplete: () => void })
           transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
           className="relative"
         >
-          <Swords className="w-16 h-16 text-orange-500 drop-shadow-[0_0_18px_rgba(249,115,22,0.6)]" />
+          <img
+            src="/static/img/icon/mangeky.svg"
+            alt=""
+            className="w-16 h-16 object-contain"
+            style={{
+              filter: 'hue-rotate(-25deg) saturate(2) brightness(1.1) drop-shadow(0 0 18px rgba(239, 68, 68, 0.8))',
+            }}
+          />
         </motion.div>
       </div>
 
@@ -221,7 +228,16 @@ export default function ArenaLoading({ onComplete }: { onComplete: () => void })
       <div className="w-72 sm:w-96 mt-8">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1">
-            <img src="/static/img/icon/star.svg" alt="Loading" className="w-3 h-3 object-contain animate-spin" />
+            <img
+              src="/static/img/icon/mangeky.svg"
+              alt="Loading"
+              className="w-3 h-3 object-contain animate-spin"
+              style={{
+                filter: 'hue-rotate(-25deg) saturate(2) brightness(1.1)',
+                animationDuration: '900ms',
+                animationTimingFunction: 'linear',
+              }}
+            />
             {loadingDetail}
           </span>
           <span className="text-xs font-mono font-black text-orange-400">{progress}%</span>

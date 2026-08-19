@@ -11,6 +11,7 @@ import { getPngFrames, PngFrameItem, fetchPngFramesFromServer } from '../lib/fra
 import { getCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
 import { getCharacters } from '../lib/characterStorage';
 import { useLanguage } from '../lib/i18n';
+import MangekyoLoader from './MangekyoLoader';
 
 interface ProfileModalProps {
   user: UserProfile;
@@ -192,11 +193,12 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
               <div className={`w-20 h-20 rounded-full overflow-hidden bg-slate-950 flex items-center justify-center relative shadow-2xl ${
                 !equippedFrameUrl && currentPreset ? currentPreset.style : 'border-2 border-orange-400'
               }`}>
-                <img
-                  src={photoUrl || null}
+                <MangekyoLoader
+                  src={photoUrl}
                   alt={name}
-                  className="w-full h-full object-cover rounded-full"
-                  referrerPolicy="no-referrer"
+                  className="w-full h-full rounded-full"
+                  imgClassName="rounded-full"
+                  iconScale={0.55}
                 />
               </div>
 
@@ -565,10 +567,12 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
 
                         <div className="relative w-16 h-16 my-1">
                           {/* Sample user photo underneath */}
-                          <img
-                            src={photoUrl || null}
+                          <MangekyoLoader
+                            src={photoUrl}
                             alt="Preview"
-                            className="w-full h-full rounded-full object-cover"
+                            className="w-full h-full rounded-full"
+                            imgClassName="rounded-full"
+                            iconScale={0.55}
                           />
                           {/* PNG Frame overlay */}
                           <img
@@ -611,7 +615,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                       >
                         <div className="flex items-center gap-3">
                           <div className={`w-12 h-12 rounded-full overflow-hidden bg-slate-900 flex-shrink-0 ${frame.style}`}>
-                            <img src={photoUrl || null} alt="Preview" className="w-full h-full object-cover rounded-full" />
+                            <MangekyoLoader src={photoUrl} alt="Preview" className="w-full h-full rounded-full" imgClassName="rounded-full" iconScale={0.55} />
                           </div>
 
                           <div className="min-w-0 flex-1">

@@ -34,6 +34,7 @@ import { getGoalDescription } from '../lib/questUtils';
 import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
 import ProfileModal from './ProfileModal';
+import MangekyoLoader from './MangekyoLoader';
 import { RankConfig, getRanks, getUserRankFromConfig, fetchRanksFromServer } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { getCharacters } from '../lib/characterStorage';
@@ -1101,7 +1102,7 @@ export default function QuestBoard({
                                         const ch = allChars.find(c => c.name === r.value || c.id === r.value);
                                         return ch ? (
                                           <div className=" electric-border relative w-10 h-10 overflow-hidden  flex-shrink-0 bg-slate-900 rounded-md">
-                                            <img src={ch.portrait || null} alt={r.value} className=" electric-content w-full h-full object-cover" />
+                                            <MangekyoLoader src={ch.portrait} alt={r.value} className="w-full h-full" imgClassName="electric-content" iconScale={0.55} />
                                           </div>
                                         ) : <Award className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />;
                                       })()

@@ -11,6 +11,7 @@ import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
 import ProfileModal from './ProfileModal';
 import ProfileCardModal from './ProfileCardModal';
+import MangekyoLoader from './MangekyoLoader';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { useLanguage } from '../lib/i18n';
@@ -82,11 +83,12 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               {/* Avatar with Equipped Frame */}
               <div className="relative w-10 h-10 flex-shrink-0">
                 <div className="w-full h-full rounded-full overflow-hidden bg-slate-950 border border-orange-500/50 shadow">
-                  <img
-                    src={user.photoUrl || null}
+                  <MangekyoLoader
+                    src={user.photoUrl}
                     alt={user.name}
-                    className="w-full h-full object-cover rounded-full"
-                    referrerPolicy="no-referrer"
+                    className="w-full h-full rounded-full"
+                    imgClassName="rounded-full"
+                    iconScale={0.55}
                   />
                 </div>
                 {user.equippedFrameUrl && (

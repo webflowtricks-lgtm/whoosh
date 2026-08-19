@@ -10,6 +10,7 @@ import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorag
 import { safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage, translateGameText, translateSkillName, translateTargetType } from '../lib/i18n';
+import MangekyoLoader from './MangekyoLoader';
 
 interface CharacterSelectProps {
   onConfirmTeams: (
@@ -565,15 +566,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     >
                       {char ? (
                         <>
-                          <img 
-                            src={char.portrait || null} 
-                            alt={char.name} 
-                            decoding="async"
-                            loading="eager"
-                            className="w-full h-full object-cover transition-all group-hover:brightness-75" 
-                            onError={(e) => {
-                              e.currentTarget.style.opacity = '0.3';
-                            }}
+                          <MangekyoLoader
+                            src={char.portrait}
+                            alt={char.name}
+                            className="w-full h-full"
+                            imgClassName="transition-all group-hover:brightness-75"
+                            iconScale={0.55}
                           />
                           <div className="absolute inset-0 bg-red-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                             <X className="w-5 h-5 text-red-400 drop-shadow" />
@@ -774,16 +772,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   <div className="relative z-10 w-full h-full flex flex-col items-center justify-between pt-1.5 sm:pt-2 pb-1.5 px-1 sm:px-1.5">
                     {/* Character Portrait */}
                     <div className="relative w-[92%] sm:w-[94%] aspect-square rounded-md overflow-hidden bg-amber-950/20 flex-shrink-0 shadow-sm mt-0.5">
-                      <img
-                        src={char.portrait || null}
+                      <MangekyoLoader
+                        src={char.portrait}
                         alt={char.name}
-                        referrerPolicy="no-referrer"
-                        decoding="async"
-                        loading="eager"
-                        className={`w-full h-full object-cover transition-transform duration-300 ${isLocked ? 'grayscale opacity-50' : 'group-hover:scale-105'}`}
-                        onError={(e) => {
-                          e.currentTarget.style.opacity = '0.3';
-                        }}
+                        className="w-full h-full"
+                        imgClassName={`transition-transform duration-300 ${isLocked ? 'grayscale opacity-50' : 'group-hover:scale-105'}`}
+                        iconScale={0.45}
                       />
 
                       {/* Active Selected Badge */}
@@ -931,18 +925,14 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               {/* Header Portrait + Description */}
               <div className="flex gap-4 items-center p-2.5">
                 <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-amber-900/60 bg-amber-950/20 flex-shrink-0 shadow-md">
-                  <img
+                  <MangekyoLoader
                     src={
                       (equippedSkins[previewCharacter.id] && previewCharacter.skins?.find(s => s.id === equippedSkins[previewCharacter.id])?.image) ||
                       previewCharacter.portrait
                     }
                     alt={previewCharacter.name}
-                    decoding="async"
-                    loading="eager"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.opacity = '0.3';
-                    }}
+                    className="w-full h-full"
+                    iconScale={0.5}
                   />
                 </div>
 

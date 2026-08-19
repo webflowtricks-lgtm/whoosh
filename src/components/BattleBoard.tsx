@@ -9,6 +9,7 @@ import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles,
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, getEffectiveTargetType, getEffectiveCooldown, getSkillCombatTypes, Quest, QuestGoal } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
+import MangekyoLoader from './MangekyoLoader';
 import { calculateBattleXp, getRankProgress, checkRankChange } from '../lib/xpSystem';
 import { getRanks } from '../lib/rankStorage';
 import { getCharacters } from '../lib/characterStorage';
@@ -40,6 +41,9 @@ interface BattleBoardProps {
     enemyCombatants: CombatCharacter[];
     playerChakra: ChakraPool;
     enemyChakra: ChakraPool;
+    onlineParams?: { isOnline: boolean; roomId: string; playerIndex: number } | null;
+    processedOpponentTurns?: number[];
+    passedPlayersThisTurn?: ('player' | 'enemy')[];
   } | null;
   onBattleEnd?: (victory: boolean, stats: {
     damageDealt: number;
@@ -1034,23 +1038,21 @@ function GameOverOverlay({
                   {/* Character Standing PNG or Portrait */}
                   <div className="relative flex-1 w-full min-h-0 flex items-center justify-center">
                     {skinImg ? (
-                      <img
-                        src={skinImg || null}
+                      <MangekyoLoader
+                        src={skinImg}
                         alt={combatant.character.name}
-                        referrerPolicy="no-referrer"
-                        className={`absolute inset-0 z-0 w-auto h-full max-w-none object-contain block ${
-                          combatant.isDead ? 'grayscale opacity-50' : ''
-                        }`}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
+                        className={`absolute inset-0 z-0 w-auto h-full max-w-none ${combatant.isDead ? 'grayscale opacity-50' : ''}`}
+                        imgClassName={`w-auto h-full max-w-none object-contain ${combatant.isDead ? 'grayscale opacity-50' : ''}`}
+                        iconScale={0.35}
                       />
                     ) : (
                       <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full overflow-hidden border-2 border-amber-400/50 relative bg-slate-950">
-                        <img
-                          src={portrait || null}
+                        <MangekyoLoader
+                          src={portrait}
                           alt={combatant.character.name}
-                          className={`w-full h-full object-cover ${combatant.isDead ? 'grayscale opacity-50' : ''}`}
+                          className="w-full h-full"
+                          imgClassName={`${combatant.isDead ? 'grayscale opacity-50' : ''}`}
+                          iconScale={0.6}
                         />
                       </div>
                     )}
@@ -1515,6 +1517,25 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       setCuedActions([]);
       setSelectedSkill(null);
       setGameOver(null);
+
+      // Restaura o estado de processamento/passes do turno: evita que as ações
+      // do oponente sejam re-executadas (2x) ou que o turno avance sozinho após reconexão.
+      if (Array.isArray(restoredState.processedOpponentTurns)) {
+        processedOpponentTurnsRef.current = new Set(restoredState.processedOpponentTurns);
+      }
+      if (Array.isArray(restoredState.passedPlayersThisTurn)) {
+        passedPlayersRef.current = restoredState.passedPlayersThisTurn;
+        setPassedPlayersThisTurn(restoredState.passedPlayersThisTurn);
+        // Continua de onde parou: se eu já passei, é a vez do oponente (e vice-versa)
+        const rPassed = restoredState.passedPlayersThisTurn as ('player' | 'enemy')[];
+        if (rPassed.includes('player') && !rPassed.includes('enemy')) {
+          setActivePlanner('enemy');
+          setIsWaitingForOpponent(!!restoredState.onlineParams?.isOnline);
+        } else if (rPassed.includes('enemy') && !rPassed.includes('player')) {
+          setActivePlanner('player');
+          setIsWaitingForOpponent(false);
+        }
+      }
 
       if (hydratedPlayer.length > 0 && hydratedPlayer[0].character.skills.length > 0) {
         setInspectedSkill({
@@ -7741,6 +7762,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
     // Roll initiative for new turn (50/50 chance)
     const newFirstPlayer: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
+    console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
     setActivePlanner(newFirstPlayer);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
@@ -7826,6 +7848,7 @@ splashOnlyTargets = splashPool.filter(c =>
       }
 
       if (passedPlayersRef.current.includes(activePlanner)) {
+        console.log(`[TURN] handleEndTurn bloqueado: lado ja passou (active=${activePlanner} ref=[${passedPlayersRef.current}]) skip=${skipActions}`);
         return;
       }
 
@@ -7908,6 +7931,7 @@ splashOnlyTargets = splashPool.filter(c =>
     } finally {
       isEndingTurnRef.current = false;
       turnActionLockedRef.current = false;
+      randConfirmLockRef.current = false;
       setIsEndingTurn(false);
     }
   };
@@ -8444,8 +8468,14 @@ splashOnlyTargets = splashPool.filter(c =>
   };
 
   const handleEndTurnClick = () => {
-    if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current) return;
-    if (passedPlayersRef.current.includes(activePlanner)) return;
+    if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current) {
+      console.log(`[TURN] click bloqueado por lock: active=${activePlanner} sandbox=${isSandbox} ending=${isEndingTurnRef.current || isEndingTurn} lock=${turnActionLockedRef.current}`);
+      return;
+    }
+    if (passedPlayersRef.current.includes(activePlanner)) {
+      console.log(`[TURN] click bloqueado: lado ja passou (active=${activePlanner} ref=[${passedPlayersRef.current}])`);
+      return;
+    }
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       playCustomSound('Error');
       setShowNoInternetModal(true);
@@ -8521,13 +8551,24 @@ splashOnlyTargets = splashPool.filter(c =>
     const isOurTurnToPlan = myOnlineIndex === whoGoesFirst;
 
     if (isOurTurnToPlan) {
-      setActivePlanner('player');
-      setIsWaitingForOpponent(false);
+      // Respeita quem já passou (importante após reconexão): se eu já passei, espero o oponente
+      if (passedPlayersRef.current.includes('player')) {
+        setActivePlanner('enemy');
+        setIsWaitingForOpponent(true);
+      } else {
+        setActivePlanner('player');
+        setIsWaitingForOpponent(false);
+      }
     } else {
-      setActivePlanner('enemy');
-      setIsWaitingForOpponent(true);
+      if (passedPlayersRef.current.includes('enemy')) {
+        setActivePlanner('player');
+        setIsWaitingForOpponent(false);
+      } else {
+        setActivePlanner('enemy');
+        setIsWaitingForOpponent(true);
+      }
     }
-  }, [turn, onlineParams, gameOver]);
+  }, [turn, onlineParams, gameOver, passedPlayersThisTurn]);
 
   // Periodic background online room-state polling & turn sync (1 second)
   useEffect(() => {
@@ -8556,6 +8597,15 @@ splashOnlyTargets = splashPool.filter(c =>
           const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
           const oppOnlineIndex = myOnlineIndex === 0 ? 1 : 0;
           const currentTurnActions = data.room.turnActions?.[turn];
+
+          // Marca turnos ANTERIORES ao turno local como já processados: o servidor
+          // mantém histórico completo (nunca limpo) — após uma reconexão, sem isso,
+          // o polling re-executaria as ações antigas do oponente (2x).
+          const serverTurns = data.room.turnActions || {};
+          Object.keys(serverTurns).forEach(tStr => {
+            const tNum = Number(tStr);
+            if (!isNaN(tNum) && tNum < turn) processedOpponentTurnsRef.current.add(tNum);
+          });
 
           if (currentTurnActions) {
             const oppKey = `player${oppOnlineIndex}` as 'player0' | 'player1';
@@ -8674,7 +8724,9 @@ splashOnlyTargets = splashPool.filter(c =>
         playerChakra,
         enemyChakra,
         onlineParams,
-        isSandbox
+        isSandbox,
+        processedOpponentTurns: Array.from(processedOpponentTurnsRef.current),
+        passedPlayersThisTurn,
       };
       localStorage.setItem('active_match_save', JSON.stringify(stateToSave));
     } catch (err) {
@@ -8701,7 +8753,7 @@ splashOnlyTargets = splashPool.filter(c =>
         if (prev <= 1) {
           clearInterval(timerInterval);
           // Auto-pass turn when time runs out (does NOT execute cued skills)
-          if (!isEndingTurnRef.current && !turnActionLockedRef.current) {
+          if (!isEndingTurnRef.current && !turnActionLockedRef.current && !passedPlayersRef.current.includes(activePlanner)) {
             handleEndTurnRef.current(undefined, true);
           }
           return 0;
@@ -13643,16 +13695,12 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                         <div className={`w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
                           isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] ring-2 ring-cyan-400/80 bg-slate-950' : 'border-slate-800 bg-slate-950'
                         }`}>
-                          <img 
-                            src={displayPortrait || null} 
-                            alt={combatant.character.name} 
-                            decoding="async"
-                            loading="eager"
+                          <MangekyoLoader
+                            src={displayPortrait}
+                            alt={combatant.character.name}
                             title={isInvul ? `Invulnerável por ${invulnEff?.name || 'Skill'}` : combatant.character.name}
-                            className="w-full h-full object-cover" 
-                            onError={(e) => {
-                               e.currentTarget.style.opacity = '0.3';
-                            }}
+                            className="w-full h-full"
+                            iconScale={0.55}
                           />
                           {isStunned && (() => {
                             const hasOffensiveBlockOnly = combatant.activeEffects.some(e => (e.type === 'stun' || (e as any).type === 'blocks_offensive_skills') && (e.blocksOffensiveSkills || (e as any).type === 'blocks_offensive_skills'));
@@ -14582,13 +14630,12 @@ onClick={() => handleSelectTarget(combatant.id, false)}
             <div className="relative z-10 w-14 h-14 flex-shrink-0">
               <div className="absolute inset-0 bg-gradient-to-tr from-red-600 to-rose-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
               <div className="relative w-full h-full rounded-full border-2 border-red-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
-                <img
+                <MangekyoLoader
                   src={onlineParams?.isOnline ? onlineParams.opponentProfile.photoUrl : 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kakashi-hatake/icon.jpg'}
                   alt={onlineParams?.isOnline ? onlineParams.opponentProfile.name : 'I.A. Oponente'}
-                  className="w-full h-full rounded-full object-cover scale-x-[-1]"
-                  referrerPolicy="no-referrer"
-                  decoding="async"
-                  loading="eager"
+                  className="w-full h-full rounded-full"
+                  imgClassName="rounded-full scale-x-[-1]"
+                  iconScale={0.5}
                 />
               </div>
               {onlineParams?.isOnline && onlineParams.opponentProfile.equippedFrameUrl && (
@@ -14744,16 +14791,13 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                         <div className={`w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
                           isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] ring-2 ring-cyan-400/80 bg-slate-950' : 'border-slate-800 bg-slate-950'
                         }`}>
-                          <img 
-                            src={displayPortrait || null} 
-                            alt={combatant.character.name} 
-                            decoding="async"
-                            loading="eager"
+                          <MangekyoLoader
+                            src={displayPortrait}
+                            alt={combatant.character.name}
                             title={isInvul ? `Invulnerável por ${invulnEff?.name || 'Skill'}` : combatant.character.name}
-                            className={`w-full h-full object-cover ${isInvul ? '' : 'scale-x-[-1]'}`}
-                            onError={(e) => {
-                              e.currentTarget.style.opacity = '0.3';
-                            }}
+                            className="w-full h-full"
+                            imgClassName={isInvul ? '' : 'scale-x-[-1]'}
+                            iconScale={0.55}
                           />
                           {isStunned && (() => {
                             const hasOffensiveBlockOnly = combatant.activeEffects.some(e => (e.type === 'stun' || (e as any).type === 'blocks_offensive_skills') && (e.blocksOffensiveSkills || (e as any).type === 'blocks_offensive_skills'));
@@ -15409,15 +15453,12 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                   return (
                     <div className="w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
                       {skinImg ? (
-                        <img
-                          src={skinImg || null}
+                        <MangekyoLoader
+                          src={skinImg}
                           alt={combatant.character.name}
-                          referrerPolicy="no-referrer"
-                          className="h-full w-auto max-w-full object-contain scale-x-[-1]"
-                          onError={(e) => {
-                            const img = e.currentTarget;
-                            img.style.display = 'none';
-                          }}
+                          className="h-full w-auto max-w-full"
+                          imgClassName="h-full w-auto max-w-full object-contain scale-x-[-1]"
+                          iconScale={0.3}
                         />
                       ) : (
                         <div className="w-full h-full" />
