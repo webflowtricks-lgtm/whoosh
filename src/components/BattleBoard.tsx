@@ -634,7 +634,9 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     }
     case 'counter':
     case 'counter_attack':
-      rawPt = `Pronto para contra-atacar por ${durText}${effect.counterAttackMode === 'all' ? ' (anula TODAS as skills durante a duração)' : ' (anula somente a 1ª skill)'}`;
+      rawPt = effect.counterAttackUntilTriggered
+        ? `Marcado: a próxima habilidade será contra-atacada (persiste até acionar)`
+        : `Pronto para contra-atacar por ${durText}${effect.counterAttackMode === 'all' ? ' (anula TODAS as skills durante a duração)' : ' (anula somente a 1ª skill)'}`;
       break;
     case 'reflect':
       rawPt = `Reflete habilidades do oponente por ${durText}`;
@@ -3346,10 +3348,28 @@ const handleTradeChakra = () => {
         });
         addFloatingText(source.id, 'ANULADO', 'effect');
         source.lastTurnStatus = 'ANULADO';
-        if (attackerCounterEffect.counterAttackMode !== 'all') {
+        if (attackerCounterEffect.counterAttackUntilTriggered) {
+          // Persiste até efetivamente contra-atacar: agora que anulou, é removido
+          source.activeEffects = source.activeEffects.filter(e => e !== attackerCounterEffect);
+        } else if (attackerCounterEffect.counterAttackMode !== 'all') {
           attackerCounterEffect.duration = (attackerCounterEffect.duration || 1) - 1;
           if (attackerCounterEffect.duration <= 0) {
             source.activeEffects = source.activeEffects.filter(e => e !== attackerCounterEffect);
+          }
+        }
+        // 🌪️ REGRA ÚNICA DO GAARA (Constricting Sand Prison): ao contra-atacar, remove TODOS os
+        // efeitos dessa habilidade do inimigo (inclusive o dano contínuo).
+        if (attackerCounterEffect.sourceSkillName === 'Constricting Sand Prison') {
+          const removedCount = source.activeEffects.filter(e => e.sourceSkillName === 'Constricting Sand Prison').length;
+          source.activeEffects = source.activeEffects.filter(e => e.sourceSkillName !== 'Constricting Sand Prison');
+          if (removedCount > 0) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🌪️ [Constricting Sand Prison] foi rompida! Todos os efeitos dessa habilidade em ${source.character.name} foram removidos.`,
+              type: 'buff',
+            });
+            addFloatingText(source.id, 'PRISÃO DE AREIA ROMPIDA', 'effect');
           }
         }
         return; // Skill is cancelled due to counter-attack
@@ -3368,7 +3388,10 @@ const handleTradeChakra = () => {
         addFloatingText(source.id, 'HABILIDADE ANULADA!', 'damage');
         defaultTarget.lastTurnStatus = 'CONTRA-ATAQUE';
         source.lastTurnStatus = 'ANULADO';
-        if (counterEffect.counterAttackMode !== 'all') {
+        if (counterEffect.counterAttackUntilTriggered) {
+          // Persiste até efetivamente contra-atacar: agora que anulou, é removido
+          defaultTarget.activeEffects = defaultTarget.activeEffects.filter(e => e !== counterEffect);
+        } else if (counterEffect.counterAttackMode !== 'all') {
           counterEffect.duration = (counterEffect.duration || 1) - 1;
           if (counterEffect.duration <= 0) {
             defaultTarget.activeEffects = defaultTarget.activeEffects.filter(e => e !== counterEffect);
@@ -6606,20 +6629,26 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // Counter Attack (applied as debuff on the selected target)
       if (skill.counterAttack) {
-        const cTargets = resolveEffectTargets(skill.counterAttackTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, true);
+        // No modo "attacker" o contra-ataque é aplicado no INIMIGO (debuff), então NÃO é benéfico
+        // (senão o resolveEffectTargets redireciona o efeito para o próprio conjurador).
+        const counterIsBeneficial = (skill.counterAttackType || 'defender') !== 'attacker';
+        const cTargets = resolveEffectTargets(skill.counterAttackTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, counterIsBeneficial);
         cTargets.forEach(t => {
           if (t.isDead) return;
           const cMode = skill.counterAttackMode || 'first';
+          const untilTriggered = !!skill.counterAttackUntilTriggered;
+          const cDuration = untilTriggered ? 99999 : (skill.counterAttackDuration || 1);
           pushActiveEffect(t, {
             name: `${skill.name} Contra-Ataque`,
             sourceSkillName: skill.name,
             type: 'counter_attack',
-            duration: skill.counterAttackDuration || 1,
+            duration: cDuration,
             counterAttackType: skill.counterAttackType || 'defender',
             counterAttackMode: cMode,
             counterAttackClasses: skill.counterAttackClasses,
+            counterAttackUntilTriggered: untilTriggered,
             icon: skill.icon,
-            irremovable: !!skill.counterAttackIrremovable,
+            irremovable: !!skill.counterAttackIrremovable || untilTriggered,
             cannotBeCountered: !!skill.counterAttackCannotBeCountered,
             cannotBeReflected: !!skill.counterAttackCannotBeReflected,
             casterId: source.id,
@@ -6628,7 +6657,9 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⚔️ ${t.character.name} ativou CONTRA-ATAQUE com [${skill.name}]${cMode === 'all' ? ' (anula TODAS as skills)' : ' (anula somente a 1ª skill)'} por ${skill.counterAttackDuration || 1} ${skill.counterAttackDuration === 1 ? 'turno' : 'turnos'}!`,
+            message: untilTriggered
+              ? `⚔️ ${t.character.name} ficou MARCADO por [${skill.name}]: a próxima habilidade dele será contra-atacada (dura até ser acionado)!`
+              : `⚔️ ${t.character.name} ativou CONTRA-ATAQUE com [${skill.name}]${cMode === 'all' ? ' (anula TODAS as skills)' : ' (anula somente a 1ª skill)'} por ${skill.counterAttackDuration || 1} ${skill.counterAttackDuration === 1 ? 'turno' : 'turnos'}!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'CONTRA-ATAQUE', 'effect');
@@ -7044,16 +7075,18 @@ splashOnlyTargets = splashPool.filter(c =>
             }
             if (selfSkill.counterAttack) {
               const cMode = selfSkill.counterAttackMode || 'first';
+              const untilTriggered = !!selfSkill.counterAttackUntilTriggered;
               pushActiveEffect(selfTarget, {
                 name: `${selfSkill.name} Contra-Ataque`,
                 sourceSkillName: selfSkill.name,
                 type: 'counter_attack',
-                duration: selfSkill.counterAttackDuration || 1,
+                duration: untilTriggered ? 99999 : (selfSkill.counterAttackDuration || 1),
                 counterAttackType: selfSkill.counterAttackType || 'defender',
                 counterAttackMode: cMode,
                 counterAttackClasses: selfSkill.counterAttackClasses,
+                counterAttackUntilTriggered: untilTriggered,
                 icon: selfSkill.icon,
-                irremovable: !!selfSkill.counterAttackIrremovable,
+                irremovable: !!selfSkill.counterAttackIrremovable || untilTriggered,
                 cannotBeCountered: !!selfSkill.counterAttackCannotBeCountered,
                 cannotBeReflected: !!selfSkill.counterAttackCannotBeReflected,
                 casterId: source.id,
@@ -13352,7 +13385,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (skill.counterAttack) {
       effects.push({
         label: 'Contra-Ataque (Anular)',
-        value: `${skill.counterAttackMode === 'all' ? 'Anula TODAS as habilidades' : 'Anula somente a 1ª habilidade'} ${skill.counterAttackType === 'attacker' ? 'ofensivas usadas pelo alvo' : 'recebidas pelo alvo'} por ${fmtDur(skill.counterAttackDuration)}${skill.counterAttackClasses && skill.counterAttackClasses.length > 0 ? ` (apenas classes: ${skill.counterAttackClasses.join(', ')})` : ''}`,
+        value: skill.counterAttackUntilTriggered
+          ? `Marca o alvo até de fato contra-atacar (∞ turnos, sai ao acionar) ${skill.counterAttackType === 'attacker' ? 'nas skills ofensivas usadas por ele' : 'nas skills recebidas por ele'}${skill.counterAttackClasses && skill.counterAttackClasses.length > 0 ? ` (apenas classes: ${skill.counterAttackClasses.join(', ')})` : ''}`
+          : `${skill.counterAttackMode === 'all' ? 'Anula TODAS as habilidades' : 'Anula somente a 1ª habilidade'} ${skill.counterAttackType === 'attacker' ? 'ofensivas usadas pelo alvo' : 'recebidas pelo alvo'} por ${fmtDur(skill.counterAttackDuration)}${skill.counterAttackClasses && skill.counterAttackClasses.length > 0 ? ` (apenas classes: ${skill.counterAttackClasses.join(', ')})` : ''}`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.counterAttackTarget, 'Conjurador (Mim)')
       });

@@ -45,6 +45,7 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 - Character images: `public/static/img/ninja/<slug>/` (icon.jpg + skill images)
 
 ## Conventions & Notes
+- **Before building any new feature/option, check if it already exists** (grep the codebase for related flags/fields). If it does, STOP and tell the user it already exists (name + location) instead of duplicating it. Ex.: `removedOnTargetSkillUse` already removes an effect when the affected target uses any skill (AdminDashboard "🧹 Removida do alvo quando ele usar uma habilidade", engine at BattleBoard `executeSideActions` ~line 7247).
 - UI text is PT-BR; use `t()` for UI strings needing EN support.
 - Language: `'pt' | 'en'`, persisted in localStorage key `ninja_app_language`.
 - User profile persisted in localStorage key `naruto_user_profile`.

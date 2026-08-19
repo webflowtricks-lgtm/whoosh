@@ -5381,6 +5381,21 @@ const newSkill: Skill = {
                                         <span className="text-[9px] text-slate-500 font-mono">Turnos ativo</span>
                                   </div>
 
+                                  <label className="flex items-start gap-2 text-[10px] cursor-pointer select-none bg-red-950/30 border border-red-900/50 px-2 py-1.5 rounded-lg">
+                                    <input
+                                      type="checkbox"
+                                      checked={editingSkill.counterAttackUntilTriggered || false}
+                                      onChange={(e) => handleUpdateSkillField('counterAttackUntilTriggered', e.target.checked)}
+                                      className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0 w-3.5 h-3.5 mt-0.5"
+                                    />
+                                    <span className="text-red-300 font-bold leading-tight">
+                                      ⏳ Persistir até contra-atacar
+                                      <span className="block text-[9px] text-slate-400 font-normal font-mono mt-0.5">
+                                        Fica marcado no alvo por tempo INFINITO e só sai quando de fato contra-atacar uma habilidade dele (ignora "Turnos ativo").
+                                      </span>
+                                    </span>
+                                  </label>
+
                                   <div className="space-y-1">
                                     <span className="text-[9px] text-red-400 font-mono uppercase font-bold block">Modo de Anulação:</span>
                                     <select

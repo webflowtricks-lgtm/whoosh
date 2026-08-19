@@ -568,6 +568,8 @@ counterAttack?: boolean;
   counterAttackMode?: 'first' | 'all';
   /** Anular apenas skills destas classes (vazio = anula qualquer skill). Ex.: ['Físico', 'Chakra'] */
   counterAttackClasses?: string[];
+  /** Fica ativo por tempo INFINITO e só é removido quando de fato contra-atacar uma habilidade (persiste até acertar) */
+  counterAttackUntilTriggered?: boolean;
   counterAttackTarget?: TargetOverride;
 
 counterAttackIrremovable?: boolean;
@@ -811,6 +813,8 @@ counterAttackType?: 'attacker' | 'defender';
   counterAttackMode?: 'first' | 'all';
   /** Anular apenas skills destas classes (vazio = anula qualquer skill) */
   counterAttackClasses?: string[];
+  /** Persiste (duração infinita) até efetivamente contra-atacar uma habilidade */
+  counterAttackUntilTriggered?: boolean;
   castTurn?: number;
   /** Quantidade de stacks acumuladas */
   stacks?: number;
