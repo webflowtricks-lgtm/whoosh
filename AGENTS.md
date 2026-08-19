@@ -69,3 +69,14 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 - Finisher trigger: line ~4033+ (applies stun/chakra removal from `stackUseEffectRules`)
 - Stack preservation: line ~4095+ (for preserve skills)
 
+## Configurable Rules (Admin skill editor)
+Both rules are configured per-skill in `AdminDashboard.tsx` and evaluated in the battle engine (`BattleBoard.tsx`, inside `executeSideActions`, the real execution pipeline; `executeTurnSimulation` is dead code — do NOT add logic there).
+
+- **🌳 Prisão de Madeira (Wood Spire Prison)** — `skill.prisonRule` (types.ts `SkillPrisonRule`): ally gets cleanse (`cleanseAlly`), cooldown reset (`resetCooldownsAlly`), and `damage_reduction` with `excludeAffliction: true` (`allyReduction`); enemy gets `damage_debuff` with `debuffTypes: ['skill']` + `excludeClasses: ['mental']` (`enemyReduction`) and a `WoodSpirePunish` custom effect (`punishmentDamage`) that deals damage per turn when no offensive skill is used (`usedOffensiveThisTurnRef`). `geyserBoost` raises the values when the target has a Geyser Spring stack; `duration` default 2. ANBU Kinoe's hardcoded rule falls back to defaults (15/25/15/2) when `prisonRule` is absent.
+- **🔁 Skill em Mim com Stack (selfCastStackRules)** — `skill.selfCastStackRules` (types.ts `SkillSelfCastStackRule`): if the caster has X stacks (`stackType`/`requiredStacks`, same matching semantics as `stackUseEffectRules`), one of the caster's OWN skills (`skillName`, autocomplete in editor) is applied to the caster via an inline mini-executor (damage w/ shield absorption, heal, shield, damage_buff, damage_reduction, dot/bleeding/affliction, cleanse, instant/continuous chakra, invisible, stun). `invisible: true` suppresses ALL logs and floating texts (silent mode).
+
+**Key code sections** (BattleBoard.tsx, `executeSideActions`):
+- Prison config block: ~line 4190 (generalized from the Kinoe-only rule)
+- Self-cast block: after the ⚡ Combo por Stacks block (~line 6850)
+- Punishment resolution in `executeTurnEndResolution` (~line 7274)
+

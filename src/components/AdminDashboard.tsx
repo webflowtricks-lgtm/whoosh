@@ -4931,6 +4931,154 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* 🔁 Skill em Mim com Stack (selfCastStackRules) */}
+                      <div className="md:col-span-2 bg-cyan-950/20 p-3 rounded-xl border border-cyan-800/50 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">
+                              🔁 Skill em Mim com Stack (Auto-Cast em si mesmo)
+                            </span>
+                            <p className="text-[9px] text-cyan-200/70">
+                              Se o conjurador tiver X stacks <span className="font-bold text-white">OU</span> a skill indicada estiver ATIVA nele, ao usar esta skill UMA skill do PRÓPRIO personagem é aplicada/usada nele mesmo (dano, cura, escudo, buffs, DoT, cleanse, chakra, invisibilidade, stun...).
+                            </p>
+                            <p className="text-[9px] text-slate-400 mt-1">
+                              🔀 <span className="font-bold text-cyan-300">StackType:</span> preencha com o tipo da stack OU o nome da skill que deve estar ativa. Vazio = usa o stackType/nome desta própria skill.
+                            </p>
+                            <p className="text-[9px] text-slate-400 mt-1">
+                              👁️ <span className="font-bold text-cyan-300">"Invisível para o oponente":</span> a skill é aplicada SEM log e SEM texto flutuante — só quem usou percebe.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.selfCastStackRules || [];
+                              handleUpdateSkillField('selfCastStackRules', [...current, { stackType: '', requiredStacks: 1, skillName: '', invisible: false }]);
+                            }}
+                            className="px-2.5 py-1 bg-cyan-900/40 hover:bg-cyan-800/50 text-cyan-300 border border-cyan-800/60 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.selfCastStackRules || editingSkill.selfCastStackRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de auto-cast configurada.
+                          </p>
+                        ) : (
+                          <div className="space-y-3 pt-1">
+                            {editingSkill.selfCastStackRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="bg-slate-950 rounded-lg border border-cyan-900/50 text-[10px] font-mono overflow-hidden">
+                                <div className="flex flex-wrap items-center gap-2 px-2 py-1.5 bg-slate-900/60 border-b border-cyan-900/40">
+                                  <span className="text-cyan-400 font-bold">Com</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={99}
+                                    value={rule.requiredStacks}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.selfCastStackRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], requiredStacks: parseInt(e.target.value) || 1 };
+                                      handleUpdateSkillField('selfCastStackRules', updated);
+                                    }}
+                                    className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px] text-center"
+                                  />
+                                  <span className="text-[9px] text-slate-400">stack(s) de:</span>
+                                  <input
+                                    list="self-cast-stacktype-list"
+                                    type="text"
+                                    value={rule.stackType || ''}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.selfCastStackRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], stackType: e.target.value };
+                                      handleUpdateSkillField('selfCastStackRules', updated);
+                                    }}
+                                    placeholder="StackType (vazio = desta skill)"
+                                    className="w-44 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px]"
+                                  />
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 px-2 py-1.5 bg-slate-900/40 border-b border-cyan-900/40">
+                                  <span className="text-[9px] text-slate-400 font-bold">💡 Minha skill ATIVA em mim (opcional):</span>
+                                  <input
+                                    list="self-cast-skill-list"
+                                    type="text"
+                                    value={rule.activeSkillName || ''}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.selfCastStackRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                      handleUpdateSkillField('selfCastStackRules', updated);
+                                    }}
+                                    placeholder="Se esta skill estiver ativa, dispara (mesmo sem stacks)"
+                                    className="flex-1 min-w-40 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px]"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = [...(editingSkill.selfCastStackRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], activeSkillName: undefined };
+                                      handleUpdateSkillField('selfCastStackRules', updated);
+                                    }}
+                                    className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer"
+                                    title="Remover skill ativa"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = (editingSkill.selfCastStackRules || []).filter((_, i) => i !== rIdx);
+                                      handleUpdateSkillField('selfCastStackRules', updated.length > 0 ? updated : undefined);
+                                    }}
+                                    className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                    title="Remover regra"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 px-2 py-2">
+                                  <span className="text-[9px] text-slate-400 font-bold">🎯 Aplica em mim:</span>
+                                  <input
+                                    list="self-cast-skill-list"
+                                    type="text"
+                                    value={rule.skillName || ''}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.selfCastStackRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], skillName: e.target.value };
+                                      handleUpdateSkillField('selfCastStackRules', updated);
+                                    }}
+                                    placeholder="Nome de uma skill minha (autocomplete)"
+                                    className="flex-1 min-w-40 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px]"
+                                  />
+                                  <label className="flex items-center gap-1 cursor-pointer select-none bg-slate-900/80 px-2 py-1 rounded border border-slate-800/80">
+                                    <input
+                                      type="checkbox"
+                                      checked={rule.invisible || false}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.selfCastStackRules || [])];
+                                        updated[rIdx] = { ...updated[rIdx], invisible: e.target.checked };
+                                        handleUpdateSkillField('selfCastStackRules', updated);
+                                      }}
+                                      className="accent-cyan-500 rounded cursor-pointer"
+                                    />
+                                    <span className="text-[9px] text-cyan-300 font-bold">👁️ Invisível p/ oponente</span>
+                                  </label>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <datalist id="self-cast-skill-list">
+                          {editingChar?.skills && editingChar.skills.length > 0 ? (
+                            editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                          ) : null}
+                        </datalist>
+                        <datalist id="self-cast-stacktype-list">
+                          {editingChar?.skills && editingChar.skills.length > 0 ? (
+                            editingChar.skills.filter(s => s.stackable && s.stackType).map(s => <option key={s.stackType} value={s.stackType!} />)
+                          ) : null}
+                        </datalist>
+                      </div>
+
                       <div className="md:col-span-2">
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Descrição do Efeito / Detalhes</label>
                         <textarea
@@ -5275,6 +5423,66 @@ const newSkill: Skill = {
                                     </select>
                                     <p className="text-[9px] text-slate-500 font-mono leading-tight">
                                       Ex.: marque em um aliado (defender) para anular a 1ª skill usada nele, ou em todos os inimigos (attacker) para anular as skills deles pelos turnos configurados.
+                                    </p>
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[9px] text-red-400 font-mono uppercase font-bold">🗂️ Classes que serão anuladas:</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateSkillField('counterAttackClasses', [])}
+                                        className="text-[8px] px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 font-mono font-bold border border-slate-800 transition-all cursor-pointer"
+                                        title="Anular qualquer skill (todas as classes)"
+                                      >
+                                        ❌ Limpar (anula qualquer skill)
+                                      </button>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                      {[
+                                        { value: 'A distancia', label: '🎯 A distância' },
+                                        { value: 'Chakra', label: '🌀 Chakra' },
+                                        { value: 'Mental', label: '🧠 Mental' },
+                                        { value: 'Físico', label: '⚔️ Físico' },
+                                        { value: 'Aflição', label: '🩸 Aflição' },
+                                        { value: 'Amigável', label: '🤝 Amigável' },
+                                      ].map((opt) => {
+                                        const cur = editingSkill.counterAttackClasses || [];
+                                        const isSelected = cur.some(c =>
+                                          c.toLowerCase() === opt.value.toLowerCase() ||
+                                          (opt.value === 'A distancia' && (c.toLowerCase().includes('distancia') || c.toLowerCase().includes('distância')))
+                                        );
+                                        return (
+                                          <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => {
+                                              let updated: string[];
+                                              if (isSelected) {
+                                                updated = cur.filter(c =>
+                                                  c.toLowerCase() !== opt.value.toLowerCase() &&
+                                                  !(opt.value === 'A distancia' && (c.toLowerCase().includes('distancia') || c.toLowerCase().includes('distância')))
+                                                );
+                                              } else {
+                                                updated = [...cur, opt.value];
+                                              }
+                                              handleUpdateSkillField('counterAttackClasses', updated);
+                                            }}
+                                            className={`px-1.5 py-1 rounded-lg text-[9px] font-mono font-bold border transition-all cursor-pointer select-none ${
+                                              isSelected
+                                                ? 'bg-red-950 border-red-500/70 text-red-200 shadow-md shadow-red-950/50'
+                                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                                            }`}
+                                          >
+                                            {opt.label} <span className="text-[8px] font-bold">{isSelected ? '✓' : ''}</span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    <p className="text-[9px] text-slate-500 font-mono leading-tight">
+                                      {(!editingSkill.counterAttackClasses || editingSkill.counterAttackClasses.length === 0)
+                                        ? 'Nenhuma classe selecionada → anula QUALQUER skill (todas as classes).'
+                                        : `Apenas skills das classes: ${editingSkill.counterAttackClasses.join(', ')}. Skills de outras classes NÃO serão anuladas.`}
                                     </p>
                                   </div>
                                 </motion.div>
@@ -9076,6 +9284,154 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                                         }).join(', ')}</span> do alvo.
                                       </div>
                                     )}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </div>
+                          </div>
+
+                        {/* 24. Prisão de Madeira (Wood Spire Prison) */}
+                          <div className="space-y-3 bg-amber-950/20 border border-amber-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">
+                                  🌳 Prisão de Madeira (Wood Spire Prison)
+                                </label>
+                                {editingSkill.prisonRule?.enabled ? (
+                                  <span className="text-[9px] bg-amber-500/20 border border-amber-500/50 text-amber-300 px-1.5 py-0.5 rounded font-mono font-bold animate-pulse">
+                                    ⚡ ATIVO
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] bg-slate-800 border border-slate-700 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                                    Inativo
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[9px] text-amber-200/70 leading-relaxed">
+                                Aliado: remove debuffs, zera cooldowns e reduz dano recebido de skills NÃO-Aflição. Inimigo: habilidades NÃO-Mentais causam menos dano e ele sofre dano por turno se NÃO usar habilidade ofensiva.
+                              </p>
+
+                              <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
+                                <input
+                                  type="checkbox"
+                                  checked={editingSkill.prisonRule?.enabled || false}
+                                  onChange={(e) => {
+                                    const current = editingSkill.prisonRule || {};
+                                    handleUpdateSkillField('prisonRule', { ...current, enabled: e.target.checked });
+                                  }}
+                                  className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3.5 h-3.5"
+                                />
+                                Ativar Prisão de Madeira
+                              </label>
+
+                              {editingSkill.prisonRule?.enabled && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="space-y-2.5 pt-2 border-t border-amber-900/30 mt-2"
+                                >
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <span className="text-[9px] text-amber-400 font-mono uppercase font-bold">🤝 Redução ALIADO</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={99}
+                                        value={editingSkill.prisonRule?.allyReduction ?? 15}
+                                        onChange={(e) => {
+                                          const current = editingSkill.prisonRule || {};
+                                          handleUpdateSkillField('prisonRule', { ...current, allyReduction: parseInt(e.target.value) || 0 });
+                                        }}
+                                        className="w-full px-2 py-1 bg-slate-900 border border-amber-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                      />
+                                    </div>
+                                    <div>
+                                      <span className="text-[9px] text-amber-400 font-mono uppercase font-bold">😈 Redução INIMIGO</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={99}
+                                        value={editingSkill.prisonRule?.enemyReduction ?? 15}
+                                        onChange={(e) => {
+                                          const current = editingSkill.prisonRule || {};
+                                          handleUpdateSkillField('prisonRule', { ...current, enemyReduction: parseInt(e.target.value) || 0 });
+                                        }}
+                                        className="w-full px-2 py-1 bg-slate-900 border border-amber-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                      />
+                                    </div>
+                                    <div>
+                                      <span className="text-[9px] text-amber-400 font-mono uppercase font-bold">💥 Punição (dano/turno)</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={99}
+                                        value={editingSkill.prisonRule?.punishmentDamage ?? 15}
+                                        onChange={(e) => {
+                                          const current = editingSkill.prisonRule || {};
+                                          handleUpdateSkillField('prisonRule', { ...current, punishmentDamage: parseInt(e.target.value) || 0 });
+                                        }}
+                                        className="w-full px-2 py-1 bg-slate-900 border border-amber-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                      />
+                                    </div>
+                                    <div>
+                                      <span className="text-[9px] text-amber-400 font-mono uppercase font-bold">⏳ Duração (turnos)</span>
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={10}
+                                        value={editingSkill.prisonRule?.duration ?? 2}
+                                        onChange={(e) => {
+                                          const current = editingSkill.prisonRule || {};
+                                          handleUpdateSkillField('prisonRule', { ...current, duration: parseInt(e.target.value) || 1 });
+                                        }}
+                                        className="w-full px-2 py-1 bg-slate-900 border border-amber-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                      />
+                                    </div>
+                                    <div>
+                                      <span className="text-[9px] text-amber-400 font-mono uppercase font-bold">💧 Geyser Spring (boost)</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={99}
+                                        value={editingSkill.prisonRule?.geyserBoost ?? 25}
+                                        onChange={(e) => {
+                                          const current = editingSkill.prisonRule || {};
+                                          handleUpdateSkillField('prisonRule', { ...current, geyserBoost: parseInt(e.target.value) || 0 });
+                                        }}
+                                        className="w-full px-2 py-1 bg-slate-900 border border-amber-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap gap-2 pt-1">
+                                    <label className="flex items-center gap-1.5 cursor-pointer select-none bg-slate-900/80 px-2 py-1 rounded border border-slate-800/80">
+                                      <input
+                                        type="checkbox"
+                                        checked={(editingSkill.prisonRule?.cleanseAlly ?? true)}
+                                        onChange={(e) => {
+                                          const current = editingSkill.prisonRule || {};
+                                          handleUpdateSkillField('prisonRule', { ...current, cleanseAlly: e.target.checked });
+                                        }}
+                                        className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                      />
+                                      <span className="text-[9px] text-amber-300 font-mono">✨ Limpar debuffs do aliado</span>
+                                    </label>
+                                    <label className="flex items-center gap-1.5 cursor-pointer select-none bg-slate-900/80 px-2 py-1 rounded border border-slate-800/80">
+                                      <input
+                                        type="checkbox"
+                                        checked={(editingSkill.prisonRule?.resetCooldownsAlly ?? true)}
+                                        onChange={(e) => {
+                                          const current = editingSkill.prisonRule || {};
+                                          handleUpdateSkillField('prisonRule', { ...current, resetCooldownsAlly: e.target.checked });
+                                        }}
+                                        className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                      />
+                                      <span className="text-[9px] text-amber-300 font-mono">⏱️ Zerar cooldowns do aliado</span>
+                                    </label>
+                                  </div>
+
+                                  <div className="text-[9px] text-amber-300 font-mono leading-normal bg-amber-950/30 border border-amber-900/40 p-2 rounded-lg">
+                                    🌳 <span className="font-bold">Resumo:</span> Aliado recebe -{editingSkill.prisonRule?.allyReduction ?? 15} de dano (não-Aflição){editingSkill.prisonRule?.cleanseAlly ?? true ? ' + limpeza de debuffs' : ''}{editingSkill.prisonRule?.resetCooldownsAlly ?? true ? ' + cooldowns zerados' : ''}. Inimigo sofre -{editingSkill.prisonRule?.enemyReduction ?? 15} de dano (não-Mental) e {editingSkill.prisonRule?.punishmentDamage ?? 15} de dano por turno sem usar skill ofensiva. Duração: {editingSkill.prisonRule?.duration ?? 2} turno(s). Com Geyser Spring: -{(editingSkill.prisonRule?.geyserBoost ?? 25)}.
                                   </div>
                                 </motion.div>
                               )}

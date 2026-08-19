@@ -3330,8 +3330,14 @@ const handleTradeChakra = () => {
       }
 
       // Check Counter-Attack on source (attacker mode): nullifies the source's own skills
+      const counterClassesMatch = (effect: ActiveEffect, usedSkill: Skill): boolean => {
+        const cls = effect.counterAttackClasses || [];
+        if (cls.length === 0) return true;
+        const usedClasses = (usedSkill.classes || []).map(c => c.toLowerCase());
+        return cls.some(c => usedClasses.includes(c.toLowerCase()));
+      };
       const attackerCounterEffect = hasNegateFriendlyEffects(source) ? undefined : source.activeEffects.find(e => e.type === 'counter_attack' && e.counterAttackType === 'attacker');
-      if (attackerCounterEffect && !skill.cannotBeCountered) {
+      if (attackerCounterEffect && !skill.cannotBeCountered && counterClassesMatch(attackerCounterEffect, skill)) {
         newLogs.push({
           id: Math.random().toString(),
           turn,
@@ -3351,7 +3357,7 @@ const handleTradeChakra = () => {
 
       // Check Counter-Attack on target (nullifies ANY skill used against the counter holder, except skills marked cannotBeCountered)
       const counterEffect = hasNegateFriendlyEffects(defaultTarget) ? undefined : defaultTarget.activeEffects.find(e => e.type === 'counter_attack' || (e.type === 'counter' && e.counterAttackType === 'defender'));
-      if (counterEffect && !skill.cannotBeCountered && source.id !== defaultTarget.id) {
+      if (counterEffect && !skill.cannotBeCountered && source.id !== defaultTarget.id && counterClassesMatch(counterEffect, skill)) {
         newLogs.push({
           id: Math.random().toString(),
           turn,
@@ -4187,8 +4193,18 @@ const startingHealth = t.health;
         }
       }
 
-      // ANBU Kinoe: Wood Release: Wooden Spire Prison (regra customizada)
-      if ((source.character.folder === 'anbu-kinoe' || source.character.id === 'anbu-kinoe') && skill.name === 'Wood Release: Wooden Spire Prison') {
+      // Regra "Prisão de Madeira" (Wood Spire Prison) — configurável via skill.prisonRule
+      // e compatível com o ANBU Kinoe (regra customizada original)
+      const prisonCfg = (skill as any).prisonRule as { enabled?: boolean; allyReduction?: number; enemyReduction?: number; punishmentDamage?: number; duration?: number; geyserBoost?: number; cleanseAlly?: boolean; resetCooldownsAlly?: boolean } | undefined;
+      const isPrisonSkill = !!prisonCfg?.enabled || ((source.character.folder === 'anbu-kinoe' || source.character.id === 'anbu-kinoe') && skill.name === 'Wood Release: Wooden Spire Prison');
+      if (isPrisonSkill) {
+        const pAllyRed = prisonCfg?.allyReduction ?? 15;
+        const pEnemyRed = prisonCfg?.enemyReduction ?? 15;
+        const pPunish = prisonCfg?.punishmentDamage ?? 15;
+        const pDur = Math.max(1, prisonCfg?.duration ?? 2);
+        const pGeyser = prisonCfg?.geyserBoost ?? 25;
+        const pCleanse = prisonCfg?.cleanseAlly ?? true;
+        const pResetCd = prisonCfg?.resetCooldownsAlly ?? true;
         const spireTargets = resolveEffectTargets(skill.targetType || 'AnyLiving', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         spireTargets.forEach(st => {
           if (st.isDead) return;
@@ -4201,19 +4217,21 @@ const startingHealth = t.health;
           const srcIsPlayer = updatedPlayer.some(p => p.id === source.id);
           const isAlly = stIsPlayer === srcIsPlayer;
           const hasGeyser = st.activeEffects.some(e => e.stackType === 'Water Release: Geyser Spring' || (e.name || '').includes('Water Release: Geyser Spring'));
-          const dmgReduction = hasGeyser ? 25 : 15;
+          const dmgReduction = hasGeyser ? pGeyser : (isAlly ? pAllyRed : pEnemyRed);
 
           if (isAlly) {
             // 1) Remove todos os efeitos negativos
-            cleanseSpecificDebuffs(st, ['all_debuffs']);
+            if (pCleanse) cleanseSpecificDebuffs(st, ['all_debuffs']);
             // 2) Zera os cooldowns de todas as habilidades
             let cdResetCount = 0;
-            st.character.skills.forEach(sk => {
-              if (sk.currentCooldown > 0) {
-                sk.currentCooldown = 0;
-                cdResetCount++;
-              }
-            });
+            if (pResetCd) {
+              st.character.skills.forEach(sk => {
+                if (sk.currentCooldown > 0) {
+                  sk.currentCooldown = 0;
+                  cdResetCount++;
+                }
+              });
+            }
             if (cdResetCount > 0) {
               newLogs.push({
                 id: Math.random().toString(),
@@ -4223,12 +4241,12 @@ const startingHealth = t.health;
               });
               addFloatingText(st.id, `COOLDOWNS ZERADOS (${cdResetCount})`, 'heal');
             }
-            // 3) Redução de dano recebido de skills que NÃO sejam Aflição por 2 turnos
+            // 3) Redução de dano recebido de skills que NÃO sejam Aflição
             pushActiveEffect(st, {
-              name: 'Wood Spire Prison (Redução)',
+              name: `${skill.name} (Redução)`,
               type: 'damage_reduction',
               value: dmgReduction,
-              duration: 2,
+              duration: pDur,
               icon: skill.icon,
               sourceSkillName: skill.name,
               casterId: source.id,
@@ -4239,17 +4257,17 @@ const startingHealth = t.health;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🌳 [${skill.name}] de ${source.character.name}: ${st.character.name} sofrerá -${dmgReduction} de dano de habilidades NÃO-AFLIÇÃO por 2 turnos${hasGeyser ? ' (Geyser Spring intensifica para 25)' : ''}!`,
+              message: `🌳 [${skill.name}] de ${source.character.name}: ${st.character.name} sofrerá -${dmgReduction} de dano de habilidades NÃO-AFLIÇÃO por ${pDur} turno(s)${hasGeyser ? ` (Geyser Spring intensifica para ${pGeyser})` : ''}!`,
               type: 'buff',
             });
             addFloatingText(st.id, `-${dmgReduction} DANO (NÃO-AFLIÇÃO)`, 'effect');
           } else {
-            // 1) Fraqueza: habilidades que NÃO sejam Mental causam 15 a menos (25 se tiver Geyser Spring)
+            // 1) Fraqueza: habilidades que NÃO sejam Mental causam menos dano
             pushActiveEffect(st, {
-              name: 'Wood Spire Prison (Fraqueza)',
+              name: `${skill.name} (Fraqueza)`,
               type: 'damage_debuff',
               value: dmgReduction,
-              duration: 2,
+              duration: pDur,
               debuffTypes: ['skill'],
               excludeClasses: ['mental'],
               icon: skill.icon,
@@ -4258,12 +4276,12 @@ const startingHealth = t.health;
               casterSide: action.isPlayer ? 'player' : 'enemy',
               castTurn: turn,
             });
-            // 2) Punição: sofre 15 de dano por turno se não usar habilidade ofensiva (2 turnos)
+            // 2) Punição: sofre dano por turno se não usar habilidade ofensiva
             pushActiveEffect(st, {
-              name: 'Wood Spire Prison (Punição)',
+              name: `${skill.name} (Punição)`,
               type: 'custom',
-              value: 15,
-              duration: 2,
+              value: pPunish,
+              duration: pDur,
               stackType: 'WoodSpirePunish',
               icon: skill.icon,
               sourceSkillName: skill.name,
@@ -4274,7 +4292,7 @@ const startingHealth = t.health;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🌳 [${skill.name}] de ${source.character.name}: habilidades NÃO-MENTAIS de ${st.character.name} causarão -${dmgReduction} de dano e ele sofrerá 15 de dano por turno se não usar uma habilidade ofensiva, por 2 turnos${hasGeyser ? ' (Geyser Spring intensifica a redução para 25)' : ''}!`,
+              message: `🌳 [${skill.name}] de ${source.character.name}: habilidades NÃO-MENTAIS de ${st.character.name} causarão -${dmgReduction} de dano e ele sofrerá ${pPunish} de dano por turno se não usar uma habilidade ofensiva, por ${pDur} turno(s)${hasGeyser ? ` (Geyser Spring intensifica a redução para ${pGeyser})` : ''}!`,
               type: 'buff',
             });
             addFloatingText(st.id, `-${dmgReduction} DANO (NÃO-MENTAL)`, 'damage');
@@ -6599,6 +6617,7 @@ splashOnlyTargets = splashPool.filter(c =>
             duration: skill.counterAttackDuration || 1,
             counterAttackType: skill.counterAttackType || 'defender',
             counterAttackMode: cMode,
+            counterAttackClasses: skill.counterAttackClasses,
             icon: skill.icon,
             irremovable: !!skill.counterAttackIrremovable,
             cannotBeCountered: !!skill.counterAttackCannotBeCountered,
@@ -6832,6 +6851,246 @@ splashOnlyTargets = splashPool.filter(c =>
               message: `⚡⚡ [COMBO ${count}x] ${source.character.name} ativou os efeitos de combo de [${skill.name}]: ${comboEffects.join(' + ')}!`,
               type: 'buff',
             });
+          }
+        }
+      }
+
+      // 🔁 Skill em Mim com Stack (selfCastStackRules): se X stacks OU a skill estiver ativa no conjurador, aplica uma das próprias skills em si mesmo
+      if (skill.selfCastStackRules && skill.selfCastStackRules.length > 0) {
+        const selfApplicable = skill.selfCastStackRules
+          .filter(r => r.skillName && (r.requiredStacks || 0) > 0)
+          .map(r => {
+            const matchKey = (r.stackType || skill.stackType || r.skillName || skill.name || '').trim();
+            const stackCount = source.activeEffects
+              .filter(e => e.stackType && e.stackType === matchKey)
+              .reduce((acc, e) => acc + (e.stacks || 1), 0);
+            const skillActive = matchKey !== '' && source.activeEffects.some(e =>
+              (e.sourceSkillName && e.sourceSkillName.toLowerCase() === matchKey.toLowerCase()) ||
+              (e.stackType && e.stackType.toLowerCase() === matchKey.toLowerCase()) ||
+              (e.name && e.name.toLowerCase().includes(matchKey.toLowerCase()))
+            );
+            const activeSkillName = (r.activeSkillName || '').trim();
+            const activeSkillActive = activeSkillName !== '' && source.activeEffects.some(e =>
+              (e.sourceSkillName && e.sourceSkillName.toLowerCase() === activeSkillName.toLowerCase()) ||
+              (e.name && e.name.toLowerCase().includes(activeSkillName.toLowerCase()))
+            );
+            return { rule: r, count: stackCount, skillActive, activeSkillActive };
+          })
+          .filter(x => x.count >= x.rule.requiredStacks || x.skillActive || x.activeSkillActive)
+          .sort((a, b) => b.rule.requiredStacks - a.rule.requiredStacks);
+        if (selfApplicable.length > 0) {
+          const { rule } = selfApplicable[0];
+          const selfSkill = source.character.skills.find(s => s.name.trim().toLowerCase() === (rule.skillName || '').trim().toLowerCase());
+          if (selfSkill) {
+            const selfTarget = source;
+            const silent = rule.invisible === true;
+            const selfFloating = (text: string, type: FloatingText['type']) => {
+              if (!silent) addFloatingText(selfTarget.id, text, type);
+            };
+            let selfDmg = (selfSkill.damage || 0) + (selfSkill.directDamage || 0);
+            if (selfDmg > 0) {
+              if (!checkCombatantInvulnerable(selfTarget, selfSkill) && !hasDamageImmunity(selfTarget, ['damage'])) {
+                let remaining = selfDmg;
+                if ((selfTarget.shield || 0) > 0) {
+                  const absorbed = Math.min(selfTarget.shield || 0, remaining);
+                  selfTarget.shield = (selfTarget.shield || 0) - absorbed;
+                  remaining -= absorbed;
+                  if (absorbed > 0) selfFloating(`-${absorbed} ESCUDO`, 'shield');
+                }
+                if (remaining > 0) {
+                  selfTarget.health = Math.max(0, selfTarget.health - remaining);
+                  selfFloating(`-${remaining} HP`, 'damage');
+                }
+              }
+            }
+            if ((selfSkill.heal || 0) > 0) {
+              const maxHp = selfTarget.maxHealth || selfTarget.health;
+              const heal = Math.min(selfSkill.heal || 0, Math.max(0, maxHp - selfTarget.health));
+              selfTarget.health = Math.min(maxHp, selfTarget.health + heal);
+              selfFloating(`+${heal} HP`, 'heal');
+            }
+            if ((selfSkill.shieldVal || 0) > 0) {
+              pushActiveEffect(selfTarget, {
+                name: `${selfSkill.name} (Auto)`,
+                type: 'shield',
+                value: selfSkill.shieldVal,
+                duration: selfSkill.shieldDuration || 3,
+                icon: selfSkill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              selfFloating(`+${selfSkill.shieldVal} ESCUDO`, 'shield');
+            }
+            if ((selfSkill.damageBuffVal || 0) > 0) {
+              pushActiveEffect(selfTarget, {
+                name: `${selfSkill.name} Power (Auto)`,
+                type: 'damage_buff',
+                value: selfSkill.damageBuffVal,
+                duration: selfSkill.damageBuffDuration || 3,
+                buffTypes: selfSkill.damageBuffTypes,
+                icon: selfSkill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              selfFloating(`+${selfSkill.damageBuffVal} DANO`, 'effect');
+            }
+            if ((selfSkill.damageReductionVal || 0) > 0) {
+              pushActiveEffect(selfTarget, {
+                name: `${selfSkill.name} Guard (Auto)`,
+                type: 'damage_reduction',
+                value: selfSkill.damageReductionVal,
+                duration: selfSkill.damageReductionDuration || 3,
+                icon: selfSkill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              selfFloating(`-${selfSkill.damageReductionVal} DANO`, 'effect');
+            }
+            if ((selfSkill.dotVal || 0) > 0) {
+              pushActiveEffect(selfTarget, {
+                name: `${selfSkill.name} Burn (Auto)`,
+                type: 'dot',
+                value: selfSkill.dotVal,
+                duration: selfSkill.dotDuration || 3,
+                icon: selfSkill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              selfFloating(`DOT +${selfSkill.dotVal}`, 'damage');
+            }
+            if ((selfSkill.bleedingVal || 0) > 0) {
+              pushActiveEffect(selfTarget, {
+                name: `${selfSkill.name} Bleed (Auto)`,
+                type: 'bleeding',
+                value: selfSkill.bleedingVal,
+                duration: selfSkill.bleedingDuration || 3,
+                icon: selfSkill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              selfFloating(`SANGRAMENTO +${selfSkill.bleedingVal}`, 'damage');
+            }
+            if ((selfSkill.afflictionVal || 0) > 0) {
+              pushActiveEffect(selfTarget, {
+                name: `${selfSkill.name} Aflição (Auto)`,
+                type: 'affliction',
+                value: selfSkill.afflictionVal,
+                duration: selfSkill.afflictionDuration || 3,
+                icon: selfSkill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              selfFloating(`AFLIÇÃO +${selfSkill.afflictionVal}`, 'damage');
+            }
+            if (selfSkill.cleanseDebuffs || (selfSkill.cleanseDebuffTypes && selfSkill.cleanseDebuffTypes.length > 0)) {
+              cleanseSpecificDebuffs(selfTarget, selfSkill.cleanseDebuffTypes || ['all_debuffs']);
+              selfFloating('DEBUFFS REMOVIDOS', 'heal');
+            }
+            if ((selfSkill.gainChakra || 0) > 0) {
+              const dur = selfSkill.gainChakraDuration || 1;
+              if (dur > 1) {
+                pushActiveEffect(selfTarget, {
+                  name: `Fluxo de Chakra (${selfSkill.name})`,
+                  type: 'custom',
+                  value: selfSkill.gainChakra,
+                  duration: dur,
+                  icon: selfSkill.icon,
+                  irremovable: !!selfSkill.gainChakraIrremovable,
+                  gainChakraTypes: selfSkill.gainChakraTypes || [],
+                  casterId: source.id,
+                  casterSide: action.isPlayer ? 'player' : 'enemy',
+                });
+                selfFloating('+CHAKRA CONTÍNUO', 'effect');
+              } else {
+                const selfIsPlayer = updatedPlayer.some(p => p.id === selfTarget.id);
+                const selfPool = selfIsPlayer ? localPlayerChakra : localEnemyChakra;
+                for (let i = 0; i < (selfSkill.gainChakra || 0); i++) {
+                  const randType = pickChakraGainType(selfPool, selfSkill.gainChakraTypes);
+                  selfPool[randType] = (selfPool[randType] || 0) + 1;
+                }
+                selfFloating(`+${selfSkill.gainChakra} CHAKRA`, 'effect');
+              }
+            }
+            if ((selfSkill.invisibleDuration || 0) > 0) {
+              pushActiveEffect(selfTarget, {
+                name: `${selfSkill.name} (Auto)`,
+                type: 'invisible',
+                duration: selfSkill.invisibleDuration,
+                icon: selfSkill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              selfFloating('INVISÍVEL', 'effect');
+            }
+            if ((selfSkill.stunTurns || 0) > 0) {
+              pushActiveEffect(selfTarget, {
+                name: `${selfSkill.name} Stun (Auto)`,
+                type: 'stun',
+                duration: selfSkill.stunTurns,
+                stunType: (selfSkill.stunType && selfSkill.stunType.length > 0 ? selfSkill.stunType : ['physical', 'mental', 'affliction', 'chakra']),
+                icon: selfSkill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              selfFloating(`STUN ${selfSkill.stunTurns}`, 'stun');
+            }
+            if (selfSkill.counterAttack) {
+              const cMode = selfSkill.counterAttackMode || 'first';
+              pushActiveEffect(selfTarget, {
+                name: `${selfSkill.name} Contra-Ataque`,
+                sourceSkillName: selfSkill.name,
+                type: 'counter_attack',
+                duration: selfSkill.counterAttackDuration || 1,
+                counterAttackType: selfSkill.counterAttackType || 'defender',
+                counterAttackMode: cMode,
+                counterAttackClasses: selfSkill.counterAttackClasses,
+                icon: selfSkill.icon,
+                irremovable: !!selfSkill.counterAttackIrremovable,
+                cannotBeCountered: !!selfSkill.counterAttackCannotBeCountered,
+                cannotBeReflected: !!selfSkill.counterAttackCannotBeReflected,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              selfFloating('CONTRA-ATAQUE', 'effect');
+            }
+            if (selfSkill.reflect) {
+              pushActiveEffect(selfTarget, {
+                name: `${selfSkill.name} Reflect`,
+                sourceSkillName: selfSkill.name,
+                type: 'reflect',
+                duration: selfSkill.reflectDuration || 2,
+                reflectType: selfSkill.reflectType || 'active',
+                reflectCharges: selfSkill.reflectType === 'passive' ? (selfSkill.reflectCharges || 1) : undefined,
+                icon: selfSkill.icon,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                castTurn: turn,
+              });
+              selfFloating('REFLETIR', 'effect');
+            }
+            if (!silent) {
+              const matchKey = (rule.stackType || skill.stackType || rule.skillName || skill.name || '');
+              const triggerDesc = selfApplicable[0].count >= rule.requiredStacks
+                ? `stacks de [${matchKey}] ${selfApplicable[0].count}x`
+                : (selfApplicable[0].activeSkillActive
+                    ? `skill ativa [${(rule.activeSkillName || '').trim() || matchKey}]`
+                    : `skill ativa [${matchKey}]`);
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🔁 [${skill.name}] de ${source.character.name} aplicou [${selfSkill.name}] em si mesmo (${triggerDesc})!`,
+                type: 'buff',
+              });
+            }
           }
         }
       }
@@ -13093,7 +13352,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (skill.counterAttack) {
       effects.push({
         label: 'Contra-Ataque (Anular)',
-        value: `${skill.counterAttackMode === 'all' ? 'Anula TODAS as habilidades' : 'Anula somente a 1ª habilidade'} ${skill.counterAttackType === 'attacker' ? 'ofensivas usadas pelo alvo' : 'recebidas pelo alvo'} por ${fmtDur(skill.counterAttackDuration)}`,
+        value: `${skill.counterAttackMode === 'all' ? 'Anula TODAS as habilidades' : 'Anula somente a 1ª habilidade'} ${skill.counterAttackType === 'attacker' ? 'ofensivas usadas pelo alvo' : 'recebidas pelo alvo'} por ${fmtDur(skill.counterAttackDuration)}${skill.counterAttackClasses && skill.counterAttackClasses.length > 0 ? ` (apenas classes: ${skill.counterAttackClasses.join(', ')})` : ''}`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.counterAttackTarget, 'Conjurador (Mim)')
       });

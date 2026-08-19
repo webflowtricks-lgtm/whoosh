@@ -77,6 +77,38 @@ export interface SkillStackUseEffectRule {
   onwards?: boolean;
 }
 
+export interface SkillSelfCastStackRule {
+  /** StackType a checar NO CONJURADOR (vazio = usa o stackType da própria skill ou o nome dela) */
+  stackType?: string;
+  /** Quantidade mínima de stacks que o conjurador precisa ter para disparar */
+  requiredStacks?: number;
+  /** Nome de uma skill do PRÓPRIO personagem que, se estiver ATIVA no conjurador, dispara a regra (independente de stacks) */
+  activeSkillName?: string;
+  /** Nome de uma skill do PRÓPRIO personagem que será aplicada/usada em si mesmo */
+  skillName?: string;
+  /** Se true, a skill é aplicada SEM log/floating text (invisível para o oponente) */
+  invisible?: boolean;
+}
+
+export interface SkillPrisonRule {
+  /** Ativa a regra "Prisão de Madeira" (Wood Spire Prison) nesta skill */
+  enabled?: boolean;
+  /** Aliado: redução de dano recebido de skills NÃO-Aflição (padrão 15) */
+  allyReduction?: number;
+  /** Inimigo: redução de dano causado por skills NÃO-Mentais (padrão 15) */
+  enemyReduction?: number;
+  /** Inimigo: dano por turno se não usar habilidade ofensiva (padrão 15) */
+  punishmentDamage?: number;
+  /** Duração em turnos dos efeitos (padrão 2) */
+  duration?: number;
+  /** Valor da redução quando o alvo tem Geyser Spring (padrão 25) */
+  geyserBoost?: number;
+  /** Aliado: limpar todos os debuffs (padrão true) */
+  cleanseAlly?: boolean;
+  /** Aliado: zerar cooldowns de todas as skills (padrão true) */
+  resetCooldownsAlly?: boolean;
+}
+
 export interface SkillChakraRemoveRule {
   activeSkillName: string; // Active skill/effect required on any combatant
   removeAmount: number; // Quantity of chakra to remove from enemy stock when condition is active
@@ -235,6 +267,12 @@ export interface Skill {
   onSkillUseDamageRules?: SkillOnSkillUseDamageRule[];
   /** Combo por stacks: ao usar a skill com X stacks do conjurador, aplica os efeitos da regra (stun, remover chakra...) */
   stackUseEffectRules?: SkillStackUseEffectRule[];
+  /** Skill em Mim com Stack: se X stack estiver no conjurador, ao usar esta skill uma das próprias skills
+   * do personagem é aplicada/usada em si mesmo (opcionalmente de forma invisível para o oponente) */
+  selfCastStackRules?: SkillSelfCastStackRule[];
+  /** Regra "Prisão de Madeira" (Wood Spire Prison): aliado recebe limpeza + redução de dano não-Aflição;
+   * inimigo sofre fraqueza não-Mental + punição por turno se não usar skill ofensiva */
+  prisonRule?: SkillPrisonRule;
   /** Contagem regressiva (bomba): ao usar a skill no alvo, ele recebe um timer de X turnos; quando o tempo acabar, recebe o dano configurado */
   countdownDamageRules?: SkillCountdownDamageRule[];
   chakraRemoveRules?: SkillChakraRemoveRule[];
@@ -528,7 +566,9 @@ counterAttack?: boolean;
   counterAttackDuration?: number;
   counterAttackType?: 'attacker' | 'defender';
   counterAttackMode?: 'first' | 'all';
-counterAttackTarget?: TargetOverride;
+  /** Anular apenas skills destas classes (vazio = anula qualquer skill). Ex.: ['Físico', 'Chakra'] */
+  counterAttackClasses?: string[];
+  counterAttackTarget?: TargetOverride;
 
 counterAttackIrremovable?: boolean;
 counterAttackCannotBeCountered?: boolean;
@@ -769,6 +809,8 @@ export interface ActiveEffect {
   blocksOffensiveSkills?: boolean; // Se verdadeiro, impede o alvo de usar skills ofensivas
 counterAttackType?: 'attacker' | 'defender';
   counterAttackMode?: 'first' | 'all';
+  /** Anular apenas skills destas classes (vazio = anula qualquer skill) */
+  counterAttackClasses?: string[];
   castTurn?: number;
   /** Quantidade de stacks acumuladas */
   stacks?: number;
