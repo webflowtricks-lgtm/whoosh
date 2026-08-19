@@ -2354,7 +2354,7 @@ const newSkill: Skill = {
                         </label>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <div>
                           <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Recarga (Cooldown)</label>
                           <input
@@ -2363,6 +2363,22 @@ const newSkill: Skill = {
                             max={10}
                             value={editingSkill.cooldown}
                             onChange={(e) => handleUpdateSkillField('cooldown', parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono" title="Total de vezes que esta skill pode ser usada com sucesso. Vazio = ilimitado. Refletida ainda conta; anulada por contra-ataque NÃO conta.">Máx. de Usos</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={99}
+                            placeholder="∞"
+                            value={editingSkill.maxUses ?? ''}
+                            onChange={(e) => {
+                              const v = e.target.value.trim();
+                              handleUpdateSkillField('maxUses', v === '' ? undefined : Math.max(1, parseInt(v) || 1));
+                            }}
                             className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
                           />
                         </div>
@@ -2384,6 +2400,11 @@ const newSkill: Skill = {
                           </select>
                         </div>
                       </div>
+                      {(editingSkill.maxUses ?? 0) > 0 && (
+                        <p className="md:col-span-2 text-[9px] text-orange-300/80 font-mono bg-orange-950/20 border border-orange-900/40 p-1.5 rounded-lg -mt-1">
+                          🔢 Esta skill pode ser usada <span className="font-bold text-white">{editingSkill.maxUses}x</span> com sucesso. Após atingir o limite, fica bloqueada permanentemente. <span className="text-slate-400">Refletida ainda conta como uso; anulada por contra-ataque NÃO conta.</span>
+                        </p>
+                      )}
 
                       <div className="md:col-span-2 flex flex-col space-y-1.5 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">
                         <label className="flex items-center gap-2 text-[10px] text-slate-300">
@@ -7522,6 +7543,25 @@ const newSkill: Skill = {
                                   ))}
                                 </select>
                               </div>
+                              {editingSkill.afflictionTarget === 'Both' && (
+                                <div className="flex items-center gap-1.5 mt-1.5 bg-purple-950/30 border border-purple-800/40 p-1.5 rounded-lg">
+                                  <span className="text-[9px] text-purple-300 font-mono uppercase font-bold">💜 Eu recebo:</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    value={editingSkill.afflictionSelfVal ?? ''}
+                                    placeholder={String(editingSkill.afflictionVal || 0)}
+                                    onChange={(e) => {
+                                      const v = e.target.value.trim();
+                                      handleUpdateSkillField('afflictionSelfVal', v === '' ? undefined : Math.max(0, parseInt(v) || 0));
+                                    }}
+                                    className="w-12 px-1.5 py-1 bg-slate-900 border border-purple-700/60 rounded text-center text-xs font-mono text-purple-400 font-bold"
+                                    title="Quanto de aflição por turno o CONJURADOR (você) irá receber. Vazio = mesmo valor do alvo."
+                                  />
+                                  <span className="text-[9px] text-purple-400/80 font-mono">de aflição por turno (vazio = igual ao alvo)</span>
+                                </div>
+                              )}
                             </div>
                             <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
                               <div className="flex items-center justify-between gap-2">

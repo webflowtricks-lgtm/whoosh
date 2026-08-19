@@ -2065,6 +2065,12 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       return;
     }
 
+    // 🔢 Limite de usos: se já atingiu o total de usos bem-sucedidos, fica bloqueada
+    if ((skill.maxUses || 0) > 0 && (combatant.skillUseCounts?.[skill.name] || 0) >= skill.maxUses!) {
+      addFloatingText(charId, 'LIMITE DE USOS ATINGIDO!', 'stun');
+      return;
+    }
+
     const effectiveCd = getEffectiveCooldown(skill, combatant, [...playerCombatants, ...enemyCombatants]);
     if (skill.currentCooldown > 0 && effectiveCd > 0) return;
 
@@ -2450,6 +2456,12 @@ const handleTradeChakra = () => {
     const skillInvisible = execSkill?.invisible || (execSkill?.invisibleDuration !== undefined && execSkill?.invisibleDuration > 0);
     const sourceName = effect.sourceSkillName || execSkill?.name || skill?.name || effect.name;
     const effectiveStackType = stackType || (isStackable ? sourceName : undefined);
+    // ♾️ Permanente: se a skill que originou o efeito for permanente, o efeito NÃO pode ser removido
+    // por nenhuma skill (nem cleanse de aflição/etc). Só sai pela morte do conjurador quando
+    // removedOnCasterDeath estiver marcado (tratado em processDeathEvents, que ignora irremovable).
+    const originSkill = execSkill || skill;
+    const isPermanentEffect = !!originSkill?.permanent;
+    const effIrremovable = effect.irremovable || isPermanentEffect;
 
     // Reflect by Stack: attach the reflection marker whenever a stack from a skill
     // with reflectByStackRules is applied (covers stun-section stacks via pushActiveEffect).
@@ -2496,6 +2508,7 @@ const handleTradeChakra = () => {
       stackApplyOnAttackDuration: applyOnAttackDuration,
       icon: effect.icon || execSkill?.icon || skill?.icon,
       sourceSkillName: sourceName,
+      irremovable: effIrremovable,
       isInvisible: effect.isInvisible !== undefined ? effect.isInvisible : (skillInvisible || effect.type === 'invisible'),
       casterSide: effect.casterSide || (effect.casterId ? (effect.casterId.startsWith('player') ? 'player' : 'enemy') : (character.id.startsWith('player') ? 'player' : 'enemy')),
       castTurn: effect.castTurn ?? turn,
@@ -3201,6 +3214,21 @@ const handleTradeChakra = () => {
         return;
       }
 
+      // 🔢 Limite de usos (maxUses): se a skill já atingiu o total de usos bem-sucedidos, fica bloqueada.
+      if ((skill.maxUses || 0) > 0) {
+        const usedCount = source.skillUseCounts?.[skill.name] || 0;
+        if (usedCount >= skill.maxUses!) {
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🔒 ${source.character.name} tentou usar [${skill.name}], mas ela já atingiu o limite de ${skill.maxUses} uso(s)!`,
+            type: 'system',
+          });
+          addFloatingText(source.id, 'LIMITE DE USOS ATINGIDO!', 'stun');
+          return;
+        }
+      }
+
       // Track skill usage for requirePreviousSkill
       if (!currentTurnUsedSkills.current[source.id]) currentTurnUsedSkills.current[source.id] = new Set();
       currentTurnUsedSkills.current[source.id].add(skill.name);
@@ -3593,6 +3621,22 @@ const handleTradeChakra = () => {
 
       let target = defaultTarget;
       let isReflected = false;
+
+      // 🔢 Limite de usos (maxUses): a skill passou pelas checagens de contra-ataque (não foi anulada),
+      // então conta como uso bem-sucedido. Reflexão NÃO impede a contagem (ainda conta).
+      if ((skill.maxUses || 0) > 0) {
+        if (!source.skillUseCounts) source.skillUseCounts = {};
+        source.skillUseCounts[skill.name] = (source.skillUseCounts[skill.name] || 0) + 1;
+        const remaining = Math.max(0, skill.maxUses! - source.skillUseCounts[skill.name]);
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: remaining > 0
+            ? `🔢 [${skill.name}] usada por ${source.character.name} (${source.skillUseCounts[skill.name]}/${skill.maxUses}). Restam ${remaining} uso(s).`
+            : `🔒 [${skill.name}] atingiu o limite de ${skill.maxUses} uso(s) e ficará BLOQUEADA para ${source.character.name}!`,
+          type: 'system',
+        });
+      }
 
       // Reflect by Stack (NEW RULE): when the DEFENDER has a stack-reflection config
       // AND the DEFENDER has the required stack, the attacker's offensive skill is redirected
@@ -6287,6 +6331,11 @@ splashOnlyTargets = splashPool.filter(c =>
         const afflictionTargets = resolveEffectTargets(skill.afflictionTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         afflictionTargets.forEach(t => {
           if (t.isDead) return;
+          // 💜 Mim e o Alvo (Both): o conjurador pode receber uma quantidade DIFERENTE de aflição (afflictionSelfVal).
+          const isSelfAffl = skill.afflictionTarget === 'Both' && t.id === source.id;
+          const afflVal = isSelfAffl && skill.afflictionSelfVal !== undefined ? skill.afflictionSelfVal : totalAfflictionVal;
+          if (afflVal <= 0) return;
+          const afflInstant = afflVal + afflCastBuff;
           const rawDuration = skill.afflictionDuration !== undefined && skill.afflictionDuration > 0 ? skill.afflictionDuration : 1;
           const afflDelay = Math.max(0, skill.afflictionDelay || 0);
 
@@ -6296,7 +6345,7 @@ splashOnlyTargets = splashPool.filter(c =>
             pushActiveEffect(t, {
               name: `${skill.name} Affliction`,
               type: 'affliction',
-              value: totalAfflictionVal,
+              value: afflVal,
               duration: rawDuration,
               delayTurns: afflDelay,
               icon: skill.icon,
@@ -6309,7 +6358,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⏳ ${t.character.name} sofrerá ${totalAfflictionVal} de dano por aflição de [${skill.name}] em ${afflDelay} ${afflDelay === 1 ? 'turno' : 'turnos'}, durante ${rawDuration} ${rawDuration === 1 ? 'turno' : 'turnos'}!`,
+              message: `⏳ ${t.character.name} sofrerá ${afflVal} de dano por aflição de [${skill.name}] em ${afflDelay} ${afflDelay === 1 ? 'turno' : 'turnos'}, durante ${rawDuration} ${rawDuration === 1 ? 'turno' : 'turnos'}!`,
               type: 'damage',
             });
             addFloatingText(t.id, `AFLIÇÃO EM ${afflDelay} TURNOS`, 'effect');
@@ -6329,9 +6378,9 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           } else {
             const startingHealth = t.health;
-            const convertedAffl = convertDamageToShield(t, afflInstantDmg, turn, ['affliction']);
+            const convertedAffl = convertDamageToShield(t, afflInstant, turn, ['affliction']);
             if (!convertedAffl) {
-              t.health = Math.max(0, t.health - afflInstantDmg);
+              t.health = Math.max(0, t.health - afflInstant);
             }
             const healthReduced = startingHealth - t.health;
             if (healthReduced > 0) {
@@ -6368,18 +6417,18 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️✨ ${t.character.name} converteu ${afflInstantDmg} de aflição instantânea de [${skill.name}] em escudo!`,
+                message: `🛡️✨ ${t.character.name} converteu ${afflInstant} de aflição instantânea de [${skill.name}] em escudo!`,
                 type: 'buff',
               });
-              addFloatingText(t.id, `+${afflInstantDmg} ESCUDO (AFLIÇÃO)`, 'shield');
+              addFloatingText(t.id, `+${afflInstant} ESCUDO (AFLIÇÃO)`, 'shield');
             } else {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `💀 ${t.character.name} sofreu ${afflInstantDmg} de dano por aflição de [${skill.name}]!`,
+                message: `💀 ${t.character.name} sofreu ${afflInstant} de dano por aflição de [${skill.name}]!`,
                 type: 'damage',
               });
-              addFloatingText(t.id, `AFLIÇÃO (-${afflInstantDmg} HP)`, 'damage');
+              addFloatingText(t.id, `AFLIÇÃO (-${afflInstant} HP)`, 'damage');
             }
           }
 
@@ -6389,7 +6438,7 @@ splashOnlyTargets = splashPool.filter(c =>
             pushActiveEffect(t, {
               name: `${skill.name} Affliction`,
               type: 'affliction',
-              value: totalAfflictionVal,
+              value: afflVal,
               duration: remainingDuration,
               icon: skill.icon,
               irremovable: !!skill.afflictionIrremovable,
@@ -7880,6 +7929,9 @@ splashOnlyTargets = splashPool.filter(c =>
         // Apply Affliction (Aflição)
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
+          // Não aplicar o tick no MESMO turno em que a aflição foi lançada:
+          // o dano instantâneo do cast já foi aplicado, evitando o dobro (ex.: 40 + 40 = 80).
+          if (aff.castTurn === turn) return;
           if ((aff.delayTurns || 0) > 0) {
             aff.delayTurns = (aff.delayTurns || 0) - 1;
             return;
@@ -14630,6 +14682,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                             const isPrevSkillLocked = skill.requirePreviousSkill ? !(prevSkillsUsed && prevSkillsUsed.has(skill.requirePreviousSkill)) : false;
                             const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
                             const isDelayedUnlockLocked = isSkillBlockedByDelayedUnlock(skill, combatant.activeEffects);
+                            const isMaxUsesLocked = (skill.maxUses || 0) > 0 && (combatant.skillUseCounts?.[skill.name] || 0) >= skill.maxUses!;
 
                             return (
                               <div
@@ -14706,6 +14759,17 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                        <img
                                          src="/static/img/icon/selo.svg"
                                          alt="Bloqueada"
+                                         className="selo-lock-anim w-3/4 h-3/4 object-contain"
+                                       />
+                                     </div>
+                                   )}
+
+                                   {/* Max Uses Locked Overlay (selo) */}
+                                   {isMaxUsesLocked && !isCooldown && !isStunBlocked && !isDelayedUnlockLocked && (
+                                     <div className="absolute inset-0 bg-slate-950/45 flex items-center justify-center z-10">
+                                       <img
+                                         src="/static/img/icon/selo.svg"
+                                         alt="Limite de usos atingido"
                                          className="selo-lock-anim w-3/4 h-3/4 object-contain"
                                        />
                                      </div>
@@ -15768,6 +15832,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                             const isPrevSkillLocked = skill.requirePreviousSkill ? !(prevSkillsUsed && prevSkillsUsed.has(skill.requirePreviousSkill)) : false;
                             const isStunBlocked = isSkillBlockedByStun(skill, combatant.activeEffects);
                             const isDelayedUnlockLocked = isSkillBlockedByDelayedUnlock(skill, combatant.activeEffects);
+                            const isMaxUsesLocked = (skill.maxUses || 0) > 0 && (combatant.skillUseCounts?.[skill.name] || 0) >= skill.maxUses!;
 
                             if (isSandbox) {
                               return (
@@ -15841,6 +15906,17 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                         <img
                                           src="/static/img/icon/selo.svg"
                                           alt="Bloqueada"
+                                          className="selo-lock-anim w-3/4 h-3/4 object-contain"
+                                        />
+                                      </div>
+                                    )}
+
+                                    {/* Max Uses Locked Overlay (selo) */}
+                                    {isMaxUsesLocked && !isCooldown && !isStunBlocked && !isDelayedUnlockLocked && (
+                                      <div className="absolute inset-0 bg-slate-950/45 flex items-center justify-center z-10">
+                                        <img
+                                          src="/static/img/icon/selo.svg"
+                                          alt="Limite de usos atingido"
                                           className="selo-lock-anim w-3/4 h-3/4 object-contain"
                                         />
                                       </div>

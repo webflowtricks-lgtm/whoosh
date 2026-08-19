@@ -402,6 +402,9 @@ export interface Skill {
   invisible?: boolean;
   invisibleDuration?: number;
   ignoreInvulnerable?: boolean;
+  /** Total de vezes que esta skill pode ser usada com sucesso. Refletida ainda conta como uso;
+   * anulada por contra-ataque NÃO conta. Vazio/undefined = ilimitado. Ao atingir o limite, fica bloqueada. */
+  maxUses?: number;
   removedOnTargetSkillUse?: boolean; // Remove os efeitos desta skill do alvo quando ele usar uma habilidade (mesmo que infinita)
   removedOnCasterDeath?: boolean; // Remove os efeitos desta skill dos alvos quando o conjurador morrer
   /** 🔓 Liberação atrasada de skills: enquanto este efeito durar (delayedUnlockDuration turnos), as skills
@@ -429,6 +432,8 @@ export interface Skill {
   afflictionDuration?: number;
   afflictionInstant?: number;
   afflictionDelay?: number; // Turnos de atraso antes da aflição começar a causar dano (não causa agora)
+  /** Quando afflictionTarget = 'Both' (Mim e Alvo), quanto de aflição por turno o CONJURADOR recebe (padrão = afflictionVal) */
+  afflictionSelfVal?: number;
   // Roubo de Vida (Vampirismo): rouba vida do alvo por turno; o conjurador recupera o dano causado (Dano Normal: sofre redução e escudo)
   stealLifeVal?: number;
   stealLifeDuration?: number;
@@ -902,6 +907,8 @@ export interface CombatCharacter {
   isDead: boolean;
   hasRevived?: boolean; // Se o personagem já ressuscitou nesta partida (reviveOnDeath)
   lastTurnStatus?: 'ANULADO' | 'REFLETIDO' | 'CONTRA-ATAQUE' | null;
+  /** Contagem de usos BEM-SUCEDIDOS por nome de skill (para o limite maxUses). Anulado por contra-ataque não incrementa. */
+  skillUseCounts?: Record<string, number>;
 }
 
 export interface CombatLog {
