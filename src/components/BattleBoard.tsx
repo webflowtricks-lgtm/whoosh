@@ -294,6 +294,11 @@ export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Ski
       // If skill has Friendly class, target MUST be protected against Friendly
       if (isFriendly && !types.includes('friendly')) return false;
 
+      // Se a skill TEM classes reconhecidas (físico/mental/chakra/etc.) e passou pelos
+      // checks de proteção acima, ela JÁ ESTÁ protegida — não deixar os checks de campos
+      // específicos (directDamage/dot/bleeding) anularem a proteção por classe.
+      if (isPhysical || isMental || isChakra || isRanged || isAffliction || isFriendly) return true;
+
       // Check specific damage/effect fields if skill has no primary class tags or passed all class checks
       if (skill.directDamage && skill.directDamage > 0) {
         if (!types.includes('direct_damage') && !types.includes('damage') && !types.includes('all')) return false;
@@ -3339,6 +3344,48 @@ const handleTradeChakra = () => {
             addFloatingText(defaultTarget.id, `STUN (${stunLabel})`, 'stun');
             if (action.isPlayer) matchStatsRef.current.stunsApplied += 1;
           }
+        }
+      }
+
+      // Conditional shield rules (shieldWhenActiveRules): if the condition skill is active (on me or on the target),
+      // this skill grants shield to me (or to my whole team)
+      if (skill.shieldWhenActiveRules && skill.shieldWhenActiveRules.length > 0) {
+        for (const rule of skill.shieldWhenActiveRules) {
+          if (!rule.activeSkillName) continue;
+          const condMet = rule.activeOn === 'self'
+            ? hasEffectWithName(source, rule.activeSkillName)
+            : (defaultTarget ? hasEffectWithName(defaultTarget, rule.activeSkillName) : false);
+          if (!condMet) continue;
+          const shieldAmount = Math.max(0, rule.shieldVal || 0);
+          if (shieldAmount <= 0) continue;
+          // Duração: vazio/0/99999 = PERMANENTE (fica até ser destruído); número = expira após X turnos
+          const shieldDur = rule.shieldDuration && rule.shieldDuration > 0 && rule.shieldDuration < 99999 ? rule.shieldDuration : undefined;
+          const shieldRecipients = rule.shieldTarget === 'team'
+            ? (action.isPlayer ? updatedPlayer : updatedEnemy).filter(c => !c.isDead)
+            : [source];
+          shieldRecipients.forEach(rc => {
+            const prevShield = rc.shield || 0;
+            rc.shield = prevShield + shieldAmount;
+            if (shieldDur) {
+              rc.shieldExpiresTurn = Math.max(rc.shieldExpiresTurn || 0, turn + shieldDur);
+            }
+            const actualAdded = rc.shield - prevShield;
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🛡️ [ESCUDO CONDICIONAL] ${rc.character.name} ganhou +${actualAdded} de escudo com [${skill.name}]${shieldDur < 99999 ? ` por ${shieldDur} turnos` : ''} porque [${rule.activeSkillName}] está ativo ${rule.activeOn === 'self' ? 'em mim' : 'no alvo'}!`,
+              type: 'buff',
+            });
+            addFloatingText(rc.id, `ESCUDO +${actualAdded}`, 'shield');
+            if (action.isPlayer) {
+              matchStatsRef.current.shieldGenerated += actualAdded;
+              matchStatsRef.current.shieldGeneratedRecords.push({
+                charName: source.character.name,
+                tags: source.character.tags || [],
+                skillName: skill.name,
+                amount: actualAdded
+              });
+            }
+          });
         }
       }
 
@@ -8006,41 +8053,6 @@ splashOnlyTargets = splashPool.filter(c =>
           }
         }
 
-        // Apply dynamic Normal Damage over time (damage) - blocked if invulnerable
-        const activeDamageEffects = c.activeEffects.filter(e => e.type === 'damage' && e.castTurn !== turn);
-        activeDamageEffects.forEach(dmg => {
-          const isInvulnerable = isBlockedByInvuln(dmg, 'damage') || hasDamageImmunity(c, ['damage']);
-          if (isInvulnerable) {
-            consumeFirstHitOnlyImmunity(c);
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🛡️ ${c.character.name} é IMUNE A DANO e não sofreu dano contínuo de ${dmg.name}.`,
-              type: 'buff',
-            });
-            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
-          } else {
-            const targetCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(c);
-            const dmgSkill = getEffectSkill(dmg);
-            const targetReductions = targetCannotReduce ? [] : getEffectiveTargetReductions(c, dmgSkill);
-            const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
-            const netDmg = Math.max(0, (dmg.value || 0) - reductionSum);
-            if (convertDamageToShield(c, netDmg, turn, ['damage'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${netDmg} de dano contínuo de ${dmg.name} em escudo!`, type: 'buff' });
-              addFloatingText(c.id, `+${netDmg} ESCUDO (DANO)`, 'shield');
-            } else {
-              c.health = Math.max(0, c.health - netDmg);
-              newLogs.push({
-                id: Math.random().toString(),
-                turn,
-                message: `💥 ${c.character.name} sofreu ${netDmg} de dano contínuo por ${dmg.name}.`,
-                type: 'damage',
-              });
-              addFloatingText(c.id, `-${netDmg} HP (DANO)`, 'damage');
-            }
-          }
-        });
-
         // Apply dynamic Direct Damage over time (direct_damage)
         const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
         activeDirectDamageEffects.forEach(dd => {
@@ -8698,6 +8710,88 @@ splashOnlyTargets = splashPool.filter(c =>
     }
   };
 
+  // Tick de Dano Contínuo (type 'damage' — dano normal com duração) no fim do turno do CONJURADOR:
+  // quando o jogador passa o turno, os danos contínuos causados por ELE tickam imediatamente
+  // (não aguardam o oponente passar). Retorna true se o jogo terminou.
+  const tickCasterContinuousDamage = (casterIsPlayer: boolean): boolean => {
+    const srcPlayer = playerRef.current.length ? playerRef.current : playerCombatants;
+    const srcEnemy = enemyRef.current.length ? enemyRef.current : enemyCombatants;
+    const updatedPlayer = srcPlayer.map(c => ({ ...c }));
+    const updatedEnemy = srcEnemy.map(c => ({ ...c }));
+    const newLogs: CombatLog[] = [];
+
+    const getEffectSkill = (eff: ActiveEffect): Skill | null => {
+      const caster = [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === eff.casterId);
+      if (!caster) return null;
+      const effName = eff.name || '';
+      const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|Aflição|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
+      return caster.character.skills.find(s => !!s.name && (s.name === baseName || effName.startsWith(s.name))) || null;
+    };
+    const isBlockedByInvuln = (target: CombatCharacter, eff: ActiveEffect, fallbackType: string): boolean => {
+      const skill = getEffectSkill(eff);
+      if (skill && skill.ignoreInvulnerable) return false;
+      const caster = [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === eff.casterId);
+      if (skill && hasConditionalInvulnBypass(target, skill, caster)) return false;
+      return checkCombatantInvulnerable(target, fallbackType);
+    };
+
+    [...updatedPlayer, ...updatedEnemy].forEach(c => {
+      if (c.isDead) return;
+      const activeDamageEffects = c.activeEffects.filter(e =>
+        e.type === 'damage' && e.castTurn !== turn && e.casterSide === (casterIsPlayer ? 'player' : 'enemy')
+      );
+      activeDamageEffects.forEach(dmg => {
+        const isInvulnerable = isBlockedByInvuln(c, dmg, 'damage') || hasDamageImmunity(c, ['damage']);
+        if (isInvulnerable) {
+          consumeFirstHitOnlyImmunity(c);
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🛡️ ${c.character.name} é IMUNE A DANO e não sofreu dano contínuo de ${dmg.name}.`,
+            type: 'buff',
+          });
+          addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+        } else {
+          const targetCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(c);
+          const dmgSkill = getEffectSkill(dmg);
+          const targetReductions = targetCannotReduce ? [] : getEffectiveTargetReductions(c, dmgSkill);
+          const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
+          const netDmg = Math.max(0, (dmg.value || 0) - reductionSum);
+          if (convertDamageToShield(c, netDmg, turn, ['damage'])) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${netDmg} de dano contínuo de ${dmg.name} em escudo!`, type: 'buff' });
+            addFloatingText(c.id, `+${netDmg} ESCUDO (DANO)`, 'shield');
+          } else {
+            c.health = Math.max(0, c.health - netDmg);
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💥 ${c.character.name} sofreu ${netDmg} de dano contínuo por ${dmg.name}.`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${netDmg} HP (DANO)`, 'damage');
+          }
+        }
+      });
+    });
+
+    processDeathEvents([...updatedPlayer, ...updatedEnemy], newLogs);
+
+    playerRef.current = updatedPlayer;
+    enemyRef.current = updatedEnemy;
+    setPlayerCombatants(updatedPlayer);
+    setEnemyCombatants(updatedEnemy);
+    setLogs(prev => [...prev, ...newLogs]);
+
+    const allPlayerDead = updatedPlayer.length > 0 && updatedPlayer.every(p => p.isDead);
+    const allEnemyDead = updatedEnemy.length > 0 && updatedEnemy.every(e => e.isDead);
+    if (allPlayerDead || allEnemyDead) {
+      if (allEnemyDead) setGameOver('victory');
+      else setGameOver('defeat');
+      return true;
+    }
+    return false;
+  };
+
   // Reset turn lock when turn or active planner updates
   useEffect(() => {
     isEndingTurnRef.current = false;
@@ -8767,6 +8861,13 @@ splashOnlyTargets = splashPool.filter(c =>
         console.error('[BattleBoard] Erro ao executar as ações do turno (a passagem de turno continuará):', err);
       }
       if (isGameOver) {
+        return;
+      }
+
+      // Tick de Dano Contínuo do lado que acabou de passar o turno:
+      // o dano é aplicado AGORA (quando o conjurador passa), sem esperar o oponente passar
+      const dotGameOver = tickCasterContinuousDamage(isCurrentPlayer);
+      if (dotGameOver) {
         return;
       }
 
@@ -14061,6 +14162,22 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           label: `Stun Condicional (${rule.activeSkillName})`,
           value: `STUNNA o inimigo por ${fmtDur(rule.stunTurns || 1)} (${blockLabel}) quando ${rule.activeSkillName} estiver ativo ${where}`,
           color: 'text-yellow-950 font-extrabold',
+          targetLabel: 'Condicional'
+        });
+      });
+    }
+
+    // Informação de escudo condicional (shieldWhenActiveRules)
+    if (skill.shieldWhenActiveRules && skill.shieldWhenActiveRules.length > 0) {
+      skill.shieldWhenActiveRules.forEach(rule => {
+        if (!rule.activeSkillName) return;
+        const where = rule.activeOn === 'self' ? 'em MIM' : 'no Oponente';
+        const recipient = rule.shieldTarget === 'team' ? 'TODA a minha equipe' : 'MIM';
+        const durText = rule.shieldDuration && rule.shieldDuration < 99999 ? ` por ${fmtDur(rule.shieldDuration)}` : '';
+        effects.push({
+          label: `Escudo Condicional (${rule.activeSkillName})`,
+          value: `Concede +${rule.shieldVal || 0} de escudo a ${recipient}${durText} quando ${rule.activeSkillName} estiver ativo ${where}`,
+          color: 'text-sky-950 font-extrabold',
           targetLabel: 'Condicional'
         });
       });

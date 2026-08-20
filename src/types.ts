@@ -147,6 +147,18 @@ export interface SkillStunWhenActiveRule {
   stunTurns?: number;
 }
 
+export interface SkillShieldWhenActiveRule {
+  activeSkillName: string; // Skill/efeito que, se ATIVO, faz esta skill conceder escudo
+  /** Onde a habilidade condicional precisa estar ativa: 'target' (No Oponente - padrão) ou 'self' (Em Mim / Conjurador) */
+  activeOn?: 'target' | 'self';
+  /** Quantidade de escudo concedida quando a condição estiver ativa */
+  shieldVal: number;
+  /** Quem recebe o escudo: 'self' (Eu / Conjurador - padrão) ou 'team' (Minha Equipe / todos os aliados vivos) */
+  shieldTarget?: 'self' | 'team';
+  /** Duração do escudo em turnos (padrão: 99 = até quebrar) */
+  shieldDuration?: number;
+}
+
 export interface SkillCounterSuccessDamageRule {
   /** Dano que o inimigo que atacou recebe quando o CONTRA-ATAQUE desta skill é efetuado com sucesso */
   damage: number;
@@ -288,6 +300,8 @@ export interface Skill {
   ignoreInvulnWhenActiveRules?: SkillIgnoreInvulnWhenActiveRule[];
   /** Regras condicionais de stun: se a habilidade listada estiver ATIVA (em mim ou no Oponente), esta skill STUNNA o inimigo */
   stunWhenActiveRules?: SkillStunWhenActiveRule[];
+  /** Regras condicionais de escudo: se a habilidade listada estiver ATIVA (em mim ou no Oponente), esta skill concede escudo a mim ou à minha equipe */
+  shieldWhenActiveRules?: SkillShieldWhenActiveRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou recebe dano direto */
   counterSuccessDamageRules?: SkillCounterSuccessDamageRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou fica STUNADO e recebe dano adicional de skills das classes escolhidas */

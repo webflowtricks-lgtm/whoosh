@@ -4474,6 +4474,129 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Conditional Shield Rules */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-sky-400 font-mono">
+                              🛡️ Escudo Condicional
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Se a habilidade/efeito específico estiver ATIVO (em mim ou no Oponente), esta skill concede X de escudo para você ou para a sua equipe.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.shieldWhenActiveRules || [];
+                              handleUpdateSkillField('shieldWhenActiveRules', [
+                                ...currentRules,
+                                { activeSkillName: '', activeOn: 'target', shieldVal: 0, shieldTarget: 'self', shieldDuration: 99 }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.shieldWhenActiveRules || editingSkill.shieldWhenActiveRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de escudo condicional configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.shieldWhenActiveRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-sky-400 font-bold">Escudo quando ativo:</span>
+                                <select
+                                  value={rule.activeOn || 'target'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.shieldWhenActiveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeOn: e.target.value === 'self' ? 'self' : 'target' };
+                                    handleUpdateSkillField('shieldWhenActiveRules', updated);
+                                  }}
+                                  className="px-2 py-0.5 bg-slate-900 border border-sky-800/60 rounded text-[10px] font-mono text-sky-300 focus:border-sky-500 outline-none"
+                                >
+                                  <option value="target">No Oponente</option>
+                                  <option value="self">Em Mim (Conjurador)</option>
+                                </select>
+                                <input
+                                  type="text"
+                                  list="shieldWhenSkills-suggestions"
+                                  value={rule.activeSkillName}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.shieldWhenActiveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                    handleUpdateSkillField('shieldWhenActiveRules', updated);
+                                  }}
+                                  placeholder="Ex: Two-Headed Wolf"
+                                  className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-sky-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <datalist id="shieldWhenSkills-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : <option value="" disabled />}
+                                </datalist>
+                                <span className="text-sky-400 font-bold">Escudo:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={rule.shieldVal || 0}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.shieldWhenActiveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], shieldVal: Math.max(0, parseInt(e.target.value) || 0) };
+                                    handleUpdateSkillField('shieldWhenActiveRules', updated);
+                                  }}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                />
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={99999}
+                                    value={rule.shieldDuration === 99999 || !rule.shieldDuration ? '' : rule.shieldDuration}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.shieldWhenActiveRules || [])];
+                                      const val = e.target.value === '' ? 99999 : Math.max(1, parseInt(e.target.value) || 1);
+                                      updated[rIdx] = { ...updated[rIdx], shieldDuration: val };
+                                      handleUpdateSkillField('shieldWhenActiveRules', updated);
+                                    }}
+                                    placeholder="∞"
+                                    className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
+                                  />
+                                  <span className="text-[9px] text-slate-500 font-mono">Turnos (vazio = ∞ até quebrar)</span>
+                                </div>
+                                <span className="text-sky-400 font-bold">Quem recebe:</span>
+                                <select
+                                  value={rule.shieldTarget || 'self'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.shieldWhenActiveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], shieldTarget: e.target.value === 'team' ? 'team' : 'self' };
+                                    handleUpdateSkillField('shieldWhenActiveRules', updated);
+                                  }}
+                                  className="px-2 py-0.5 bg-slate-900 border border-sky-800/60 rounded text-[10px] font-mono text-sky-300 focus:border-sky-500 outline-none"
+                                >
+                                  <option value="self">Eu (Conjurador)</option>
+                                  <option value="team">Minha Equipe (todos aliados vivos)</option>
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.shieldWhenActiveRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('shieldWhenActiveRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Counter Success Damage Rules */}
                       <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
                         <div className="flex justify-between items-center">
