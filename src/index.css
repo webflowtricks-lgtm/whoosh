@@ -330,7 +330,7 @@
    Para ajustar a imagem ou aparência do mouse, edite a classe .custom-cursor.
    Nota: O navegador utiliza o tamanho original da imagem especificada no url().
    Para alterar o tamanho visual do cursor:
-   1. Você pode redimensionar/trocar a imagem em '/static/img/icon/kunai.webp'
+   1. Você pode redimensionar/trocar a imagem em '/static/img/icon/kunai-cursor2.png'
    2. Ou definir uma URL com hotspot/tamanho desejado abaixo.
    ========================================================= */
 
@@ -343,14 +343,14 @@
 .custom-cursor textarea,
 .custom-cursor [role="button"],
 .custom-cursor label {
-  cursor: url('/static/img/icon/kunai.webp'), auto !important;
+  cursor: url('/static/img/icon/kunai-cursor.png') 16 16, auto !important;
 }
 
 html, body {
   width: 100%;
   height: 100%;
   overflow-x: hidden;
-  cursor: url('/static/img/icon/kunai.webp'), auto !important;
+  cursor: url('/static/img/icon/kunai-cursor.png') 16 16, auto !important;
 }
 
 #root {

@@ -127,6 +127,8 @@ export interface SkillKillWhenActiveRule {
   activeSkillName: string; // Skill/efeito ativo no Oponente que será morto instantaneamente
   /** Quem morre ao executar: 'target' (Somente o Oponente - padrão) ou 'self_and_target' (Mim e o Oponente / sacrifício) */
   killScope?: 'target' | 'self_and_target';
+  /** Limite de vida: se definido (>0), o Oponente só morre se a vida dele estiver com HP <= este valor no momento do uso */
+  killHpThreshold?: number;
 }
 
 export interface SkillIgnoreInvulnWhenActiveRule {
@@ -360,6 +362,8 @@ export interface Skill {
   skillCopyDuration?: number;
   /** Alvo da cópia de habilidades (padrão: 'AnyLiving' = qualquer personagem vivo) */
   skillCopyTarget?: SkillTargetType;
+  /** Modo aleatório: em vez de copiar TODAS as habilidades do alvo, copia UMA habilidade ALEATÓRIA dele e substitui apenas a própria skill de cópia por ela durante a duração */
+  skillCopyRandom?: boolean;
   damageBuffVal?: number;
   damageBuffTypes?: string[]; // Classes de skill que o buff aumenta (vazio = todas: physical, mental, affliction, chakra, ranged, friendly)
   damageBuffDuration?: number;
@@ -407,6 +411,8 @@ export interface Skill {
   maxUses?: number;
   removedOnTargetSkillUse?: boolean; // Remove os efeitos desta skill do alvo quando ele usar uma habilidade (mesmo que infinita)
   removedOnCasterDeath?: boolean; // Remove os efeitos desta skill dos alvos quando o conjurador morrer
+  /** Se true, esta skill pode ser usada mesmo enquanto o conjurador está atordoado (imune a stun) */
+  cannotBeStunned?: boolean;
   /** 🔓 Liberação atrasada de skills: enquanto este efeito durar (delayedUnlockDuration turnos), as skills
    * listadas ficam BLOQUEADAS no conjurador; quando o efeito termina, elas ficam liberadas por
    * delayedUnlockWindowTurns turnos. Passada a janela, voltam a ficar bloqueadas. */
@@ -415,6 +421,8 @@ export interface Skill {
   delayedUnlockDuration?: number;
   /** Turnos que a janela de liberação dura depois do bloqueio terminar */
   delayedUnlockWindowTurns?: number;
+  /** 💞 Vínculo de Morte (Death Link): por X turnos, se o conjurador OU o alvo morrer, o outro também morre */
+  deathLinkDuration?: number;
   ignoreDamageReduction?: boolean;
   ignoreDamageReductionVal?: number;
   missingHpDamageType?: '' | 'normal' | 'direct' | 'dot' | 'bleeding' | 'affliction'; // Damage = caster's missing HP
@@ -499,6 +507,11 @@ export interface Skill {
   cleanseDebuffs?: boolean;
   cleanseDebuffTypes?: string[];
   cleanseDebuffTarget?: TargetOverride;
+
+  /** Remover buffs amigáveis do alvo (damage_buff, damage_reduction, shield, invulnerable, etc.) */
+  cleanseBuffs?: boolean;
+  cleanseBuffTypes?: string[];
+  cleanseBuffTarget?: TargetOverride;
 
   // Remove effect types overrides (cleanse)
   damageRemoveType?: string;
@@ -759,6 +772,9 @@ export interface ActiveEffect {
   | 'damage'
   | 'direct_damage'
   | 'heal'
+  | 'gain_chakra'
+  | 'heal_over_time'
+  | 'blocks_offensive_skills'
   | 'cannot_reduce_damage'
   | 'cannot_be_invulnerable'
   | 'cannot_receive_friendly'
@@ -770,6 +786,8 @@ export interface ActiveEffect {
   | 'damage_vulnerability'
   | 'retaliate_damage'
   | 'immortal'
+  | 'heal_over_time'
+  | 'gain_chakra'
   | 'reveal_invisible'
   | 'on_skill_use_damage'
   | 'capture_arrest_trap'
@@ -783,7 +801,8 @@ export interface ActiveEffect {
   | 'life_steal'
   | 'redirect_by_stack'
   | 'countdown_bomb'
-  | 'skill_copy';
+  | 'skill_copy'
+  | 'death_link';
   value?: number; // magnitude of shield, reduction, damage, etc.
   buffAtCast?: number; // damage_buff value included at cast time (for dynamic tick recomputation)
   /** Novo alvo aplicado pelo efeito temporary_target_change */

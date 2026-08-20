@@ -101,6 +101,9 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   const [charSearch, setCharSearch] = useState('');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [orderChanged, setOrderChanged] = useState(false);
+  // Edição transitória do campo de posição (número ao lado do nome). Quando não está sendo
+  // editado, o input exibe sempre a posição real atual (realIdx + 1), refletindo a ordem da arena.
+  const [posEdit, setPosEdit] = useState<{ id: string; val: string } | null>(null);
   
   // Backup & Multi-Environment Import state
   const [importedConfigData, setImportedConfigData] = useState<any | null>(null);
@@ -1602,6 +1605,32 @@ const newSkill: Skill = {
                     <div className="flex flex-col items-center gap-0.5 text-slate-600 cursor-grab active:cursor-grabbing">
                       <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
                     </div>
+                    <input
+                      type="number"
+                      min={1}
+                      max={characters.length}
+                      value={posEdit && posEdit.id === char.id ? posEdit.val : String(realIdx + 1)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setPosEdit({ id: char.id, val: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+                      }}
+                      onBlur={async (e) => {
+                        const raw = parseInt(e.target.value);
+                        setPosEdit(null);
+                        if (isNaN(raw)) return;
+                        const targetPos = Math.min(Math.max(1, raw), characters.length) - 1;
+                        if (targetPos === realIdx) return;
+                        const updated = [...characters];
+                        const [moved] = updated.splice(realIdx, 1);
+                        updated.splice(targetPos, 0, moved);
+                        setCharacters(updated);
+                        await saveCharacters(updated);
+                        triggerSuccess(`"${char.name}" movido para a posição ${targetPos + 1}!`);
+                      }}
+                      title="Posição na lista (mesma ordem da seleção de time na arena) — digite um número e pressione Enter para mover"
+                      className="w-9 shrink-0 px-1 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-md text-center text-[10px] font-mono font-bold text-orange-300 outline-none"
+                    />
                     <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-800 bg-slate-900 flex-shrink-0">
                       <img 
                         src={char.portrait || null} 
@@ -2455,6 +2484,12 @@ const newSkill: Skill = {
                               onChange={(e) => handleUpdateSkillField('removedOnCasterDeath', e.target.checked)}
                               className="rounded bg-slate-950 border-slate-800 text-red-500 focus:ring-0" />
                             💀 Removida dos alvos se meu personagem morrer
+                          </label>
+                          <label className="flex items-center gap-2 text-[10px] text-yellow-300 font-bold">
+                            <input type="checkbox" checked={editingSkill.cannotBeStunned || false}
+                              onChange={(e) => handleUpdateSkillField('cannotBeStunned', e.target.checked)}
+                              className="rounded bg-slate-950 border-slate-800 text-yellow-500 focus:ring-0" />
+                            ⚡ Esta skill não pode ser atordoada (usável mesmo sob stun)
                           </label>
                       </div>
 
@@ -4142,7 +4177,7 @@ const newSkill: Skill = {
                               💀 Execução Instantânea (Condicional)
                             </span>
                             <p className="text-[9px] text-slate-400">
-                              Mata INSTANTANEAMENTE o Oponente que estiver com a habilidade/efeito específico ATIVO nele.
+                              Mata INSTANTANEAMENTE o Oponente que estiver com a habilidade/efeito específico ATIVO nele. Opcionalmente, defina uma "Vida máx. p/ matar" para só executar quando o HP dele estiver menor ou igual ao valor (Ex: 50).
                             </p>
                           </div>
                           <button
@@ -4199,6 +4234,21 @@ const newSkill: Skill = {
                                   <option value="target">Somente o Oponente</option>
                                   <option value="self_and_target">Mim e o Oponente (Sacrifício)</option>
                                 </select>
+                                <span className="text-red-400 font-bold">Vida máx. p/ matar:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={rule.killHpThreshold ?? ''}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.killWhenActiveRules || [])];
+                                    const val = e.target.value === '' ? undefined : Math.max(0, parseInt(e.target.value) || 0);
+                                    updated[rIdx] = { ...updated[rIdx], killHpThreshold: val };
+                                    handleUpdateSkillField('killWhenActiveRules', updated);
+                                  }}
+                                  placeholder="Ex: 50"
+                                  title="Só mata se a vida do Oponente estiver com HP menor ou igual a este valor (vazio = sempre que a skill estiver ativa)"
+                                  className="w-20 px-2 py-1 bg-slate-900 border border-red-800/60 rounded text-[10px] font-mono text-red-300 focus:border-red-500 outline-none"
+                                />
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -5356,11 +5406,99 @@ const newSkill: Skill = {
                                     <option value="shield">Escudo</option>
                                   </select>
                                 </div>
-                              </div>
+</div>
+                          </div>
+                        </div>
+
+                      {/* Invulnerabilidade Total */}
+                      <div className="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">🛡️ Invulnerabilidade Total</label>
+                          <p className="text-[9px] text-slate-500 font-mono mt-1 mb-1">Imune a TODOS os skills (inimigos, aliados, próprios), exceto skills com \"Ignorar Invulnerabilidade\".</p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min={0}
+                              max={5}
+                              value={editingSkill.invulnerableDuration === 99999 ? 0 : (editingSkill.invulnerableDuration || 0)}
+                              title={editingSkill.invulnerableDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
+                              onChange={(e) => handleUpdateSkillField('invulnerableDuration', parseInt(e.target.value) || 0)}
+                              className="w-16 px-2 py-1 bg-slate-900 border border-cyan-900/60 focus:border-cyan-500 rounded text-cyan-400 font-mono text-xs text-center font-bold"
+                            />
+                            <label className="flex items-center gap-1 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={editingSkill.invulnerableDuration === 99999}
+                                onChange={(e) => handleUpdateSkillField('invulnerableDuration', e.target.checked ? 99999 : 1)}
+                                className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
+                              />
+                              <span className="text-[9px] text-cyan-400 font-mono">♾️ Infinito</span>
+                            </label>
+                            <span className="text-[10px] text-slate-500 font-mono">Turnos</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                            <select
+                              value={editingSkill.invulnerableTarget || 'Self'}
+                              onChange={(e) => handleUpdateSkillField('invulnerableTarget', e.target.value)}
+                              className="px-2 py-0.5 bg-slate-900 border border-cyan-900/50 rounded text-[10px] font-mono text-cyan-300 focus:border-cyan-600 outline-none w-full max-w-[150px]"
+                            >
+                              {TARGET_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-800/50">
+                            <span className="text-[9px] text-slate-400 font-mono">Tipos:</span>
+                            <select
+                              value={editingSkill.invulnerableTypes?.join(',') || 'all'}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                handleUpdateSkillField('invulnerableTypes', val === 'all' ? undefined : val.split(','));
+                              }}
+                              className="px-2 py-0.5 bg-slate-900 border border-cyan-900/50 rounded text-[10px] font-mono text-cyan-300 focus:border-cyan-600 outline-none"
+                            >
+                              <option value="all">Tudo (Padrão)</option>
+                              <option value="damage,direct_damage,affliction,bleeding,dot,mental,physical,chakra,ranged,friendly,stun">Tudo Específico</option>
+                              <option value="damage,direct_damage">Apenas Dano</option>
+                              <option value="damage,direct_damage,dot,bleeding,affliction">Dano + DoTs</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={editingSkill.invulnerableIrremovable || false}
+                                onChange={(e) => handleUpdateSkillField('invulnerableIrremovable', e.target.checked)}
+                                className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
+                              />
+                              🔒 Nunca Remover
+                            </label>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
+                              <select
+                                value={editingSkill.invulnerableRemoveType || 'none'}
+                                onChange={(e) => handleUpdateSkillField('invulnerableRemoveType', e.target.value)}
+                                className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
+                              >
+                                <option value="none">Nenhum</option>
+                                <option value="all">Todos</option>
+                                <option value="buff">Buffs</option>
+                                <option value="debuff">Debuffs</option>
+                                <option value="stun">Stuns</option>
+                                <option value="dot">DoTs</option>
+                                <option value="bleeding">Sangra</option>
+                                <option value="affliction">Aflição</option>
+                                <option value="shield">Escudo</option>
+                              </select>
                             </div>
                           </div>
+                        </div>
+                      </div>
 
-                          {/* 2. counter attack */}
+                      {/* 2. counter attack */}
                           <div className="space-y-3 bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
                             <div className="space-y-2.5">
                               <label className="block text-[10px] font-bold uppercase tracking-wider text-red-400 font-mono">Contra-ataque (Anular)</label>
@@ -9344,9 +9482,154 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                               )}
                             </div>
                           </div>
+                        </div>
 
-                        {/* 24. Prisão de Madeira (Wood Spire Prison) */}
-                          <div className="space-y-3 bg-amber-950/20 border border-amber-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                      {/* 23.5. Remover Buffs Amigáveis */}
+                  <div className="space-y-3 bg-rose-950/20 border border-rose-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono">
+                          🗑️ Remover Buffs Amigáveis
+                        </label>
+                        {(editingSkill.cleanseBuffTypes || []).length > 0 || editingSkill.cleanseBuffs ? (
+                          <span className="text-[9px] bg-rose-500/20 border border-rose-500/50 text-rose-300 px-1.5 py-0.5 rounded font-mono font-bold animate-pulse">
+                            ⚡ ATIVO
+                          </span>
+                        ) : (
+                          <span className="text-[9px] bg-slate-800 border border-slate-700 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                            Inativo
+                          </span>
+                        )}
+                      </div>
+
+                      <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
+                        <input
+                          type="checkbox"
+                          checked={editingSkill.cleanseBuffs || (editingSkill.cleanseBuffTypes && editingSkill.cleanseBuffTypes.length > 0) || false}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            handleUpdateSkillField('cleanseBuffs', checked);
+                            if (checked && (!editingSkill.cleanseBuffTypes || editingSkill.cleanseBuffTypes.length === 0)) {
+                              handleUpdateSkillField('cleanseBuffTypes', ['damage_buff', 'damage_reduction', 'shield', 'invulnerable']);
+                            } else if (!checked) {
+                              handleUpdateSkillField('cleanseBuffTypes', []);
+                            }
+                          }}
+                          className="rounded bg-slate-950 border-slate-800 text-rose-500 focus:ring-0 w-3.5 h-3.5"
+                        />
+                        Ativar Remoção de Buffs Amigáveis
+                      </label>
+
+                      {(editingSkill.cleanseBuffs || (editingSkill.cleanseBuffTypes && editingSkill.cleanseBuffTypes.length > 0)) && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="space-y-2.5 pt-2 border-t border-rose-900/30 mt-2"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-rose-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
+                            <select
+                              value={editingSkill.cleanseBuffTarget || 'Target'}
+                              onChange={(e) => handleUpdateSkillField('cleanseBuffTarget', e.target.value)}
+                              className="px-2 py-0.5 bg-slate-900 border border-rose-900/50 rounded text-[10px] font-mono text-rose-300 focus:border-rose-600 outline-none w-full max-w-[160px]"
+                            >
+                              {TARGET_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">
+                                Buffs a Remover (Selecione 1 ou mais):
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const allTypes = ['damage_buff', 'damage_reduction', 'shield', 'invulnerable', 'invisible', 'chakra_regen', 'heal_over_time', 'counter_attack', 'reflect', 'retaliate_damage', 'stack', 'all_buffs'];
+                                  const isAllSelected = (editingSkill.cleanseBuffTypes || []).length >= allTypes.length;
+                                  handleUpdateSkillField('cleanseBuffTypes', isAllSelected ? [] : allTypes);
+                                }}
+                                className="text-[8px] px-1.5 py-0.5 rounded bg-rose-900/50 hover:bg-rose-800 text-rose-300 font-mono font-bold border border-rose-700/60 transition-all cursor-pointer"
+                              >
+                                {(editingSkill.cleanseBuffTypes || []).length >= 11 ? '❌ Desmarcar Todos' : '⚡ Marcar Todos'}
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {[
+                                { value: 'damage_buff', label: '⚔️ Buff de Dano', desc: 'Aumento de dano' },
+                                { value: 'damage_reduction', label: '🛡️ Redução de Dano', desc: 'Defesa aumentada' },
+                                { value: 'shield', label: '🛡️ Escudo', desc: 'Barreira de vida' },
+                                { value: 'invulnerable', label: '✨ Invulnerabilidade', desc: 'Imune a dano' },
+                                { value: 'invisible', label: '👻 Invisibilidade', desc: 'Oculto' },
+                                { value: 'chakra_regen', label: '🔮 Regeneração Chakra', desc: 'Chakra por turno' },
+                                { value: 'heal_over_time', label: '💚 Cura por Turno', desc: 'HoT ativo' },
+                                { value: 'counter_attack', label: '⚔️ Contra-ataque', desc: 'Retaliação' },
+                                { value: 'reflect', label: '🪞 Refletir', desc: 'Reflexão de dano' },
+                                { value: 'retaliate_damage', label: '💥 Retaliação', desc: 'Dano ao ser atingido' },
+                                { value: 'stack', label: '📦 Stacks', desc: 'Remover stacks de skills' },
+                                { value: 'all_buffs', label: '🌈 Remover TODOS Buffs', desc: 'Limpeza total' },
+                              ].map((opt) => {
+                                const current = editingSkill.cleanseBuffTypes || [];
+                                const isSelected = current.includes(opt.value);
+                                return (
+                                  <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => {
+                                      let updated: string[];
+                                      if (isSelected) {
+                                        updated = current.filter(t => t !== opt.value);
+                                      } else {
+                                        updated = [...current, opt.value];
+                                      }
+                                      handleUpdateSkillField('cleanseBuffTypes', updated);
+                                    }}
+                                    className={`p-1.5 text-left rounded-lg border transition-all cursor-pointer ${
+                                      isSelected
+                                        ? 'bg-rose-950 border-rose-500 text-rose-200 font-bold shadow-md shadow-rose-950/60'
+                                        : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                                    }`}
+                                  >
+                                    <div className="text-[10px] font-mono flex items-center justify-between">
+                                      <span>{opt.label}</span>
+                                      <span className="text-[9px] font-bold">{isSelected ? '✓' : ''}</span>
+                                    </div>
+                                    <div className="text-[8px] text-slate-500 font-mono leading-tight mt-0.5">{opt.desc}</div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {(editingSkill.cleanseBuffTypes || []).length > 0 && (
+                              <div className="text-[9px] text-rose-300 font-mono leading-normal bg-rose-950/30 border border-rose-900/40 p-2 rounded-lg mt-2">
+                                🗑️ <span className="font-bold">Resumo:</span> Remove <span className="font-bold text-white uppercase">{(editingSkill.cleanseBuffTypes || []).map(t => {
+                                  if (t === 'damage_buff') return 'Buff de Dano';
+                                  if (t === 'damage_reduction') return 'Redução de Dano';
+                                  if (t === 'shield') return 'Escudo';
+                                  if (t === 'invulnerable') return 'Invulnerabilidade';
+                                  if (t === 'invisible') return 'Invisibilidade';
+                                  if (t === 'chakra_regen') return 'Regeneração Chakra';
+                                  if (t === 'heal_over_time') return 'Cura por Turno';
+                                  if (t === 'counter_attack') return 'Contra-ataque';
+                                  if (t === 'reflect') return 'Refletir';
+                                  if (t === 'retaliate_damage') return 'Retaliação';
+                                  if (t === 'stack') return 'Stacks';
+                                  if (t === 'all_buffs') return 'Todos Buffs';
+                                  return t;
+                                }).join(', ')}</span> do alvo.
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </div>
+
+                {/* 24. Prisão de Madeira (Wood Spire Prison) */}
+                  <div className="space-y-3 bg-amber-950/20 border border-amber-800/40 p-3.5 rounded-xl flex flex-col justify-between">
                             <div className="space-y-2">
                               <div className="flex justify-between items-center">
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">
@@ -9595,6 +9878,58 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                             </div>
                           </div>
 
+                        {/* 26. Vínculo de Morte (Death Link) */}
+                          <div className="space-y-3 bg-rose-950/20 border border-rose-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono">
+                                  💞 Vínculo de Morte (Death Link)
+                                </label>
+                                {(editingSkill.deathLinkDuration || 0) > 0 ? (
+                                  <span className="text-[9px] bg-rose-500/20 border border-rose-500/50 text-rose-300 px-1.5 py-0.5 rounded font-mono font-bold animate-pulse">
+                                    ⚡ ATIVO
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] bg-slate-800 border border-slate-700 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                                    Inativo
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[9px] text-rose-200/70 leading-relaxed">
+                                Por X turnos, se o CONJURADOR <span className="font-bold text-white">OU</span> o alvo desta skill morrer, o outro também morre. Vínculo mútuo — vale para os dois lados.
+                              </p>
+
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-rose-400 font-mono uppercase font-bold">⏳ Duração:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={99}
+                                  value={editingSkill.deathLinkDuration === 99999 ? 0 : (editingSkill.deathLinkDuration || 0)}
+                                  title={editingSkill.deathLinkDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
+                                  onChange={(e) => handleUpdateSkillField('deathLinkDuration', parseInt(e.target.value) || 0)}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-rose-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                />
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.deathLinkDuration === 99999}
+                                    onChange={(e) => handleUpdateSkillField('deathLinkDuration', e.target.checked ? 99999 : 0)}
+                                    className="rounded bg-slate-950 border-slate-800 text-rose-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-rose-400 font-mono">♾️ Infinito</span>
+                                </label>
+                                <span className="text-[9px] text-slate-500 font-mono">turnos</span>
+                              </div>
+
+                              {(editingSkill.deathLinkDuration || 0) > 0 && (
+                                <div className="text-[9px] text-rose-300 font-mono leading-normal bg-rose-950/30 border border-rose-900/40 p-2 rounded-lg">
+                                  💞 <span className="font-bold">Resumo:</span> Durante {editingSkill.deathLinkDuration === 99999 ? '♾️ (infinitos)' : editingSkill.deathLinkDuration} turno(s), a morte do conjurador OU do alvo mata o outro instantaneamente.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
                         {/* 14b. Roubar Vida (Vampirismo) */}
                           <div className="space-y-1 bg-lime-950/15 border border-lime-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div>
@@ -9788,10 +10123,8 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                               )}
                             </div>
                           </div>
-
                         </div>
-                      </div>
-                    </motion.div>
+                      </motion.div>
                 )}
               </div>
 

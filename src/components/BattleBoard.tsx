@@ -157,6 +157,8 @@ export function pickChakraGainType(pool: ChakraPool, gainChakraTypes: string[] |
 
 export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveEffect[]): boolean {
   if (!activeEffects || activeEffects.length === 0) return false;
+  // Esta skill é imune a atordoamento: pode ser usada mesmo sob stun
+  if (skill && skill.cannotBeStunned) return false;
   // Stun immunity: if character has ignore_stun effect, they cannot be stunned
   if (activeEffects.some(e => e.type === 'ignore_stun')) return false;
 
@@ -313,6 +315,23 @@ export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Ski
   });
 }
 
+// Invulnerabilidade Total: alvo invulnerável (types indefinido = tudo, ou inclui 'all'/'friendly')
+// também fica imune a skills amigáveis (curas, escudos, buffs), exceto skills com ignoreInvulnerable
+export function isInvulnToFriendlyEffects(c: CombatCharacter, skill?: Skill): boolean {
+  if (skill?.ignoreInvulnerable) return false;
+  return checkCombatantInvulnerable(c, 'friendly');
+}
+
+// "Invulnerabilidade Total" (types indefinido ou 'all'): o alvo fica SELADO — não pode
+// selecionar skills (só passar o turno) e ninguém pode marcá-lo como alvo.
+export function hasTotalInvulnerability(c?: CombatCharacter | null): boolean {
+  if (!c || !c.activeEffects) return false;
+  if (c.activeEffects.some(e => e.type === 'cannot_be_invulnerable')) return false;
+  if (hasNegateFriendlyEffects(c)) return false;
+  return c.activeEffects.some(e => e.type === 'invulnerable' &&
+    (e.invulnerableTypes === undefined || e.invulnerableTypes.includes('all')));
+}
+
 function isSingleTypeProtected(typeStr: string, types: string[]): boolean {
   if (types.includes('all')) return true;
   const st = typeStr.toLowerCase();
@@ -399,7 +418,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
   if (!eff) return false;
   const debuffTypes = [
     'stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown',
-    'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase', 'life_steal', 'cooldown_increase', 'countdown_bomb', 'negate_friendly_effects'
+    'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase', 'life_steal', 'cooldown_increase', 'countdown_bomb', 'negate_friendly_effects', 'death_link'
   ];
   if (debuffTypes.includes(eff.type)) return true;
   const lowerName = (eff.name || '').toLowerCase();
@@ -750,6 +769,10 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       rawPt = val > 0
         ? `💣 Bomba (Contagem Regressiva): em ${durText} este personagem sofrerá ${val} de ${bombType}`
         : `💣 Bomba (Contagem Regressiva): explodirá em ${durText}`;
+      break;
+    }
+    case 'death_link': {
+      rawPt = `💞 Vínculo de Morte: se este personagem ou o vinculado morrer, o outro também morre (${durText})`;
       break;
     }
     default:
@@ -2059,6 +2082,14 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       return;
     }
 
+    // Invulnerabilidade Total (Selo): o personagem não pode selecionar nenhuma skill
+    // enquanto estiver selado — apenas passar o turno
+    if (hasTotalInvulnerability(combatant)) {
+      addFloatingText(charId, 'SELADO (INVULNERÁVEL)!', 'invulnerable');
+      playCustomSound('Error');
+      return;
+    }
+
     // 🔓 Liberação Atrasada: skill bloqueada enquanto o efeito não termina
     if (isSkillBlockedByDelayedUnlock(skill, combatant.activeEffects)) {
       addFloatingText(charId, 'SKILL BLOQUEADA!', 'stun');
@@ -2259,6 +2290,13 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       if (isBlockedFromFriendly) {
         playCustomSound('Error');
         addFloatingText(targetId, 'IMPOSSIBILITADO DE RECEBER SKILLS AMIGÁVEIS!', 'stun');
+        return;
+      }
+      // Invulnerabilidade Total: skills amigáveis (aliados/próprio) também não podem
+      // marcar o alvo, exceto skills com ignoreInvulnerable
+      if (isInvulnToFriendlyEffects(targetChar, skill)) {
+        playCustomSound('Error');
+        addFloatingText(targetId, 'ALVO INVULNERÁVEL!', 'invulnerable');
         return;
       }
     } else {
@@ -2727,6 +2765,33 @@ const handleTradeChakra = () => {
 
   // Process revivals (revive_on_death) and removal of effects whose caster died
   const processDeathEvents = (combatantList: CombatCharacter[], logs: CombatLog[]) => {
+    // 0) 💞 Vínculo de Morte (death_link): se um vinculado morre, o outro também morre.
+    //    Propaga em cascata até estabilizar (um vínculo pode encadear outros).
+    let dlChanged = true;
+    let dlGuard = 0;
+    while (dlChanged && dlGuard < 20) {
+      dlChanged = false;
+      dlGuard++;
+      combatantList.forEach(c => {
+        if (!c.isDead) return;
+        const links = c.activeEffects.filter(e => e.type === 'death_link' && e.targetId);
+        links.forEach(link => {
+          const partner = combatantList.find(p => p.id === link.targetId);
+          if (partner && !partner.isDead) {
+            partner.health = 0;
+            partner.isDead = true;
+            dlChanged = true;
+            logs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💞💀 ${partner.character.name} morreu junto com ${c.character.name} pelo Vínculo de Morte!`,
+              type: 'death',
+            });
+            addFloatingText(partner.id, '💞 VÍNCULO DE MORTE', 'damage');
+          }
+        });
+      });
+    }
     // 1) Revivals: dead combatants with a revive_on_death effect come back with X HP (1 stack consumida)
     combatantList.forEach(c => {
       if (!c.isDead) return;
@@ -3961,6 +4026,77 @@ let directDamage = skill.directDamage || 0;
         }
       };
 
+      const cleanseSpecificBuffs = (t: CombatCharacter, buffTypes: string[]) => {
+        if (!buffTypes || buffTypes.length === 0) return;
+        const beforeCount = t.activeEffects.length;
+        const isAllBuffs = buffTypes.includes('all_buffs') || buffTypes.includes('buff');
+
+        t.activeEffects = t.activeEffects.filter(eff => {
+          if (eff.irremovable) return true;
+
+          if (isAllBuffs) {
+            // Remove qualquer efeito que NÃO seja debuff (buff, stack, efeito defensivo etc.)
+            return isDebuffEffect(eff);
+          }
+
+          if (buffTypes.includes('damage_buff') && eff.type === 'damage_buff') return false;
+          if (buffTypes.includes('damage_reduction') && (eff.type === 'damage_reduction' || eff.type === 'damage_reduction_pierce')) return false;
+          if (buffTypes.includes('shield') && (eff.type === 'shield' || eff.type === 'damage_reduction')) return false;
+          if (buffTypes.includes('invulnerable') && eff.type === 'invulnerable') return false;
+          if (buffTypes.includes('invisible') && eff.type === 'invisible') return false;
+          if (buffTypes.includes('chakra_regen') && eff.type === 'gain_chakra') return false;
+          if (buffTypes.includes('heal_over_time') && eff.type === 'heal_over_time') return false;
+          if (buffTypes.includes('counter_attack') && eff.type === 'counter_attack') return false;
+          if (buffTypes.includes('reflect') && eff.type === 'reflect') return false;
+          if (buffTypes.includes('retaliate_damage') && eff.type === 'retaliate_damage') return false;
+          // Remove stacks if requested
+          if (buffTypes.includes('stack') && eff.type === 'custom' && (eff.stackable === true || !!eff.stackType)) return false;
+
+          return true;
+        });
+
+        // Shield é armazenado em t.shield (número), não como activeEffect
+        let shieldRemoved = false;
+        if (isAllBuffs || buffTypes.includes('shield')) {
+          if ((t.shield || 0) > 0) {
+            t.shield = 0;
+            t.shieldExpiresTurn = undefined;
+            shieldRemoved = true;
+          }
+          if (t.activeEffects.some(e => e.type === 'shield_stun_immunity')) {
+            t.activeEffects = t.activeEffects.filter(e => e.type !== 'shield_stun_immunity');
+            shieldRemoved = true;
+          }
+        }
+
+        let removedCount = beforeCount - t.activeEffects.length;
+        if (shieldRemoved) removedCount += 1;
+        if (removedCount > 0) {
+          const typesName = isAllBuffs ? 'Todos os Buffs' : buffTypes.map(b => {
+            if (b === 'damage_buff') return 'Buff de Dano';
+            if (b === 'damage_reduction') return 'Redução de Dano';
+            if (b === 'shield') return 'Escudo';
+            if (b === 'invulnerable') return 'Invulnerabilidade';
+            if (b === 'invisible') return 'Invisibilidade';
+            if (b === 'chakra_regen') return 'Regeneração Chakra';
+            if (b === 'heal_over_time') return 'Cura por Turno';
+            if (b === 'counter_attack') return 'Contra-ataque';
+            if (b === 'reflect') return 'Refletir';
+            if (b === 'retaliate_damage') return 'Retaliação';
+            if (b === 'stack') return 'Stacks';
+            return b;
+          }).join(', ');
+
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🗑️ [REMOÇÃO DE BUFFS] ${t.character.name} teve ${removedCount} buff(s) removido(s) (${typesName}) por [${skill.name}]!`,
+            type: 'system',
+          });
+          addFloatingText(t.id, 'BUFFS REMOVIDOS', 'damage');
+        }
+      };
+
       // 0. CHAKRA GAIN / DRAIN
       if (skill.gainChakra && skill.gainChakra > 0) {
         const amt = skill.gainChakra;
@@ -4697,6 +4833,8 @@ const startingHealth = t.health;
           let killedAny = false;
           targetSide.forEach(t => {
             if (t.isDead) return;
+            // Limite de vida (killHpThreshold): só executa se o HP do Oponente estiver menor/igual ao valor
+            if (rule.killHpThreshold && rule.killHpThreshold > 0 && t.health > rule.killHpThreshold) return;
             const hasActiveEffect = (t.activeEffects || []).some(e => {
               if (!e.name) return false;
               const n = e.name.toLowerCase();
@@ -4708,7 +4846,7 @@ const startingHealth = t.health;
               t.isDead = true;
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `💀 [EXECUÇÃO] ${source.character.name} MATOU INSTANTANEAMENTE ${t.character.name} com [${skill.name}] porque [${rule.activeSkillName}] está ativo nele!`,
+                message: `💀 [EXECUÇÃO] ${source.character.name} MATOU INSTANTANEAMENTE ${t.character.name} com [${skill.name}] porque [${rule.activeSkillName}] está ativo nele${rule.killHpThreshold && rule.killHpThreshold > 0 ? ` e a vida dele estava em ${t.health > 0 ? '≤ ' + rule.killHpThreshold : '0'}` : ''}!`,
                 type: 'damage',
               });
               addFloatingText(t.id, 'MORTE INSTANTÂNEA!', 'damage');
@@ -5509,16 +5647,18 @@ splashOnlyTargets = splashPool.filter(c =>
         healTargets.forEach(t => {
           if (t.isDead) return;
           const negateFriendly = hasNegateFriendlyEffects(t);
-          if (t.activeEffects.some(e => e.type === 'cannot_receive_friendly') || negateFriendly) {
+          if (t.activeEffects.some(e => e.type === 'cannot_receive_friendly') || negateFriendly || isInvulnToFriendlyEffects(t, skill)) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: negateFriendly
-                ? `🚫 ${t.character.name} tem efeitos amigáveis ANULADOS e não pôde ser curado por [${skill.name}]!`
-                : `🚫 ${t.character.name} não pôde ser curado por [${skill.name}] por estar impossibilitado de receber habilidades amigáveis!`,
+              message: isInvulnToFriendlyEffects(t, skill)
+                ? `🚫 ${t.character.name} está INVULNERÁVEL e não pôde ser curado por [${skill.name}]!`
+                : negateFriendly
+                  ? `🚫 ${t.character.name} tem efeitos amigáveis ANULADOS e não pôde ser curado por [${skill.name}]!`
+                  : `🚫 ${t.character.name} não pôde ser curado por [${skill.name}] por estar impossibilitado de receber habilidades amigáveis!`,
               type: 'stun',
             });
-            addFloatingText(t.id, negateFriendly ? 'CURA ANULADA' : 'CURA BLOQUEADA', 'stun');
+            addFloatingText(t.id, isInvulnToFriendlyEffects(t, skill) ? 'CURA BLOQUEADA (INVULNERÁVEL)' : (negateFriendly ? 'CURA ANULADA' : 'CURA BLOQUEADA'), 'stun');
             return;
           }
           const startingHealth = t.health;
@@ -5561,6 +5701,16 @@ splashOnlyTargets = splashPool.filter(c =>
         const stunTargets = resolveEffectTargets(skill.stunTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         stunTargets.forEach(t => {
           if (t.isDead) return;
+          if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, 'stun')) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🚫 ${t.character.name} está INVULNERÁVEL e não pôde ser atordoado por [${skill.name}]!`,
+              type: 'stun',
+            });
+            addFloatingText(t.id, 'IMUNE A STUN (INVULNERÁVEL)', 'invulnerable');
+            return;
+          }
           if (action.isPlayer) matchStatsRef.current.stunsApplied += 1;
           pushActiveEffect(t, {
             name: `${skill.name} (${stunTypeName})`,
@@ -5583,7 +5733,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // 3.1 BLOQUEAR SKILLS OFENSIVAS
       if (skill.blocksOffensiveSkills) {
-        const blockDuration = skill.stunTurns || skill.duration || 1;
+        const blockDuration = skill.stunTurns || 1;
         const blockTargets = resolveEffectTargets(skill.stunTarget || skill.targetType || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         blockTargets.forEach(t => {
           if (t.isDead) return;
@@ -5787,6 +5937,10 @@ splashOnlyTargets = splashPool.filter(c =>
       const applyBuffEffect = (name: string, type: ActiveEffect['type'], duration: number, value: number = 0, isSelfTarget: boolean = true, isDebuffOnTarget: boolean = false) => {
         if (type === 'shield') {
           const t = isSelfTarget ? source : target;
+          if (isInvulnToFriendlyEffects(t, skill)) {
+            addFloatingText(t.id, 'ESCUDO BLOQUEADO (INVULNERÁVEL)', 'invulnerable');
+            return;
+          }
           const cap = skill.shieldMaxVal && skill.shieldMaxVal > 0 ? skill.shieldMaxVal : Infinity;
           const prevShield = t.shield || 0;
           t.shield = Math.min(prevShield + value, cap);
@@ -6141,9 +6295,20 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
+      // Cleanse / Remove Buffs (Multi-selection) — roda ANTES da invulnerabilidade
+      // para não remover o efeito invulnerable que esta mesma skill aplica logo abaixo
+      if (skill.cleanseBuffs || (skill.cleanseBuffTypes && skill.cleanseBuffTypes.length > 0)) {
+        const cleanseTargets = resolveEffectTargets(skill.cleanseBuffTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, false);
+        console.log('[CLEANSE-BUFFS]', skill.name, 'alvos:', cleanseTargets.map((ct: any) => ct.character.name), 'tipos:', skill.cleanseBuffTypes, 'buffs:', cleanseTargets.map((ct: any) => ct.activeEffects.map((e: any) => `${e.type}${e.irremovable ? '(irremov)' : ''}`)));
+        cleanseTargets.forEach(t => {
+          if (t.isDead) return;
+          cleanseSpecificBuffs(t, skill.cleanseBuffTypes || ['all_buffs']);
+        });
+      }
+
       // Invulnerable
       if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
-        const invulTargets = resolveEffectTargets(skill.invulnerableTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
+        const invulTargets = resolveEffectTargets(skill.invulnerableTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, false);
         invulTargets.forEach(t => {
           if (t.isDead) return;
           pushActiveEffect(t, {
@@ -6156,6 +6321,7 @@ splashOnlyTargets = splashPool.filter(c =>
             irremovable: !!skill.invulnerableIrremovable,
             casterId: source.id,
             casterSide: action.isPlayer ? 'player' : 'enemy',
+            castTurn: turn,
           });
           newLogs.push({
             id: Math.random().toString(), turn,
@@ -6742,6 +6908,42 @@ splashOnlyTargets = splashPool.filter(c =>
         }
       }
 
+      // 💞 Vínculo de Morte (Death Link): por X turnos, se o conjurador OU o alvo morrer, o outro também morre.
+      // Marca o CONJURADOR e o ALVO com um efeito 'death_link' apontando um para o outro.
+      if ((skill.deathLinkDuration || 0) > 0 && target && !target.isDead && target.id !== source.id) {
+        const dlDur = skill.deathLinkDuration!;
+        pushActiveEffect(source, {
+          name: `${skill.name} (Vínculo de Morte)`,
+          sourceSkillName: skill.name,
+          type: 'death_link',
+          duration: dlDur,
+          icon: skill.icon,
+          casterId: source.id,
+          casterSide: action.isPlayer ? 'player' : 'enemy',
+          targetId: target.id,
+          castTurn: turn,
+        });
+        pushActiveEffect(target, {
+          name: `${skill.name} (Vínculo de Morte)`,
+          sourceSkillName: skill.name,
+          type: 'death_link',
+          duration: dlDur,
+          icon: skill.icon,
+          casterId: source.id,
+          casterSide: action.isPlayer ? 'player' : 'enemy',
+          targetId: source.id,
+          castTurn: turn,
+        });
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: `💞 [${skill.name}]: ${source.character.name} e ${target.character.name} estão VINCULADOS por ${dlDur === 99999 ? '∞' : dlDur} turno(s) — se um morrer, o outro morre!`,
+          type: 'buff',
+        });
+        addFloatingText(source.id, '💞 VÍNCULO DE MORTE', 'effect');
+        addFloatingText(target.id, '💞 VÍNCULO DE MORTE', 'effect');
+      }
+
       // Counter Attack (applied as debuff on the selected target)
       if (skill.counterAttack) {
         // No modo "attacker" o contra-ataque é aplicado no INIMIGO (debuff), então NÃO é benéfico
@@ -7095,10 +7297,14 @@ splashOnlyTargets = splashPool.filter(c =>
               }
             }
             if ((selfSkill.heal || 0) > 0) {
-              const maxHp = selfTarget.maxHealth || selfTarget.health;
-              const heal = Math.min(selfSkill.heal || 0, Math.max(0, maxHp - selfTarget.health));
-              selfTarget.health = Math.min(maxHp, selfTarget.health + heal);
-              selfFloating(`+${heal} HP`, 'heal');
+              if (isInvulnToFriendlyEffects(selfTarget, selfSkill)) {
+                selfFloating('CURA BLOQUEADA (INVULNERÁVEL)', 'invulnerable');
+              } else {
+                const maxHp = selfTarget.maxHealth || selfTarget.health;
+                const heal = Math.min(selfSkill.heal || 0, Math.max(0, maxHp - selfTarget.health));
+                selfTarget.health = Math.min(maxHp, selfTarget.health + heal);
+                selfFloating(`+${heal} HP`, 'heal');
+              }
             }
             if ((selfSkill.shieldVal || 0) > 0) {
               pushActiveEffect(selfTarget, {
@@ -7182,6 +7388,10 @@ splashOnlyTargets = splashPool.filter(c =>
             if (selfSkill.cleanseDebuffs || (selfSkill.cleanseDebuffTypes && selfSkill.cleanseDebuffTypes.length > 0)) {
               cleanseSpecificDebuffs(selfTarget, selfSkill.cleanseDebuffTypes || ['all_debuffs']);
               selfFloating('DEBUFFS REMOVIDOS', 'heal');
+            }
+            if (selfSkill.cleanseBuffs || (selfSkill.cleanseBuffTypes && selfSkill.cleanseBuffTypes.length > 0)) {
+              cleanseSpecificBuffs(selfTarget, selfSkill.cleanseBuffTypes || ['all_buffs']);
+              selfFloating('BUFFS REMOVIDOS', 'damage');
             }
             if ((selfSkill.gainChakra || 0) > 0) {
               const dur = selfSkill.gainChakraDuration || 1;
@@ -10201,6 +10411,77 @@ splashOnlyTargets = splashPool.filter(c =>
         }
       };
 
+      const cleanseSpecificBuffs = (t: CombatCharacter, buffTypes: string[]) => {
+        if (!buffTypes || buffTypes.length === 0) return;
+        const beforeCount = t.activeEffects.length;
+        const isAllBuffs = buffTypes.includes('all_buffs') || buffTypes.includes('buff');
+
+        t.activeEffects = t.activeEffects.filter(eff => {
+          if (eff.irremovable) return true;
+
+          if (isAllBuffs) {
+            // Remove qualquer efeito que NÃO seja debuff (buff, stack, efeito defensivo etc.)
+            return isDebuffEffect(eff);
+          }
+
+          if (buffTypes.includes('damage_buff') && eff.type === 'damage_buff') return false;
+          if (buffTypes.includes('damage_reduction') && (eff.type === 'damage_reduction' || eff.type === 'damage_reduction_pierce')) return false;
+          if (buffTypes.includes('shield') && (eff.type === 'shield' || eff.type === 'damage_reduction')) return false;
+          if (buffTypes.includes('invulnerable') && eff.type === 'invulnerable') return false;
+          if (buffTypes.includes('invisible') && eff.type === 'invisible') return false;
+          if (buffTypes.includes('chakra_regen') && eff.type === 'gain_chakra') return false;
+          if (buffTypes.includes('heal_over_time') && eff.type === 'heal_over_time') return false;
+          if (buffTypes.includes('counter_attack') && eff.type === 'counter_attack') return false;
+          if (buffTypes.includes('reflect') && eff.type === 'reflect') return false;
+          if (buffTypes.includes('retaliate_damage') && eff.type === 'retaliate_damage') return false;
+          // Remove stacks if requested
+          if (buffTypes.includes('stack') && eff.type === 'custom' && (eff.stackable === true || !!eff.stackType)) return false;
+
+          return true;
+        });
+
+        // Shield é armazenado em t.shield (número), não como activeEffect
+        let shieldRemoved = false;
+        if (isAllBuffs || buffTypes.includes('shield')) {
+          if ((t.shield || 0) > 0) {
+            t.shield = 0;
+            t.shieldExpiresTurn = undefined;
+            shieldRemoved = true;
+          }
+          if (t.activeEffects.some(e => e.type === 'shield_stun_immunity')) {
+            t.activeEffects = t.activeEffects.filter(e => e.type !== 'shield_stun_immunity');
+            shieldRemoved = true;
+          }
+        }
+
+        let removedCount = beforeCount - t.activeEffects.length;
+        if (shieldRemoved) removedCount += 1;
+        if (removedCount > 0) {
+          const typesName = isAllBuffs ? 'Todos os Buffs' : buffTypes.map(b => {
+            if (b === 'damage_buff') return 'Buff de Dano';
+            if (b === 'damage_reduction') return 'Redução de Dano';
+            if (b === 'shield') return 'Escudo';
+            if (b === 'invulnerable') return 'Invulnerabilidade';
+            if (b === 'invisible') return 'Invisibilidade';
+            if (b === 'chakra_regen') return 'Regeneração Chakra';
+            if (b === 'heal_over_time') return 'Cura por Turno';
+            if (b === 'counter_attack') return 'Contra-ataque';
+            if (b === 'reflect') return 'Refletir';
+            if (b === 'retaliate_damage') return 'Retaliação';
+            if (b === 'stack') return 'Stacks';
+            return b;
+          }).join(', ');
+
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🗑️ [REMOÇÃO DE BUFFS] ${t.character.name} teve ${removedCount} buff(s) removido(s) (${typesName}) por [${skill.name}]!`,
+            type: 'system',
+          });
+          addFloatingText(t.id, 'BUFFS REMOVIDOS', 'damage');
+        }
+      };
+
       const isSkillInvisible = !!skill.invisible || (skill.invisibleDuration !== undefined && skill.invisibleDuration > 0);
       const casterSide: 'player' | 'enemy' = action.isPlayer ? 'player' : 'enemy';
 
@@ -10208,6 +10489,15 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
   if (targetChar.activeEffects.some(e => e.type === 'cannot_receive_friendly') && !isDebuffEffect(eff)) {
     addFloatingText(targetChar.id, 'BLOQUEADO (SKILL AMIGÁVEL)', 'stun');
     return;
+  }
+
+  // Invulnerabilidade Total: bloqueia buffs/skills amigáveis no alvo imune (exceto
+  // re-aplicação de invulnerabilidade e efeitos defensivos de resposta)
+  if (!isDebuffEffect(eff) && !['invulnerable', 'counter', 'reflect', 'retaliate_damage'].includes(eff.type)) {
+    if (isInvulnToFriendlyEffects(targetChar, skill)) {
+      addFloatingText(targetChar.id, 'BLOQUEADO (INVULNERÁVEL)', 'invulnerable');
+      return;
+    }
   }
 
   if (eff.type === 'retaliate_damage') {
@@ -11381,7 +11671,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
       }
 
       if (skill.blocksOffensiveSkills) {
-        const blockDuration = skill.stunTurns || skill.duration || 1;
+        const blockDuration = skill.stunTurns || 1;
         const blockTargets = resolveEffectTargets(skill.stunTarget || skill.targetType || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         blockTargets.forEach(t => {
           if (t.isDead) return;
@@ -12409,6 +12699,15 @@ if (skill.redirectOffensiveToCaster) {
         });
       }
 
+      // Cleanse / Remove Buffs (Multi-selection)
+      if (skill.cleanseBuffs || (skill.cleanseBuffTypes && skill.cleanseBuffTypes.length > 0)) {
+        const cleanseTargets = resolveEffectTargets(skill.cleanseBuffTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, false);
+        cleanseTargets.forEach(t => {
+          if (t.isDead) return;
+          cleanseSpecificBuffs(t, skill.cleanseBuffTypes || ['all_buffs']);
+        });
+      }
+
       // Legacy effect fallback
       if (effectName && !skill.shieldVal && !skill.damageReductionVal && !skill.damageReductionPierceVal && !skill.skillCopyDuration && !skill.damageBuffVal && !skill.invulnerableDuration && !skill.dotVal) {
         if (effectType === 'shield') {
@@ -13216,7 +13515,7 @@ if (skill.redirectOffensiveToCaster) {
       });
     }
     if (skill.blocksOffensiveSkills) {
-      const blockDur = skill.stunTurns || skill.duration || 1;
+      const blockDur = skill.stunTurns || 1;
       effects.push({
         label: 'Stun Ofensivo (Impedimento Ofensivo)',
         value: `Bloqueia APENAS habilidades OFENSIVAS do alvo por ${fmtDur(blockDur)} (Habilidades amigáveis ou em si mesmo continuam liberadas)`,
@@ -13376,6 +13675,16 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         value: `${skill.afflictionVal} de dano por turno por ${fmtDur(skill.afflictionDuration)}${(skill.afflictionDelay || 0) > 0 ? ` (só a partir de ${fmtDur(skill.afflictionDelay)})` : ''}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.afflictionTarget, 'Alvo Principal')
+      });
+    }
+
+    // Informação: Vínculo de Morte (Death Link)
+    if ((skill.deathLinkDuration || 0) > 0) {
+      effects.push({
+        label: '💞 Vínculo de Morte',
+        value: `Por ${skill.deathLinkDuration === 99999 ? '∞' : fmtDur(skill.deathLinkDuration)}, se o conjurador OU o alvo morrer, o outro também morre.`,
+        color: 'text-rose-950 font-extrabold',
+        targetLabel: 'Conjurador + Alvo',
       });
     }
 
@@ -13696,7 +14005,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         if (!rule.activeSkillName) return;
         effects.push({
           label: `Execução Instantânea (${rule.activeSkillName})`,
-          value: `MATA instantaneamente o Oponente que estiver com ${rule.activeSkillName} ativo nele${rule.killScope === 'self_and_target' ? ' — e VOCÊ também morre (sacrifício)' : ''}`,
+          value: `MATA instantaneamente o Oponente que estiver com ${rule.activeSkillName} ativo nele${rule.killHpThreshold && rule.killHpThreshold > 0 ? ` e a vida dele estiver com HP ≤ ${rule.killHpThreshold}` : ''}${rule.killScope === 'self_and_target' ? ' — e VOCÊ também morre (sacrifício)' : ''}`,
           color: 'text-red-950 font-extrabold',
           targetLabel: 'Condicional'
         });
@@ -14431,7 +14740,14 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                     <div className="flex-1 space-y-1.5">
                       <div className="flex justify-between items-start">
-                        <h4 className="font-bold text-sm tracking-tight">{combatant.character.name}</h4>
+                        <h4 className="font-bold text-sm tracking-tight flex items-center gap-1.5 flex-wrap">
+                          {combatant.character.name}
+                          {checkCombatantInvulnerable(combatant) && (
+                            <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
+                              🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
+                            </span>
+                          )}
+                        </h4>
                         {combatant.shield > 0 && (() => {
                           const shieldRemaining = combatant.shieldExpiresTurn ? combatant.shieldExpiresTurn - turn : null;
                           return (
@@ -14866,7 +15182,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                   {skill.blocksOffensiveSkills && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-red-300 bg-red-950/90 p-1 rounded border border-red-800/80">
                                       <span className="font-bold flex items-center gap-1">
-                                        🛑 STUN OFENSIVO ({skill.stunTurns || skill.duration || 1}T)
+                                        🛑 STUN OFENSIVO ({skill.stunTurns || 1}T)
                                       </span>
                                       <span className="text-[7.5px] text-red-200/90 leading-tight">
                                         Bloqueia apenas habilidades ofensivas contra o oponente.
@@ -15556,7 +15872,14 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                     <div className="flex-1 space-y-1.5">
                       <div className="flex justify-between items-start">
-                        <h4 className="font-bold text-sm tracking-tight">{combatant.character.name}</h4>
+                        <h4 className="font-bold text-sm tracking-tight flex items-center gap-1.5 flex-wrap">
+                          {combatant.character.name}
+                          {checkCombatantInvulnerable(combatant) && (
+                            <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
+                              🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
+                            </span>
+                          )}
+                        </h4>
                         {combatant.shield > 0 && (() => {
                           const shieldRemaining = combatant.shieldExpiresTurn ? combatant.shieldExpiresTurn - turn : null;
                           return (
@@ -16013,7 +16336,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     {skill.blocksOffensiveSkills && (
                                      <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-red-300 bg-red-950/90 p-1 rounded border border-red-800/80">
                                        <span className="font-bold flex items-center gap-1">
-                                         🛑 STUN OFENSIVO ({skill.stunTurns || skill.duration || 1}T)
+                                         🛑 STUN OFENSIVO ({skill.stunTurns || 1}T)
                                        </span>
                                        <span className="text-[7.5px] text-red-200/90 leading-tight">
                                          Bloqueia apenas habilidades ofensivas contra o oponente.
@@ -16104,7 +16427,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                   {skill.blocksOffensiveSkills && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-red-300 bg-red-950/90 p-1 rounded border border-red-800/80">
                                       <span className="font-bold flex items-center gap-1">
-                                        🛑 STUN OFENSIVO ({skill.stunTurns || skill.duration || 1}T)
+                                        🛑 STUN OFENSIVO ({skill.stunTurns || 1}T)
                                       </span>
                                       <span className="text-[7.5px] text-red-200/90 leading-tight">
                                         Bloqueia apenas habilidades ofensivas contra o oponente.
