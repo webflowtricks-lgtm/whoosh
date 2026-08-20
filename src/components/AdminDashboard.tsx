@@ -4995,6 +4995,171 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Counter Success Stack Rules */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400 font-mono">
+                              📚 Stack no Contra-Ataque
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Quando o CONTRA-ATAQUE desta skill for efetuado com sucesso (anular uma habilidade ofensiva), o inimigo que atacou recebe uma STACK (nome à sua escolha) por X turnos ou infinito.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.counterSuccessStackRules || [];
+                              handleUpdateSkillField('counterSuccessStackRules', [...current, { stackName: '', duration: 99999 }]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Stack
+                          </button>
+                        </div>
+
+                        {(!editingSkill.counterSuccessStackRules || editingSkill.counterSuccessStackRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma stack de contra-ataque configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.counterSuccessStackRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-emerald-400 font-bold">Nome da stack:</span>
+                                <input
+                                  type="text"
+                                  value={rule.stackName || ''}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.counterSuccessStackRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], stackName: e.target.value };
+                                    handleUpdateSkillField('counterSuccessStackRules', updated);
+                                  }}
+                                  placeholder="Ex: Maldição / Marca"
+                                  className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-emerald-400 font-bold">Duração:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={99999}
+                                  value={rule.duration === 99999 || !rule.duration ? '' : rule.duration}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.counterSuccessStackRules || [])];
+                                    const val = e.target.value === '' ? 99999 : Math.max(1, parseInt(e.target.value) || 1);
+                                    updated[rIdx] = { ...updated[rIdx], duration: val };
+                                    handleUpdateSkillField('counterSuccessStackRules', updated);
+                                  }}
+                                  placeholder="∞"
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded text-center text-[10px] font-mono text-white"
+                                />
+                                <span className="text-[9px] text-slate-500">turnos (vazio = ∞ permanente)</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.counterSuccessStackRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('counterSuccessStackRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* On Countered Damage Rules */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono">
+                              🔥 Dano ao ser Contra-Atacada
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Se ESTA skill for CONTRA-ATACADA (anulada por um contra-ataque inimigo), um inimigo (o que contra-atacou ou um aleatório) recebe o dano do tipo escolhido.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.onCounteredDamageRules || [];
+                              handleUpdateSkillField('onCounteredDamageRules', [...current, { damage: 0, damageType: 'direct_damage', target: 'counterer' }]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-rose-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Dano
+                          </button>
+                        </div>
+
+                        {(!editingSkill.onCounteredDamageRules || editingSkill.onCounteredDamageRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhum dano ao ser contra-atacada configurado para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.onCounteredDamageRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-rose-400 font-bold">Dano:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={99999}
+                                  value={rule.damage || 0}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.onCounteredDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damage: parseInt(e.target.value) || 0 };
+                                    handleUpdateSkillField('onCounteredDamageRules', updated);
+                                  }}
+                                  className="w-20 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px] text-center"
+                                />
+                                <select
+                                  value={rule.damageType || 'direct_damage'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.onCounteredDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damageType: e.target.value as any };
+                                    handleUpdateSkillField('onCounteredDamageRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px] font-mono"
+                                >
+                                  <option value="direct_damage">🎯 Direto (Perfurante)</option>
+                                  <option value="damage">💥 Normal</option>
+                                  <option value="dot">🔥 Queimadura</option>
+                                  <option value="bleeding">🩸 Sangramento</option>
+                                  <option value="affliction">💀 Aflição</option>
+                                </select>
+                                <span className="text-rose-400 font-bold">em:</span>
+                                <select
+                                  value={rule.target || 'counterer'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.onCounteredDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], target: e.target.value as any };
+                                    handleUpdateSkillField('onCounteredDamageRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-rose-500 rounded text-white outline-none text-[10px] font-mono"
+                                >
+                                  <option value="counterer">Inimigo que contra-atacou</option>
+                                  <option value="random_enemy">Inimigo aleatório</option>
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.onCounteredDamageRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('onCounteredDamageRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Reflect by Stack Rules */}
                       <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
                         <div className="flex justify-between items-center">

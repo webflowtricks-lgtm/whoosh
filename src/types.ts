@@ -191,6 +191,22 @@ export interface SkillCounterSuccessStunRule {
   damageClasses?: string[];
 }
 
+export interface SkillCounterSuccessStackRule {
+  /** Nome da stack aplicada no inimigo que atacou quando o CONTRA-ATAQUE desta skill é efetuado com sucesso */
+  stackName: string;
+  /** Duração da stack em turnos. Vazio/0/99999 = INFINITO (permanente) */
+  duration?: number;
+}
+
+export interface SkillOnCounteredDamageRule {
+  /** Dano aplicado quando ESTA skill for CONTRA-ATACADA (anulada por um contra-ataque inimigo) */
+  damage: number;
+  /** Tipo de dano: 'direct_damage'/'piercing' (Direto - padrão), 'damage' (Normal), 'dot' (Queimadura), 'bleeding' (Sangramento), 'affliction' (Aflição) */
+  damageType?: string;
+  /** Quem recebe o dano: 'counterer' (o inimigo que contra-atacou - padrão) ou 'random_enemy' (um inimigo aleatório) */
+  target?: 'counterer' | 'random_enemy';
+}
+
 export interface SkillChakraCostReduceRule {
   /** Tipos de chakra cujo custo das skills do alvo será reduzido: Tai, Nin, Gen, Blood, Rand */
   chakraTypes: ChakraType[];
@@ -326,6 +342,10 @@ export interface Skill {
   counterSuccessDamageRules?: SkillCounterSuccessDamageRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou fica STUNADO e recebe dano adicional de skills das classes escolhidas */
   counterSuccessStunRules?: SkillCounterSuccessStunRule[];
+  /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou recebe uma STACK (por X turnos ou infinito) */
+  counterSuccessStackRules?: SkillCounterSuccessStackRule[];
+  /** Quando ESTA skill for CONTRA-ATACADA (anulada), um inimigo (o que contra-atacou ou um aleatório) recebe dano do tipo escolhido */
+  onCounteredDamageRules?: SkillOnCounteredDamageRule[];
   /** Quando esta skill é usada, as skills do(s) alvo(s) têm o custo de chakra dos tipos escolhidos reduzido pela quantidade definida por X turnos */
   chakraCostReduceRules?: SkillChakraCostReduceRule[];
   /** Reflexão por Stack: quando o portador desta stack E o atacante inimigo possuírem a stack,

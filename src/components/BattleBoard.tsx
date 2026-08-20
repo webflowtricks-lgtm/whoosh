@@ -3808,6 +3808,98 @@ const handleTradeChakra = () => {
             }
           }
         }
+        // 📚 STACK NO CONTRA-ATAQUE (counterSuccessStackRules): quando o contra-ataque desta skill funciona,
+        // o inimigo que atacou recebe uma stack pelo nome/duração configurados
+        if (!source.isDead && counterEffect.sourceSkillName) {
+          const applierSkill = (defaultTarget.character.skills || []).find(s => s.name === counterEffect.sourceSkillName);
+          const stackRules = (applierSkill?.counterSuccessStackRules || []).filter(r => (r.stackName || '').trim().length > 0);
+          for (const r of stackRules) {
+            const stName = r.stackName.trim();
+            const stDur = (r.duration && r.duration > 0 && r.duration < 99999) ? r.duration : 99999;
+            const existing = source.activeEffects.find(e => e.type === 'custom' && e.stackable && e.stackType === stName);
+            if (existing) {
+              existing.stacks = (existing.stacks || 1) + 1;
+              existing.duration = stDur;
+              existing.castTurn = turn;
+            } else {
+              source.activeEffects.push({
+                name: `${stName} (Stack)`,
+                type: 'custom',
+                value: 0,
+                duration: stDur,
+                icon: applierSkill?.icon || defaultTarget.character.portrait,
+                stackable: true,
+                stackType: stName,
+                casterId: defaultTarget.id,
+                casterSide: action.isPlayer ? 'enemy' : 'player',
+                sourceSkillName: applierSkill?.name,
+                stacks: 1,
+                castTurn: turn,
+              });
+            }
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `📚 [CONTRA-ATAQUE] ${defaultTarget.character.name} aplicou a stack [${stName}] em ${source.character.name}${stDur < 99999 ? ` por ${stDur} turno(s)` : ' (permanente)'} ao contra-atacar com sucesso!`,
+              type: 'buff',
+            });
+            addFloatingText(source.id, `+1 ${stName.toUpperCase()}`, 'effect');
+          }
+        }
+        // 🔥 DANO QUANDO CONTRA-ATACADA (onCounteredDamageRules): quando ESTA skill do atacante
+        // é anulada por um contra-ataque, um inimigo do atacante (o que contra-atacou ou um aleatório) recebe dano
+        {
+          const counteredRules = (skill.onCounteredDamageRules || []).filter(r => (r.damage || 0) > 0);
+          if (counteredRules.length > 0) {
+            const typeLabels: Record<string, string> = {
+              damage: 'dano', direct_damage: 'dano direto', true: 'dano direto', piercing: 'dano direto',
+              dot: 'queimadura', bleeding: 'sangramento', affliction: 'aflição',
+            };
+            // Inimigos do atacante = time do defensor (targetList)
+            const enemyPool = targetList.filter(c => !c.isDead);
+            for (const r of counteredRules) {
+              const rDmg = r.damage || 0;
+              const rType = r.damageType || 'direct_damage';
+              let victim: CombatCharacter | undefined;
+              if (r.target === 'random_enemy') {
+                victim = enemyPool.length > 0 ? enemyPool[Math.floor(Math.random() * enemyPool.length)] : undefined;
+              } else {
+                victim = defaultTarget && !defaultTarget.isDead ? defaultTarget : (enemyPool[0] || undefined);
+              }
+              if (!victim) continue;
+              if (checkCombatantInvulnerable(victim) || hasDamageImmunity(victim, [rType])) {
+                if (hasDamageImmunity(victim, [rType])) consumeFirstHitOnlyImmunity(victim, [rType]);
+                newLogs.push({
+                  id: Math.random().toString(), turn,
+                  message: `🛡️ [${skill.name}] foi contra-atacada, mas ${victim.character.name} é IMUNE ao dano de retorno!`,
+                  type: 'buff',
+                });
+                continue;
+              }
+              let actualDmg = rDmg;
+              if (rType === 'damage' && (victim.shield || 0) > 0 && !hasNegateFriendlyEffects(victim)) {
+                if (victim.shield >= actualDmg) { victim.shield -= actualDmg; actualDmg = 0; }
+                else { actualDmg -= victim.shield; victim.shield = 0; }
+              }
+              if (actualDmg > 0 && convertDamageToShield(victim, actualDmg, turn, [rType])) {
+                newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${victim.character.name} converteu ${actualDmg} de dano em escudo!`, type: 'buff' });
+                addFloatingText(victim.id, `+${actualDmg} ESCUDO`, 'shield');
+                actualDmg = 0;
+              }
+              if (actualDmg > 0) {
+                victim.health = hasImmortalEffect(victim) ? Math.max(1, victim.health - actualDmg) : Math.max(0, victim.health - actualDmg);
+                if (victim.health <= 0 && !hasImmortalEffect(victim)) victim.isDead = true;
+              }
+              const typeLabel = typeLabels[rType] || 'dano direto';
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `🔥 [${skill.name}] de ${source.character.name} foi CONTRA-ATACADA e ${victim.character.name} recebeu ${rDmg} de ${typeLabel}!`,
+                type: 'damage',
+              });
+              addFloatingText(victim.id, `-${rDmg} ${typeLabel.toUpperCase()}`, 'damage');
+            }
+          }
+        }
         return; // Skill is cancelled due to counter-attack
       }
 
@@ -14363,6 +14455,39 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
+    // Informação de stack no contra-ataque (counterSuccessStackRules)
+    if (skill.counterSuccessStackRules && skill.counterSuccessStackRules.length > 0) {
+      skill.counterSuccessStackRules.forEach(r => {
+        if (!(r.stackName || '').trim()) return;
+        const durText = (r.duration && r.duration > 0 && r.duration < 99999) ? `por ${fmtDur(r.duration)}` : 'permanentemente';
+        effects.push({
+          label: 'Stack no Contra-Ataque',
+          value: `Quando o CONTRA-ATAQUE desta skill funciona, o inimigo que atacou recebe a stack [${r.stackName}] ${durText}`,
+          color: 'text-emerald-950 font-extrabold',
+          targetLabel: 'Contra-Ataque'
+        });
+      });
+    }
+
+    // Informação de dano quando esta skill for contra-atacada (onCounteredDamageRules)
+    if (skill.onCounteredDamageRules && skill.onCounteredDamageRules.length > 0) {
+      const typeLabels: Record<string, string> = {
+        damage: 'Dano', direct_damage: 'Dano Direto', true: 'Dano Direto', piercing: 'Dano Direto',
+        dot: 'Queimadura', bleeding: 'Sangramento', affliction: 'Aflição',
+      };
+      skill.onCounteredDamageRules.forEach(r => {
+        if (!(r.damage || 0) || (r.damage || 0) <= 0) return;
+        const tLabel = typeLabels[r.damageType || 'direct_damage'] || 'Dano Direto';
+        const victimLabel = r.target === 'random_enemy' ? 'um inimigo aleatório' : 'o inimigo que contra-atacou';
+        effects.push({
+          label: 'Dano ao ser Contra-Atacada',
+          value: `Se ESTA skill for CONTRA-ATACADA, ${victimLabel} recebe ${r.damage} de ${tLabel}`,
+          color: 'text-rose-950 font-extrabold',
+          targetLabel: 'Contra-Ataque'
+        });
+      });
+    }
+
     // Informação de mudança de alvo por marcação (targetChangeOnStacksRules)
     if (skill.targetChangeOnStacksRules && skill.targetChangeOnStacksRules.length > 0) {
       skill.targetChangeOnStacksRules.forEach(rule => {
@@ -14990,7 +15115,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                       return (
                         <div className={`w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
-                          isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] ring-2 ring-cyan-400/80 bg-slate-950' : 'border-slate-800 bg-slate-950'
+                          isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] bg-slate-950' : 'border-slate-800 bg-slate-950'
                         }`}>
                           <MangekyoLoader
                             src={displayPortrait}
@@ -16121,7 +16246,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                       return (
                         <div className={`w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
-                          isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] ring-2 ring-cyan-400/80 bg-slate-950' : 'border-slate-800 bg-slate-950'
+                          isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] bg-slate-950' : 'border-slate-800 bg-slate-950'
                         }`}>
                           <MangekyoLoader
                             src={displayPortrait}
