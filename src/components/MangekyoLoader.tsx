@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface MangekyoLoaderProps {
   src: string | null;
@@ -36,6 +36,13 @@ export function MangekyoLoader({
 }: MangekyoLoaderProps) {
   const [loaded, setLoaded] = useState(false);
   const [srcUrl, setSrcUrl] = useState<string | null>(src);
+
+  // Sincroniza quando o prop `src` muda (ex.: alvo fica invulnerável e a foto troca
+  // para o ícone da skill de invulnerabilidade, ou volta para o retrato).
+  useEffect(() => {
+    setSrcUrl(src);
+    setLoaded(false);
+  }, [src]);
 
   if (noPlaceholder) {
     return (

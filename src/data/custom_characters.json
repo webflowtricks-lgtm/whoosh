@@ -3537,7 +3537,7 @@
         "cost": [
           "Rand"
         ],
-        "cooldown": 0,
+        "cooldown": 4,
         "currentCooldown": 0,
         "targetType": "Self",
         "classes": [
@@ -6574,6 +6574,12 @@
             "activeOn": "self",
             "stunClasses": [],
             "stunTurns": 1
+          },
+          {
+            "activeSkillName": "Mysterious Sharingan",
+            "activeOn": "self",
+            "stunClasses": [],
+            "stunTurns": 1
           }
         ],
         "noCounterReflectWhenActiveRules": [
@@ -6582,6 +6588,36 @@
             "activeOn": "self",
             "noCounter": true,
             "noReflect": true
+          },
+          {
+            "activeSkillName": "Mysterious Sharingan",
+            "activeOn": "self",
+            "noCounter": true,
+            "noReflect": true
+          }
+        ],
+        "damageRules": [
+          {
+            "activeSkillName": "Swirling Vanish",
+            "damageBoost": 40,
+            "damageType": "piercing",
+            "ignoreBaseDamage": true
+          },
+          {
+            "activeSkillName": "Mysterious Sharingan",
+            "damageBoost": 40,
+            "damageType": "piercing",
+            "ignoreBaseDamage": true
+          }
+        ],
+        "ignoreInvulnWhenActiveRules": [
+          {
+            "activeSkillName": "Mysterious Sharingan",
+            "activeOn": "self"
+          },
+          {
+            "activeSkillName": "Swirling Vanish",
+            "activeOn": "self"
           }
         ]
       },
@@ -6600,11 +6636,24 @@
           "A distancia",
           "Amigável"
         ],
-        "stackable": true,
+        "stackable": false,
         "stackType": "Mysterious Sharingan",
         "stackNonCumulative": true,
         "stackTarget": "Self",
-        "stackDuration": 1
+        "stackDuration": 1,
+        "cooldownReduceRules": [
+          {
+            "activeSkillName": "Mysterious Sharingan",
+            "targetSkillName": "Swirling Vanish",
+            "reduceAmount": 1
+          },
+          {
+            "activeSkillName": "Mysterious Sharingan",
+            "targetSkillName": "Intangibility",
+            "reduceAmount": 1
+          }
+        ],
+        "invulnerableDuration": 1
       },
       {
         "name": "Swirling Vanish",
@@ -18391,6 +18440,35 @@
         ],
         "afflictionVal": 10,
         "afflictionDuration": 10
+      }
+    ],
+    "skins": []
+  },
+  {
+    "id": "uchiha-fugaku",
+    "name": "Uchiha Fugaku",
+    "description": "Uchiha Fugaku is a shinobi of Konohagakure. He was the head of the Uchiha clan as well as the leader of the Konoha Military Police Force. During the Third Shinobi World War, shinobi from other nations trembled at the mention of Fugaku's nickname of Wicked Eye Fugaku. He's the father of Uchiha Itachi and Uchiha Sasuke.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+    "folder": "uchiha-fugaku",
+    "skills": [
+      {
+        "name": "Golpe Básico",
+        "desc": "Causa 20 de dano físico a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "Enemy",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ]
       }
     ],
     "skins": []

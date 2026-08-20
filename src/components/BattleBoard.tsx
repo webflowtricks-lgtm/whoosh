@@ -320,21 +320,22 @@ export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Ski
   });
 }
 
-// Invulnerabilidade Total: alvo invulnerável (types indefinido = tudo, ou inclui 'all'/'friendly')
-// também fica imune a skills amigáveis (curas, escudos, buffs), exceto skills com ignoreInvulnerable
+// Invulnerabilidade Total: alvo com efeito de invulnerabilidade TOTAL (flag invulnerableTotal)
+// também fica imune a skills amigáveis (curas, escudos, buffs) — nem aliados podem marcá-lo.
+// A Invulnerabilidade (Desvio) só bloqueia amigáveis se o tipo 'friendly' estiver marcado.
 export function isInvulnToFriendlyEffects(c: CombatCharacter, skill?: Skill): boolean {
   if (skill?.ignoreInvulnerable) return false;
+  if (hasTotalInvulnerability(c)) return true;
   return checkCombatantInvulnerable(c, 'friendly');
 }
 
-// "Invulnerabilidade Total" (types indefinido ou 'all'): o alvo fica SELADO — não pode
-// selecionar skills (só passar o turno) e ninguém pode marcá-lo como alvo.
+// "Invulnerabilidade Total" (flag invulnerableTotal): o alvo fica SELADO — não pode
+// selecionar skills (só passar o turno) e ninguém pode marcá-lo como alvo (nem aliados).
 export function hasTotalInvulnerability(c?: CombatCharacter | null): boolean {
   if (!c || !c.activeEffects) return false;
   if (c.activeEffects.some(e => e.type === 'cannot_be_invulnerable')) return false;
   if (hasNegateFriendlyEffects(c)) return false;
-  return c.activeEffects.some(e => e.type === 'invulnerable' &&
-    (e.invulnerableTypes === undefined || e.invulnerableTypes.includes('all')));
+  return c.activeEffects.some(e => e.type === 'invulnerable' && (e as any).invulnerableTotal === true);
 }
 
 function isSingleTypeProtected(typeStr: string, types: string[]): boolean {
@@ -3241,6 +3242,59 @@ const handleTradeChakra = () => {
       // Set skill on cooldown
       const effectiveCd = getEffectiveCooldown(skill, source, allCombatants);
       skill.currentCooldown = effectiveCd;
+
+      // Redução condicional de cooldown ATUAL de outra skill (cooldownReduceRules):
+      // quando a habilidade/efeito requerido estiver ativo (ou sempre, se o campo estiver vazio),
+      // reduz a recarga ATUAL da skill alvo (no próprio conjurador ou em aliados).
+      if (skill.cooldownReduceRules && skill.cooldownReduceRules.length > 0) {
+        const allActiveEffects = [
+          ...source.activeEffects,
+          ...[...sourceList, ...targetList].filter(c => c.id !== source.id).flatMap(c => c.activeEffects),
+        ];
+        for (const rule of skill.cooldownReduceRules) {
+          if (!rule.targetSkillName || !(rule.reduceAmount > 0)) continue;
+          // Condição: se activeSkillName estiver vazio, aplica SEMPRE; se apontar para a
+          // PRÓPRIA skill sendo usada, também conta como ativo (o efeito/stack pode só ser
+          // aplicado mais adiante no pipeline). Caso contrário, exige o efeito ativo.
+          const condLower = (rule.activeSkillName || '').trim().toLowerCase();
+          const isSelfSkill = !!condLower && condLower === skill.name.trim().toLowerCase();
+          const isCondActive = !condLower || isSelfSkill || allActiveEffects.some(e => {
+            if (!e.name) return false;
+            const eNameLower = e.name.toLowerCase();
+            return eNameLower === condLower || eNameLower.startsWith(condLower) || eNameLower.includes(condLower);
+          });
+          if (!isCondActive) continue;
+          const targetLower = rule.targetSkillName.trim().toLowerCase();
+          // Procura a skill alvo primeiro no conjurador; se não achar, procura nos aliados vivos
+          let targetOwner = source;
+          let targetSkill = source.character.skills.find(s => s.name.trim().toLowerCase() === targetLower);
+          if (!targetSkill) {
+            for (const ally of sourceList) {
+              const found = ally.character.skills.find(s => s.name.trim().toLowerCase() === targetLower);
+              if (found) { targetOwner = ally; targetSkill = found; break; }
+            }
+          }
+          if (!targetSkill) {
+            console.log('[COOLDOWN-REDUCE] skill alvo não encontrada:', rule.targetSkillName);
+            continue;
+          }
+          if (targetSkill.currentCooldown <= 0) {
+            console.log('[COOLDOWN-REDUCE] skill alvo já está sem recarga:', targetSkill.name, targetSkill.currentCooldown);
+            continue;
+          }
+          const before = targetSkill.currentCooldown;
+          targetSkill.currentCooldown = Math.max(0, before - rule.reduceAmount);
+          const reduced = before - targetSkill.currentCooldown;
+          if (reduced > 0) {
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `⏱️ [RECARGA REDUZIDA] ${source.character.name} usou [${skill.name}] e reduziu a recarga de [${targetSkill.name}]${targetOwner.id !== source.id ? ` de ${targetOwner.character.name}` : ''} em ${reduced} (de ${before} para ${targetSkill.currentCooldown})${condLower ? ` porque [${rule.activeSkillName}] está ativo` : ''}!`,
+              type: 'buff',
+            });
+            addFloatingText(targetOwner.id, `-${reduced} RECARGA (${targetSkill.name})`, 'effect');
+          }
+        }
+      }
 
       // Recarga Aumentada (cooldown_increase): enquanto o debuff estiver ativo em quem usa a skill,
       // cada habilidade usada ganha +X de cooldown (ex.: skill de 1 cooldown vira 2)
@@ -6413,6 +6467,7 @@ splashOnlyTargets = splashPool.filter(c =>
             icon: skill.icon,
             invulnerableTypes: skill.totalInvulnerableTypes,
             invulnerableClasses: skill.totalInvulnerableClasses,
+            invulnerableTotal: true,
             irremovable: !!skill.totalInvulnerableIrremovable,
             casterId: source.id,
             casterSide: action.isPlayer ? 'player' : 'enemy',
@@ -14376,6 +14431,18 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         effects.push({
           label: `Novo Cooldown (${rule.activeSkillName})`,
           value: `Altera a recarga para [${rule.overrideCooldown} Turno(s)] quando ${rule.activeSkillName} estiver ativo`,
+          color: 'text-cyan-950 font-extrabold',
+          targetLabel: 'Condicional'
+        });
+      });
+    }
+
+    if (skill.cooldownReduceRules && skill.cooldownReduceRules.length > 0) {
+      skill.cooldownReduceRules.forEach(rule => {
+        if (!rule.activeSkillName || !rule.targetSkillName || !(rule.reduceAmount > 0)) return;
+        effects.push({
+          label: `Reduzir Recarga (${rule.activeSkillName})`,
+          value: `Reduz a recarga atual de [${rule.targetSkillName}] em ${rule.reduceAmount} turno(s) quando ${rule.activeSkillName} estiver ativo`,
           color: 'text-cyan-950 font-extrabold',
           targetLabel: 'Condicional'
         });

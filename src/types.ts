@@ -34,6 +34,12 @@ export interface SkillCooldownRule {
   overrideCooldown: number; // Novo Cooldown quando ativo (ex: 0)
 }
 
+export interface SkillCooldownReduceRule {
+  activeSkillName: string; // Skill/Efeito ativo necessário no combatente ou equipe para a regra disparar
+  targetSkillName: string; // Skill cujo cooldown ATUAL será reduzido
+  reduceAmount: number; // Quanto reduzir da recarga atual (ex: 1, 2)
+}
+
 export interface SkillCountdownDamageRule {
   damage: number; // Dano aplicado quando o timer acabar (contagem regressiva)
   duration: number; // Turnos até explodir (ex: 2 = em 2 turnos o alvo recebe o dano)
@@ -287,6 +293,8 @@ export interface Skill {
   costRules?: SkillCostRule[];
   targetRules?: SkillTargetRule[];
   cooldownRules?: SkillCooldownRule[];
+  /** Regras condicionais que REDUZEM o cooldown ATUAL de uma skill específica quando outra habilidade/efeito estiver ativo */
+  cooldownReduceRules?: SkillCooldownReduceRule[];
   damageRules?: SkillDamageRule[];
   onSkillUseDamageRules?: SkillOnSkillUseDamageRule[];
   /** Combo por stacks: ao usar a skill com X stacks do conjurador, aplica os efeitos da regra (stun, remover chakra...) */
@@ -852,6 +860,8 @@ export interface ActiveEffect {
   stunType?: ('mental' | 'physical' | 'affliction' | 'chakra' | 'ranged' | 'friendly' | string)[];
   invulnerableTypes?: ('damage' | 'direct_damage' | 'affliction' | 'bleeding' | 'dot' | 'mental' | 'physical' | 'chakra' | 'ranged' | 'friendly' | 'stun' | 'all')[];
   invulnerableClasses?: string[];
+  /** Marca este efeito como INVULNERABILIDADE TOTAL (sela o personagem: não age e não pode ser alvo nem de aliados). Desvio NÃO usa esta flag. */
+  invulnerableTotal?: boolean;
   irremovable?: boolean;
   regenPerTurn?: boolean; // Se true, gera value de escudo ADICIONAL a cada turno (escudo por turno)
   regenMaxVal?: number; // Limite máximo de escudo para a geração por turno
