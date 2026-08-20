@@ -3074,7 +3074,7 @@ const handleTradeChakra = () => {
       if (!source || source.isDead) return;
 
       const rawSkill = source.character.skills[action.skillIndex];
-      const skill = (rawSkill.ignoreInvulnWhenActiveRules?.some(r => r.activeOn === 'self' && hasEffectWithName(source, r.activeSkillName)))
+      let skill = (rawSkill.ignoreInvulnWhenActiveRules?.some(r => r.activeOn === 'self' && hasEffectWithName(source, r.activeSkillName)))
         ? { ...rawSkill, ignoreInvulnerable: true }
         : rawSkill;
       (source as any)._executingSkill = skill;
@@ -3315,6 +3315,32 @@ const handleTradeChakra = () => {
 
       // Find target combatant
       const defaultTarget = targetList.find(c => c.id === action.targetId) || sourceList.find(c => c.id === action.targetId) || source;
+
+      // Regra condicional de contra-ataque/reflexo (noCounterReflectWhenActiveRules): se a habilidade
+      // listada estiver ATIVA (em mim ou no alvo), esta skill NÃO pode ser contra-atacada e/ou refletida
+      if (rawSkill.noCounterReflectWhenActiveRules && rawSkill.noCounterReflectWhenActiveRules.length > 0) {
+        for (const rule of rawSkill.noCounterReflectWhenActiveRules) {
+          if (!rule.activeSkillName) continue;
+          const condMet = rule.activeOn === 'self'
+            ? hasEffectWithName(source, rule.activeSkillName)
+            : (defaultTarget ? hasEffectWithName(defaultTarget, rule.activeSkillName) : false);
+          if (!condMet) continue;
+          const mustChange = (rule.noCounter && !skill.cannotBeCountered) || (rule.noReflect && !skill.cannotBeReflected);
+          if (!mustChange) continue;
+          skill = {
+            ...skill,
+            cannotBeCountered: rule.noCounter ? true : skill.cannotBeCountered,
+            cannotBeReflected: rule.noReflect ? true : skill.cannotBeReflected,
+          };
+          (source as any)._executingSkill = skill;
+          currentSkillRef.current = skill;
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `🛡️ [SEM CONTRA-ATAQUE/REFLEXO] [${skill.name}] de ${source.character.name} não pode ser ${rule.noCounter && rule.noReflect ? 'contra-atacada nem refletida' : rule.noCounter ? 'contra-atacada' : 'refletida'} enquanto [${rule.activeSkillName}] estiver ativo ${rule.activeOn === 'self' ? 'em mim' : 'no alvo'}!`,
+            type: 'buff',
+          });
+        }
+      }
 
       // Conditional stun rules (stunWhenActiveRules): if the condition skill is active (on me or on the target),
       // this skill stuns the enemy
@@ -6375,7 +6401,34 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
-      // Invulnerable
+      // Invulnerabilidade TOTAL (campo independente — pode coexistir com o Desvio abaixo)
+      if (skill.totalInvulnerableDuration && skill.totalInvulnerableDuration > 0) {
+        const totalInvulTargets = resolveEffectTargets(skill.totalInvulnerableTarget || 'Self', target, source, sourceList, targetList, false);
+        totalInvulTargets.forEach(t => {
+          if (t.isDead) return;
+          pushActiveEffect(t, {
+            name: `${skill.name} Total Escape`,
+            type: 'invulnerable',
+            duration: skill.totalInvulnerableDuration!,
+            icon: skill.icon,
+            invulnerableTypes: skill.totalInvulnerableTypes,
+            invulnerableClasses: skill.totalInvulnerableClasses,
+            irremovable: !!skill.totalInvulnerableIrremovable,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            castTurn: turn,
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `🛡️ ${t.character.name} ficou com INVULNERABILIDADE TOTAL com [${skill.name}] por ${skill.totalInvulnerableDuration} turnos!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, 'INVULNERABILIDADE TOTAL', 'invulnerable');
+          cleanseTargetEffects(t, skill.totalInvulnerableRemoveType);
+        });
+      }
+
+      // Invulnerabilidade (Desvio) — proteção seletiva por tipos/classes
       if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
         const invulTargets = resolveEffectTargets(skill.invulnerableTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, false);
         invulTargets.forEach(t => {
@@ -6394,7 +6447,7 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🌌 ${t.character.name} ficou INVULNERÁVEL com [${skill.name}] por ${skill.invulnerableDuration} turnos!`,
+            message: `🌌 ${t.character.name} ficou INVULNERÁVEL (${formatInvulnerableSummary(skill.invulnerableTypes)}) com [${skill.name}] por ${skill.invulnerableDuration} turnos!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
@@ -7178,7 +7231,7 @@ splashOnlyTargets = splashPool.filter(c =>
       if (skill.permanent && defaultTarget && !defaultTarget.isDead) {
         const hasAppliedEffect = !!(skill.damage || skill.directDamage || skill.heal || skill.shieldVal ||
           skill.damageReductionVal || skill.damageReductionPierceVal || skill.damageBuffVal || skill.skillCopyDuration || skill.damageDebuffVal || skill.dotVal ||
-          skill.bleedingVal || skill.afflictionVal || skill.stunTurns || skill.invulnerableDuration ||
+          skill.bleedingVal || skill.afflictionVal || skill.stunTurns || skill.invulnerableDuration || skill.totalInvulnerableDuration ||
           skill.gainChakra || skill.drainChakra || skill.removeChakra || skill.stealChakra ||
           skill.invisible || skill.paralyzeCooldownDuration || skill.cannotReduceDamageDuration ||
           skill.cannotBeInvulnerableDuration || skill.cannotReceiveFriendlyDuration || skill.counterAttack || skill.reflect || skill.retaliateDamage ||
@@ -14009,13 +14062,22 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         targetLabel: getTargetLabel(skill.removeCounterReflectTarget, 'Alvo Principal')
       });
     }
+    if (skill.totalInvulnerableDuration && skill.totalInvulnerableDuration > 0) {
+      const invulSummary = formatInvulnerableSummary(skill.totalInvulnerableTypes);
+      effects.push({
+        label: 'Invulnerabilidade Total',
+        value: `Fica com INVULNERABILIDADE TOTAL ${invulSummary}${skill.totalInvulnerableClasses && skill.totalInvulnerableClasses.length > 0 ? ` (classes: ${skill.totalInvulnerableClasses.join(', ')})` : ''} por ${fmtDur(skill.totalInvulnerableDuration)}`,
+        color: 'text-cyan-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.totalInvulnerableTarget, 'Conjurador (Mim)')
+      });
+    }
     if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
       const invulSummary = formatInvulnerableSummary(skill.invulnerableTypes);
       effects.push({
-        label: 'Invulnerabilidade',
+        label: 'Invulnerabilidade (Desvio)',
         value: `Fica invulnerável ${invulSummary}${skill.invulnerableClasses && skill.invulnerableClasses.length > 0 ? ` (classes: ${skill.invulnerableClasses.join(', ')})` : ''} por ${fmtDur(skill.invulnerableDuration)}`,
         color: 'text-teal-950 font-extrabold',
-        targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
+        targetLabel: getTargetLabel(skill.invulnerableTarget, 'Conjurador (Mim)')
       });
     }
 
@@ -14178,6 +14240,25 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           label: `Escudo Condicional (${rule.activeSkillName})`,
           value: `Concede +${rule.shieldVal || 0} de escudo a ${recipient}${durText} quando ${rule.activeSkillName} estiver ativo ${where}`,
           color: 'text-sky-950 font-extrabold',
+          targetLabel: 'Condicional'
+        });
+      });
+    }
+
+    // Informação de contra-ataque/reflexo condicional (noCounterReflectWhenActiveRules)
+    if (skill.noCounterReflectWhenActiveRules && skill.noCounterReflectWhenActiveRules.length > 0) {
+      skill.noCounterReflectWhenActiveRules.forEach(rule => {
+        if (!rule.activeSkillName) return;
+        const where = rule.activeOn === 'self' ? 'em MIM' : 'no Oponente';
+        const blockText = rule.noCounter && rule.noReflect
+          ? 'não pode ser CONTRA-ATACADA nem REFLETIDA'
+          : rule.noCounter
+            ? 'não pode ser CONTRA-ATACADA'
+            : 'não pode ser REFLETIDA';
+        effects.push({
+          label: `Sem Contra-Ataque/Reflexo Condicional (${rule.activeSkillName})`,
+          value: `[${skill.name}] ${blockText} enquanto [${rule.activeSkillName}] estiver ativo ${where}`,
+          color: 'text-amber-950 font-extrabold',
           targetLabel: 'Condicional'
         });
       });

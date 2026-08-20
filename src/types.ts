@@ -159,6 +159,16 @@ export interface SkillShieldWhenActiveRule {
   shieldDuration?: number;
 }
 
+export interface SkillNoCounterReflectWhenActiveRule {
+  activeSkillName: string; // Skill/efeito que, se ATIVO, faz esta skill não poder ser contra-atacada/refletida
+  /** Onde a habilidade condicional precisa estar ativa: 'target' (No Oponente - padrão) ou 'self' (Em Mim / Conjurador) */
+  activeOn?: 'target' | 'self';
+  /** Esta skill NÃO pode ser contra-atacada enquanto a condição estiver ativa */
+  noCounter?: boolean;
+  /** Esta skill NÃO pode ser refletida enquanto a condição estiver ativa */
+  noReflect?: boolean;
+}
+
 export interface SkillCounterSuccessDamageRule {
   /** Dano que o inimigo que atacou recebe quando o CONTRA-ATAQUE desta skill é efetuado com sucesso */
   damage: number;
@@ -302,6 +312,8 @@ export interface Skill {
   stunWhenActiveRules?: SkillStunWhenActiveRule[];
   /** Regras condicionais de escudo: se a habilidade listada estiver ATIVA (em mim ou no Oponente), esta skill concede escudo a mim ou à minha equipe */
   shieldWhenActiveRules?: SkillShieldWhenActiveRule[];
+  /** Regras condicionais de contra-ataque/reflexo: se a habilidade listada estiver ATIVA (em mim ou no Oponente), esta skill NÃO pode ser contra-atacada e/ou refletida */
+  noCounterReflectWhenActiveRules?: SkillNoCounterReflectWhenActiveRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou recebe dano direto */
   counterSuccessDamageRules?: SkillCounterSuccessDamageRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou fica STUNADO e recebe dano adicional de skills das classes escolhidas */
@@ -596,6 +608,14 @@ export interface Skill {
   stealChakraIrremovable?: boolean;
   removeShieldIrremovable?: boolean;
   invulnerableIrremovable?: boolean;
+  /** ===== Invulnerabilidade TOTAL (independente da Invulnerabilidade/Desvio acima — pode coexistir) ===== */
+  totalInvulnerableDuration?: number;
+  totalInvulnerableTypes?: ('damage' | 'direct_damage' | 'affliction' | 'bleeding' | 'dot' | 'mental' | 'physical' | 'chakra' | 'ranged' | 'friendly' | 'stun' | 'all')[];
+  /** Classes de skill (skill.classes) contra as quais o alvo fica invulnerável TOTAL (protegido delas). Vazio = proteção por tipos. */
+  totalInvulnerableClasses?: string[];
+  totalInvulnerableTarget?: TargetOverride;
+  totalInvulnerableRemoveType?: string;
+  totalInvulnerableIrremovable?: boolean;
   invisibleIrremovable?: boolean;
   revealInvisibleIrremovable?: boolean;
   // ==============================

@@ -4597,6 +4597,113 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* No Counter/Reflect When Active Rules */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">
+                              🛡️⚔️ Sem Contra-Ataque / Reflexo Condicional
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Se a habilidade/efeito específico estiver ATIVO (em mim ou no Oponente), esta skill não pode ser contra-atacada e/ou refletida.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentRules = editingSkill.noCounterReflectWhenActiveRules || [];
+                              handleUpdateSkillField('noCounterReflectWhenActiveRules', [
+                                ...currentRules,
+                                { activeSkillName: '', activeOn: 'target', noCounter: true, noReflect: true }
+                              ]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.noCounterReflectWhenActiveRules || editingSkill.noCounterReflectWhenActiveRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de contra-ataque/reflexo condicional configurada para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.noCounterReflectWhenActiveRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-amber-400 font-bold">Não pode ser contra-atacada/refletida quando:</span>
+                                <select
+                                  value={rule.activeOn || 'target'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.noCounterReflectWhenActiveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeOn: e.target.value === 'self' ? 'self' : 'target' };
+                                    handleUpdateSkillField('noCounterReflectWhenActiveRules', updated);
+                                  }}
+                                  className="px-2 py-0.5 bg-slate-900 border border-amber-800/60 rounded text-[10px] font-mono text-amber-300 focus:border-amber-500 outline-none"
+                                >
+                                  <option value="target">No Oponente</option>
+                                  <option value="self">Em Mim (Conjurador)</option>
+                                </select>
+                                <input
+                                  type="text"
+                                  list="noCounterReflectSkills-suggestions"
+                                  value={rule.activeSkillName}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.noCounterReflectWhenActiveRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                    handleUpdateSkillField('noCounterReflectWhenActiveRules', updated);
+                                  }}
+                                  placeholder="Ex: Two-Headed Wolf"
+                                  className="flex-1 min-w-[130px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-amber-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <datalist id="noCounterReflectSkills-suggestions">
+                                  {editingChar?.skills && editingChar.skills.length > 0 ? (
+                                    editingChar.skills.map(s => <option key={s.name} value={s.name} />)
+                                  ) : <option value="" disabled />}
+                                </datalist>
+                                <label className="flex items-center gap-1 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={rule.noCounter || false}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.noCounterReflectWhenActiveRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], noCounter: e.target.checked };
+                                      handleUpdateSkillField('noCounterReflectWhenActiveRules', updated);
+                                    }}
+                                    className="accent-amber-500"
+                                  />
+                                  <span className="text-amber-300">Não pode ser contra-atacada</span>
+                                </label>
+                                <label className="flex items-center gap-1 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={rule.noReflect || false}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.noCounterReflectWhenActiveRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], noReflect: e.target.checked };
+                                      handleUpdateSkillField('noCounterReflectWhenActiveRules', updated);
+                                    }}
+                                    className="accent-amber-500"
+                                  />
+                                  <span className="text-amber-300">Não pode ser refletida</span>
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.noCounterReflectWhenActiveRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('noCounterReflectWhenActiveRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Counter Success Damage Rules */}
                       <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
                         <div className="flex justify-between items-center">
@@ -5543,16 +5650,16 @@ const newSkill: Skill = {
                               type="number"
                               min={0}
                               max={5}
-                              value={editingSkill.invulnerableDuration === 99999 ? 0 : (editingSkill.invulnerableDuration || 0)}
-                              title={editingSkill.invulnerableDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
-                              onChange={(e) => handleUpdateSkillField('invulnerableDuration', parseInt(e.target.value) || 0)}
+                              value={editingSkill.totalInvulnerableDuration === 99999 ? 0 : (editingSkill.totalInvulnerableDuration || 0)}
+                              title={editingSkill.totalInvulnerableDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
+                              onChange={(e) => handleUpdateSkillField('totalInvulnerableDuration', parseInt(e.target.value) || 0)}
                               className="w-16 px-2 py-1 bg-slate-900 border border-cyan-900/60 focus:border-cyan-500 rounded text-cyan-400 font-mono text-xs text-center font-bold"
                             />
                             <label className="flex items-center gap-1 cursor-pointer select-none">
                               <input
                                 type="checkbox"
-                                checked={editingSkill.invulnerableDuration === 99999}
-                                onChange={(e) => handleUpdateSkillField('invulnerableDuration', e.target.checked ? 99999 : 1)}
+                                checked={editingSkill.totalInvulnerableDuration === 99999}
+                                onChange={(e) => handleUpdateSkillField('totalInvulnerableDuration', e.target.checked ? 99999 : 1)}
                                 className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
                               />
                               <span className="text-[9px] text-cyan-400 font-mono">♾️ Infinito</span>
@@ -5562,8 +5669,8 @@ const newSkill: Skill = {
                           <div className="flex items-center gap-1.5 mt-1">
                             <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
                             <select
-                              value={editingSkill.invulnerableTarget || 'Self'}
-                              onChange={(e) => handleUpdateSkillField('invulnerableTarget', e.target.value)}
+                              value={editingSkill.totalInvulnerableTarget || 'Self'}
+                              onChange={(e) => handleUpdateSkillField('totalInvulnerableTarget', e.target.value)}
                               className="px-2 py-0.5 bg-slate-900 border border-cyan-900/50 rounded text-[10px] font-mono text-cyan-300 focus:border-cyan-600 outline-none w-full max-w-[150px]"
                             >
                               {TARGET_OPTIONS.map(opt => (
@@ -5574,10 +5681,10 @@ const newSkill: Skill = {
                           <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-800/50">
                             <span className="text-[9px] text-slate-400 font-mono">Tipos:</span>
                             <select
-                              value={editingSkill.invulnerableTypes?.join(',') || 'all'}
+                              value={editingSkill.totalInvulnerableTypes?.join(',') || 'all'}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                handleUpdateSkillField('invulnerableTypes', val === 'all' ? undefined : val.split(','));
+                                handleUpdateSkillField('totalInvulnerableTypes', val === 'all' ? undefined : val.split(','));
                               }}
                               className="px-2 py-0.5 bg-slate-900 border border-cyan-900/50 rounded text-[10px] font-mono text-cyan-300 focus:border-cyan-600 outline-none"
                             >
@@ -5593,8 +5700,8 @@ const newSkill: Skill = {
                             <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
                               <input
                                 type="checkbox"
-                                checked={editingSkill.invulnerableIrremovable || false}
-                                onChange={(e) => handleUpdateSkillField('invulnerableIrremovable', e.target.checked)}
+                                checked={editingSkill.totalInvulnerableIrremovable || false}
+                                onChange={(e) => handleUpdateSkillField('totalInvulnerableIrremovable', e.target.checked)}
                                 className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
                               />
                               🔒 Nunca Remover
@@ -5602,8 +5709,8 @@ const newSkill: Skill = {
                             <div className="flex items-center gap-1">
                               <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
                               <select
-                                value={editingSkill.invulnerableRemoveType || 'none'}
-                                onChange={(e) => handleUpdateSkillField('invulnerableRemoveType', e.target.value)}
+                                value={editingSkill.totalInvulnerableRemoveType || 'none'}
+                                onChange={(e) => handleUpdateSkillField('totalInvulnerableRemoveType', e.target.value)}
                                 className="px-1 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] font-mono text-slate-300 outline-none focus:border-slate-600"
                               >
                                 <option value="none">Nenhum</option>

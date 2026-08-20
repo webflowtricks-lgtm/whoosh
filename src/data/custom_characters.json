@@ -6567,7 +6567,23 @@
           "Melee"
         ],
         "damage": 0,
-        "directDamage": 25
+        "directDamage": 25,
+        "stunWhenActiveRules": [
+          {
+            "activeSkillName": "Intangibility",
+            "activeOn": "self",
+            "stunClasses": [],
+            "stunTurns": 1
+          }
+        ],
+        "noCounterReflectWhenActiveRules": [
+          {
+            "activeSkillName": "Swirling Vanish",
+            "activeOn": "self",
+            "noCounter": true,
+            "noReflect": true
+          }
+        ]
       },
       {
         "name": "Mysterious Sharingan",
@@ -6576,13 +6592,19 @@
         "cost": [
           "Gen"
         ],
-        "cooldown": 1,
+        "cooldown": 2,
         "currentCooldown": 0,
-        "targetType": "Enemy",
+        "targetType": "Self",
         "classes": [
           "Mental",
-          "À Distância"
-        ]
+          "A distancia",
+          "Amigável"
+        ],
+        "stackable": true,
+        "stackType": "Mysterious Sharingan",
+        "stackNonCumulative": true,
+        "stackTarget": "Self",
+        "stackDuration": 1
       },
       {
         "name": "Swirling Vanish",
@@ -6591,7 +6613,7 @@
         "cost": [
           "Rand"
         ],
-        "cooldown": 2,
+        "cooldown": 4,
         "currentCooldown": 0,
         "targetType": "Self",
         "classes": [
@@ -6610,7 +6632,7 @@
         ],
         "cooldown": 4,
         "currentCooldown": 0,
-        "targetType": "Enemy",
+        "targetType": "Self",
         "classes": [
           "Chakra",
           "Amigável"
