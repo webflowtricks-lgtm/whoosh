@@ -6866,7 +6866,18 @@ const newSkill: Skill = {
                                   <option value="Self">Próprio (Self)</option>
                                 </select>
                               </div>
-                              <p className="text-[9px] text-slate-500 font-mono italic mt-1">Escolha um personagem e <strong className="text-fuchsia-400">substitua suas habilidades pelas dele por X turnos</strong> (nomes, imagens, custos e funções). Quando acabar, suas habilidades voltam ao normal.</p>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">Modo:</span>
+                                <select
+                                  value={editingSkill.skillCopyRandom ? 'random' : 'all'}
+                                  onChange={(e) => handleUpdateSkillField('skillCopyRandom', e.target.value === 'random')}
+                                  className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-slate-300 focus:border-fuchsia-600 outline-none w-full max-w-[150px]"
+                                >
+                                  <option value="all">Copiar TODAS as habilidades</option>
+                                  <option value="random">Copiar UMA aleatória</option>
+                                </select>
+                              </div>
+                              <p className="text-[9px] text-slate-500 font-mono italic mt-1">Escolha um personagem e <strong className="text-fuchsia-400">substitua suas habilidades pelas dele por X turnos</strong> (nomes, imagens, custos e funções). Quando acabar, suas habilidades voltam ao normal. No modo <strong className="text-fuchsia-400">"Copiar UMA aleatória"</strong>, apenas a própria skill de cópia é substituída pela skill sorteada do alvo durante a duração.</p>
                             </div>
                           </div>
 

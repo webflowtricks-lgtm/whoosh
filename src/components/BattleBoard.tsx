@@ -6109,13 +6109,35 @@ splashOnlyTargets = splashPool.filter(c =>
               storedSkills: originalSkills,
             });
           }
-          source.character.skills = JSON.parse(JSON.stringify(t.character.skills));
-          newLogs.push({
-            id: Math.random().toString(), turn,
-            message: `🪞 ${source.character.name} COPIOU as habilidades de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
-            type: 'buff',
-          });
-          addFloatingText(source.id, 'HABILIDADES COPIADAS', 'effect');
+          if (skill.skillCopyRandom) {
+            // Modo aleatório: copia UMA habilidade do alvo e substitui APENAS a própria skill de cópia por ela
+            const pool = (t.character.skills || []).filter(s => s && s.name);
+            if (pool.length > 0) {
+              const copiedSkill = JSON.parse(JSON.stringify(pool[Math.floor(Math.random() * pool.length)]));
+              const newSkills = JSON.parse(JSON.stringify(source.character.skills || []));
+              const myIdx = action.skillIndex;
+              if (myIdx >= 0 && myIdx < newSkills.length) {
+                newSkills[myIdx] = copiedSkill;
+              } else {
+                newSkills.push(copiedSkill);
+              }
+              source.character.skills = newSkills;
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `🪞 ${source.character.name} COPIOU a habilidade [${copiedSkill.name}] de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
+                type: 'buff',
+              });
+              addFloatingText(source.id, `COPIADO: ${copiedSkill.name}`, 'effect');
+            }
+          } else {
+            source.character.skills = JSON.parse(JSON.stringify(t.character.skills));
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🪞 ${source.character.name} COPIOU as habilidades de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
+              type: 'buff',
+            });
+            addFloatingText(source.id, 'HABILIDADES COPIADAS', 'effect');
+          }
         });
       }
 
