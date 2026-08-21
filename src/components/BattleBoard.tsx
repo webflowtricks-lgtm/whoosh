@@ -3399,6 +3399,33 @@ const handleTradeChakra = () => {
       const effectiveCd = getEffectiveCooldown(skill, source, allCombatants);
       skill.currentCooldown = effectiveCd;
 
+      // 🩸 Regra exclusiva do Uchiha Fugaku: se [Ninjutsu Commanding] ou [Seals Commanding]
+      // forem usadas em um aliado que JÁ possui a stack "Uchiha Clan Member" (ativa, não pendente),
+      // a recarga da habilidade usada é reduzida em 1 (2 turnos → 1 turno).
+      if (
+        source.character.name === 'Uchiha Fugaku' &&
+        (skill.name === 'Ninjutsu Commanding' || skill.name === 'Seals Commanding') &&
+        skill.currentCooldown > 1
+      ) {
+        const fugakuAlly = sourceList.find(c => c.id === action.targetId);
+        const hasClanStack = !!fugakuAlly && !fugakuAlly.isDead && fugakuAlly.activeEffects.some(e =>
+          e.type === 'custom' &&
+          (e.stackType || '') === 'Uchiha Clan Member' &&
+          !((e.stackPendingTurns || 0) > 0) &&
+          (e.stacks || 1) >= 1
+        );
+        if (hasClanStack) {
+          const beforeCd = skill.currentCooldown;
+          skill.currentCooldown = beforeCd - 1;
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `🩸 ${source.character.name} usou [${skill.name}] em ${fugakuAlly!.character.name} (que tem [Uchiha Clan Member]) — recarga reduzida de ${beforeCd} para ${skill.currentCooldown} turno(s)!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, `-1 RECARGA (${skill.name})`, 'effect');
+        }
+      }
+
       // Redução condicional de cooldown ATUAL de outra skill (cooldownReduceRules):
       // quando a habilidade/efeito requerido estiver ativo (ou sempre, se o campo estiver vazio),
       // reduz a recarga ATUAL da skill alvo (no próprio conjurador ou em aliados).
@@ -8957,13 +8984,28 @@ splashOnlyTargets = splashPool.filter(c =>
           }
         });
 
-        // Decrement effect durations (skip effects cast in the current turn, skip permanent effects)
+        // Decrement effect durations.
+        // Regra de contagem de turnos: um efeito de "1 turno" (ex.: stun) deve durar APENAS a rodada
+        // em que foi aplicado — quando ambos os lados passam, ele já expira (badge some).
+        // Por isso, efeitos de CONTROLE/badge decrementam mesmo na rodada em que foram aplicados.
+        // EXCEÇÕES que mantêm o timing antigo (não decrementam na própria rodada de cast):
+        //  - efeitos de dano contínuo (para não perder um tick): dot/bleeding/affliction/damage/direct_damage/life_steal
+        //  - marcadores 'custom' (stacks, stacks pendentes, liberação atrasada, reflexão por stack, etc.)
+        //  - efeitos permanentes (duration >= 99999) e stack Raikiri congelada
+        const KEEP_CAST_ROUND_SKIP = new Set([
+          'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'custom',
+        ]);
         c.activeEffects = c.activeEffects
           .map(eff => {
             if (eff.stackType === 'Raikiri' && eff.type === 'custom') {
-              console.log(`[RAIKIRI] DECREMENT turn=${turn} castTurn=${eff.castTurn} frozenUntilTurn=${(eff as any).frozenUntilTurn} dur=${eff.duration} skip=${eff.castTurn === turn || eff.duration >= 99999 || ((eff as any).frozenUntilTurn === turn)}`);
+              console.log(`[RAIKIRI] DECREMENT turn=${turn} castTurn=${eff.castTurn} frozenUntilTurn=${(eff as any).frozenUntilTurn} dur=${eff.duration}`);
             }
-            if (eff.castTurn === turn || eff.duration >= 99999 || (eff.stackType === 'Raikiri' && (eff as any).frozenUntilTurn === turn)) {
+            // Permanentes e Raikiri congelado nunca decrementam.
+            if (eff.duration >= 99999 || (eff.stackType === 'Raikiri' && (eff as any).frozenUntilTurn === turn)) {
+              return eff;
+            }
+            // Tipos que mantêm o skip antigo: não decrementam na MESMA rodada em que foram aplicados.
+            if (eff.castTurn === turn && KEEP_CAST_ROUND_SKIP.has(eff.type)) {
               return eff;
             }
             return { ...eff, duration: eff.duration - 1 };
