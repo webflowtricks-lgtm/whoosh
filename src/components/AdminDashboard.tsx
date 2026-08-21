@@ -2209,9 +2209,35 @@ const newSkill: Skill = {
                     className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl space-y-4 relative mt-3"
                   >
                     <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                      <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-orange-400 uppercase">
-                        <Edit3 className="w-3.5 h-3.5" />
-                        Ajustando Habilidade #{editingSkillIndex + 1}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-orange-400 uppercase">
+                          <Edit3 className="w-3.5 h-3.5" />
+                          Ajustando Habilidade #{editingSkillIndex + 1}
+                        </div>
+                        <label
+                          className={`flex items-center gap-1 px-1.5 py-0.5 rounded cursor-pointer select-none border transition-all text-[9px] font-mono font-bold ${editingSkill.isPassive ? 'bg-violet-950/60 border-violet-700/60 text-violet-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-violet-800/50'}`}
+                          title="Habilidade Passiva: não pode ser usada em batalha; os efeitos já iniciam aplicados no alvo escolhido"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={editingSkill.isPassive || false}
+                            onChange={(e) => handleUpdateSkillField('isPassive', e.target.checked)}
+                            className="rounded bg-slate-950 border-violet-800/60 text-violet-500 focus:ring-0 w-3 h-3"
+                          />
+                          🌀 Passiva
+                        </label>
+                        {editingSkill.isPassive && (
+                          <select
+                            value={editingSkill.passiveStartTarget || 'self'}
+                            onChange={(e) => handleUpdateSkillField('passiveStartTarget', e.target.value as 'self' | 'allies' | 'enemies')}
+                            className="px-2 py-0.5 bg-slate-900 border border-violet-800/60 focus:border-violet-500 rounded text-[10px] font-mono text-violet-300 outline-none cursor-pointer"
+                            title="Onde os efeitos desta passiva iniciam aplicados"
+                          >
+                            <option value="self">🌀 Inicia em Mim</option>
+                            <option value="allies">👥 Inicia nos Meus Aliados</option>
+                            <option value="enemies">⚔️ Inicia nos Inimigos</option>
+                          </select>
+                        )}
                       </div>
 
                       <button
@@ -4891,6 +4917,136 @@ const newSkill: Skill = {
                         )}
                       </div>
 
+                      {/* Counter Success Buff Rules */}
+                      <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-lime-400 font-mono">
+                              ⚡ Buff de Dano no Contra-Ataque
+                            </span>
+                            <p className="text-[9px] text-slate-400">
+                              Quando o CONTRA-ATAQUE desta skill for efetuado com sucesso (anular uma habilidade ofensiva), o conjurador ou TODOS os aliados ganham um BUFF de dano das classes escolhidas por X turnos.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.counterSuccessBuffRules || [];
+                              handleUpdateSkillField('counterSuccessBuffRules', [...current, { buffValue: 10, buffClasses: [], buffTarget: 'self', duration: 2 }]);
+                            }}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-lime-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Buff
+                          </button>
+                        </div>
+
+                        {(!editingSkill.counterSuccessBuffRules || editingSkill.counterSuccessBuffRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhum buff de contra-ataque configurado para esta habilidade.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.counterSuccessBuffRules.map((rule, rIdx) => {
+                              const ruleClasses = rule.buffClasses || [];
+                              return (
+                                <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                  <span className="text-lime-400 font-bold">Ganha +</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={99999}
+                                    value={rule.buffValue || 0}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.counterSuccessBuffRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], buffValue: parseInt(e.target.value) || 0 };
+                                      handleUpdateSkillField('counterSuccessBuffRules', updated);
+                                    }}
+                                    className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-lime-500 rounded text-white outline-none text-[10px] text-center"
+                                  />
+                                  <span className="text-[9px] text-slate-400">de dano</span>
+                                  <select
+                                    value={rule.buffTarget || 'self'}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.counterSuccessBuffRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], buffTarget: e.target.value as any };
+                                      handleUpdateSkillField('counterSuccessBuffRules', updated);
+                                    }}
+                                    className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-lime-500 rounded text-white outline-none text-[10px] font-mono"
+                                  >
+                                    <option value="self">👤 Conjurador</option>
+                                    <option value="team">👥 Todos Aliados</option>
+                                  </select>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    disabled={!rule.duration || rule.duration === 99999}
+                                    value={rule.duration && rule.duration !== 99999 ? rule.duration : ''}
+                                    placeholder="∞"
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      const updated = [...(editingSkill.counterSuccessBuffRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], duration: raw === '' ? 99999 : Math.max(1, parseInt(raw) || 1) };
+                                      handleUpdateSkillField('counterSuccessBuffRules', updated);
+                                    }}
+                                    className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-lime-500 rounded text-white outline-none text-[10px] text-center disabled:opacity-50"
+                                  />
+                                  <span className="text-[9px] text-slate-400">turno(s)</span>
+                                  <label className="flex items-center gap-1 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={!rule.duration || rule.duration === 99999}
+                                      onChange={(e) => {
+                                        const updated = [...(editingSkill.counterSuccessBuffRules || [])];
+                                        updated[rIdx] = { ...updated[rIdx], duration: e.target.checked ? 99999 : 2 };
+                                        handleUpdateSkillField('counterSuccessBuffRules', updated);
+                                      }}
+                                      className="accent-lime-500"
+                                    />
+                                    <span className="text-[9px] text-slate-400 font-bold">♾️ Infinito</span>
+                                  </label>
+                                  <div className="flex flex-wrap items-center gap-1 w-full pt-1">
+                                    <span className="text-[9px] text-slate-400 uppercase font-bold">⚔️ Classes que recebem o aumento:</span>
+                                    {[
+                                      { key: 'physical', label: 'Físico' },
+                                      { key: 'chakra', label: 'Chakra' },
+                                      { key: 'mental', label: 'Mental' },
+                                      { key: 'affliction', label: 'Aflição' },
+                                    ].map(opt => (
+                                      <label key={opt.key} className={`flex items-center gap-1 px-1.5 py-0.5 rounded cursor-pointer select-none border transition-all ${ruleClasses.includes(opt.key) ? 'bg-lime-950/60 border-lime-700/60 text-lime-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-lime-800/50'}`}>
+                                        <input
+                                          type="checkbox"
+                                          checked={ruleClasses.includes(opt.key)}
+                                          onChange={() => {
+                                            const updated = [...(editingSkill.counterSuccessBuffRules || [])];
+                                            const next = ruleClasses.includes(opt.key) ? ruleClasses.filter(c => c !== opt.key) : [...ruleClasses, opt.key];
+                                            updated[rIdx] = { ...updated[rIdx], buffClasses: next };
+                                            handleUpdateSkillField('counterSuccessBuffRules', updated);
+                                          }}
+                                          className="rounded bg-slate-950 border-lime-800/60 text-lime-500 focus:ring-0 w-3 h-3"
+                                        />
+                                        <span className="text-[9px] font-mono">{opt.label}</span>
+                                      </label>
+                                    ))}
+                                    <span className="text-[9px] text-slate-500 italic">(nenhuma marcada = aumenta qualquer classe)</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = (editingSkill.counterSuccessBuffRules || []).filter((_, i) => i !== rIdx);
+                                      handleUpdateSkillField('counterSuccessBuffRules', updated.length > 0 ? updated : undefined);
+                                    }}
+                                    className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                    title="Remover"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Counter Success Stun Rules */}
                       <div className="md:col-span-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800 space-y-2">
                         <div className="flex justify-between items-center">
@@ -5652,6 +5808,120 @@ const newSkill: Skill = {
                             editingChar.skills.filter(s => s.stackable && s.stackType).map(s => <option key={s.stackType} value={s.stackType!} />)
                           ) : null}
                         </datalist>
+                      </div>
+
+                      {/* 🛡️ Proteção por Stack em Vida Baixa (stackLowHpProtectionRules) */}
+                      <div className="md:col-span-2 bg-indigo-950/20 p-3 rounded-xl border border-indigo-800/50 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-indigo-300 font-mono">
+                              🛡️ Proteção por Stack em Vida Baixa (Anti Contra-Ataque/Reflexo)
+                            </span>
+                            <p className="text-[9px] text-indigo-200/70">
+                              Aliados marcados com X stacks que estiverem com <span className="font-bold text-white">Y% de vida ou menos</span> ganham um BUFF: suas skills NÃO podem ser contra-atacadas nem refletidas. Avaliada automaticamente a cada turno — ideal em uma skill <span className="font-bold text-white">PASSIVA</span> (não precisa usar).
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const current = editingSkill.stackLowHpProtectionRules || [];
+                              handleUpdateSkillField('stackLowHpProtectionRules', [...current, { stackType: '', requiredStacks: 1, hpPercentThreshold: 50, noCounter: true, noReflect: true }]);
+                            }}
+                            className="px-2.5 py-1 bg-indigo-900/40 hover:bg-indigo-800/50 text-indigo-300 border border-indigo-800/60 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            + Adicionar Regra
+                          </button>
+                        </div>
+
+                        {(!editingSkill.stackLowHpProtectionRules || editingSkill.stackLowHpProtectionRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic">
+                            Nenhuma regra de proteção configurada.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            {editingSkill.stackLowHpProtectionRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-indigo-900/50 text-[10px] font-mono">
+                                <span className="text-indigo-300 font-bold">Aliado com</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={99}
+                                  value={rule.requiredStacks || 1}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.stackLowHpProtectionRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], requiredStacks: parseInt(e.target.value) || 1 };
+                                    handleUpdateSkillField('stackLowHpProtectionRules', updated);
+                                  }}
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded text-white outline-none text-[10px] text-center"
+                                />
+                                <span className="text-[9px] text-slate-400">stack(s) de:</span>
+                                <input
+                                  list="self-cast-stacktype-list"
+                                  type="text"
+                                  value={rule.stackType || ''}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.stackLowHpProtectionRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], stackType: e.target.value };
+                                    handleUpdateSkillField('stackLowHpProtectionRules', updated);
+                                  }}
+                                  placeholder="StackType (ex: Uchiha Clan Member)"
+                                  className="w-52 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-[9px] text-slate-400">com vida ≤</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={100}
+                                  value={rule.hpPercentThreshold ?? 50}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.stackLowHpProtectionRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], hpPercentThreshold: parseInt(e.target.value) || 50 };
+                                    handleUpdateSkillField('stackLowHpProtectionRules', updated);
+                                  }}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded text-white outline-none text-[10px] text-center"
+                                />
+                                <span className="text-[9px] text-slate-400">%</span>
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={rule.noCounter !== false}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.stackLowHpProtectionRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], noCounter: e.target.checked };
+                                      handleUpdateSkillField('stackLowHpProtectionRules', updated);
+                                    }}
+                                    className="accent-indigo-500"
+                                  />
+                                  <span className="text-[9px] text-indigo-300 font-bold">🚫 Sem contra-ataque</span>
+                                </label>
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={rule.noReflect !== false}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.stackLowHpProtectionRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], noReflect: e.target.checked };
+                                      handleUpdateSkillField('stackLowHpProtectionRules', updated);
+                                    }}
+                                    className="accent-indigo-500"
+                                  />
+                                  <span className="text-[9px] text-indigo-300 font-bold">🚫 Sem reflexo</span>
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.stackLowHpProtectionRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('stackLowHpProtectionRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                  title="Remover regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="md:col-span-2">
@@ -9575,10 +9845,42 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                                        placeholder="—"
                                        className="w-14 px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-white"
                                      />
-                                     <span className="text-[9px] text-slate-500 font-mono">🔄 Resetar p/ 1 ao chegar em (stacks)</span>
-                                   </div>
-                                 </>
-                               )}
+                                      <span className="text-[9px] text-slate-500 font-mono">🔄 Resetar p/ 1 ao chegar em (stacks)</span>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={999}
+                                        value={editingSkill.stackDelayTurns ?? ''}
+                                        title="Ao usar a skill, a stack fica pendente e só é aplicada após X turnos"
+                                        onChange={(e) => handleUpdateSkillField('stackDelayTurns', e.target.value ? Math.max(1, parseInt(e.target.value) || 1) : undefined)}
+                                        placeholder="—"
+                                        className="w-14 px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-white"
+                                      />
+                                      <span className="text-[9px] text-slate-500 font-mono">⏳ Aplicar daqui a X turno(s) (vazio = na hora)</span>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2 mt-1.5 w-full">
+                                      <span className="text-[9px] text-purple-300 font-mono font-bold shrink-0">🏷️ Auto-aplicar no início se tiver Tag/Afiliação:</span>
+                                      <input
+                                        type="text"
+                                        list="stackStartTags-suggestions"
+                                        value={(editingSkill.stackStartTags || []).join(', ')}
+                                        onChange={(e) => {
+                                          const arr = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                          handleUpdateSkillField('stackStartTags', arr.length > 0 ? arr : undefined);
+                                        }}
+                                        placeholder="Ex: Akatsuki, Konoha"
+                                        className="flex-1 min-w-[160px] px-2 py-1 bg-slate-900 border border-purple-800/60 focus:border-purple-500 rounded text-xs font-mono text-white outline-none"
+                                      />
+                                      <datalist id="stackStartTags-suggestions">
+                                        {Array.from(new Set(characters.flatMap(ch => ch.tags || []))).map(t => (
+                                          <option key={t} value={t} />
+                                        ))}
+                                      </datalist>
+                                    </div>
+                                  </>
+                                )}
                              </div>
                            </div>
 

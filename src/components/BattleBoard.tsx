@@ -682,6 +682,14 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'reflect':
       rawPt = `Reflete habilidades do oponente por ${durText}`;
       break;
+    case 'no_counter_reflect': {
+      const parts: string[] = [];
+      if (effect.noCounterProtect !== false) parts.push('contra-atacadas');
+      if (effect.noReflectProtect !== false) parts.push('refletidas');
+      const what = parts.length === 2 ? 'contra-atacadas nem refletidas' : (parts[0] || 'contra-atacadas nem refletidas');
+      rawPt = `🛡️ Proteção (Vida Baixa): as habilidades deste personagem NÃO podem ser ${what} por ${durText}`;
+      break;
+    }
     case 'redirect_offensive':
       rawPt = `Guarda-Costas: Toda habilidade ofensiva usada contra ${effect.redirectOffensiveScope === 'team' ? 'a equipe' : 'este aliado'} é redirecionada para o conjurador por ${durText}`;
       break;
@@ -1672,8 +1680,15 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     const applyStartOfBattleStacks = (combatant: CombatCharacter, allies: CombatCharacter[], enemies: CombatCharacter[]) => {
       const casterSide = allies.includes(combatant) ? 'player' : 'enemy';
       combatant.character.skills.forEach(skill => {
-        if (!skill.stackable || !skill.stackStartActive) return;
+        if (!skill.stackable) return;
         const effStackType = skill.stackType || skill.name;
+        const startTags = (skill.stackStartTags || []).map(t => String(t).toLowerCase()).filter(Boolean);
+        const hasTag = (c: CombatCharacter) => (c.character.tags || []).some(ct => startTags.includes(String(ct).toLowerCase()));
+
+        // Alvos por tag/afiliação: aplica a stack em CADA aliado (incluindo o próprio) que tiver uma das tags.
+        const tagTargets = startTags.length > 0 ? allies.filter(c => !c.isDead && hasTag(c)) : [];
+
+        // Alvos "Passiva" clássica (stackStartActive): usa o stackTarget configurado.
         const resolveInitTargets = (): CombatCharacter[] => {
           const st = skill.stackTarget || 'Self';
           if (st === 'Self') return [combatant];
@@ -1682,12 +1697,19 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
           if (st === 'AllEnemies') return enemies.filter(c => !c.isDead);
           return [combatant];
         };
-        resolveInitTargets().forEach(st => {
+        const passiveTargets = skill.stackStartActive ? resolveInitTargets() : [];
+
+        // União dos alvos (sem duplicar)
+        const targetSet = new Map<string, CombatCharacter>();
+        [...passiveTargets, ...tagTargets].forEach(t => { if (t && !t.isDead) targetSet.set(t.id, t); });
+        if (targetSet.size === 0) return;
+
+        targetSet.forEach(st => {
           if (st.isDead) return;
           const startCount = Math.max(1, skill.stackStartCount || 1);
           const existing = st.activeEffects.find(e => e.type === 'custom' && e.stackable && e.stackType === effStackType);
           if (existing) {
-            existing.stacks = (existing.stacks || 0) + startCount;
+            existing.stacks = skill.stackNonCumulative ? 1 : (existing.stacks || 0) + startCount;
             existing.duration = Math.max(existing.duration, skill.stackDuration ?? 999);
           } else {
             st.activeEffects.push({
@@ -1714,6 +1736,129 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     };
     pCombat.forEach(c => applyStartOfBattleStacks(c, pCombat, eCombat));
     eCombat.forEach(c => applyStartOfBattleStacks(c, eCombat, pCombat));
+
+    // 🌀 Habilidades PASSIVAS (isPassive): os efeitos principais já iniciam aplicados
+    // no alvo escolhido no editor (passiveStartTarget: 'self' | 'allies' | 'enemies').
+    const applyStartOfBattlePassives = (combatant: CombatCharacter, allies: CombatCharacter[], enemies: CombatCharacter[]) => {
+      const casterSide = allies.includes(combatant) ? 'player' : 'enemy';
+      combatant.character.skills.forEach(skill => {
+        if (!skill.isPassive) return;
+        const st = skill.passiveStartTarget || 'self';
+        const targets = st === 'enemies' ? enemies.filter(c => !c.isDead)
+          : st === 'allies' ? allies.filter(c => !c.isDead)
+          : [combatant];
+        const normDur = (d?: number) => (d && d > 0 ? d : 99999);
+        targets.forEach(tg => {
+          let applied = false;
+          if ((skill.shieldVal || 0) > 0) {
+            tg.shield = (tg.shield || 0) + (skill.shieldVal || 0);
+            if (skill.shieldDuration && skill.shieldDuration > 0 && skill.shieldDuration < 99999) {
+              tg.shieldExpiresTurn = Math.max(tg.shieldExpiresTurn || 0, skill.shieldDuration);
+            }
+            applied = true;
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] concedeu +${skill.shieldVal} de escudo para ${tg.character.name}!`);
+          }
+          if ((skill.damageBuffVal || 0) > 0) {
+            tg.activeEffects.push({ name: `${skill.name} (Passiva +${skill.damageBuffVal} Dano)`, type: 'damage_buff', value: skill.damageBuffVal, duration: normDur(skill.damageBuffDuration), castTurn: 0, buffTypes: skill.damageBuffTypes, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
+            applied = true;
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] deu +${skill.damageBuffVal} de dano para ${tg.character.name}!`);
+          }
+          if ((skill.damageReductionVal || 0) > 0) {
+            tg.activeEffects.push({ name: `${skill.name} (Passiva Guard)`, type: 'damage_reduction', value: skill.damageReductionVal, duration: normDur(skill.damageReductionDuration), castTurn: 0, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
+            applied = true;
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] reduziu o dano recebido por ${tg.character.name} em ${skill.damageReductionVal}!`);
+          }
+          if ((skill.damageReductionPierceVal || 0) > 0) {
+            tg.activeEffects.push({ name: `${skill.name} (Passiva Guard+)`, type: 'damage_reduction_pierce', value: skill.damageReductionPierceVal, duration: normDur(skill.damageReductionPierceDuration), castTurn: 0, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
+            applied = true;
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] reduziu TODO o dano (inclusive direto) recebido por ${tg.character.name} em ${skill.damageReductionPierceVal}!`);
+          }
+          if ((skill.damageDebuffVal || 0) > 0) {
+            tg.activeEffects.push({ name: `${skill.name} (Passiva -Dano)`, type: 'damage_debuff', value: skill.damageDebuffVal, duration: normDur(skill.damageDebuffDuration), castTurn: 0, debuffTypes: skill.damageDebuffTypes, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
+            applied = true;
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] enfraqueceu as habilidades de ${tg.character.name} em -${skill.damageDebuffVal}!`);
+          }
+          if ((skill.damageVulnerabilityVal || 0) > 0) {
+            tg.activeEffects.push({ name: `${skill.name} (Passiva Vulnerável)`, type: 'damage_vulnerability', value: skill.damageVulnerabilityVal, duration: normDur(skill.damageVulnerabilityDuration), castTurn: 0, vulnerabilityTypes: skill.damageVulnerabilityTypes, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
+            applied = true;
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] deixou ${tg.character.name} vulnerável a +${skill.damageVulnerabilityVal} de dano!`);
+          }
+          if ((skill.dotVal || 0) > 0) {
+            tg.activeEffects.push({ name: `${skill.name} (Passiva Queima)`, type: 'dot', value: skill.dotVal, duration: normDur(skill.dotDuration), castTurn: 0, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
+            applied = true;
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] queimará ${tg.character.name} em ${skill.dotVal}/turno!`);
+          }
+          if ((skill.invulnerableDuration || 0) > 0) {
+            tg.activeEffects.push({ name: `${skill.name} (Passiva Invulnerável)`, type: 'invulnerable', duration: normDur(skill.invulnerableDuration), castTurn: 0, immunityTypes: skill.invulnerableTypes as string[] | undefined, invulnerableClasses: skill.invulnerableClasses as string[] | undefined, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
+            applied = true;
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] tornou ${tg.character.name} INVULNERÁVEL por ${normDur(skill.invulnerableDuration) < 99999 ? `${normDur(skill.invulnerableDuration)} turno(s)` : 'sempre'}!`);
+          }
+          if ((skill.stunTurns || 0) > 0) {
+            tg.activeEffects.push({ name: `${skill.name} (Passiva Stun)`, type: 'stun', duration: Math.max(1, skill.stunTurns || 1), stunType: skill.stunType as string[] | undefined, castTurn: 0, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
+            applied = true;
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] começou com ${tg.character.name} STUNADO por ${Math.max(1, skill.stunTurns || 1)} turno(s)!`);
+          }
+          if (skill.counterAttack) {
+            const untilTriggered = !!skill.counterAttackUntilTriggered;
+            tg.activeEffects.push({
+              name: `${skill.name} Contra-Ataque`,
+              type: 'counter_attack',
+              duration: untilTriggered ? 99999 : normDur(skill.counterAttackDuration),
+              counterAttackType: skill.counterAttackType || 'defender',
+              counterAttackMode: skill.counterAttackMode || 'first',
+              counterAttackClasses: skill.counterAttackClasses,
+              counterAttackUntilTriggered: untilTriggered,
+              cannotBeCountered: !!skill.counterAttackCannotBeCountered,
+              cannotBeReflected: !!skill.counterAttackCannotBeReflected,
+              irremovable: !!skill.counterAttackIrremovable || untilTriggered,
+              castTurn: 0,
+              icon: skill.icon,
+              casterId: combatant.id,
+              casterSide,
+              sourceSkillName: skill.name,
+            });
+            applied = true;
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] deixou ${tg.character.name} com CONTRA-ATAQUE ativo!`);
+          }
+          if (skill.reflect) {
+            tg.activeEffects.push({
+              name: `${skill.name} (Reflexo)`,
+              type: 'reflect',
+              duration: normDur(skill.reflectDuration),
+              reflectType: skill.reflectType || 'active',
+              reflectCharges: skill.reflectType === 'passive' ? (skill.reflectCharges || 1) : undefined,
+              castTurn: 0,
+              icon: skill.icon,
+              casterId: combatant.id,
+              casterSide,
+              sourceSkillName: skill.name,
+            });
+            applied = true;
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] deixou ${tg.character.name} com REFLEXO ativo!`);
+          }
+          // Fallback: passiva sem campos de efeito específicos → registra um marcador persistente
+          // para que a passiva fique visivelmente ATIVA no alvo (badge) desde o início da batalha.
+          if (!applied) {
+            tg.activeEffects.push({
+              name: skill.name,
+              type: 'custom',
+              value: 0,
+              duration: skill.permanent ? 99999 : 99999,
+              icon: skill.icon,
+              castTurn: 0,
+              casterId: combatant.id,
+              casterSide,
+              sourceSkillName: skill.name,
+              irremovable: !!skill.permanent,
+              description: skill.desc,
+            } as ActiveEffect);
+            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] está ativa em ${tg.character.name}.`);
+          }
+        });
+      });
+    };
+    pCombat.forEach(c => applyStartOfBattlePassives(c, pCombat, eCombat));
+    eCombat.forEach(c => applyStartOfBattlePassives(c, eCombat, pCombat));
 
     // 🔓 Liberação Atrasada: skills marcadas como bloqueadas já iniciam a batalha BLOQUEADAS.
     // NÃO conta os turnos de bloqueio desde o início — fica bloqueada indefinidamente até a skill-chave
@@ -2084,6 +2229,13 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     if (!isSandbox) {
       if (activePlanner === 'player' && isEnemyChar) return;
       if (activePlanner === 'enemy' && !isEnemyChar) return;
+    }
+
+    // 🌀 Habilidade Passiva: não pode ser selecionada em batalha
+    if (skill.isPassive) {
+      addFloatingText(charId, 'HABILIDADE PASSIVA', 'effect');
+      playCustomSound('Error');
+      return;
     }
 
     // Stun check
@@ -3371,6 +3523,26 @@ const handleTradeChakra = () => {
         if (skIsOffensive) usedOffensiveThisTurnRef.current[source.id] = true;
       }
 
+      // 🛡️ Proteção por Stack em Vida Baixa (no_counter_reflect): se o CONJURADOR possui o buff de
+      // proteção (aplicado por uma regra stackLowHpProtectionRules), suas skills não podem ser
+      // contra-atacadas e/ou refletidas enquanto o buff estiver ativo.
+      {
+        const protection = source.activeEffects.find(e => e.type === 'no_counter_reflect');
+        if (protection) {
+          const pNoCounter = protection.noCounterProtect !== false;
+          const pNoReflect = protection.noReflectProtect !== false;
+          if ((pNoCounter && !skill.cannotBeCountered) || (pNoReflect && !skill.cannotBeReflected)) {
+            skill = {
+              ...skill,
+              cannotBeCountered: pNoCounter ? true : skill.cannotBeCountered,
+              cannotBeReflected: pNoReflect ? true : skill.cannotBeReflected,
+            };
+            (source as any)._executingSkill = skill;
+            currentSkillRef.current = skill;
+          }
+        }
+      }
+
       // Find target combatant
       const defaultTarget = targetList.find(c => c.id === action.targetId) || sourceList.find(c => c.id === action.targetId) || source;
 
@@ -3721,6 +3893,40 @@ const handleTradeChakra = () => {
             newLogs.push({ id: Math.random().toString(), turn, message: `📚 [CONTRA-ATAQUE] ${counterCaster.character.name} aplicou a stack [${stName}] em ${source.character.name}${stDur < 99999 ? ` por ${stDur} turno(s)` : ' (permanente)'} ao anular sua habilidade!`, type: 'buff' });
             addFloatingText(source.id, `+1 ${stName.toUpperCase()}`, 'effect');
           }
+          // ⚡ BUFF DE DANO NO CONTRA-ATAQUE (counterSuccessBuffRules): quando o contra-ataque desta skill funciona,
+          // o conjurador (ou todos os aliados dele) recebe um buff de dano das classes escolhidas por X turnos
+          const buffRules = (applierSkill?.counterSuccessBuffRules || []).filter(r => (r.buffValue || 0) > 0);
+          for (const r of buffRules) {
+            const bVal = r.buffValue || 0;
+            const bDur = (r.duration && r.duration > 0 && r.duration < 99999) ? r.duration : 99999;
+            const bClasses = (r.buffClasses || []).map(c => c.toLowerCase()).filter(Boolean);
+            const bLabel = bClasses.length === 0 || bClasses.length >= 4 ? '' : ` (${bClasses.join('/')})`;
+            // O conjurador do contra-ataque está no lado OPOSTO a quem agiu
+            const buffRecipients = r.buffTarget === 'team'
+              ? (action.isPlayer ? updatedEnemy : updatedPlayer).filter(c => !c.isDead)
+              : [counterCaster];
+            buffRecipients.forEach(rc => {
+              pushActiveEffect(rc, {
+                name: `${applierSkill?.name || 'Contra-Ataque'} (Buff +${bVal} Dano${bLabel})`,
+                type: 'damage_buff',
+                value: bVal,
+                duration: bDur,
+                castTurn: turn,
+                buffTypes: bClasses.length > 0 ? bClasses : undefined,
+                icon: applierSkill?.icon || counterCaster.character.portrait,
+                casterId: counterCaster.id,
+                casterSide: action.isPlayer ? 'enemy' : 'player',
+                sourceSkillName: applierSkill?.name,
+              });
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `⚡ [CONTRA-ATAQUE] ${rc.id === counterCaster.id ? `${counterCaster.character.name} ganhou` : `${counterCaster.character.name} concedeu a ${rc.character.name}`} +${bVal} de dano${bLabel}${bDur < 99999 ? ` por ${bDur} turno(s)` : ''} ao anular uma habilidade!`,
+                type: 'buff',
+              });
+              addFloatingText(rc.id, `+${bVal} DANO${bLabel}`, 'effect');
+            });
+          }
         }
         return; // Skill is cancelled due to counter-attack
       }
@@ -3738,6 +3944,11 @@ const handleTradeChakra = () => {
         addFloatingText(source.id, 'HABILIDADE ANULADA!', 'damage');
         defaultTarget.lastTurnStatus = 'CONTRA-ATAQUE';
         source.lastTurnStatus = 'ANULADO';
+        // O CONJURADOR do contra-ataque pode não ser o defaultTarget (ex.: skill que dá contra-ataque
+        // a TODOS os aliados). As regras counterSuccess* pertencem à skill de quem CONJUROU o efeito.
+        const counterCasterDef = [...sourceList, ...targetList].find(c => c.id === counterEffect.casterId) || defaultTarget;
+        const counterApplierSkill = (counterCasterDef.character.skills || []).find(s => s.name === counterEffect.sourceSkillName)
+          || (defaultTarget.character.skills || []).find(s => s.name === counterEffect.sourceSkillName);
         if (counterEffect.counterAttackUntilTriggered) {
           // Persiste até efetivamente contra-atacar: agora que anulou, é removido
           defaultTarget.activeEffects = defaultTarget.activeEffects.filter(e => e !== counterEffect);
@@ -3908,6 +4119,46 @@ const handleTradeChakra = () => {
               type: 'buff',
             });
             addFloatingText(source.id, `+1 ${stName.toUpperCase()}`, 'effect');
+          }
+          // ⚡ BUFF DE DANO NO CONTRA-ATAQUE (counterSuccessBuffRules): quando o contra-ataque desta skill funciona,
+          // o conjurador (ou todos os aliados dele) recebe um buff de dano das classes escolhidas por X turnos
+          if (!source.isDead && counterEffect.sourceSkillName) {
+            const applierSkillBuff = counterApplierSkill;
+            const buffRules = (applierSkillBuff?.counterSuccessBuffRules || []).filter(r => (r.buffValue || 0) > 0);
+            // Lado (equipe) do conjurador do contra-ataque
+            const counterCasterSide = counterEffect.casterSide
+              || (counterCasterDef.id.startsWith('player') ? 'player' : 'enemy');
+            const casterTeam = counterCasterSide === 'player' ? updatedPlayer : updatedEnemy;
+            for (const r of buffRules) {
+              const bVal = r.buffValue || 0;
+              const bDur = (r.duration && r.duration > 0 && r.duration < 99999) ? r.duration : 99999;
+              const bClasses = (r.buffClasses || []).map(c => c.toLowerCase()).filter(Boolean);
+              const bLabel = bClasses.length === 0 || bClasses.length >= 4 ? '' : ` (${bClasses.join('/')})`;
+              const buffRecipients = r.buffTarget === 'team'
+                ? casterTeam.filter(c => !c.isDead)
+                : [counterCasterDef];
+              buffRecipients.forEach(rc => {
+                pushActiveEffect(rc, {
+                  name: `${applierSkillBuff?.name || 'Contra-Ataque'} (Buff +${bVal} Dano${bLabel})`,
+                  type: 'damage_buff',
+                  value: bVal,
+                  duration: bDur,
+                  castTurn: turn,
+                  buffTypes: bClasses.length > 0 ? bClasses : undefined,
+                  icon: applierSkillBuff?.icon || counterCasterDef.character.portrait,
+                  casterId: counterCasterDef.id,
+                  casterSide: counterCasterSide,
+                  sourceSkillName: applierSkillBuff?.name,
+                });
+                newLogs.push({
+                  id: Math.random().toString(),
+                  turn,
+                  message: `⚡ [CONTRA-ATAQUE] ${rc.id === counterCasterDef.id ? `${counterCasterDef.character.name} ganhou` : `${counterCasterDef.character.name} concedeu a ${rc.character.name}`} +${bVal} de dano${bLabel}${bDur < 99999 ? ` por ${bDur} turno(s)` : ''} ao contra-atacar com sucesso!`,
+                  type: 'buff',
+                });
+                addFloatingText(rc.id, `+${bVal} DANO${bLabel}`, 'effect');
+              });
+            }
           }
         }
         // 🔥 DANO QUANDO CONTRA-ATACADA (onCounteredDamageRules): quando ESTA skill do atacante
@@ -7561,15 +7812,55 @@ splashOnlyTargets = splashPool.filter(c =>
          const targets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
         targets.forEach(t => {
           if (t.isDead) return;
+          // ⏳ Atraso de stack (stackDelayTurns): cria/atualiza um marcador PENDENTE em vez de aplicar na hora
+          if ((skill.stackDelayTurns || 0) > 0) {
+            const delayT = Math.max(1, skill.stackDelayTurns || 1);
+            const pending = t.activeEffects.find(e => e.type === 'custom' && (e.stackPendingTurns || 0) > 0 && e.stackType === effStackType && e.sourceSkillName === skill.name);
+            if (pending) {
+              pending.stackPendingStacks = skill.stackNonCumulative ? 1 : (pending.stackPendingStacks || 1) + 1;
+              pending.stackPendingTurns = delayT;
+            } else {
+              t.activeEffects.push({
+                name: `${effStackType} (Pendente ⏳${delayT}T)`,
+                type: 'custom',
+                value: 0,
+                duration: 99999,
+                icon: skill.icon,
+                stackable: true,
+                stackType: effStackType,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+                sourceSkillName: skill.name,
+                stacks: 0,
+                castTurn: turn,
+                stackApplyOnAttack: skill.stackApplyOnAttack || false,
+                stackApplyOnAttackDuration: skill.stackApplyOnAttackDuration,
+                stackNonCumulative: skill.stackNonCumulative,
+                stackPendingTurns: delayT,
+                stackPendingStacks: 1,
+                // Guarda a duração final da stack (o alvo pode não ter a skill de origem)
+                stackPendingDuration: skill.stackDuration ?? 999,
+              });
+            }
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `⏳ ${t.character.name} receberá a stack [${effStackType}] daqui a ${delayT} turno(s) (via [${skill.name}])!`,
+              type: 'system',
+            });
+            addFloatingText(t.id, `⏳ +1 ${effStackType.toUpperCase()} (${delayT}T)`, 'effect');
+            maybeAttachReflectByStackMarker(t, skill, effStackType, source.id, action.isPlayer ? 'player' : 'enemy');
+            return;
+          }
           const existing = t.activeEffects.find(e => e.stackType === effStackType && e.type === 'custom' && e.sourceSkillName === skill.name);
            if (existing) {
-             existing.stacks = (existing.stacks || 1) + 1;
+             existing.stacks = skill.stackNonCumulative ? 1 : (existing.stacks || 1) + 1;
              existing.duration = skill.stackDuration ?? 999;
              existing.castTurn = turn;
              existing.stackApplyOnAttack = skill.stackApplyOnAttack || false;
              existing.stackApplyOnAttackDuration = skill.stackApplyOnAttackDuration;
              existing.stackNonCumulative = skill.stackNonCumulative;
-             if (applyStackCapReset(t, existing)) {
+             if (!skill.stackNonCumulative && applyStackCapReset(t, existing)) {
               newLogs.push({
                 id: Math.random().toString(), turn,
                 message: `🔄 ${t.character.name} atingiu o limite de stacks de [${effStackType}] e resetou para 1!`,
@@ -8341,6 +8632,60 @@ splashOnlyTargets = splashPool.filter(c =>
           if (skill && hasConditionalInvulnBypass(c, skill, caster)) return false;
           return checkCombatantInvulnerable(c, fallbackType);
         };
+
+        // ⏳ Stacks pendentes (stackDelayTurns): decrementa o timer no fim da rodada e aplica quando chegar a zero
+        const pendingStackEffects = c.activeEffects.filter(e => e.type === 'custom' && (e.stackPendingTurns || 0) > 0);
+        pendingStackEffects.forEach(ps => {
+          ps.stackPendingTurns = (ps.stackPendingTurns || 1) - 1;
+          if ((ps.stackPendingTurns || 0) > 0) return;
+          const stName = ps.stackType || '';
+          const amount = Math.max(1, ps.stackPendingStacks || 1);
+          const originSkill = c.character.skills.find(s => s.name === ps.sourceSkillName);
+          // O alvo pode NÃO possuir a skill de origem (ex.: stack aplicada em aliado). Preferir os
+          // valores guardados no marcador pendente, caindo para a skill de origem quando existir.
+          const finalDuration = ps.stackPendingDuration ?? originSkill?.stackDuration ?? 999;
+          const nonCumulative = ps.stackNonCumulative ?? originSkill?.stackNonCumulative ?? false;
+          c.activeEffects = c.activeEffects.filter(e => e !== ps);
+          if (!stName) return;
+          const existing = c.activeEffects.find(e => e.stackType === stName && e.type === 'custom' && e.sourceSkillName === ps.sourceSkillName);
+          if (existing) {
+            existing.stacks = nonCumulative ? 1 : (existing.stacks || 1) + amount;
+            existing.duration = finalDuration;
+            existing.castTurn = turn;
+            if (!nonCumulative && applyStackCapReset(c, existing)) {
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `🔄 ${c.character.name} atingiu o limite de stacks de [${stName}] e resetou para 1!`,
+                type: 'buff',
+              });
+            }
+          } else {
+            c.activeEffects.push({
+              name: `${stName} (Stack)`,
+              type: 'custom',
+              value: 0,
+              duration: finalDuration,
+              icon: ps.icon,
+              stackable: true,
+              stackType: stName,
+              stackNonCumulative: nonCumulative,
+              casterId: ps.casterId,
+              casterSide: ps.casterSide,
+              sourceSkillName: ps.sourceSkillName,
+              stacks: nonCumulative ? 1 : amount,
+              castTurn: turn,
+            });
+          }
+          if (originSkill) maybeAttachReflectByStackMarker(c, originSkill, stName, ps.casterId || '', (ps.casterSide as 'player' | 'enemy') || 'player');
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `⏳📚 ${c.character.name} recebeu ${amount} stack(s) de [${stName}] que estava(m) pendente(s)!`,
+            type: 'buff',
+          });
+          addFloatingText(c.id, `+${amount} ${stName.toUpperCase()}`, 'effect');
+        });
 
         // Apply active DoTs (e.g. Amaterasu) — DESATIVADO aqui.
         // O DOT contínuo agora é aplicado em tickCasterContinuousDamage, quando o
@@ -9174,6 +9519,69 @@ splashOnlyTargets = splashPool.filter(c =>
     randConfirmLockRef.current = false;
   }, [turn]);
 
+  // 🛡️ Proteção por Stack em Vida Baixa (stackLowHpProtectionRules): avalia continuamente.
+  // Qualquer skill (idealmente PASSIVA) que tenha essa regra: para cada aliado do conjurador
+  // marcado com a stack indicada e com HP% <= limite, aplica/atualiza um buff 'no_counter_reflect'.
+  // Quando o aliado sobe de vida acima do limite (ou perde a stack), o buff é removido.
+  useEffect(() => {
+    if (gameOver) return;
+    const applyProtection = (allies: CombatCharacter[]) => {
+      let mutated = false;
+      // Coleta todas as regras ativas no time (de skills de qualquer aliado)
+      allies.forEach(caster => {
+        if (caster.isDead) return;
+        caster.character.skills.forEach(skill => {
+          const rules = skill.stackLowHpProtectionRules;
+          if (!rules || rules.length === 0) return;
+          rules.forEach(rule => {
+            const stackType = (rule.stackType || '').trim();
+            if (!stackType) return;
+            const requiredStacks = Math.max(1, rule.requiredStacks || 1);
+            const hpThreshold = rule.hpPercentThreshold ?? 50;
+            const noCounter = rule.noCounter !== false;
+            const noReflect = rule.noReflect !== false;
+            const markerName = `${skill.name} (Proteção Vida Baixa)`;
+            allies.forEach(ally => {
+              if (ally.isDead) return;
+              const stackEff = ally.activeEffects.find(e => e.type === 'custom' && e.stackable && e.stackType === stackType);
+              const hasStack = !!stackEff && (stackEff.stacks ?? 1) >= requiredStacks;
+              const maxHp = ally.maxHealth || 100;
+              const hpPct = (ally.health / maxHp) * 100;
+              const qualifies = hasStack && !ally.isDead && hpPct <= hpThreshold;
+              const existing = ally.activeEffects.find(e => e.type === 'no_counter_reflect' && e.sourceSkillName === skill.name);
+              if (qualifies && !existing) {
+                ally.activeEffects.push({
+                  name: markerName,
+                  type: 'no_counter_reflect',
+                  value: 0,
+                  duration: 99999,
+                  icon: skill.icon,
+                  casterId: caster.id,
+                  casterSide: caster.id.startsWith('player') ? 'player' : 'enemy',
+                  sourceSkillName: skill.name,
+                  noCounterProtect: noCounter,
+                  noReflectProtect: noReflect,
+                  castTurn: turn,
+                } as ActiveEffect);
+                mutated = true;
+              } else if (!qualifies && existing) {
+                ally.activeEffects = ally.activeEffects.filter(e => e !== existing);
+                mutated = true;
+              }
+            });
+          });
+        });
+      });
+      return mutated;
+    };
+    const p = playerRef.current.length ? playerRef.current : playerCombatants;
+    const e = enemyRef.current.length ? enemyRef.current : enemyCombatants;
+    const m1 = applyProtection(p);
+    const m2 = applyProtection(e);
+    if (m1) setPlayerCombatants([...p]);
+    if (m2) setEnemyCombatants([...e]);
+  }, [turn, playerCombatants, enemyCombatants, gameOver]);
+
   // Main End Turn / Pass Turn handler
   const handleEndTurn = (customRandAllocation?: ChakraPool, skipActions?: boolean) => {
     try {
@@ -9341,6 +9749,7 @@ splashOnlyTargets = splashPool.filter(c =>
             const usableSkills = aiChar.character.skills
               .map((skill, idx) => ({ skill, idx }))
               .filter(({ skill, idx }) => {
+                if (skill.isPassive) return false; // 🌀 passivas nunca são usadas pela IA
                 if (skill.currentCooldown > 0) return false;
                 if (isSkillBlockedByStun(skill, aiChar.activeEffects)) return false;
                 if (!canAffordSkill(skill, tempAiChakra, aiChar, [...playerCombatants, ...enemyCombatants])) return false;
@@ -14648,6 +15057,29 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
+    // Informação de buff de dano no contra-ataque (counterSuccessBuffRules)
+    if (skill.counterSuccessBuffRules && skill.counterSuccessBuffRules.length > 0) {
+      const buffClassLabels: Record<string, string> = {
+        physical: 'Físico',
+        chakra: 'Chakra',
+        mental: 'Mental',
+        affliction: 'Aflição',
+      };
+      skill.counterSuccessBuffRules.forEach(r => {
+        if (!(r.buffValue || 0) || (r.buffValue || 0) <= 0) return;
+        const cls = (r.buffClasses || []).map(c => buffClassLabels[c.toLowerCase()] || c);
+        const clsLabel = cls.length === 0 || cls.length >= 4 ? 'qualquer classe' : cls.join(' + ');
+        const durText = (r.duration && r.duration > 0 && r.duration < 99999) ? ` por ${fmtDur(r.duration)}` : '';
+        const recipient = r.buffTarget === 'team' ? 'TODOS os aliados' : 'o conjurador';
+        effects.push({
+          label: 'Buff de Dano no Contra-Ataque',
+          value: `Quando o CONTRA-ATAQUE desta skill funciona, ${recipient} ganha(m) +${r.buffValue} de dano (${clsLabel})${durText}`,
+          color: 'text-lime-950 font-extrabold',
+          targetLabel: 'Contra-Ataque'
+        });
+      });
+    }
+
     // Informação de stun no contra-ataque (counterSuccessStunRules)
     if (skill.counterSuccessStunRules && skill.counterSuccessStunRules.length > 0) {
       const classLabels: Record<string, string> = {
@@ -15737,6 +16169,8 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                       <span className="text-violet-400 font-bold drop-shadow-md text-xs">💀</span>
                                     </div>
                                   )}
+
+                                  
 
                                   {/* Cued Indicator Overlay */}
                                   {isCued && (
@@ -16889,6 +17323,13 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     {((skill.requireRevived && !combatant.hasRevived) || (skill.blockIfRevived && combatant.hasRevived)) && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
                                       <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
                                         <span className="text-violet-400 font-bold drop-shadow-md text-xs">💀</span>
+                                      </div>
+                                    )}
+
+                                    {/* 🌀 Habilidade Passiva badge */}
+                                    {skill.isPassive && (
+                                      <div className="absolute bottom-0 inset-x-0 bg-violet-950/85 border-t border-violet-500/60 flex items-center justify-center z-10">
+                                        <span className="text-[7px] font-mono font-black uppercase text-violet-300 tracking-wider">🌀 Passiva</span>
                                       </div>
                                     )}
 

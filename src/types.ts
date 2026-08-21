@@ -182,6 +182,17 @@ export interface SkillCounterSuccessDamageRule {
   damageType?: string;
 }
 
+export interface SkillCounterSuccessBuffRule {
+  /** Valor do buff de dano aplicado quando o CONTRA-ATAQUE desta skill é efetuado com sucesso */
+  buffValue: number;
+  /** Classes de skill que recebem o aumento de dano: physical, chakra, mental, affliction (vazio = todas as classes) */
+  buffClasses?: string[];
+  /** Quem recebe o buff: 'self' (apenas o conjurador - padrão) ou 'team' (todos os aliados vivos) */
+  buffTarget?: 'self' | 'team';
+  /** Duração do buff em turnos. Vazio/0/99999 = INFINITO (permanente) */
+  duration?: number;
+}
+
 export interface SkillCounterSuccessStunRule {
   /** Turnos que o inimigo que atacou fica STUNADO quando o CONTRA-ATAQUE desta skill é efetuado com sucesso */
   stunTurns: number;
@@ -216,8 +227,7 @@ export interface SkillChakraCostReduceRule {
   durationTurns: number;
 }
 
-export interface SkillReflectByStackRule {
-  /** Nome do stackType que deve estar ativo NO PORTADOR (alvo desta skill) E NO ATACANTE
+export interface SkillReflectByStackRule {  /** Nome do stackType que deve estar ativo NO PORTADOR (alvo desta skill) E NO ATACANTE
    * para que skills ofensivas do atacante sejam redirecionadas ao ALIADO do atacante.
    * Vazio/omitido = aplica à própria stack desta skill. */
   activeStackName: string;
@@ -227,7 +237,18 @@ export interface SkillReflectByStackRule {
 }
 
 export type SkillTargetType = 'Enemy' | 'Ally' | 'Self' | 'SelfAndAlly' | 'AllEnemies' | 'AllAllies' | 'AnyLiving';
-
+export interface SkillStackLowHpProtectionRule {
+  /** Nome do stackType que o aliado precisa ter para receber a proteção */
+  stackType: string;
+  /** Quantidade mínima de stacks necessária (padrão: 1) */
+  requiredStacks?: number;
+  /** Percentual de vida (%) igual ou abaixo do qual a proteção é ativada (padrão: 50) */
+  hpPercentThreshold?: number;
+  /** Se true, as skills do aliado protegido NÃO podem ser CONTRA-ATACADAS (padrão: true) */
+  noCounter?: boolean;
+  /** Se true, as skills do aliado protegido NÃO podem ser REFLETIDAS (padrão: true) */
+  noReflect?: boolean;
+}
 export interface SkillTargetChangeOnStacksRule {
   /** Marcação (stack) que precisa ter X stacks para ativar */
   markingSkillName: string;
@@ -318,6 +339,10 @@ export interface Skill {
   /** Skill em Mim com Stack: se X stack estiver no conjurador, ao usar esta skill uma das próprias skills
    * do personagem é aplicada/usada em si mesmo (opcionalmente de forma invisível para o oponente) */
   selfCastStackRules?: SkillSelfCastStackRule[];
+  /** 🛡️ Proteção por Stack em Vida Baixa: aliados marcados com X stack, quando estiverem com Y% de vida ou
+   * menos, ganham um buff que impede que suas skills sejam contra-atacadas e/ou refletidas. Ideal para
+   * skills PASSIVAS (avaliada automaticamente a cada turno, sem precisar usar a skill). */
+  stackLowHpProtectionRules?: SkillStackLowHpProtectionRule[];
   /** Regra "Prisão de Madeira" (Wood Spire Prison): aliado recebe limpeza + redução de dano não-Aflição;
    * inimigo sofre fraqueza não-Mental + punição por turno se não usar skill ofensiva */
   prisonRule?: SkillPrisonRule;
@@ -340,6 +365,8 @@ export interface Skill {
   noCounterReflectWhenActiveRules?: SkillNoCounterReflectWhenActiveRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou recebe dano direto */
   counterSuccessDamageRules?: SkillCounterSuccessDamageRule[];
+  /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o conjurador (ou todos os aliados) recebe um BUFF de dano das classes escolhidas por X turnos */
+  counterSuccessBuffRules?: SkillCounterSuccessBuffRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou fica STUNADO e recebe dano adicional de skills das classes escolhidas */
   counterSuccessStunRules?: SkillCounterSuccessStunRule[];
   /** Quando o CONTRA-ATAQUE desta skill é efetuado com sucesso, o inimigo que atacou recebe uma STACK (por X turnos ou infinito) */
@@ -460,6 +487,11 @@ export interface Skill {
   invisible?: boolean;
   invisibleDuration?: number;
   ignoreInvulnerable?: boolean;
+  /** 🌀 HABILIDADE PASSIVA: não pode ser selecionada em batalha (clicar mostra "Habilidade Passiva");
+   * seus efeitos principais já iniciam aplicados no início da batalha no alvo escolhido (passiveStartTarget) */
+  isPassive?: boolean;
+  /** Alvo inicial dos efeitos da passiva: 'self' (em mim - padrão), 'allies' (nos meus aliados) ou 'enemies' (nos inimigos) */
+  passiveStartTarget?: 'self' | 'allies' | 'enemies';
   /** Total de vezes que esta skill pode ser usada com sucesso. Refletida ainda conta como uso;
    * anulada por contra-ataque NÃO conta. Vazio/undefined = ilimitado. Ao atingir o limite, fica bloqueada. */
   maxUses?: number;
@@ -750,6 +782,10 @@ cannotBeReflected?: boolean;
     stackApplyOnAttackDuration?: number;
     /** Se true, a stack NÃO acumula: fica sempre em 1x mesmo sendo reaplicada */
     stackNonCumulative?: boolean;
+    /** ⏳ Atraso de stack: ao usar a skill a stack NÃO é aplicada na hora — fica pendente e é aplicada após X turnos */
+    stackDelayTurns?: number;
+    /** 🏷️ Auto-aplicar as stacks no início da batalha se o personagem tiver QUALQUER uma destas Tags/Afiliações (separadas por vírgula, com autocomplete) */
+    stackStartTags?: string[];
 
   // ==============================
   // SPLASH/AOE DAMAGE - Dano em área
@@ -876,6 +912,7 @@ export interface ActiveEffect {
   | 'life_steal'
   | 'redirect_by_stack'
   | 'countdown_bomb'
+  | 'no_counter_reflect'
   | 'skill_copy'
   | 'pending_invulnerable'
   | 'death_link';
@@ -968,6 +1005,10 @@ counterAttackType?: 'attacker' | 'defender';
   conversionConsumed?: boolean;
   /** Tipos de dano cobertos pela imunidade a dano (vazio/undefined = TODO o dano) */
   immunityTypes?: string[];
+  /** 🛡️ Proteção "no_counter_reflect": impede que as skills do portador sejam CONTRA-ATACADAS (padrão: true) */
+  noCounterProtect?: boolean;
+  /** 🛡️ Proteção "no_counter_reflect": impede que as skills do portador sejam REFLETIDAS (padrão: true) */
+  noReflectProtect?: boolean;
   /** Se true, este debuff (ex: DoT infinito) é removido quando o alvo usa uma skill amigável/passiva */
   removedOnFriendlySkillUse?: boolean;
   /** Se true, esta imunidade a dano é consumida após bloquear o primeiro dano recebido */
@@ -991,6 +1032,12 @@ counterAttackType?: 'attacker' | 'defender';
   /** Classes de skill que NÃO sofrem o debuff (fraqueza por classe, ex: excludeClasses: ['mental']) */
   excludeClasses?: string[];
   permanent?: boolean;
+  /** ⏳ Stack pendente (stackDelayTurns): turnos restantes até a stack ser aplicada */
+  stackPendingTurns?: number;
+  /** ⏳ Quantidade de stacks acumuladas aguardando aplicação */
+  stackPendingStacks?: number;
+  /** ⏳ Duração final da stack quando ela for aplicada (guardada porque o alvo pode não ter a skill de origem) */
+  stackPendingDuration?: number;
   /** Cópia de Habilidades: as habilidades ORIGINAIS do conjurador guardadas para restaurar quando o efeito expirar */
   storedSkills?: Skill[];
   /** Turnos restantes de atraso antes do efeito (bleeding/affliction) começar a causar dano */
