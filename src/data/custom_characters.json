@@ -6929,7 +6929,9 @@
           "Uchiha"
         ],
         "stackDelayTurns": 1,
-        "stackDuration": 99999
+        "stackDuration": 99999,
+        "invisibleDuration": 1,
+        "invisible": true
       },
       {
         "name": "Perceptive Commanding",

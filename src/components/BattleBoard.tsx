@@ -15752,7 +15752,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                   {/* Incoming skills icons (Targeted skills prediction) */}
                   {incomingCues.length > 0 && (
-                    <div className="absolute top-2 right-2 flex gap-1 items-center bg-slate-950/90 border border-orange-500/40 px-1.5 py-0.5 rounded-lg shadow-lg z-10" onClick={(e) => e.stopPropagation()}>
+                    <div className="absolute top-2 right-2 flex gap-1 items-center z-10" onClick={(e) => e.stopPropagation()}>
                       
                       {incomingCues.map((cue, cIdx) => {
                         const src = playerCombatants.find(p => p.id === cue.sourceId) || enemyCombatants.find(e => e.id === cue.sourceId);
@@ -16885,7 +16885,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                   {/* Incoming skills icons (Targeted skills prediction) */}
                   {incomingCues.length > 0 && (
-                    <div className="absolute top-2 right-2 flex gap-1 items-center bg-slate-950/90 border border-orange-500/40 px-1.5 py-0.5 rounded-lg shadow-lg z-10" onClick={(e) => e.stopPropagation()}>
+                    <div className="absolute top-2 left-2 flex gap-1 items-center  z-10" onClick={(e) => e.stopPropagation()}>
                      
                       {incomingCues.map((cue, cIdx) => {
                         const src = playerCombatants.find(p => p.id === cue.sourceId) || enemyCombatants.find(e => e.id === cue.sourceId);
