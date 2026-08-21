@@ -313,7 +313,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               </div>
               <button
                 onClick={handleStart}
-                className="entrar-na-arena-btn relative text-slate-900 font-mono font-black flex items-center justify-center hover:brightness-110 active:scale-95 transition-all cursor-pointer text-sm uppercase tracking-wider shadow-xl"
+                className="entrar-na-arena-btn relative text-slate-900 font-mono font-black flex items-center justify-center hover:brightness-110 active:scale-95 transition-all cursor-pointer text-sm uppercase tracking-wider"
               >
                 <img
                   src="/static/img/entrar-na-arena.webp"
@@ -332,7 +332,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
                 playClickSound();
                 setShowRules(!showRules);
               }}
-              className="como-jogar-btn relative text-slate-900 font-mono font-black flex items-center justify-center hover:brightness-110 active:scale-95 transition-all cursor-pointer text-xs uppercase tracking-wider shadow-xl"
+              className="como-jogar-btn relative text-slate-900 font-mono font-black flex items-center justify-center hover:brightness-110 active:scale-95 transition-all cursor-pointer text-xs uppercase tracking-wider"
             >
               <img
                 src="/static/img/como-jogar.webp"

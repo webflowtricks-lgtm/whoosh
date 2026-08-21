@@ -5800,6 +5800,30 @@ const newSkill: Skill = {
                                   ))}
                                 </select>
                               </div>
+                              <div className="flex items-center gap-1.5 mt-1 bg-indigo-950/20 border border-indigo-900/40 rounded-lg px-2 py-1">
+                                <span className="text-[9px] text-indigo-300 font-mono uppercase font-bold">⏭️ Dano no Próximo Turno:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={200}
+                                  value={editingSkill.delayedDamage || 0}
+                                  onChange={(e) => handleUpdateSkillField('delayedDamage', parseInt(e.target.value) || 0)}
+                                  placeholder="0"
+                                  title="Após X turnos (não neste), o alvo recebe este dano normal"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-indigo-800/60 focus:border-indigo-500 rounded text-indigo-300 font-mono text-xs text-center font-bold outline-none"
+                                />
+                                <span className="text-[9px] text-slate-500 font-mono">em</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={editingSkill.delayedDamageTurns || 1}
+                                  onChange={(e) => handleUpdateSkillField('delayedDamageTurns', Math.max(1, parseInt(e.target.value) || 1))}
+                                  title="Em quantos turnos o dano é efetuado (1 = próximo turno)"
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-indigo-800/60 focus:border-indigo-500 rounded text-indigo-300 font-mono text-xs text-center font-bold outline-none"
+                                />
+                                <span className="text-[9px] text-slate-500 font-mono">turno(s)</span>
+                              </div>
                             </div>
                             <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
                               <div className="flex items-center justify-between gap-2">
@@ -5879,6 +5903,30 @@ const newSkill: Skill = {
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                   ))}
                                 </select>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1 bg-indigo-950/20 border border-indigo-900/40 rounded-lg px-2 py-1">
+                                <span className="text-[9px] text-indigo-300 font-mono uppercase font-bold">⏭️ Dano Direto no Próximo Turno:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={200}
+                                  value={editingSkill.delayedDirectDamage || 0}
+                                  onChange={(e) => handleUpdateSkillField('delayedDirectDamage', parseInt(e.target.value) || 0)}
+                                  placeholder="0"
+                                  title="Após X turnos (não neste), o alvo recebe este dano direto/perfurante"
+                                  className="w-16 px-2 py-1 bg-slate-900 border border-indigo-800/60 focus:border-indigo-500 rounded text-indigo-300 font-mono text-xs text-center font-bold outline-none"
+                                />
+                                <span className="text-[9px] text-slate-500 font-mono">em</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={editingSkill.delayedDirectDamageTurns || 1}
+                                  onChange={(e) => handleUpdateSkillField('delayedDirectDamageTurns', Math.max(1, parseInt(e.target.value) || 1))}
+                                  title="Em quantos turnos o dano é efetuado (1 = próximo turno)"
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-indigo-800/60 focus:border-indigo-500 rounded text-indigo-300 font-mono text-xs text-center font-bold outline-none"
+                                />
+                                <span className="text-[9px] text-slate-500 font-mono">turno(s)</span>
                               </div>
                             </div>
                             <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
@@ -7852,6 +7900,31 @@ const newSkill: Skill = {
                                   <span className="text-[9px] text-cyan-400 font-mono">♾️ Infinito</span>
                                 </label>
                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1 bg-indigo-950/20 border border-indigo-900/40 rounded-lg px-2 py-1 flex-wrap">
+                                <span className="text-[9px] text-indigo-300 font-mono uppercase font-bold">⏭️ Invuln. Atrasada:</span>
+                                <span className="text-[9px] text-slate-500 font-mono">fica invuln. por</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={5}
+                                  value={editingSkill.delayedInvulnerableDuration || 0}
+                                  onChange={(e) => handleUpdateSkillField('delayedInvulnerableDuration', parseInt(e.target.value) || 0)}
+                                  placeholder="0"
+                                  title="Quantos turnos o alvo fica invulnerável (usa os mesmos tipos/classes do Desvio abaixo)"
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-indigo-800/60 focus:border-indigo-500 rounded text-indigo-300 font-mono text-xs text-center font-bold outline-none"
+                                />
+                                <span className="text-[9px] text-slate-500 font-mono">turno(s), daqui a</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={editingSkill.delayedInvulnerableTurns || 1}
+                                  onChange={(e) => handleUpdateSkillField('delayedInvulnerableTurns', Math.max(1, parseInt(e.target.value) || 1))}
+                                  title="Em quantos turnos a invulnerabilidade é efetuada (1 = próximo turno)"
+                                  className="w-12 px-2 py-1 bg-slate-900 border border-indigo-800/60 focus:border-indigo-500 rounded text-indigo-300 font-mono text-xs text-center font-bold outline-none"
+                                />
+                                <span className="text-[9px] text-slate-500 font-mono">turno(s)</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] text-cyan-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>

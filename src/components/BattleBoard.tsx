@@ -781,6 +781,10 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       rawPt = `💞 Vínculo de Morte: se este personagem ou o vinculado morrer, o outro também morre (${durText})`;
       break;
     }
+    case 'pending_invulnerable': {
+      rawPt = `⏭️ Invulnerabilidade Atrasada: a partir do próximo turno, ficará invulnerável por ${(effect as any).pendingInvulnDuration || 1} turno(s)`;
+      break;
+    }
     default:
       rawPt = val > 0 ? `${effect.name}: valor ${val} por ${durText}` : `${effect.name}: ativo por ${durText}`;
       break;
@@ -3658,6 +3662,66 @@ const handleTradeChakra = () => {
             addFloatingText(source.id, 'PRISÃO DE AREIA ROMPIDA', 'effect');
           }
         }
+        // 📚💥⛓️ Regras de sucesso do contra-ataque (attacker mode): o "source" é quem teve a skill anulada.
+        // Aplica dano bônus / stun / stack no source (o atacante que foi anulado).
+        if (!source.isDead && attackerCounterEffect.sourceSkillName) {
+          const counterCaster = [...sourceList, ...targetList].find(c => c.id === attackerCounterEffect.casterId) || defaultTarget;
+          const applierSkill = (counterCaster?.character.skills || source.character.skills || []).find(s => s.name === attackerCounterEffect.sourceSkillName);
+          // 💥 Dano bônus
+          const bonusRules = (applierSkill?.counterSuccessDamageRules || []).filter(r => (r.damage || 0) > 0);
+          const typeLabels: Record<string, string> = { damage: 'dano', direct_damage: 'dano direto', true: 'dano direto', piercing: 'dano direto', dot: 'queimadura', bleeding: 'sangramento', affliction: 'aflição' };
+          for (const r of bonusRules) {
+            const rDmg = r.damage || 0;
+            const rType = r.damageType || 'direct_damage';
+            if (checkCombatantInvulnerable(source) || hasDamageImmunity(source, [rType])) {
+              if (hasDamageImmunity(source, [rType])) consumeFirstHitOnlyImmunity(source, [rType]);
+              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${counterCaster.character.name} contra-atacou, mas ${source.character.name} é IMUNE ao dano bônus!`, type: 'buff' });
+              continue;
+            }
+            let actualDmg = rDmg;
+            if (rType === 'damage' && (source.shield || 0) > 0 && !hasNegateFriendlyEffects(source)) {
+              if (source.shield >= actualDmg) { source.shield -= actualDmg; actualDmg = 0; } else { actualDmg -= source.shield; source.shield = 0; }
+            }
+            if (actualDmg > 0) {
+              source.health = hasImmortalEffect(source) ? Math.max(1, source.health - actualDmg) : Math.max(0, source.health - actualDmg);
+              if (source.health <= 0 && !hasImmortalEffect(source)) source.isDead = true;
+            }
+            const typeLabel = typeLabels[rType] || 'dano direto';
+            newLogs.push({ id: Math.random().toString(), turn, message: `💥 [CONTRA-ATAQUE] ${counterCaster.character.name} causou +${rDmg} de ${typeLabel} em ${source.character.name} ao anular sua habilidade!`, type: 'damage' });
+            addFloatingText(source.id, `-${rDmg} ${typeLabel.toUpperCase()}`, 'damage');
+          }
+          // ⛓️ Stun
+          const stunRules = (applierSkill?.counterSuccessStunRules || []).filter(r => (r.stunTurns || 0) > 0);
+          if (stunRules.length > 0 && !source.activeEffects?.some(e => e.type === 'ignore_stun')) {
+            for (const r of stunRules) {
+              const stunDur = Math.max(1, r.stunTurns || 1);
+              const stunClasses = (r.damageClasses || []).map(c => c.toLowerCase()).filter(Boolean);
+              const stunLabel = stunClasses.length === 0 || stunClasses.length >= 4 ? 'Stun Completo' : `Stun (${stunClasses.join(' + ')})`;
+              pushActiveEffect(source, { name: `${applierSkill?.name || 'Contra-Ataque'} (${stunLabel})`, type: 'stun', duration: stunDur, icon: applierSkill?.icon || counterCaster.character.portrait, stunType: stunClasses.length === 0 || stunClasses.length >= 4 ? undefined : stunClasses, casterId: counterCaster.id, sourceSkillName: applierSkill?.name });
+              if ((r.bonusDamage || 0) > 0) {
+                pushActiveEffect(source, { name: `Vulnerabilidade (${applierSkill?.name || 'Contra-Ataque'})`, type: 'damage_vulnerability', value: r.bonusDamage || 0, duration: stunDur, vulnerabilityTypes: r.damageClasses || [], icon: applierSkill?.icon || counterCaster.character.portrait, casterId: counterCaster.id, sourceSkillName: applierSkill?.name });
+              }
+              newLogs.push({ id: Math.random().toString(), turn, message: `⛓️ [CONTRA-ATAQUE] ${counterCaster.character.name} STUNNOU ${source.character.name} por ${stunDur} turno(s) (${stunLabel})!`, type: 'stun' });
+              addFloatingText(source.id, `STUN (${stunLabel})`, 'stun');
+            }
+          }
+          // 📚 Stack
+          const stackRules = (applierSkill?.counterSuccessStackRules || []).filter(r => (r.stackName || '').trim().length > 0);
+          for (const r of stackRules) {
+            const stName = r.stackName.trim();
+            const stDur = (r.duration && r.duration > 0 && r.duration < 99999) ? r.duration : 99999;
+            const existing = source.activeEffects.find(e => e.type === 'custom' && e.stackable && e.stackType === stName);
+            if (existing) {
+              existing.stacks = (existing.stacks || 1) + 1;
+              existing.duration = stDur;
+              existing.castTurn = turn;
+            } else {
+              source.activeEffects.push({ name: `${stName} (Stack)`, type: 'custom', value: 0, duration: stDur, icon: applierSkill?.icon || counterCaster.character.portrait, stackable: true, stackType: stName, casterId: counterCaster.id, sourceSkillName: applierSkill?.name, stacks: 1, castTurn: turn });
+            }
+            newLogs.push({ id: Math.random().toString(), turn, message: `📚 [CONTRA-ATAQUE] ${counterCaster.character.name} aplicou a stack [${stName}] em ${source.character.name}${stDur < 99999 ? ` por ${stDur} turno(s)` : ' (permanente)'} ao anular sua habilidade!`, type: 'buff' });
+            addFloatingText(source.id, `+1 ${stName.toUpperCase()}`, 'effect');
+          }
+        }
         return; // Skill is cancelled due to counter-attack
       }
 
@@ -4119,6 +4183,14 @@ let directDamage = skill.directDamage || 0;
         baseDamage = 0;
         directDamage = 0;
       }
+
+      // Skill cujo dano é SOMENTE atrasado (delayedDamage/delayedDirectDamage) e sem dano imediato:
+      // nesse caso, o bônus por stack (stackDamageRules) NÃO deve ser aplicado agora — vai junto com o
+      // dano atrasado, pois é quando o dano da skill realmente é efetuado.
+      const hasDelayedDamageOnly = ((skill.delayedDamage || 0) > 0 || (skill.delayedDirectDamage || 0) > 0)
+        && !((skill.damage || 0) > 0 || baseDamage > 0 || (skill.directDamage || 0) > 0
+          || (skill.damageDuration && skill.damageDuration > 1)
+          || (skill.dotVal || 0) > 0 || (skill.bleedingVal || 0) > 0 || (skill.afflictionVal || 0) > 0);
       // BÔNUS DE DANO: +valor UMA vez por cast, na skill física/chakra do conjurador.
       // Negação de efeitos amigáveis no conjurador: buffs de dano são ignorados.
       const damageBuffSum = hasNegateFriendlyEffects(source) ? 0 : source.activeEffects
@@ -4362,7 +4434,7 @@ let directDamage = skill.directDamage || 0;
 
       // 0.2 DIRECT DAMAGE (with missing HP & rule direct damage)
       let stackDamageBonusForDd = 0;
-      if (skill.selfStackDamageRules && skill.selfStackDamageRules.length > 0) {
+      if (!hasDelayedDamageOnly && skill.selfStackDamageRules && skill.selfStackDamageRules.length > 0) {
         for (const selfRule of skill.selfStackDamageRules) {
           if (selfRule.stackType && selfRule.damagePerStack > 0 && selfRule.damageType === 'direct_damage') {
             const selfStackEffect = source.activeEffects.find(e => e.stackType === selfRule.stackType || e.name === selfRule.stackType);
@@ -4373,7 +4445,7 @@ let directDamage = skill.directDamage || 0;
           }
         }
       }
-      if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
+      if (!hasDelayedDamageOnly && skill.stackDamageRules && skill.stackDamageRules.length > 0) {
         for (const stackRule of skill.stackDamageRules) {
           if (stackRule.stackType && stackRule.damagePerStack > 0 && stackRule.damageType === 'direct_damage') {
             const stackPool = getStackPoolForRule(stackRule, target, source, sourceList, targetList);
@@ -4412,26 +4484,8 @@ let directDamage = skill.directDamage || 0;
           }
 const startingHealth = t.health;
           const duration = skill.directDamageDuration || 1;
-          if (duration > 1) {
-            pushActiveEffect(t, {
-              name: `${skill.name} (Dano Direto)`,
-              type: 'direct_damage',
-              value: dd,
-              buffAtCast: damageBuffSumDd,
-              duration,
-              icon: skill.icon,
-              irremovable: !!skill.directDamageIrremovable,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-            });
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🎯 ${t.character.name} recebeu [${skill.name}] de DANO DIRETO de ${dd} por turno por ${duration} turnos!`,
-              type: 'damage',
-            });
-            addFloatingText(t.id, `DANO DIRETO (${duration}T)`, 'damage');
-          } else {
+          // Primeiro tick SEMPRE aplicado imediatamente (conta como turno 1 ao usar).
+          {
             const targetCannotReduce = t.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
             const targetReductions = targetCannotReduce ? [] : getEffectiveTargetReductions(t, skill, true);
             const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
@@ -4477,7 +4531,6 @@ const startingHealth = t.health;
                 skillName: skill.name
               });
             }
-
             if (netDd > 0) {
               newLogs.push({
                 id: Math.random().toString(),
@@ -4496,6 +4549,28 @@ const startingHealth = t.health;
               });
               addFloatingText(t.id, 'IMUNE!', 'invulnerable');
             }
+          }
+          // Ticks restantes (duration - 1): aplicados quando o CONJURADOR passar o turno (tickCasterContinuousDamage)
+          if (duration > 1 && !t.isDead) {
+            pushActiveEffect(t, {
+              name: `${skill.name} (Dano Direto)`,
+              type: 'direct_damage',
+              value: dd,
+              buffAtCast: damageBuffSumDd,
+              duration: duration === 99999 ? 99999 : (duration - 1),
+              icon: skill.icon,
+              irremovable: !!skill.directDamageIrremovable,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              castTurn: turn,
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🎯 ${t.character.name} sofrerá ${dd} de DANO DIRETO por turno por mais ${duration === 99999 ? '∞' : (duration - 1)} turno(s)!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `DANO DIRETO (${duration === 99999 ? '♾️' : (duration - 1) + 'T'})`, 'damage');
           }
           cleanseTargetEffects(t, skill.directDamageRemoveType);
 
@@ -5436,7 +5511,7 @@ const startingHealth = t.health;
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
-      } else if (baseDamage > 0 || (skill.damage || 0) > 0 || (skill.damageRules && skill.damageRules.length > 0) || (skill.stackDamageRules && skill.stackDamageRules.length > 0) || (skill.bonusDamagePerMissingHp && skill.bonusDamagePerMissingHp > 0)) {
+      } else if (!hasDelayedDamageOnly && (baseDamage > 0 || (skill.damage || 0) > 0 || (skill.damageRules && skill.damageRules.length > 0) || (skill.stackDamageRules && skill.stackDamageRules.length > 0) || (skill.bonusDamagePerMissingHp && skill.bonusDamagePerMissingHp > 0))) {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         const splashVal = skill.splashDamage || 0;
         const splashTgt = skill.splashTarget || 'Target';
@@ -6599,6 +6674,84 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
           cleanseTargetEffects(t, skill.invulnerableRemoveType);
+        });
+      }
+
+      // ⏭️ Dano ATRASADO (delayedDamage / delayedDirectDamage): aplica uma "bomba" que
+      // explode em X turnos (não neste). Reaproveita o efeito countdown_bomb.
+      // O bônus de dano por stack (stackDamageRules) é somado AQUI e vai junto com o dano atrasado,
+      // pois é quando o dano da skill realmente é efetuado.
+      if ((skill.delayedDamage && skill.delayedDamage > 0) || (skill.delayedDirectDamage && skill.delayedDirectDamage > 0)) {
+        const delayedTargets = resolveEffectTargets(skill.damageTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
+        delayedTargets.forEach(dt => {
+          if (dt.isDead) return;
+          // Bônus por stack (stackDamageRules, dano imediato/não-DOT) somado ao dano atrasado.
+          let delayedStackBonus = 0;
+          if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
+            for (const stackRule of skill.stackDamageRules) {
+              if (stackRule.stackType && stackRule.damagePerStack > 0 && !stackRule.duration) {
+                const stackPool = getStackPoolForRule(stackRule, dt, source, sourceList, targetList);
+                const stackCount = countStacksInPool(stackPool, stackRule.stackType);
+                if (stackCount > 0) delayedStackBonus += stackCount * stackRule.damagePerStack;
+              }
+            }
+          }
+          const specs: { dmg: number; type: string; label: string; turns: number }[] = [];
+          if (skill.delayedDamage && skill.delayedDamage > 0) specs.push({ dmg: skill.delayedDamage, type: 'damage', label: 'dano', turns: Math.max(1, skill.delayedDamageTurns || 1) });
+          if (skill.delayedDirectDamage && skill.delayedDirectDamage > 0) specs.push({ dmg: skill.delayedDirectDamage, type: 'direct_damage', label: 'dano direto', turns: Math.max(1, skill.delayedDirectDamageTurns || 1) });
+          specs.forEach((spec, specIdx) => {
+            // O bônus de stack é somado apenas UMA vez (na primeira spec) para não duplicar
+            const totalDmg = spec.dmg + (specIdx === 0 ? delayedStackBonus : 0);
+            // duração = turns + 1: decrementa no fim de cada turno, explode ao chegar a 1 no fim do turno alvo
+            pushActiveEffect(dt, {
+              name: `${skill.name} (⏭️ ${spec.turns}T)`,
+              type: 'countdown_bomb',
+              value: totalDmg,
+              duration: spec.turns + 1,
+              damageType: spec.type,
+              bombTarget: 'holder',
+              icon: skill.icon,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              sourceSkillName: skill.name,
+              irremovable: true,
+            });
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `⏭️ ${dt.character.name} sofrerá ${totalDmg} de ${spec.label} de [${skill.name}] em ${spec.turns} turno(s)${specIdx === 0 && delayedStackBonus > 0 ? ` (inclui +${delayedStackBonus} por stack)` : ''}!`,
+              type: 'buff',
+            });
+            addFloatingText(dt.id, `⏭️ ${totalDmg} (${spec.turns}T)`, 'effect');
+          });
+        });
+      }
+
+      // ⏭️ Invulnerabilidade ATRASADA (delayedInvulnerableDuration): em X turnos o alvo
+      // fica invulnerável (Desvio) por Y turnos, usando os mesmos tipos/classes do Desvio.
+      if (skill.delayedInvulnerableDuration && skill.delayedInvulnerableDuration > 0) {
+        const pendTargets = resolveEffectTargets(skill.invulnerableTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, false);
+        const triggerTurns = Math.max(1, skill.delayedInvulnerableTurns || 1);
+        pendTargets.forEach(t => {
+          if (t.isDead) return;
+          pushActiveEffect(t, {
+            name: `${skill.name} (⏭️ Invuln. em ${triggerTurns}T)`,
+            type: 'pending_invulnerable',
+            duration: triggerTurns + 1, // decrementa a cada turno; dispara ao chegar a 1 no fim do turno alvo
+            pendingInvulnDuration: skill.delayedInvulnerableDuration,
+            icon: skill.icon,
+            invulnerableTypes: skill.invulnerableTypes,
+            invulnerableClasses: skill.invulnerableClasses,
+            irremovable: true,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            castTurn: turn,
+          });
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `⏭️ ${t.character.name} ficará INVULNERÁVEL por ${skill.delayedInvulnerableDuration} turno(s) daqui a ${triggerTurns} turno(s) (${formatInvulnerableSummary(skill.invulnerableTypes)}) por [${skill.name}]!`,
+            type: 'buff',
+          });
+          addFloatingText(t.id, `⏭️ INVULN. (${triggerTurns}T)`, 'invulnerable');
         });
       }
 
@@ -8189,30 +8342,9 @@ splashOnlyTargets = splashPool.filter(c =>
           return checkCombatantInvulnerable(c, fallbackType);
         };
 
-        // Apply active DoTs (e.g. Amaterasu)
-        const dotEffects = c.activeEffects.filter(e => e.type === 'dot');
-        dotEffects.forEach(dot => {
-          if (isBlockedByInvuln(dot, 'dot') || hasDamageImmunity(c, ['dot'])) {
-            consumeFirstHitOnlyImmunity(c);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
-            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
-          } else {
-            const dotVal = Math.max(0, dot.value || 0);
-            if (convertDamageToShield(c, dotVal, turn, ['dot'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${dotVal} de dano de queima em escudo!`, type: 'buff' });
-              addFloatingText(c.id, `+${dotVal} ESCUDO (QUEIMA)`, 'shield');
-            } else {
-              c.health = Math.max(0, c.health - dotVal);
-              newLogs.push({
-                id: Math.random().toString(),
-                turn,
-                message: `🔥 ${c.character.name} sofreu ${dotVal} de dano de queima por ${dot.name}.`,
-                type: 'damage',
-              });
-              addFloatingText(c.id, `-${dotVal} HP (QUEIMA)`, 'damage');
-            }
-          }
-        });
+        // Apply active DoTs (e.g. Amaterasu) — DESATIVADO aqui.
+        // O DOT contínuo agora é aplicado em tickCasterContinuousDamage, quando o
+        // CONJURADOR passa o turno (não no fim da rodada). Ver handleEndTurn.
 
         // ANBU Kinoe: Wood Spire Prison — punição por não usar habilidade ofensiva no turno
         const spirePunish = c.activeEffects.find(e => e.type === 'custom' && e.stackType === 'WoodSpirePunish');
@@ -8253,195 +8385,22 @@ splashOnlyTargets = splashPool.filter(c =>
           }
         }
 
-        // Apply dynamic Direct Damage over time (direct_damage)
-        const activeDirectDamageEffects = c.activeEffects.filter(e => e.type === 'direct_damage');
-        activeDirectDamageEffects.forEach(dd => {
-          // Recompute the value when the skill has damage rules (ex.: Umbrella): se a skill
-          // ativa da regra não estiver mais ativa, o dano volta ao valor base.
-          const ddSkill = getEffectSkill(dd);
-          const ddCaster = dd.casterId ? [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === dd.casterId) : null;
-          if (ddSkill && ddSkill.damageRules && ddSkill.damageRules.some(r => r.damageType === 'direct_damage' || r.damageType === 'piercing')) {
-            if (ddCaster) {
-              const ddScanPool = [...updatedPlayer, ...updatedEnemy];
-              let ruleDirect = 0;
-              let ruleIgnoresBase = false;
-              for (const rule of ddSkill.damageRules) {
-                if (rule.damageBoost > 0 && rule.activeSkillName && (rule.damageType === 'direct_damage' || rule.damageType === 'piercing')) {
-                  const targetNameLower = rule.activeSkillName.trim().toLowerCase();
-                  const hasActive = ddScanPool.some(cb => cb.activeEffects.some(e => {
-                    if (!e.name) return false;
-                    const eNameLower = e.name.toLowerCase();
-                    return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
-                  }));
-                  if (hasActive) {
-                    ruleDirect += rule.damageBoost;
-                    if (rule.ignoreBaseDamage !== false) ruleIgnoresBase = true;
-                  }
-                }
-              }
-              let stackBonus = 0;
-              if (ddSkill.selfStackDamageRules) {
-                for (const selfRule of ddSkill.selfStackDamageRules) {
-                  if (selfRule.stackType && selfRule.damagePerStack > 0 && selfRule.damageType === 'direct_damage') {
-                    const selfEff = ddCaster.activeEffects.find(e => e.stackType === selfRule.stackType || e.name === selfRule.stackType);
-                    const selfCount = selfEff?.stacks || 0;
-                    if (selfCount > 0) stackBonus += selfCount * selfRule.damagePerStack;
-                  }
-                }
-              }
-              if (ddSkill.stackDamageRules) {
-                const ddCasterIsPlayer = ddCaster.id.startsWith('player');
-                const ddSrcList = ddScanPool.filter(cb => cb.id.startsWith('player') === ddCasterIsPlayer);
-                const ddTgtList = ddScanPool.filter(cb => cb.id.startsWith('player') !== ddCasterIsPlayer);
-                for (const stackRule of ddSkill.stackDamageRules) {
-                  if (stackRule.stackType && stackRule.damagePerStack > 0 && stackRule.damageType === 'direct_damage') {
-                    const count = countStacksInPool(getStackPoolForRule(stackRule, c, ddCaster, ddSrcList, ddTgtList), stackRule.stackType);
-                    if (count > 0 && !stackRule.duration) stackBonus += count * stackRule.damagePerStack;
-                  }
-                }
-              }
-              const missingHpDirect = ddSkill.missingHpDamageType === 'direct' ? Math.max(0, ddCaster.maxHealth - ddCaster.health) : 0;
-              const ddBase = ruleIgnoresBase ? 0 : (ddSkill.directDamage || 0);
-              // O buff de dano já foi aplicado no cast (buffAtCast) e permanece fixo nos ticks
-              const ddDebuffs = ddCaster.activeEffects.filter(e => e.type === 'damage_debuff').reduce((a, e) => a + (e.value || 0), 0);
-              dd.value = Math.max(0, ddBase + ruleDirect + stackBonus + missingHpDirect + (dd.buffAtCast || 0) - ddDebuffs);
-            }
-          } else if (ddCaster) {
-            // Sem regras de dano: mantém o valor armazenado no cast (já inclui o buff aplicado no cast)
-          }
-          if (hasDamageImmunity(c, ['direct_damage', 'piercing'])) {
-            consumeFirstHitOnlyImmunity(c, ['direct_damage', 'piercing']);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo por ${dd.name}.`, type: 'buff' });
-            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
-          } else {
-            const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
-              : c.activeEffects.filter((e: ActiveEffect) => PIERCE_DAMAGE_REDUCTION_TYPES.includes(e.type)).reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
-            // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
-            const netDd = Math.max(0, (dd.value || 0) - dr);
-            let remainingDd = netDd;
-            if (remainingDd > 0 && convertDamageToShield(c, remainingDd, turn, ['direct_damage', 'piercing'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${remainingDd} de dano direto contínuo de ${dd.name} em escudo!`, type: 'buff' });
-              addFloatingText(c.id, `+${remainingDd} ESCUDO (DIRETO)`, 'shield');
-              remainingDd = 0;
-            }
-            if (remainingDd > 0 && (c.shield || 0) > 0 && !hasNegateFriendlyEffects(c)) {
-              const absorbed = Math.min(c.shield || 0, remainingDd);
-              c.shield = (c.shield || 0) - absorbed;
-              remainingDd -= absorbed;
-              addFloatingText(c.id, `-${absorbed} ESCUDO`, 'shield');
-            }
-            c.health = Math.max(0, c.health - remainingDd);
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `🎯 ${c.character.name} sofreu ${netDd} de dano direto contínuo por ${dd.name}.`,
-              type: 'damage',
-            });
-            addFloatingText(c.id, `-${netDd} HP (DIRETO)`, 'damage');
-          }
-        });
+        // Apply dynamic Direct Damage over time (direct_damage) — DESATIVADO aqui.
+        // O dano direto contínuo agora é aplicado em tickCasterContinuousDamage, quando o
+        // CONJURADOR passa o turno (não quando o alvo passa). Ver handleEndTurn.
+        void 0;
 
-        // Apply Bleeding (Sangramento)
-        const bleedingEffects = c.activeEffects.filter(e => e.type === 'bleeding');
-        bleedingEffects.forEach(bleed => {
-          if ((bleed.delayTurns || 0) > 0) {
-            bleed.delayTurns = (bleed.delayTurns || 0) - 1;
-            return;
-          }
-          if (hasDamageImmunity(c, ['bleeding'])) {
-            consumeFirstHitOnlyImmunity(c, ['bleeding']);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
-            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
-          } else {
-            const bleedVal = Math.max(0, bleed.value || 0);
-            if (convertDamageToShield(c, bleedVal, turn, ['bleeding'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${bleedVal} de dano de sangramento em escudo!`, type: 'buff' });
-              addFloatingText(c.id, `+${bleedVal} ESCUDO (SANGRAMENTO)`, 'shield');
-            } else {
-              c.health = Math.max(0, c.health - bleedVal);
-              newLogs.push({
-                id: Math.random().toString(),
-                turn,
-                message: `🩸 ${c.character.name} sofreu ${bleedVal} de dano por sangramento (${bleed.name}).`,
-                type: 'damage',
-              });
-              addFloatingText(c.id, `-${bleedVal} HP (SANGRAMENTO)`, 'damage');
-            }
-          }
-        });
+        // Apply Bleeding (Sangramento) — DESATIVADO aqui.
+        // O sangramento agora é aplicado em tickCasterContinuousDamage, quando o
+        // CONJURADOR passa o turno (não no fim da rodada). Ver handleEndTurn.
 
-        // Apply Affliction (Aflição)
-        const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
-        afflictionEffects.forEach(aff => {
-          // Não aplicar o tick no MESMO turno em que a aflição foi lançada:
-          // o dano instantâneo do cast já foi aplicado, evitando o dobro (ex.: 40 + 40 = 80).
-          if (aff.castTurn === turn) return;
-          if ((aff.delayTurns || 0) > 0) {
-            aff.delayTurns = (aff.delayTurns || 0) - 1;
-            return;
-          }
-          if (hasDamageImmunity(c, ['affliction'])) {
-            consumeFirstHitOnlyImmunity(c, ['affliction']);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
-            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
-          } else {
-            const affVal = Math.max(0, aff.value || 0);
-            if (convertDamageToShield(c, affVal, turn, ['affliction'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${affVal} de dano de aflição em escudo!`, type: 'buff' });
-              addFloatingText(c.id, `+${affVal} ESCUDO (AFLIÇÃO)`, 'shield');
-            } else {
-              c.health = Math.max(0, c.health - affVal);
-              newLogs.push({
-                id: Math.random().toString(),
-                turn,
-                message: `💀 ${c.character.name} sofreu ${affVal} de dano por aflição (${aff.name}).`,
-                type: 'damage',
-              });
-              addFloatingText(c.id, `-${affVal} HP (AFLIÇÃO)`, 'damage');
-            }
-          }
-        });
+        // Apply Affliction (Aflição) — DESATIVADO aqui.
+        // A aflição agora é aplicada em tickCasterContinuousDamage, quando o
+        // CONJURADOR passa o turno (não no fim da rodada). Ver handleEndTurn.
 
-        // Apply Life Steal (Roubo de Vida) — causa dano ao alvo e cura o conjurador
-        const lifeStealEffects = c.activeEffects.filter(e => e.type === 'life_steal' && e.castTurn !== turn);
-        lifeStealEffects.forEach(ls => {
-          const lsCaster = ls.casterId ? [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === ls.casterId) : null;
-          if (lsCaster && lsCaster.isDead) return;
-          if (isBlockedByInvuln(ls, 'damage') || hasDamageImmunity(c, ['life_steal'])) {
-            consumeFirstHitOnlyImmunity(c);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o roubo de vida (${ls.name}).`, type: 'buff' });
-            addFloatingText(c.id, 'IMUNE!', 'invulnerable');
-          } else {
-            const lsCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
-            const lsReductions = lsCannotReduce ? [] : c.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
-            const lsReductionSum = lsReductions.reduce((acc, e) => acc + (e.value || 0), 0);
-            let netLs = Math.max(0, (ls.value || 0) - lsReductionSum);
-            if (netLs > 0 && convertDamageToShield(c, netLs, turn, ['life_steal'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${netLs} de dano de roubo de vida em escudo!`, type: 'buff' });
-              addFloatingText(c.id, `+${netLs} ESCUDO (ROUBO)`, 'shield');
-              netLs = 0;
-            }
-            if (netLs > 0 && (c.shield || 0) > 0 && !hasNegateFriendlyEffects(c)) {
-              const absorbed = Math.min(c.shield || 0, netLs);
-              c.shield = (c.shield || 0) - absorbed;
-              netLs -= absorbed;
-              addFloatingText(c.id, `-${absorbed} ESCUDO`, 'shield');
-            }
-            c.health = hasImmortalEffect(c) ? Math.max(1, c.health - netLs) : Math.max(0, c.health - netLs);
-            if (netLs > 0 && lsCaster) {
-              const healAmt = Math.min(netLs, (lsCaster.maxHealth || lsCaster.health) - lsCaster.health);
-              lsCaster.health = Math.min(lsCaster.maxHealth || lsCaster.health, lsCaster.health + netLs);
-              newLogs.push({ id: Math.random().toString(), turn, message: `🧛 ${c.character.name} perdeu ${netLs} de vida por roubo de vida e ${lsCaster.character.name} recuperou ${healAmt} HP!`, type: 'damage' });
-              addFloatingText(c.id, `-${netLs} HP (ROUBO DE VIDA)`, 'damage');
-              addFloatingText(lsCaster.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
-            }
-            if (c.health <= 0 && !hasImmortalEffect(c)) {
-              c.isDead = true;
-              newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
-              addFloatingText(c.id, 'DERROTADO', 'damage');
-            }
-          }
-        });
+        // Apply Life Steal (Roubo de Vida) — DESATIVADO aqui.
+        // O roubo de vida agora é aplicado em tickCasterContinuousDamage, quando o
+        // CONJURADOR passa o turno (não no fim da rodada). Ver handleEndTurn.
 
         // Apply dynamic Healing over time
         const activeHealEffects = c.activeEffects.filter(e => e.type === 'heal');
@@ -8586,6 +8545,34 @@ splashOnlyTargets = splashPool.filter(c =>
                 newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${dmgTarget.character.name} foi derrotado pela bomba de [${bomb.sourceSkillName}]!`, type: 'system' });
               }
             }
+          });
+        }
+
+        // ⏭️ Invulnerabilidade ATRASADA: quando pending_invulnerable expira, vira invulnerabilidade real (Desvio)
+        {
+          const expiringPending = c.activeEffects.filter(eff =>
+            eff.type === 'pending_invulnerable' && eff.duration === 1 && eff.castTurn !== turn
+          );
+          expiringPending.forEach(pend => {
+            const invDur = pend.pendingInvulnDuration || 1;
+            c.activeEffects.push({
+              name: `${pend.sourceSkillName || pend.name} Escape`,
+              type: 'invulnerable',
+              duration: invDur,
+              icon: pend.icon,
+              invulnerableTypes: pend.invulnerableTypes,
+              invulnerableClasses: pend.invulnerableClasses,
+              irremovable: false,
+              casterId: pend.casterId,
+              casterSide: pend.casterSide,
+              castTurn: turn,
+            });
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🌌 ${c.character.name} ficou INVULNERÁVEL (${formatInvulnerableSummary(pend.invulnerableTypes)}) por ${invDur} turno(s) — efeito atrasado de [${pend.sourceSkillName || pend.name}]!`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, 'INVULNERÁVEL', 'invulnerable');
           });
         }
 
@@ -8969,6 +8956,177 @@ splashOnlyTargets = splashPool.filter(c =>
               type: 'damage',
             });
             addFloatingText(c.id, `-${netDmg} HP (DANO)`, 'damage');
+          }
+        }
+      });
+
+      // Dano Direto contínuo do MESMO lado (aplicado quando o CONJURADOR passa o turno)
+      const activeDirectDamageEffects = c.activeEffects.filter(e =>
+        e.type === 'direct_damage' && e.castTurn !== turn && e.casterSide === (casterIsPlayer ? 'player' : 'enemy')
+      );
+      activeDirectDamageEffects.forEach(dd => {
+        if (isBlockedByInvuln(c, dd, 'direct_damage') || hasDamageImmunity(c, ['direct_damage', 'piercing'])) {
+          consumeFirstHitOnlyImmunity(c, ['direct_damage', 'piercing']);
+          newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo por ${dd.name}.`, type: 'buff' });
+          addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+        } else {
+          const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
+            : c.activeEffects.filter((e: ActiveEffect) => PIERCE_DAMAGE_REDUCTION_TYPES.includes(e.type)).reduce((a: number, e: ActiveEffect) => a + (e.value || 0), 0);
+          const netDd = Math.max(0, (dd.value || 0) - dr);
+          let remainingDd = netDd;
+          if (remainingDd > 0 && convertDamageToShield(c, remainingDd, turn, ['direct_damage', 'piercing'])) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${remainingDd} de dano direto contínuo de ${dd.name} em escudo!`, type: 'buff' });
+            addFloatingText(c.id, `+${remainingDd} ESCUDO (DIRETO)`, 'shield');
+            remainingDd = 0;
+          }
+          if (remainingDd > 0 && (c.shield || 0) > 0 && !hasNegateFriendlyEffects(c)) {
+            const absorbed = Math.min(c.shield || 0, remainingDd);
+            c.shield = (c.shield || 0) - absorbed;
+            remainingDd -= absorbed;
+            addFloatingText(c.id, `-${absorbed} ESCUDO`, 'shield');
+          }
+          c.health = Math.max(0, c.health - remainingDd);
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `🎯 ${c.character.name} sofreu ${netDd} de dano direto contínuo por ${dd.name}.`,
+            type: 'damage',
+          });
+          addFloatingText(c.id, `-${netDd} HP (DIRETO)`, 'damage');
+        }
+      });
+
+      // 🔥 DOT contínuo do MESMO lado (aplicado quando o CONJURADOR passa o turno)
+      const activeDotEffects = c.activeEffects.filter(e =>
+        e.type === 'dot' && e.casterSide === (casterIsPlayer ? 'player' : 'enemy')
+      );
+      activeDotEffects.forEach(dot => {
+        if (isBlockedByInvuln(c, dot, 'dot') || hasDamageImmunity(c, ['dot'])) {
+          consumeFirstHitOnlyImmunity(c);
+          newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
+          addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+        } else {
+          const dotVal = Math.max(0, dot.value || 0);
+          if (convertDamageToShield(c, dotVal, turn, ['dot'])) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${dotVal} de dano de queima em escudo!`, type: 'buff' });
+            addFloatingText(c.id, `+${dotVal} ESCUDO (QUEIMA)`, 'shield');
+          } else {
+            c.health = Math.max(0, c.health - dotVal);
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🔥 ${c.character.name} sofreu ${dotVal} de dano de queima por ${dot.name}.`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${dotVal} HP (QUEIMA)`, 'damage');
+          }
+        }
+      });
+
+      // 🩸 Sangramento do MESMO lado (aplicado quando o CONJURADOR passa o turno)
+      const activeBleedingEffects = c.activeEffects.filter(e =>
+        e.type === 'bleeding' && e.casterSide === (casterIsPlayer ? 'player' : 'enemy')
+      );
+      activeBleedingEffects.forEach(bleed => {
+        if ((bleed.delayTurns || 0) > 0) {
+          bleed.delayTurns = (bleed.delayTurns || 0) - 1;
+          return;
+        }
+        if (hasDamageImmunity(c, ['bleeding'])) {
+          consumeFirstHitOnlyImmunity(c, ['bleeding']);
+          newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
+          addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+        } else {
+          const bleedVal = Math.max(0, bleed.value || 0);
+          if (convertDamageToShield(c, bleedVal, turn, ['bleeding'])) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${bleedVal} de dano de sangramento em escudo!`, type: 'buff' });
+            addFloatingText(c.id, `+${bleedVal} ESCUDO (SANGRAMENTO)`, 'shield');
+          } else {
+            c.health = Math.max(0, c.health - bleedVal);
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🩸 ${c.character.name} sofreu ${bleedVal} de dano por sangramento (${bleed.name}).`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${bleedVal} HP (SANGRAMENTO)`, 'damage');
+          }
+        }
+      });
+
+      // 💜 Aflição do MESMO lado (aplicada quando o CONJURADOR passa o turno)
+      const activeAfflictionEffects = c.activeEffects.filter(e =>
+        e.type === 'affliction' && e.casterSide === (casterIsPlayer ? 'player' : 'enemy')
+      );
+      activeAfflictionEffects.forEach(aff => {
+        // Não aplicar o tick no MESMO turno em que a aflição foi lançada:
+        // o dano instantâneo do cast já foi aplicado, evitando o dobro (ex.: 40 + 40 = 80).
+        if (aff.castTurn === turn) return;
+        if ((aff.delayTurns || 0) > 0) {
+          aff.delayTurns = (aff.delayTurns || 0) - 1;
+          return;
+        }
+        if (hasDamageImmunity(c, ['affliction'])) {
+          consumeFirstHitOnlyImmunity(c, ['affliction']);
+          newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
+          addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+        } else {
+          const affVal = Math.max(0, aff.value || 0);
+          if (convertDamageToShield(c, affVal, turn, ['affliction'])) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${affVal} de dano de aflição em escudo!`, type: 'buff' });
+            addFloatingText(c.id, `+${affVal} ESCUDO (AFLIÇÃO)`, 'shield');
+          } else {
+            c.health = Math.max(0, c.health - affVal);
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💀 ${c.character.name} sofreu ${affVal} de dano por aflição (${aff.name}).`,
+              type: 'damage',
+            });
+            addFloatingText(c.id, `-${affVal} HP (AFLIÇÃO)`, 'damage');
+          }
+        }
+      });
+
+      // 🧛 Roubo de Vida do MESMO lado (aplicado quando o CONJURADOR passa o turno)
+      const activeLifeStealEffects = c.activeEffects.filter(e =>
+        e.type === 'life_steal' && e.castTurn !== turn && e.casterSide === (casterIsPlayer ? 'player' : 'enemy')
+      );
+      activeLifeStealEffects.forEach(ls => {
+        const lsCaster = ls.casterId ? [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === ls.casterId) : null;
+        if (lsCaster && lsCaster.isDead) return;
+        if (isBlockedByInvuln(c, ls, 'damage') || hasDamageImmunity(c, ['life_steal'])) {
+          consumeFirstHitOnlyImmunity(c);
+          newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o roubo de vida (${ls.name}).`, type: 'buff' });
+          addFloatingText(c.id, 'IMUNE!', 'invulnerable');
+        } else {
+          const lsCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
+          const lsReductions = lsCannotReduce ? [] : c.activeEffects.filter(e => NORMAL_DAMAGE_REDUCTION_TYPES.includes(e.type));
+          const lsReductionSum = lsReductions.reduce((acc, e) => acc + (e.value || 0), 0);
+          let netLs = Math.max(0, (ls.value || 0) - lsReductionSum);
+          if (netLs > 0 && convertDamageToShield(c, netLs, turn, ['life_steal'])) {
+            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${netLs} de dano de roubo de vida em escudo!`, type: 'buff' });
+            addFloatingText(c.id, `+${netLs} ESCUDO (ROUBO)`, 'shield');
+            netLs = 0;
+          }
+          if (netLs > 0 && (c.shield || 0) > 0 && !hasNegateFriendlyEffects(c)) {
+            const absorbed = Math.min(c.shield || 0, netLs);
+            c.shield = (c.shield || 0) - absorbed;
+            netLs -= absorbed;
+            addFloatingText(c.id, `-${absorbed} ESCUDO`, 'shield');
+          }
+          c.health = hasImmortalEffect(c) ? Math.max(1, c.health - netLs) : Math.max(0, c.health - netLs);
+          if (netLs > 0 && lsCaster) {
+            const healAmt = Math.min(netLs, (lsCaster.maxHealth || lsCaster.health) - lsCaster.health);
+            lsCaster.health = Math.min(lsCaster.maxHealth || lsCaster.health, lsCaster.health + netLs);
+            newLogs.push({ id: Math.random().toString(), turn, message: `🧛 ${c.character.name} perdeu ${netLs} de vida por roubo de vida e ${lsCaster.character.name} recuperou ${healAmt} HP!`, type: 'damage' });
+            addFloatingText(c.id, `-${netLs} HP (ROUBO DE VIDA)`, 'damage');
+            addFloatingText(lsCaster.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
+          }
+          if (c.health <= 0 && !hasImmortalEffect(c)) {
+            c.isDead = true;
+            newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
+            addFloatingText(c.id, 'DERROTADO', 'damage');
           }
         }
       });
@@ -13641,6 +13799,34 @@ if (skill.redirectOffensiveToCaster) {
           });
         }
 
+        // ⏭️ Invulnerabilidade ATRASADA: quando pending_invulnerable expira, vira invulnerabilidade real (Desvio)
+        {
+          const expiringPending = c.activeEffects.filter(eff =>
+            eff.type === 'pending_invulnerable' && eff.duration === 1 && eff.castTurn !== turn
+          );
+          expiringPending.forEach(pend => {
+            const invDur = pend.pendingInvulnDuration || 1;
+            c.activeEffects.push({
+              name: `${pend.sourceSkillName || pend.name} Escape`,
+              type: 'invulnerable',
+              duration: invDur,
+              icon: pend.icon,
+              invulnerableTypes: pend.invulnerableTypes,
+              invulnerableClasses: pend.invulnerableClasses,
+              irremovable: false,
+              casterId: pend.casterId,
+              casterSide: pend.casterSide,
+              castTurn: turn,
+            });
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🌌 ${c.character.name} ficou INVULNERÁVEL (${formatInvulnerableSummary(pend.invulnerableTypes)}) por ${invDur} turno(s) — efeito atrasado de [${pend.sourceSkillName || pend.name}]!`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, 'INVULNERÁVEL', 'invulnerable');
+          });
+        }
+
         // 🔓 Liberação Atrasada: transições de fase no fim do turno.
         //  - 'locked' → 'window' quando o bloqueio expira (abre a janela de liberação).
         //  - 'window' → 'locked' quando a janela expira (skills voltam a ser bloqueadas até a skill ser reusada).
@@ -13826,6 +14012,24 @@ if (skill.redirectOffensiveToCaster) {
         label: 'Dano Direto',
         value: `${skill.directDamage} de Dano (Direto)`,
         color: 'text-rose-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.directDamageTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.delayedDamage && skill.delayedDamage > 0) {
+      const dt = Math.max(1, skill.delayedDamageTurns || 1);
+      effects.push({
+        label: 'Dano Atrasado',
+        value: `${skill.delayedDamage} de Dano em ${dt} turno(s)`,
+        color: 'text-indigo-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.damageTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.delayedDirectDamage && skill.delayedDirectDamage > 0) {
+      const dt = Math.max(1, skill.delayedDirectDamageTurns || 1);
+      effects.push({
+        label: 'Dano Direto Atrasado',
+        value: `${skill.delayedDirectDamage} de Dano Direto em ${dt} turno(s)`,
+        color: 'text-indigo-950 font-extrabold',
         targetLabel: getTargetLabel(skill.directDamageTarget, 'Alvo Principal')
       });
     }
@@ -14224,6 +14428,16 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         label: 'Invulnerabilidade (Desvio)',
         value: `Fica invulnerável ${invulSummary}${skill.invulnerableClasses && skill.invulnerableClasses.length > 0 ? ` (classes: ${skill.invulnerableClasses.join(', ')})` : ''} por ${fmtDur(skill.invulnerableDuration)}`,
         color: 'text-teal-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.invulnerableTarget, 'Conjurador (Mim)')
+      });
+    }
+    if (skill.delayedInvulnerableDuration && skill.delayedInvulnerableDuration > 0) {
+      const invulSummary = formatInvulnerableSummary(skill.invulnerableTypes);
+      const it = Math.max(1, skill.delayedInvulnerableTurns || 1);
+      effects.push({
+        label: 'Invulnerabilidade Atrasada',
+        value: `Daqui a ${it} turno(s), fica invulnerável ${invulSummary}${skill.invulnerableClasses && skill.invulnerableClasses.length > 0 ? ` (classes: ${skill.invulnerableClasses.join(', ')})` : ''} por ${fmtDur(skill.delayedInvulnerableDuration)}`,
+        color: 'text-indigo-950 font-extrabold',
         targetLabel: getTargetLabel(skill.invulnerableTarget, 'Conjurador (Mim)')
       });
     }

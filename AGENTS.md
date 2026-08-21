@@ -81,3 +81,18 @@ Both rules are configured per-skill in `AdminDashboard.tsx` and evaluated in the
 - Self-cast block: after the ⚡ Combo por Stacks block (~line 6850)
 - Punishment resolution in `executeTurnEndResolution` (~line 7274)
 
+## ⏱️ Continuous Damage Timing Rule (ALL DoT types)
+**Rule**: ALL continuous damage that stays on a target (`damage`, `direct_damage`, `dot`/queima, `bleeding`/sangramento, `affliction`/aflição, `life_steal`/roubo de vida) is applied when the **CASTER passes their turn** — NOT at end-of-round resolution and NOT when the target passes. Each effect ticks exactly once per round, at the moment its caster ends their turn (filter: `e.casterSide === (casterIsPlayer ? 'player' : 'enemy')`).
+
+**Implementation** (`src/components/BattleBoard.tsx`):
+- All ticking lives in `tickCasterContinuousDamage(casterIsPlayer)` (~line 9014), called from `handleEndTurn` right after `executeSideActions` for the side that just passed.
+- Per-type semantics preserved inside the tick: `delayTurns` decrement (bleeding/affliction), `castTurn === turn` skip (affliction — instant cast damage already applied; life_steal filters `castTurn !== turn`), immunity checks (`hasDamageImmunity`, `consumeFirstHitOnlyImmunity`), invulnerability bypass (`isBlockedByInvuln`/`ignoreInvulnerable`), shield conversion (`convertDamageToShield`) and shield absorption (direct_damage/life_steal).
+- The corresponding blocks in `applyTurnEndUpdates` (inside `executeTurnEndResolution`, ~line 8300) are DISABLED with comments — do NOT re-add ticking there (double-tick). Only Wood Spire punishment, heals-over-time, shield-per-turn and duration decrements remain in end-of-round resolution.
+- `direct_damage` additionally applies its FIRST tick inline at skill use in `executeSideActions` (effect created with `duration - 1`, `castTurn = turn`; remaining ticks on later caster passes).
+- The duplicated `applyTurnEndUpdates` inside `executeTurnSimulation` (~line 13288) is DEAD CODE — never edit it.
+
+**Key code sections**:
+- Caster tick (all 6 damage types): `tickCasterContinuousDamage` ~lines 9036–9230
+- Disabled end-of-round blocks: `applyTurnEndUpdates` ~lines 8345–8350 (dot), ~8395–8400 (bleeding), ~8425–8432 (affliction + life_steal)
+- Call site: `handleEndTurn` ~line 9320 (`tickCasterContinuousDamage(isCurrentPlayer)`)
+

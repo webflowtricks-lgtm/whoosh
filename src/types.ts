@@ -533,6 +533,19 @@ export interface Skill {
   directDamageDuration?: number;
   healDuration?: number;
 
+  /** Dano ATRASADO (Dano Normal): no PRÓXIMO turno (não neste), o alvo recebe X de dano normal */
+  delayedDamage?: number;
+  /** Em quantos turnos o dano normal atrasado é efetuado (padrão 1 = próximo turno) */
+  delayedDamageTurns?: number;
+  /** Dano ATRASADO (Dano Direto): no PRÓXIMO turno (não neste), o alvo recebe X de dano direto/perfurante */
+  delayedDirectDamage?: number;
+  /** Em quantos turnos o dano direto atrasado é efetuado (padrão 1 = próximo turno) */
+  delayedDirectDamageTurns?: number;
+  /** Invulnerabilidade ATRASADA (Desvio): no PRÓXIMO turno, o alvo fica invulnerável por X turnos (usa os mesmos tipos/classes do Desvio) */
+  delayedInvulnerableDuration?: number;
+  /** Em quantos turnos a invulnerabilidade atrasada é efetuada (padrão 1 = próximo turno) */
+  delayedInvulnerableTurns?: number;
+
   // Effect targets overrides
   damageTarget?: TargetOverride;
   directDamageTarget?: TargetOverride;
@@ -864,6 +877,7 @@ export interface ActiveEffect {
   | 'redirect_by_stack'
   | 'countdown_bomb'
   | 'skill_copy'
+  | 'pending_invulnerable'
   | 'death_link';
   value?: number; // magnitude of shield, reduction, damage, etc.
   buffAtCast?: number; // damage_buff value included at cast time (for dynamic tick recomputation)
@@ -882,6 +896,10 @@ export interface ActiveEffect {
   invulnerableClasses?: string[];
   /** Marca este efeito como INVULNERABILIDADE TOTAL (sela o personagem: não age e não pode ser alvo nem de aliados). Desvio NÃO usa esta flag. */
   invulnerableTotal?: boolean;
+  /** Dano pendente (pending_damage): dano aplicado no PRÓXIMO turno; usado por delayedDamage */
+  pendingDamage?: number;
+  /** Duração da invulnerabilidade que será aplicada quando o efeito pending_invulnerable disparar */
+  pendingInvulnDuration?: number;
   irremovable?: boolean;
   regenPerTurn?: boolean; // Se true, gera value de escudo ADICIONAL a cada turno (escudo por turno)
   regenMaxVal?: number; // Limite máximo de escudo para a geração por turno
