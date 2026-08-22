@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo } from 'lucide-react';
+import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo, SlidersHorizontal } from 'lucide-react';
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, getEffectiveTargetType, getEffectiveCooldown, getSkillCombatTypes, Quest, QuestGoal } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
@@ -23,6 +23,8 @@ interface BattleBoardProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onQuit: () => void;
+  /** ⚠️ TEMPORÁRIO: atalho para o painel admin durante o desenvolvimento (remover no lançamento) */
+  onOpenAdmin?: () => void;
   playClickSound: () => void;
   playScrollSound: () => void;
   playWinSound: () => void;
@@ -1184,6 +1186,7 @@ export default function BattleBoard({
   isMuted,
   onToggleMute,
   onQuit,
+  onOpenAdmin,
   playClickSound,
   playScrollSound,
   playWinSound,
@@ -6838,12 +6841,22 @@ splashOnlyTargets = splashPool.filter(c =>
             }
             if (instantDmg > 0) {
               const before = t.health;
-              t.health = hasImmortalEffect(t) ? Math.max(1, t.health - instantDmg) : Math.max(0, t.health - instantDmg);
-              newLogs.push({
-                id: Math.random().toString(), turn,
-                message: `💢 ${t.character.name} sofreu ${instantDmg} de dano próprio por [${skill.name}].`,
-                type: 'damage',
-              });
+              // 🚫☠️ "Não Mata": dano próprio deixa no mínimo 1 de HP (igual à imortalidade)
+              t.health = (hasImmortalEffect(t) || skill.friendlyDamageCantKill) ? Math.max(1, t.health - instantDmg) : Math.max(0, t.health - instantDmg);
+              if (skill.friendlyDamageCantKill && before <= instantDmg && t.health === 1) {
+                newLogs.push({
+                  id: Math.random().toString(), turn,
+                  message: `🚫☠️ ${t.character.name} resistiu à beira da morte pelo efeito de [${skill.name}] (ficou com 1 HP)!`,
+                  type: 'buff',
+                });
+                addFloatingText(t.id, '1 HP!', 'effect');
+              } else {
+                newLogs.push({
+                  id: Math.random().toString(), turn,
+                  message: `💢 ${t.character.name} sofreu ${instantDmg} de dano próprio por [${skill.name}].`,
+                  type: 'damage',
+                });
+              }
               addFloatingText(t.id, `-${instantDmg} HP`, 'damage');
               if (action.isPlayer) matchStatsRef.current.damageReceived += instantDmg;
             }
@@ -6860,6 +6873,7 @@ splashOnlyTargets = splashPool.filter(c =>
               casterId: source.id,
               casterSide: action.isPlayer ? 'player' : 'enemy',
               sourceSkillName: skill.name,
+              cantKill: skill.friendlyDamageCantKill || undefined,
             });
             newLogs.push({
               id: Math.random().toString(), turn,
@@ -7773,6 +7787,22 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // Redirection / Bodyguard (Redirecionamento do Guarda-Costas)
       if (skill.redirectOffensiveToCaster) {
+        // 🚫👤 Auto-remoção: se configurado e usado em SI MESMO, remove a proteção do conjurador
+        // (ele deixa de ser o Guarda-Costas dos aliados)
+        if (skill.redirectOffensiveRemoveOnSelfCast && target && target.id === source.id) {
+          const beforeCount = source.activeEffects.length;
+          source.activeEffects = source.activeEffects.filter(e =>
+            !(e.type === 'redirect_offensive' && e.sourceSkillName === skill.name && e.casterId === source.id)
+          );
+          if (source.activeEffects.length < beforeCount) {
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🛡️❌ [GUARDA-COSTAS] ${source.character.name} usou [${skill.name}] em si mesmo — a proteção foi REMOVIDA!`,
+              type: 'system',
+            });
+            addFloatingText(source.id, 'GUARDA-COSTAS REMOVIDO', 'effect');
+          }
+        } else {
         const scope = skill.redirectOffensiveScope || 'ally';
         const targetOverride = scope === 'team' ? 'AllAllies' : (skill.redirectOffensiveTarget || 'Ally');
         const redirTargets = resolveEffectTargets(targetOverride, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, true);
@@ -7798,6 +7828,7 @@ splashOnlyTargets = splashPool.filter(c =>
           addFloatingText(t.id, `PROTEGIDO (${redirDur}T)`, 'effect');
           cleanseTargetEffects(t, skill.redirectOffensiveRemoveType);
         });
+        }
       }
 
       // Cleanse / Purify Debuffs (Multi-selection)
@@ -7928,6 +7959,46 @@ splashOnlyTargets = splashPool.filter(c =>
             });
           }
           addFloatingText(t.id, `+1 ${effStackType.toUpperCase()}`, 'effect');
+        });
+      }
+
+      // ⚡ Escudo por Stack em Mim (shieldPerStackRules): ao usar a skill, o conjurador ganha X de escudo por cada stack do tipo configurado que ele possuir
+      if (skill.shieldPerStackRules && skill.shieldPerStackRules.length > 0) {
+        skill.shieldPerStackRules.forEach(r => {
+          const matchKey = (r.stackType || '').trim();
+          if (!matchKey || !(r.shieldPerStack > 0)) return;
+          const lower = matchKey.toLowerCase();
+          const stackCount = source.activeEffects
+            .filter(e => e.stackType && e.stackType.toLowerCase() === lower)
+            .reduce((acc, e) => acc + (e.stacks || 1), 0);
+          if (stackCount <= 0) return;
+          const gained = r.shieldPerStack * stackCount;
+          source.shield = (source.shield || 0) + gained;
+          newLogs.push({
+            id: Math.random().toString(), turn,
+            message: `🛡️⚡ [${skill.name}] ${source.character.name} ganhou ${gained} de escudo (${r.shieldPerStack} × ${stackCount}x stack de [${matchKey}])!`,
+            type: 'buff',
+          });
+          addFloatingText(source.id, `+${gained} ESCUDO`, 'shield');
+          // ♻️ Resetar ao usar: a contagem de stacks volta para o valor configurado
+          if (r.resetStackOnUse) {
+            const targetCount = Math.max(0, r.resetStacksTo ?? 1);
+            let changed = false;
+            source.activeEffects.forEach(e => {
+              if (e.stackType && e.stackable && e.stackType.toLowerCase() === lower) {
+                e.stacks = targetCount;
+                changed = true;
+              }
+            });
+            if (changed) {
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `♻️ [${skill.name}] A contagem de [${matchKey}] de ${source.character.name} voltou para ${targetCount}x!`,
+                type: 'system',
+              });
+              addFloatingText(source.id, `${matchKey.toUpperCase()} → ${targetCount}x`, 'effect');
+            }
+          }
         });
       }
 
@@ -8989,15 +9060,18 @@ splashOnlyTargets = splashPool.filter(c =>
         });
 
         // Decrement effect durations.
-        // Regra de contagem de turnos: um efeito de "1 turno" (ex.: stun) deve durar APENAS a rodada
+        // Regra de contagem de turnos: um efeito de "1 turno" deve durar APENAS a rodada
         // em que foi aplicado — quando ambos os lados passam, ele já expira (badge some).
         // Por isso, efeitos de CONTROLE/badge decrementam mesmo na rodada em que foram aplicados.
         // EXCEÇÕES que mantêm o timing antigo (não decrementam na própria rodada de cast):
+        //  - ⚡ STUN: não gasta turno na rodada em que foi aplicado — "Atordoado 2T" aparece com 2T
+        //    após finalizar o turno do conjurador e passa a decrementar só nas rodadas seguintes,
+        //    então 2T = o alvo perde 2 turnos dele de fato.
         //  - efeitos de dano contínuo (para não perder um tick): dot/bleeding/affliction/damage/direct_damage/life_steal
         //  - marcadores 'custom' (stacks, stacks pendentes, liberação atrasada, reflexão por stack, etc.)
         //  - efeitos permanentes (duration >= 99999) e stack Raikiri congelada
         const KEEP_CAST_ROUND_SKIP = new Set([
-          'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'custom',
+          'stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'custom',
         ]);
         c.activeEffects = c.activeEffects
           .map(eff => {
@@ -9339,7 +9413,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${netDmg} de dano contínuo de ${dmg.name} em escudo!`, type: 'buff' });
             addFloatingText(c.id, `+${netDmg} ESCUDO (DANO)`, 'shield');
           } else {
-            c.health = Math.max(0, c.health - netDmg);
+            c.health = (dmg.cantKill || hasImmortalEffect(c)) ? Math.max(1, c.health - netDmg) : Math.max(0, c.health - netDmg);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -9376,7 +9450,7 @@ splashOnlyTargets = splashPool.filter(c =>
             remainingDd -= absorbed;
             addFloatingText(c.id, `-${absorbed} ESCUDO`, 'shield');
           }
-          c.health = Math.max(0, c.health - remainingDd);
+          c.health = (dd.cantKill || hasImmortalEffect(c)) ? Math.max(1, c.health - remainingDd) : Math.max(0, c.health - remainingDd);
           newLogs.push({
             id: Math.random().toString(),
             turn,
@@ -9402,7 +9476,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${dotVal} de dano de queima em escudo!`, type: 'buff' });
             addFloatingText(c.id, `+${dotVal} ESCUDO (QUEIMA)`, 'shield');
           } else {
-            c.health = Math.max(0, c.health - dotVal);
+            c.health = (dot.cantKill || hasImmortalEffect(c)) ? Math.max(1, c.health - dotVal) : Math.max(0, c.health - dotVal);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -9433,7 +9507,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${bleedVal} de dano de sangramento em escudo!`, type: 'buff' });
             addFloatingText(c.id, `+${bleedVal} ESCUDO (SANGRAMENTO)`, 'shield');
           } else {
-            c.health = Math.max(0, c.health - bleedVal);
+            c.health = (bleed.cantKill || hasImmortalEffect(c)) ? Math.max(1, c.health - bleedVal) : Math.max(0, c.health - bleedVal);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -9467,7 +9541,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${affVal} de dano de aflição em escudo!`, type: 'buff' });
             addFloatingText(c.id, `+${affVal} ESCUDO (AFLIÇÃO)`, 'shield');
           } else {
-            c.health = Math.max(0, c.health - affVal);
+            c.health = (aff.cantKill || hasImmortalEffect(c)) ? Math.max(1, c.health - affVal) : Math.max(0, c.health - affVal);
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -14667,9 +14741,20 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (skill.friendlyDamageVal && skill.friendlyDamageVal > 0) {
       effects.push({
         label: 'Sofrer Dano',
-        value: `-${skill.friendlyDamageVal} de ${skill.friendlyDamageType === 'direct_damage' ? 'Dano Direto' : skill.friendlyDamageType === 'dot' ? 'Queimadura' : skill.friendlyDamageType === 'bleeding' ? 'Sangramento' : skill.friendlyDamageType === 'affliction' ? 'Aflição' : 'Dano'} por ${fmtDur(skill.friendlyDamageDuration)}`,
+        value: `-${skill.friendlyDamageVal} de ${skill.friendlyDamageType === 'direct_damage' ? 'Dano Direto' : skill.friendlyDamageType === 'dot' ? 'Queimadura' : skill.friendlyDamageType === 'bleeding' ? 'Sangramento' : skill.friendlyDamageType === 'affliction' ? 'Aflição' : 'Dano'} por ${fmtDur(skill.friendlyDamageDuration)}${skill.friendlyDamageCantKill ? ' (🚫☠️ não pode matar)' : ''}`,
         color: 'text-violet-950 font-extrabold',
         targetLabel: getTargetLabel(skill.friendlyDamageTarget, 'Conjurador (Mim)')
+      });
+    }
+    if (skill.shieldPerStackRules && skill.shieldPerStackRules.length > 0) {
+      skill.shieldPerStackRules.forEach(rule => {
+        if (!rule.stackType || !(rule.shieldPerStack > 0)) return;
+        effects.push({
+          label: 'Escudo por Stack',
+          value: `+${rule.shieldPerStack} de escudo por cada stack de [${rule.stackType}] que eu possuir${rule.resetStackOnUse ? ` (♻️ contagem volta para ${rule.resetStacksTo ?? 1}x ao usar)` : ''}`,
+          color: 'text-cyan-950 font-extrabold',
+          targetLabel: 'Conjurador (Mim)'
+        });
       });
     }
     if (skill.damageRules && skill.damageRules.length > 0) {
@@ -15517,6 +15602,19 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
   }}
 />
 
+      {/* ⚠️ TEMPORÁRIO: atalho para o painel de controle (admin) — REMOVER no lançamento */}
+      {onOpenAdmin && (
+        <button
+          type="button"
+          onClick={() => { playClickSound(); onOpenAdmin(); }}
+          title="Painel de Controle (atalho temporário)"
+          className="fixed bottom-2 left-2 z-40 flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900/70 hover:bg-slate-800/90 text-slate-400 hover:text-orange-300 border border-slate-700/60 hover:border-orange-500/50 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider transition-all opacity-40 hover:opacity-100 cursor-pointer"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          Admin
+        </button>
+      )}
+
       {/* Dynamic Chakra Roll Banner notification */}
       <AnimatePresence>
         {showRollBanner && (
@@ -15876,7 +15974,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                               <img
                                 src={skill?.icon}
                                 alt={skill?.name}
-                                className="w-5 h-5 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
+                                className="w-9 h-9 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
                                 onError={(e) => {
                                   const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
                                 }}
@@ -17009,7 +17107,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                               <img
                                 src={skill?.icon}
                                 alt={skill?.name}
-                                className="w-5 h-5 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
+                                className="w-9 h-9 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
                                 onError={(e) => {
                                   const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
                                 }}

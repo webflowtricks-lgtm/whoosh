@@ -322,6 +322,17 @@ export interface SkillStackDurationRule {
   durationOverride: number;
 }
 
+export interface SkillShieldPerStackRule {
+  /** Nome do stackType que será verificado em mim mesmo (ex: 'Raikiri', 'Uchiha Clan Member') */
+  stackType: string;
+  /** Quantidade de escudo adicionada POR CADA stack deste tipo que o conjurador possuir */
+  shieldPerStack: number;
+  /** Se true, ao usar a skill a contagem de stacks deste tipo no conjurador volta para resetStacksTo */
+  resetStackOnUse?: boolean;
+  /** Valor para o qual a contagem de stacks volta quando resetStackOnUse = true (padrão: 1) */
+  resetStacksTo?: number;
+}
+
 export interface Skill {
   name: string;
   desc: string;
@@ -343,6 +354,9 @@ export interface Skill {
    * menos, ganham um buff que impede que suas skills sejam contra-atacadas e/ou refletidas. Ideal para
    * skills PASSIVAS (avaliada automaticamente a cada turno, sem precisar usar a skill). */
   stackLowHpProtectionRules?: SkillStackLowHpProtectionRule[];
+  /** ⚡ Escudo por Stack em Mim: ao usar a skill, o conjurador ganha X de escudo por cada
+   * stack do tipo Y que ele mesmo possuir no momento do uso */
+  shieldPerStackRules?: SkillShieldPerStackRule[];
   /** Regra "Prisão de Madeira" (Wood Spire Prison): aliado recebe limpeza + redução de dano não-Aflição;
    * inimigo sofre fraqueza não-Mental + punição por turno se não usar skill ofensiva */
   prisonRule?: SkillPrisonRule;
@@ -453,6 +467,8 @@ export interface Skill {
   friendlyDamageDuration?: number;
   friendlyDamageTarget?: TargetOverride;
   friendlyDamageType?: 'damage' | 'direct_damage' | 'dot' | 'bleeding' | 'affliction';
+  /** Sofrer Dano Não Mata: o dano próprio deixa o alvo com no mínimo 1 de HP em vez de derrotá-lo */
+  friendlyDamageCantKill?: boolean;
   damageDebuffVal?: number;
   damageDebuffDuration?: number;
   damageDebuffTypes?: ('skill' | 'dot' | 'bleeding' | 'affliction' | 'direct_damage' | 'damage')[];
@@ -938,6 +954,8 @@ export interface ActiveEffect {
   /** Duração da invulnerabilidade que será aplicada quando o efeito pending_invulnerable disparar */
   pendingInvulnDuration?: number;
   irremovable?: boolean;
+  /** Este efeito de dano NÃO pode matar: deixa o alvo com no mínimo 1 de HP (usado pelo Dano Próprio "não mata") */
+  cantKill?: boolean;
   regenPerTurn?: boolean; // Se true, gera value de escudo ADICIONAL a cada turno (escudo por turno)
   regenMaxVal?: number; // Limite máximo de escudo para a geração por turno
   cannotBeCountered?: boolean;

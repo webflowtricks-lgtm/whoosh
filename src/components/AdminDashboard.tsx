@@ -5922,10 +5922,116 @@ const newSkill: Skill = {
                             ))}
                           </div>
                         )}
-                      </div>
+                       </div>
 
-                      <div className="md:col-span-2">
-                        <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Descrição do Efeito / Detalhes</label>
+                       {/* ⚡ Escudo por Stack em Mim (shieldPerStackRules) */}
+                       <div className="md:col-span-2 bg-cyan-950/20 p-3 rounded-xl border border-cyan-800/50 space-y-2">
+                         <div className="flex justify-between items-center">
+                           <div>
+                             <span className="block text-[10px] font-bold uppercase tracking-wider text-cyan-300 font-mono">
+                               ⚡ Escudo por Stack em Mim
+                             </span>
+                             <p className="text-[9px] text-cyan-200/70">
+                               Ao usar esta habilidade, o conjurador ganha <span className="font-bold text-white">X de escudo</span> por cada stack do tipo escolhido que <span className="font-bold text-white">ele mesmo</span> possuir no momento do uso. Ex.: 15 de escudo × 2 stacks de Raikiri = +30 de escudo.
+                             </p>
+                           </div>
+                           <button
+                             type="button"
+                             onClick={() => {
+                               const current = editingSkill.shieldPerStackRules || [];
+                               handleUpdateSkillField('shieldPerStackRules', [...current, { stackType: '', shieldPerStack: 10 }]);
+                             }}
+                             className="px-2.5 py-1 bg-cyan-900/40 hover:bg-cyan-800/50 text-cyan-300 border border-cyan-800/60 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                           >
+                             + Adicionar Regra
+                           </button>
+                         </div>
+
+                         {(!editingSkill.shieldPerStackRules || editingSkill.shieldPerStackRules.length === 0) ? (
+                           <p className="text-[9px] text-slate-500 font-mono italic">
+                             Nenhuma regra de escudo por stack configurada.
+                           </p>
+                         ) : (
+                           <div className="space-y-2 pt-1">
+                             {editingSkill.shieldPerStackRules.map((rule, rIdx) => (
+                               <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-cyan-900/50 text-[10px] font-mono">
+                                 <span className="text-cyan-300 font-bold">Ganha</span>
+                                 <input
+                                   type="number"
+                                   min={1}
+                                   max={9999}
+                                   value={rule.shieldPerStack || 0}
+                                   onChange={(e) => {
+                                     const updated = [...(editingSkill.shieldPerStackRules || [])];
+                                     updated[rIdx] = { ...updated[rIdx], shieldPerStack: parseInt(e.target.value) || 0 };
+                                     handleUpdateSkillField('shieldPerStackRules', updated);
+                                   }}
+                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px] text-center"
+                                 />
+                                 <span className="text-[9px] text-slate-400">de escudo por cada stack de:</span>
+                                 <input
+                                   list="self-cast-stacktype-list"
+                                   type="text"
+                                   value={rule.stackType || ''}
+                                   onChange={(e) => {
+                                     const updated = [...(editingSkill.shieldPerStackRules || [])];
+                                     updated[rIdx] = { ...updated[rIdx], stackType: e.target.value };
+                                     handleUpdateSkillField('shieldPerStackRules', updated);
+                                   }}
+                                   placeholder="StackType (ex: Raikiri)"
+                                   className="w-52 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px]"
+                                 />
+                                 <span className="text-[9px] text-slate-500 italic">em mim</span>
+                                 <label className="flex items-center gap-1 cursor-pointer select-none">
+                                   <input
+                                     type="checkbox"
+                                     checked={rule.resetStackOnUse === true}
+                                     onChange={(e) => {
+                                       const updated = [...(editingSkill.shieldPerStackRules || [])];
+                                       updated[rIdx] = { ...updated[rIdx], resetStackOnUse: e.target.checked, resetStacksTo: e.target.checked ? (rule.resetStacksTo ?? 1) : rule.resetStacksTo };
+                                       handleUpdateSkillField('shieldPerStackRules', updated);
+                                     }}
+                                     className="accent-cyan-500"
+                                   />
+                                   <span className="text-[9px] text-cyan-300 font-bold">♻️ Resetar ao usar</span>
+                                 </label>
+                                 {rule.resetStackOnUse === true && (
+                                   <>
+                                     <span className="text-[9px] text-slate-400">voltar para</span>
+                                     <input
+                                       type="number"
+                                       min={0}
+                                       max={99}
+                                       value={rule.resetStacksTo ?? 1}
+                                       onChange={(e) => {
+                                         const updated = [...(editingSkill.shieldPerStackRules || [])];
+                                         updated[rIdx] = { ...updated[rIdx], resetStacksTo: parseInt(e.target.value) || 0 };
+                                         handleUpdateSkillField('shieldPerStackRules', updated);
+                                       }}
+                                       className="w-12 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded text-white outline-none text-[10px] text-center"
+                                     />
+                                     <span className="text-[9px] text-slate-400">stack(s)</span>
+                                   </>
+                                 )}
+                                 <button
+                                   type="button"
+                                   onClick={() => {
+                                     const updated = (editingSkill.shieldPerStackRules || []).filter((_, i) => i !== rIdx);
+                                     handleUpdateSkillField('shieldPerStackRules', updated.length > 0 ? updated : undefined);
+                                   }}
+                                   className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                   title="Remover regra"
+                                 >
+                                   <Trash2 className="w-3.5 h-3.5" />
+                                 </button>
+                               </div>
+                             ))}
+                           </div>
+                         )}
+                       </div>
+
+                       <div className="md:col-span-2">
+                         <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Descrição do Efeito / Detalhes</label>
                         <textarea
                           rows={2}
                           value={editingSkill.desc}
@@ -6321,7 +6427,7 @@ const newSkill: Skill = {
                       </div>
 
                       {/* 2. counter attack */}
-                          <div className="space-y-3 bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                          <div className="space-y-2 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
                             <div className="space-y-2.5">
                               <label className="block text-[10px] font-bold uppercase tracking-wider text-red-400 font-mono">Contra-ataque (Anular)</label>
                               <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
@@ -6536,7 +6642,7 @@ const newSkill: Skill = {
                           </div>
 
                           {/* 2b. Reflect */}
-                          <div className="space-y-3 bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                          <div className="space-y-2 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
                             <div className="space-y-2.5">
                               <label className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono">Refletir</label>
                               <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
@@ -7840,6 +7946,15 @@ const newSkill: Skill = {
                                   />
                                   <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
                                 </label>
+                                <label className="flex items-center gap-1 cursor-pointer select-none" title="O dano próprio nunca derrota: deixa sempre no mínimo 1 de HP">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!editingSkill.friendlyDamageCantKill}
+                                    onChange={(e) => handleUpdateSkillField('friendlyDamageCantKill', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-emerald-400 font-mono">🚫☠️ Não Mata</span>
+                                </label>
                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
                               </div>
                               <div className="grid grid-cols-2 gap-2 mt-1">
@@ -7870,7 +7985,7 @@ const newSkill: Skill = {
                                   </select>
                                 </div>
                               </div>
-                              <p className="text-[8px] text-slate-500 font-mono mt-0.5">Ao usar a skill, quem sofre perde {editingSkill.friendlyDamageVal || 0} de {editingSkill.friendlyDamageType === 'direct_damage' ? 'dano direto' : editingSkill.friendlyDamageType === 'dot' ? 'queimadura' : editingSkill.friendlyDamageType === 'bleeding' ? 'sangramento' : editingSkill.friendlyDamageType === 'affliction' ? 'aflição' : 'dano'} por turno durante {editingSkill.friendlyDamageDuration || 0} turnos.</p>
+                              <p className="text-[8px] text-slate-500 font-mono mt-0.5">Ao usar a skill, quem sofre perde {editingSkill.friendlyDamageVal || 0} de {editingSkill.friendlyDamageType === 'direct_damage' ? 'dano direto' : editingSkill.friendlyDamageType === 'dot' ? 'queimadura' : editingSkill.friendlyDamageType === 'bleeding' ? 'sangramento' : editingSkill.friendlyDamageType === 'affliction' ? 'aflição' : 'dano'} por turno durante {editingSkill.friendlyDamageDuration || 0} turnos.{editingSkill.friendlyDamageCantKill ? ' 🚫☠️ Este dano NÃO pode matar (deixa sempre no mínimo 1 de HP).' : ''}</p>
                             </div>
                           </div>
 
@@ -10111,7 +10226,7 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                           </div>
 
                           {/* Remover Contra-Ataques / Refletir do Inimigo */}
-                          <div className="space-y-3 bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
+                          <div className="space-y-2 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/40 flex flex-col justify-between">
                             <div className="space-y-2">
                               <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono">
                                 ⚔️ Remover Contra-Ataques & Refletir
@@ -10150,7 +10265,7 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                           </div>
 
                           {/* 24. Redirecionamento / Proteção do Guarda-Costas */}
-                          <div className="space-y-3 bg-cyan-950/20 border border-cyan-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                          <div className="space-y-2 bg-cyan-950/20 border border-cyan-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div className="space-y-2">
                               <div className="flex justify-between items-center">
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 font-mono flex items-center gap-1">
@@ -10167,15 +10282,25 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                                 )}
                               </div>
 
-                              <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
-                                <input
-                                  type="checkbox"
-                                  checked={editingSkill.redirectOffensiveToCaster || false}
-                                  onChange={(e) => handleUpdateSkillField('redirectOffensiveToCaster', e.target.checked)}
-                                  className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3.5 h-3.5"
-                                />
-                                Ativar Proteção / Redirecionar para o Conjurador
-                              </label>
+                               <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
+                                 <input
+                                   type="checkbox"
+                                   checked={editingSkill.redirectOffensiveToCaster || false}
+                                   onChange={(e) => handleUpdateSkillField('redirectOffensiveToCaster', e.target.checked)}
+                                   className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3.5 h-3.5"
+                                 />
+                                 Ativar Proteção / Redirecionar para o Conjurador
+                               </label>
+
+                               <label className="flex items-center gap-2 text-[10px] cursor-pointer select-none text-slate-300 font-mono">
+                                 <input
+                                   type="checkbox"
+                                   checked={editingSkill.redirectOffensiveRemoveOnSelfCast || false}
+                                   onChange={(e) => handleUpdateSkillField('redirectOffensiveRemoveOnSelfCast', e.target.checked)}
+                                   className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3.5 h-3.5"
+                                 />
+                                 🚫👤 Usar em Mim Mesmo Remove a Proteção
+                               </label>
 
                               {editingSkill.redirectOffensiveToCaster && (
                                 <motion.div
@@ -10223,6 +10348,11 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
 
                                   <div className="text-[8.5px] text-cyan-200/80 font-mono leading-relaxed bg-cyan-950/40 border border-cyan-900/50 p-2 rounded-lg">
                                     💡 <span className="font-bold text-cyan-300">Como funciona:</span> Qualquer habilidade ofensiva usada pelo oponente contra {editingSkill.redirectOffensiveScope === 'team' ? 'qualquer aliado da sua equipe' : 'o aliado protegido'} será <span className="font-bold text-white uppercase">redirecionada diretamente para Você (conjurador)</span>, exceto se a habilidade inimiga estiver configurada com <span className="font-bold text-amber-300 font-mono">"Não Pode Ser Refletida"</span>.
+                                    {editingSkill.redirectOffensiveRemoveOnSelfCast && (
+                                      <div className="mt-1 text-slate-300">
+                                        🚫👤 <span className="font-bold">Auto-remoção ativa:</span> se você usar esta habilidade em <span className="font-bold text-white">si mesmo</span>, a proteção Guarda-Costas será <span className="font-bold text-red-300 uppercase">removida</span> (você deixa de proteger os aliados).
+                                      </div>
+                                    )}
                                   </div>
                                 </motion.div>
                               )}
@@ -10230,7 +10360,7 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                           </div>
 
                           {/* 23. Remover Debuffs (Purificação / Cleanse Multi-seleção) */}
-                          <div className="space-y-3 bg-emerald-950/20 border border-emerald-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                          <div className="space-y-2 bg-emerald-950/20 border border-emerald-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div className="space-y-2">
                               <div className="flex justify-between items-center">
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400 font-mono">
@@ -10372,10 +10502,9 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                               )}
                             </div>
                           </div>
-                        </div>
 
                       {/* 23.5. Remover Buffs Amigáveis */}
-                  <div className="space-y-3 bg-rose-950/20 border border-rose-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                  <div className="space-y-2 bg-rose-950/20 border border-rose-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono">
@@ -10519,7 +10648,7 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                   </div>
 
                 {/* 24. Prisão de Madeira (Wood Spire Prison) */}
-                  <div className="space-y-3 bg-amber-950/20 border border-amber-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                  <div className="space-y-2 bg-amber-950/20 border border-amber-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div className="space-y-2">
                               <div className="flex justify-between items-center">
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">
@@ -10667,7 +10796,7 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                           </div>
 
                         {/* 25. Liberação Atrasada de Skills */}
-                          <div className="space-y-3 bg-indigo-950/20 border border-indigo-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                          <div className="space-y-2 bg-indigo-950/20 border border-indigo-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div className="space-y-2">
                               <div className="flex justify-between items-center">
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-indigo-400 font-mono">
@@ -10769,7 +10898,7 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                           </div>
 
                         {/* 26. Vínculo de Morte (Death Link) */}
-                          <div className="space-y-3 bg-rose-950/20 border border-rose-800/40 p-3.5 rounded-xl flex flex-col justify-between">
+                          <div className="space-y-2 bg-rose-950/20 border border-rose-800/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div className="space-y-2">
                               <div className="flex justify-between items-center">
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-400 font-mono">
@@ -10907,7 +11036,7 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                           </div>
 
                           {/* 💣 Contagem Regressiva (Bomba): dano quando o TEMPO acabar */}
-                          <div className="space-y-2 bg-amber-950/20 border border-amber-800/50 p-3.5 rounded-xl flex flex-col justify-between md:col-span-2">
+                          <div className="space-y-2 bg-amber-950/20 border border-amber-800/50 p-2.5 rounded-xl flex flex-col justify-between">
                             <div>
                               <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono flex items-center gap-1">
                                 💣 Contagem Regressiva (Dano após X Turnos)
@@ -11014,6 +11143,7 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                             </div>
                           </div>
                         </div>
+                      </div>
                       </motion.div>
                 )}
               </div>
