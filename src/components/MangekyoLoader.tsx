@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface MangekyoLoaderProps {
   src: string | null;
@@ -44,6 +44,26 @@ export function MangekyoLoader({
     setLoaded(false);
   }, [src]);
 
+  // Rede de segurança: se por algum motivo nem onLoad nem onError dispararem
+  // (ex.: imagem já em cache num navegador problemático, ou src nulo), força a
+  // revelação da imagem para não deixar o spinner girando eternamente.
+  useEffect(() => {
+    if (noPlaceholder) return;
+    if (!srcUrl) { setLoaded(true); return; }
+    if (loaded) return;
+    const t = setTimeout(() => setLoaded(true), 4000);
+    return () => clearTimeout(t);
+  }, [srcUrl, loaded, noPlaceholder]);
+
+  // Callback ref: imagens já em cache podem terminar de carregar ANTES de o React
+  // anexar o onLoad, fazendo o evento nunca disparar (spinner gira para sempre).
+  // Ao montar o <img>, checamos img.complete e marcamos como carregado na hora.
+  const imgRef = useCallback((img: HTMLImageElement | null) => {
+    if (img && img.complete && img.naturalWidth > 0) {
+      setLoaded(true);
+    }
+  }, [srcUrl]);
+
   if (noPlaceholder) {
     return (
       <img
@@ -80,6 +100,7 @@ export function MangekyoLoader({
         />
       )}
       <img
+        ref={imgRef}
         src={srcUrl || undefined}
         alt={alt}
         title={title}

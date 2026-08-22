@@ -342,12 +342,14 @@ async function startServer() {
     if (!room.player1Ping) room.player1Ping = Date.now();
     if (!room.player2Ping) room.player2Ping = Date.now();
 
-    // Check for disconnection timeouts (25 seconds of inactivity)
+    // Check for disconnection timeouts (60 seconds of inactivity).
+    // 25s era agressivo demais: abas em segundo plano / celular bloqueado
+    // suspendem os timers do browser e paravam os pings, gerando derrotas fantasmas.
     const now = Date.now();
     if (!room.surrenderedBy) {
-      if (now - room.player1Ping > 25000) {
+      if (now - room.player1Ping > 60000) {
         room.surrenderedBy = room.player1.username;
-      } else if (now - room.player2Ping > 25000) {
+      } else if (now - room.player2Ping > 60000) {
         room.surrenderedBy = room.player2.username;
       }
     }

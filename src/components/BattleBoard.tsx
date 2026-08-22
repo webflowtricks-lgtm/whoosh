@@ -1281,6 +1281,10 @@ export default function BattleBoard({
 
       await onBattleEnd(isVictory, { ...matchStatsRef.current, turn, alivePlayerCount }, gainedXp);
     }
+    // Saída INTENCIONAL: limpa o save de reconexão para a batalha não "ressuscitar"
+    // no modal de reconexão depois (o F5/reload ainda restaura porque não passa aqui).
+    try { localStorage.removeItem('active_match_save'); } catch {}
+    pendingSubmitRef.current = null;
     onQuit();
   };
 
@@ -9680,16 +9684,42 @@ splashOnlyTargets = splashPool.filter(c =>
       }
 
       if (onlineParams?.isOnline) {
-        fetch('/api/match/submit-turn', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomId: onlineParams.roomId,
-            username: user.username,
-            turn: turn,
-            actions: currentActions
-          })
-        }).catch(err => console.error("Error submitting turn online:", err));
+        // Submit com retry embutido: 3 tentativas com backoff; se todas falharem,
+        // fica como pendência e o polling reenvia a cada 5s até o servidor aceitar.
+        // (Antes era fire-and-forget: falha silenciosa = oponente nunca recebia as
+        // ações e a partida travava esperando para sempre.)
+        const submitWithRetry = async () => {
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              const r = await fetch('/api/match/submit-turn', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  roomId: onlineParams.roomId,
+                  username: user.username,
+                  turn: turn,
+                  actions: currentActions
+                })
+              });
+              if (r.ok) {
+                if (pendingSubmitRef.current?.turn === turn) pendingSubmitRef.current = null;
+                return;
+              }
+            } catch {}
+            await new Promise(res => setTimeout(res, 600 * (attempt + 1)));
+          }
+          pendingSubmitRef.current = { turn, actions: currentActions, nextRetryAt: Date.now() + 5000 };
+          setLogs(l => [
+            ...l,
+            {
+              id: Math.random().toString(),
+              turn,
+              message: '⚠️ Falha de conexão ao enviar seu turno. Tentando reenviar automaticamente...',
+              type: 'system',
+            }
+          ]);
+        };
+        submitWithRetry();
       }
 
       const newPassed = [...passedPlayersRef.current];
@@ -10293,6 +10323,7 @@ splashOnlyTargets = splashPool.filter(c =>
   const confirmSurrender = async () => {
     playClickSound();
     setShowSurrenderModal(false);
+    pendingSubmitRef.current = null;
     try {
       localStorage.removeItem('active_match_save');
     } catch {}
@@ -10364,15 +10395,67 @@ splashOnlyTargets = splashPool.filter(c =>
     }
   }, [turn, onlineParams, gameOver, passedPlayersThisTurn]);
 
+  // Online: pendência de reenvio do submit-turn, resync ao voltar pra aba e
+  // detecção de sala perdida (servidor reiniciou / sala expirou)
+  const pendingSubmitRef = useRef<{ turn: number; actions: CuedAction[]; nextRetryAt: number } | null>(null);
+  const syncFnRef = useRef<(() => void) | null>(null);
+  const [showRoomLostModal, setShowRoomLostModal] = useState(false);
+  const showRoomLostModalRef = useRef(false);
+  const roomLostDismissedAtRef = useRef(0);
+
   // Periodic background online room-state polling & turn sync (1 second)
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver) return;
 
-    const syncInterval = setInterval(() => {
+    // Reenvio do submit-turn caso a rede falhe no momento de passar o turno.
+    // Sem isso, uma falha silenciosa travava a partida: o oponente nunca recebia
+    // as ações e ambos ficavam esperando para sempre ("turno não passa").
+    const trySubmitPending = () => {
+      const pending = pendingSubmitRef.current;
+      if (!pending || Date.now() < pending.nextRetryAt) return;
+      pending.nextRetryAt = Date.now() + 5000;
+      fetch('/api/match/submit-turn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId: onlineParams.roomId,
+          username: user.username,
+          turn: pending.turn,
+          actions: pending.actions
+        })
+      }).then(r => {
+        if (r.ok && pendingSubmitRef.current?.turn === pending.turn) {
+          pendingSubmitRef.current = null;
+        }
+      }).catch(() => {});
+    };
+
+    let pollFailures = 0;
+    // Sala morta (servidor reiniciou, GC da sala, rede fora): após ~10 falhas
+    // seguidas abre um aviso com opção de continuar tentando ou encerrar,
+    // em vez de deixar a partida congelada sem feedback.
+    const handlePollFailure = () => {
+      pollFailures++;
+      if (pollFailures >= 10 && !showRoomLostModalRef.current && Date.now() - roomLostDismissedAtRef.current > 30000) {
+        showRoomLostModalRef.current = true;
+        setShowRoomLostModal(true);
+      }
+    };
+    const runSync = () => {
+      trySubmitPending();
       fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}`)
         .then(r => r.json())
         .then(data => {
-          if (!data.success || !data.room) return;
+          if (!data.success || !data.room) {
+            handlePollFailure();
+            return;
+          }
+          // Sala respondeu: zera o contador de falhas e fecha o aviso de sala perdida
+          if (pollFailures > 0 || showRoomLostModalRef.current) {
+            pollFailures = 0;
+            showRoomLostModalRef.current = false;
+            setShowRoomLostModal(false);
+          }
 
           if (data.room.surrenderedBy) {
             const surrenderedUser = data.room.surrenderedBy.toLowerCase();
@@ -10463,11 +10546,32 @@ splashOnlyTargets = splashPool.filter(c =>
             }
           }
         })
-        .catch(err => console.error('Online match sync error:', err));
-    }, 1000);
+        .catch(err => {
+          console.error('Online match sync error:', err);
+          handlePollFailure();
+        });
+    };
+
+    // Expõe o sync para o listener de visibilitychange (aba volta a ficar visível)
+    syncFnRef.current = runSync;
+    const syncInterval = setInterval(runSync, 1000);
 
     return () => clearInterval(syncInterval);
   }, [onlineParams, gameOver, user, turn]);
+
+  // Resync imediato quando o usuário volta para a aba (mobile/segundo plano pausa
+  // os timers e o servidor pode ficar até 60s sem ping — o ping imediato evita
+  // que a partida "caia" por desconexão fantasma logo ao retornar).
+  useEffect(() => {
+    if (!onlineParams?.isOnline || gameOver) return;
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncFnRef.current?.();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [onlineParams, gameOver]);
 
   // Auto-save game state to local storage on key changes, or remove it when game over
   useEffect(() => {
@@ -18104,6 +18208,53 @@ onClick={() => handleSelectTarget(combatant.id, true)}
               >
                 Conectar-se à Internet
               </button>
+            </motion.div>
+          </div>
+        )}
+
+        {/* ROOM LOST MODAL (online): servidor par de responder aos polls */}
+        {showRoomLostModal && !gameOver && (
+          <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              className="bg-slate-900 border-2 border-orange-500/60 rounded-2xl p-6 max-w-md w-full shadow-2xl relative text-center"
+            >
+              <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-orange-500/20 border border-orange-500/50 flex items-center justify-center text-orange-400 text-2xl font-black">
+                ⚠️
+              </div>
+              <h3 className="text-lg font-black text-white uppercase tracking-wider mb-2">
+                Conexão com a Sala Perdida
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed mb-5">
+                Não estamos conseguindo falar com o servidor da partida. A conexão pode ter oscilado ou a sala pode ter caído. Você pode continuar tentando ou encerrar a partida (contará como derrota).
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    playClickSound();
+                    roomLostDismissedAtRef.current = Date.now();
+                    showRoomLostModalRef.current = false;
+                    setShowRoomLostModal(false);
+                    syncFnRef.current?.();
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-xs uppercase tracking-wider border border-emerald-500/50 shadow-md transition active:scale-95 cursor-pointer"
+                >
+                  Continuar Tentando
+                </button>
+                <button
+                  onClick={() => {
+                    playClickSound();
+                    roomLostDismissedAtRef.current = Date.now();
+                    showRoomLostModalRef.current = false;
+                    setShowRoomLostModal(false);
+                    confirmSurrender();
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white font-extrabold text-xs uppercase tracking-wider border border-red-500/50 shadow-md transition active:scale-95 cursor-pointer"
+                >
+                  Encerrar Partida (Derrota)
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
