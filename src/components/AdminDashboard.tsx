@@ -6073,17 +6073,38 @@ const newSkill: Skill = {
                                   placeholder="Turnos"
                                   className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
-                                <label className="flex items-center gap-1 cursor-pointer select-none">
-                                  <input
-                                    type="checkbox"
-                                    checked={editingSkill.damageDuration === 99999}
-                                    onChange={(e) => handleUpdateSkillField('damageDuration', e.target.checked ? 99999 : 1)}
-                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
-                                  />
-                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
-                                </label>
-                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
-                              </div>
+                                 <label className="flex items-center gap-1 cursor-pointer select-none">
+                                   <input
+                                     type="checkbox"
+                                     checked={editingSkill.damageDuration === 99999}
+                                     onChange={(e) => handleUpdateSkillField('damageDuration', e.target.checked ? 99999 : 1)}
+                                     className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                   />
+                                   <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                 </label>
+                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                               </div>
+                               <div className="flex items-center gap-1.5 mt-1">
+                                 <label className="flex items-center gap-1 cursor-pointer select-none">
+                                   <input
+                                     type="checkbox"
+                                     checked={editingSkill.damageStacksAsDuration || false}
+                                     onChange={(e) => handleUpdateSkillField('damageStacksAsDuration', e.target.checked)}
+                                     className="rounded bg-slate-950 border-slate-800 text-slate-500 focus:ring-0 w-3 h-3"
+                                   />
+                                   <span className="text-[9px] text-slate-400 font-mono">🔄 Turnos = Stacks em Mim de:</span>
+                                 </label>
+                                 {editingSkill.damageStacksAsDuration && (
+                                   <input
+                                     list="self-cast-stacktype-list"
+                                     type="text"
+                                     value={editingSkill.damageStacksAsDurationType || ''}
+                                     onChange={(e) => handleUpdateSkillField('damageStacksAsDurationType', e.target.value)}
+                                     placeholder="StackType (ex: Raikiri)"
+                                     className="flex-1 min-w-0 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px]"
+                                   />
+                                 )}
+                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] text-red-400 font-mono uppercase font-bold">💔 Dano = HP Perdido:</span>
                                 <select
@@ -7626,17 +7647,38 @@ const newSkill: Skill = {
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
-                                <label className="flex items-center gap-1 cursor-pointer select-none">
-                                  <input
-                                    type="checkbox"
-                                    checked={editingSkill.damageReductionDuration === 99999}
-                                    onChange={(e) => handleUpdateSkillField('damageReductionDuration', e.target.checked ? 99999 : 0)}
-                                    className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
-                                  />
-                                  <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
-                                </label>
-                                <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
-                              </div>
+                                 <label className="flex items-center gap-1 cursor-pointer select-none">
+                                   <input
+                                     type="checkbox"
+                                     checked={editingSkill.damageReductionDuration === 99999}
+                                     onChange={(e) => handleUpdateSkillField('damageReductionDuration', e.target.checked ? 99999 : 0)}
+                                     className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3 h-3"
+                                   />
+                                   <span className="text-[9px] text-amber-400 font-mono">♾️ Infinito</span>
+                                 </label>
+                                 <span className="text-[9px] text-slate-500 font-mono">Val / Turnos</span>
+                               </div>
+                               <div className="flex items-center gap-1.5 mt-1">
+                                 <label className="flex items-center gap-1 cursor-pointer select-none">
+                                   <input
+                                     type="checkbox"
+                                     checked={editingSkill.damageReductionStacksAsDuration || false}
+                                     onChange={(e) => handleUpdateSkillField('damageReductionStacksAsDuration', e.target.checked)}
+                                     className="rounded bg-slate-950 border-slate-800 text-slate-500 focus:ring-0 w-3 h-3"
+                                   />
+                                   <span className="text-[9px] text-slate-400 font-mono">🔄 Turnos = Stacks em Mim de:</span>
+                                 </label>
+                                 {editingSkill.damageReductionStacksAsDuration && (
+                                   <input
+                                     list="self-cast-stacktype-list"
+                                     type="text"
+                                     value={editingSkill.damageReductionStacksType || ''}
+                                     onChange={(e) => handleUpdateSkillField('damageReductionStacksType', e.target.value)}
+                                     placeholder="StackType (ex: Raikiri)"
+                                     className="flex-1 min-w-0 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px]"
+                                   />
+                                 )}
+                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>
                                 <select
@@ -10348,9 +10390,14 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
 
                                   <div className="text-[8.5px] text-cyan-200/80 font-mono leading-relaxed bg-cyan-950/40 border border-cyan-900/50 p-2 rounded-lg">
                                     💡 <span className="font-bold text-cyan-300">Como funciona:</span> Qualquer habilidade ofensiva usada pelo oponente contra {editingSkill.redirectOffensiveScope === 'team' ? 'qualquer aliado da sua equipe' : 'o aliado protegido'} será <span className="font-bold text-white uppercase">redirecionada diretamente para Você (conjurador)</span>, exceto se a habilidade inimiga estiver configurada com <span className="font-bold text-amber-300 font-mono">"Não Pode Ser Refletida"</span>.
+                                    {editingSkill.redirectOffensiveScope === 'ally' && (
+                                      <div className="mt-1 text-slate-300">
+                                        🔒 <span className="font-bold">Proteção única:</span> enquanto a proteção estiver ativa em um aliado, você <span className="font-bold text-white">não pode proteger outro</span> — é preciso remover a proteção primeiro{editingSkill.redirectOffensiveRemoveOnSelfCast ? ' (usando a skill em si mesmo)' : ' (esperando expirar)'}.
+                                      </div>
+                                    )}
                                     {editingSkill.redirectOffensiveRemoveOnSelfCast && (
                                       <div className="mt-1 text-slate-300">
-                                        🚫👤 <span className="font-bold">Auto-remoção ativa:</span> se você usar esta habilidade em <span className="font-bold text-white">si mesmo</span>, a proteção Guarda-Costas será <span className="font-bold text-red-300 uppercase">removida</span> (você deixa de proteger os aliados).
+                                        🚫👤 <span className="font-bold">Auto-remoção ativa:</span> se você usar esta habilidade em <span className="font-bold text-white">si mesmo</span>, a proteção Guarda-Costas será <span className="font-bold text-red-300 uppercase">removida</span> do aliado protegido.
                                       </div>
                                     )}
                                   </div>

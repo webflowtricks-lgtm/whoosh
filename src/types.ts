@@ -447,6 +447,11 @@ export interface Skill {
   shieldRegenTurns?: number; // Quantos turnos a skill gera shieldVal ADICIONAL de escudo por turno
   damageReductionVal?: number;
   damageReductionDuration?: number;
+  /** 🔄 Guard: se verdadeiro, a duração da Redução de Dano passa a ser o TOTAL de stacks
+   * do tipo configurado que o conjurador possuir no momento do uso */
+  damageReductionStacksAsDuration?: boolean;
+  /** StackType (autocomplete) cuja contagem define a duração do Guard */
+  damageReductionStacksType?: string;
   /** Redução de Dano Imune a Perfuração: igual ao damageReductionVal (Guard), mas TAMBÉM reduz dano direto/perfuração */
   damageReductionPierceVal?: number;
   damageReductionPierceDuration?: number;
@@ -578,6 +583,11 @@ export interface Skill {
 
   // New Durations
   damageDuration?: number;
+  /** 🔄 Dano Normal: se verdadeiro, a duração do dano contínuo passa a ser o TOTAL de stacks
+   * do tipo configurado que o conjurador possuir no momento do uso */
+  damageStacksAsDuration?: boolean;
+  /** StackType (autocomplete) cuja contagem define a duração do dano */
+  damageStacksAsDurationType?: string;
   directDamageDuration?: number;
   healDuration?: number;
 
@@ -730,6 +740,9 @@ counterAttackCannotBeReflected?: boolean;
 // ==============================
 
 redirectOffensiveToCaster?: boolean;
+/** Se verdadeiro, usar esta habilidade em SI MESMO remove o efeito Guarda-Costas do conjurador
+ * (em vez de aplicar/atualizar a proteção nos aliados) */
+redirectOffensiveRemoveOnSelfCast?: boolean;
 redirectOffensiveDuration?: number;
 redirectOffensiveScope?: 'ally' | 'team';
 redirectOffensiveTarget?: TargetOverride;

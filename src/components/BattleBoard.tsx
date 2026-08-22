@@ -647,7 +647,7 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     }
     case 'dot':
     case 'damage':
-      rawPt = val > 0 ? `Queimadura: Recebe ${val} de dano contínuo por turno por ${durText}` : `Dano contínuo por ${durText}`;
+      rawPt = val > 0 ? `Recebe ${val} de dano contínuo por turno por ${durText}` : `Dano contínuo por ${durText}`;
       break;
     case 'bleeding': {
       const delayInfo = (effect.delayTurns || 0) > 0 ? ` (começa a causar dano em ${effect.delayTurns} ${effect.delayTurns === 1 ? 'turno' : 'turnos'})` : '';
@@ -5557,8 +5557,26 @@ const startingHealth = t.health;
       }
 
       // 1. DAMAGE & SHIELDS
-      if (skill.damageDuration && skill.damageDuration > 1) {
-        const duration = skill.damageDuration;
+      // 🔄 Turnos = Stacks em Mim: entra no fluxo de dano contínuo também quando a opção
+      // de duração por stacks está ativa (mesmo sem damageDuration configurado)
+      const dmgStacksKeyActive = !!(skill.damageStacksAsDuration && (skill.damageStacksAsDurationType || '').trim());
+      if ((skill.damageDuration && skill.damageDuration > 1) || dmgStacksKeyActive) {
+        // 🔄 Turnos = Stacks em Mim: duração do dano contínuo = total de stacks
+        // do tipo selecionado que o conjurador possuir no momento do uso
+        let damageStacksOverride = false;
+        const duration = (() => {
+          const dmgStackKey = (skill.damageStacksAsDurationType || '').trim().toLowerCase();
+          if (skill.damageStacksAsDuration && dmgStackKey) {
+            const stackTotal = source.activeEffects
+              .filter(e => e.stackType && e.stackable && e.stackType.toLowerCase() === dmgStackKey)
+              .reduce((acc, e) => acc + (e.stacks || 1), 0);
+            if (stackTotal > 0) {
+              damageStacksOverride = true;
+              return stackTotal;
+            }
+          }
+          return skill.damageDuration || 1;
+        })();
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         damageTargets.forEach(t => {
           if (t.isDead) return;
@@ -5789,7 +5807,7 @@ const startingHealth = t.health;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💥 ${t.character.name} foi afetado por [${skill.name}] sofrendo ${baseDamage} de dano por turno por mais ${duration === 99999 ? '∞' : (duration - 1)} turnos!`,
+              message: `💥 ${t.character.name} foi afetado por [${skill.name}] sofrendo ${baseDamage} de dano por turno por mais ${duration === 99999 ? '∞' : (duration - 1)} turnos!${damageStacksOverride ? ` (🔄 duração = ${duration}x stack de [${skill.damageStacksAsDurationType}])` : ''}`,
               type: 'damage',
             });
             addFloatingText(t.id, `DANO CONTÍNUO (${skill?.permanent || duration === 99999 ? '♾️ Permanente' : (duration - 1) + 'T'})`, 'damage');
@@ -6566,9 +6584,18 @@ splashOnlyTargets = splashPool.filter(c =>
       // Damage Reduction buff
       if (skill.damageReductionVal && skill.damageReductionVal > 0) {
         const targets = resolveEffectTargets(skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
+        // 🔄 Turnos = Stacks: duração = total de stacks do tipo selecionado que o conjurador possuir
+        let stackDurOverride: number | null = null;
+        const guardStackKey = (skill.damageReductionStacksType || '').trim().toLowerCase();
+        if (skill.damageReductionStacksAsDuration && guardStackKey) {
+          const stackTotal = source.activeEffects
+            .filter(e => e.stackType && e.stackable && e.stackType.toLowerCase() === guardStackKey)
+            .reduce((acc, e) => acc + (e.stacks || 1), 0);
+          if (stackTotal > 0) stackDurOverride = stackTotal;
+        }
         targets.forEach(t => {
           if (t.isDead) return;
-          const reducDuration = skill.permanent ? 99999 : (skill.damageReductionDuration || 3);
+          const reducDuration = skill.permanent ? 99999 : (stackDurOverride ?? (skill.damageReductionDuration || 3));
           pushActiveEffect(t, {
             name: `${skill.name} Guard`,
             type: 'damage_reduction',
@@ -6581,7 +6608,7 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `✨ ${t.character.name} recebeu [${skill.name} Guard] por ${skill.damageReductionDuration || 3} turnos.`,
+            message: `✨ ${t.character.name} recebeu [${skill.name} Guard] por ${reducDuration} turno(s).${stackDurOverride !== null ? ` (🔄 duração = ${stackDurOverride}x stack de [${skill.damageReductionStacksType}])` : ''}`,
             type: 'buff',
           });
           addFloatingText(t.id, `${skill.name} Guard`.toUpperCase(), 'effect');
@@ -7787,23 +7814,53 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // Redirection / Bodyguard (Redirecionamento do Guarda-Costas)
       if (skill.redirectOffensiveToCaster) {
-        // 🚫👤 Auto-remoção: se configurado e usado em SI MESMO, remove a proteção do conjurador
-        // (ele deixa de ser o Guarda-Costas dos aliados)
+        const guardSide = isReflected ? targetList : sourceList; // lado do conjurador
+        const isMyGuard = (e: ActiveEffect) =>
+          e.type === 'redirect_offensive' && e.sourceSkillName === skill.name && e.casterId === source.id;
+
+        // 🚫👤 Auto-remoção: se configurado e usado em SI MESMO, remove a proteção que está
+        // nos ALIADOS (o efeito Guarda-Costas mora no protegido, não no conjurador)
         if (skill.redirectOffensiveRemoveOnSelfCast && target && target.id === source.id) {
-          const beforeCount = source.activeEffects.length;
-          source.activeEffects = source.activeEffects.filter(e =>
-            !(e.type === 'redirect_offensive' && e.sourceSkillName === skill.name && e.casterId === source.id)
-          );
-          if (source.activeEffects.length < beforeCount) {
+          let removedAny = false;
+          guardSide.forEach(c => {
+            if (c.isDead) return;
+            const beforeCount = c.activeEffects.length;
+            c.activeEffects = c.activeEffects.filter(e => !isMyGuard(e));
+            if (c.activeEffects.length < beforeCount) {
+              removedAny = true;
+              newLogs.push({
+                id: Math.random().toString(), turn,
+                message: `🛡️❌ [GUARDA-COSTAS] ${source.character.name} usou [${skill.name}] em si mesmo — a proteção de ${c.character.name} foi REMOVIDA!`,
+                type: 'system',
+              });
+              addFloatingText(c.id, 'GUARDA-COSTAS REMOVIDO', 'effect');
+            }
+          });
+          if (!removedAny) {
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🛡️❌ [GUARDA-COSTAS] ${source.character.name} usou [${skill.name}] em si mesmo — a proteção foi REMOVIDA!`,
+              message: `🛡️❓ [GUARDA-COSTAS] ${source.character.name} usou [${skill.name}] em si mesmo, mas não havia proteção ativa para remover.`,
               type: 'system',
             });
-            addFloatingText(source.id, 'GUARDA-COSTAS REMOVIDO', 'effect');
           }
         } else {
         const scope = skill.redirectOffensiveScope || 'ally';
+        // 🔒 Proteção única: no escopo "apenas um aliado selecionado", se o conjurador já protege
+        // alguém com esta skill, NÃO pode escolher outro aliado — é preciso remover a proteção antes
+        let guardBlockedByLock = false;
+        if (scope === 'ally') {
+          const holder = guardSide.find(c => !c.isDead && c.activeEffects.some(e => isMyGuard(e)));
+          if (holder && target && target.id !== holder.id) {
+            guardBlockedByLock = true;
+            newLogs.push({
+              id: Math.random().toString(), turn,
+              message: `🔒 [GUARDA-COSTAS] ${source.character.name} já está protegendo ${holder.character.name} com [${skill.name}]! Remova essa proteção antes de proteger outro aliado.`,
+              type: 'system',
+            });
+            addFloatingText(source.id, `TRAVADO EM ${holder.character.name.toUpperCase()}`, 'effect');
+          }
+        }
+        if (!guardBlockedByLock) {
         const targetOverride = scope === 'team' ? 'AllAllies' : (skill.redirectOffensiveTarget || 'Ally');
         const redirTargets = resolveEffectTargets(targetOverride, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, true);
         const redirDur = skill.redirectOffensiveDuration || 1;
@@ -7828,6 +7885,7 @@ splashOnlyTargets = splashPool.filter(c =>
           addFloatingText(t.id, `PROTEGIDO (${redirDur}T)`, 'effect');
           cleanseTargetEffects(t, skill.redirectOffensiveRemoveType);
         });
+        }
         }
       }
 
@@ -14629,9 +14687,14 @@ if (skill.redirectOffensiveToCaster) {
     };
 
     if (skill.damage && skill.damage > 0) {
+      const dmgStacksActive = !!(skill.damageStacksAsDuration && skill.damageStacksAsDurationType);
+      const hasDmgDuration = (skill.damageDuration && skill.damageDuration > 1) || dmgStacksActive;
+      const dmgDurInfo = hasDmgDuration
+        ? ` por ${dmgStacksActive ? `🔄 turnos = stacks de [${skill.damageStacksAsDurationType}] em mim` : fmtDur(skill.damageDuration)}`
+        : '';
       effects.push({
         label: 'Dano Normal',
-        value: `${skill.damage} de Dano`,
+        value: `${skill.damage} de Dano${dmgDurInfo}`,
         color: 'text-red-900 font-extrabold',
         targetLabel: getTargetLabel(skill.damageTarget, 'Alvo Principal')
       });
@@ -14725,7 +14788,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (skill.damageReductionVal && skill.damageReductionVal > 0) {
       effects.push({
         label: 'Redução de Dano',
-        value: `-${skill.damageReductionVal} de Dano Recebido por ${fmtDur(skill.damageReductionDuration)}`,
+        value: `-${skill.damageReductionVal} de Dano Recebido por ${skill.damageReductionStacksAsDuration && skill.damageReductionStacksType ? `🔄 turnos = stacks de [${skill.damageReductionStacksType}] em mim` : fmtDur(skill.damageReductionDuration)}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -17204,7 +17267,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                       {/* Health bar */}
                       <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] font-mono text-slate-400 leading-none">
+                        <div className="flex justify-end text-[10px] font-mono text-slate-400 leading-none">
                            
                           <span className="font-bold text-slate-100">{combatant.health} / {combatant.maxHealth}</span>
                         </div>
