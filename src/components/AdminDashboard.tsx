@@ -2512,11 +2512,17 @@ const newSkill: Skill = {
                             💀 Removida dos alvos se meu personagem morrer
                           </label>
                           <label className="flex items-center gap-2 text-[10px] text-yellow-300 font-bold">
-                            <input type="checkbox" checked={editingSkill.cannotBeStunned || false}
-                              onChange={(e) => handleUpdateSkillField('cannotBeStunned', e.target.checked)}
-                              className="rounded bg-slate-950 border-slate-800 text-yellow-500 focus:ring-0" />
-                            ⚡ Esta skill não pode ser atordoada (usável mesmo sob stun)
-                          </label>
+                             <input type="checkbox" checked={editingSkill.cannotBeStunned || false}
+                               onChange={(e) => handleUpdateSkillField('cannotBeStunned', e.target.checked)}
+                               className="rounded bg-slate-950 border-slate-800 text-yellow-500 focus:ring-0" />
+                             ⚡ Esta skill não pode ser atordoada (usável mesmo sob stun)
+                           </label>
+                           <label className="flex items-center gap-2 text-[10px] text-rose-300 font-bold">
+                             <input type="checkbox" checked={editingSkill.blocksHealsWhileActive || false}
+                               onChange={(e) => handleUpdateSkillField('blocksHealsWhileActive', e.target.checked)}
+                               className="rounded bg-slate-950 border-slate-800 text-rose-500 focus:ring-0" />
+                             🚑 Enquanto ativa, o portador NÃO pode ser curado
+                           </label>
                       </div>
 
                       <div className="md:col-span-2 space-y-2.5 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
@@ -8605,25 +8611,45 @@ const newSkill: Skill = {
                           <div className="space-y-1 bg-purple-950/10 border border-purple-900/40 p-2.5 rounded-xl flex flex-col justify-between">
                             <div>
                               <label className="block text-[10px] font-bold uppercase tracking-wider text-purple-400 font-mono">💜 Aflição (Affliction)</label>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="text-[9px] text-purple-400 font-mono uppercase font-bold w-24 shrink-0">⚡ Na hora:</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={editingSkill.afflictionInstant || 0}
+                                  onChange={(e) => handleUpdateSkillField('afflictionInstant', parseInt(e.target.value) || 0)}
+                                  placeholder="0"
+                                  title="Dano de aflição aplicado IMEDIATAMENTE ao usar a skill"
+                                  className="w-14 px-1.5 py-1 bg-slate-900 border border-purple-700/60 rounded text-center text-xs font-mono text-purple-300 font-bold outline-none focus:border-purple-500"
+                                />
+                                <span className="text-[9px] text-slate-500 font-mono">dano instantâneo no alvo</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="text-[9px] text-purple-400 font-mono uppercase font-bold w-24 shrink-0">💜 Por turno:</span>
                                 <input
                                   type="number"
                                   min={0}
                                   max={100}
                                   value={editingSkill.afflictionVal || 0}
                                   onChange={(e) => handleUpdateSkillField('afflictionVal', parseInt(e.target.value) || 0)}
-                                  placeholder="Val"
-                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-purple-900/60 rounded text-center text-xs font-mono text-white font-bold"
+                                  placeholder="0"
+                                  title="Dano de aflição que o alvo sofre NO SEU turno, a cada rodada"
+                                  className="w-14 px-1.5 py-1 bg-slate-900 border border-purple-900/60 rounded text-center text-xs font-mono text-white font-bold outline-none focus:border-purple-500"
                                 />
+                                <span className="text-[9px] text-slate-500 font-mono">de aflição por turno</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="text-[9px] text-purple-400 font-mono uppercase font-bold w-24 shrink-0">⏳ Duração:</span>
                                 <input
                                   type="number"
                                   min={1}
                                   max={10}
                                   value={editingSkill.afflictionDuration === 99999 ? 0 : (editingSkill.afflictionDuration || 0)}
-                                  title={editingSkill.afflictionDuration === 99999 ? '♾️ Infinito' : 'Duração em turnos'}
                                   onChange={(e) => handleUpdateSkillField('afflictionDuration', parseInt(e.target.value) || 0)}
-                                  placeholder="Dur"
-                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-purple-900/60 rounded text-center text-xs font-mono text-white"
+                                  placeholder="0"
+                                  title={editingSkill.afflictionDuration === 99999 ? '♾️ Infinito' : 'Quantos turnos o alvo sofrerá a aflição'}
+                                  className="w-14 px-1.5 py-1 bg-slate-900 border border-purple-900/60 rounded text-center text-xs font-mono text-white outline-none focus:border-purple-500"
                                 />
                                 <label className="flex items-center gap-1 cursor-pointer select-none">
                                   <input
@@ -8634,55 +8660,20 @@ const newSkill: Skill = {
                                   />
                                   <span className="text-[9px] text-purple-400 font-mono">♾️ Infinito</span>
                                 </label>
-                                <span className="text-[9px] text-slate-500 font-mono">por turno</span>
                               </div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  value={editingSkill.afflictionInstant || 0}
-                                  onChange={(e) => handleUpdateSkillField('afflictionInstant', parseInt(e.target.value) || 0)}
-                                  placeholder="Inst"
-                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-purple-700/60 rounded text-center text-xs font-mono text-purple-400 font-bold"
-                                  title="Dano instantâneo de aflição"
-                                />
-                                <span className="text-[9px] text-purple-400 font-mono">instantâneo</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  value={editingSkill.afflictionVal || 0}
-                                  onChange={(e) => handleUpdateSkillField('afflictionVal', parseInt(e.target.value) || 0)}
-                                  placeholder="Val"
-                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-purple-700/60 rounded text-center text-xs font-mono text-purple-400 font-bold"
-                                  title="Quantidade de aflição por turno (a partir do turno atrasado)"
-                                />
-                                <span className="text-[9px] text-purple-400/80 font-mono">sofrerá nos próximos</span>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="text-[9px] text-purple-400 font-mono uppercase font-bold w-24 shrink-0">⏭️ Atraso:</span>
                                 <input
                                   type="number"
                                   min={0}
                                   max={10}
                                   value={editingSkill.afflictionDelay || 0}
                                   onChange={(e) => handleUpdateSkillField('afflictionDelay', parseInt(e.target.value) || 0)}
-                                  placeholder="Atr"
-                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-purple-700/60 rounded text-center text-xs font-mono text-purple-400 font-bold"
-                                  title="Turnos de atraso: o alvo NÃO sofre aflição agora; só começa a sofrer depois deste número de turnos"
+                                  placeholder="0"
+                                  title="Turnos de atraso: o alvo só COMEÇA a sofrer a aflição depois destes turnos"
+                                  className="w-14 px-1.5 py-1 bg-slate-900 border border-purple-900/60 rounded text-center text-xs font-mono text-white outline-none focus:border-purple-500"
                                 />
-                                <span className="text-[9px] text-purple-400/80 font-mono">turnos, durante</span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={10}
-                                  value={editingSkill.afflictionDuration === 99999 ? 0 : (editingSkill.afflictionDuration || 0)}
-                                  onChange={(e) => handleUpdateSkillField('afflictionDuration', parseInt(e.target.value) || 0)}
-                                  placeholder="Dur"
-                                  className="w-12 px-1.5 py-1 bg-slate-900 border border-purple-700/60 rounded text-center text-xs font-mono text-purple-400 font-bold"
-                                  title="Número de turnos que o alvo sofrerá a aflição"
-                                />
-                                <span className="text-[9px] text-purple-400/80 font-mono">turnos</span>
+                                <span className="text-[9px] text-slate-500 font-mono">turno(s) antes de começar</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] text-purple-400 font-mono uppercase font-bold">🎯 Aplicar em:</span>

@@ -2617,6 +2617,10 @@ const handleTradeChakra = () => {
   };
 
   const pushActiveEffect = (character: CombatCharacter, effect: ActiveEffect) => {
+    // 🚑 Bloqueio de curas: skills com "não pode ser curada enquanto ativa" marcam seus efeitos
+    if (!effect.blocksHeals && currentSkillRef.current?.blocksHealsWhileActive) {
+      effect = { ...effect, blocksHeals: true };
+    }
     // Check stackDurationRules for duration override (skip for stack damage DOT effects)
     if (!effect.stackable && currentSkillRef.current?.stackDurationRules && !effect.name?.includes('DOT)') && !effect.name?.includes('Imunidade a Dano')) {
       for (const rule of currentSkillRef.current.stackDurationRules) {
@@ -4398,7 +4402,11 @@ const handleTradeChakra = () => {
       // Skill parameters
 
       let baseDamage = skill.damage || 0;
-      if (!skill.damage && !skill.directDamage) {
+      // 💜 Skills com configuração de aflição PRÓPRIA (campos afflictionVal/afflictionInstant
+      // presentes no JSON, mesmo que zerados) não recebem o dano legado hardcodado abaixo —
+      // o dano delas vem exclusivamente dos campos configurados no painel.
+      const hasOwnAfflictionConfig = skill.afflictionVal !== undefined || skill.afflictionInstant !== undefined;
+      if (!hasOwnAfflictionConfig && !skill.damage && !skill.directDamage) {
         const legacyDmg: Record<string, number> = {
           'Uzumaki Barrage': 20, 'Lions Barrage': 30, 'Chidori': 40, 'KO Punch': 20,
           'Lightning Blade': 40, 'Sand Coffin': 15, 'Sand Burial': 35, 'Shadow Strangle': 40,
@@ -6243,6 +6251,17 @@ splashOnlyTargets = splashPool.filter(c =>
         const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
+          // 🚑 Portador de efeito com bloqueio de curas não pode ser curado
+          if (t.activeEffects.some(e => e.blocksHeals)) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🚑 ${t.character.name} está com um efeito que BLOQUEIA CURAS e não pôde ser curado por [${skill.name}]!`,
+              type: 'stun',
+            });
+            addFloatingText(t.id, 'CURA BLOQUEADA', 'stun');
+            return;
+          }
           const negateFriendly = hasNegateFriendlyEffects(t);
           if (t.activeEffects.some(e => e.type === 'cannot_receive_friendly') || negateFriendly || isInvulnToFriendlyEffects(t, skill)) {
             newLogs.push({
@@ -6585,13 +6604,14 @@ splashOnlyTargets = splashPool.filter(c =>
       if (skill.damageReductionVal && skill.damageReductionVal > 0) {
         const targets = resolveEffectTargets(skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
         // 🔄 Turnos = Stacks: duração = total de stacks do tipo selecionado que o conjurador possuir
+        // (sem nenhuma stack em mim, a Guard fica com apenas 1 turno)
         let stackDurOverride: number | null = null;
         const guardStackKey = (skill.damageReductionStacksType || '').trim().toLowerCase();
         if (skill.damageReductionStacksAsDuration && guardStackKey) {
           const stackTotal = source.activeEffects
             .filter(e => e.stackType && e.stackable && e.stackType.toLowerCase() === guardStackKey)
             .reduce((acc, e) => acc + (e.stacks || 1), 0);
-          if (stackTotal > 0) stackDurOverride = stackTotal;
+          stackDurOverride = Math.max(1, stackTotal);
         }
         targets.forEach(t => {
           if (t.isDead) return;
@@ -7249,6 +7269,10 @@ splashOnlyTargets = splashPool.filter(c =>
           const afflInstant = afflVal + afflCastBuff;
           const rawDuration = skill.afflictionDuration !== undefined && skill.afflictionDuration > 0 ? skill.afflictionDuration : 1;
           const afflDelay = Math.max(0, skill.afflictionDelay || 0);
+          // 💜 Quando a skill tem dano instantâneo próprio (afflictionInstant > 0), o valor
+          // por turno NÃO é aplicado na hora: o instant é o golpe imediato e o afflictionVal
+          // vira dano PURAMENTE por turno (primeiro tick no próximo passe do conjurador).
+          const hasSeparateInstantHit = (skill.afflictionInstant || 0) > 0;
 
           // Aflição com ATRASO: o alvo NÃO sofre agora; só começa a sofrer depois de
           // `afflDelay` turnos, causando dano por turno por `rawDuration` turnos.
@@ -7277,8 +7301,19 @@ splashOnlyTargets = splashPool.filter(c =>
             return;
           }
 
+          if (hasSeparateInstantHit && afflDelay === 0) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💜 ${t.character.name} será consumido pelas chamas de [${skill.name}]: ${afflVal} de aflição por turno!`,
+              type: 'damage',
+            });
+            addFloatingText(t.id, `AFLIÇÃO (-${afflVal}/TURNO)`, 'effect');
+          }
+
           // Deduct health immediately upon applying affliction
-          if (hasDamageImmunity(t, ['affliction'])) {
+          // (pulada quando há afflictionInstant separado — o val vira só tick por turno)
+          if (!hasSeparateInstantHit && hasDamageImmunity(t, ['affliction'])) {
             const consumedAfflHit = consumeFirstHitOnlyImmunity(t, ['affliction']);
             newLogs.push({
               id: Math.random().toString(),
@@ -7287,7 +7322,7 @@ splashOnlyTargets = splashPool.filter(c =>
               type: 'buff',
             });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
-          } else {
+          } else if (!hasSeparateInstantHit) {
             const startingHealth = t.health;
             const convertedAffl = convertDamageToShield(t, afflInstant, turn, ['affliction']);
             if (!convertedAffl) {
@@ -7343,8 +7378,9 @@ splashOnlyTargets = splashPool.filter(c =>
             }
           }
 
-          // If duration > 1, push active effect for remaining turns
-          const remainingDuration = rawDuration === 99999 ? 99999 : (rawDuration - 1);
+          // Se sobrou duração, cria o efeito por turno.
+          // Com afflictionInstant separado, NADA foi aplicado agora -> duração CHEIA (sem -1).
+          const remainingDuration = hasSeparateInstantHit ? rawDuration : (rawDuration === 99999 ? 99999 : (rawDuration - 1));
           if (remainingDuration > 0) {
             pushActiveEffect(t, {
               name: `${skill.name} Affliction`,
@@ -8170,8 +8206,9 @@ splashOnlyTargets = splashPool.filter(c =>
               }
             }
             if ((selfSkill.heal || 0) > 0) {
-              if (isInvulnToFriendlyEffects(selfTarget, selfSkill)) {
-                selfFloating('CURA BLOQUEADA (INVULNERÁVEL)', 'invulnerable');
+              const selfHealBlocked = selfTarget.activeEffects.some(e => e.blocksHeals);
+              if (selfHealBlocked || isInvulnToFriendlyEffects(selfTarget, selfSkill)) {
+                selfFloating(selfHealBlocked ? 'CURA BLOQUEADA' : 'CURA BLOQUEADA (INVULNERÁVEL)', selfHealBlocked ? 'stun' : 'invulnerable');
               } else {
                 const maxHp = selfTarget.maxHealth || selfTarget.health;
                 const heal = Math.min(selfSkill.heal || 0, Math.max(0, maxHp - selfTarget.health));
@@ -8910,6 +8947,17 @@ splashOnlyTargets = splashPool.filter(c =>
         // Apply dynamic Healing over time
         const activeHealEffects = c.activeEffects.filter(e => e.type === 'heal');
         activeHealEffects.forEach(hl => {
+          // 🚑 Portador de efeito com bloqueio de curas não regenera vida
+          if (c.activeEffects.some(e => e.blocksHeals)) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🚑 ${c.character.name} está com um efeito que BLOQUEIA CURAS e não recuperou vida por ${hl.name}.`,
+              type: 'stun',
+            });
+            addFloatingText(c.id, 'CURA BLOQUEADA', 'stun');
+            return;
+          }
           if (hasNegateFriendlyEffects(c)) {
             newLogs.push({
               id: Math.random().toString(),
@@ -9442,6 +9490,9 @@ splashOnlyTargets = splashPool.filter(c =>
       if (skill && skill.ignoreInvulnerable) return false;
       const caster = [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === eff.casterId);
       if (skill && hasConditionalInvulnBypass(target, skill, caster)) return false;
+      // ⏭️ Dano JÁ APLICADO continua atravessando a Invulnerabilidade (Desvio) — ela só protege
+      // contra skills usadas no alvo. Apenas a INVULNERABILIDADE TOTAL sela os ticks contínuos.
+      if (!hasTotalInvulnerability(target)) return false;
       return checkCombatantInvulnerable(target, fallbackType);
     };
 
@@ -9555,7 +9606,7 @@ splashOnlyTargets = splashPool.filter(c =>
           bleed.delayTurns = (bleed.delayTurns || 0) - 1;
           return;
         }
-        if (hasDamageImmunity(c, ['bleeding'])) {
+        if (isBlockedByInvuln(c, bleed, 'bleeding') || hasDamageImmunity(c, ['bleeding'])) {
           consumeFirstHitOnlyImmunity(c, ['bleeding']);
           newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
           addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -9589,7 +9640,7 @@ splashOnlyTargets = splashPool.filter(c =>
           aff.delayTurns = (aff.delayTurns || 0) - 1;
           return;
         }
-        if (hasDamageImmunity(c, ['affliction'])) {
+        if (isBlockedByInvuln(c, aff, 'affliction') || hasDamageImmunity(c, ['affliction'])) {
           consumeFirstHitOnlyImmunity(c, ['affliction']);
           newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
           addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -14686,6 +14737,14 @@ if (skill.redirectOffensiveToCaster) {
       return TARGET_LABELS[override] || override;
     };
 
+    if (skill.blocksHealsWhileActive) {
+      effects.push({
+        label: 'Bloqueio de Cura',
+        value: '🚑 Enquanto este efeito estiver ativo, o portador NÃO pode ser curado',
+        color: 'text-rose-950 font-extrabold',
+        targetLabel: 'Portador do Efeito'
+      });
+    }
     if (skill.damage && skill.damage > 0) {
       const dmgStacksActive = !!(skill.damageStacksAsDuration && skill.damageStacksAsDurationType);
       const hasDmgDuration = (skill.damageDuration && skill.damageDuration > 1) || dmgStacksActive;
@@ -14788,7 +14847,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (skill.damageReductionVal && skill.damageReductionVal > 0) {
       effects.push({
         label: 'Redução de Dano',
-        value: `-${skill.damageReductionVal} de Dano Recebido por ${skill.damageReductionStacksAsDuration && skill.damageReductionStacksType ? `🔄 turnos = stacks de [${skill.damageReductionStacksType}] em mim` : fmtDur(skill.damageReductionDuration)}`,
+        value: `-${skill.damageReductionVal} de Dano Recebido por ${skill.damageReductionStacksAsDuration && skill.damageReductionStacksType ? `🔄 turnos = stacks de [${skill.damageReductionStacksType}] em mim (mín. 1T)` : fmtDur(skill.damageReductionDuration)}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });

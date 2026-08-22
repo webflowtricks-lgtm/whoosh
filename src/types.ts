@@ -520,6 +520,8 @@ export interface Skill {
   removedOnCasterDeath?: boolean; // Remove os efeitos desta skill dos alvos quando o conjurador morrer
   /** Se true, esta skill pode ser usada mesmo enquanto o conjurador está atordoado (imune a stun) */
   cannotBeStunned?: boolean;
+  /** 🚑 Enquanto esta skill estiver ATIVA em alguém, essa pessoa NÃO pode ser curada */
+  blocksHealsWhileActive?: boolean;
   /** 🔓 Liberação atrasada de skills: enquanto este efeito durar (delayedUnlockDuration turnos), as skills
    * listadas ficam BLOQUEADAS no conjurador; quando o efeito termina, elas ficam liberadas por
    * delayedUnlockWindowTurns turnos. Passada a janela, voltam a ficar bloqueadas. */
@@ -991,6 +993,8 @@ export interface ActiveEffect {
   redirectOffensiveIrremovable?: boolean;
   redirectOffensiveRemoveType?: string;
   blocksOffensiveSkills?: boolean; // Se verdadeiro, impede o alvo de usar skills ofensivas
+  /** 🚑 Marcador: efeito originado de skill com blocksHealsWhileActive — bloqueia curas no portador */
+  blocksHeals?: boolean;
 counterAttackType?: 'attacker' | 'defender';
   counterAttackMode?: 'first' | 'all';
   /** Anular apenas skills destas classes (vazio = anula qualquer skill) */
