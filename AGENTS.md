@@ -96,3 +96,19 @@ Both rules are configured per-skill in `AdminDashboard.tsx` and evaluated in the
 - Disabled end-of-round blocks: `applyTurnEndUpdates` ~lines 8345–8350 (dot), ~8395–8400 (bleeding), ~8425–8432 (affliction + life_steal)
 - Call site: `handleEndTurn` ~line 9320 (`tickCasterContinuousDamage(isCurrentPlayer)`)
 
+## 🌀 Continuous Chakra Drain / Steal / Remove (drainChakra / stealChakra / removeChakra, duration 2+)
+**Rule**: chakra drain/steal/remove with duration ≥ 2 does an **immediate 1st tick when the skill is used** on the enemy (counts as turn 1), then continues ticking **once per round** in end-of-round resolution for the remaining turns.
+
+**Implementation** (`src/components/BattleBoard.tsx`, `executeSideActions` — the DRAIN/REMOVE/STEAL CHAKRA blocks ~lines 5348–5460):
+- On use: always call `performChakraAction(...)` for the immediate 1st tick, THEN (if `dur > 1`) push a `custom` effect named `Dreno de Chakra (…)` / `Roubo de Chakra (…)` / `Remoção de Chakra (…)` with `duration: dur - 1` and `castTurn: turn`.
+- Remaining ticks resolve in `executeTurnEndResolution` → `applyTurnEndUpdates` (~line 9385). The filter requires `e.castTurn !== turn` so the effect does NOT tick again on the same round it was created (avoids double tick).
+- **StrictMode-safe**: the end-of-round tick mutates LOCAL pools (`endRoundPlayerChakra` / `endRoundEnemyChakra`) and applies with `setPlayerChakra`/`setEnemyChakra` **once** after both `applyTurnEndUpdates` calls (guarded by `endRoundChakraChanged`). NEVER put the drain/steal math inside a `setState(prev => …)` updater — StrictMode runs it 2× and doubles the drain.
+- Drain/Steal transfer to the thief pool ONLY what was actually removed from the victim (no phantom random chakra). If the victim has no chakra that turn, nothing happens — no "-0" log/floating.
+- **Invulnerability interaction**: the end-of-round chakra tick is skipped when the victim is invulnerable (`isBlockedByInvuln(effect, 'chakra')`), UNLESS the source skill has `ignoreInvulnerable` OR the victim has the `cannot_be_invulnerable` debuff (Incapaz de Ficar Invulnerável) — in which case `checkCombatantInvulnerable` returns false and the drain/steal proceeds. Same principle as continuous damage.
+
+## 🛡️ Invulnerability vs Continuous Effects (general rule)
+When a target the player hit with a multi-turn skill becomes invulnerable on its own turn, the caster's continuous effects that would tick against it are **blocked while it stays invulnerable**:
+- **Normal continuous damage** (`damage`) and **chakra drain/steal/remove** are blocked by invulnerability (via `isBlockedByInvuln`).
+- Exceptions that STILL apply through invulnerability: the source skill has `ignoreInvulnerable`, a conditional bypass (`hasConditionalInvulnBypass`), or the target carries `cannot_be_invulnerable` (Incapaz de Ficar Invulnerável, which forces `checkCombatantInvulnerable` → false and `hasTotalInvulnerability` → false).
+- The instant 1st tick (applied at skill use, before the enemy's invuln turn) always lands normally.
+

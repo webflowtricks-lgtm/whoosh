@@ -9392,6 +9392,19 @@ splashOnlyTargets = splashPool.filter(c =>
           const amt = effect.value || 0;
           if (amt <= 0) return;
           const isRemov = effect.name.startsWith('Remoção');
+          // 🛡️ Se o portador (vítima) está INVULNERÁVEL neste turno, o dreno/roubo/remoção NÃO acontece,
+          // exceto quando a skill de origem ignora invulnerabilidade OU o alvo está "Incapaz de Ficar
+          // Invulnerável" (cannot_be_invulnerable, tratado dentro de checkCombatantInvulnerable → false).
+          if (isBlockedByInvuln(effect, 'chakra')) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🛡️ ${c.character.name} está INVULNERÁVEL e [${effect.name}] não ${isRemov ? 'removeu' : 'roubou'} chakra neste turno!`,
+              type: 'buff',
+            });
+            addFloatingText(c.id, 'INVULNERÁVEL', 'invulnerable');
+            return;
+          }
           const victimPool = name === 'Player' ? endRoundPlayerChakra : endRoundEnemyChakra;
           const thiefPool = name === 'Player' ? endRoundEnemyChakra : endRoundPlayerChakra;
 
