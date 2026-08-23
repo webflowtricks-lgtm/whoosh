@@ -9868,12 +9868,25 @@ splashOnlyTargets = splashPool.filter(c =>
     const nextTurn = turn + 1;
     setTurn(nextTurn);
 
-    // Roll initiative for new turn (50/50 chance)
-    const newFirstPlayer: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
+    // Roll initiative for new turn.
+    // ONLINE: iniciativa DETERMINÍSTICA (turn % 2) — precisa ser IGUAL/oposta nos dois clientes,
+    // senão logo após a resolução ambos os lados escolhem um "primeiro" diferente e abre uma janela
+    // em que os dois conseguem finalizar (turno "não passa" / finalizar 2x). Offline/sandbox = 50/50.
+    let newFirstPlayer: 'player' | 'enemy';
+    if (onlineParams?.isOnline) {
+      const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
+      const whoGoesFirst = (nextTurn % 2 === 1) ? 0 : 1;
+      newFirstPlayer = myOnlineIndex === whoGoesFirst ? 'player' : 'enemy';
+    } else {
+      newFirstPlayer = Math.random() < 0.5 ? 'player' : 'enemy';
+    }
     console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
     setActivePlanner(newFirstPlayer);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
+    // Já define o estado de espera correto para o novo turno (evita a janela em que ambos
+    // os clientes ficam com o botão de finalizar habilitado antes do efeito de iniciativa rodar).
+    setIsWaitingForOpponent(onlineParams?.isOnline ? newFirstPlayer !== 'player' : false);
     advanced = true;
 
     // Roll chakra for the new turn (1 per alive character on each team)
