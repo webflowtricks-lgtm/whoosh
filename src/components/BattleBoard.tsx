@@ -5181,32 +5181,42 @@ const startingHealth = t.health;
       // (a regra substitui o valor POR TURNO no bloco de aflição mais abaixo).
       const afflRuleReplacesInstant = hasActiveDamageRuleIgnoreBase && ruleAfflictionDamage > 0 && afflictionInstant > 0;
       const totalAfflictionInstant = (afflRuleReplacesInstant ? ruleAfflictionDamage : afflictionInstant) + missingHpAffliction + instantBuffSum;
-      if (totalDotInstant > 0 && target && !target.isDead) {
-        target.health = Math.max(0, target.health - totalDotInstant);
+      const instantDotTargets = totalDotInstant > 0 ? resolveEffectTargets(skill.dotTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList) : [];
+      const instantBleedTargets = totalBleedInstant > 0 ? resolveEffectTargets(skill.bleedingTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList) : [];
+      const instantAfflictionTargets = totalAfflictionInstant > 0 ? resolveEffectTargets(skill.afflictionTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList) : [];
+      instantDotTargets.forEach(t => {
+        if (!t || t.isDead) return;
+        t.health = Math.max(0, t.health - totalDotInstant);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${target.character.name}: -${totalDotInstant} HP (DoT)${missingHpDot > 0 ? ` [HP Perdido: ${missingHpDot}]` : ''}`, type: 'damage' });
-        addFloatingText(target.id, `-${totalDotInstant} HP (DoT)`, 'damage');
-      }
-      if (totalBleedInstant > 0 && target && !target.isDead) {
-        target.health = Math.max(0, target.health - totalBleedInstant);
+        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${t.character.name}: -${totalDotInstant} HP (DoT)${missingHpDot > 0 ? ` [HP Perdido: ${missingHpDot}]` : ''}`, type: 'damage' });
+        addFloatingText(t.id, `-${totalDotInstant} HP (DoT)`, 'damage');
+      });
+      instantBleedTargets.forEach(t => {
+        if (!t || t.isDead) return;
+        t.health = Math.max(0, t.health - totalBleedInstant);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalBleedInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `🩸 [${skill.name}] → ${target.character.name}: -${totalBleedInstant} HP (SANGRAMENTO)${missingHpBleed > 0 ? ` [HP Perdido: ${missingHpBleed}]` : ''}`, type: 'damage' });
-        addFloatingText(target.id, `-${totalBleedInstant} HP (SANGRAMENTO)`, 'damage');
-      }
-      if (totalAfflictionInstant > 0 && target && !target.isDead) {
-        target.health = Math.max(0, target.health - totalAfflictionInstant);
+        newLogs.push({ id: Math.random().toString(), turn, message: `🩸 [${skill.name}] → ${t.character.name}: -${totalBleedInstant} HP (SANGRAMENTO)${missingHpBleed > 0 ? ` [HP Perdido: ${missingHpBleed}]` : ''}`, type: 'damage' });
+        addFloatingText(t.id, `-${totalBleedInstant} HP (SANGRAMENTO)`, 'damage');
+      });
+      instantAfflictionTargets.forEach(t => {
+        if (!t || t.isDead) return;
+        t.health = Math.max(0, t.health - totalAfflictionInstant);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalAfflictionInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${totalAfflictionInstant} HP (AFLICAO)${missingHpAffliction > 0 ? ` [HP Perdido: ${missingHpAffliction}]` : ''}`, type: 'damage' });
-        addFloatingText(target.id, `-${totalAfflictionInstant} HP (AFLICAO)`, 'damage');
-      }
-      if ((totalDotInstant > 0 || totalBleedInstant > 0 || totalAfflictionInstant > 0) && hasDamageImmunity(target, ['dot', 'bleeding', 'affliction'])) {
-        consumeFirstHitOnlyImmunity(target, ['dot', 'bleeding', 'affliction']);
-      }
+        newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${t.character.name}: -${totalAfflictionInstant} HP (AFLICAO)${missingHpAffliction > 0 ? ` [HP Perdido: ${missingHpAffliction}]` : ''}`, type: 'damage' });
+        addFloatingText(t.id, `-${totalAfflictionInstant} HP (AFLICAO)`, 'damage');
+      });
+      Array.from(new Set([...instantDotTargets, ...instantBleedTargets, ...instantAfflictionTargets])).forEach(t => {
+        if (t && !t.isDead && (totalDotInstant > 0 || totalBleedInstant > 0 || totalAfflictionInstant > 0) && hasDamageImmunity(t, ['dot', 'bleeding', 'affliction'])) {
+          consumeFirstHitOnlyImmunity(t, ['dot', 'bleeding', 'affliction']);
+        }
+      });
 
       // Air Bullets combo stun for instant DoT / bleeding / affliction damage
-      if (target && !target.isDead && (totalDotInstant > 0 || totalBleedInstant > 0 || totalAfflictionInstant > 0)) {
-        applyAirBulletsStun(target, source, action.isPlayer, skill);
-      }
+      Array.from(new Set([...instantDotTargets, ...instantBleedTargets, ...instantAfflictionTargets])).forEach(t => {
+        if (t && !t.isDead && (totalDotInstant > 0 || totalBleedInstant > 0 || totalAfflictionInstant > 0)) {
+          applyAirBulletsStun(t, source, action.isPlayer, skill);
+        }
+      });
 
       // GAIN CHAKRA
       if (skill.gainChakra && skill.gainChakra > 0) {
