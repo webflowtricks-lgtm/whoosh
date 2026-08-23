@@ -55,6 +55,13 @@ export interface SkillDamageRule {
   ignoreBaseDamage?: boolean; // Se true, ignora o dano base/direto normal da habilidade quando a regra é ativada
 }
 
+export interface SkillTargetActiveDamageRule {
+  activeSkillName: string; // Skill/efeito que precisa estar ATIVA NO ALVO (checado por alvo atingido)
+  damage: number; // Dano extra causado somente a inimigos que tiverem essa skill ativa neles
+  damageType?: 'damage' | 'direct_damage' | 'piercing' | 'affliction' | 'bleeding' | 'dot' | 'life_steal'; // Tipo de dano da regra
+  ignoreBaseDamage?: boolean; // Se true, o dano base/direto padrão da habilidade é zerado PARA O ALVO que ativou a regra
+}
+
 export interface SkillOnSkillUseDamageRule {
   damage: number; // Dano sofrido ao usar qualquer habilidade
   duration: number; // Duração em turnos do efeito de punição
@@ -354,6 +361,9 @@ export interface Skill {
   cooldownReduceRules?: SkillCooldownReduceRule[];
   damageRules?: SkillDamageRule[];
   onSkillUseDamageRules?: SkillOnSkillUseDamageRule[];
+  /** 🎯 Dano condicional por skill ativa NO ALVO: ao atingir um inimigo que tiver a skill X ativa nele,
+   * causa dano extra do tipo configurado somente nesse alvo */
+  targetActiveSkillDamageRules?: SkillTargetActiveDamageRule[];
   /** Combo por stacks: ao usar a skill com X stacks do conjurador, aplica os efeitos da regra (stun, remover chakra...) */
   stackUseEffectRules?: SkillStackUseEffectRule[];
   /** Skill em Mim com Stack: se X stack estiver no conjurador, ao usar esta skill uma das próprias skills
@@ -541,6 +551,10 @@ export interface Skill {
   delayedUnlockWindowTurns?: number;
   /** 💞 Vínculo de Morte (Death Link): por X turnos, se o conjurador OU o alvo morrer, o outro também morre */
   deathLinkDuration?: number;
+  /** ✨ Reviver: ao usar a skill, revive aliados mortos do lado do conjurador */
+  reviveDeadAllies?: boolean;
+  /** Vida com que o aliado morto volta ao ser revivido (limitada ao HP máximo dele) */
+  reviveHealth?: number;
   ignoreDamageReduction?: boolean;
   ignoreDamageReductionVal?: number;
   missingHpDamageType?: '' | 'normal' | 'direct' | 'dot' | 'bleeding' | 'affliction'; // Damage = caster's missing HP

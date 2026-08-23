@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Shield, Plus, Trash2, Edit3, Save, 
   Database, RefreshCw, AlertTriangle, CheckCircle, Sparkles, User, HelpCircle, Shirt,
@@ -19,6 +19,7 @@ import QuestAdmin from './QuestAdmin';
 import ShopAdmin from './ShopAdmin';
 import EventAdmin from './EventAdmin';
 import { useLanguage } from '../lib/i18n';
+import { RICH_TEXT_COLOR_PALETTE, htmlToRichMarkup, parseRichTextToHtml } from '../lib/richText';
 
 const TARGET_OPTIONS = [
   { value: 'Target', label: 'Alvo Principal' },
@@ -353,8 +354,12 @@ const getEffectNameSuggestions = (): string[] => {
     // Sync pending skill edit back to character before saving
     let charToSave = editingChar;
     if (editingSkillIndex !== null && editingSkill) {
+      // Garante que a descrição do editor WYSIWYG está incluída
+      const descMarkup = getDescMarkupFromEditor();
+      const skillToSave: Skill = descMarkup !== null ? { ...editingSkill, desc: descMarkup } : editingSkill;
+      setEditingSkill(skillToSave);
       const updatedSkills = [...editingChar.skills];
-      updatedSkills[editingSkillIndex] = editingSkill;
+      updatedSkills[editingSkillIndex] = skillToSave;
       charToSave = { ...editingChar, skills: updatedSkills };
     }
 
@@ -556,6 +561,60 @@ const newSkill: Skill = {
     });
   };
 
+  // Rich text (WYSIWYG) editing for skill description
+  const skillDescEditorRef = useRef<HTMLDivElement | null>(null);
+  const skillDescLoadedKeyRef = useRef<string>('');
+
+  // Load editor content when a different skill is opened for editing
+  useEffect(() => {
+    const ed = skillDescEditorRef.current;
+    if (editingSkillIndex === null || !editingSkill) {
+      // Editor fechado: força recarga na próxima abertura (o div desmonta e perde o conteúdo)
+      skillDescLoadedKeyRef.current = '';
+      return;
+    }
+    if (!ed) return;
+    const key = `${editingChar?.id ?? ''}#${editingSkillIndex}`;
+    const loadedHtml = parseRichTextToHtml(editingSkill.desc || '');
+    if (skillDescLoadedKeyRef.current !== key || (ed.innerHTML === '' && loadedHtml !== '')) {
+      skillDescLoadedKeyRef.current = key;
+      ed.innerHTML = loadedHtml;
+    }
+  }, [editingSkill, editingSkillIndex, editingChar]);
+
+  const syncDescFromEditor = () => {
+    const ed = skillDescEditorRef.current;
+    if (!ed) return;
+    const markup = htmlToRichMarkup(ed.innerHTML);
+    if (markup !== (editingSkill?.desc || '')) {
+      handleUpdateSkillField('desc', markup);
+    }
+  };
+
+  // Lê a descrição atual diretamente do editor WYSIWYG (null se o editor não estiver montado)
+  const getDescMarkupFromEditor = (): string | null => {
+    const ed = skillDescEditorRef.current;
+    if (!ed) return null;
+    return htmlToRichMarkup(ed.innerHTML);
+  };
+
+  const execDescFormat = (cmd: 'bold' | 'underline') => {
+    const ed = skillDescEditorRef.current;
+    if (!ed) return;
+    ed.focus();
+    document.execCommand(cmd);
+    syncDescFromEditor();
+  };
+
+  const applyDescColor = (hex: string) => {
+    const ed = skillDescEditorRef.current;
+    if (!ed) return;
+    ed.focus();
+    document.execCommand('styleWithCSS', false, 'true');
+    document.execCommand('foreColor', false, hex);
+    syncDescFromEditor();
+  };
+
   // Toggle chakra cost types in the selected skill
   const handleToggleChakraCost = (type: ChakraType) => {
     if (!editingSkill) return;
@@ -588,20 +647,25 @@ const newSkill: Skill = {
     if (!editingChar || editingSkillIndex === null || !editingSkill) return;
     playClickSound();
 
-    if (!editingSkill.name.trim()) {
+    // Garante que a descrição do editor WYSIWYG está no estado antes de salvar
+    const descMarkup = getDescMarkupFromEditor();
+    const skillToSave: Skill = descMarkup !== null ? { ...editingSkill, desc: descMarkup } : editingSkill;
+
+    if (!skillToSave.name.trim()) {
       triggerError('O Nome da habilidade não pode estar vazio.');
       return;
     }
 
     const updatedSkills = [...editingChar.skills];
-    updatedSkills[editingSkillIndex] = editingSkill;
+    updatedSkills[editingSkillIndex] = skillToSave;
 
     setEditingChar({
       ...editingChar,
       skills: updatedSkills
     });
+    setEditingSkill(skillToSave);
 
-    triggerSuccess(`Habilidade "${editingSkill.name}" atualizada na lista temporária. Lembre-se de salvar o personagem!`);
+    triggerSuccess(`Habilidade "${skillToSave.name}" atualizada na lista temporária. Lembre-se de salvar o personagem!`);
   };
 
   // Render a visual tag for chakra costs (with +/- for multiple of same type)
@@ -2249,6 +2313,65 @@ const newSkill: Skill = {
                       </button>
                     </div>
 
+                      <div>
+                        <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Descrição do Efeito / Detalhes</label>
+                        <div className="flex flex-wrap items-center gap-1 mb-1.5">
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => execDescFormat('bold')}
+                            className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-orange-500/60 rounded text-[10px] font-bold text-white transition-all cursor-pointer"
+                            title="Negrito (Ctrl+B)"
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => execDescFormat('underline')}
+                            className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-orange-500/60 rounded text-[10px] underline text-white transition-all cursor-pointer"
+                            title="Sublinhado (Ctrl+U)"
+                          >
+                            U
+                          </button>
+                          <span className="text-[8px] font-mono text-slate-600 uppercase tracking-wider mx-0.5">Cores:</span>
+                          {RICH_TEXT_COLOR_PALETTE.map((c) => (
+                            <button
+                              key={c.name}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applyDescColor(c.hex)}
+                              className="w-4 h-4 rounded-full border border-slate-600 hover:scale-125 transition-transform cursor-pointer"
+                              style={{ backgroundColor: c.hex }}
+                              title={`Cor: ${c.name}`}
+                            />
+                          ))}
+                        </div>
+                        <div
+                          ref={skillDescEditorRef}
+                          contentEditable
+                          suppressContentEditableWarning
+                          role="textbox"
+                          aria-multiline="true"
+                          data-placeholder="Descreva o que acontece ao usar a habilidade... (selecione o texto e use os botões acima para formatar)"
+                          onInput={syncDescFromEditor}
+                          onBlur={syncDescFromEditor}
+                          onKeyDown={(e) => {
+                            if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'u')) {
+                              e.preventDefault();
+                              execDescFormat(e.key === 'b' ? 'bold' : 'underline');
+                            }
+                          }}
+                          onPaste={(e) => {
+                            e.preventDefault();
+                            const txt = e.clipboardData.getData('text/plain');
+                            document.execCommand('insertText', false, txt);
+                            syncDescFromEditor();
+                          }}
+                          className="w-full min-h-[56px] max-h-40 overflow-y-auto px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all leading-normal whitespace-pre-wrap break-words empty:before:content-[attr(data-placeholder)] empty:before:text-slate-500 empty:before:pointer-events-none"
+                        />
+                      </div>
+
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Nome da Habilidade</label>
@@ -3199,6 +3322,116 @@ const newSkill: Skill = {
                                     handleUpdateSkillField('damageRules', updated.length > 0 ? updated : undefined);
                                   }}
                                   className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer"
+                                  title="Remover Regra"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 🎯 Regras de Dano com Skill Ativa no Alvo */}
+                      <div className="md:col-span-2">
+                        <label className="block text-[9px] font-bold uppercase tracking-wider text-orange-400 font-mono">🎯 Regras de Dano com a Skill Ativa no Alvo (Target Active Damage Rules)</label>
+                        <p className="text-[9px] text-slate-500 font-mono italic mt-0.5">
+                          Quando ativo no alvo, esta skill dará X de dano do tipo X somente no inimigo que tiver a skill X ativa nele.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = editingSkill.targetActiveSkillDamageRules || [];
+                            handleUpdateSkillField('targetActiveSkillDamageRules', [
+                              ...current,
+                              { activeSkillName: '', damage: 20, damageType: 'damage' }
+                            ]);
+                          }}
+                          className="mt-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-orange-400 border border-slate-700/80 rounded-lg text-[9px] font-mono font-bold uppercase transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          + Adicionar Regra (Alvo)
+                        </button>
+                        {(!editingSkill.targetActiveSkillDamageRules || editingSkill.targetActiveSkillDamageRules.length === 0) ? (
+                          <p className="text-[9px] text-slate-500 font-mono italic mt-1.5">
+                            Nenhuma regra de dano por skill ativa no alvo configurada.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 pt-1.5">
+                            {editingSkill.targetActiveSkillDamageRules.map((rule, rIdx) => (
+                              <div key={rIdx} className="flex flex-wrap items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800 text-[10px] font-mono">
+                                <span className="text-slate-400 font-bold">Skill ativa no alvo:</span>
+                                <input
+                                  type="text"
+                                  list="targetActiveSkills-suggestions"
+                                  value={rule.activeSkillName}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.targetActiveSkillDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                    handleUpdateSkillField('targetActiveSkillDamageRules', updated);
+                                  }}
+                                  placeholder="Ex: Amaterasu"
+                                  className="flex-1 min-w-[120px] px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <datalist id="targetActiveSkills-suggestions">
+                                  {Array.from(new Set(characters.flatMap(ch => ch.skills || []).map(s => s.name))).filter(Boolean).map(name => (
+                                    <option key={name} value={name} />
+                                  ))}
+                                </datalist>
+                                <span className="text-slate-400 font-bold">Dano:</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={500}
+                                  value={rule.damage}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    const updated = [...(editingSkill.targetActiveSkillDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damage: val };
+                                    handleUpdateSkillField('targetActiveSkillDamageRules', updated);
+                                  }}
+                                  className="w-14 px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-white outline-none text-[10px]"
+                                />
+                                <span className="text-slate-400 font-bold">Tipo:</span>
+                                <select
+                                  value={rule.damageType || 'damage'}
+                                  onChange={(e) => {
+                                    const updated = [...(editingSkill.targetActiveSkillDamageRules || [])];
+                                    updated[rIdx] = { ...updated[rIdx], damageType: e.target.value as any };
+                                    handleUpdateSkillField('targetActiveSkillDamageRules', updated);
+                                  }}
+                                  className="px-2 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded text-amber-300 outline-none text-[10px]"
+                                >
+                                  <option value="damage">💥 Dano Normal</option>
+                                  <option value="direct_damage">🎯 Dano Direto</option>
+                                  <option value="piercing">🗡️ Dano Perfurante</option>
+                                  <option value="affliction">💀 Dano de Aflição</option>
+                                  <option value="bleeding">🩸 Dano de Sangramento</option>
+                                  <option value="dot">🔥 DoT (Turnos)</option>
+                                  <option value="life_steal">🧛 Roubo de Vida</option>
+                                </select>
+                                <label
+                                  className="flex items-center gap-1.5 cursor-pointer bg-slate-900/80 px-2 py-1 rounded border border-slate-800/80"
+                                  title="Quando esta regra ativar no alvo, o dano base/direto padrão da habilidade é zerado PARA ESSE ALVO para não acumular"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={rule.ignoreBaseDamage === true}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.targetActiveSkillDamageRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], ignoreBaseDamage: e.target.checked };
+                                      handleUpdateSkillField('targetActiveSkillDamageRules', updated);
+                                    }}
+                                    className="accent-orange-500 rounded cursor-pointer"
+                                  />
+                                  <span className="text-[9px] text-slate-300 font-bold">Ignorar Dano Base</span>
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSkill.targetActiveSkillDamageRules || []).filter((_, i) => i !== rIdx);
+                                    handleUpdateSkillField('targetActiveSkillDamageRules', updated.length > 0 ? updated : undefined);
+                                  }}
+                                  className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
                                   title="Remover Regra"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -6036,19 +6269,8 @@ const newSkill: Skill = {
                          )}
                        </div>
 
-                       <div className="md:col-span-2">
-                         <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Descrição do Efeito / Detalhes</label>
-                        <textarea
-                          rows={2}
-                          value={editingSkill.desc}
-                          onChange={(e) => handleUpdateSkillField('desc', e.target.value)}
-                          placeholder="Descreva o que acontece ao usar a habilidade..."
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all leading-normal"
-                        />
-                      </div>
-
-                      {/* Visual Attributes Configurator (NEW) */}
-                      <div className="md:col-span-2 border-t border-slate-800/85 pt-4">
+                        {/* Visual Attributes Configurator (NEW) */}
+                        <div className="md:col-span-2 border-t border-slate-800/85 pt-4">
                         <h4 className="text-xs font-mono uppercase tracking-wider text-orange-400 font-bold mb-3 flex items-center gap-1.5">
                           <Sparkles className="w-4 h-4 text-orange-500" />
                           Efeitos e Atributos de Combate da Habilidade (Configuração Simplificada)
@@ -11255,6 +11477,48 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                                     </div>
                                   ))}
                                 </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* ✨ Reviver Mortos */}
+                          <div className="space-y-2 bg-emerald-950/20 border border-emerald-800/40 p-2.5 rounded-xl flex flex-col justify-between">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400 font-mono">✨ Reviver Mortos</label>
+                              <p className="text-[9px] text-emerald-200/70 font-mono leading-relaxed mt-1 bg-emerald-950/40 border border-emerald-900/50 p-2 rounded-lg">
+                                ✨ <span className="font-bold text-emerald-300">Como funciona:</span> com esta skill selecionada, aliados <span className="font-bold text-white">mortos</span> ficam clicáveis (destaque verde) — <span className="font-bold text-white">clique em UM deles</span> para marcá-lo e ele revive quando a skill for executada.
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                <label className="flex items-center gap-1 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingSkill.reviveDeadAllies || false}
+                                    onChange={(e) => handleUpdateSkillField('reviveDeadAllies', e.target.checked)}
+                                    className="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0 w-3 h-3"
+                                  />
+                                  <span className="text-[9px] text-slate-400 font-mono">Ativar</span>
+                                </label>
+                                {editingSkill.reviveDeadAllies && (
+                                  <>
+                                    <span className="text-[9px] text-emerald-400 font-mono uppercase font-bold">Vida ao reviver:</span>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={999}
+                                      value={editingSkill.reviveHealth || 0}
+                                      onChange={(e) => handleUpdateSkillField('reviveHealth', parseInt(e.target.value) || 0)}
+                                      placeholder="Ex: 30"
+                                      title="Quantidade de vida com que o aliado revivido volta"
+                                      className="w-16 px-2 py-1 bg-slate-900 border border-emerald-900/60 focus:border-emerald-500 rounded text-emerald-300 font-mono text-xs text-center font-bold outline-none"
+                                    />
+                                    <span className="text-[9px] text-slate-500 font-mono">HP</span>
+                                  </>
+                                )}
+                              </div>
+                              {editingSkill.reviveDeadAllies && (
+                                <p className="text-[9px] text-emerald-300 font-mono leading-normal bg-emerald-950/30 border border-emerald-900/40 p-2 rounded-lg mt-1.5">
+                                  ✨ <span className="font-bold text-white uppercase">Resumo:</span> ao selecionar esta skill, clique em <span className="font-bold text-white">UM aliado morto</span> para marcá-lo — ele voltará à batalha com {(editingSkill.reviveHealth || 0) > 0 ? <><span className="font-bold text-white">{editingSkill.reviveHealth}</span> de vida</> : <><span className="font-bold text-white">no mínimo 1</span> de vida</>} (limitado ao HP máximo dele). {(editingSkill.heal || 0) > 0 ? <>🚫 Em <span className="font-bold text-white">mortos</span> vale SÓ o revive (a Cura é ignorada); em aliados <span className="font-bold text-white">vivos</span>, a Cura funciona normal.</> : null}
+                                </p>
                               )}
                             </div>
                           </div>

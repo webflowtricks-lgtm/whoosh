@@ -10,6 +10,7 @@ import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorag
 import { safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage, translateGameText, translateSkillName, translateTargetType } from '../lib/i18n';
+import { RichText, stripRichMarkup } from '../lib/richText';
 import MangekyoLoader from './MangekyoLoader';
 
 interface CharacterSelectProps {
@@ -1065,8 +1066,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       const maxLen = 75;
                       const translatedDesc = translateGameText(skill.desc, language);
                       const translatedSkillName = translateSkillName(skill.name, language);
-                      const isLongText = translatedDesc.length > maxLen;
-                      const displayDesc = (isLongText && !isExpanded) ? `${translatedDesc.slice(0, maxLen)}...` : translatedDesc;
+                      const isLongText = stripRichMarkup(translatedDesc).length > maxLen;
+                      const plainDesc = stripRichMarkup(translatedDesc);
+                      const displayDesc = (isLongText && !isExpanded) ? `${plainDesc.slice(0, maxLen)}...` : translatedDesc;
 
                       return (
                         <div
@@ -1114,7 +1116,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                               </div>
                               
                               <p className="text-[10px] sm:text-[11px] text-stone-900 font-medium leading-snug">
-                                {displayDesc}{' '}
+                                {isLongText && !isExpanded ? displayDesc : <RichText text={displayDesc} />}{' '}
                                 {isLongText && (
                                   <button
                                     type="button"

@@ -16,6 +16,7 @@ import { getCharacters } from '../lib/characterStorage';
 import { useLanguage, translateGameText, translateSkillName, translateTargetType, getLanguage } from '../lib/i18n';
 import { getGoalDescription } from '../lib/questUtils';
 import { safeFetchJson } from '../lib/api';
+import { RichText } from '../lib/richText';
 
 interface BattleBoardProps {
   playerTeam: Character[];
@@ -568,6 +569,26 @@ export function getCaptureArrestBonusDamage(t: CombatCharacter, skill: Skill): n
            lower.includes('chakra') || lower.includes('nin') || lower.includes('blood');
   });
   return isPhysicalOrChakra ? 15 : 0;
+}
+
+/**
+ * 🎯 Verifica se o alvo tem ALGUMA regra de targetActiveSkillDamageRules ativa nele.
+ * Com requireIgnoreBase, apenas regras com ignoreBaseDamage ativado contam
+ * (usado para zerar o dano base/direto padrão da habilidade para esse alvo).
+ */
+export function targetHasActiveSkillRuleMatch(t: CombatCharacter | null | undefined, skill: Skill, requireIgnoreBase = false): boolean {
+  if (!t || !skill.targetActiveSkillDamageRules || skill.targetActiveSkillDamageRules.length === 0) return false;
+  return skill.targetActiveSkillDamageRules.some(rule => {
+    if (requireIgnoreBase && rule.ignoreBaseDamage !== true) return false;
+    if (!(rule.damage > 0)) return false;
+    const req = (rule.activeSkillName || '').trim().toLowerCase();
+    if (!req) return false;
+    return t.activeEffects.some(e => {
+      if (!e.name) return false;
+      const eN = e.name.toLowerCase();
+      return eN === req || eN.includes(req) || req.includes(eN);
+    });
+  });
 }
 
 export function getSingleEffectDescription(effect: ActiveEffect): string {
@@ -2432,7 +2453,23 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       ? [...playerCombatants, ...enemyCombatants]
       : (isEnemyTarget ? enemyCombatants : playerCombatants);
     const targetChar = targetList.find(c => c.id === targetId);
-    if (!targetChar || targetChar.isDead) return;
+    if (!targetChar) return;
+
+    // ✨ Reviver: com reviveDeadAllies ativo, um ALIADO MORTO pode ser clicado para ser revivido
+    if (skill.reviveDeadAllies && targetChar.isDead && !isSourceEnemy) {
+      playCustomSound('Target');
+      setCuedActions(prev => {
+        const filtered = prev.filter(a => a.sourceId !== selectedSkill.charId);
+        return [
+          ...filtered,
+          { sourceId: selectedSkill.charId, skillIndex: selectedSkill.skillIndex, targetId },
+        ];
+      });
+      setSelectedSkill(null);
+      addFloatingText(targetId, 'ALVO MARCADO!', 'effect');
+      return;
+    }
+    if (targetChar.isDead) return;
 
     // Check if skill is already active on target and skill prevents re-application
     if (skill.doNotApplyIfActive && isSkillActiveOnTarget(targetChar, skill.name)) {
@@ -2513,6 +2550,16 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
         addFloatingText(t.id, 'Alvo Marcado!', 'effect');
       });
     }
+  };
+
+  // ✨ Reviver: true quando a skill selecionada tem reviveDeadAllies (permite clicar em aliados mortos)
+  const isReviveSelectionActive = (): boolean => {
+    if (!selectedSkill) return false;
+    const src = selectedSkill.charId.startsWith('enemy')
+      ? enemyCombatants.find(e => e.id === selectedSkill!.charId)
+      : playerCombatants.find(p => p.id === selectedSkill!.charId);
+    const sk = src?.character.skills[selectedSkill.skillIndex];
+    return !!sk?.reviveDeadAllies;
   };
 
 // Trade 4 chakras of choice for 1 chakra of choice
@@ -3010,6 +3057,21 @@ const handleTradeChakra = () => {
           addFloatingText(other.id, 'EFEITOS REMOVIDOS', 'effect');
         }
       });
+    });
+    // 3) 💀 Limpeza total na morte: TODOS os buffs/debuffs de quem morreu são removidos,
+    //    INCLUSIVE efeitos marcados como irremovíveis (🔒 Nunca Remover).
+    //    Roda DEPOIS dos vínculos de morte e das ressurreições passivas para não quebrá-las.
+    combatantList.forEach(dead => {
+      if (!dead.isDead || dead.activeEffects.length === 0) return;
+      const removedCount = dead.activeEffects.length;
+      dead.activeEffects = [];
+      logs.push({
+        id: Math.random().toString(),
+        turn,
+        message: `💀 A morte de ${dead.character.name} removeu TODOS os seus ${removedCount} efeito(s) ativo(s) (inclusive irremovíveis)!`,
+        type: 'buff',
+      });
+      addFloatingText(dead.id, 'EFEITOS REMOVIDOS', 'effect');
     });
   };
 
@@ -4824,7 +4886,9 @@ const startingHealth = t.health;
             const targetReductions = targetCannotReduce ? [] : getEffectiveTargetReductions(t, skill, true);
             const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
-            const netDd = hasDamageImmunity(t, ['direct_damage', 'piercing']) ? 0 : Math.max(0, (dd + getCaptureArrestBonusDamage(t, skill)) - reductionSum);
+            // 🎯 Regra com ignoreBaseDamage no alvo zera também o dano direto padrão para este alvo
+            const taZeroDd = targetHasActiveSkillRuleMatch(t, skill, true);
+            const netDd = hasDamageImmunity(t, ['direct_damage', 'piercing']) ? 0 : Math.max(0, ((taZeroDd ? 0 : dd) + getCaptureArrestBonusDamage(t, skill)) - reductionSum);
             let remainingDd = netDd;
             if (remainingDd > 0 && convertDamageToShield(t, remainingDd, turn, ['direct_damage', 'piercing'])) {
               newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${remainingDd} de dano direto de [${skill.name}] em escudo!`, type: 'buff' });
@@ -5619,6 +5683,42 @@ const startingHealth = t.health;
         });
       }
 
+      // 💉 Regra única (Shizune): [Prepared Needle Shot] renova o Poison Fog do alvo para 2 turnos.
+      // Bloco INDEPENDENTE dos ramos de dano, pois a skill não tem dano próprio configurado.
+      {
+        const needleTarget = target;
+        if (
+          needleTarget && !needleTarget.isDead &&
+          source.character.id?.toLowerCase() === 'shizune' &&
+          (skill.name || '').toLowerCase() === 'prepared needle shot'
+        ) {
+          const poisonFogEff = needleTarget.activeEffects.find(e => e.type === 'affliction' && (e.name || '').toLowerCase().includes('poison fog'));
+          if (poisonFogEff && poisonFogEff.duration < 99999 && poisonFogEff.duration < 2) {
+            poisonFogEff.duration = 2;
+            newLogs.push({ id: Math.random().toString(), turn, message: `💉 ${source.character.name} renovou o [Poison Fog] em ${needleTarget.character.name}: duração restaurada para 2 turnos!`, type: 'buff' });
+            addFloatingText(needleTarget.id, 'POISON FOG RENOVADO (2T)', 'effect');
+          }
+        }
+      }
+
+      // ✨ Reviver: skill com reviveDeadAllies traz de volta SOMENTE o alvo escolhido, se ele estiver morto.
+      // Quando usada num MORTO, aplica APENAS o revive (ignora a Cura da skill — cura vale só para vivos).
+      if (skill.reviveDeadAllies && target && target.isDead && sourceList.some(c => c.id === target.id)) {
+        const reviveHp = Math.min(Math.max(1, skill.reviveHealth || 0), target.maxHealth);
+        target.isDead = false;
+        target.health = reviveHp;
+        // 🚫 Marca o alvo neste turno: a seção 2 de cura NÃO deve curá-lo com esta skill (revive ≠ cura)
+        (target as any)._revivedNoHealTurn = turn;
+        (target as any).hasRevived = true;
+        newLogs.push({
+          id: Math.random().toString(),
+          turn,
+          message: `✨ ${source.character.name} RESSUSCITOU ${target.character.name} com ${reviveHp} de vida!`,
+          type: 'heal',
+        });
+        addFloatingText(target.id, '✨ REVIVIDO!', 'heal');
+      }
+
       // 1. DAMAGE & SHIELDS
       // 🔄 Turnos = Stacks em Mim: entra no fluxo de dano contínuo também quando a opção
       // de duração por stacks está ativa (mesmo sem damageDuration configurado)
@@ -5797,7 +5897,8 @@ const startingHealth = t.health;
               }
             }
           }
-          let finalDamage = baseDamage + dmgBuffNormal + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
+          const taZeroBase = targetHasActiveSkillRuleMatch(t, skill, true);
+          let finalDamage = (taZeroBase ? 0 : baseDamage) + dmgBuffNormal + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
           let reductionSum = 0;
           if (!targetCannotReduce) {
@@ -5854,6 +5955,60 @@ const startingHealth = t.health;
               matchStatsRef.current.killRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name });
             }
           }
+          // 🎯 Regras de Dano com Skill Ativa no Alvo: dano extra somente em alvos que tiverem a skill X ativa neles
+          if (!t.isDead && skill.targetActiveSkillDamageRules && skill.targetActiveSkillDamageRules.length > 0) {
+            for (const taRule of skill.targetActiveSkillDamageRules) {
+              const reqName = (taRule.activeSkillName || '').trim().toLowerCase();
+              if (!reqName || !taRule.damage || taRule.damage <= 0) continue;
+              const hasOnTarget = t.activeEffects.some(e => {
+                if (!e.name) return false;
+                const eN = e.name.toLowerCase();
+                return eN === reqName || eN.includes(reqName) || reqName.includes(eN);
+              });
+              if (!hasOnTarget) continue;
+              const taType = taRule.damageType || 'damage';
+              if (hasDamageImmunity(t, [taType])) {
+                consumeFirstHitOnlyImmunity(t, [taType]);
+                newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE e não sofreu o dano extra de [${skill.name}].`, type: 'buff' });
+                addFloatingText(t.id, 'IMUNE!', 'invulnerable');
+                continue;
+              }
+              if (checkCombatantInvulnerable(t, skill) && !skill.ignoreInvulnerable) continue;
+              let remaining = taRule.damage;
+              if (taType !== 'affliction' && (t.shield || 0) > 0 && !hasNegateFriendlyEffects(t)) {
+                const absorbed = Math.min(t.shield || 0, remaining);
+                t.shield = (t.shield || 0) - absorbed;
+                remaining -= absorbed;
+                if (absorbed > 0) addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+              }
+              if (remaining > 0) {
+                t.health = hasImmortalEffect(t) ? Math.max(1, t.health - remaining) : Math.max(0, t.health - remaining);
+                const taLabel = taType === 'direct_damage' ? 'DANO DIRETO' : taType === 'affliction' ? 'AFLIÇÃO' : taType === 'bleeding' ? 'SANGRAMENTO' : taType === 'dot' ? 'QUEIMADURA' : taType === 'life_steal' ? 'ROUBO DE VIDA' : taType === 'piercing' ? 'PERFURANTE' : 'DANO';
+                newLogs.push({ id: Math.random().toString(), turn, message: `🎯 ${source.character.name} usou [${skill.name}] e causou +${taRule.damage} de ${taLabel.toLowerCase()} em ${t.character.name} ("${taRule.activeSkillName}" ativa nele)!`, type: 'damage' });
+                addFloatingText(t.id, `-${remaining} ${taLabel}`, 'damage');
+                if (action.isPlayer) {
+                  matchStatsRef.current.damageDealt += remaining;
+                  matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name, amount: remaining });
+                } else {
+                  matchStatsRef.current.damageReceived += remaining;
+                  matchStatsRef.current.damageReceivedRecords.push({ charName: t.character.name, tags: t.character.tags || [], amount: remaining });
+                }
+              }
+            }
+          }
+          // 💉 Regra única (Shizune): [Prepared Needle Shot] renova o Poison Fog do alvo para 2 turnos
+          if (
+            !t.isDead &&
+            source.character.id?.toLowerCase() === 'shizune' &&
+            (skill.name || '').toLowerCase() === 'prepared needle shot'
+          ) {
+            const poisonFogEff = t.activeEffects.find(e => e.type === 'affliction' && (e.name || '').toLowerCase().includes('poison fog'));
+            if (poisonFogEff && poisonFogEff.duration < 99999 && poisonFogEff.duration < 2) {
+              poisonFogEff.duration = 2;
+              newLogs.push({ id: Math.random().toString(), turn, message: `💉 ${source.character.name} renovou o [Poison Fog] em ${t.character.name}: duração restaurada para 2 turnos!`, type: 'buff' });
+              addFloatingText(t.id, 'POISON FOG RENOVADO (2T)', 'effect');
+            }
+          }
             // Apply remaining continuous damage (duration - 1)
           if (duration > 1 && !t.isDead) {
             pushActiveEffect(t, {
@@ -5877,7 +6032,7 @@ const startingHealth = t.health;
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
-      } else if (!hasDelayedDamageOnly && (baseDamage > 0 || (skill.damage || 0) > 0 || (skill.damageRules && skill.damageRules.length > 0) || (skill.stackDamageRules && skill.stackDamageRules.length > 0) || (skill.bonusDamagePerMissingHp && skill.bonusDamagePerMissingHp > 0))) {
+      } else if (!hasDelayedDamageOnly && (baseDamage > 0 || (skill.damage || 0) > 0 || (skill.damageRules && skill.damageRules.length > 0) || (skill.stackDamageRules && skill.stackDamageRules.length > 0) || (skill.bonusDamagePerMissingHp && skill.bonusDamagePerMissingHp > 0) || (skill.targetActiveSkillDamageRules && skill.targetActiveSkillDamageRules.some(r => (r.damage || 0) > 0)))) {
         const damageTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         const splashVal = skill.splashDamage || 0;
         const splashTgt = skill.splashTarget || 'Target';
@@ -6059,7 +6214,8 @@ splashOnlyTargets = splashPool.filter(c =>
               }
             }
           }
-          let finalDamage = baseDamage + dmgBuffNormal + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
+          const taZeroBase = targetHasActiveSkillRuleMatch(t, skill, true);
+          let finalDamage = (taZeroBase ? 0 : baseDamage) + dmgBuffNormal + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
 
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
           let reductionSum = 0;
@@ -6124,6 +6280,62 @@ splashOnlyTargets = splashPool.filter(c =>
             } else {
               matchStatsRef.current.damageReceived += finalDamage;
               matchStatsRef.current.damageReceivedRecords.push({ charName: t.character.name, tags: t.character.tags || [], amount: finalDamage });
+            }
+          }
+
+          // 🎯 Regras de Dano com Skill Ativa no Alvo: dano extra somente em alvos que tiverem a skill X ativa neles
+          if (!t.isDead && skill.targetActiveSkillDamageRules && skill.targetActiveSkillDamageRules.length > 0) {
+            for (const taRule of skill.targetActiveSkillDamageRules) {
+              const reqName = (taRule.activeSkillName || '').trim().toLowerCase();
+              if (!reqName || !taRule.damage || taRule.damage <= 0) continue;
+              const hasOnTarget = t.activeEffects.some(e => {
+                if (!e.name) return false;
+                const eN = e.name.toLowerCase();
+                return eN === reqName || eN.includes(reqName) || reqName.includes(eN);
+              });
+              if (!hasOnTarget) continue;
+              const taType = taRule.damageType || 'damage';
+              if (hasDamageImmunity(t, [taType])) {
+                consumeFirstHitOnlyImmunity(t, [taType]);
+                newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE e não sofreu o dano extra de [${skill.name}].`, type: 'buff' });
+                addFloatingText(t.id, 'IMUNE!', 'invulnerable');
+                continue;
+              }
+              if (checkCombatantInvulnerable(t, skill) && !skill.ignoreInvulnerable) continue;
+              let remaining = taRule.damage;
+              if (taType !== 'affliction' && (t.shield || 0) > 0 && !hasNegateFriendlyEffects(t)) {
+                const absorbed = Math.min(t.shield || 0, remaining);
+                t.shield = (t.shield || 0) - absorbed;
+                remaining -= absorbed;
+                if (absorbed > 0) addFloatingText(t.id, `-${absorbed} ESCUDO`, 'shield');
+              }
+              if (remaining > 0) {
+                t.health = hasImmortalEffect(t) ? Math.max(1, t.health - remaining) : Math.max(0, t.health - remaining);
+                const taLabel = taType === 'direct_damage' ? 'DANO DIRETO' : taType === 'affliction' ? 'AFLIÇÃO' : taType === 'bleeding' ? 'SANGRAMENTO' : taType === 'dot' ? 'QUEIMADURA' : taType === 'life_steal' ? 'ROUBO DE VIDA' : taType === 'piercing' ? 'PERFURANTE' : 'DANO';
+                newLogs.push({ id: Math.random().toString(), turn, message: `🎯 ${source.character.name} usou [${skill.name}] e causou +${taRule.damage} de ${taLabel.toLowerCase()} em ${t.character.name} ("${taRule.activeSkillName}" ativa nele)!`, type: 'damage' });
+                addFloatingText(t.id, `-${remaining} ${taLabel}`, 'damage');
+                if (action.isPlayer) {
+                  matchStatsRef.current.damageDealt += remaining;
+                  matchStatsRef.current.damageDealtRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name, amount: remaining });
+                } else {
+                  matchStatsRef.current.damageReceived += remaining;
+                  matchStatsRef.current.damageReceivedRecords.push({ charName: t.character.name, tags: t.character.tags || [], amount: remaining });
+                }
+              }
+            }
+          }
+
+          // 💉 Regra única (Shizune): [Prepared Needle Shot] renova o Poison Fog do alvo para 2 turnos
+          if (
+            !t.isDead &&
+            source.character.id?.toLowerCase() === 'shizune' &&
+            (skill.name || '').toLowerCase() === 'prepared needle shot'
+          ) {
+            const poisonFogEff = t.activeEffects.find(e => e.type === 'affliction' && (e.name || '').toLowerCase().includes('poison fog'));
+            if (poisonFogEff && poisonFogEff.duration < 99999 && poisonFogEff.duration < 2) {
+              poisonFogEff.duration = 2;
+              newLogs.push({ id: Math.random().toString(), turn, message: `💉 ${source.character.name} renovou o [Poison Fog] em ${t.character.name}: duração restaurada para 2 turnos!`, type: 'buff' });
+              addFloatingText(t.id, 'POISON FOG RENOVADO (2T)', 'effect');
             }
           }
 
@@ -6306,6 +6518,8 @@ splashOnlyTargets = splashPool.filter(c =>
         const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
+          // ✨ Reviver: se este alvo acabou de ser REVIVIDO por esta skill neste turno, a cura NÃO se aplica
+          if (skill.reviveDeadAllies && (t as any)._revivedNoHealTurn === turn) return;
           // 🚑 Portador de efeito com bloqueio de curas não pode ser curado
           if (t.activeEffects.some(e => e.blocksHeals)) {
             newLogs.push({
@@ -12724,7 +12938,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               }
             }
           }
-          let finalDamage = baseDamage + dmgBuffNormal + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
+          const taZeroBase = targetHasActiveSkillRuleMatch(t, skill, true);
+          let finalDamage = (taZeroBase ? 0 : baseDamage) + dmgBuffNormal + costRuleDamageBoost + stackDamageBonus + getCaptureArrestBonusDamage(t, skill) + getTargetVulnerabilityBonus(t, skill) - damageDebuffSum;
 
           // Apply flat damage reduction on target
           const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage');
@@ -16173,7 +16388,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 onClick={() => handleSelectTarget(combatant.id, false)}
                     className={`flex-1 relative p-4 rounded-xl border bg-slate-900/60 transition-all ${
                       combatant.isDead
-                        ? 'border-slate-950 bg-slate-950/40 opacity-40 pointer-events-none'
+                        ? (combatant.isDead && isMyTurn && isReviveSelectionActive()
+                          ? 'border-emerald-500/70 hover:border-emerald-400 hover:shadow-emerald-500/20 bg-emerald-950/30 opacity-80 cursor-pointer shadow-lg animate-pulse'
+                          : 'border-slate-950 bg-slate-950/40 opacity-40 pointer-events-none')
                         : !isMyTurn
                         ? 'border-slate-800/50 opacity-50'
                         : selectedSkill && selectedSkill.charId !== combatant.id
@@ -16477,14 +16694,14 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                                   </span>
                                                 </div>
                                                 <p className="text-[11px] text-slate-300 leading-tight">
-                                                  {sub.description}
+                                                  <RichText text={sub.description} />
                                                 </p>
                                               </div>
                                             ))}
                                           </div>
                                         ) : (
                                           <p className="text-xs text-slate-200 font-sans leading-snug my-1 text-left">
-                                            {item.description}
+                                            <RichText text={item.description} />
                                           </p>
                                         )}
 
@@ -16692,8 +16909,8 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                 {/* Hover Details tooltip card */}
                                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
                                   <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
-                                  <p className="text-[10px] text-slate-400 leading-normal pt-1">{skill.desc}</p>
-                                  
+                                  <p className="text-[10px] text-slate-400 leading-normal pt-1"><RichText text={skill.desc} /></p>
+                                   
                                   {(skill.cannotBeCountered || skill.cannotBeReflected) && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
                                       {skill.cannotBeCountered && (
@@ -17107,7 +17324,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                   {/* Detailed Description */}
                   <p className="text-xs text-slate-900 font-medium leading-relaxed">
-                    {inspectedSkill.skill.desc}
+                    <RichText text={inspectedSkill.skill.desc} />
                   </p>
                   {renderSkillCustomEffects(inspectedSkill.skill)}
                 </div>
@@ -17308,7 +17525,9 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 onClick={() => handleSelectTarget(combatant.id, true)}
                     className={`flex-1 relative p-4 rounded-xl border bg-slate-900/60 transition-all ${
                       combatant.isDead
-                        ? 'border-slate-950 bg-slate-950/40 opacity-40 pointer-events-none'
+                        ? (isReviveSelectionActive()
+                          ? 'border-emerald-500/70 hover:border-emerald-400 hover:shadow-emerald-500/20 bg-emerald-950/30 opacity-80 cursor-pointer shadow-lg animate-pulse'
+                          : 'border-slate-950 bg-slate-950/40 opacity-40 pointer-events-none')
                         : selectedSkill && selectedSkill.charId !== combatant.id
                         ? 'border-red-500/40 hover:border-red-500 bg-red-950/5 cursor-pointer shadow-lg shadow-red-500/5'
                         : 'border-slate-800'
@@ -17617,14 +17836,14 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                                   </span>
                                                 </div>
                                                 <p className="text-[11px] text-slate-300 leading-tight">
-                                                  {sub.description}
+                                                  <RichText text={sub.description} />
                                                 </p>
                                               </div>
                                             ))}
                                           </div>
                                         ) : (
                                           <p className="text-xs text-slate-200 font-sans leading-snug my-1 text-left">
-                                            {item.description}
+                                            <RichText text={item.description} />
                                           </p>
                                         )}
 
@@ -17853,7 +18072,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                   {/* Hover Details tooltip card */}
                                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
                                     <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
-                                    <p className="text-[10px] text-slate-400 leading-normal pt-1">{translateGameText(skill.desc, language)}</p>
+                                    <p className="text-[10px] text-slate-400 leading-normal pt-1"><RichText text={translateGameText(skill.desc, language)} /></p>
                                     
                                     {(skill.cannotBeCountered || skill.cannotBeReflected) && (
                                       <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
@@ -17987,7 +18206,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                 {/* Hover Details tooltip card */}
                                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
                                   <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
-                                  <p className="text-[10px] text-slate-400 leading-normal pt-1">{translateGameText(skill.desc, language)}</p>
+                                  <p className="text-[10px] text-slate-400 leading-normal pt-1"><RichText text={translateGameText(skill.desc, language)} /></p>
 
                                   {skill.blocksOffensiveSkills && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-red-300 bg-red-950/90 p-1 rounded border border-red-800/80">
