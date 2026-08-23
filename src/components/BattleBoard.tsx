@@ -7295,6 +7295,17 @@ splashOnlyTargets = splashPool.filter(c =>
         const afflictionTargets = resolveEffectTargets(skill.afflictionTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         afflictionTargets.forEach(t => {
           if (t.isDead) return;
+          // 🚫 Não Stackar: alvo já possui aflição por turno ativa → não aplica outra
+          const skipAfflStack = !!skill.afflictionNoStack && t.activeEffects.some(e => e.type === 'affliction');
+          if (skipAfflStack) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🚫 ${t.character.name} já possui aflição por turno — [${skill.name}] não stacka outra aflição!`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, 'AFLIÇÃO NÃO STACKA', 'effect');
+          }
           // 💜 Mim e o Alvo (Both): o conjurador pode receber uma quantidade DIFERENTE de aflição (afflictionSelfVal).
           const isSelfAffl = skill.afflictionTarget === 'Both' && t.id === source.id;
           const afflVal = isSelfAffl && skill.afflictionSelfVal !== undefined ? skill.afflictionSelfVal : totalAfflictionVal;
@@ -7310,32 +7321,34 @@ splashOnlyTargets = splashPool.filter(c =>
           // Aflição com ATRASO: o alvo NÃO sofre agora; só começa a sofrer depois de
           // `afflDelay` turnos, causando dano por turno por `rawDuration` turnos.
           if (afflDelay > 0) {
-            pushActiveEffect(t, {
-              name: `${skill.name} Affliction`,
-              type: 'affliction',
-              value: afflVal,
-              afflictionBaseValue: afflVal,
-              duration: rawDuration,
-              delayTurns: afflDelay,
-              icon: skill.icon,
-              irremovable: !!skill.afflictionIrremovable,
-              cannotBeCountered: !!skill.cannotBeCountered,
-              cannotBeReflected: !!skill.cannotBeReflected,
-              casterId: source.id,
-              casterSide: action.isPlayer ? 'player' : 'enemy',
-            });
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `⏳ ${t.character.name} sofrerá ${afflVal} de dano por aflição de [${skill.name}] em ${afflDelay} ${afflDelay === 1 ? 'turno' : 'turnos'}, durante ${rawDuration} ${rawDuration === 1 ? 'turno' : 'turnos'}!`,
-              type: 'damage',
-            });
-            addFloatingText(t.id, `AFLIÇÃO EM ${afflDelay} TURNOS`, 'effect');
+            if (!skipAfflStack) {
+              pushActiveEffect(t, {
+                name: `${skill.name} Affliction`,
+                type: 'affliction',
+                value: afflVal,
+                afflictionBaseValue: afflVal,
+                duration: rawDuration,
+                delayTurns: afflDelay,
+                icon: skill.icon,
+                irremovable: !!skill.afflictionIrremovable,
+                cannotBeCountered: !!skill.cannotBeCountered,
+                cannotBeReflected: !!skill.cannotBeReflected,
+                casterId: source.id,
+                casterSide: action.isPlayer ? 'player' : 'enemy',
+              });
+              newLogs.push({
+                id: Math.random().toString(),
+                turn,
+                message: `⏳ ${t.character.name} sofrerá ${afflVal} de dano por aflição de [${skill.name}] em ${afflDelay} ${afflDelay === 1 ? 'turno' : 'turnos'}, durante ${rawDuration} ${rawDuration === 1 ? 'turno' : 'turnos'}!`,
+                type: 'damage',
+              });
+              addFloatingText(t.id, `AFLIÇÃO EM ${afflDelay} TURNOS`, 'effect');
+            }
             cleanseTargetEffects(t, skill.afflictionRemoveType);
             return;
           }
 
-          if (hasSeparateInstantHit && afflDelay === 0) {
+          if (hasSeparateInstantHit && afflDelay === 0 && !skipAfflStack) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
@@ -7415,7 +7428,7 @@ splashOnlyTargets = splashPool.filter(c =>
           // Se sobrou duração, cria o efeito por turno.
           // Com afflictionInstant separado, NADA foi aplicado agora -> duração CHEIA (sem -1).
           const remainingDuration = hasSeparateInstantHit ? rawDuration : (rawDuration === 99999 ? 99999 : (rawDuration - 1));
-          if (remainingDuration > 0) {
+          if (remainingDuration > 0 && !skipAfflStack) {
             pushActiveEffect(t, {
               name: `${skill.name} Affliction`,
               type: 'affliction',

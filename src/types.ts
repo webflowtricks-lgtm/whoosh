@@ -708,6 +708,8 @@ export interface Skill {
   dotIrremovable?: boolean;
   bleedingIrremovable?: boolean;
   afflictionIrremovable?: boolean;
+  /** Aflição por turno: se o alvo já tiver qualquer aflição ativa, não aplica outra (sem stack) */
+  afflictionNoStack?: boolean;
   paralyzeCooldownIrremovable?: boolean;
   cannotReduceDamageIrremovable?: boolean;
   cannotBeInvulnerableIrremovable?: boolean;

@@ -8775,15 +8775,27 @@ const newSkill: Skill = {
                             </div>
                             <div className="mt-2 pt-2 border-t border-slate-800/50 space-y-2">
                               <div className="flex items-center justify-between gap-2">
-                                <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
-                                  <input
-                                    type="checkbox"
-                                    checked={editingSkill.afflictionIrremovable || false}
-                                    onChange={(e) => handleUpdateSkillField('afflictionIrremovable', e.target.checked)}
-                                    className="rounded bg-slate-950 border-slate-800 text-purple-500 focus:ring-0 w-3 h-3"
-                                  />
-                                  🔒 Nunca Remover
-                                </label>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={editingSkill.afflictionIrremovable || false}
+                                      onChange={(e) => handleUpdateSkillField('afflictionIrremovable', e.target.checked)}
+                                      className="rounded bg-slate-950 border-slate-800 text-purple-500 focus:ring-0 w-3 h-3"
+                                    />
+                                    🔒 Nunca Remover
+                                  </label>
+                                  <label className="text-[9px] text-slate-400 font-mono flex items-center gap-1 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={editingSkill.afflictionNoStack || false}
+                                      onChange={(e) => handleUpdateSkillField('afflictionNoStack', e.target.checked)}
+                                      className="rounded bg-slate-950 border-slate-800 text-purple-500 focus:ring-0 w-3 h-3"
+                                      title="Se o alvo já tiver qualquer aflição por turno ativa, esta skill NÃO aplica outra aflição por turno"
+                                    />
+                                    🚫 Não Stackar
+                                  </label>
+                                </div>
                                 <div className="flex items-center gap-1">
                                   <span className="text-[9px] text-slate-500 font-mono">Limpar:</span>
                                   <select
