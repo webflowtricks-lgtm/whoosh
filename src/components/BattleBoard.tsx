@@ -11037,23 +11037,25 @@ splashOnlyTargets = splashPool.filter(c =>
     const whoGoesFirst = (turn % 2 === 1) ? 0 : 1;
     const isOurTurnToPlan = myOnlineIndex === whoGoesFirst;
 
-    if (isOurTurnToPlan) {
-      // Respeita quem já passou (importante após reconexão): se eu já passei, espero o oponente
-      if (passedPlayersRef.current.includes('player')) {
-        setActivePlanner('enemy');
-        setIsWaitingForOpponent(true);
-      } else {
-        setActivePlanner('player');
-        setIsWaitingForOpponent(false);
-      }
+    // 🔒 CRÍTICO: se EU já passei nesta rodada, SEMPRE fico aguardando — nunca reabrir o
+    // planejamento. Sem isto, quando ambos os lados já passaram (e a resolução ainda não
+    // avançou o turno), este efeito reativava a minha vez e eu podia jogar de novo com a
+    // skill já aplicada — o turno "não finalizava". Vale para os dois lados (simétrico).
+    if (passedPlayersRef.current.includes('player')) {
+      setActivePlanner('enemy');
+      setIsWaitingForOpponent(true);
+      return;
+    }
+
+    // Eu ainda NÃO passei:
+    // - sou o primeiro a planejar, OU o oponente já passou (agora é a minha vez) → posso planejar.
+    // - caso contrário, o oponente planeja primeiro e ainda não passou → aguardo.
+    if (isOurTurnToPlan || passedPlayersRef.current.includes('enemy')) {
+      setActivePlanner('player');
+      setIsWaitingForOpponent(false);
     } else {
-      if (passedPlayersRef.current.includes('enemy')) {
-        setActivePlanner('player');
-        setIsWaitingForOpponent(false);
-      } else {
-        setActivePlanner('enemy');
-        setIsWaitingForOpponent(true);
-      }
+      setActivePlanner('enemy');
+      setIsWaitingForOpponent(true);
     }
   }, [turn, onlineParams, gameOver, passedPlayersThisTurn]);
 
