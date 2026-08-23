@@ -59,6 +59,7 @@ export default function App() {
   const [enemyTeam, setEnemyTeam] = useState<Character[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [isSandbox, setIsSandbox] = useState(false);
+  const [sandboxPauseChakraGen, setSandboxPauseChakraGen] = useState(false);
   const [onlineParams, setOnlineParams] = useState<{
     isOnline: boolean;
     roomId: string;
@@ -158,6 +159,7 @@ export default function App() {
     setEnemyTeam(enemySquad);
     setOnlineParams(savedState.onlineParams || null);
     setIsSandbox(!!savedState.isSandbox);
+    setSandboxPauseChakraGen(!!savedState.isSandbox && !!savedState.sandboxPauseChakraGen);
     setRestoredState(savedState);
     setScreen('battle');
     setReconnectData(null);
@@ -228,13 +230,15 @@ export default function App() {
     playerSquad: Character[],
     enemySquad: Character[],
     online?: { isOnline: boolean; roomId: string; playerIndex: number; opponentProfile: UserProfile },
-    sandbox?: boolean
+    sandbox?: boolean,
+    sandboxPauseChakraGen?: boolean
   ) => {
     preloadCharacters([...playerSquad, ...enemySquad]);
     setPlayerTeam(playerSquad);
     setEnemyTeam(enemySquad);
     setOnlineParams(online || null);
     setIsSandbox(!!sandbox);
+    setSandboxPauseChakraGen(!!sandbox && !!sandboxPauseChakraGen);
     setScreen('battle');
   };
 
@@ -318,6 +322,7 @@ export default function App() {
     setEnemyTeam([]);
     setOnlineParams(null);
     setIsSandbox(false);
+    setSandboxPauseChakraGen(false);
     setRestoredState(null);
     setActiveQuest(null); // Reset active quest on exit
     setScreen('character-select'); // Return directly to character selection!
@@ -517,6 +522,7 @@ export default function App() {
             user={user}
             onlineParams={onlineParams}
             isSandbox={isSandbox}
+            sandboxPauseChakraGen={sandboxPauseChakraGen}
             restoredState={restoredState}
             onBattleEnd={handleBattleEnd}
             activeQuest={activeQuest}

@@ -38,6 +38,8 @@ interface BattleBoardProps {
     opponentProfile: UserProfile;
   } | null;
   isSandbox?: boolean;
+  /** 🧊 Sandbox: geração automática de chakra pausada (ambos começam com 10 chakras variados) */
+  sandboxPauseChakraGen?: boolean;
   restoredState?: {
     turn: number;
     playerCombatants: CombatCharacter[];
@@ -47,6 +49,7 @@ interface BattleBoardProps {
     onlineParams?: { isOnline: boolean; roomId: string; playerIndex: number } | null;
     processedOpponentTurns?: number[];
     passedPlayersThisTurn?: ('player' | 'enemy')[];
+    sandboxPauseChakraGen?: boolean;
   } | null;
   onBattleEnd?: (victory: boolean, stats: {
     damageDealt: number;
@@ -1215,10 +1218,13 @@ export default function BattleBoard({
   user,
   onlineParams,
   isSandbox,
+  sandboxPauseChakraGen,
   restoredState,
   onBattleEnd,
   activeQuest,
 }: BattleBoardProps) {
+  // 🧊 Sandbox: geração de chakra pausada (só vale em sandbox). Restaurado da reconexão quando existir.
+  const chakraGenPaused = !!isSandbox && !!(restoredState ? restoredState.sandboxPauseChakraGen : sandboxPauseChakraGen);
   const { t, language } = useLanguage();
 
   const ranksList = useMemo(() => getRanks(), []);
@@ -1950,7 +1956,22 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Trigger initial chakra generation for Turn 1:
     // The player who starts first receives 1 chakra; the second player receives 3 chakra.
-    if (startingPlanner === 'player') {
+    if (chakraGenPaused) {
+      // 🧊 Sandbox com geração pausada: ambos começam com 10 chakras variados (fixos).
+      // A partir daqui NÃO gera chakra ao virar o turno (rollChakraForTurn é ignorado).
+      const buildTenVaried = (): ChakraPool => {
+        const pool: ChakraPool = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
+        const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
+        for (let i = 0; i < 10; i++) pool[types[i % types.length]] += 1;
+        return pool;
+      };
+      setPlayerChakra(buildTenVaried());
+      setEnemyChakra(buildTenVaried());
+      setLogs(prev => [
+        ...prev,
+        { id: Math.random().toString(), turn: 1, message: '🧊 [SANDBOX] Geração de chakra PAUSADA. Ambos começam com 10 chakras. Gasto/remoção ainda contam, mas passar o turno NÃO gera chakra.', type: 'system' },
+      ]);
+    } else if (startingPlanner === 'player') {
       rollChakraForTurn(true, 1);
       rollChakraForTurn(false, 3);
     } else {
@@ -2094,6 +2115,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
   // Roll Chakra logic (accepts count of chakra elements to roll)
   const rollChakraForTurn = (isPlayer: boolean, count: number = 1) => {
+    // 🧊 Sandbox com geração pausada: não gera chakra ao virar o turno (mas gasto/remoção continuam contando)
+    if (chakraGenPaused) return;
     const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
     const rolled: (keyof ChakraPool)[] = [];
 
@@ -5329,17 +5352,19 @@ const startingHealth = t.health;
         const drainChakraTargets = resolveEffectTargets(skill.drainChakraTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         drainChakraTargets.forEach(t => {
           if (t.isDead) return;
+          const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
+          // 1º tick IMEDIATO ao usar (já conta como o 1º turno)
+          performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'drain', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
+          // Ticks restantes ficam como efeito contínuo (duração - 1); castTurn evita drenar de novo neste turno
           if (dur > 1) {
             pushActiveEffect(t, {
               name: `Dreno de Chakra (${skill.name})`,
-              type: 'custom', value: amt, duration: dur, icon: skill.icon,
+              type: 'custom', value: amt, duration: dur - 1, icon: skill.icon,
+              castTurn: turn,
               irremovable: !!skill.drainChakraIrremovable,
             });
-            newLogs.push({ id: Math.random().toString(), turn, message: `🌀 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por ${dur}T`, type: 'chakra' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `🌀 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por mais ${dur - 1}T`, type: 'chakra' });
             addFloatingText(t.id, 'DRENO CHAKRA CONTINUO', 'effect');
-          } else {
-            const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
-            performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'drain', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
           }
           cleanseTargetEffects(t, skill.drainChakraRemoveType);
         });
@@ -5352,17 +5377,18 @@ const startingHealth = t.health;
         const removeChakraTargets = resolveEffectTargets(skill.removeChakraTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         removeChakraTargets.forEach(t => {
           if (t.isDead) return;
+          const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
+          // 1º tick IMEDIATO ao usar (já conta como o 1º turno)
+          performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'remove', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
           if (dur > 1) {
             pushActiveEffect(t, {
               name: `Remoção de Chakra (${skill.name})`,
-              type: 'custom', value: amt, duration: dur, icon: skill.icon,
+              type: 'custom', value: amt, duration: dur - 1, icon: skill.icon,
+              castTurn: turn,
               irremovable: !!skill.removeChakraIrremovable,
             });
-            newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por ${dur}T`, type: 'chakra' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por mais ${dur - 1}T`, type: 'chakra' });
             addFloatingText(t.id, 'REMOCAO CHAKRA CONTINUA', 'effect');
-          } else {
-            const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
-            performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'remove', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
           }
           cleanseTargetEffects(t, skill.removeChakraRemoveType);
         });
@@ -5375,17 +5401,18 @@ const startingHealth = t.health;
         const stealChakraTargets = resolveEffectTargets(skill.stealChakraTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         stealChakraTargets.forEach(t => {
           if (t.isDead) return;
+          const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
+          // 1º tick IMEDIATO ao usar (já conta como o 1º turno)
+          performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'steal', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
           if (dur > 1) {
             pushActiveEffect(t, {
               name: `Roubo de Chakra (${skill.name})`,
-              type: 'custom', value: amt, duration: dur, icon: skill.icon,
+              type: 'custom', value: amt, duration: dur - 1, icon: skill.icon,
+              castTurn: turn,
               irremovable: !!skill.stealChakraIrremovable,
             });
-            newLogs.push({ id: Math.random().toString(), turn, message: `💰 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por ${dur}T`, type: 'chakra' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `💰 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por mais ${dur - 1}T`, type: 'chakra' });
             addFloatingText(t.id, 'ROUBO CHAKRA CONTINUO', 'effect');
-          } else {
-            const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
-            performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'steal', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
           }
           cleanseTargetEffects(t, skill.stealChakraRemoveType);
         });
@@ -9106,6 +9133,13 @@ splashOnlyTargets = splashPool.filter(c =>
     const updatedPlayer = srcPlayer.map(c => ({ ...c }));
     const updatedEnemy = srcEnemy.map(c => ({ ...c }));
 
+    // 🌀 Pools locais de chakra para os efeitos contínuos (ganho/dreno/roubo) do fim da rodada.
+    // IMPORTANTE: mutamos ESTES objetos e aplicamos com setState UMA vez no fim, evitando
+    // efeitos colaterais dentro dos updaters de setState (que o StrictMode chama 2x → dobrava o dreno).
+    const endRoundPlayerChakra: ChakraPool = { ...playerChakra };
+    const endRoundEnemyChakra: ChakraPool = { ...enemyChakra };
+    let endRoundChakraChanged = false;
+
     const applyTurnEndUpdates = (combatantList: CombatCharacter[], name: string) => {
       combatantList.forEach(c => {
         if (c.isDead) return;
@@ -9319,6 +9353,85 @@ splashOnlyTargets = splashPool.filter(c =>
               type: 'buff',
             });
             addFloatingText(c.id, `+${actualAdded} ESCUDO`, 'shield');
+          }
+        });
+
+        // ✨ Ganho de Chakra contínuo (Fluxo de Chakra) — aplicado no fim da rodada.
+        // Não é bloqueado pela pausa de geração do sandbox: é um ganho ativo de skill.
+        const gainChakraEffects = c.activeEffects.filter(e => e.name.startsWith('Fluxo de Chakra'));
+        gainChakraEffects.forEach(effect => {
+          const amt = effect.value || 0;
+          if (amt <= 0) return;
+          const targetPool = name === 'Player' ? endRoundPlayerChakra : endRoundEnemyChakra;
+          for (let i = 0; i < amt; i++) {
+            const randType = pickChakraGainType(targetPool, effect.gainChakraTypes);
+            targetPool[randType]++;
+          }
+          endRoundChakraChanged = true;
+          newLogs.push({
+            id: Math.random().toString(),
+            turn,
+            message: `✨ ${c.character.name} regenerou +${amt} chakra elemental pelo efeito [${effect.name}]!`,
+            type: 'chakra',
+          });
+          addFloatingText(c.id, `+${amt} CHAKRA (FLUXO)`, 'effect');
+        });
+
+        // 🌀 Dreno / Roubo / Remoção de Chakra contínuos (duração 2+) — aplicado no fim da rodada.
+        // Dreno e Roubo REMOVEM do estoque do portador e ADICIONAM ao estoque do lado oposto (ladrão).
+        // Remoção apenas retira, sem repassar. Funciona também no sandbox com geração pausada.
+        // NB: mutamos os pools locais (endRound*) e aplicamos 1x no fim — nada de setState aqui
+        //     (senão o StrictMode roda o updater 2x e o dreno dobra: 1/turno vira 2/turno).
+        const drainChakraEffects = c.activeEffects.filter(e =>
+          (e.name.startsWith('Dreno de Chakra') ||
+          e.name.startsWith('Roubo de Chakra') ||
+          e.name.startsWith('Remoção de Chakra')) &&
+          e.castTurn !== turn // pula a rodada em que foi criado (o 1º tick já ocorreu no uso da skill)
+        );
+        drainChakraEffects.forEach(effect => {
+          const amt = effect.value || 0;
+          if (amt <= 0) return;
+          const isRemov = effect.name.startsWith('Remoção');
+          const victimPool = name === 'Player' ? endRoundPlayerChakra : endRoundEnemyChakra;
+          const thiefPool = name === 'Player' ? endRoundEnemyChakra : endRoundPlayerChakra;
+
+          const affectedTypes: (keyof ChakraPool)[] = [];
+          for (let i = 0; i < amt; i++) {
+            const nonZero = (Object.keys(victimPool) as (keyof ChakraPool)[]).filter(k => victimPool[k] > 0);
+            if (nonZero.length > 0) {
+              const randType = nonZero[Math.floor(Math.random() * nonZero.length)];
+              victimPool[randType]--;
+              affectedTypes.push(randType);
+            }
+          }
+
+          // Se o inimigo não tinha chakra para drenar/roubar, NÃO há transferência (nada de "-0" nem chakra fantasma)
+          if (affectedTypes.length === 0) return;
+
+          // Dreno/Roubo transferem para o ladrão SÓ o que foi realmente drenado do inimigo
+          if (!isRemov) {
+            affectedTypes.forEach(k => { thiefPool[k] = (thiefPool[k] || 0) + 1; });
+          }
+
+          {
+            endRoundChakraChanged = true;
+            const affectedStr = affectedTypes.map(k => getChakraName(k)).join(', ');
+            const actionName = isRemov ? 'removido' : 'drenado';
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: isRemov
+                ? `🌀 [${effect.name}] no estoque de ${name === 'Player' ? 'seu time' : 'oponente'}: ${affectedTypes.length} chakra (${affectedStr}) ${actionName}!`
+                : `🌀 [${effect.name}] drenou ${affectedTypes.length} chakra (${affectedStr}) do ${name === 'Player' ? 'seu time' : 'oponente'} para o ${name === 'Player' ? 'oponente' : 'seu time'}!`,
+              type: 'chakra',
+            });
+            addFloatingText(c.id, `-${affectedTypes.length} CHAKRA (${isRemov ? 'REMOVIDO' : 'DRENADO'})`, 'effect');
+
+            if (name === 'Player') {
+              triggerChakraToast(`⚠️ [${effect.name}] ${isRemov ? 'removeu' : 'drenou'} ${affectedTypes.length} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
+            } else {
+              triggerChakraToast(`⚡ [${effect.name}] ${isRemov ? 'removeu' : 'roubou'} ${affectedTypes.length} chakra (${affectedStr}) do estoque do oponente!`, 'stolen');
+            }
           }
         });
 
@@ -9677,6 +9790,13 @@ splashOnlyTargets = splashPool.filter(c =>
 
     applyTurnEndUpdates(updatedPlayer, 'Player');
     applyTurnEndUpdates(updatedEnemy, 'Enemy');
+
+    // 🌀 Aplica de uma vez os ganhos/drenos/roubos de chakra contínuos acumulados nos pools locais.
+    // (Feito fora dos updaters de setState para não dobrar em StrictMode.)
+    if (endRoundChakraChanged) {
+      setPlayerChakra({ ...endRoundPlayerChakra });
+      setEnemyChakra({ ...endRoundEnemyChakra });
+    }
 
     // Process revivals & caster-death effect removals after end-of-turn damage
     processDeathEvents([...updatedPlayer, ...updatedEnemy], newLogs);
@@ -11152,6 +11272,7 @@ splashOnlyTargets = splashPool.filter(c =>
         enemyChakra,
         onlineParams,
         isSandbox,
+        sandboxPauseChakraGen: chakraGenPaused,
         processedOpponentTurns: Array.from(processedOpponentTurnsRef.current),
         passedPlayersThisTurn,
       };

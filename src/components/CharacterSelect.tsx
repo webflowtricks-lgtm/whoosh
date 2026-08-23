@@ -18,7 +18,8 @@ interface CharacterSelectProps {
     playerTeam: Character[],
     enemyTeam: Character[],
     online?: { isOnline: boolean; roomId: string; playerIndex: number; opponentProfile: UserProfile },
-    sandbox?: boolean
+    sandbox?: boolean,
+    sandboxPauseChakraGen?: boolean
   ) => void;
   playClickSound: () => void;
   playScrollSound: () => void;
@@ -43,6 +44,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     return [];
   });
   const [sandboxPlayerTeam, setSandboxPlayerTeam] = useState<Character[] | null>(null);
+  // 🧊 Sandbox: modal perguntando se deseja pausar a geração de chakra (10 chakras fixos p/ ambos)
+  const [showSandboxChakraModal, setShowSandboxChakraModal] = useState(false);
   const [previewCharacter, setPreviewCharacter] = useState<Character>(() => {
     const list = getCharacters();
     try {
@@ -306,9 +309,17 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const handleConfirmSandboxMatch = () => {
     if (selectedIds.length !== 3 || !sandboxPlayerTeam) return;
     playClickSound();
+    // Abre o modal perguntando sobre pausar a geração de chakra (só em sandbox)
+    setShowSandboxChakraModal(true);
+  };
+
+  const finalizeSandboxMatch = (pauseChakraGen: boolean) => {
+    if (selectedIds.length !== 3 || !sandboxPlayerTeam) return;
+    playClickSound();
     const rawEnemyTeam = charList.filter(c => selectedIds.includes(c.id));
     const enemyTeam = attachSkinsToTeam(rawEnemyTeam);
-    onConfirmTeams(sandboxPlayerTeam, enemyTeam, undefined, true);
+    setShowSandboxChakraModal(false);
+    onConfirmTeams(sandboxPlayerTeam, enemyTeam, undefined, true, pauseChakraGen);
   };
 
   // Handle Online Matchmaking Flow
@@ -531,11 +542,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           />
 
           {/* Topbar Content */}
-          <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col md:flex-row justify-center items-center gap-4 md:gap-10 px-4 sm:px-8 py-2.5">
+          <div className="top-items-battle relative z-10 w-full max-w-7xl mx-auto flex flex-col md:flex-row justify-center items-center gap-4 md:gap-10 px-4 sm:px-8 py-2.5">
             <div className="text-center md:text-left shrink-0">
-              <span className="text-[11px] font-mono text-amber-900 font-bold tracking-wider uppercase block">
-                {sandboxPlayerTeam ? t("Fase 02: Oponente Sandbox", "Phase 02: Sandbox Opponent") : t("Fase 01: Escolha dos Shinobis", "Phase 01: Select Shinobis")}
-              </span>
+        
               <h2 className="text-xl sm:text-2xl font-black tracking-tight text-amber-950 font-mono uppercase drop-shadow-sm">
                 {sandboxPlayerTeam ? t("ESCOLHA O ESQUADRÃO ADVERSÁRIO", "CHOOSE OPPONENT SQUAD") : t("ESCOLHA SEU ESQUADRÃO", "CHOOSE YOUR SQUAD")}
               </h2>
@@ -1315,6 +1324,60 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 </button>
               )}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 🧊 Sandbox: Modal de Pausar Geração de Chakra */}
+      <AnimatePresence>
+        {showSandboxChakraModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={() => setShowSandboxChakraModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-slate-950 border border-cyan-800/50 rounded-2xl shadow-2xl p-6 space-y-4"
+            >
+              <div className="text-center space-y-2">
+                <div className="text-4xl">🧊</div>
+                <h3 className="text-lg font-black text-cyan-300 font-display uppercase tracking-wide">
+                  {t('Pausar Geração de Chakra?', 'Pause Chakra Generation?')}
+                </h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  {t(
+                    'Modo exclusivo do Sandbox. Se ativado: você e o Jogador 2 começam com 10 chakras variados cada, e passar o turno NÃO gera novos chakras. O gasto e a remoção de chakra continuam funcionando normalmente.',
+                    'Sandbox-only mode. If enabled: you and Player 2 each start with 10 varied chakras, and passing the turn does NOT generate new chakra. Chakra spending and removal still work normally.'
+                  )}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 pt-2">
+                <button
+                  onClick={() => finalizeSandboxMatch(true)}
+                  className="w-full rounded-lg py-3 text-sm font-bold font-mono tracking-wider uppercase transition-all active:scale-95 cursor-pointer bg-gradient-to-r from-cyan-700 to-cyan-900 hover:from-cyan-600 hover:to-cyan-800 text-cyan-50 border border-cyan-600/60"
+                >
+                  🧊 {t('Sim, pausar (10 chakras cada)', 'Yes, pause (10 chakras each)')}
+                </button>
+                <button
+                  onClick={() => finalizeSandboxMatch(false)}
+                  className="w-full rounded-lg py-3 text-sm font-bold font-mono tracking-wider uppercase transition-all active:scale-95 cursor-pointer bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700"
+                >
+                  {t('Não, geração normal', 'No, normal generation')}
+                </button>
+                <button
+                  onClick={() => setShowSandboxChakraModal(false)}
+                  className="w-full rounded-lg py-2 text-[11px] font-mono text-slate-500 hover:text-slate-300 transition-all cursor-pointer"
+                >
+                  {t('Cancelar', 'Cancel')}
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
