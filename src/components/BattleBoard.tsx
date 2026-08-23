@@ -2277,10 +2277,6 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     if (combatant.isDead) return;
     if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current || isWaitingForOpponent) return;
 
-    // 🔒 Online: se EU já finalizei minha fase nesta rodada, NÃO posso selecionar/planejar de novo
-    // (evita a corrida em que o efeito de iniciativa/poll reabria meu planejamento após o pass).
-    if (onlineParams?.isOnline && passedPlayersRef.current.includes('player')) return;
-
     if (!isSandbox) {
       if (activePlanner === 'player' && isEnemyChar) return;
       if (activePlanner === 'enemy' && !isEnemyChar) return;
@@ -2454,8 +2450,6 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   const handleSelectTarget = (targetId: string, isEnemyTarget: boolean) => {
     if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current || isWaitingForOpponent || gameOver) return;
     if (!selectedSkill) return;
-    // 🔒 Online: se EU já finalizei minha fase, não posso marcar alvos (mesma corrida do pass).
-    if (onlineParams?.isOnline && passedPlayersRef.current.includes('player')) return;
 
     const isSourceEnemy = selectedSkill.charId.startsWith('enemy');
     const sourceChar = isSourceEnemy
@@ -9874,23 +9868,12 @@ splashOnlyTargets = splashPool.filter(c =>
     const nextTurn = turn + 1;
     setTurn(nextTurn);
 
-    // Roll initiative for new turn.
-    // 🔒 ONLINE: iniciativa DETERMINÍSTICA por turno (turn % 2) — precisa ser IGUAL nos dois
-    // clientes, senão cada lado escolhe um "primeiro" diferente e o turno nunca fecha.
-    // Offline/sandbox mantém o sorteio 50/50.
-    let newFirstPlayer: 'player' | 'enemy';
-    if (onlineParams?.isOnline) {
-      const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
-      const whoGoesFirst = (nextTurn % 2 === 1) ? 0 : 1;
-      newFirstPlayer = myOnlineIndex === whoGoesFirst ? 'player' : 'enemy';
-    } else {
-      newFirstPlayer = Math.random() < 0.5 ? 'player' : 'enemy';
-    }
+    // Roll initiative for new turn (50/50 chance)
+    const newFirstPlayer: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
     setActivePlanner(newFirstPlayer);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
-    setIsWaitingForOpponent(onlineParams?.isOnline ? newFirstPlayer !== 'player' : false);
     advanced = true;
 
     // Roll chakra for the new turn (1 per alive character on each team)
@@ -11049,28 +11032,30 @@ splashOnlyTargets = splashPool.filter(c =>
   // Online Match Turn Initiative Setup Effect
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver) return;
-    // Não mexer no planner enquanto a rodada está sendo resolvida ou o turno está finalizando
-    // (evita corrida que reabria o planejamento logo após o pass).
-    if (isResolvingTurnEndRef.current || isEndingTurnRef.current) return;
 
-    const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
-    const whoGoesFirst = (turn % 2 === 1) ? 0 : 1;
-    const isOurTurnToPlan = myOnlineIndex === whoGoesFirst;
+    // 1) Ambos já passaram nesta rodada → a resolução está no comando; NÃO reabrir planejamento.
+    //    (Sem isto, o efeito reabria minha vez logo após eu finalizar quando o oponente já tinha
+    //     passado — a skill era aplicada e eu jogava de novo, e o turno não finalizava.)
+    if (passedPlayersRef.current.length >= 2) return;
 
-    // 🔒 CRÍTICO: se EU já passei nesta rodada, SEMPRE fico aguardando — nunca reabrir o
-    // planejamento. Sem isto, quando ambos os lados já passaram (e a resolução ainda não
-    // avançou o turno), este efeito reativava a minha vez e eu podia jogar de novo com a
-    // skill já aplicada — o turno "não finalizava". Vale para os dois lados (simétrico).
+    // 2) EU já passei (e o oponente ainda não) → SEMPRE aguardo; nunca reabrir minha fase.
     if (passedPlayersRef.current.includes('player')) {
       setActivePlanner('enemy');
       setIsWaitingForOpponent(true);
       return;
     }
 
-    // Eu ainda NÃO passei:
-    // - sou o primeiro a planejar, OU o oponente já passou (agora é a minha vez) → posso planejar.
-    // - caso contrário, o oponente planeja primeiro e ainda não passou → aguardo.
-    if (isOurTurnToPlan || passedPlayersRef.current.includes('enemy')) {
+    // 3) O oponente já passou (e eu não) → agora é a MINHA vez.
+    if (passedPlayersRef.current.includes('enemy')) {
+      setActivePlanner('player');
+      setIsWaitingForOpponent(false);
+      return;
+    }
+
+    // 4) Ninguém passou ainda → ordem DETERMINÍSTICA da rodada (turn % 2), igual nos dois clientes.
+    const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
+    const whoGoesFirst = (turn % 2 === 1) ? 0 : 1;
+    if (myOnlineIndex === whoGoesFirst) {
       setActivePlanner('player');
       setIsWaitingForOpponent(false);
     } else {
