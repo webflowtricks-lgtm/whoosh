@@ -3547,6 +3547,47 @@ const handleTradeChakra = () => {
         }
       }
 
+      // ♻️ Cancelar ao reusar (cancelSelfOnReuse): se esta skill JÁ está ativa no conjurador,
+      // usá-la de novo REMOVE o efeito anterior (buff E debuff) e não reaplica nesta ativação.
+      // Danos contínuos da própria skill (dano próprio/bleeding/dot/aflição/etc) batem um
+      // ÚLTIMO tique e saem — só voltam quando a skill for ativada de novo.
+      if (skill.cancelSelfOnReuse) {
+        const priorEffects = source.activeEffects.filter(e =>
+          (e.sourceSkillName && e.sourceSkillName === skill.name) ||
+          (!e.sourceSkillName && !!e.name && (e.name === skill.name || e.name.startsWith(`${skill.name} `)))
+        );
+        if (priorEffects.length > 0) {
+          const finalDots = priorEffects.filter(e => ['bleeding', 'dot', 'affliction', 'life_steal', 'damage', 'direct_damage'].includes(e.type));
+          finalDots.forEach(e => {
+            const dmg = e.value || 0;
+            if (dmg <= 0 || source.isDead) return;
+            source.health = (hasImmortalEffect(source) || (e as any).cantKill) ? Math.max(1, source.health - dmg) : Math.max(0, source.health - dmg);
+            if (action.isPlayer) matchStatsRef.current.damageDealt += dmg;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🩸 ${source.character.name} sofreu o último -${dmg} de dano contínuo de [${skill.name}] antes do efeito acabar!`,
+              type: 'damage',
+            });
+            addFloatingText(source.id, `-${dmg} HP (ÚLTIMO TICK)`, 'damage');
+          });
+          if (source.health <= 0 && !hasImmortalEffect(source)) {
+            source.isDead = true;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `💀 ${source.character.name} CAIU EM BATALHA!`,
+              type: 'death',
+            });
+            addFloatingText(source.id, 'DERROTADO', 'damage');
+          }
+          source.activeEffects = source.activeEffects.filter(e => !priorEffects.includes(e));
+          newLogs.push({ id: Math.random().toString(), turn, message: `♻️ [${skill.name}] foi CANCELADO — ${source.character.name} perdeu seus efeitos e voltou a ficar vulnerável!`, type: 'buff' });
+          addFloatingText(source.id, `${skill.name} CANCELADO`, 'effect');
+          return;
+        }
+      }
+
       // Track skill usage for requirePreviousSkill
       if (!currentTurnUsedSkills.current[source.id]) currentTurnUsedSkills.current[source.id] = new Set();
       currentTurnUsedSkills.current[source.id].add(skill.name);
@@ -3575,24 +3616,8 @@ const handleTradeChakra = () => {
               cannotBeCountered: pNoCounter ? true : skill.cannotBeCountered,
               cannotBeReflected: pNoReflect ? true : skill.cannotBeReflected,
             };
-      (source as any)._executingSkill = skill;
-      currentSkillRef.current = skill;
-
-      // ♻️ Cancelar ao reusar (cancelSelfOnReuse): se esta skill JÁ está ativa no conjurador,
-      // usá-la de novo REMOVE o efeito anterior (ex.: Mangekyo Sharingan → volta a ficar
-      // totalmente vulnerável) e pula a aplicação desta execução.
-      if (skill.cancelSelfOnReuse) {
-        const priorEffects = source.activeEffects.filter(e =>
-          (e.sourceSkillName && e.sourceSkillName === skill.name) ||
-          (!e.sourceSkillName && !!e.name && (e.name === skill.name || e.name.startsWith(`${skill.name} `)))
-        );
-        if (priorEffects.length > 0) {
-          source.activeEffects = source.activeEffects.filter(e => !priorEffects.includes(e));
-          newLogs.push({ id: Math.random().toString(), turn, message: `♻️ [${skill.name}] foi CANCELADO — ${source.character.name} perdeu seus efeitos e voltou a ficar vulnerável!`, type: 'buff' });
-          addFloatingText(source.id, `${skill.name} CANCELADO`, 'effect');
-          return;
-        }
-      }
+            (source as any)._executingSkill = skill;
+            currentSkillRef.current = skill;
           }
         }
       }
