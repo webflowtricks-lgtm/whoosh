@@ -8771,6 +8771,40 @@ splashOnlyTargets = splashPool.filter(c =>
       });
     });
 
+    // 💜 Sincronização IMEDIATA dos valores de aflição com as regras condicionais:
+    // ao ativar/desativar a skill condição (ex.: Mangekyo Sharingan), os debuffs de
+    // aflição já aplicados nos oponentes mudam de valor NA HORA (badge + próximos ticks),
+    // sem precisar esperar o próximo passe do conjurador.
+    {
+      const allAfflChars = [...updatedPlayer, ...updatedEnemy];
+      const resolveAfflSkill = (eff: ActiveEffect): Skill | null => {
+        const caster = allAfflChars.find(cb => cb.id === eff.casterId);
+        if (!caster) return null;
+        const effName = eff.name || '';
+        return caster.character.skills.find(s => !!s.name && ((!!eff.sourceSkillName && s.name === eff.sourceSkillName) || effName.startsWith(s.name))) || null;
+      };
+      allAfflChars.forEach(cb => cb.activeEffects.forEach(eff => {
+        if (eff.type !== 'affliction') return;
+        const srcSkill = resolveAfflSkill(eff);
+        if (!srcSkill || !srcSkill.afflictionConditionalRules || srcSkill.afflictionConditionalRules.length === 0) return;
+        let newVal = Math.max(0, eff.afflictionBaseValue ?? eff.value ?? 0);
+        for (const condRule of srcSkill.afflictionConditionalRules) {
+          if (!condRule.activeSkillName || !condRule.value || condRule.value <= 0) continue;
+          const condLower = condRule.activeSkillName.trim().toLowerCase();
+          const hasCondActive = allAfflChars.some(other => other.activeEffects.some(e2 => {
+            if (!e2.name) return false;
+            const e2Lower = e2.name.toLowerCase();
+            return e2Lower === condLower || e2Lower.includes(condLower) || condLower.includes(e2Lower);
+          }));
+          if (hasCondActive) {
+            newVal = Math.max(0, condRule.value);
+            break;
+          }
+        }
+        eff.value = newVal;
+      }));
+    }
+
     // Save updated state
     setPlayerChakra({ ...localPlayerChakra });
     setEnemyChakra({ ...localEnemyChakra });
