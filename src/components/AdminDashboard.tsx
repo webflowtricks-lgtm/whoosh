@@ -8332,10 +8332,19 @@ const newSkill: Skill = {
                                   />
                                   <span className="text-[9px] text-cyan-400 font-mono">♾️ Infinito</span>
                                 </label>
-                                <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-1 bg-indigo-950/20 border border-indigo-900/40 rounded-lg px-2 py-1 flex-wrap">
-                                <span className="text-[9px] text-indigo-300 font-mono uppercase font-bold">⏭️ Invuln. Atrasada:</span>
+                                 <span className="text-[10px] text-slate-500 font-mono">Duração em turnos</span>
+                               </div>
+                               <label className="flex items-center gap-1.5 mt-1 cursor-pointer select-none bg-slate-950/60 border border-cyan-900/40 rounded-lg px-2 py-1 w-fit" title="Se esta skill for usada de novo enquanto o efeito está ativo, o efeito anterior é CANCELADO (o portador volta a ficar vulnerável) em vez de reaplicado">
+                                 <input
+                                   type="checkbox"
+                                   checked={!!editingSkill.cancelSelfOnReuse}
+                                   onChange={(e) => handleUpdateSkillField('cancelSelfOnReuse', e.target.checked)}
+                                   className="rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-0 w-3 h-3"
+                                 />
+                                 <span className="text-[9px] text-cyan-400 font-mono">♻️ Usar de novo CANCELA o efeito</span>
+                               </label>
+                               <div className="flex items-center gap-1.5 mt-1 bg-indigo-950/20 border border-indigo-900/40 rounded-lg px-2 py-1 flex-wrap">
+                                 <span className="text-[9px] text-indigo-300 font-mono uppercase font-bold">⏭️ Invuln. Atrasada:</span>
                                 <span className="text-[9px] text-slate-500 font-mono">fica invuln. por</span>
                                 <input
                                   type="number"
@@ -8638,6 +8647,63 @@ const newSkill: Skill = {
                                   className="w-14 px-1.5 py-1 bg-slate-900 border border-purple-900/60 rounded text-center text-xs font-mono text-white font-bold outline-none focus:border-purple-500"
                                 />
                                 <span className="text-[9px] text-slate-500 font-mono">de aflição por turno</span>
+                              </div>
+                              {(editingSkill.afflictionConditionalRules || []).map((rule, rIdx) => (
+                                <div key={rIdx} className="flex items-center gap-2 mt-1 flex-wrap bg-slate-950/60 rounded-lg border border-purple-900/50 px-2 py-1">
+                                  <span className="text-[9px] text-purple-400 font-mono">🔀 Se</span>
+                                  <input
+                                    list="self-cast-skill-list"
+                                    type="text"
+                                    value={rule.activeSkillName || ''}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.afflictionConditionalRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], activeSkillName: e.target.value };
+                                      handleUpdateSkillField('afflictionConditionalRules', updated);
+                                    }}
+                                    placeholder="skill que deve estar ativa"
+                                    title="Nome da skill que deve estar ATIVA (em qualquer combatente) para esta regra valer"
+                                    className="flex-1 min-w-36 px-2 py-1 bg-slate-900 border border-purple-900/50 focus:border-purple-500 rounded text-white outline-none text-[10px] font-mono"
+                                  />
+                                  <span className="text-[9px] text-slate-400 font-mono">estiver ativa → por turno:</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    value={rule.value || 0}
+                                    onChange={(e) => {
+                                      const updated = [...(editingSkill.afflictionConditionalRules || [])];
+                                      updated[rIdx] = { ...updated[rIdx], value: parseInt(e.target.value) || 0 };
+                                      handleUpdateSkillField('afflictionConditionalRules', updated);
+                                    }}
+                                    placeholder="0"
+                                    title="Valor por turno da aflição enquanto a condição estiver ativa (substitui o Por turno padrão)"
+                                    className="w-14 px-1.5 py-1 bg-slate-900 border border-purple-700/60 rounded text-center text-xs font-mono text-purple-300 font-bold outline-none focus:border-purple-500"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = (editingSkill.afflictionConditionalRules || []).filter((_, i) => i !== rIdx);
+                                      handleUpdateSkillField('afflictionConditionalRules', updated.length > 0 ? updated : undefined);
+                                    }}
+                                    className="p-1 bg-slate-900 hover:bg-red-950/80 text-slate-500 hover:text-red-400 rounded border border-slate-800 transition-all cursor-pointer ml-auto"
+                                    title="Remover regra condicional"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                              <div className="flex items-center gap-2 mt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const current = editingSkill.afflictionConditionalRules || [];
+                                    handleUpdateSkillField('afflictionConditionalRules', [...current, { activeSkillName: '', value: 0 }]);
+                                  }}
+                                  title="Se a skill indicada estiver ativa, o dano por turno vira outro valor"
+                                  className="px-2 py-0.5 bg-purple-950/40 hover:bg-purple-900/50 text-purple-300 border border-purple-800/60 rounded text-[8px] font-mono font-bold uppercase transition-all cursor-pointer"
+                                >
+                                  + 🔀 Se skill ativa, por turno vira...
+                                </button>
                               </div>
                               <div className="flex items-center gap-2 mt-1 flex-wrap">
                                 <span className="text-[9px] text-purple-400 font-mono uppercase font-bold w-24 shrink-0">⏳ Duração:</span>

@@ -96,6 +96,15 @@ export interface SkillSelfCastStackRule {
   invisible?: boolean;
 }
 
+/** 💜 Regra condicional de aflição: se a skill `activeSkillName` estiver ATIVA (efeito ativo em qualquer combatente),
+ *  o dano de aflição POR TURNO desta skill vira `value` ao invés do afflictionVal padrão. Primeira regra que casar ganha. */
+export interface SkillAfflictionConditionalRule {
+  /** Nome da skill que deve estar ativa para a regra valer */
+  activeSkillName: string;
+  /** Valor por turno alternativo da aflição enquanto a condição estiver ativa */
+  value: number;
+}
+
 export interface SkillPrisonRule {
   /** Ativa a regra "Prisão de Madeira" (Wood Spire Prison) nesta skill */
   enabled?: boolean;
@@ -551,6 +560,8 @@ export interface Skill {
   afflictionDelay?: number; // Turnos de atraso antes da aflição começar a causar dano (não causa agora)
   /** Quando afflictionTarget = 'Both' (Mim e Alvo), quanto de aflição por turno o CONJURADOR recebe (padrão = afflictionVal) */
   afflictionSelfVal?: number;
+  /** 💜 Regras condicionais de aflição: se a skill indicada estiver ATIVA, o dano por turno vira `value` ao invés do afflictionVal padrão */
+  afflictionConditionalRules?: SkillAfflictionConditionalRule[];
   // Roubo de Vida (Vampirismo): rouba vida do alvo por turno; o conjurador recupera o dano causado (Dano Normal: sofre redução e escudo)
   stealLifeVal?: number;
   stealLifeDuration?: number;
@@ -745,6 +756,8 @@ redirectOffensiveToCaster?: boolean;
 /** Se verdadeiro, usar esta habilidade em SI MESMO remove o efeito Guarda-Costas do conjurador
  * (em vez de aplicar/atualizar a proteção nos aliados) */
 redirectOffensiveRemoveOnSelfCast?: boolean;
+  /** ♻️ Usar esta skill de novo enquanto ela está ativa CANCELA o efeito anterior (portador volta a ficar vulnerável) em vez de reaplicar */
+  cancelSelfOnReuse?: boolean;
 redirectOffensiveDuration?: number;
 redirectOffensiveScope?: 'ally' | 'team';
 redirectOffensiveTarget?: TargetOverride;
@@ -995,6 +1008,8 @@ export interface ActiveEffect {
   blocksOffensiveSkills?: boolean; // Se verdadeiro, impede o alvo de usar skills ofensivas
   /** 🚑 Marcador: efeito originado de skill com blocksHealsWhileActive — bloqueia curas no portador */
   blocksHeals?: boolean;
+  /** 💜 Valor BASE de aflição por turno (snapshot do cast) — o tick reavalia regras condicionais e ajusta `value` dinamicamente */
+  afflictionBaseValue?: number;
 counterAttackType?: 'attacker' | 'defender';
   counterAttackMode?: 'first' | 'all';
   /** Anular apenas skills destas classes (vazio = anula qualquer skill) */

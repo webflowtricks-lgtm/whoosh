@@ -3575,8 +3575,24 @@ const handleTradeChakra = () => {
               cannotBeCountered: pNoCounter ? true : skill.cannotBeCountered,
               cannotBeReflected: pNoReflect ? true : skill.cannotBeReflected,
             };
-            (source as any)._executingSkill = skill;
-            currentSkillRef.current = skill;
+      (source as any)._executingSkill = skill;
+      currentSkillRef.current = skill;
+
+      // ♻️ Cancelar ao reusar (cancelSelfOnReuse): se esta skill JÁ está ativa no conjurador,
+      // usá-la de novo REMOVE o efeito anterior (ex.: Mangekyo Sharingan → volta a ficar
+      // totalmente vulnerável) e pula a aplicação desta execução.
+      if (skill.cancelSelfOnReuse) {
+        const priorEffects = source.activeEffects.filter(e =>
+          (e.sourceSkillName && e.sourceSkillName === skill.name) ||
+          (!e.sourceSkillName && !!e.name && (e.name === skill.name || e.name.startsWith(`${skill.name} `)))
+        );
+        if (priorEffects.length > 0) {
+          source.activeEffects = source.activeEffects.filter(e => !priorEffects.includes(e));
+          newLogs.push({ id: Math.random().toString(), turn, message: `♻️ [${skill.name}] foi CANCELADO — ${source.character.name} perdeu seus efeitos e voltou a ficar vulnerável!`, type: 'buff' });
+          addFloatingText(source.id, `${skill.name} CANCELADO`, 'effect');
+          return;
+        }
+      }
           }
         }
       }
@@ -5160,7 +5176,11 @@ const startingHealth = t.health;
       const instantBuffSum = dmgBuffInstant;
       const totalDotInstant = dotInstant + missingHpDot + instantBuffSum;
       const totalBleedInstant = bleedingInstant + missingHpBleed + instantBuffSum;
-      const totalAfflictionInstant = afflictionInstant + missingHpAffliction + instantBuffSum;
+      // 💜 Regra de dano (tipo Aflição + Ignorar Dano Base): se a skill TEM ⚡ Na hora configurado,
+      // a regra SUBSTITUI o valor do instantâneo; sem instant configurado, vale o legado
+      // (a regra substitui o valor POR TURNO no bloco de aflição mais abaixo).
+      const afflRuleReplacesInstant = hasActiveDamageRuleIgnoreBase && ruleAfflictionDamage > 0 && afflictionInstant > 0;
+      const totalAfflictionInstant = (afflRuleReplacesInstant ? ruleAfflictionDamage : afflictionInstant) + missingHpAffliction + instantBuffSum;
       if (totalDotInstant > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalDotInstant);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant;
@@ -7255,7 +7275,10 @@ splashOnlyTargets = splashPool.filter(c =>
       }
 
       // Affliction - debuff & immediate damage on target
-      const totalAfflictionVal = (hasActiveDamageRuleIgnoreBase && ruleAfflictionDamage > 0) ? ruleAfflictionDamage : ((skill.afflictionVal || 0) + ruleAfflictionDamage);
+      // 💜 Regras condicionais (afflictionConditionalRules) são reavaliadas A CADA TICK em
+      // tickCasterContinuousDamage → ativar/desativar a skill condição muda o valor por turno dinamicamente.
+      // Se a regra de dano foi consumida pelo INSTANTÂNEO (⚡ Na hora), o por-turno fica só com o valor base.
+      const totalAfflictionVal = afflRuleReplacesInstant ? (skill.afflictionVal || 0) : ((hasActiveDamageRuleIgnoreBase && ruleAfflictionDamage > 0) ? ruleAfflictionDamage : ((skill.afflictionVal || 0) + ruleAfflictionDamage));
       const afflCastBuff = dmgBuffInstant;
       const afflInstantDmg = totalAfflictionVal + afflCastBuff;
       if (totalAfflictionVal > 0) {
@@ -7281,6 +7304,7 @@ splashOnlyTargets = splashPool.filter(c =>
               name: `${skill.name} Affliction`,
               type: 'affliction',
               value: afflVal,
+              afflictionBaseValue: afflVal,
               duration: rawDuration,
               delayTurns: afflDelay,
               icon: skill.icon,
@@ -7386,6 +7410,7 @@ splashOnlyTargets = splashPool.filter(c =>
               name: `${skill.name} Affliction`,
               type: 'affliction',
               value: afflVal,
+              afflictionBaseValue: afflVal,
               duration: remainingDuration,
               icon: skill.icon,
               irremovable: !!skill.afflictionIrremovable,
@@ -9495,6 +9520,30 @@ splashOnlyTargets = splashPool.filter(c =>
       if (!hasTotalInvulnerability(target)) return false;
       return checkCombatantInvulnerable(target, fallbackType);
     };
+    // 💜 Valor EFETIVO da aflição por turno: reavalia as regras condicionais da skill de origem
+    // a cada rodada — se a skill condição for ativada DEPOIS do cast, o tick passa a usar o valor
+    // alternativo (e volta ao base quando a condição sai). O eff.value é sincronizado para a UI.
+    const getAfflictionTickValue = (aff: ActiveEffect): number => {
+      let val = Math.max(0, aff.afflictionBaseValue ?? aff.value ?? 0);
+      const srcSkill = getEffectSkill(aff);
+      if (srcSkill && srcSkill.afflictionConditionalRules && srcSkill.afflictionConditionalRules.length > 0) {
+        const everyone = [...updatedPlayer, ...updatedEnemy];
+        for (const condRule of srcSkill.afflictionConditionalRules) {
+          if (!condRule.activeSkillName || !condRule.value || condRule.value <= 0) continue;
+          const condNameLower = condRule.activeSkillName.trim().toLowerCase();
+          const hasCondActive = everyone.some(cb => cb.activeEffects.some(e => {
+            if (!e.name) return false;
+            const en = e.name.toLowerCase();
+            return en === condNameLower || en.includes(condNameLower) || condNameLower.includes(en);
+          }));
+          if (hasCondActive) {
+            val = Math.max(0, condRule.value);
+            break;
+          }
+        }
+      }
+      return val;
+    };
 
     [...updatedPlayer, ...updatedEnemy].forEach(c => {
       if (c.isDead) return;
@@ -9645,7 +9694,8 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
           addFloatingText(c.id, 'IMUNE!', 'invulnerable');
         } else {
-          const affVal = Math.max(0, aff.value || 0);
+          const affVal = getAfflictionTickValue(aff);
+          if (aff.value !== affVal) aff.value = affVal; // sincroniza o efeito/badge com o valor dinâmico
           if (convertDamageToShield(c, affVal, turn, ['affliction'])) {
             newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${affVal} de dano de aflição em escudo!`, type: 'buff' });
             addFloatingText(c.id, `+${affVal} ESCUDO (AFLIÇÃO)`, 'shield');
@@ -16282,7 +16332,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                 return (
                                   <div
                                     key={effIdx}
-                                    className={`relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
+                                    className={`buff-debuff-icon relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
                                       isDebuff
                                         ? 'border-red-500/80 shadow-md shadow-red-950/60'
                                         : 'border-emerald-500/80 shadow-md shadow-emerald-950/60'
@@ -17416,7 +17466,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                 return (
                                   <div
                                     key={effIdx}
-                                    className={`relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
+                                    className={`buff-debuff-icon relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
                                       isDebuff
                                         ? 'border-red-500/80 shadow-md shadow-red-950/60'
                                         : 'border-emerald-500/80 shadow-md shadow-emerald-950/60'
