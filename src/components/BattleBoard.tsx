@@ -11043,19 +11043,33 @@ splashOnlyTargets = splashPool.filter(c =>
   }, [handleEndTurn]);
 
   // Online Match Turn Initiative Setup Effect
-  // ⚠️ Este efeito SÓ configura o INÍCIO de uma rodada nova (quando NINGUÉM passou ainda).
-  // As transições no meio da rodada são imperativas:
-  //   - meu pass       → handleEndTurn (define activePlanner='enemy' + waiting)
-  //   - pass do oponente → poll runSync (define activePlanner='player' quando é minha vez)
-  // Se este efeito também mexesse no planner após alguém já ter passado, ele CORRIA com os dois
-  // acima e reabria a minha vez logo depois de eu finalizar (bug: "finalizar 2x / turno não passa").
+  // 🔑 FONTE ÚNICA da verdade do planner ONLINE. Deriva activePlanner/waiting a partir de
+  // passedPlayers + ordem determinística (turn % 2). handleEndTurn e o poll SÓ atualizam
+  // passedPlayers; quem define de quem é a vez é este efeito (evita a corrida que causava
+  // "finalizar 2x" ou "ambos aguardando").
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver) return;
 
-    // Alguém já passou nesta rodada → NÃO tocar no planner (deixa handleEndTurn/poll no comando).
-    if (passedPlayersRef.current.length !== 0) return;
+    const iPassed = passedPlayersRef.current.includes('player');
+    const oppPassed = passedPlayersRef.current.includes('enemy');
 
-    // Rodada fresca: define quem começa de forma DETERMINÍSTICA (turn % 2), igual nos dois clientes.
+    // Ambos passaram → a resolução da rodada cuida do avanço; não mexer no planner aqui.
+    if (iPassed && oppPassed) return;
+
+    if (iPassed) {
+      // Eu já finalizei; aguardo o oponente. NUNCA reabrir minha fase.
+      setActivePlanner('enemy');
+      setIsWaitingForOpponent(true);
+      return;
+    }
+    if (oppPassed) {
+      // O oponente já finalizou; agora é a MINHA vez.
+      setActivePlanner('player');
+      setIsWaitingForOpponent(false);
+      return;
+    }
+
+    // Ninguém passou → ordem determinística da rodada (igual/oposta nos dois clientes).
     const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
     const whoGoesFirst = (turn % 2 === 1) ? 0 : 1;
     if (myOnlineIndex === whoGoesFirst) {
