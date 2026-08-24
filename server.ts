@@ -13,6 +13,7 @@ const SHOP_FILE = path.join(process.cwd(), "src", "data", "shop.json");
 const EVENTS_FILE = path.join(process.cwd(), "src", "data", "events.json");
 const BANNERS_FILE = path.join(process.cwd(), "src", "data", "banners.json");
 const FRAMES_FILE = path.join(process.cwd(), "src", "data", "frames.json");
+const MATCH_ROOMS_FILE = path.join(process.cwd(), "src", "data", "match_rooms.json");
 
 // Ensure data directory exists
 const dataDir = path.dirname(USERS_FILE);
@@ -205,6 +206,65 @@ async function startServer() {
   // maps a username -> which room they are in and their slot index (0 or 1)
   const userMatches: { [username: string]: { roomId: string; myIndex: 0 | 1 } } = {};
 
+  // 💾 PERSISTÊNCIA DE SALAS — sem isso, um restart do servidor (deploy/spin-down
+  // do Render) apagava TODAS as partidas ativas da memória e ambos os clientes
+  // ficavam eternamente em "Aguardando oponente" + erros de conexão (404 de sala).
+  const persistRoomsState = () => {
+    writeJSON(MATCH_ROOMS_FILE, { rooms: activeRooms, matches: userMatches });
+  };
+  let roomsDirty = false;
+  let roomsSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  const markRoomsDirty = () => {
+    roomsDirty = true;
+    if (!roomsSaveTimer) {
+      roomsSaveTimer = setTimeout(() => {
+        roomsSaveTimer = null;
+        if (roomsDirty) {
+          roomsDirty = false;
+          persistRoomsState();
+        }
+      }, 400);
+    }
+  };
+
+  // Restaura salas/matchings sobreviventes de uma execução anterior. A fila de
+  // matchmaking NÃO é restaurada de propósito: entradas velhas pareariam fantasmas.
+  try {
+    const saved = readJSON<{ rooms: { [id: string]: MatchRoom } | MatchRoom[]; matches: { [username: string]: { roomId: string; myIndex: 0 | 1 } } }>(MATCH_ROOMS_FILE, { rooms: {}, matches: {} });
+    if (saved && typeof saved === "object") {
+      const savedRooms = Array.isArray(saved.rooms) ? [] : (saved.rooms || {});
+      for (const id in savedRooms) {
+        const r = savedRooms[id];
+        if (r && r.id && Array.isArray(r.players) && r.players.length === 2) {
+          // Pings/lastActivity RENOVADOS na restauração: pings velhos do disco fariam
+          // o primeiro poll pós-restart marcar o oponente como rendido ("desconectado")
+          // antes mesmo dele voltar a pingar. Com pings frescos, ambos os jogadores têm
+          // uma janela completa de 60s para provar que ainda estão vivos.
+          const fresh = Date.now();
+          activeRooms[id] = {
+            ...r,
+            emojis: r.emojis || [],
+            chatMessages: r.chatMessages || [],
+            pings: [fresh, fresh],
+            lastActivity: fresh,
+          };
+        }
+      }
+      for (const username in (saved.matches || {})) {
+        const m = saved.matches[username];
+        if (m && m.roomId && activeRooms[m.roomId]) {
+          userMatches[username] = m;
+        }
+      }
+      if (Object.keys(activeRooms).length > 0) {
+        console.log(`[MATCH] ${Object.keys(activeRooms).length} sala(s) restaurada(s) do disco.`);
+        markRoomsDirty();
+      }
+    }
+  } catch (err) {
+    console.error("[MATCH] Falha ao restaurar salas persistidas:", err);
+  }
+
   const slotOf = (room: MatchRoom, username: string): 0 | 1 | -1 => {
     if (room.players[0].username === username) return 0;
     if (room.players[1].username === username) return 1;
@@ -273,6 +333,7 @@ async function startServer() {
       activeRooms[roomId] = room;
       userMatches[oppSlot.username] = { roomId, myIndex: 0 };
       userMatches[cleanUsername] = { roomId, myIndex: 1 };
+      markRoomsDirty();
 
       // Respond to the joining player (slot 1). The waiting player (slot 0)
       // discovers the match via /api/matchmaking/status polling.
@@ -341,6 +402,7 @@ async function startServer() {
     room.pings[idx] = Date.now();
     if (!room.turns[turn]) room.turns[turn] = [null, null];
     room.turns[turn][idx] = actions;
+    markRoomsDirty();
 
     res.json({ success: true });
   });
@@ -371,8 +433,10 @@ async function startServer() {
     if (!room.surrenderedBy) {
       if (now - room.pings[0] > 60000) {
         room.surrenderedBy = room.players[0].username;
+        markRoomsDirty();
       } else if (now - room.pings[1] > 60000) {
         room.surrenderedBy = room.players[1].username;
+        markRoomsDirty();
       }
     }
 
@@ -406,6 +470,7 @@ async function startServer() {
 
     room.surrenderedBy = username.trim().toLowerCase();
     room.lastActivity = Date.now();
+    markRoomsDirty();
 
     res.json({ success: true });
   });
@@ -440,6 +505,7 @@ async function startServer() {
     if (room.emojis.length > 30) {
       room.emojis.shift();
     }
+    markRoomsDirty();
 
     res.json({ success: true });
   });
@@ -526,6 +592,7 @@ async function startServer() {
     if (room.chatMessages.length > 50) {
       room.chatMessages.shift();
     }
+    markRoomsDirty();
 
     res.json({ success: true, message: msg });
   });
@@ -568,6 +635,7 @@ async function startServer() {
       // Clean up both players' match mappings
       delete userMatches[room.players[0].username];
       delete userMatches[room.players[1].username];
+      markRoomsDirty();
     }
 
     res.json({ success: true });
@@ -575,6 +643,7 @@ async function startServer() {
 
   // Background Cleanup of Stale Rooms (older than 10 mins)
   setInterval(() => {
+    let gcChanged = false;
     const now = Date.now();
     for (const id in activeRooms) {
       if (now - activeRooms[id].lastActivity > 600000) {
@@ -582,8 +651,10 @@ async function startServer() {
         delete userMatches[room.players[0].username];
         delete userMatches[room.players[1].username];
         delete activeRooms[id];
+        gcChanged = true;
       }
     }
+    if (gcChanged) markRoomsDirty();
   }, 60000);
 
   // Character Sync API

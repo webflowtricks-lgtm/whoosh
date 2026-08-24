@@ -1410,6 +1410,11 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   // clients derive the phase from that truth instead of racing local flags.
   const submittedTurnRef = useRef<Set<number>>(new Set());   // turns I already submitted
   const resolvedTurnRef = useRef<Set<number>>(new Set());    // turns I already resolved
+  // ⏱️ Watchdog de travamento: desde quando estou aguardando o oponente. Se passar
+  // de ~20s sem progresso (oponente sumiu, sala perdida, submit falhou dos dois
+  // lados), a rodada é resolvida localmente para a partida NUNCA congelar.
+  const waitingSinceRef = useRef(0);
+  const forcedResolveTurnsRef = useRef<Set<number>>(new Set());
 
   // Last rolled chakra display
   const [lastChakraRoll, setLastChakraRoll] = useState<string[]>([]);
@@ -1706,6 +1711,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     finalizedKeysRef.current.clear();
     submittedTurnRef.current.clear();
     processedOpponentTurnsRef.current.clear();
+    forcedResolveTurnsRef.current.clear();
+    waitingSinceRef.current = 0;
 
     let startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     if (onlineParams?.isOnline) {
@@ -10005,15 +10012,24 @@ splashOnlyTargets = splashPool.filter(c =>
   // quem chegou por último (meu finalize ou o poll do oponente). Guardado por
   // resolvedTurnRef para nunca resolver o mesmo turno 2x (o que reabria/voltava
   // a vez pra mim e travava a passagem de turno).
-  const resolveOnlineRoundOnce = () => {
+  const resolveOnlineRoundOnce = (force = false) => {
     const t = turnRef.current;
     if (resolvedTurnRef.current.has(t)) {
-      console.log(`[TURN] resolveOnlineRoundOnce ignorado: turno ${t} já resolvido`);
-      return;
+      if (!force) {
+        console.log(`[TURN] resolveOnlineRoundOnce ignorado: turno ${t} já resolvido`);
+        return;
+      }
+      console.warn(`[TURN] resolveOnlineRoundOnce FORÇADO (watchdog de travamento): turno ${t}`);
+      resolvedTurnRef.current.delete(t);
     }
     resolvedTurnRef.current.add(t);
     setIsWaitingForOpponent(false);
     setTimeout(() => {
+      // 🔒 Se uma resolução anterior ficou presa no guard (ex.: interrompida), ela
+      // bloquearia esta chamada SILENCIOSAMENTE para sempre — e como o turno já foi
+      // marcado como resolvido acima, ambos os clientes travavam em "Aguardando
+      // oponente". Limpamos o guard antes de invocar para garantir a progressão.
+      isResolvingTurnEndRef.current = false;
       executeTurnEndResolution();
     }, 250);
   };
@@ -11217,12 +11233,13 @@ splashOnlyTargets = splashPool.filter(c =>
     };
 
     let pollFailures = 0;
-    // Sala morta (servidor reiniciou, GC da sala, rede fora): após ~10 falhas
+    // Sala morta (servidor reiniciou, GC da sala, rede fora): após ~20 falhas
     // seguidas abre um aviso com opção de continuar tentando ou encerrar,
-    // em vez de deixar a partida congelada sem feedback.
+    // em vez de deixar a partida congelada sem feedback. 20 falhas dão folga
+    // para cold start do backend hospedado (Render free pode demorar ~30s+).
     const handlePollFailure = () => {
       pollFailures++;
-      if (pollFailures >= 10 && !showRoomLostModalRef.current && Date.now() - roomLostDismissedAtRef.current > 30000) {
+      if (pollFailures >= 20 && !showRoomLostModalRef.current && Date.now() - roomLostDismissedAtRef.current > 30000) {
         showRoomLostModalRef.current = true;
         setShowRoomLostModal(true);
       }
@@ -11272,9 +11289,11 @@ splashOnlyTargets = splashPool.filter(c =>
 
           if (currentTurnActions) {
             // Server stores turnActions[t] as an array indexed by slot: [actions0, actions1]
-            const oppActions = currentTurnActions[oppOnlineIndex];
+            // 🛡️ Checagem estrita: só tratamos como "oponente jogou" se o slot contém um
+            // array REAL. `undefined` passava pelo `!== null` e executava um turno fantasma.
+            const oppActions = Array.isArray(currentTurnActions) ? currentTurnActions[oppOnlineIndex] : null;
 
-            if (oppActions !== null && !processedOpponentTurnsRef.current.has(turn)) {
+            if (oppActions != null && !processedOpponentTurnsRef.current.has(turn)) {
               processedOpponentTurnsRef.current.add(turn);
 
               // Execute opponent's actions on our screen as enemy actions
@@ -11340,6 +11359,43 @@ splashOnlyTargets = splashPool.filter(c =>
 
     return () => clearInterval(syncInterval);
   }, [onlineParams, gameOver, user, turn]);
+
+  // ⏱️ WATCHDOG ANTI-TRAVAMENTO (online): se finalizei meu turno e estou aguardando
+  // o oponente há mais de ~20s sem nenhum progresso, resolvo a rodada LOCALMENTE
+  // uma única vez por turno. Cenários cobertos: submit falhou dos dois lados, sala
+  // perdida com o aviso dispensado, oponente fechou o app — a partida NUNCA fica
+  // eternamente em "Aguardando oponente". Só age se EU já submeti (na abertura da
+  // partida, quando o oponente começa, quem espera sou eu sem ter jogado — aí quem
+  // deve resolver é o ping de desconexão/abandono do servidor, não este watchdog).
+  useEffect(() => {
+    if (!onlineParams?.isOnline || gameOver || !isWaitingForOpponent) {
+      waitingSinceRef.current = 0;
+      return;
+    }
+    if (waitingSinceRef.current === 0) {
+      waitingSinceRef.current = Date.now();
+    }
+    const watchdog = setInterval(() => {
+      if (gameOver || !isWaitingForOpponent) return;
+      if (!submittedTurnRef.current.has(turn)) return;
+      const waitedMs = Date.now() - waitingSinceRef.current;
+      if (waitedMs > 20000 && !forcedResolveTurnsRef.current.has(turn)) {
+        forcedResolveTurnsRef.current.add(turn);
+        console.warn(`[TURN] WATCHDOG ONLINE: ${Math.round(waitedMs / 1000)}s aguardando oponente no turno ${turn} — resolvendo rodada localmente.`);
+        setLogs(l => [
+          ...l,
+          {
+            id: Math.random().toString(),
+            turn,
+            message: '⏱️ Oponente não respondeu a tempo. Resolvendo a rodada para a partida continuar...',
+            type: 'system',
+          }
+        ]);
+        resolveOnlineRoundOnce(true);
+      }
+    }, 1000);
+    return () => clearInterval(watchdog);
+  }, [onlineParams, gameOver, isWaitingForOpponent, turn]);
 
   // Resync imediato quando o usuário volta para a aba (mobile/segundo plano pausa
   // os timers e o servidor pode ficar até 60s sem ping — o ping imediato evita
