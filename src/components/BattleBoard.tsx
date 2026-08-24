@@ -10407,12 +10407,17 @@ splashOnlyTargets = splashPool.filter(c =>
       console.log(`[TURN] pass gravado: newPassed=[${newPassed}] -> ${newPassed.length < 2 ? 'trocar planner' : 'RESOLVER RODADA'}`);
 
       if (newPassed.length < 2) {
-        const nextPlanner = activePlanner === 'player' ? 'enemy' : 'player';
-        setActivePlanner(nextPlanner);
-        if (onlineParams?.isOnline) {
-          setIsWaitingForOpponent(true);
-        }
         const passedName = activePlanner === 'player' ? 'VOCÊ' : 'OPONENTE';
+        const nextPlanner = activePlanner === 'player' ? 'enemy' : 'player';
+        if (onlineParams?.isOnline) {
+          // ONLINE: só garante que fico aguardando imediatamente (fecha o botão). Quem define
+          // DE QUEM é a vez é o efeito de iniciativa (fonte única) a partir de passedPlayers.
+          // NÃO chamar setActivePlanner aqui (evita a corrida "finalizar 2x").
+          setIsWaitingForOpponent(true);
+        } else {
+          // OFFLINE/SANDBOX: troca imperativa (não há efeito de iniciativa nesses modos).
+          setActivePlanner(nextPlanner);
+        }
         setLogs(prev => [
           ...prev,
           {
