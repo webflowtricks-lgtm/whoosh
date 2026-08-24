@@ -19836,6 +19836,24 @@ onClick={() => handleSelectTarget(combatant.id, true)}
           </div>
         )}
       </AnimatePresence>
+
+      {/* 🧪 OVERLAY DE DIAGNÓSTICO (temporário) — log de combate visível no canto.
+          Mostra as últimas mensagens de sistema (⏳ watchdog, 🛑 anti-loop, iniciativa). */}
+      <div className="fixed bottom-2 left-2 z-[90] max-w-[280px] pointer-events-none select-none">
+        <div className="bg-black/75 border border-orange-900/60 rounded-lg px-2 py-1.5 font-mono text-[9px] leading-snug text-slate-200 shadow-lg">
+          <div className="text-orange-400 font-bold uppercase tracking-wider mb-0.5">🧪 Log v7</div>
+          {logs.slice(-7).map(l => (
+            <div
+              key={l.id}
+              className={`truncate ${l.message.startsWith('🧪') || l.message.includes('⏳') || l.message.includes('🛑') || l.message.includes('⚠️') ? 'text-amber-300' : 'text-slate-300'}`}
+              title={l.message}
+            >
+              {l.message}
+            </div>
+          ))}
+          <div ref={logsEndRef} />
+        </div>
+      </div>
     </div>
   );
 } 
