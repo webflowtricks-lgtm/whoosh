@@ -11043,29 +11043,19 @@ splashOnlyTargets = splashPool.filter(c =>
   }, [handleEndTurn]);
 
   // Online Match Turn Initiative Setup Effect
+  // ⚠️ Este efeito SÓ configura o INÍCIO de uma rodada nova (quando NINGUÉM passou ainda).
+  // As transições no meio da rodada são imperativas:
+  //   - meu pass       → handleEndTurn (define activePlanner='enemy' + waiting)
+  //   - pass do oponente → poll runSync (define activePlanner='player' quando é minha vez)
+  // Se este efeito também mexesse no planner após alguém já ter passado, ele CORRIA com os dois
+  // acima e reabria a minha vez logo depois de eu finalizar (bug: "finalizar 2x / turno não passa").
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver) return;
 
-    // 1) Ambos já passaram nesta rodada → a resolução está no comando; NÃO reabrir planejamento.
-    //    (Sem isto, o efeito reabria minha vez logo após eu finalizar quando o oponente já tinha
-    //     passado — a skill era aplicada e eu jogava de novo, e o turno não finalizava.)
-    if (passedPlayersRef.current.length >= 2) return;
+    // Alguém já passou nesta rodada → NÃO tocar no planner (deixa handleEndTurn/poll no comando).
+    if (passedPlayersRef.current.length !== 0) return;
 
-    // 2) EU já passei (e o oponente ainda não) → SEMPRE aguardo; nunca reabrir minha fase.
-    if (passedPlayersRef.current.includes('player')) {
-      setActivePlanner('enemy');
-      setIsWaitingForOpponent(true);
-      return;
-    }
-
-    // 3) O oponente já passou (e eu não) → agora é a MINHA vez.
-    if (passedPlayersRef.current.includes('enemy')) {
-      setActivePlanner('player');
-      setIsWaitingForOpponent(false);
-      return;
-    }
-
-    // 4) Ninguém passou ainda → ordem DETERMINÍSTICA da rodada (turn % 2), igual nos dois clientes.
+    // Rodada fresca: define quem começa de forma DETERMINÍSTICA (turn % 2), igual nos dois clientes.
     const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
     const whoGoesFirst = (turn % 2 === 1) ? 0 : 1;
     if (myOnlineIndex === whoGoesFirst) {
