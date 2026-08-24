@@ -9992,17 +9992,27 @@ splashOnlyTargets = splashPool.filter(c =>
         try {
           const fbTurn = turn + 1;
           setTurn(fbTurn);
-          setActivePlanner(Math.random() < 0.5 ? 'player' : 'enemy');
+          // 🌐 CRÍTICO: NUNCA usar Math.random() aqui! Cada cliente sorteava um
+          // "quem começa" DIFERENTE e dessincronizava a partida inteira a partir da
+          // rodada seguinte ("cada jogador joga 2x" / um fica aguardando eternamente).
+          // Iniciativa determinística pelo seed compartilhado (igual ao caminho normal).
+          const fbFirst = onlineParams?.isOnline
+            ? (iGoFirstOnTurn(fbTurn) ? 'player' : 'enemy')
+            : (Math.random() < 0.5 ? 'player' : 'enemy');
+          setActivePlanner(fbFirst);
           setPassedPlayersThisTurn([]);
           passedPlayersRef.current = [];
+          setIsWaitingForOpponent(onlineParams?.isOnline ? fbFirst !== 'player' : false);
           try { rollChakraForTurn(true, Math.max(1, playerCombatants.filter(c => !c.isDead).length)); } catch (e) { console.error('[BattleBoard] Falha no chakra do jogador no fallback:', e); }
           try { rollChakraForTurn(false, Math.max(1, enemyCombatants.filter(c => !c.isDead).length)); } catch (e) { console.error('[BattleBoard] Falha no chakra do oponente no fallback:', e); }
+          const fbErrDetail = String((err as any)?.message || err).slice(0, 160);
+          console.error(`[BattleBoard] FALLBACK de resolução acionado na rodada ${turn}:`, fbErrDetail);
           setLogs(prev => [
             ...prev,
             {
               id: Math.random().toString(),
               turn: fbTurn,
-              message: `⚠️ Erro ao resolver a rodada ${turn} — o turno foi avançado automaticamente (chakra rolado).`,
+              message: `⚠️ Erro ao resolver a rodada ${turn} (${fbErrDetail}) — turno avançado automaticamente.`,
               type: 'system',
             }
           ]);
