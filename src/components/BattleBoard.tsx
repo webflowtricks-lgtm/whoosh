@@ -1415,6 +1415,8 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   // lados), a rodada é resolvida localmente para a partida NUNCA congelar.
   const waitingSinceRef = useRef(0);
   const forcedResolveTurnsRef = useRef<Set<number>>(new Set());
+  // 💓 Último heartbeat de diagnóstico emitido enquanto aguardando (a cada ~10s).
+  const lastWaitBeatRef = useRef(0);
   // 📡 Sequência atual de falhas de poll (compartilhada entre o efeito de polling e
   // o watchdog: se o servidor está inacessível há muito tempo E eu ainda nem joguei,
   // destravo minha fase em vez de congelar para sempre).
@@ -11409,14 +11411,50 @@ splashOnlyTargets = splashPool.filter(c =>
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver || !isWaitingForOpponent) {
       waitingSinceRef.current = 0;
+      lastWaitBeatRef.current = 0;
       return;
     }
     if (waitingSinceRef.current === 0) {
       waitingSinceRef.current = Date.now();
+      lastWaitBeatRef.current = Date.now();
     }
     const watchdog = setInterval(() => {
       if (gameOver || !isWaitingForOpponent) return;
       const waitedMs = Date.now() - waitingSinceRef.current;
+
+      // 💓 HEARTBEAT DE DIAGNÓSTICO (a cada ~10s, visível no log de combate):
+      // pergunta ao servidor quem já submetiu o turno atual. Com isso a gente VÊ
+      // exatamente onde a corrente quebra: meu submit falhou? o oponente não
+      // enviou? rendição por ping? servidor inacessível?
+      if (Date.now() - lastWaitBeatRef.current >= 10000) {
+        lastWaitBeatRef.current = Date.now();
+        const mineIdxB = onlineParams.playerIndex === 1 ? 1 : 0;
+        const oppIdxB = mineIdxB === 0 ? 1 : 0;
+        fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (!data?.success || !data?.room) {
+              pollFailureStreakRef.current++;
+              throw new Error('room-state falhou');
+            }
+            pollFailureStreakRef.current = 0;
+            showRoomLostModalRef.current = false;
+            setShowRoomLostModal(false);
+            const slots = data.room.turnActions?.[turn];
+            const meOk = Array.isArray(slots) && slots[mineIdxB] != null;
+            const oppOk = Array.isArray(slots) && slots[oppIdxB] != null;
+            setLogs(prev => [
+              ...prev,
+              {
+                id: Math.random().toString(),
+                turn,
+                message: `⏳ Aguardando há ${Math.round(waitedMs / 1000)}s — servidor diz: meu turno ${meOk ? '✔ enviado' : '✖ NÃO registrado'} | oponente ${oppOk ? '✔ enviado' : '✖ ainda não enviou'}${data.room.surrenderedBy ? ` | ⚠️ rendição no servidor: ${data.room.surrenderedBy}` : ''}`,
+                type: 'system',
+              }
+            ]);
+          })
+          .catch(() => {});
+      }
 
       // Caso 1: EU JÁ FINALIZEI e o oponente/servidor não responde há ~20s →
       // resolvo a rodada localmente (1x por turno) para a partida continuar.
