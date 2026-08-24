@@ -339,7 +339,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
                 alt={t('Como Jogar', 'How to Play')}
                 className="h-full w-auto"
               />
-              <span className="absolute inset-0 flex items-center justify-center gap-2 pointer-events-none">
+              <span className="como-jogar-text absolute inset-0 flex items-center justify-center gap-2 pointer-events-none">
                 <HelpCircle className="w-4 h-4 text-orange-600 drop-shadow" />
                 <span>{t('Como Jogar', 'How to Play')}</span>
               </span>

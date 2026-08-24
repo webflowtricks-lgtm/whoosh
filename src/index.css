@@ -38,7 +38,10 @@
     width: 302px;
 }
 
- 
+ .como-jogar-text span{
+  font-weight: 900;
+ font-family: Arial, Helvetica, sans-serif;
+ }
  
 /* =========================================================
    POSIÇÃO DO TEXTO DO BOTÃO ENTRAR NA ARENA (.entrar-na-arena-label)
