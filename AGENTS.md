@@ -128,6 +128,7 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 
 **Guards / safety nets (keep all of them)**:
 - `resolvedTurnRef` + `forcedResolveTurnsRef`: resolve/force-resolve max once per turn.
+- **🛡️ SERVER-CONFIRMED SUBMIT (v8)**: `submittedTurnRef` is marked ONLY when the server accepts `submit-turn` (in `submitWithRetry` r.ok, or `trySubmitPending` r.ok). NEVER mark it optimistically at click time. The 20s force-resolve watchdog requires BOTH `submittedTurnRef.has(turn)` AND fresh `lastServerConfirmRef` (server room-state/heartbeat saw my slot registered, <30s old) — otherwise it must NOT resolve, or rounds get resolved without the opponent during Render cold starts ("gerou chakra e o turno não passou" bug).
 - Circuit breaker in `executeTurnEndResolution`: blocks any resolution <1500ms after the previous one (`lastResolutionAtRef`) — chained resolutions = pathological loop (played StartTurn sound endlessly).
 - Online watchdogs while waiting: heartbeat `⏳ Aguardando há Xs — servidor diz: meu turno ✔/✖ | oponente ✔/✖` every ~10s; force-resolve after 20s if submitted; unlock planning phase after 30s + 15 consecutive poll failures.
 - Per-click guard `finalizedKeysRef` (key `${turn}:${side}`); refs cleared at battle start only.

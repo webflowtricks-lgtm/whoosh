@@ -1435,8 +1435,12 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   // 🌐 ONLINE turn-phase tracking (server-derived, idempotent). These make the
   // turn pass reliably: the server stores who submitted each turn, and both
   // clients derive the phase from that truth instead of racing local flags.
-  const submittedTurnRef = useRef<Set<number>>(new Set());   // turns I already submitted
+  const submittedTurnRef = useRef<Set<number>>(new Set());   // turns I already submitted (CONFIRMED by server)
   const resolvedTurnRef = useRef<Set<number>>(new Set());    // turns I already resolved
+  // 🛡️ Última vez que o SERVIDOR confirmou que MEU slot deste turno está registrado.
+  // O force-resolve do watchdog só pode roubar a rodada se isso estiver fresco —
+  // nunca resolvemos sem oponente durante cold start/instabilidade de rede.
+  const lastServerConfirmRef = useRef<{ turn: number; at: number } | null>(null);
   // ⏱️ Watchdog de travamento: desde quando estou aguardando o oponente. Se passar
   // de ~20s sem progresso (oponente sumiu, sala perdida, submit falhou dos dois
   // lados), a rodada é resolvida localmente para a partida NUNCA congelar.
@@ -2048,7 +2052,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v7-single-resolver', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v8-server-confirmed-submit', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e joga PRIMEIRO no Turno 1! (Inicia com 1 Chakra)'
@@ -10611,6 +10615,12 @@ splashOnlyTargets = splashPool.filter(c =>
                 })
               });
               if (r.ok) {
+                // 🛡️ CONFIRMAÇÃO: só considero o turno submetido quando o SERVIDOR
+                // aceita. Antes, marcávamos localmente mesmo com falha — o watchdog
+                // de 20s então resolvia a rodada SEM o oponente (chakra rolava e o
+                // turno "não passava"). Com a confirmação, quem cuida do reenvio é
+                // o pendingSubmit via poll até o servidor aceitar.
+                submittedTurnRef.current.add(turn);
                 if (pendingSubmitRef.current?.turn === turn) pendingSubmitRef.current = null;
                 return;
               }
@@ -10648,7 +10658,7 @@ splashOnlyTargets = splashPool.filter(c =>
         // executa as ações do oponente e resolve a rodada — uma única vez.
         // Isso elimina toda corrida entre clique/submit/confirmation/poll que fazia
         // "skill usada mas turno não passa" ou "cada jogador joga duas vezes".
-        submittedTurnRef.current.add(turn);
+        // 🛡️ submittedTurnRef é marcado SÓ quando o servidor confirma (submitWithRetry).
         setActivePlanner('enemy');
         setIsWaitingForOpponent(true);
         setLogs(prev => [
@@ -11347,6 +11357,7 @@ splashOnlyTargets = splashPool.filter(c =>
         })
       }).then(r => {
         if (r.ok && pendingSubmitRef.current?.turn === pending.turn) {
+          submittedTurnRef.current.add(pending.turn);
           pendingSubmitRef.current = null;
         }
       }).catch(() => {});
@@ -11431,6 +11442,11 @@ splashOnlyTargets = splashPool.filter(c =>
           const mine = onlineParams.playerIndex === 1 ? 1 : 0;
           const oppOnlineIndex = mine === 0 ? 1 : 0;
           const currentTurnActions = data.room.turnActions?.[turn];
+          // 🛡️ Servidor confirmou que MEU slot deste turno está registrado →
+          // libera o force-resolve do watchdog (só roubo a rodada com essa prova).
+          if (Array.isArray(currentTurnActions) && currentTurnActions[mine] != null) {
+            lastServerConfirmRef.current = { turn, at: Date.now() };
+          }
 
           // Marca turnos ANTERIORES ao turno local como já processados: o servidor
           // mantém histórico completo (nunca limpo) — após uma reconexão, sem isso,
@@ -11642,6 +11658,9 @@ splashOnlyTargets = splashPool.filter(c =>
             const slots = data.room.turnActions?.[turn];
             const meOk = Array.isArray(slots) && slots[mineIdxB] != null;
             const oppOk = Array.isArray(slots) && slots[oppIdxB] != null;
+            if (meOk) {
+              lastServerConfirmRef.current = { turn, at: Date.now() };
+            }
             setLogs(prev => [
               ...prev,
               {
@@ -11655,10 +11674,17 @@ splashOnlyTargets = splashPool.filter(c =>
           .catch(() => {});
       }
 
-      // Caso 1: EU JÁ FINALIZEI e o oponente/servidor não responde há ~20s →
-      // resolvo a rodada localmente (1x por turno) para a partida continuar.
+      // Caso 1: EU JÁ FINALIZEI (com confirmação do servidor) e o oponente não
+      // responde há ~20s → resolvo a rodada localmente (1x por turno).
+      // 🛡️ DUPLA EXIGÊNCIA: submittedTurnRef (submit confirmado) + lastServerConfirmRef
+      // fresco (servidor VÊ meu slot registrado). Sem a prova do servidor, NUNCA
+      // resolvemos sem o oponente — era isso que gerava "gerou chakra e o turno não
+      // passou" durante cold start/instabilidade: resolvíamos rodadas vazias.
       if (submittedTurnRef.current.has(turn)) {
-        if (waitedMs > 20000 && !forcedResolveTurnsRef.current.has(turn)) {
+        const serverSeesMine =
+          lastServerConfirmRef.current?.turn === turn &&
+          Date.now() - (lastServerConfirmRef.current?.at ?? 0) < 30000;
+        if (waitedMs > 20000 && !forcedResolveTurnsRef.current.has(turn) && serverSeesMine) {
           forcedResolveTurnsRef.current.add(turn);
           console.warn(`[TURN] WATCHDOG ONLINE: ${Math.round(waitedMs / 1000)}s aguardando oponente no turno ${turn} — resolvendo rodada localmente.`);
           setLogs(l => [
