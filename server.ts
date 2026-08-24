@@ -357,10 +357,13 @@ async function startServer() {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
 
-    // Update ping for the querying player
+    // Update ping for the querying player. Also refresh lastActivity so an
+    // ACTIVE match (both players polling) is never garbage-collected mid-game
+    // — the GC only targets truly abandoned rooms.
     const username = (req.query.username as string || "").trim().toLowerCase();
     const idx = slotOf(room, username);
     if (idx !== -1) room.pings[idx] = Date.now();
+    room.lastActivity = Date.now();
 
     // Disconnection timeout (60s). Background tabs / locked phones suspend the
     // browser timers, so a shorter window produced phantom defeats.

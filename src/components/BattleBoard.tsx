@@ -1340,6 +1340,9 @@ export default function BattleBoard({
 
   // Turn count
   const [turn, setTurn] = useState(1);
+  // Mirror of `turn` for use inside callbacks/refs that may capture a stale closure.
+  const turnRef = useRef(1);
+  useEffect(() => { turnRef.current = turn; }, [turn]);
 
   // Profile Card Modal Viewer State
   const [viewingProfile, setViewingProfile] = useState<{ profile: ProfileCardData; isSelf: boolean } | null>(null);
@@ -1390,6 +1393,11 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const passedPlayersRef = useRef<('player' | 'enemy')[]>([]);
   const isResolvingTurnEndRef = useRef(false);
   const randConfirmLockRef = useRef(false);
+  // 🌐 ONLINE turn-phase tracking (server-derived, idempotent). These make the
+  // turn pass reliably: the server stores who submitted each turn, and both
+  // clients derive the phase from that truth instead of racing local flags.
+  const submittedTurnRef = useRef<Set<number>>(new Set());   // turns I already submitted
+  const resolvedTurnRef = useRef<Set<number>>(new Set());    // turns I already resolved
 
   // Last rolled chakra display
   const [lastChakraRoll, setLastChakraRoll] = useState<string[]>([]);
@@ -1648,6 +1656,11 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
         if (rPassed.includes('player') && !rPassed.includes('enemy')) {
           setActivePlanner('enemy');
           setIsWaitingForOpponent(!!restoredState.onlineParams?.isOnline);
+          // 🌐 ONLINE: eu já submeti este turno antes de recarregar → marca para
+          // que o poll do oponente feche a rodada corretamente (não trave esperando).
+          if (restoredState.onlineParams?.isOnline) {
+            submittedTurnRef.current.add(restoredState.turn);
+          }
         } else if (rPassed.includes('enemy') && !rPassed.includes('player')) {
           setActivePlanner('player');
           setIsWaitingForOpponent(false);
@@ -1685,6 +1698,12 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     setActivePlanner(startingPlanner);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
+    // ONLINE: se o oponente joga primeiro no turno 1, já entro aguardando (o botão
+    // de finalizar fica travado até o poll me passar a vez). Sem isso, o cliente do
+    // 2º jogador aparecia com o botão liberado indevidamente no início.
+    if (onlineParams?.isOnline) {
+      setIsWaitingForOpponent(startingPlanner !== 'player');
+    }
 
     const sanitizeCharacter = (c: any): Character => {
       if (!c) {
@@ -2036,18 +2055,30 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     return () => clearInterval(interval);
   }, [onlineParams, user]);
 
-  // Multiplayer cleanup on unmount
+  // Multiplayer cleanup on unmount.
+  // ⚠️ Deve rodar SOMENTE ao desmontar de verdade (sair da batalha). Antes o
+  // array de deps era [onlineParams, user] — qualquer mudança de referência
+  // (ex.: perfil atualizado) disparava o cleanup e DELETAVA a sala no meio da
+  // partida, gerando "sala perdida" fantasma para os DOIS jogadores. Agora
+  // lemos os valores por ref e usamos deps [] para só quitar no unmount real.
+  const quitInfoRef = useRef<{ username: string; roomId: string } | null>(null);
+  useEffect(() => {
+    quitInfoRef.current = onlineParams?.isOnline
+      ? { username: user.username, roomId: onlineParams.roomId }
+      : null;
+  }, [onlineParams, user]);
   useEffect(() => {
     return () => {
-      if (onlineParams?.isOnline) {
+      const info = quitInfoRef.current;
+      if (info) {
         fetch('/api/matchmaking/quit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: user.username, roomId: onlineParams.roomId })
+          body: JSON.stringify(info)
         }).catch(() => {});
       }
     };
-  }, [onlineParams, user]);
+  }, []);
 
   // Autoscroll logs
   useEffect(() => {
@@ -9953,6 +9984,23 @@ splashOnlyTargets = splashPool.filter(c =>
     }
   };
 
+  // 🌐 ONLINE — resolve a rodada UMA única vez por turno, independentemente de
+  // quem chegou por último (meu finalize ou o poll do oponente). Guardado por
+  // resolvedTurnRef para nunca resolver o mesmo turno 2x (o que reabria/voltava
+  // a vez pra mim e travava a passagem de turno).
+  const resolveOnlineRoundOnce = () => {
+    const t = turnRef.current;
+    if (resolvedTurnRef.current.has(t)) {
+      console.log(`[TURN] resolveOnlineRoundOnce ignorado: turno ${t} já resolvido`);
+      return;
+    }
+    resolvedTurnRef.current.add(t);
+    setIsWaitingForOpponent(false);
+    setTimeout(() => {
+      executeTurnEndResolution();
+    }, 250);
+  };
+
   // Tick de Dano Contínuo (type 'damage' — dano normal com duração) no fim do turno do CONJURADOR:
   // quando o jogador passa o turno, os danos contínuos causados por ELE tickam imediatamente
   // (não aguardam o oponente passar). Retorna true se o jogo terminou.
@@ -10422,20 +10470,34 @@ splashOnlyTargets = splashPool.filter(c =>
       passedPlayersRef.current = newPassed;
       setPassedPlayersThisTurn(newPassed);
 
-      console.log(`[TURN] pass gravado: newPassed=[${newPassed}] -> ${newPassed.length < 2 ? 'trocar planner' : 'RESOLVER RODADA'}`);
+      console.log(`[TURN] pass gravado: newPassed=[${newPassed}] online=${!!onlineParams?.isOnline} -> ${newPassed.length < 2 ? 'aguardar/trocar' : 'RESOLVER RODADA'}`);
 
-      if (newPassed.length < 2) {
+      if (onlineParams?.isOnline) {
+        // 🌐 ONLINE — decisão idempotente baseada em fatos por-turno (não em corrida
+        // de estado). Marco que EU submeti este turno. Se o oponente já foi aplicado
+        // neste turno (processedOpponentTurnsRef), então os DOIS já jogaram → resolve.
+        // Caso contrário, apenas aguardo o oponente (nunca reabro minha fase).
+        submittedTurnRef.current.add(turn);
+        if (processedOpponentTurnsRef.current.has(turn)) {
+          setIsWaitingForOpponent(false);
+          resolveOnlineRoundOnce();
+        } else {
+          setIsWaitingForOpponent(true);
+          setLogs(prev => [
+            ...prev,
+            {
+              id: Math.random().toString(),
+              turn,
+              message: `⚔️ VOCÊ finalizou a fase de planejamento. Aguardando o OPONENTE...`,
+              type: 'system',
+            }
+          ]);
+        }
+      } else if (newPassed.length < 2) {
+        // OFFLINE/SANDBOX: troca imperativa (não há sync remoto nesses modos).
         const passedName = activePlanner === 'player' ? 'VOCÊ' : 'OPONENTE';
         const nextPlanner = activePlanner === 'player' ? 'enemy' : 'player';
-        if (onlineParams?.isOnline) {
-          // ONLINE: só garante que fico aguardando imediatamente (fecha o botão). Quem define
-          // DE QUEM é a vez é o efeito de iniciativa (fonte única) a partir de passedPlayers.
-          // NÃO chamar setActivePlanner aqui (evita a corrida "finalizar 2x").
-          setIsWaitingForOpponent(true);
-        } else {
-          // OFFLINE/SANDBOX: troca imperativa (não há efeito de iniciativa nesses modos).
-          setActivePlanner(nextPlanner);
-        }
+        setActivePlanner(nextPlanner);
         setLogs(prev => [
           ...prev,
           {
@@ -11065,43 +11127,12 @@ splashOnlyTargets = splashPool.filter(c =>
     handleEndTurnRef.current = handleEndTurn;
   }, [handleEndTurn]);
 
-  // Online Match Turn Initiative Setup Effect
-  // 🔑 FONTE ÚNICA da verdade do planner ONLINE. Deriva activePlanner/waiting a partir de
-  // passedPlayers + ordem determinística (turn % 2). handleEndTurn e o poll SÓ atualizam
-  // passedPlayers; quem define de quem é a vez é este efeito (evita a corrida que causava
-  // "finalizar 2x" ou "ambos aguardando").
-  useEffect(() => {
-    if (!onlineParams?.isOnline || gameOver) return;
-
-    const iPassed = passedPlayersRef.current.includes('player');
-    const oppPassed = passedPlayersRef.current.includes('enemy');
-
-    // Ambos passaram → a resolução da rodada cuida do avanço; não mexer no planner aqui.
-    if (iPassed && oppPassed) return;
-
-    if (iPassed) {
-      // Eu já finalizei; aguardo o oponente. NUNCA reabrir minha fase.
-      setActivePlanner('enemy');
-      setIsWaitingForOpponent(true);
-      return;
-    }
-    if (oppPassed) {
-      // O oponente já finalizou; agora é a MINHA vez.
-      setActivePlanner('player');
-      setIsWaitingForOpponent(false);
-      return;
-    }
-
-    // Ninguém passou → ordem determinística da rodada (shared seed → igual/oposta
-    // nos dois clientes).
-    if (iGoFirstOnTurn(turn)) {
-      setActivePlanner('player');
-      setIsWaitingForOpponent(false);
-    } else {
-      setActivePlanner('enemy');
-      setIsWaitingForOpponent(true);
-    }
-  }, [turn, onlineParams, gameOver, passedPlayersThisTurn]);
+  // Online Match Turn Initiative
+  // NOTE: whose-turn-it-is for ONLINE is NO LONGER derived by a separate effect
+  // (that raced with the poll and caused "turno não passa" / "volta pra mim").
+  // Turn-start planner is set by executeTurnEndResolution + the mount effect,
+  // and the mid-turn handoff is done by handleEndTurn (my finalize) and the
+  // room-state poll (opponent finalize) — a single, linear ownership per event.
 
   // Online: pendência de reenvio do submit-turn, resync ao voltar pra aba e
   // detecção de sala perdida (servidor reiniciou / sala expirou)
@@ -11210,8 +11241,7 @@ splashOnlyTargets = splashPool.filter(c =>
                   : act.targetId.replace('enemy', 'player'),
               }));
 
-              if (passedPlayersRef.current.includes('enemy')) return;
-              console.log(`[TURN] poll oponente: turn=${turn} active=${activePlanner} ref=[${passedPlayersRef.current}] acoes=${mappedOppActions.length}`);
+              console.log(`[TURN] poll oponente: turn=${turn} active=${activePlanner} submitted=${submittedTurnRef.current.has(turn)} acoes=${mappedOppActions.length}`);
               setLogs(l => [
                 ...l,
                 {
@@ -11229,14 +11259,11 @@ splashOnlyTargets = splashPool.filter(c =>
                 console.error('[BattleBoard] Erro ao executar as ações do oponente (online), a passagem de turno continuará:', err);
               }
 
-              const newPassed: ('player' | 'enemy')[] = [...passedPlayersRef.current, 'enemy'];
-              passedPlayersRef.current = newPassed;
-              setPassedPlayersThisTurn(newPassed);
-              if (newPassed.length >= 2) {
+              // 🌐 Idempotente: se EU já submeti este turno → os dois jogaram → resolve
+              // (uma única vez). Senão, agora é a MINHA vez de planejar.
+              if (submittedTurnRef.current.has(turn)) {
                 setIsWaitingForOpponent(false);
-                setTimeout(() => {
-                  executeTurnEndResolution();
-                }, 300);
+                resolveOnlineRoundOnce();
               } else {
                 setActivePlanner('player');
                 setIsWaitingForOpponent(false);
