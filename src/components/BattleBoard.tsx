@@ -2010,7 +2010,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v7-single-resolver', type: 'system' },
+      { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e joga PRIMEIRO no Turno 1! (Inicia com 1 Chakra)'
           : '🎲 [INICIATIVA] O Oponente ganhou o sorteio e joga PRIMEIRO no Turno 1! (Você inicia com 3 Chakras)', type: 'system' },
@@ -10562,66 +10563,25 @@ splashOnlyTargets = splashPool.filter(c =>
       console.log(`[TURN] pass gravado: newPassed=[${newPassed}] online=${!!onlineParams?.isOnline} -> ${newPassed.length < 2 ? 'aguardar/trocar' : 'RESOLVER RODADA'}`);
 
       if (onlineParams?.isOnline) {
-        // 🌐 ONLINE — decisão idempotente baseada em fatos por-turno (não em corrida
-        // de estado). Marco que EU submeti este turno. Se o oponente já foi aplicado
-        // neste turno (processedOpponentTurnsRef), então os DOIS já jogaram → resolve.
-        // Caso contrário, apenas aguardo o oponente (nunca reabro minha fase).
+        // 🌐 ONLINE — FLUXO ÚNICO E DETERMINÍSTICO:
+        // Finalizar SÓ submete e entra em espera. NUNCA resolve aqui dentro (nem via
+        // cache local, nem via confirmação extra). O POLL de 1s é o ÚNICO resolvedor:
+        // quando ele vir os DOIS slots preenchidos no servidor para este turno,
+        // executa as ações do oponente e resolve a rodada — uma única vez.
+        // Isso elimina toda corrida entre clique/submit/confirmation/poll que fazia
+        // "skill usada mas turno não passa" ou "cada jogador joga duas vezes".
         submittedTurnRef.current.add(turn);
-
-        // 🛡️ Resolução imediata SÓ se o SERVIDOR confirmar que o oponente realmente
-        // enviou o turno dele. Antes, bastava o cache local processedOpponentTurnsRef —
-        // quando ele sujava (echo das minhas próprias ações / poluição do polling),
-        // finalizar resolvia a rodada na hora e pulava o oponente inteiro
-        // ("finaliza o meu e o do oponente, toda vez").
-        if (processedOpponentTurnsRef.current.has(turn)) {
-          const mineIdx = onlineParams.playerIndex === 1 ? 1 : 0;
-          const oppIdx = mineIdx === 0 ? 1 : 0;
-          fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}`)
-            .then(r => r.json())
-            .then(data => {
-              const slots = data?.room?.turnActions?.[turn];
-              const oppFilled = data?.success && Array.isArray(slots) && slots[oppIdx] != null;
-              if (oppFilled) {
-                console.log(`[TURN] ambos confirmados no servidor (turno ${turn}, slot opp preenchido) — resolvendo rodada.`);
-                setIsWaitingForOpponent(false);
-                resolveOnlineRoundOnce();
-              } else {
-                console.warn(`[TURN] cache local dizia oponente pronto, MAS servidor não confirmou (turno ${turn}) — aguardando de verdade.`);
-                setLogs(prev => [
-                  ...prev,
-                  {
-                    id: Math.random().toString(),
-                    turn,
-                    message: `⚔️ VOCÊ finalizou a fase de planejamento. Aguardando o OPONENTE...`,
-                    type: 'system',
-                  }
-                ]);
-                setActivePlanner('enemy');
-                setIsWaitingForOpponent(true);
-              }
-            })
-            .catch(() => {
-              // Rede falhou na confirmação: fica aguardando (o poll de 1s resolve depois).
-              setActivePlanner('enemy');
-              setIsWaitingForOpponent(true);
-            });
-        } else {
-          // 🔒 Fecha a MINHA fase de forma consistente: activePlanner vai para 'enemy'
-          // (a vez é do oponente) E waiting=true. Sem mudar o activePlanner, o botão
-          // "Finalizar" continuava habilitado e o indicador dizia "Seu Turno", dando
-          // a impressão de que eu podia "jogar de novo" em vez de esperar o oponente.
-          setActivePlanner('enemy');
-          setIsWaitingForOpponent(true);
-          setLogs(prev => [
-            ...prev,
-            {
-              id: Math.random().toString(),
-              turn,
-              message: `⚔️ VOCÊ finalizou a fase de planejamento. Aguardando o OPONENTE...`,
-              type: 'system',
-            }
-          ]);
-        }
+        setActivePlanner('enemy');
+        setIsWaitingForOpponent(true);
+        setLogs(prev => [
+          ...prev,
+          {
+            id: Math.random().toString(),
+            turn,
+            message: `⚔️ VOCÊ finalizou a fase de planejamento. Aguardando o OPONENTE...`,
+            type: 'system',
+          }
+        ]);
       } else if (newPassed.length < 2) {
         // OFFLINE/SANDBOX: troca imperativa (não há sync remoto nesses modos).
         const passedName = activePlanner === 'player' ? 'VOCÊ' : 'OPONENTE';
@@ -11360,6 +11320,52 @@ splashOnlyTargets = splashPool.filter(c =>
             const tNum = Number(tStr);
             if (!isNaN(tNum) && tNum < turn) processedOpponentTurnsRef.current.add(tNum);
           });
+
+          // 🎯 RESOLVEDOR ÚNICO DA RODADA ONLINE: se EU já submeti E o slot do
+          // oponente está preenchido no servidor para ESTE turno → os dois jogaram.
+          // Executa as ações dele (uma única vez) e resolve a rodada. Este é o único
+          // caminho de resolução — sem resoluções dentro do clique de Finalizar,
+          // eliminando toda corrida entre clique/submit/confirmation/poll.
+          const oppSlotFilled = Array.isArray(currentTurnActions) && currentTurnActions[oppOnlineIndex] != null;
+          if (
+            submittedTurnRef.current.has(turn) &&
+            !resolvedTurnRef.current.has(turn) &&
+            oppSlotFilled
+          ) {
+            if (!processedOpponentTurnsRef.current.has(turn)) {
+              processedOpponentTurnsRef.current.add(turn);
+              const oppActsRaw = currentTurnActions![oppOnlineIndex];
+              const mappedOppActions: CuedAction[] = (oppActsRaw || []).map((act: any) => ({
+                ...act,
+                sourceId: act.sourceId.startsWith('player')
+                  ? act.sourceId.replace('player', 'enemy')
+                  : act.sourceId.replace('enemy', 'player'),
+                targetId: act.targetId.startsWith('player')
+                  ? act.targetId.replace('player', 'enemy')
+                  : act.targetId.replace('enemy', 'player'),
+              }));
+              setLogs(l => [
+                ...l,
+                {
+                  id: Math.random().toString(),
+                  turn,
+                  message: mappedOppActions.length === 0
+                    ? `🤖 Oponente finalizou a fase sem ações e pulou a vez.`
+                    : `🤖 Oponente executou ${mappedOppActions.length} habilidade(s).`,
+                  type: 'system',
+                }
+              ]);
+              try {
+                executeSideActions(mappedOppActions, false);
+              } catch (err) {
+                console.error('[BattleBoard] Erro ao executar as ações do oponente (online), a passagem de turno continuará:', err);
+              }
+            }
+            console.log(`[TURN] ambos os slots preenchidos no servidor (turno ${turn}) → resolvendo rodada (poll).`);
+            setIsWaitingForOpponent(false);
+            resolveOnlineRoundOnce();
+            return;
+          }
 
           if (currentTurnActions) {
             // Server stores turnActions[t] as an array indexed by slot: [actions0, actions1]
