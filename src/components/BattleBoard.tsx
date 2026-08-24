@@ -1238,22 +1238,29 @@ export default function BattleBoard({
   const opponentCurrentRank = opponentRankProgress.currentRank;
 
   // 🔑 ONLINE INITIATIVE — single source of truth, server-authoritative.
-  // Both clients share the same room `seed`; for a given turn they derive the
-  // SAME "first slot" (0 or 1) from a deterministic hash. This is what makes
-  // turns pass correctly: neither client can disagree about whose turn it is.
-  // The first slot of turn 1 starts the whole match (random per room).
-  const onlineFirstSlotForTurn = (t: number): 0 | 1 => {
+  // Both clients share the same room `seed`. Turn 1's starter is the seed-derived
+  // slot; every following round the initiative ALTERNATES (turn parity). Because
+  // both clients compute this from the SAME (seed, turn), they always agree on
+  // whose turn it is → the turn always passes cleanly. (The old bug was a
+  // separate effect re-deriving the planner on every state change and racing the
+  // poll; that effect is gone — initiative is now set only at mount + resolution.)
+  const onlineStarterSlot = (): 0 | 1 => {
     const seed = onlineParams?.seed || 0;
-    let x = (seed + t * 2654435761) >>> 0;
+    let x = (seed + 0x9e3779b9) >>> 0;
     x ^= x >>> 15;
     x = (x * 2246822519) >>> 0;
     x ^= x >>> 13;
     return (x & 1) as 0 | 1;
   };
+  // Which slot plans first on turn `t` (alternates each round).
+  const onlineFirstSlotForTurn = (t: number): 0 | 1 =>
+    ((onlineStarterSlot() + (t - 1)) % 2) as 0 | 1;
   // My slot in the room (0 or 1). Offline this is irrelevant.
   const myOnlineIndex = (): 0 | 1 => (onlineParams?.playerIndex === 1 ? 1 : 0);
   // Do I plan first on turn `t`?
   const iGoFirstOnTurn = (t: number): boolean => onlineFirstSlotForTurn(t) === myOnlineIndex();
+
+
 
 
   // In-Game Quest Modal States
@@ -1393,6 +1400,11 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const passedPlayersRef = useRef<('player' | 'enemy')[]>([]);
   const isResolvingTurnEndRef = useRef(false);
   const randConfirmLockRef = useRef(false);
+  // 🔒 GARANTIA GLOBAL (todos os modos): cada lado só pode finalizar UMA vez por
+  // número de turno. Chave = `${turn}:${side}`. Como o turno sempre incrementa na
+  // resolução, as chaves são únicas e nunca precisam ser limpas. Isso mata de vez
+  // o "cliquei em finalizar e joguei 2x / o turno não passa / voltou pra mim".
+  const finalizedKeysRef = useRef<Set<string>>(new Set());
   // 🌐 ONLINE turn-phase tracking (server-derived, idempotent). These make the
   // turn pass reliably: the server stores who submitted each turn, and both
   // clients derive the phase from that truth instead of racing local flags.
@@ -1689,10 +1701,15 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     setCuedActions([]);
     setSelectedSkill(null);
     setGameOver(null);
+    // 🔒 Limpa as chaves de finalização por-turno ao (re)iniciar a batalha, senão um
+    // novo combate (turno volta a 1) ficaria travado pelo histórico do combate anterior.
+    finalizedKeysRef.current.clear();
+    submittedTurnRef.current.clear();
+    processedOpponentTurnsRef.current.clear();
 
     let startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     if (onlineParams?.isOnline) {
-      // Server-authoritative random initiative for turn 1 (shared seed).
+      // Server-authoritative random initiative (shared seed, alternates per round).
       startingPlanner = iGoFirstOnTurn(1) ? 'player' : 'enemy';
     }
     setActivePlanner(startingPlanner);
@@ -9920,9 +9937,9 @@ splashOnlyTargets = splashPool.filter(c =>
     setTurn(nextTurn);
 
     // Roll initiative for new turn.
-    // ONLINE: server-authoritative random via shared seed — both clients compute
-    // the SAME first slot for `nextTurn`, so they can never disagree about whose
-    // turn it is (this is what kept the turn from "not passing"). Offline = 50/50.
+    // ONLINE: initiative alternates per round from the shared seed — both clients
+    // compute the SAME first slot for `nextTurn`, so they always agree and the
+    // turn advances cleanly. Offline = 50/50.
     let newFirstPlayer: 'player' | 'enemy';
     if (onlineParams?.isOnline) {
       newFirstPlayer = iGoFirstOnTurn(nextTurn) ? 'player' : 'enemy';
@@ -10378,10 +10395,26 @@ splashOnlyTargets = splashPool.filter(c =>
         return;
       }
 
+      // 🌐 ONLINE: se já estou aguardando o oponente, NUNCA reprocessar meu turno
+      // (fecha de vez o "cliquei de novo e jogou 2x / voltou pra mim").
+      if (onlineParams?.isOnline && (isWaitingForOpponent || submittedTurnRef.current.has(turn))) {
+        console.log(`[TURN] handleEndTurn bloqueado: online já submeteu/aguardando (turn=${turn})`);
+        return;
+      }
+
       if (passedPlayersRef.current.includes(activePlanner)) {
         console.log(`[TURN] handleEndTurn bloqueado: lado ja passou (active=${activePlanner} ref=[${passedPlayersRef.current}]) skip=${skipActions}`);
         return;
       }
+
+      // 🔒 GARANTIA GLOBAL: este lado já finalizou ESTE número de turno? Então ignora
+      // (proteção definitiva contra o duplo-clique que fazia "jogar 2x / não passar").
+      const finalizeKey = `${turn}:${activePlanner}`;
+      if (finalizedKeysRef.current.has(finalizeKey)) {
+        console.log(`[TURN] handleEndTurn bloqueado: já finalizado key=${finalizeKey}`);
+        return;
+      }
+      finalizedKeysRef.current.add(finalizeKey);
 
       // In online/offline (non-sandbox) matches, the enemy side only passes
       // through the AI effect or the matchmaking poll — never via this handler.
@@ -10482,6 +10515,11 @@ splashOnlyTargets = splashPool.filter(c =>
           setIsWaitingForOpponent(false);
           resolveOnlineRoundOnce();
         } else {
+          // 🔒 Fecha a MINHA fase de forma consistente: activePlanner vai para 'enemy'
+          // (a vez é do oponente) E waiting=true. Sem mudar o activePlanner, o botão
+          // "Finalizar" continuava habilitado e o indicador dizia "Seu Turno", dando
+          // a impressão de que eu podia "jogar de novo" em vez de esperar o oponente.
+          setActivePlanner('enemy');
           setIsWaitingForOpponent(true);
           setLogs(prev => [
             ...prev,
@@ -11054,6 +11092,15 @@ splashOnlyTargets = splashPool.filter(c =>
   const handleEndTurnClick = () => {
     if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current) {
       console.log(`[TURN] click bloqueado por lock: active=${activePlanner} sandbox=${isSandbox} ending=${isEndingTurnRef.current || isEndingTurn} lock=${turnActionLockedRef.current}`);
+      return;
+    }
+    // 🌐 ONLINE: já finalizei este turno / estou aguardando → clique não faz nada.
+    if (onlineParams?.isOnline && (isWaitingForOpponent || submittedTurnRef.current.has(turn))) {
+      console.log(`[TURN] click ignorado: online aguardando/já submetido (turn=${turn})`);
+      return;
+    }
+    if (finalizedKeysRef.current.has(`${turn}:${activePlanner}`)) {
+      console.log(`[TURN] click ignorado: já finalizado key=${turn}:${activePlanner}`);
       return;
     }
     if (passedPlayersRef.current.includes(activePlanner)) {
@@ -16394,9 +16441,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             {/* End Turn Button */}
             <button
               onClick={handleEndTurnClick}
-              disabled={isEndingTurn || isPreparing || (!isSandbox && activePlanner !== 'player')}
+              disabled={isEndingTurn || isPreparing || isWaitingForOpponent || (!isSandbox && activePlanner !== 'player')}
               className={`px-4 sm:px-6 py-2 sm:py-2.5 ${
-                isEndingTurn
+                isEndingTurn || isWaitingForOpponent
                   ? 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
                   : isSandbox
                     ? activePlanner === 'player'
@@ -16415,13 +16462,15 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               ) : (
                 <>
                   <Swords className="w-4 h-4" />
-                  {isSandbox
-                    ? activePlanner === 'player'
-                      ? 'Terminar Turno Jogador'
-                      : 'Terminar Turno Oponente'
-                    : activePlanner === 'player'
-                      ? 'Finalizar Turno'
-                      : 'Aguardando...'}
+                  {isWaitingForOpponent
+                    ? 'Aguardando...'
+                    : isSandbox
+                      ? activePlanner === 'player'
+                        ? 'Terminar Turno Jogador'
+                        : 'Terminar Turno Oponente'
+                      : activePlanner === 'player'
+                        ? 'Finalizar Turno'
+                        : 'Aguardando...'}
                 </>
               )}
             </button>
