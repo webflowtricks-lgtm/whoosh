@@ -194,6 +194,11 @@ async function startServer() {
     seed: number;                                 // shared initiative seed
     players: [PlayerSlot, PlayerSlot];            // index 0 and 1
     turns: { [turn: number]: (any[] | null)[] };  // turns[t] = [actions0, actions1]
+    // 🔄 Relatórios de estado pós-resolução (sincronia de HP/escudo/chakra):
+    // cada cliente reporta o estado do PRÓPRIO esquadrão após resolver a rodada;
+    // o oponente adota esses valores (a visão de cada um sobre os seus personagens
+    // é autoritativa), corrigindo divergências de simulação entre clientes.
+    stateReports?: { [username: string]: { turn: number; units: { [id: string]: { health: number; shield: number; isDead: boolean } }; chakra: Record<string, number> } };
     emojis: { username: string; senderName?: string; emoji: string; timestamp: number }[];
     chatMessages: { id: string; username: string; senderName: string; senderTitle?: string; text: string; timestamp: number }[];
     lastActivity: number;
@@ -457,9 +462,34 @@ async function startServer() {
         seed: room.seed,
         players: room.players.map(publicOpponent),
         turnActions,
+        stateReports: room.stateReports || {},
         surrenderedBy: room.surrenderedBy || null,
       },
     });
+  });
+
+  // 🔄 State Report (sincronia pós-resolução): cliente reporta HP/escudo/morte dos
+  // PRÓPRIOS personagens + pool de chakra, por turno. O oponente lê via room-state
+  // e adota esses valores para o esquadrão dele (fonte da verdade = dono do time).
+  app.post("/api/match/report-state", (req: any, res: any) => {
+    const { roomId, username, turn, units, chakra } = req.body || {};
+    if (!roomId || !username || typeof turn !== "number" || !units) {
+      return res.status(400).json({ error: "Dados de relatório inválidos." });
+    }
+    const room = activeRooms[roomId];
+    if (!room) {
+      return res.status(404).json({ error: "Sala não encontrada." });
+    }
+    if (!room.stateReports) room.stateReports = {};
+    // Mantém apenas o relato mais recente por jogador (a atribuição sobrescreve).
+    room.stateReports[username.trim().toLowerCase()] = {
+      turn,
+      units,
+      chakra: chakra && typeof chakra === "object" ? chakra : {}
+    };
+    room.lastActivity = Date.now();
+    markRoomsDirty();
+    res.json({ success: true });
   });
 
   // Declare Surrender / Defeat

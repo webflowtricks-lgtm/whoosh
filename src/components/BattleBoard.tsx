@@ -1392,6 +1392,12 @@ export default function BattleBoard({
   // Chakra Pools (start at 0, first turn rolls 1 random element)
   const [playerChakra, setPlayerChakra] = useState<ChakraPool>({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
   const [enemyChakra, setEnemyChakra] = useState<ChakraPool>({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
+  // 🔄 Sincronia pós-resolução: espelho do meu chakra para envio fora do ciclo de render
+  // + controle de qual turno já reportei/apliquei do oponente.
+  const playerChakraRef = useRef(playerChakra);
+  useEffect(() => { playerChakraRef.current = playerChakra; }, [playerChakra]);
+  const stateReportSentTurnRef = useRef(0);
+  const lastAppliedOppReportTurnRef = useRef(0);
 
   // Chakra Trade (4 -> 1)
 const [showChakraTrade, setShowChakraTrade] = useState(false);
@@ -1750,6 +1756,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     forcedResolveTurnsRef.current.clear();
     waitingSinceRef.current = 0;
     pollFailureStreakRef.current = 0;
+    stateReportSentTurnRef.current = 0;
+    lastAppliedOppReportTurnRef.current = 0;
 
     let startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     if (onlineParams?.isOnline) {
@@ -11337,6 +11345,32 @@ splashOnlyTargets = splashPool.filter(c =>
             return;
           }
 
+          // 🔄 SINCRONIA: adota o relato pós-resolução do OPONENTE para o esquadrão
+          // DELE na minha tela (a visão de cada jogador sobre os próprios personagens
+          // é a fonte da verdade). Corrige HP/escudo/morte/chakra divergentes.
+          const oppUsernameLc = onlineParams.opponentProfile?.username
+            ? String(onlineParams.opponentProfile.username).trim().toLowerCase()
+            : (Array.isArray(data.room.players) ? data.room.players.find((p: any) => p && p.username && p.username !== user.username.toLowerCase())?.username : null);
+          if (oppUsernameLc && data.room.stateReports?.[oppUsernameLc]) {
+            const rp = data.room.stateReports[oppUsernameLc];
+            if (rp && rp.turn === turn && lastAppliedOppReportTurnRef.current !== turn) {
+              lastAppliedOppReportTurnRef.current = turn;
+              const flipId = (id: string) => id.startsWith('player')
+                ? id.replace('player', 'enemy')
+                : id.replace('enemy', 'player');
+              const rpUnits = rp.units || {};
+              setEnemyCombatants(prev => prev.map(c => {
+                const u = rpUnits[flipId(c.id)];
+                if (!u) return c;
+                return { ...c, health: u.health, shield: u.shield ?? c.shield, isDead: !!u.isDead };
+              }));
+              if (rp.chakra && typeof rp.chakra === 'object') {
+                setEnemyChakra(prev => ({ ...prev, ...rp.chakra }));
+              }
+              console.log(`[SYNC] Estado do oponente aplicado (turno ${turn}).`);
+            }
+          }
+
           // Check online turn state sync
           const mine = onlineParams.playerIndex === 1 ? 1 : 0;
           const oppOnlineIndex = mine === 0 ? 1 : 0;
@@ -11580,6 +11614,36 @@ splashOnlyTargets = splashPool.filter(c =>
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [onlineParams, gameOver]);
+
+  // 🔄 SINCRONIA PÓS-RESOLUÇÃO (online): após a rodada avançar, envia ao servidor
+  // um relato com HP/escudo/morte dos MEUS personagens + meu chakra. O oponente
+  // adota esses valores para o MEU esquadrão na tela dele (e vice-versa) — corrige
+  // divergências de simulação entre clientes ("na tela dele ainda tá vida cheia").
+  useEffect(() => {
+    if (!onlineParams?.isOnline || gameOver || turn <= 1) return;
+    if (stateReportSentTurnRef.current >= turn) return;
+    const timer = setTimeout(() => {
+      stateReportSentTurnRef.current = turn;
+      const units: Record<string, { health: number; shield: number; isDead: boolean }> = {};
+      const squad = playerRef.current.length ? playerRef.current : playerCombatants;
+      squad.forEach(c => {
+        units[c.id] = { health: c.health, shield: c.shield, isDead: !!c.isDead };
+      });
+      fetch('/api/match/report-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId: onlineParams.roomId,
+          username: user.username,
+          turn,
+          units,
+          chakra: playerChakraRef.current
+        })
+      }).catch(() => {});
+    }, 700);
+    return () => clearTimeout(timer);
+    // playerCombatants deliberadamente fora das deps: lemos via ref no momento do envio
+  }, [turn, onlineParams?.isOnline, gameOver]);
 
   // Auto-save game state to local storage on key changes, or remove it when game over
   useEffect(() => {
