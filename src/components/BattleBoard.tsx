@@ -1399,6 +1399,8 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const processedOpponentTurnsRef = useRef<Set<number>>(new Set());
   const passedPlayersRef = useRef<('player' | 'enemy')[]>([]);
   const isResolvingTurnEndRef = useRef(false);
+  // 🛑 Timestamp da última resolução de rodada (disjuntor anti-loop).
+  const lastResolutionAtRef = useRef(0);
   const randConfirmLockRef = useRef(false);
   // 🔒 GARANTIA GLOBAL (todos os modos): cada lado só pode finalizar UMA vez por
   // número de turno. Chave = `${turn}:${side}`. Como o turno sempre incrementa na
@@ -9205,6 +9207,27 @@ splashOnlyTargets = splashPool.filter(c =>
   // Helper to execute end-of-turn effects after BOTH players have completed their action phase
   const executeTurnEndResolution = () => {
     if (isResolvingTurnEndRef.current) return;
+    // 🛑 DISJUNTOR ANTI-LOOP: resoluções legítimas NUNCA acontecem a menos de ~1.5s
+    // uma da outra (uma rodada inteira leva vários segundos no mínimo). Chamadas
+    // encadeadas nesse intervalo = loop patológico (tocava o som de início de partida
+    // infinitamente e resetava o turno, impedindo o Finalizar de "colar").
+    const nowMs = Date.now();
+    if (nowMs - lastResolutionAtRef.current < 1500) {
+      console.error(`[TURN] CIRCUIT BREAKER: resolução chamada ${nowMs - lastResolutionAtRef.current}ms após a anterior — bloqueada (anti-loop).`);
+      try {
+        setLogs(prev => [
+          ...prev,
+          {
+            id: Math.random().toString(),
+            turn,
+            message: '🛑 Resolução de rodada duplicada foi bloqueada pela proteção anti-loop.',
+            type: 'system',
+          }
+        ]);
+      } catch {}
+      return;
+    }
+    lastResolutionAtRef.current = nowMs;
     isResolvingTurnEndRef.current = true;
     console.log(`[TURN] RESOLVER RODADA início: turn=${turn} ref=[${passedPlayersRef.current}]`);
     let advanced = false;
