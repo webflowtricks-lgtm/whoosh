@@ -52,7 +52,7 @@ async function startServer() {
 
   // API routes
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", version: "match-persistence-v2", rooms: Object.keys(activeRooms).length });
   });
 
   // User auth api

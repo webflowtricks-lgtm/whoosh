@@ -1415,6 +1415,10 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   // lados), a rodada é resolvida localmente para a partida NUNCA congelar.
   const waitingSinceRef = useRef(0);
   const forcedResolveTurnsRef = useRef<Set<number>>(new Set());
+  // 📡 Sequência atual de falhas de poll (compartilhada entre o efeito de polling e
+  // o watchdog: se o servidor está inacessível há muito tempo E eu ainda nem joguei,
+  // destravo minha fase em vez de congelar para sempre).
+  const pollFailureStreakRef = useRef(0);
 
   // Last rolled chakra display
   const [lastChakraRoll, setLastChakraRoll] = useState<string[]>([]);
@@ -1713,6 +1717,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     processedOpponentTurnsRef.current.clear();
     forcedResolveTurnsRef.current.clear();
     waitingSinceRef.current = 0;
+    pollFailureStreakRef.current = 0;
 
     let startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     if (onlineParams?.isOnline) {
@@ -11232,14 +11237,13 @@ splashOnlyTargets = splashPool.filter(c =>
       }).catch(() => {});
     };
 
-    let pollFailures = 0;
     // Sala morta (servidor reiniciou, GC da sala, rede fora): após ~20 falhas
     // seguidas abre um aviso com opção de continuar tentando ou encerrar,
     // em vez de deixar a partida congelada sem feedback. 20 falhas dão folga
     // para cold start do backend hospedado (Render free pode demorar ~30s+).
     const handlePollFailure = () => {
-      pollFailures++;
-      if (pollFailures >= 20 && !showRoomLostModalRef.current && Date.now() - roomLostDismissedAtRef.current > 30000) {
+      pollFailureStreakRef.current++;
+      if (pollFailureStreakRef.current >= 20 && !showRoomLostModalRef.current && Date.now() - roomLostDismissedAtRef.current > 30000) {
         showRoomLostModalRef.current = true;
         setShowRoomLostModal(true);
       }
@@ -11254,8 +11258,8 @@ splashOnlyTargets = splashPool.filter(c =>
             return;
           }
           // Sala respondeu: zera o contador de falhas e fecha o aviso de sala perdida
-          if (pollFailures > 0 || showRoomLostModalRef.current) {
-            pollFailures = 0;
+          if (pollFailureStreakRef.current > 0 || showRoomLostModalRef.current) {
+            pollFailureStreakRef.current = 0;
             showRoomLostModalRef.current = false;
             setShowRoomLostModal(false);
           }
@@ -11377,21 +11381,45 @@ splashOnlyTargets = splashPool.filter(c =>
     }
     const watchdog = setInterval(() => {
       if (gameOver || !isWaitingForOpponent) return;
-      if (!submittedTurnRef.current.has(turn)) return;
       const waitedMs = Date.now() - waitingSinceRef.current;
-      if (waitedMs > 20000 && !forcedResolveTurnsRef.current.has(turn)) {
-        forcedResolveTurnsRef.current.add(turn);
-        console.warn(`[TURN] WATCHDOG ONLINE: ${Math.round(waitedMs / 1000)}s aguardando oponente no turno ${turn} — resolvendo rodada localmente.`);
+
+      // Caso 1: EU JÁ FINALIZEI e o oponente/servidor não responde há ~20s →
+      // resolvo a rodada localmente (1x por turno) para a partida continuar.
+      if (submittedTurnRef.current.has(turn)) {
+        if (waitedMs > 20000 && !forcedResolveTurnsRef.current.has(turn)) {
+          forcedResolveTurnsRef.current.add(turn);
+          console.warn(`[TURN] WATCHDOG ONLINE: ${Math.round(waitedMs / 1000)}s aguardando oponente no turno ${turn} — resolvendo rodada localmente.`);
+          setLogs(l => [
+            ...l,
+            {
+              id: Math.random().toString(),
+              turn,
+              message: '⏱️ Oponente não respondeu a tempo. Resolvendo a rodada para a partida continuar...',
+              type: 'system',
+            }
+          ]);
+          resolveOnlineRoundOnce(true);
+        }
+        return;
+      }
+
+      // Caso 2: eu NEM JOGUEI ainda (oponente começou a rodada) e o servidor está
+      // inacessível há muito tempo → destravo MINHA fase de planejamento, senão a
+      // partida congelava para sempre sem eu poder fazer nada ("turno não passa").
+      if (waitedMs > 30000 && pollFailureStreakRef.current >= 15) {
+        console.warn(`[TURN] WATCHDOG ONLINE: servidor inacessível (${pollFailureStreakRef.current} falhas) e aguardando há ${Math.round(waitedMs / 1000)}s — liberando fase local.`);
         setLogs(l => [
           ...l,
           {
             id: Math.random().toString(),
             turn,
-            message: '⏱️ Oponente não respondeu a tempo. Resolvendo a rodada para a partida continuar...',
+            message: '📡 Servidor da partida inacessível. Sua vez foi liberada para você continuar jogando — a sincronização volta quando a conexão retornar.',
             type: 'system',
           }
         ]);
-        resolveOnlineRoundOnce(true);
+        setActivePlanner('player');
+        setIsWaitingForOpponent(false);
+        setTimeLeft(60);
       }
     }, 1000);
     return () => clearInterval(watchdog);
