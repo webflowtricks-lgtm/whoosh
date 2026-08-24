@@ -10532,9 +10532,44 @@ splashOnlyTargets = splashPool.filter(c =>
         // neste turno (processedOpponentTurnsRef), então os DOIS já jogaram → resolve.
         // Caso contrário, apenas aguardo o oponente (nunca reabro minha fase).
         submittedTurnRef.current.add(turn);
+
+        // 🛡️ Resolução imediata SÓ se o SERVIDOR confirmar que o oponente realmente
+        // enviou o turno dele. Antes, bastava o cache local processedOpponentTurnsRef —
+        // quando ele sujava (echo das minhas próprias ações / poluição do polling),
+        // finalizar resolvia a rodada na hora e pulava o oponente inteiro
+        // ("finaliza o meu e o do oponente, toda vez").
         if (processedOpponentTurnsRef.current.has(turn)) {
-          setIsWaitingForOpponent(false);
-          resolveOnlineRoundOnce();
+          const mineIdx = onlineParams.playerIndex === 1 ? 1 : 0;
+          const oppIdx = mineIdx === 0 ? 1 : 0;
+          fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}`)
+            .then(r => r.json())
+            .then(data => {
+              const slots = data?.room?.turnActions?.[turn];
+              const oppFilled = data?.success && Array.isArray(slots) && slots[oppIdx] != null;
+              if (oppFilled) {
+                console.log(`[TURN] ambos confirmados no servidor (turno ${turn}, slot opp preenchido) — resolvendo rodada.`);
+                setIsWaitingForOpponent(false);
+                resolveOnlineRoundOnce();
+              } else {
+                console.warn(`[TURN] cache local dizia oponente pronto, MAS servidor não confirmou (turno ${turn}) — aguardando de verdade.`);
+                setLogs(prev => [
+                  ...prev,
+                  {
+                    id: Math.random().toString(),
+                    turn,
+                    message: `⚔️ VOCÊ finalizou a fase de planejamento. Aguardando o OPONENTE...`,
+                    type: 'system',
+                  }
+                ]);
+                setActivePlanner('enemy');
+                setIsWaitingForOpponent(true);
+              }
+            })
+            .catch(() => {
+              // Rede falhou na confirmação: fica aguardando (o poll de 1s resolve depois).
+              setActivePlanner('enemy');
+              setIsWaitingForOpponent(true);
+            });
         } else {
           // 🔒 Fecha a MINHA fase de forma consistente: activePlanner vai para 'enemy'
           // (a vez é do oponente) E waiting=true. Sem mudar o activePlanner, o botão
