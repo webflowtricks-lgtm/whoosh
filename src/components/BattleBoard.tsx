@@ -11359,15 +11359,24 @@ splashOnlyTargets = splashPool.filter(c =>
                 ? id.replace('player', 'enemy')
                 : id.replace('enemy', 'player');
               const rpUnits = rp.units || {};
+              // ⚖️ CONVERGE PARA O MENOR: se o cliente dele falhou em executar minha
+              // ação (RNG local divergente), o relato viria com vida cheia e "revogaria"
+              // meu dano. Ficando com o MENOR valor entre as duas visões, o dano que EU
+              // apliquei nunca é desfeito — e o que ELE aplicou e eu não vi também baixa.
               setEnemyCombatants(prev => prev.map(c => {
                 const u = rpUnits[flipId(c.id)];
                 if (!u) return c;
-                return { ...c, health: u.health, shield: u.shield ?? c.shield, isDead: !!u.isDead };
+                return {
+                  ...c,
+                  health: Math.min(c.health, u.health),
+                  shield: Math.min(c.shield ?? 0, u.shield ?? 0),
+                  isDead: !!u.isDead || !!c.isDead,
+                };
               }));
               if (rp.chakra && typeof rp.chakra === 'object') {
                 setEnemyChakra(prev => ({ ...prev, ...rp.chakra }));
               }
-              console.log(`[SYNC] Estado do oponente aplicado (turno ${turn}).`);
+              console.log(`[SYNC] Estado do oponente aplicado (turno ${turn}, converge-para-menor).`);
             }
           }
 
@@ -11379,10 +11388,50 @@ splashOnlyTargets = splashPool.filter(c =>
           // Marca turnos ANTERIORES ao turno local como já processados: o servidor
           // mantém histórico completo (nunca limpo) — após uma reconexão, sem isso,
           // o polling re-executaria as ações antigas do oponente (2x).
+          // 🔁 CATCH-UP: se um turno antigo tinha ações do oponente que NUNCA foram
+          // executadas aqui (ex.: resolvi a rodada pelo watchdog e as ações dele
+          // chegaram DEPOIS), executa-as agora em vez de descartar — sem isso o
+          // dano "sumia" e a sincronia revogava a ação do atacante.
           const serverTurns = data.room.turnActions || {};
+          const lateTurns: number[] = [];
           Object.keys(serverTurns).forEach(tStr => {
             const tNum = Number(tStr);
-            if (!isNaN(tNum) && tNum < turn) processedOpponentTurnsRef.current.add(tNum);
+            if (!isNaN(tNum) && tNum < turn && !processedOpponentTurnsRef.current.has(tNum)) {
+              lateTurns.push(tNum);
+            }
+          });
+          lateTurns.sort((a, b) => a - b).forEach(tNum => {
+            processedOpponentTurnsRef.current.add(tNum);
+            const slotArr = serverTurns[tNum];
+            const oppActsLate = Array.isArray(slotArr) ? slotArr[oppOnlineIndex] : null;
+            if (oppActsLate != null) {
+              const mappedLate: CuedAction[] = (oppActsLate || []).map((act: any) => ({
+                ...act,
+                sourceId: act.sourceId.startsWith('player')
+                  ? act.sourceId.replace('player', 'enemy')
+                  : act.sourceId.replace('enemy', 'player'),
+                targetId: act.targetId.startsWith('player')
+                  ? act.targetId.replace('player', 'enemy')
+                  : act.targetId.replace('enemy', 'player'),
+              }));
+              console.log(`[SYNC] CATCH-UP: executando ${mappedLate.length} ação(ões) atrasada(s) do oponente (turno ${tNum}).`);
+              setLogs(l => [
+                ...l,
+                {
+                  id: Math.random().toString(),
+                  turn,
+                  message: mappedLate.length === 0
+                    ? `🔄 Ações atrasadas do oponente aplicadas (Turno ${tNum}).`
+                    : `🔄 Ações atrasadas do oponente aplicadas (Turno ${tNum}): ${mappedLate.length} habilidade(s).`,
+                  type: 'system',
+                }
+              ]);
+              try {
+                executeSideActions(mappedLate, false);
+              } catch (err) {
+                console.error('[BattleBoard] Erro no catch-up de ações atrasadas:', err);
+              }
+            }
           });
 
           // 🎯 RESOLVEDOR ÚNICO DA RODADA ONLINE: se EU já submeti E o slot do
