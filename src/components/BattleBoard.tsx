@@ -43,6 +43,7 @@ interface BattleBoardProps {
   sandboxPauseChakraGen?: boolean;
   restoredState?: {
     turn: number;
+    matchStarter?: 'player' | 'enemy';
     playerCombatants: CombatCharacter[];
     enemyCombatants: CombatCharacter[];
     playerChakra: ChakraPool;
@@ -1401,6 +1402,9 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const isResolvingTurnEndRef = useRef(false);
   // 🛑 Timestamp da última resolução de rodada (disjuntor anti-loop).
   const lastResolutionAtRef = useRef(0);
+  // 🎲 Iniciativa da partida — sorteada UMA ÚNICA VEZ quando a partida é encontrada
+  // (montagem) e mantida fixa para TODOS os turnos. Nada de re-sorteio dentro da partida.
+  const matchStarterRef = useRef<'player' | 'enemy'>('player');
   const randConfirmLockRef = useRef(false);
   // 🔒 GARANTIA GLOBAL (todos os modos): cada lado só pode finalizar UMA vez por
   // número de turno. Chave = `${turn}:${side}`. Como o turno sempre incrementa na
@@ -1658,6 +1662,15 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   useEffect(() => {
     if (restoredState) {
       setTurn(restoredState.turn);
+      // 🎲 Recupera quem foi sorteado a iniciar a PARTIDA (fixo para todos os turnos).
+      if (restoredState.matchStarter === 'player' || restoredState.matchStarter === 'enemy') {
+        matchStarterRef.current = restoredState.matchStarter;
+      } else {
+        // Saves antigos sem o campo: deriva do seed (online) ou sorteia uma vez.
+        matchStarterRef.current = onlineParams?.isOnline
+          ? (iGoFirstOnTurn(1) ? 'player' : 'enemy')
+          : (Math.random() < 0.5 ? 'player' : 'enemy');
+      }
       const hydratedPlayer = hydrateCombatants(restoredState.playerCombatants);
       const hydratedEnemy = hydrateCombatants(restoredState.enemyCombatants);
       setPlayerCombatants(hydratedPlayer);
@@ -1725,9 +1738,11 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     let startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     if (onlineParams?.isOnline) {
-      // Server-authoritative random initiative (shared seed, alternates per round).
+      // Server-authoritative random initiative (shared seed) — decidido UMA vez,
+      // quando a partida é encontrada. Fica FIXO para a partida inteira.
       startingPlanner = iGoFirstOnTurn(1) ? 'player' : 'enemy';
     }
+    matchStarterRef.current = startingPlanner;
     setActivePlanner(startingPlanner);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
@@ -9975,16 +9990,12 @@ splashOnlyTargets = splashPool.filter(c =>
     setTurn(nextTurn);
 
     // Roll initiative for new turn.
-    // ONLINE: initiative alternates per round from the shared seed — both clients
-    // compute the SAME first slot for `nextTurn`, so they always agree and the
-    // turn advances cleanly. Offline = 50/50.
-    let newFirstPlayer: 'player' | 'enemy';
-    if (onlineParams?.isOnline) {
-      newFirstPlayer = iGoFirstOnTurn(nextTurn) ? 'player' : 'enemy';
-    } else {
-      newFirstPlayer = Math.random() < 0.5 ? 'player' : 'enemy';
-    }
-    console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
+    // 🎲 FIXO: o iniciante foi sorteado UMA VEZ quando a partida foi encontrada e
+    // permanece o mesmo em TODOS os turnos (quem inicia planeja primeiro; o outro
+    // responde). Sem re-sorteio dentro da partida — os dois clientes chegam ao
+    // MESMO resultado porque o valor vem do seed compartilhado gravado no mount.
+    const newFirstPlayer: 'player' | 'enemy' = matchStarterRef.current;
+    console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} (fixo da partida) sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
     setActivePlanner(newFirstPlayer);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
@@ -10003,8 +10014,8 @@ splashOnlyTargets = splashPool.filter(c =>
       id: Math.random().toString(),
       turn: nextTurn,
       message: newFirstPlayer === 'player'
-        ? `🎲 [INICIATIVA] Você ganhou o sorteio e joga PRIMEIRO no Turno ${nextTurn}!`
-        : `🎲 [INICIATIVA] O Oponente ganhou o sorteio e joga PRIMEIRO no Turno ${nextTurn}!`,
+        ? `🔄 Turno ${nextTurn} — VOCÊ planeja primeiro!`
+        : `🔄 Turno ${nextTurn} — o OPONENTE planeja primeiro.`,
       type: 'system',
     });
 
@@ -10016,13 +10027,10 @@ splashOnlyTargets = splashPool.filter(c =>
         try {
           const fbTurn = turn + 1;
           setTurn(fbTurn);
-          // 🌐 CRÍTICO: NUNCA usar Math.random() aqui! Cada cliente sorteava um
-          // "quem começa" DIFERENTE e dessincronizava a partida inteira a partir da
-          // rodada seguinte ("cada jogador joga 2x" / um fica aguardando eternamente).
-          // Iniciativa determinística pelo seed compartilhado (igual ao caminho normal).
-          const fbFirst = onlineParams?.isOnline
-            ? (iGoFirstOnTurn(fbTurn) ? 'player' : 'enemy')
-            : (Math.random() < 0.5 ? 'player' : 'enemy');
+          // 🌐 CRÍTICO: iniciativa FIXA da partida (sorteada uma vez no mount a partir
+          // do seed compartilhado). Nunca Math.random() aqui — cada cliente sorteava
+          // um "quem começa" DIFERENTE e dessincronizava a partida inteira.
+          const fbFirst: 'player' | 'enemy' = matchStarterRef.current;
           setActivePlanner(fbFirst);
           setPassedPlayersThisTurn([]);
           passedPlayersRef.current = [];
@@ -11595,6 +11603,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
       const stateToSave = {
         turn,
+        matchStarter: matchStarterRef.current,
         playerCombatants: playerCombatants.map(compressCombatant),
         enemyCombatants: enemyCombatants.map(compressCombatant),
         playerChakra,
