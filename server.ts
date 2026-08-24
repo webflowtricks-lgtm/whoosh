@@ -362,6 +362,12 @@ async function startServer() {
     if (match) {
       const room = activeRooms[match.roomId];
       if (room) {
+        // 🧹 Sala rendida não é mais uma partida ativa: devolve idle para o
+        // cliente não reconectar/ressuscitar uma partida que já acabou.
+        if (room.surrenderedBy) {
+          delete userMatches[username];
+          return res.json({ status: "idle" });
+        }
         const oppIndex = match.myIndex === 0 ? 1 : 0;
         return res.json({
           status: "matched",
@@ -470,6 +476,12 @@ async function startServer() {
 
     room.surrenderedBy = username.trim().toLowerCase();
     room.lastActivity = Date.now();
+    // 🧹 Limpa o mapeamento usuario→partida dos DOIS jogadores: sem isso,
+    // /matchmaking/status continuava devolvendo esta sala como "matched" e a
+    // partida rendida "ressuscitava" (voltava pra mesma partida).
+    for (const p of room.players) {
+      delete userMatches[p.username];
+    }
     markRoomsDirty();
 
     res.json({ success: true });
@@ -641,13 +653,14 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // Background Cleanup of Stale Rooms (older than 10 mins)
+  // Background Cleanup of Stale Rooms (older than 10 mins; surrendered rooms after 2 mins)
   setInterval(() => {
     let gcChanged = false;
     const now = Date.now();
     for (const id in activeRooms) {
-      if (now - activeRooms[id].lastActivity > 600000) {
-        const room = activeRooms[id];
+      const room = activeRooms[id];
+      const ttl = room.surrenderedBy ? 120000 : 600000;
+      if (now - room.lastActivity > ttl) {
         delete userMatches[room.players[0].username];
         delete userMatches[room.players[1].username];
         delete activeRooms[id];

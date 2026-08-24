@@ -112,3 +112,27 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - Exceptions that STILL apply through invulnerability: the source skill has `ignoreInvulnerable`, a conditional bypass (`hasConditionalInvulnBypass`), or the target carries `cannot_be_invulnerable` (Incapaz de Ficar Invulnerável, which forces `checkCombatantInvulnerable` → false and `hasTotalInvulnerability` → false).
 - The instant 1st tick (applied at skill use, before the enemy's invuln turn) always lands normally.
 
+## 🌐 ONLINE Turn Passing — Single-Resolver Architecture (WORKING, do not regress)
+**Status**: fixed & confirmed working by the user (build marker `🧪 BUILD v7-single-resolver`). All rules below exist to prevent re-introducing the "skill usada mas turno não passa" / "cada jogador joga 2x" bugs.
+
+**Core rule — ONE resolver only**:
+- Clicking "Finalizar Turno" online does ONLY: `submit-turn` to server + `setActivePlanner('enemy')` + `setIsWaitingForOpponent(true)` + wait log. It NEVER resolves the round inside the click handler (no instant-resolve, no confirmation fetch in `handleEndTurn`). If chakra/sound fires immediately on Finalizar click, an old regression snuck back.
+- The **1s room-state poll** is the ONLY round resolver. Fast-path at top of poll block: if `submittedTurnRef.has(turn) && !resolvedTurnRef.has(turn) && currentTurnActions[oppOnlineIndex] != null` → execute opponent actions once (guarded by `processedOpponentTurnsRef`) → `resolveOnlineRoundOnce()`. The legacy poll branch below it only hands MY phase over when I haven't submitted yet.
+
+**Fixed initiative (no per-round draw)**:
+- Starter is decided ONCE when the match is found: mount effect computes `startingPlanner` (online = seed-derived `iGoFirstOnTurn(1)`; offline = single Math.random()) and stores it in `matchStarterRef`.
+- EVERY round resolution uses `matchStarterRef.current` — same planner first every turn, opponent responds. NO alternation, NO Math.random per round (per-client random desynced matches), no `iGoFirstOnTurn(nextTurn)` parity alternation mid-match.
+- Persisted as `matchStarter` inside `active_match_save`; restored on reconnect (old saves without the field fall back to seed/random-once).
+- Round log message is `🔄 Turno X — VOCÊ/OPONENTE planeja primeiro.` — the `🎲 [INICIATIVA] ... sorteio` message must appear ONLY for Turn 1.
+
+**Guards / safety nets (keep all of them)**:
+- `resolvedTurnRef` + `forcedResolveTurnsRef`: resolve/force-resolve max once per turn.
+- Circuit breaker in `executeTurnEndResolution`: blocks any resolution <1500ms after the previous one (`lastResolutionAtRef`) — chained resolutions = pathological loop (played StartTurn sound endlessly).
+- Online watchdogs while waiting: heartbeat `⏳ Aguardando há Xs — servidor diz: meu turno ✔/✖ | oponente ✔/✖` every ~10s; force-resolve after 20s if submitted; unlock planning phase after 30s + 15 consecutive poll failures.
+- Per-click guard `finalizedKeysRef` (key `${turn}:${side}`); refs cleared at battle start only.
+
+**Diagnostics overlay (temporary but keep until fully stable)**:
+- `logs` state was NEVER rendered before — added fixed bottom-left panel "🧪 Log v7" (BattleBoard JSX end) showing last 7 logs incl. build marker line `🧪 BUILD v7-single-resolver` as first initial log. Bump this marker whenever touching turn flow again.
+
+**Server side**: rooms persist to `src/data/match_rooms.json` (debounced `markRoomsDirty`, restore-on-boot); `/api/health` reports version. Render free tier cold-start tolerances are baked into the 20-failure room-lost threshold.
+

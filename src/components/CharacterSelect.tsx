@@ -552,7 +552,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           <div className="top-items-battle relative z-10 w-full max-w-7xl mx-auto flex flex-col md:flex-row justify-center items-center gap-4 md:gap-10 px-4 sm:px-8 py-2.5">
             <div className="text-center md:text-left shrink-0">
         
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-amber-950 font-mono uppercase drop-shadow-sm">
+              <h2 className="main-title-teams text-xl sm:text-2xl font-black tracking-tight text-amber-950 font-mono uppercase drop-shadow-sm">
                 {sandboxPlayerTeam ? t("ESCOLHA O ESQUADRÃO ADVERSÁRIO", "CHOOSE OPPONENT SQUAD") : t("ESCOLHA SEU ESQUADRÃO", "CHOOSE YOUR SQUAD")}
               </h2>
             </div>

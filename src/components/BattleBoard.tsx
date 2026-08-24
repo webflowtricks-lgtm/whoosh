@@ -1337,12 +1337,27 @@ export default function BattleBoard({
       const damageDealt = matchStatsRef.current.damageDealt || 0;
       const gainedXp = calculateBattleXp(isVictory, turn, alivePlayerCount, damageDealt);
 
-      await onBattleEnd(isVictory, { ...matchStatsRef.current, turn, alivePlayerCount }, gainedXp);
+      // 🛡️ A sincronização NUNCA pode bloquear a saída: se onBattleEnd falhar/lançar
+      // erro, o jogador ficava preso eternamente na tela de batalha ("looping").
+      try {
+        await onBattleEnd(isVictory, { ...matchStatsRef.current, turn, alivePlayerCount }, gainedXp);
+      } catch (err) {
+        console.error('[BattleBoard] Erro ao sincronizar fim de batalha (saída continua):', err);
+      }
     }
     // Saída INTENCIONAL: limpa o save de reconexão para a batalha não "ressuscitar"
     // no modal de reconexão depois (o F5/reload ainda restaura porque não passa aqui).
     try { localStorage.removeItem('active_match_save'); } catch {}
     pendingSubmitRef.current = null;
+    // 🧹 Online: sai da sala no servidor também (limpa o mapeamento da partida para
+    // esta conta — sem isso /matchmaking/status continuava devolvendo a mesma sala).
+    if (onlineParams?.isOnline && onlineParams.roomId) {
+      fetch('/api/matchmaking/quit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username })
+      }).catch(() => {});
+    }
     onQuit();
   };
 
@@ -11196,17 +11211,24 @@ splashOnlyTargets = splashPool.filter(c =>
     setGameOver('defeat');
 
     if (onlineParams?.isOnline) {
-      try {
-        await fetch('/api/match/surrender', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomId: onlineParams.roomId,
-            username: user.username
-          })
-        });
-      } catch (err) {
-        console.error('Error sending surrender signal:', err);
+      // 🔁 Retry: Render free pode estar em cold start — sem retry, a rendição se
+      // perdia e o OPONENTE nunca ficava sabendo ("a partida não rendeu").
+      const surrenderBody = JSON.stringify({
+        roomId: onlineParams.roomId,
+        username: user.username
+      });
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const r = await fetch('/api/match/surrender', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: surrenderBody
+          });
+          if (r.ok) break;
+        } catch (err) {
+          console.error('Error sending surrender signal (tentativa ' + (attempt + 1) + '):', err);
+        }
+        await new Promise(res => setTimeout(res, 1200 * (attempt + 1)));
       }
     }
   };
