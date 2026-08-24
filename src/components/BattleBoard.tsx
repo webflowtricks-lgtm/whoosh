@@ -2052,11 +2052,11 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v9-resolve-retry-seed-init', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v11-fixed-leader', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
-          ? '🎲 [INICIATIVA] Você ganhou o sorteio e joga PRIMEIRO no Turno 1! (Inicia com 1 Chakra)'
-          : '🎲 [INICIATIVA] O Oponente ganhou o sorteio e joga PRIMEIRO no Turno 1! (Você inicia com 3 Chakras)', type: 'system' },
+          ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
+          : '🎲 [INICIATIVA] O Oponente ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Você inicia com 3 Chakras)', type: 'system' },
       { id: '3', turn: 1, message: 'Gere seus chakras e escolha suas táticas!', type: 'system' },
       ...passiveInitMessages.map((msg, i) => ({ id: `passive-${i}`, turn: 1, message: msg, type: 'buff' as const })),
     ];
@@ -10063,18 +10063,13 @@ splashOnlyTargets = splashPool.filter(c =>
     setTurn(nextTurn);
 
     // Roll initiative for new turn.
-    // 🔁 ALTERNÂNCIA DETERMINÍSTICA: o iniciante de cada rodada alterna por paridade.
-    // 🌐 ONLINE: derivamos SEMPRE da seed da sala (iGoFirstOnTurn) — resultado idêntico
-    // nos dois clientes, imune a save antigo/reconexão com matchStarter divergente.
-    // OFFLINE: usa o sorteio único do mount (matchStarterRef).
-    let newFirstPlayer: 'player' | 'enemy';
-    if (onlineParams?.isOnline) {
-      newFirstPlayer = iGoFirstOnTurn(nextTurn) ? 'player' : 'enemy';
-    } else {
-      const startSlotIdx = matchStarterRef.current === 'player' ? 0 : 1;
-      newFirstPlayer = ((startSlotIdx + (nextTurn - 1)) % 2) === 0 ? 'player' : 'enemy';
-    }
-    console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} (alterna; starter=${matchStarterRef.current}) sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
+    // 🎲 LÍDER FIXO: quem ganhou o sorteio inicial (matchStarterRef, derivado da
+    // seed no online) planeja PRIMEIRO em TODOS os turnos. Assim as fases de
+    // planejamento alternam estritamente (líder → respondente → líder → ...) e
+    // ninguém nunca planeja duas vezes seguidas. O contador só avança depois que
+    // OS DOIS finalizaram: T1=[líder, respondente], volta pro líder = T2.
+    const newFirstPlayer: 'player' | 'enemy' = matchStarterRef.current;
+    console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} (líder fixo da partida) sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
     setActivePlanner(newFirstPlayer);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
@@ -10107,15 +10102,8 @@ splashOnlyTargets = splashPool.filter(c =>
         try {
           const fbTurn = turn + 1;
           setTurn(fbTurn);
-          // 🔁 Mesma alternância determinística do caminho normal (online: seed;
-          // offline: sorteio único do mount). Nunca Math.random() aqui.
-          let fbFirst: 'player' | 'enemy';
-          if (onlineParams?.isOnline) {
-            fbFirst = iGoFirstOnTurn(fbTurn) ? 'player' : 'enemy';
-          } else {
-            const fbStartSlot = matchStarterRef.current === 'player' ? 0 : 1;
-            fbFirst = ((fbStartSlot + (fbTurn - 1)) % 2) === 0 ? 'player' : 'enemy';
-          }
+          // 🎲 Mesmo líder fixo do caminho normal (sorteio único do mount).
+          const fbFirst: 'player' | 'enemy' = matchStarterRef.current;
           setActivePlanner(fbFirst);
           setPassedPlayersThisTurn([]);
           passedPlayersRef.current = [];
@@ -11517,12 +11505,15 @@ splashOnlyTargets = splashPool.filter(c =>
             }
           });
 
-          // 🎯 RESOLVEDOR ÚNICO DA RODADA ONLINE: se EU já submeti E o slot do
-          // oponente está preenchido no servidor para ESTE turno → os dois jogaram.
-          // Executa as ações dele (uma única vez) e resolve a rodada. Este é o único
-          // caminho de resolução — sem resoluções dentro do clique de Finalizar,
-          // eliminando toda corrida entre clique/submit/confirmation/poll.
+          // 🎯 MODELO LÍDER FIXO + FASES ALTERNADAS (online):
+          // Turno N = [líder planeja e finaliza] → [respondente planeja e finaliza]
+          // → resolve → volta pro líder como turno N+1. As fases de planejamento
+          // NUNCA repetem o mesmo jogador duas vezes seguidas.
           const oppSlotFilled = Array.isArray(currentTurnActions) && currentTurnActions[oppOnlineIndex] != null;
+
+          // 1️⃣ RESOLVEDOR DA RODADA: EU já submeti E o slot do oponente está
+          // preenchido no servidor para ESTE turno → os dois jogaram. Executo as
+          // ações dele (uma única vez) e resolvo — único caminho de resolução.
           if (
             submittedTurnRef.current.has(turn) &&
             !resolvedTurnRef.current.has(turn) &&
@@ -11563,8 +11554,10 @@ splashOnlyTargets = splashPool.filter(c =>
             return;
           }
 
-          if (currentTurnActions) {
-            // Server stores turnActions[t] as an array indexed by slot: [actions0, actions1]
+          // 2️⃣ ENTREGA DA FASE: o oponente já finalizou ESTE turno e eu ainda não →
+          // executo as ações dele na minha tela e recebo a fase de planejamento
+          // (com o chakra que já foi rolado para mim no início deste turno).
+          if (currentTurnActions && !resolvedTurnRef.current.has(turn)) {
             // 🛡️ Checagem estrita: só tratamos como "oponente jogou" se o slot contém um
             // array REAL. `undefined` passava pelo `!== null` e executava um turno fantasma.
             const oppActions = Array.isArray(currentTurnActions) ? currentTurnActions[oppOnlineIndex] : null;

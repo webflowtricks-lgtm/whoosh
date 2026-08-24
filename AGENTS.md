@@ -112,16 +112,16 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - Exceptions that STILL apply through invulnerability: the source skill has `ignoreInvulnerable`, a conditional bypass (`hasConditionalInvulnBypass`), or the target carries `cannot_be_invulnerable` (Incapaz de Ficar Invulnerável, which forces `checkCombatantInvulnerable` → false and `hasTotalInvulnerability` → false).
 - The instant 1st tick (applied at skill use, before the enemy's invuln turn) always lands normally.
 
-## 🌐 ONLINE Turn Passing — Single-Resolver Architecture (WORKING, do not regress)
-**Status**: fixed & confirmed working by the user (build marker `🧪 BUILD v7-single-resolver`). All rules below exist to prevent re-introducing the "skill usada mas turno não passa" / "cada jogador joga 2x" bugs.
+## 🌐 ONLINE Turn Passing — FIXED LEADER, ALTERNATING PHASES (v11, do not regress)
+**Status**: build marker `🧪 BUILD v11-fixed-leader`. The user DEFINED the model explicitly: turn N = [leader plans & finalizes] → [responder plans & finalizes, SAME turn N] → resolve → it's back to the leader as turn N+1. The turn counter only increments after BOTH players acted. With a FIXED leader (initiative drawn once), planning phases strictly alternate leader→responder→leader→… so NOBODY ever plans twice in a row. Do NOT re-introduce per-turn parity alternation of the leader (it made one player respond twice consecutively across turn boundaries — user rejected it) and do NOT re-introduce single-planner turns (v10, user rejected: both players must act inside the same numbered turn).
 
 **Core rule — ONE resolver only**:
 - Clicking "Finalizar Turno" online does ONLY: `submit-turn` to server + `setActivePlanner('enemy')` + `setIsWaitingForOpponent(true)` + wait log. It NEVER resolves the round inside the click handler (no instant-resolve, no confirmation fetch in `handleEndTurn`). If chakra/sound fires immediately on Finalizar click, an old regression snuck back.
 - The **1s room-state poll** is the ONLY round resolver. Fast-path at top of poll block: if `submittedTurnRef.has(turn) && !resolvedTurnRef.has(turn) && currentTurnActions[oppOnlineIndex] != null` → execute opponent actions once (guarded by `processedOpponentTurnsRef`) → `resolveOnlineRoundOnce()`. The legacy poll branch below it only hands MY phase over when I haven't submitted yet.
 
-**Fixed initiative draw, alternating leader**:
-- The starter is derived from the ROOM SEED: `onlineStarterSlot()` (hash of seed) + turn parity → `onlineFirstSlotForTurn(t)`. Round resolution computes the leader as `iGoFirstOnTurn(nextTurn) ? 'player' : 'enemy'` when online (identical on both clients, immune to save/restore divergence); offline uses `matchStarterRef` (single Math.random at mount). NO per-round Math.random and NO permanently-fixed leader.
-- `matchStarterRef` is still persisted (`matchStarter` in `active_match_save`) but is only authoritative OFFLINE now.
+**Fixed leader (no per-turn re-draw, no parity alternation)**:
+- The starter is drawn ONCE when the match is found: mount effect computes `startingPlanner` (online = seed-derived `iGoFirstOnTurn(1)`; offline = single Math.random()) and stores it in `matchStarterRef` (persisted as `matchStarter` in `active_match_save`, restored on reconnect).
+- EVERY round resolution uses `matchStarterRef.current` as the planner who goes first — same leader every turn. NO alternation by turn parity, NO Math.random per round.
 - Round log message is `🔄 Turno X — VOCÊ/OPONENTE planeja primeiro.` — the `🎲 [INICIATIVA] ... sorteio` message must appear ONLY for Turn 1.
 
 **Chakra drain/steal/remove double-tick guard**: end-of-round tick block marks `(e as any).lastChakraTickTurn = turn` and filters it out — an effect can never tick twice in the same round even when created late (watchdog/catch-up path).
@@ -132,11 +132,11 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - `resolvedTurnRef` + `forcedResolveTurnsRef`: resolve/force-resolve max once per turn.
 - **🛡️ SERVER-CONFIRMED SUBMIT (v8)**: `submittedTurnRef` is marked ONLY when the server accepts `submit-turn` (in `submitWithRetry` r.ok, or `trySubmitPending` r.ok). NEVER mark it optimistically at click time. The 20s force-resolve watchdog requires BOTH `submittedTurnRef.has(turn)` AND fresh `lastServerConfirmRef` (server room-state/heartbeat saw my slot registered, <30s old) — otherwise it must NOT resolve, or rounds get resolved without the opponent during Render cold starts ("gerou chakra e o turno não passou" bug).
 - Circuit breaker in `executeTurnEndResolution`: blocks any resolution <1500ms after the previous one (`lastResolutionAtRef`) — chained resolutions = pathological loop (played StartTurn sound endlessly).
-- Online watchdogs while waiting: heartbeat `⏳ Aguardando há Xs — servidor diz: meu turno ✔/✖ | oponente ✔/✖` every ~10s; force-resolve after 20s if submitted; unlock planning phase after 30s + 15 consecutive poll failures.
+- Online watchdogs while waiting: heartbeat `⏳ Aguardando há Xs — servidor diz: meu turno ✔/✖ | oponente ✔/✖` every ~10s; force-resolve after 20s if submitted (planner only); unlock planning after 30s + 15 consecutive poll failures.
 - Per-click guard `finalizedKeysRef` (key `${turn}:${side}`); refs cleared at battle start only.
 
 **Diagnostics overlay (temporary but keep until fully stable)**:
-- `logs` state was NEVER rendered before — added fixed bottom-left panel "🧪 Log v7" (BattleBoard JSX end) showing last 7 logs incl. build marker line `🧪 BUILD v7-single-resolver` as first initial log. Bump this marker whenever touching turn flow again.
+- `logs` state was NEVER rendered before — added fixed bottom-left panel "🧪 Log v7" (BattleBoard JSX end) showing last 7 logs incl. build marker line as first initial log. Bump this marker whenever touching turn flow again (current: `🧪 BUILD v10-single-planner-turns`).
 
 **Server side**: rooms persist to `src/data/match_rooms.json` (debounced `markRoomsDirty`, restore-on-boot); `/api/health` reports version. Render free tier cold-start tolerances are baked into the 20-failure room-lost threshold.
 
