@@ -2052,7 +2052,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v8-server-confirmed-submit', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v9-resolve-retry-seed-init', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e joga PRIMEIRO no Turno 1! (Inicia com 1 Chakra)'
@@ -9283,9 +9283,11 @@ splashOnlyTargets = splashPool.filter(c =>
     return false;
   };
 
-  // Helper to execute end-of-turn effects after BOTH players have completed their action phase
-  const executeTurnEndResolution = () => {
-    if (isResolvingTurnEndRef.current) return;
+    // Helper to execute end-of-turn effects after BOTH players have completed their action phase
+    // 🛡️ Retorna true se a rodada AVANÇOU (ou o fallback avançou). false = bloqueada
+    // (guard/disjuntor) — o chamador não deve marcar o turno como resolvido.
+    const executeTurnEndResolution = (): boolean => {
+    if (isResolvingTurnEndRef.current) return false;
     // 🛑 DISJUNTOR ANTI-LOOP: resoluções legítimas NUNCA acontecem a menos de ~1.5s
     // uma da outra (uma rodada inteira leva vários segundos no mínimo). Chamadas
     // encadeadas nesse intervalo = loop patológico (tocava o som de início de partida
@@ -9304,7 +9306,7 @@ splashOnlyTargets = splashPool.filter(c =>
           }
         ]);
       } catch {}
-      return;
+      return false; // 🛡️ avança=false → o chamador NÃO marca o turno como resolvido e tentará de novo
     }
     lastResolutionAtRef.current = nowMs;
     isResolvingTurnEndRef.current = true;
@@ -10061,15 +10063,18 @@ splashOnlyTargets = splashPool.filter(c =>
     setTurn(nextTurn);
 
     // Roll initiative for new turn.
-    // 🔁 ALTERNÂNCIA DETERMINÍSTICA: o SORTEIO acontece UMA VEZ (matchStarterRef,
-    // definido quando a partida é encontrada), e o iniciante de cada rodada ALTERNA
-    // a partir dele — sem novo sorteio dentro da partida e sem o mesmo jogador
-    // liderar todo turno ("joga 2x"). Os dois clientes chegam ao MESMO resultado
-    // porque derivam do mesmo valor inicial + paridade do turno.
-    const startSlotIdx = matchStarterRef.current === 'player' ? 0 : 1;
-    const leaderSlotIdx = (startSlotIdx + (nextTurn - 1)) % 2;
-    const newFirstPlayer: 'player' | 'enemy' = leaderSlotIdx === 0 ? 'player' : 'enemy';
-    console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} (alterna a partir de ${matchStarterRef.current}) sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
+    // 🔁 ALTERNÂNCIA DETERMINÍSTICA: o iniciante de cada rodada alterna por paridade.
+    // 🌐 ONLINE: derivamos SEMPRE da seed da sala (iGoFirstOnTurn) — resultado idêntico
+    // nos dois clientes, imune a save antigo/reconexão com matchStarter divergente.
+    // OFFLINE: usa o sorteio único do mount (matchStarterRef).
+    let newFirstPlayer: 'player' | 'enemy';
+    if (onlineParams?.isOnline) {
+      newFirstPlayer = iGoFirstOnTurn(nextTurn) ? 'player' : 'enemy';
+    } else {
+      const startSlotIdx = matchStarterRef.current === 'player' ? 0 : 1;
+      newFirstPlayer = ((startSlotIdx + (nextTurn - 1)) % 2) === 0 ? 'player' : 'enemy';
+    }
+    console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} (alterna; starter=${matchStarterRef.current}) sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
     setActivePlanner(newFirstPlayer);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
@@ -10094,6 +10099,7 @@ splashOnlyTargets = splashPool.filter(c =>
     });
 
     setLogs(prev => [...prev, ...newLogs]);
+    return true;
     } catch (err) {
       console.error(`[BattleBoard] Erro na resolução da rodada ${turn}:`, err);
       try { setLastResolutionError(String((err as any)?.message || err)); } catch {} 
@@ -10101,10 +10107,15 @@ splashOnlyTargets = splashPool.filter(c =>
         try {
           const fbTurn = turn + 1;
           setTurn(fbTurn);
-          // 🔁 Mesma alternância determinística do caminho normal (deriva do sorteio
-          // único do mount + paridade do turno). Nunca Math.random() aqui.
-          const fbStartSlot = matchStarterRef.current === 'player' ? 0 : 1;
-          const fbFirst: 'player' | 'enemy' = ((fbStartSlot + (fbTurn - 1)) % 2) === 0 ? 'player' : 'enemy';
+          // 🔁 Mesma alternância determinística do caminho normal (online: seed;
+          // offline: sorteio único do mount). Nunca Math.random() aqui.
+          let fbFirst: 'player' | 'enemy';
+          if (onlineParams?.isOnline) {
+            fbFirst = iGoFirstOnTurn(fbTurn) ? 'player' : 'enemy';
+          } else {
+            const fbStartSlot = matchStarterRef.current === 'player' ? 0 : 1;
+            fbFirst = ((fbStartSlot + (fbTurn - 1)) % 2) === 0 ? 'player' : 'enemy';
+          }
           setActivePlanner(fbFirst);
           setPassedPlayersThisTurn([]);
           passedPlayersRef.current = [];
@@ -10124,17 +10135,21 @@ splashOnlyTargets = splashPool.filter(c =>
           ]);
         } catch (e2) {
           console.error('[BattleBoard] Falha no fallback de resolução:', e2);
+          return false;
         }
       }
+      return advanced;
     } finally {
       isResolvingTurnEndRef.current = false;
     }
   };
 
   // 🌐 ONLINE — resolve a rodada UMA única vez por turno, independentemente de
-  // quem chegou por último (meu finalize ou o poll do oponente). Guardado por
-  // resolvedTurnRef para nunca resolver o mesmo turno 2x (o que reabria/voltava
-  // a vez pra mim e travava a passagem de turno).
+  // quem chegou por último (meu finalize ou o poll do oponente). O turno só é
+  // marcado como resolvido DEPOIS que a resolução realmente AVANÇOU a rodada.
+  // 🛡️ Antes, marcávamos antes de executar: se o disjuntor anti-loop bloqueava,
+  // esta rodada nunca mais era resolvida NESTE cliente (sem chakra novo, sem
+  // troca de planejador) enquanto o outro cliente avançava — dessincronia total.
   const resolveOnlineRoundOnce = (force = false) => {
     const t = turnRef.current;
     if (resolvedTurnRef.current.has(t)) {
@@ -10145,7 +10160,6 @@ splashOnlyTargets = splashPool.filter(c =>
       console.warn(`[TURN] resolveOnlineRoundOnce FORÇADO (watchdog de travamento): turno ${t}`);
       resolvedTurnRef.current.delete(t);
     }
-    resolvedTurnRef.current.add(t);
     setIsWaitingForOpponent(false);
     setTimeout(() => {
       // 🔒 Se uma resolução anterior ficou presa no guard (ex.: interrompida), ela
@@ -10153,7 +10167,13 @@ splashOnlyTargets = splashPool.filter(c =>
       // marcado como resolvido acima, ambos os clientes travavam em "Aguardando
       // oponente". Limpamos o guard antes de invocar para garantir a progressão.
       isResolvingTurnEndRef.current = false;
-      executeTurnEndResolution();
+      const advancedNow = executeTurnEndResolution();
+      if (advancedNow) {
+        resolvedTurnRef.current.add(t);
+      } else {
+        // Bloqueada (disjuntor/guard) → NÃO marca: o próximo poll tenta de novo.
+        console.warn(`[TURN] resolução do turno ${t} não avançou — liberada para nova tentativa no próximo poll.`);
+      }
     }, 250);
   };
 

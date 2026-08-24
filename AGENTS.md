@@ -120,11 +120,13 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - The **1s room-state poll** is the ONLY round resolver. Fast-path at top of poll block: if `submittedTurnRef.has(turn) && !resolvedTurnRef.has(turn) && currentTurnActions[oppOnlineIndex] != null` → execute opponent actions once (guarded by `processedOpponentTurnsRef`) → `resolveOnlineRoundOnce()`. The legacy poll branch below it only hands MY phase over when I haven't submitted yet.
 
 **Fixed initiative draw, alternating leader**:
-- The DRAW happens ONCE when the match is found: mount effect computes `startingPlanner` (online = seed-derived `iGoFirstOnTurn(1)`; offline = single Math.random()) and stores it in `matchStarterRef` (persisted as `matchStarter` in `active_match_save`, restored on reconnect).
-- EVERY round resolution ALTERNATES deterministically from that draw: `leader = ((startSlot + turn - 1) % 2) === 0 ? 'player' : 'enemy'`. NO per-round Math.random (desyncs clients) and NO permanently-fixed leader (same player would act 2x between opponent actions — user-reported bug).
+- The starter is derived from the ROOM SEED: `onlineStarterSlot()` (hash of seed) + turn parity → `onlineFirstSlotForTurn(t)`. Round resolution computes the leader as `iGoFirstOnTurn(nextTurn) ? 'player' : 'enemy'` when online (identical on both clients, immune to save/restore divergence); offline uses `matchStarterRef` (single Math.random at mount). NO per-round Math.random and NO permanently-fixed leader.
+- `matchStarterRef` is still persisted (`matchStarter` in `active_match_save`) but is only authoritative OFFLINE now.
 - Round log message is `🔄 Turno X — VOCÊ/OPONENTE planeja primeiro.` — the `🎲 [INICIATIVA] ... sorteio` message must appear ONLY for Turn 1.
 
 **Chakra drain/steal/remove double-tick guard**: end-of-round tick block marks `(e as any).lastChakraTickTurn = turn` and filters it out — an effect can never tick twice in the same round even when created late (watchdog/catch-up path).
+
+**🛡️ Resolution must ADVANCE or be retried (v9)**: `executeTurnEndResolution()` returns boolean (`advanced`). `resolveOnlineRoundOnce` marks the turn in `resolvedTurnRef` ONLY when the resolution actually advanced; if the circuit breaker (<1500ms) or the re-entrancy guard blocked it, the turn stays UNMARKED and the next 1s poll retries. Marking before executing caused a lost round on one client only (no chakra roll, no planner switch) while the other client advanced — total desync ("chakra não gera / turno repete pra mesma pessoa").
 
 **Guards / safety nets (keep all of them)**:
 - `resolvedTurnRef` + `forcedResolveTurnsRef`: resolve/force-resolve max once per turn.
