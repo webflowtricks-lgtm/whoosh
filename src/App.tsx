@@ -64,6 +64,7 @@ export default function App() {
     isOnline: boolean;
     roomId: string;
     playerIndex: number;
+    seed: number;
     opponentProfile: UserProfile;
   } | null>(null);
   
@@ -229,7 +230,7 @@ export default function App() {
   const handleConfirmTeams = (
     playerSquad: Character[],
     enemySquad: Character[],
-    online?: { isOnline: boolean; roomId: string; playerIndex: number; opponentProfile: UserProfile },
+    online?: { isOnline: boolean; roomId: string; playerIndex: number; seed: number; opponentProfile: UserProfile },
     sandbox?: boolean,
     sandboxPauseChakraGen?: boolean
   ) => {

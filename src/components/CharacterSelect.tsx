@@ -17,7 +17,7 @@ interface CharacterSelectProps {
   onConfirmTeams: (
     playerTeam: Character[],
     enemyTeam: Character[],
-    online?: { isOnline: boolean; roomId: string; playerIndex: number; opponentProfile: UserProfile },
+    online?: { isOnline: boolean; roomId: string; playerIndex: number; seed: number; opponentProfile: UserProfile },
     sandbox?: boolean,
     sandboxPauseChakraGen?: boolean
   ) => void;
@@ -349,6 +349,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           username: user.username,
           name: user.name,
           photoUrl: user.photoUrl,
+          profile: user,
           team: playerTeam
         })
       });
@@ -363,7 +364,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       const joinData = await joinRes.json();
 
       if (joinData.status === 'matched') {
-        handleMatchFound(joinData.roomId, joinData.playerIndex, joinData.opponent, playerTeam);
+        handleMatchFound(joinData.roomId, joinData.myIndex, joinData.seed, joinData.opponent, playerTeam);
         return;
       }
 
@@ -389,7 +390,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           const statusData = await statusRes.json();
 
           if (statusData.status === 'matched') {
-            handleMatchFound(statusData.roomId, statusData.playerIndex, statusData.opponent, playerTeam);
+            handleMatchFound(statusData.roomId, statusData.myIndex, statusData.seed, statusData.opponent, playerTeam);
           } else if (statusData.status === 'idle' && pollCount > 3) {
             // Re-join queue if we got idle (might have been cleaned up)
             fetch('/api/matchmaking/join', {
@@ -399,6 +400,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 username: user.username,
                 name: user.name,
                 photoUrl: user.photoUrl,
+                profile: user,
                 team: playerTeam
               })
             }).catch(() => {});
@@ -415,7 +417,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     }
   };
 
-  const handleMatchFound = (roomId: string, playerIndex: number, opponentData: any, playerTeam: Character[]) => {
+  const handleMatchFound = (roomId: string, myIndex: number, seed: number, opponentData: any, playerTeam: Character[]) => {
+    // Prevent double-trigger (both the join response and a poll tick can fire)
+    if (matchmakingStatus === 'matched') return;
+
     // Clear queue timers
     if (matchmakingPollRef.current) clearInterval(matchmakingPollRef.current);
     if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
@@ -432,24 +437,26 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
     // Start 5 second countdown before starting battle
     let currentCountdown = 5;
+    setCountdown(currentCountdown);
     countdownIntervalRef.current = setInterval(() => {
       currentCountdown--;
       setCountdown(currentCountdown);
 
       if (currentCountdown <= 0) {
         if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-        
+
         // Finalize selection and start!
         setIsMatchmaking(false);
         onConfirmTeams(playerTeam, opponentData.team, {
           isOnline: true,
           roomId,
-          playerIndex,
-          opponentProfile: {
+          playerIndex: myIndex,
+          seed,
+          opponentProfile: (opponentData.profile || {
             username: opponentData.username,
             name: opponentData.name,
             photoUrl: opponentData.photoUrl
-          }
+          }) as UserProfile
         });
       }
     }, 1000);

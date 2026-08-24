@@ -34,7 +34,8 @@ interface BattleBoardProps {
   onlineParams?: {
     isOnline: boolean;
     roomId: string;
-    playerIndex: number;
+    playerIndex: number; // my slot index in the room: 0 or 1
+    seed: number;        // shared initiative seed (server-authoritative)
     opponentProfile: UserProfile;
   } | null;
   isSandbox?: boolean;
@@ -46,7 +47,7 @@ interface BattleBoardProps {
     enemyCombatants: CombatCharacter[];
     playerChakra: ChakraPool;
     enemyChakra: ChakraPool;
-    onlineParams?: { isOnline: boolean; roomId: string; playerIndex: number } | null;
+    onlineParams?: { isOnline: boolean; roomId: string; playerIndex: number; seed: number } | null;
     processedOpponentTurns?: number[];
     passedPlayersThisTurn?: ('player' | 'enemy')[];
     sandboxPauseChakraGen?: boolean;
@@ -1236,6 +1237,25 @@ export default function BattleBoard({
   const opponentRankProgress = useMemo(() => getRankProgress(opponentXp, ranksList), [opponentXp, ranksList]);
   const opponentCurrentRank = opponentRankProgress.currentRank;
 
+  // 🔑 ONLINE INITIATIVE — single source of truth, server-authoritative.
+  // Both clients share the same room `seed`; for a given turn they derive the
+  // SAME "first slot" (0 or 1) from a deterministic hash. This is what makes
+  // turns pass correctly: neither client can disagree about whose turn it is.
+  // The first slot of turn 1 starts the whole match (random per room).
+  const onlineFirstSlotForTurn = (t: number): 0 | 1 => {
+    const seed = onlineParams?.seed || 0;
+    let x = (seed + t * 2654435761) >>> 0;
+    x ^= x >>> 15;
+    x = (x * 2246822519) >>> 0;
+    x ^= x >>> 13;
+    return (x & 1) as 0 | 1;
+  };
+  // My slot in the room (0 or 1). Offline this is irrelevant.
+  const myOnlineIndex = (): 0 | 1 => (onlineParams?.playerIndex === 1 ? 1 : 0);
+  // Do I plan first on turn `t`?
+  const iGoFirstOnTurn = (t: number): boolean => onlineFirstSlotForTurn(t) === myOnlineIndex();
+
+
   // In-Game Quest Modal States
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
   const [allQuests, setAllQuests] = useState<Quest[]>([]);
@@ -1659,8 +1679,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     let startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     if (onlineParams?.isOnline) {
-      const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
-      startingPlanner = myOnlineIndex === 0 ? 'player' : 'enemy';
+      // Server-authoritative random initiative for turn 1 (shared seed).
+      startingPlanner = iGoFirstOnTurn(1) ? 'player' : 'enemy';
     }
     setActivePlanner(startingPlanner);
     setPassedPlayersThisTurn([]);
@@ -2120,13 +2140,13 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
     const rolled: (keyof ChakraPool)[] = [];
 
-    // Simple LCG PRNG for online sync
+    // Deterministic PRNG for online sync (shared room seed → both clients roll
+    // identical chakra for each slot every turn).
     let seed = 0;
     if (onlineParams?.isOnline) {
-      const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
-      const targetIndex = isPlayer ? myOnlineIndex : (1 - myOnlineIndex);
-      // We can use the current state of turn count or just the turn variable
-      const seedStr = `${onlineParams.roomId}-${turn}-player-${targetIndex}`;
+      const mine = myOnlineIndex();
+      const targetIndex = isPlayer ? mine : (1 - mine);
+      const seedStr = `${onlineParams.seed}-${turn}-slot-${targetIndex}`;
       let hash = 0;
       for (let j = 0; j < seedStr.length; j++) {
         hash = seedStr.charCodeAt(j) + ((hash << 5) - hash);
@@ -9869,14 +9889,12 @@ splashOnlyTargets = splashPool.filter(c =>
     setTurn(nextTurn);
 
     // Roll initiative for new turn.
-    // ONLINE: iniciativa DETERMINÍSTICA (turn % 2) — precisa ser IGUAL/oposta nos dois clientes,
-    // senão logo após a resolução ambos os lados escolhem um "primeiro" diferente e abre uma janela
-    // em que os dois conseguem finalizar (turno "não passa" / finalizar 2x). Offline/sandbox = 50/50.
+    // ONLINE: server-authoritative random via shared seed — both clients compute
+    // the SAME first slot for `nextTurn`, so they can never disagree about whose
+    // turn it is (this is what kept the turn from "not passing"). Offline = 50/50.
     let newFirstPlayer: 'player' | 'enemy';
     if (onlineParams?.isOnline) {
-      const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
-      const whoGoesFirst = (nextTurn % 2 === 1) ? 0 : 1;
-      newFirstPlayer = myOnlineIndex === whoGoesFirst ? 'player' : 'enemy';
+      newFirstPlayer = iGoFirstOnTurn(nextTurn) ? 'player' : 'enemy';
     } else {
       newFirstPlayer = Math.random() < 0.5 ? 'player' : 'enemy';
     }
@@ -11074,10 +11092,9 @@ splashOnlyTargets = splashPool.filter(c =>
       return;
     }
 
-    // Ninguém passou → ordem determinística da rodada (igual/oposta nos dois clientes).
-    const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
-    const whoGoesFirst = (turn % 2 === 1) ? 0 : 1;
-    if (myOnlineIndex === whoGoesFirst) {
+    // Ninguém passou → ordem determinística da rodada (shared seed → igual/oposta
+    // nos dois clientes).
+    if (iGoFirstOnTurn(turn)) {
       setActivePlanner('player');
       setIsWaitingForOpponent(false);
     } else {
@@ -11162,8 +11179,8 @@ splashOnlyTargets = splashPool.filter(c =>
           }
 
           // Check online turn state sync
-          const myOnlineIndex = onlineParams.playerIndex === 2 ? 1 : 0;
-          const oppOnlineIndex = myOnlineIndex === 0 ? 1 : 0;
+          const mine = onlineParams.playerIndex === 1 ? 1 : 0;
+          const oppOnlineIndex = mine === 0 ? 1 : 0;
           const currentTurnActions = data.room.turnActions?.[turn];
 
           // Marca turnos ANTERIORES ao turno local como já processados: o servidor
@@ -11176,8 +11193,8 @@ splashOnlyTargets = splashPool.filter(c =>
           });
 
           if (currentTurnActions) {
-            const oppKey = `player${oppOnlineIndex}` as 'player0' | 'player1';
-            const oppActions = currentTurnActions[oppKey];
+            // Server stores turnActions[t] as an array indexed by slot: [actions0, actions1]
+            const oppActions = currentTurnActions[oppOnlineIndex];
 
             if (oppActions !== null && !processedOpponentTurnsRef.current.has(turn)) {
               processedOpponentTurnsRef.current.add(turn);

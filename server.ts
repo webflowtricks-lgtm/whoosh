@@ -166,97 +166,131 @@ async function startServer() {
   });
 
   // ==========================================
-  // MATCHMAKING AND MULTIPLAYER GAME SYSTEM
+  // MATCHMAKING AND MULTIPLAYER GAME SYSTEM (1v1)
   // ==========================================
+  // Rebuild (clean): the server is the single source of truth for turn
+  // initiative via a per-room random `seed`. Both clients derive whose turn
+  // it is each round from the SAME deterministic PRNG, so they can never
+  // disagree (this eliminates the old "turno não passa" / "finalizar 2x" /
+  // "ambos aguardando" race that came from each client computing initiative
+  // independently). Turn actions are stored per player-slot [0,1]; a round
+  // resolves locally on each client once both slots for that turn are filled.
 
-  interface WaitingPlayer {
-    username: string;
+  interface PlayerSlot {
+    username: string;   // lowercase, unique id
     name: string;
     photoUrl: string;
+    profile: any;       // full UserProfile (xp/rank/title/banner/frame…) for the enemy card
     team: any[];
-    timestamp: number;
   }
 
-  interface TurnActions {
-    player1Actions: any[] | null;
-    player2Actions: any[] | null;
+  interface QueuePlayer extends PlayerSlot {
+    timestamp: number;
   }
 
   interface MatchRoom {
     id: string;
-    player1: { username: string; name: string; photoUrl: string; team: any[] };
-    player2: { username: string; name: string; photoUrl: string; team: any[] };
-    turns: { [turnNumber: number]: TurnActions };
+    seed: number;                                 // shared initiative seed
+    players: [PlayerSlot, PlayerSlot];            // index 0 and 1
+    turns: { [turn: number]: (any[] | null)[] };  // turns[t] = [actions0, actions1]
     emojis: { username: string; senderName?: string; emoji: string; timestamp: number }[];
-    chatMessages?: { id: string; username: string; senderName: string; senderTitle?: string; text: string; timestamp: number }[];
+    chatMessages: { id: string; username: string; senderName: string; senderTitle?: string; text: string; timestamp: number }[];
     lastActivity: number;
-    surrenderedBy?: string | null;
-    player1Ping?: number;
-    player2Ping?: number;
+    surrenderedBy: string | null;
+    pings: [number, number];
   }
 
-  const waitingQueue: WaitingPlayer[] = [];
+  const waitingQueue: QueuePlayer[] = [];
   const activeRooms: { [id: string]: MatchRoom } = {};
-  const userMatches: { [username: string]: { roomId: string; playerIndex: 1 | 2; opponent: any } } = {};
+  // maps a username -> which room they are in and their slot index (0 or 1)
+  const userMatches: { [username: string]: { roomId: string; myIndex: 0 | 1 } } = {};
+
+  const slotOf = (room: MatchRoom, username: string): 0 | 1 | -1 => {
+    if (room.players[0].username === username) return 0;
+    if (room.players[1].username === username) return 1;
+    return -1;
+  };
+
+  // Public opponent payload (what the other player is allowed to see)
+  const publicOpponent = (slot: PlayerSlot) => ({
+    username: slot.username,
+    name: slot.name,
+    photoUrl: slot.photoUrl,
+    team: slot.team,
+    profile: slot.profile,
+  });
 
   // Join Matchmaking Queue
   app.post("/api/matchmaking/join", (req, res) => {
-    const { username, name, photoUrl, team } = req.body;
+    const { username, name, photoUrl, team, profile } = req.body;
     if (!username || !team || !Array.isArray(team)) {
       return res.status(400).json({ error: "Dados inválidos para matchmaking." });
     }
 
     const cleanUsername = username.trim().toLowerCase();
 
-    // Clean up older searches for this user
+    // Clean up any stale queue entry / match mapping for this user
     const existingIdx = waitingQueue.findIndex(p => p.username === cleanUsername);
-    if (existingIdx !== -1) {
-      waitingQueue.splice(existingIdx, 1);
-    }
+    if (existingIdx !== -1) waitingQueue.splice(existingIdx, 1);
     delete userMatches[cleanUsername];
 
-    // Check for another waiting player in queue
-    const otherPlayerIdx = waitingQueue.findIndex(p => p.username !== cleanUsername);
-    if (otherPlayerIdx !== -1) {
-      const opponent = waitingQueue.splice(otherPlayerIdx, 1)[0];
-      const roomId = "room_" + Math.random().toString(36).substring(2, 11);
-
-      const room: MatchRoom = {
-        id: roomId,
-        player1: { username: opponent.username, name: opponent.name, photoUrl: opponent.photoUrl, team: opponent.team },
-        player2: { username: cleanUsername, name: name || "Shinobi", photoUrl: photoUrl || "", team },
-        turns: {},
-        emojis: [],
-        chatMessages: [],
-        lastActivity: Date.now()
-      };
-
-      activeRooms[roomId] = room;
-
-      userMatches[opponent.username] = { roomId, playerIndex: 1, opponent: room.player2 };
-      userMatches[cleanUsername] = { roomId, playerIndex: 2, opponent: room.player1 };
-
-      return res.json({
-        status: "matched",
-        roomId,
-        playerIndex: 2,
-        opponent: room.player1
-      });
-    }
-
-    // No opponent found yet, add to queue
-    waitingQueue.push({
+    const me: PlayerSlot = {
       username: cleanUsername,
       name: name || "Shinobi",
       photoUrl: photoUrl || "",
+      profile: profile || { username: cleanUsername, name: name || "Shinobi", photoUrl: photoUrl || "" },
       team,
-      timestamp: Date.now()
-    });
+    };
 
+    // Pair with the first different waiting player
+    const otherIdx = waitingQueue.findIndex(p => p.username !== cleanUsername);
+    if (otherIdx !== -1) {
+      const opponent = waitingQueue.splice(otherIdx, 1)[0];
+      const roomId = "room_" + Math.random().toString(36).substring(2, 11);
+      const seed = Math.floor(Math.random() * 0x7fffffff);
+
+      const oppSlot: PlayerSlot = {
+        username: opponent.username,
+        name: opponent.name,
+        photoUrl: opponent.photoUrl,
+        profile: opponent.profile,
+        team: opponent.team,
+      };
+
+      // opponent = slot 0, joining player = slot 1
+      const room: MatchRoom = {
+        id: roomId,
+        seed,
+        players: [oppSlot, me],
+        turns: {},
+        emojis: [],
+        chatMessages: [],
+        lastActivity: Date.now(),
+        surrenderedBy: null,
+        pings: [Date.now(), Date.now()],
+      };
+
+      activeRooms[roomId] = room;
+      userMatches[oppSlot.username] = { roomId, myIndex: 0 };
+      userMatches[cleanUsername] = { roomId, myIndex: 1 };
+
+      // Respond to the joining player (slot 1). The waiting player (slot 0)
+      // discovers the match via /api/matchmaking/status polling.
+      return res.json({
+        status: "matched",
+        roomId,
+        myIndex: 1,
+        seed,
+        opponent: publicOpponent(oppSlot),
+      });
+    }
+
+    // Nobody waiting yet → enqueue
+    waitingQueue.push({ ...me, timestamp: Date.now() });
     res.json({ status: "searching" });
   });
 
-  // Get Matchmaking Status
+  // Get Matchmaking Status (also used to verify a room on reconnection)
   app.get("/api/matchmaking/status", (req, res) => {
     const username = (req.query.username as string || "").trim().toLowerCase();
     if (!username) {
@@ -267,19 +301,18 @@ async function startServer() {
     if (match) {
       const room = activeRooms[match.roomId];
       if (room) {
+        const oppIndex = match.myIndex === 0 ? 1 : 0;
         return res.json({
           status: "matched",
           roomId: match.roomId,
-          playerIndex: match.playerIndex,
-          opponent: match.opponent,
-          playerTeam: match.playerIndex === 1 ? room.player1.team : room.player2.team,
-          opponentTeam: match.playerIndex === 1 ? room.player2.team : room.player1.team
+          myIndex: match.myIndex,
+          seed: room.seed,
+          opponent: publicOpponent(room.players[oppIndex]),
         });
       }
     }
 
-    const isWaiting = waitingQueue.some(p => p.username === username);
-    if (isWaiting) {
+    if (waitingQueue.some(p => p.username === username)) {
       return res.json({ status: "searching" });
     }
 
@@ -298,25 +331,21 @@ async function startServer() {
       return res.status(404).json({ error: "Sala não encontrada ou partida finalizada." });
     }
 
-    room.lastActivity = Date.now();
     const cleanUsername = username.trim().toLowerCase();
-
-    if (!room.turns[turn]) {
-      room.turns[turn] = { player1Actions: null, player2Actions: null };
-    }
-
-    if (room.player1.username === cleanUsername) {
-      room.turns[turn].player1Actions = actions;
-    } else if (room.player2.username === cleanUsername) {
-      room.turns[turn].player2Actions = actions;
-    } else {
+    const idx = slotOf(room, cleanUsername);
+    if (idx === -1) {
       return res.status(403).json({ error: "Você não faz parte desta sala." });
     }
 
-    res.json({ success: true, actionsSubmitted: true });
+    room.lastActivity = Date.now();
+    room.pings[idx] = Date.now();
+    if (!room.turns[turn]) room.turns[turn] = [null, null];
+    room.turns[turn][idx] = actions;
+
+    res.json({ success: true });
   });
 
-  // Get Turn State (Polling)
+  // Get Room State (Polling)
   app.get("/api/match/room-state", (req, res) => {
     const roomId = req.query.roomId as string;
     if (!roomId) {
@@ -328,50 +357,35 @@ async function startServer() {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
 
-    // Mark current player's ping to detect disconnects
+    // Update ping for the querying player
     const username = (req.query.username as string || "").trim().toLowerCase();
-    if (username) {
-      if (room.player1.username === username) {
-        room.player1Ping = Date.now();
-      } else if (room.player2.username === username) {
-        room.player2Ping = Date.now();
-      }
-    }
+    const idx = slotOf(room, username);
+    if (idx !== -1) room.pings[idx] = Date.now();
 
-    // Initialize pings on first state query
-    if (!room.player1Ping) room.player1Ping = Date.now();
-    if (!room.player2Ping) room.player2Ping = Date.now();
-
-    // Check for disconnection timeouts (60 seconds of inactivity).
-    // 25s era agressivo demais: abas em segundo plano / celular bloqueado
-    // suspendem os timers do browser e paravam os pings, gerando derrotas fantasmas.
+    // Disconnection timeout (60s). Background tabs / locked phones suspend the
+    // browser timers, so a shorter window produced phantom defeats.
     const now = Date.now();
     if (!room.surrenderedBy) {
-      if (now - room.player1Ping > 60000) {
-        room.surrenderedBy = room.player1.username;
-      } else if (now - room.player2Ping > 60000) {
-        room.surrenderedBy = room.player2.username;
+      if (now - room.pings[0] > 60000) {
+        room.surrenderedBy = room.players[0].username;
+      } else if (now - room.pings[1] > 60000) {
+        room.surrenderedBy = room.players[1].username;
       }
     }
 
-    // Construct the turnActions object in the format expected by BattleBoard.tsx
-    const turnActions: { [turn: number]: { player0: any[] | null; player1: any[] | null } } = {};
-    for (const t in room.turns) {
-      turnActions[t] = {
-        player0: room.turns[t].player1Actions,
-        player1: room.turns[t].player2Actions
-      };
-    }
+    // turnActions keyed by turn → [actions0, actions1]
+    const turnActions: { [turn: number]: (any[] | null)[] } = {};
+    for (const t in room.turns) turnActions[t] = room.turns[t];
 
     res.json({
       success: true,
       room: {
         id: room.id,
-        player1: room.player1,
-        player2: room.player2,
-        turnActions: turnActions,
-        surrenderedBy: room.surrenderedBy || null
-      }
+        seed: room.seed,
+        players: room.players.map(publicOpponent),
+        turnActions,
+        surrenderedBy: room.surrenderedBy || null,
+      },
     });
   });
 
@@ -406,11 +420,10 @@ async function startServer() {
     }
 
     const cleanUsername = username.trim().toLowerCase();
+    const emojiIdx = slotOf(room, cleanUsername);
     let senderName = username;
-    if (room.player1.username === cleanUsername) {
-      senderName = room.player1.name || room.player1.username;
-    } else if (room.player2.username === cleanUsername) {
-      senderName = room.player2.name || room.player2.username;
+    if (emojiIdx !== -1) {
+      senderName = room.players[emojiIdx].name || room.players[emojiIdx].username;
     }
 
     room.emojis.push({
@@ -488,11 +501,10 @@ async function startServer() {
     }
 
     const cleanUsername = username.trim().toLowerCase();
+    const chatIdx = slotOf(room, cleanUsername);
     let senderName = username;
-    if (room.player1.username === cleanUsername) {
-      senderName = room.player1.name || room.player1.username;
-    } else if (room.player2.username === cleanUsername) {
-      senderName = room.player2.name || room.player2.username;
+    if (chatIdx !== -1) {
+      senderName = room.players[chatIdx].name || room.players[chatIdx].username;
     }
 
     const msg = {
@@ -550,9 +562,9 @@ async function startServer() {
     if (roomId && activeRooms[roomId]) {
       const room = activeRooms[roomId];
       delete activeRooms[roomId];
-      // Clean up opponent as well
-      delete userMatches[room.player1.username];
-      delete userMatches[room.player2.username];
+      // Clean up both players' match mappings
+      delete userMatches[room.players[0].username];
+      delete userMatches[room.players[1].username];
     }
 
     res.json({ success: true });
@@ -564,8 +576,8 @@ async function startServer() {
     for (const id in activeRooms) {
       if (now - activeRooms[id].lastActivity > 600000) {
         const room = activeRooms[id];
-        delete userMatches[room.player1.username];
-        delete userMatches[room.player2.username];
+        delete userMatches[room.players[0].username];
+        delete userMatches[room.players[1].username];
         delete activeRooms[id];
       }
     }
