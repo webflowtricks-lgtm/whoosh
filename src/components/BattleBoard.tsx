@@ -8202,6 +8202,42 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
+      // 👻 Invisibilidade REAL: skills com `invisible` criam um efeito 'invisible' no alvo
+      // (padrão: o próprio conjurador), tornando-o INALVEJÁVEL ("ALVO INVISÍVEL!" na seleção)
+      // além de ocultar os badges. Sem isso, a flag só escondia os ícones dos efeitos.
+      const isSkillInvisible = !!skill.invisible || ((skill.invisibleDuration ?? 0) > 0);
+      if (isSkillInvisible && target) {
+        const invisTargets = resolveEffectTargets(skill.invisibleTarget || skill.shieldTarget || skill.invulnerableTarget || 'Self', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, true);
+        invisTargets.forEach(t => {
+          if (t.isDead) return;
+          const hasInvisEffect = t.activeEffects.some(e => e.type === 'invisible' && (e.sourceSkillName === skill.name || e.name === skill.name));
+          if (!hasInvisEffect) {
+            const invisDur = skill.invisibleDuration || skill.invulnerableDuration || skill.damageImmunityDuration || 1;
+            pushActiveEffect(t, {
+              name: skill.name,
+              sourceSkillName: skill.name,
+              type: 'invisible',
+              value: 0,
+              duration: invisDur,
+              icon: skill.icon,
+              isInvisible: true,
+              irremovable: !!skill.invisibleIrremovable,
+              description: 'Efeito invisível ativo',
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+            });
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `👻 ${t.character.name} ficou INVISÍVEL com [${skill.name}] por ${invisDur} turno(s) — não pode ser alvo de habilidades!`,
+              type: 'buff',
+            });
+            addFloatingText(t.id, 'INVISÍVEL', 'effect');
+            cleanseTargetEffects(t, skill.invisibleRemoveType);
+          }
+        });
+      }
+
       // 🔓 Liberação Atrasada de Skills: bloqueia as skills listadas no conjurador enquanto o efeito
       // durar; ao terminar, abre uma janela de X turnos onde elas podem ser usadas; depois volta a bloquear.
       if (skill.delayedUnlockSkills && skill.delayedUnlockSkills.length > 0 && (skill.delayedUnlockDuration || 0) > 0) {
@@ -9530,9 +9566,11 @@ splashOnlyTargets = splashPool.filter(c =>
           (e.name.startsWith('Dreno de Chakra') ||
           e.name.startsWith('Roubo de Chakra') ||
           e.name.startsWith('Remoção de Chakra')) &&
-          e.castTurn !== turn // pula a rodada em que foi criado (o 1º tick já ocorreu no uso da skill)
+          e.castTurn !== turn && // pula a rodada em que foi criado (o 1º tick já ocorreu no uso da skill)
+          (e as any).lastChakraTickTurn !== turn // 🛡️ nunca 2 ticks na MESMA rodada (criação atrasada/catch-up)
         );
         drainChakraEffects.forEach(effect => {
+          (effect as any).lastChakraTickTurn = turn;
           const amt = effect.value || 0;
           if (amt <= 0) return;
           const isRemov = effect.name.startsWith('Remoção');
@@ -9769,6 +9807,12 @@ splashOnlyTargets = splashPool.filter(c =>
         //  - efeitos permanentes (duration >= 99999) e stack Raikiri congelada
         const KEEP_CAST_ROUND_SKIP = new Set([
           'stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'custom',
+          // 🛡️ Proteções reativas: "anula a primeira skill por 1 turno" precisa sobreviver à rodada
+          // em que foi lançada — se eu sou RESPONDENTE, a skill inimiga que deve ser anulada vem na
+          // MESMA rodada ou na seguinte. Sem o skip, duração 1 morria na resolução da própria rodada
+          // ("aparece e some em segundos antes do inimigo agir"). O trigger em modo 'first' consome
+          // o efeito ao anular, então nada fica eterno.
+          'counter_attack', 'invisible',
         ]);
         c.activeEffects = c.activeEffects
           .map(eff => {
@@ -10013,12 +10057,15 @@ splashOnlyTargets = splashPool.filter(c =>
     setTurn(nextTurn);
 
     // Roll initiative for new turn.
-    // 🎲 FIXO: o iniciante foi sorteado UMA VEZ quando a partida foi encontrada e
-    // permanece o mesmo em TODOS os turnos (quem inicia planeja primeiro; o outro
-    // responde). Sem re-sorteio dentro da partida — os dois clientes chegam ao
-    // MESMO resultado porque o valor vem do seed compartilhado gravado no mount.
-    const newFirstPlayer: 'player' | 'enemy' = matchStarterRef.current;
-    console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} (fixo da partida) sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
+    // 🔁 ALTERNÂNCIA DETERMINÍSTICA: o SORTEIO acontece UMA VEZ (matchStarterRef,
+    // definido quando a partida é encontrada), e o iniciante de cada rodada ALTERNA
+    // a partir dele — sem novo sorteio dentro da partida e sem o mesmo jogador
+    // liderar todo turno ("joga 2x"). Os dois clientes chegam ao MESMO resultado
+    // porque derivam do mesmo valor inicial + paridade do turno.
+    const startSlotIdx = matchStarterRef.current === 'player' ? 0 : 1;
+    const leaderSlotIdx = (startSlotIdx + (nextTurn - 1)) % 2;
+    const newFirstPlayer: 'player' | 'enemy' = leaderSlotIdx === 0 ? 'player' : 'enemy';
+    console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} (alterna a partir de ${matchStarterRef.current}) sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
     setActivePlanner(newFirstPlayer);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
@@ -10050,10 +10097,10 @@ splashOnlyTargets = splashPool.filter(c =>
         try {
           const fbTurn = turn + 1;
           setTurn(fbTurn);
-          // 🌐 CRÍTICO: iniciativa FIXA da partida (sorteada uma vez no mount a partir
-          // do seed compartilhado). Nunca Math.random() aqui — cada cliente sorteava
-          // um "quem começa" DIFERENTE e dessincronizava a partida inteira.
-          const fbFirst: 'player' | 'enemy' = matchStarterRef.current;
+          // 🔁 Mesma alternância determinística do caminho normal (deriva do sorteio
+          // único do mount + paridade do turno). Nunca Math.random() aqui.
+          const fbStartSlot = matchStarterRef.current === 'player' ? 0 : 1;
+          const fbFirst: 'player' | 'enemy' = ((fbStartSlot + (fbTurn - 1)) % 2) === 0 ? 'player' : 'enemy';
           setActivePlanner(fbFirst);
           setPassedPlayersThisTurn([]);
           passedPlayersRef.current = [];

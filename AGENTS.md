@@ -119,11 +119,12 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - Clicking "Finalizar Turno" online does ONLY: `submit-turn` to server + `setActivePlanner('enemy')` + `setIsWaitingForOpponent(true)` + wait log. It NEVER resolves the round inside the click handler (no instant-resolve, no confirmation fetch in `handleEndTurn`). If chakra/sound fires immediately on Finalizar click, an old regression snuck back.
 - The **1s room-state poll** is the ONLY round resolver. Fast-path at top of poll block: if `submittedTurnRef.has(turn) && !resolvedTurnRef.has(turn) && currentTurnActions[oppOnlineIndex] != null` → execute opponent actions once (guarded by `processedOpponentTurnsRef`) → `resolveOnlineRoundOnce()`. The legacy poll branch below it only hands MY phase over when I haven't submitted yet.
 
-**Fixed initiative (no per-round draw)**:
-- Starter is decided ONCE when the match is found: mount effect computes `startingPlanner` (online = seed-derived `iGoFirstOnTurn(1)`; offline = single Math.random()) and stores it in `matchStarterRef`.
-- EVERY round resolution uses `matchStarterRef.current` — same planner first every turn, opponent responds. NO alternation, NO Math.random per round (per-client random desynced matches), no `iGoFirstOnTurn(nextTurn)` parity alternation mid-match.
-- Persisted as `matchStarter` inside `active_match_save`; restored on reconnect (old saves without the field fall back to seed/random-once).
+**Fixed initiative draw, alternating leader**:
+- The DRAW happens ONCE when the match is found: mount effect computes `startingPlanner` (online = seed-derived `iGoFirstOnTurn(1)`; offline = single Math.random()) and stores it in `matchStarterRef` (persisted as `matchStarter` in `active_match_save`, restored on reconnect).
+- EVERY round resolution ALTERNATES deterministically from that draw: `leader = ((startSlot + turn - 1) % 2) === 0 ? 'player' : 'enemy'`. NO per-round Math.random (desyncs clients) and NO permanently-fixed leader (same player would act 2x between opponent actions — user-reported bug).
 - Round log message is `🔄 Turno X — VOCÊ/OPONENTE planeja primeiro.` — the `🎲 [INICIATIVA] ... sorteio` message must appear ONLY for Turn 1.
+
+**Chakra drain/steal/remove double-tick guard**: end-of-round tick block marks `(e as any).lastChakraTickTurn = turn` and filters it out — an effect can never tick twice in the same round even when created late (watchdog/catch-up path).
 
 **Guards / safety nets (keep all of them)**:
 - `resolvedTurnRef` + `forcedResolveTurnsRef`: resolve/force-resolve max once per turn.
