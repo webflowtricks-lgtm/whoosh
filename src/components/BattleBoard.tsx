@@ -2064,7 +2064,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v21-chakra-0-fix', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v22-icon-swap', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'

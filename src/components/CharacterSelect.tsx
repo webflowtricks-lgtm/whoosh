@@ -663,7 +663,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium'
                       }`}
                     >
-                      <img src="/static/img/icon/star.svg" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
+                      <Sparkles className="w-4 h-4 text-amber-400" />
                       Sandbox
                     </button>
 
@@ -676,7 +676,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium'
                       }`}
                     >
-                      <Sparkles className="w-4 h-4 animate-pulse text-amber-400" />
+                      <img src="/static/img/icon/star.svg" alt="Shuriken" className="w-4 h-4 animate-spin object-contain" />
                       {t("Partida Rápida", "Quick Match")}
                     </button>
                   </>
