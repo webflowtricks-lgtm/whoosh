@@ -194,6 +194,10 @@ async function startServer() {
     seed: number;                                 // shared initiative seed
     players: [PlayerSlot, PlayerSlot];            // index 0 and 1
     turns: { [turn: number]: (any[] | null)[] };  // turns[t] = [actions0, actions1]
+    // 🌐 AUTORIDADE DE TURNO (v13): o servidor é o dono do progresso. resolvedTurn =
+    // maior número de turno cujos DOIS slots já foram submetidos. Os clientes só
+    // resolvem turnos <= resolvedTurn, em ordem — impossível divergir o contador.
+    resolvedTurn: number;
     // 🔄 Relatórios de estado pós-resolução (sincronia de HP/escudo/chakra):
     // cada cliente reporta o estado do PRÓPRIO esquadrão após resolver a rodada;
     // o oponente adota esses valores (a visão de cada um sobre os seus personagens
@@ -248,6 +252,7 @@ async function startServer() {
           const fresh = Date.now();
           activeRooms[id] = {
             ...r,
+            resolvedTurn: typeof r.resolvedTurn === "number" ? r.resolvedTurn : 0,
             emojis: r.emojis || [],
             chatMessages: r.chatMessages || [],
             pings: [fresh, fresh],
@@ -328,6 +333,7 @@ async function startServer() {
         seed,
         players: [oppSlot, me],
         turns: {},
+        resolvedTurn: 0,
         emojis: [],
         chatMessages: [],
         lastActivity: Date.now(),
@@ -413,9 +419,23 @@ async function startServer() {
     room.pings[idx] = Date.now();
     if (!room.turns[turn]) room.turns[turn] = [null, null];
     room.turns[turn][idx] = actions;
+
+    // 🌐 AUTORIDADE DE TURNO (v13): assim que os DOIS slots deste turno estão
+    // preenchidos, o servidor declara o turno resolvido. resolvedTurn avança em
+    // ordem estrita (só de N para N+1) para os clientes seguirem a mesma cadência.
+    const slots = room.turns[turn];
+    if (Array.isArray(slots) && slots[0] != null && slots[1] != null && turn === room.resolvedTurn + 1) {
+      room.resolvedTurn = turn;
+      // Encadeia caso turnos futuros já estejam completos (chegaram fora de ordem).
+      let next = room.resolvedTurn + 1;
+      while (room.turns[next] && room.turns[next][0] != null && room.turns[next][1] != null) {
+        room.resolvedTurn = next;
+        next++;
+      }
+    }
     markRoomsDirty();
 
-    res.json({ success: true });
+    res.json({ success: true, resolvedTurn: room.resolvedTurn });
   });
 
   // Get Room State (Polling)
@@ -462,6 +482,7 @@ async function startServer() {
         seed: room.seed,
         players: room.players.map(publicOpponent),
         turnActions,
+        resolvedTurn: room.resolvedTurn ?? 0,
         stateReports: room.stateReports || {},
         surrenderedBy: room.surrenderedBy || null,
       },

@@ -2052,7 +2052,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v12-antiloop-resolve', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v13-server-authority', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -2753,6 +2753,8 @@ const handleTradeChakra = () => {
 
   // Who is currently selecting their actions / whose planning turn it is
   const [activePlanner, setActivePlanner] = useState<'player' | 'enemy'>('player');
+  const activePlannerRef = useRef<'player' | 'enemy'>('player');
+  useEffect(() => { activePlannerRef.current = activePlanner; }, [activePlanner]);
   const [isPreparing, setIsPreparing] = useState(false);
   const [passedPlayersThisTurn, setPassedPlayersThisTurn] = useState<('player' | 'enemy')[]>([]);
   const [lastResolutionError, setLastResolutionError] = useState<string | null>(null);
@@ -11449,6 +11451,11 @@ splashOnlyTargets = splashPool.filter(c =>
           const mine = onlineParams.playerIndex === 1 ? 1 : 0;
           const oppOnlineIndex = mine === 0 ? 1 : 0;
           const currentTurnActions = data.room.turnActions?.[turn];
+          // 🌐 AUTORIDADE DE TURNO (v13): o servidor diz qual foi o último turno com
+          // OS DOIS lados submetidos. Só resolvemos um turno quando o servidor
+          // confirma que ele foi resolvido (serverResolvedTurn >= turn). Isso torna
+          // o contador de turno IDÊNTICO nos dois clientes — impossível divergir.
+          const serverResolvedTurn: number = typeof data.room.resolvedTurn === 'number' ? data.room.resolvedTurn : 0;
           // 🛡️ Servidor confirmou que MEU slot deste turno está registrado →
           // libera o force-resolve do watchdog (só roubo a rodada com essa prova).
           if (Array.isArray(currentTurnActions) && currentTurnActions[mine] != null) {
@@ -11504,23 +11511,18 @@ splashOnlyTargets = splashPool.filter(c =>
             }
           });
 
-          // 🎯 MODELO LÍDER FIXO + FASES ALTERNADAS (online):
-          // Turno N = [líder planeja e finaliza] → [respondente planeja e finaliza]
-          // → resolve → volta pro líder como turno N+1. As fases de planejamento
-          // NUNCA repetem o mesmo jogador duas vezes seguidas.
-          const oppSlotFilled = Array.isArray(currentTurnActions) && currentTurnActions[oppOnlineIndex] != null;
+          // 🎯 AUTORIDADE DE TURNO (v13): o servidor é o dono do progresso.
+          // Só resolvemos o turno atual quando o servidor confirma que os DOIS
+          // lados o submeteram (serverResolvedTurn >= turn). Assim os dois clientes
+          // avançam na MESMA cadência — nunca mais divergem o contador, e as skills
+          // de cada lado sempre aparecem no outro (lidas do mesmo turno no servidor).
+          const serverSaysResolved = serverResolvedTurn >= turn;
 
-          // 1️⃣ RESOLVEDOR DA RODADA: EU já submeti E o slot do oponente está
-          // preenchido no servidor para ESTE turno → os dois jogaram. Executo as
-          // ações dele (uma única vez) e resolvo — único caminho de resolução.
-          if (
-            submittedTurnRef.current.has(turn) &&
-            !resolvedTurnRef.current.has(turn) &&
-            oppSlotFilled
-          ) {
+          if (serverSaysResolved && !resolvedTurnRef.current.has(turn)) {
+            // Executa as ações do oponente para ESTE turno (uma única vez) e resolve.
             if (!processedOpponentTurnsRef.current.has(turn)) {
               processedOpponentTurnsRef.current.add(turn);
-              const oppActsRaw = currentTurnActions![oppOnlineIndex];
+              const oppActsRaw = Array.isArray(currentTurnActions) ? currentTurnActions[oppOnlineIndex] : null;
               const mappedOppActions: CuedAction[] = (oppActsRaw || []).map((act: any) => ({
                 ...act,
                 sourceId: act.sourceId.startsWith('player')
@@ -11547,71 +11549,35 @@ splashOnlyTargets = splashPool.filter(c =>
                 console.error('[BattleBoard] Erro ao executar as ações do oponente (online), a passagem de turno continuará:', err);
               }
             }
-            console.log(`[TURN] ambos os slots preenchidos no servidor (turno ${turn}) → resolvendo rodada (poll).`);
+            console.log(`[TURN] servidor confirmou turno ${turn} resolvido (serverResolvedTurn=${serverResolvedTurn}) → resolvendo.`);
             setIsWaitingForOpponent(false);
             resolveOnlineRoundOnce();
             return;
           }
 
-          // 2️⃣ ENTREGA DA FASE: o oponente já finalizou ESTE turno e eu ainda não →
-          // executo as ações dele na minha tela e recebo a fase de planejamento
-          // (com o chakra que já foi rolado para mim no início deste turno).
-          if (currentTurnActions && !resolvedTurnRef.current.has(turn)) {
-            // 🛡️ Checagem estrita: só tratamos como "oponente jogou" se o slot contém um
-            // array REAL. `undefined` passava pelo `!== null` e executava um turno fantasma.
-            const oppActions = Array.isArray(currentTurnActions) ? currentTurnActions[oppOnlineIndex] : null;
-
-            if (oppActions != null && !processedOpponentTurnsRef.current.has(turn)) {
-              processedOpponentTurnsRef.current.add(turn);
-
-              // Execute opponent's actions on our screen as enemy actions
-              const mappedOppActions: CuedAction[] = (oppActions || []).map(act => ({
-                ...act,
-                sourceId: act.sourceId.startsWith('player')
-                  ? act.sourceId.replace('player', 'enemy')
-                  : act.sourceId.replace('enemy', 'player'),
-                targetId: act.targetId.startsWith('player')
-                  ? act.targetId.replace('player', 'enemy')
-                  : act.targetId.replace('enemy', 'player'),
-              }));
-
-              console.log(`[TURN] poll oponente: turn=${turn} active=${activePlanner} submitted=${submittedTurnRef.current.has(turn)} acoes=${mappedOppActions.length}`);
+          // Ainda não resolvido pelo servidor: se EU sou o RESPONDENTE, ainda não
+          // submeti este turno e o LÍDER já submeteu (slot dele preenchido), recebo
+          // a fase de planejamento — sem resolver nada (a resolução só ocorre quando
+          // o servidor confirmar serverResolvedTurn >= turn).
+          if (
+            matchStarterRef.current !== 'player' &&        // sou o respondente
+            !submittedTurnRef.current.has(turn) &&           // ainda não joguei este turno
+            !serverSaysResolved                              // turno ainda aberto no servidor
+          ) {
+            const leaderFilled = Array.isArray(currentTurnActions) && currentTurnActions[oppOnlineIndex] != null;
+            if (leaderFilled && activePlannerRef.current !== 'player') {
+              setActivePlanner('player');
+              setIsWaitingForOpponent(false);
+              setTimeLeft(60);
               setLogs(l => [
                 ...l,
                 {
                   id: Math.random().toString(),
                   turn,
-                  message: mappedOppActions.length === 0
-                    ? `🤖 Oponente finalizou a fase sem ações e pulou a vez.`
-                    : `🤖 Oponente executou ${mappedOppActions.length} habilidade(s).`,
+                  message: `⚔️ OPONENTE finalizou a fase de planejamento. Vez de VOCÊ planejar.`,
                   type: 'system',
                 }
               ]);
-              try {
-                executeSideActions(mappedOppActions, false);
-              } catch (err) {
-                console.error('[BattleBoard] Erro ao executar as ações do oponente (online), a passagem de turno continuará:', err);
-              }
-
-              // 🌐 Idempotente: se EU já submeti este turno → os dois jogaram → resolve
-              // (uma única vez). Senão, agora é a MINHA vez de planejar.
-              if (submittedTurnRef.current.has(turn)) {
-                setIsWaitingForOpponent(false);
-                resolveOnlineRoundOnce();
-              } else {
-                setActivePlanner('player');
-                setIsWaitingForOpponent(false);
-                setTimeLeft(60);
-                setLogs(l => [
-                  ...l,
-                  {
-                    id: Math.random().toString(),
-                    turn,
-                    message: `⚔️ OPONENTE finalizou a fase de planejamento. Vez de VOCÊ planejar.`,
-                    type: 'system',
-                  }
-                ]);
-              }
             }
           }
         })
@@ -11686,30 +11652,15 @@ splashOnlyTargets = splashPool.filter(c =>
           .catch(() => {});
       }
 
-      // Caso 1: EU JÁ FINALIZEI (com confirmação do servidor) e o oponente não
-      // responde há ~20s → resolvo a rodada localmente (1x por turno).
-      // 🛡️ DUPLA EXIGÊNCIA: submittedTurnRef (submit confirmado) + lastServerConfirmRef
-      // fresco (servidor VÊ meu slot registrado). Sem a prova do servidor, NUNCA
-      // resolvemos sem o oponente — era isso que gerava "gerou chakra e o turno não
-      // passou" durante cold start/instabilidade: resolvíamos rodadas vazias.
+      // 🌐 AUTORIDADE DE TURNO (v13): o watchdog NÃO resolve mais a rodada
+      // localmente. Só o servidor declara um turno resolvido (serverResolvedTurn),
+      // e o poll de 1s aplica isso. Resolver por conta própria aqui era a MAIOR
+      // fonte de divergência: um cliente avançava o contador sem o outro e a
+      // partida dessincronizava para sempre. Aqui só mantemos o diagnóstico e,
+      // em falha TOTAL de servidor, o aviso de sala perdida (via handlePollFailure).
       if (submittedTurnRef.current.has(turn)) {
-        const serverSeesMine =
-          lastServerConfirmRef.current?.turn === turn &&
-          Date.now() - (lastServerConfirmRef.current?.at ?? 0) < 30000;
-        if (waitedMs > 20000 && !forcedResolveTurnsRef.current.has(turn) && serverSeesMine) {
-          forcedResolveTurnsRef.current.add(turn);
-          console.warn(`[TURN] WATCHDOG ONLINE: ${Math.round(waitedMs / 1000)}s aguardando oponente no turno ${turn} — resolvendo rodada localmente.`);
-          setLogs(l => [
-            ...l,
-            {
-              id: Math.random().toString(),
-              turn,
-              message: '⏱️ Oponente não respondeu a tempo. Resolvendo a rodada para a partida continuar...',
-              type: 'system',
-            }
-          ]);
-          resolveOnlineRoundOnce(true);
-        }
+        // Eu já submeti e aguardo o servidor confirmar a resolução — nada a fazer
+        // além de esperar o poll ver serverResolvedTurn >= turn. Sem force-resolve.
         return;
       }
 

@@ -112,12 +112,18 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - Exceptions that STILL apply through invulnerability: the source skill has `ignoreInvulnerable`, a conditional bypass (`hasConditionalInvulnBypass`), or the target carries `cannot_be_invulnerable` (Incapaz de Ficar Invulnerável, which forces `checkCombatantInvulnerable` → false and `hasTotalInvulnerability` → false).
 - The instant 1st tick (applied at skill use, before the enemy's invuln turn) always lands normally.
 
-## 🌐 ONLINE Turn Passing — FIXED LEADER, ALTERNATING PHASES (v11, do not regress)
-**Status**: build marker `🧪 BUILD v11-fixed-leader`. The user DEFINED the model explicitly: turn N = [leader plans & finalizes] → [responder plans & finalizes, SAME turn N] → resolve → it's back to the leader as turn N+1. The turn counter only increments after BOTH players acted. With a FIXED leader (initiative drawn once), planning phases strictly alternate leader→responder→leader→… so NOBODY ever plans twice in a row. Do NOT re-introduce per-turn parity alternation of the leader (it made one player respond twice consecutively across turn boundaries — user rejected it) and do NOT re-introduce single-planner turns (v10, user rejected: both players must act inside the same numbered turn).
+## 🌐 ONLINE Turn Passing — SERVER-AUTHORITATIVE TURN (v13, do not regress)
+**Status**: build marker `🧪 BUILD v13-server-authority`. Model unchanged from v11 (fixed leader, alternating phases): turn N = [leader plans & finalizes] → [responder plans & finalizes, SAME turn N] → resolve → back to leader as turn N+1. The change in v13 is WHO decides a turn is done: the **SERVER**, not each client. This kills the permanent desync ("skills não aparecem no outro / turnos divergem / chakra 0") that happened because each client counted/resolved turns independently and could drift by one resolution forever.
 
-**Core rule — ONE resolver only**:
-- Clicking "Finalizar Turno" online does ONLY: `submit-turn` to server + `setActivePlanner('enemy')` + `setIsWaitingForOpponent(true)` + wait log. It NEVER resolves the round inside the click handler (no instant-resolve, no confirmation fetch in `handleEndTurn`). If chakra/sound fires immediately on Finalizar click, an old regression snuck back.
-- The **1s room-state poll** is the ONLY round resolver. Fast-path at top of poll block: if `submittedTurnRef.has(turn) && !resolvedTurnRef.has(turn) && currentTurnActions[oppOnlineIndex] != null` → execute opponent actions once (guarded by `processedOpponentTurnsRef`) → `resolveOnlineRoundOnce()`. The legacy poll branch below it only hands MY phase over when I haven't submitted yet.
+**Server authority (`server.ts`)**:
+- `MatchRoom.resolvedTurn` = highest turn whose BOTH slots (`room.turns[t][0]` and `[1]`) are submitted. Advances in STRICT order (N→N+1), with a while-loop to chain turns that completed out of order.
+- Set inside `submit-turn` right after storing the slot; returned by both `submit-turn` and `room-state` (`room.resolvedTurn`).
+- Restored from disk with a `typeof … number` fallback to 0 for old saves.
+
+**Client (`BattleBoard.tsx`, 1s poll)**:
+- Reads `serverResolvedTurn = data.room.resolvedTurn`. A turn is resolved ONLY when `serverResolvedTurn >= turn`. Then: execute opponent actions once (`processedOpponentTurnsRef` guard) → `resolveOnlineRoundOnce()`. This is the ONLY resolution path online.
+- Responder-phase handoff (no resolution): if I'm the responder (`matchStarterRef.current !== 'player'`), haven't submitted this turn, the turn isn't server-resolved yet, and the leader's slot is filled → I get the planning phase (`setActivePlanner('player')`). Uses `activePlannerRef` to avoid redundant setStates.
+- **NO local force-resolve anymore**: the 20s watchdog that used to call `resolveOnlineRoundOnce(true)` was REMOVED — it was the #1 source of drift (one client advanced without the other). A stuck opponent is handled by the server's 60s disconnect→`surrenderedBy` (leader gets victory). Do NOT re-add client-side force-resolve.
 
 **Fixed leader (no per-turn re-draw, no parity alternation)**:
 - The starter is drawn ONCE when the match is found: mount effect computes `startingPlanner` (online = seed-derived `iGoFirstOnTurn(1)`; offline = single Math.random()) and stores it in `matchStarterRef` (persisted as `matchStarter` in `active_match_save`, restored on reconnect).
@@ -132,11 +138,11 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - `resolvedTurnRef` + `forcedResolveTurnsRef`: resolve/force-resolve max once per turn.
 - **🛡️ SERVER-CONFIRMED SUBMIT (v8)**: `submittedTurnRef` is marked ONLY when the server accepts `submit-turn` (in `submitWithRetry` r.ok, or `trySubmitPending` r.ok). NEVER mark it optimistically at click time. The 20s force-resolve watchdog requires BOTH `submittedTurnRef.has(turn)` AND fresh `lastServerConfirmRef` (server room-state/heartbeat saw my slot registered, <30s old) — otherwise it must NOT resolve, or rounds get resolved without the opponent during Render cold starts ("gerou chakra e o turno não passou" bug).
 - Circuit breaker in `executeTurnEndResolution`: blocks any resolution <1500ms after the previous one (`lastResolutionAtRef`) — chained resolutions = pathological loop (played StartTurn sound endlessly).
-- Online watchdogs while waiting: heartbeat `⏳ Aguardando há Xs — servidor diz: meu turno ✔/✖ | oponente ✔/✖` every ~10s; force-resolve after 20s if submitted (planner only); unlock planning after 30s + 15 consecutive poll failures.
+- Online watchdogs while waiting: heartbeat `⏳ Aguardando há Xs — servidor diz: meu turno ✔/✖ | oponente ✔/✖` every ~10s; unlock planning after 30s + 15 consecutive poll failures (only when I haven't submitted). NO force-resolve (removed in v13).
 - Per-click guard `finalizedKeysRef` (key `${turn}:${side}`); refs cleared at battle start only.
 
 **Diagnostics overlay (temporary but keep until fully stable)**:
-- `logs` state was NEVER rendered before — added fixed bottom-left panel "🧪 Log v7" (BattleBoard JSX end) showing last 7 logs incl. build marker line as first initial log. Bump this marker whenever touching turn flow again (current: `🧪 BUILD v12-antiloop-resolve`).
+- `logs` state was NEVER rendered before — added fixed bottom-left panel "🧪 Log v7" (BattleBoard JSX end) showing last 7 logs incl. build marker line as first initial log. Bump this marker whenever touching turn flow again (current: `🧪 BUILD v13-server-authority`).
 
-**Server side**: rooms persist to `src/data/match_rooms.json` (debounced `markRoomsDirty`, restore-on-boot); `/api/health` reports version. Render free tier cold-start tolerances are baked into the 20-failure room-lost threshold.
+**Server side**: rooms persist to `src/data/match_rooms.json` (debounced `markRoomsDirty`, restore-on-boot); `/api/health` reports version. Render free tier cold-start tolerances are baked into the 20-failure room-lost threshold. `resolvedTurn` is persisted per room and restored (fallback 0).
 
