@@ -2060,7 +2060,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v19-fix-tsukuyomi-x2', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v20-fix-turn-stuck', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -10580,6 +10580,7 @@ splashOnlyTargets = splashPool.filter(c =>
         return;
       }
       finalizedKeysRef.current.add(finalizeKey);
+      if (onlineParams?.isOnline) submittedTurnRef.current.add(turn); // otimista - evita 'skill usada mas turno ainda meu' por corrida poll vs submit
 
       // In online/offline (non-sandbox) matches, the enemy side only passes
       // through the AI effect or the matchmaking poll — never via this handler.
@@ -11553,6 +11554,14 @@ splashOnlyTargets = splashPool.filter(c =>
           // avançam na MESMA cadência — nunca mais divergem o contador, e as skills
           // de cada lado sempre aparecem no outro (lidas do mesmo turno no servidor).
           const serverSaysResolved = serverResolvedTurn >= turn;
+
+          // Se eu ja submeti este turno (otimista) e o servidor ainda nao confirmou a resolucao, fico em espera - evita corrida onde o poll reverte meu estado para 'meu turno' antes do servidor registrar meu submit (causava 'skill usada mas turno ainda meu')
+          if (onlineParams?.isOnline && submittedTurnRef.current.has(turn) && !serverSaysResolved) {
+            if (activePlannerRef.current !== 'enemy' || !isWaitingForOpponent) {
+              setActivePlanner('enemy');
+              setIsWaitingForOpponent(true);
+            }
+          }
 
           if (serverSaysResolved && !resolvedTurnRef.current.has(turn)) {
             // Executa as ações do oponente para ESTE turno (uma única vez) e resolve.
