@@ -2052,7 +2052,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v14-realtime-400ms', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v15-preview-realtime', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -11560,6 +11560,21 @@ splashOnlyTargets = splashPool.filter(c =>
             setIsWaitingForOpponent(false);
             resolveOnlineRoundOnce();
             return;
+          }
+
+          // PREVIEW TEMPO REAL (v14): assim que o oponente submeter o turno, mostra/calcula NA HORA,
+          // sem esperar eu finalizar. Antes so aparecia quando eu finalizava porque so executava
+          // no bloco serverSaysResolved (que exige OS DOIS). Agora executa preview imediato.
+          if (!serverSaysResolved && Array.isArray(currentTurnActions) && currentTurnActions[oppOnlineIndex] != null && !processedOpponentTurnsRef.current.has(turn)) {
+            processedOpponentTurnsRef.current.add(turn);
+            const oppPreviewRaw: any[] = (currentTurnActions as any)[oppOnlineIndex] || [];
+            const mappedPreview: CuedAction[] = oppPreviewRaw.map((act: any) => ({
+              ...act,
+              sourceId: String(act.sourceId).startsWith('player') ? String(act.sourceId).replace('player', 'enemy') : String(act.sourceId).replace('enemy', 'player'),
+              targetId: String(act.targetId).startsWith('player') ? String(act.targetId).replace('player', 'enemy') : String(act.targetId).replace('enemy', 'player'),
+            }));
+            setLogs(l => [...l, { id: Math.random().toString(), turn, message: mappedPreview.length === 0 ? ' Oponente finalizou sem acoes (preview tempo real).' : ' Oponente usou ' + mappedPreview.length + ' habilidade(s) (tempo real).', type: 'system' }]);
+            try { executeSideActions(mappedPreview, false); } catch (err) { console.error('[BattleBoard] preview tempo real falhou:', err); }
           }
 
           // Ainda não resolvido pelo servidor: se EU sou o RESPONDENTE, ainda não
