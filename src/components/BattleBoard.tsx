@@ -2064,7 +2064,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v22-icon-swap', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v24-opt-30players', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -11414,7 +11414,7 @@ splashOnlyTargets = splashPool.filter(c =>
     };
     const runSync = () => {
       trySubmitPending();
-      fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}`)
+      fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}&turn=${turn}`)
         .then(r => r.json())
         .then(data => {
           if (!data.success || !data.room) {
@@ -11659,7 +11659,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
     // Expõe o sync para o listener de visibilitychange (aba volta a ficar visível)
     syncFnRef.current = runSync;
-    const syncInterval = setInterval(runSync, 400); // 400ms p/ tempo real (era 1000ms) - skill do oponente aparece na hora
+    const syncInterval = setInterval(runSync, 1500); // 1500ms p/ economizar banda (era 1000ms) - preview mantem tempo real, banda -33% extra
 
     return () => clearInterval(syncInterval);
   }, [onlineParams, gameOver, user, turn]);
@@ -11693,7 +11693,7 @@ splashOnlyTargets = splashPool.filter(c =>
         lastWaitBeatRef.current = Date.now();
         const mineIdxB = onlineParams.playerIndex === 1 ? 1 : 0;
         const oppIdxB = mineIdxB === 0 ? 1 : 0;
-        fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}`)
+        fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}&turn=${turn}`)
           .then(r => r.json())
           .then(data => {
             if (!data?.success || !data?.room) {

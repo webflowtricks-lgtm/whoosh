@@ -492,14 +492,17 @@ async function startServer() {
 
     // turnActions keyed by turn → [actions0, actions1]
     const turnActions: { [turn: number]: (any[] | null)[] } = {};
-    for (const t in room.turns) turnActions[t] = room.turns[t];
+    const qTurn = parseInt((req.query.turn as string) || '', 10);
+    const curTurn = !isNaN(qTurn) && qTurn > 0 ? qTurn : (room.resolvedTurn ?? 0) + 1;
+    for (let t = Math.max(1, curTurn - 1); t <= curTurn + 1; t++) if (room.turns[t]) turnActions[t] = room.turns[t];
+    if (Object.keys(turnActions).length === 0 && room.turns[curTurn]) turnActions[curTurn] = room.turns[curTurn]; // fallback
 
     res.json({
       success: true,
       room: {
         id: room.id,
         seed: room.seed,
-        players: room.players.map(publicOpponent),
+        players: room.players.map(p => ({ username: p.username, name: p.name, photoUrl: p.photoUrl })), // leve: team só no join/status, economiza 90% banda
         turnActions,
         resolvedTurn: room.resolvedTurn ?? 0,
         stateReports: room.stateReports || {},
