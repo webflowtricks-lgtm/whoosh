@@ -2052,7 +2052,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v13-server-authority', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v14-realtime-400ms', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -11596,7 +11596,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
     // Expõe o sync para o listener de visibilitychange (aba volta a ficar visível)
     syncFnRef.current = runSync;
-    const syncInterval = setInterval(runSync, 1000);
+    const syncInterval = setInterval(runSync, 400); // 400ms p/ tempo real (era 1000ms) - skill do oponente aparece na hora
 
     return () => clearInterval(syncInterval);
   }, [onlineParams, gameOver, user, turn]);
