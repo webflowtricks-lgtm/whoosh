@@ -2060,7 +2060,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v18-2turns-timeout', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v19-fix-tsukuyomi-x2', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -3873,6 +3873,7 @@ const handleTradeChakra = () => {
         }
       }
 
+      let _conditionalStunAppliedForAction = false;
       // Conditional stun rules (stunWhenActiveRules): if the condition skill is active (on me or on the target),
       // this skill stuns the enemy
       if (skill.stunWhenActiveRules && skill.stunWhenActiveRules.length > 0 && defaultTarget && !defaultTarget.isDead) {
@@ -3893,6 +3894,7 @@ const handleTradeChakra = () => {
               stunType: classes.length === 0 || classes.length >= 4 ? undefined : classes,
               irremovable: false,
             });
+            _conditionalStunAppliedForAction = true;
             newLogs.push({
               id: Math.random().toString(), turn,
               message: `🌀 [STUN CONDICIONAL] ${source.character.name} stunnou ${defaultTarget.character.name} com [${skill.name}] por ${dur} turno(s) (${stunLabel}) porque [${rule.activeSkillName}] está ativo ${rule.activeOn === 'self' ? 'em mim' : 'no alvo'}!`,
@@ -4790,8 +4792,8 @@ let directDamage = skill.directDamage || 0;
       // Air Bullets (Young Nagato) never self-stuns: its stun only comes from the
       // combo (used first + any other ally damage on the marked target this turn).
       const isAirBulletsSkill = skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets');
-      let stunApplied = !isAirBulletsSkill && (skill.stunTurns && skill.stunTurns > 0) ? true : false;
-      let stunDuration = skill.stunTurns || 1;
+      let stunApplied = !isAirBulletsSkill && (skill.stunTurns && skill.stunTurns > 0) && !_conditionalStunAppliedForAction ? true : false;
+      let stunDuration = _conditionalStunAppliedForAction ? 0 : (skill.stunTurns || 1); // se condicional ja aplicou, nao usa base (evita x2)
       let finalStunType: string[] | undefined = skill.stunType;
       if (source.activeEffects.some(e => e.name === 'Sharingan Stun Buff')) {
         stunApplied = true;
