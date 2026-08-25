@@ -208,6 +208,7 @@ async function startServer() {
     lastActivity: number;
     surrenderedBy: string | null;
     pings: [number, number];
+    phaseDeadline: number;
   }
 
   const waitingQueue: QueuePlayer[] = [];
@@ -257,6 +258,7 @@ async function startServer() {
             chatMessages: r.chatMessages || [],
             pings: [fresh, fresh],
             lastActivity: fresh,
+            phaseDeadline: typeof (r as any).phaseDeadline === "number" ? (r as any).phaseDeadline : fresh + 60000,
           };
         }
       }
@@ -339,6 +341,7 @@ async function startServer() {
         lastActivity: Date.now(),
         surrenderedBy: null,
         pings: [Date.now(), Date.now()],
+        phaseDeadline: Date.now() + 60000,
       };
 
       activeRooms[roomId] = room;
@@ -419,6 +422,12 @@ async function startServer() {
     room.pings[idx] = Date.now();
     if (!room.turns[turn]) room.turns[turn] = [null, null];
     room.turns[turn][idx] = actions;
+    // deadline da fase: quando um lado envia, o outro ganha 60s reais (anti-burla refresh)
+    {
+      const _other = idx === 0 ? 1 : 0;
+      const _both = (room.turns[turn] as any)[0] !== null && (room.turns[turn] as any)[1] !== null;
+      if (!_both) room.phaseDeadline = Date.now() + 60000;
+    }
 
     // 🌐 AUTORIDADE DE TURNO (v13): assim que os DOIS slots deste turno estão
     // preenchidos, o servidor declara o turno resolvido. resolvedTurn avança em
@@ -432,6 +441,7 @@ async function startServer() {
         room.resolvedTurn = next;
         next++;
       }
+      room.phaseDeadline = Date.now() + 60000;
     }
     markRoomsDirty();
 
@@ -485,6 +495,7 @@ async function startServer() {
         resolvedTurn: room.resolvedTurn ?? 0,
         stateReports: room.stateReports || {},
         surrenderedBy: room.surrenderedBy || null,
+        phaseDeadline: room.phaseDeadline ?? Date.now() + 60000,
       },
     });
   });
@@ -703,6 +714,55 @@ async function startServer() {
 
     res.json({ success: true });
   });
+
+  // Server-authoritative turn timeout: se o relogio de 60s estourar, auto-passa com acoes vazias
+  setInterval(() => {
+    const now2 = Date.now();
+    for (const id in activeRooms) {
+      const room2 = activeRooms[id];
+      if (room2.surrenderedBy) continue;
+      if (!room2.phaseDeadline || now2 <= room2.phaseDeadline) continue;
+      // Deadline estourou - descobre de quem eh a vez neste turno/fase
+      const curTurn = (room2.resolvedTurn ?? 0) + 1;
+      if (!room2.turns[curTurn]) room2.turns[curTurn] = [null, null];
+      const slots: any[] = room2.turns[curTurn]!;
+      let activeIdx: 0 | 1 | null = null;
+      // Determina lder real deste turno via mesma funcao do cliente (seed -> starterSlot)
+      const starterSlot = (() => {
+        let x = (room2.seed + 0x9e3779b9) >>> 0;
+        x ^= x >>> 15;
+        x = (x * 2246822519) >>> 0;
+        x ^= x >>> 13;
+        return (x & 1) as 0 | 1;
+      })();
+      const leaderForTurn = ((starterSlot + (curTurn - 1)) % 2) as 0 | 1;
+      if (slots[0] === null && slots[1] === null) {
+        activeIdx = leaderForTurn;
+      } else if (slots[0] !== null && slots[1] === null) {
+        activeIdx = 1;
+      } else if (slots[0] === null && slots[1] !== null) {
+        activeIdx = 0;
+      } else {
+        continue; // ambos ja submeteram
+      }
+      // Auto-passa com acoes vazias
+      slots[activeIdx] = [];
+      room2.lastActivity = now2;
+      // Se era o ultimo a faltar, resolve o turno
+      if (slots[0] !== null && slots[1] !== null) {
+        let nxt = (room2.resolvedTurn ?? 0) + 1;
+        while (room2.turns[nxt] && (room2.turns[nxt] as any)[0] !== null && (room2.turns[nxt] as any)[1] !== null) {
+          room2.resolvedTurn = nxt;
+          nxt++;
+        }
+        room2.phaseDeadline = now2 + 60000;
+      } else {
+        room2.phaseDeadline = now2 + 60000;
+      }
+      markRoomsDirty();
+      console.log(`[TIMEOUT] Sala ${id} turno ${curTurn} slot ${activeIdx} auto-pass por timeout 60s`);
+    }
+  }, 1000);
 
   // Background Cleanup of Stale Rooms (older than 10 mins; surrendered rooms after 2 mins)
   setInterval(() => {

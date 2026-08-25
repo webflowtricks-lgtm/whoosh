@@ -2060,7 +2060,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v16-surrender-fix', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v17-timer-realtime', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -11336,8 +11336,9 @@ splashOnlyTargets = splashPool.filter(c =>
     window.location.reload();
   };
 
-  // 60-Second Turn Timer State & Effect
+  // 60-Second Turn Timer State & Effect (server-authoritative when online)
   const [timeLeft, setTimeLeft] = useState(60);
+  const [serverPhaseDeadline, setServerPhaseDeadline] = useState<number | null>(null);
   const handleEndTurnRef = useRef(handleEndTurn);
 
   useEffect(() => {
@@ -11476,6 +11477,7 @@ splashOnlyTargets = splashPool.filter(c =>
           // confirma que ele foi resolvido (serverResolvedTurn >= turn). Isso torna
           // o contador de turno IDÊNTICO nos dois clientes — impossível divergir.
           const serverResolvedTurn: number = typeof data.room.resolvedTurn === 'number' ? data.room.resolvedTurn : 0;
+          if (typeof (data.room as any).phaseDeadline === 'number') setServerPhaseDeadline((data.room as any).phaseDeadline);
           // 🛡️ Servidor confirmou que MEU slot deste turno está registrado →
           // libera o force-resolve do watchdog (só roubo a rodada com essa prova).
           if (Array.isArray(currentTurnActions) && currentTurnActions[mine] != null) {
@@ -11827,24 +11829,37 @@ splashOnlyTargets = splashPool.filter(c =>
   }, [turn, playerCombatants, enemyCombatants, playerChakra, enemyChakra, onlineParams, isSandbox, gameOver]);
 
   useEffect(() => {
-    if (gameOver) {
-      return;
+    if (gameOver) return;
+    if (showRandChakraModal) return;
+    // ONLINE: relogio autoritario no servidor - 60s reais mesmo com refresh, cronometra inimigo tambem
+    if (onlineParams?.isOnline) {
+      if (serverPhaseDeadline == null) {
+        // ainda sem deadline do servidor (primeiro poll), mostra 60 mas nao auto-passa local
+        setTimeLeft(60);
+        return;
+      }
+      const tick = () => {
+        const remaining = Math.max(0, Math.ceil((serverPhaseDeadline - Date.now()) / 1000));
+        setTimeLeft(remaining);
+        if (remaining <= 0) {
+          // so auto-passa local se for MINHA vez e eu ainda nao enviei; se for vez do oponente, o servidor auto-passa
+          const isMyTurnToAct = !isWaitingForOpponent && activePlanner === 'player' && !submittedTurnRef.current.has(turn) && !passedPlayersRef.current.includes('player');
+          if (isMyTurnToAct && !isEndingTurnRef.current && !turnActionLockedRef.current) {
+            handleEndTurnRef.current(undefined, true);
+          }
+        }
+      };
+      tick();
+      const id = setInterval(tick, 200);
+      return () => clearInterval(id);
     }
-    if (isWaitingForOpponent) {
-      return;
-    }
-    if (showRandChakraModal) {
-      return;
-    }
-
-    // Reset countdown to 60 seconds (1 minute) for the new active turn/planning phase
+    // OFFLINE/SANDBOX: relogio local 60s por fase (pausa quando aguardando oponente)
+    if (isWaitingForOpponent) return;
     setTimeLeft(60);
-
     const timerInterval = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timerInterval);
-          // Auto-pass turn when time runs out (does NOT execute cued skills)
           if (!isEndingTurnRef.current && !turnActionLockedRef.current && !passedPlayersRef.current.includes(activePlanner)) {
             handleEndTurnRef.current(undefined, true);
           }
@@ -11853,9 +11868,8 @@ splashOnlyTargets = splashPool.filter(c =>
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timerInterval);
-  }, [turn, gameOver, isWaitingForOpponent, activePlanner, showRandChakraModal]);
+  }, [turn, gameOver, isWaitingForOpponent, activePlanner, showRandChakraModal, onlineParams?.isOnline, serverPhaseDeadline]);
 
   const executeTurnSimulation = (playerActions: CuedAction[] = [], enemyActions: CuedAction[] = []) => {
     const newLogs: CombatLog[] = [];
