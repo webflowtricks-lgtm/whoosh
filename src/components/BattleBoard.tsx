@@ -930,6 +930,7 @@ interface GameOverOverlayProps {
   user: UserProfile;
   turn: number;
   matchStats?: { damageDealt: number };
+  surrenderReason?: string | null;
 }
 
 function GameOverOverlay({
@@ -940,6 +941,7 @@ function GameOverOverlay({
   user,
   turn,
   matchStats,
+  surrenderReason,
 }: GameOverOverlayProps) {
   const { t } = useLanguage();
   const isVictory = gameOver === 'victory';
@@ -996,6 +998,11 @@ function GameOverOverlay({
             >
               {isVictory ? 'VITÓRIA!' : 'DERROTA!'}
             </h1>
+            {surrenderReason && (
+              <p className="mt-2 text-sm font-bold px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-amber-200">
+                {surrenderReason}
+              </p>
+            )}
           </div>
 
           <p className="mt-2 text-xs sm:text-sm font-mono uppercase tracking-widest text-slate-300 font-bold bg-slate-900/90 px-4 py-1 rounded-full border border-slate-800">
@@ -1459,6 +1466,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
   // Victory/Defeat Game Over State
   const [gameOver, setGameOver] = useState<'victory' | 'defeat' | null>(null);
+  const [surrenderReason, setSurrenderReason] = useState<string | null>(null);
 
   // Active selected skill inspector
   const [inspectedSkill, setInspectedSkill] = useState<{
@@ -2052,7 +2060,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v15-preview-realtime', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v16-surrender-fix', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -11407,11 +11415,16 @@ splashOnlyTargets = splashPool.filter(c =>
           }
 
           if (data.room.surrenderedBy) {
-            const surrenderedUser = data.room.surrenderedBy.toLowerCase();
+            const surrenderedUser = String(data.room.surrenderedBy).toLowerCase();
+            const isSelf = surrenderedUser === user.username.toLowerCase();
+            const reason = isSelf ? 'Você se rendeu.' : `Oponente ${data.room.surrenderedBy} se rendeu!`;
+            // Notifica na hora mesmo com aba em segundo plano: log + razão para o overlay
+            setSurrenderReason(reason);
+            setLogs(l => [...l, { id: Math.random().toString(), turn, message: isSelf ? '🏳️ Você se rendeu. Derrota.' : `🏳️ ${data.room.surrenderedBy} se rendeu! Vitória!`, type: 'system' }]);
             try {
               localStorage.removeItem('active_match_save');
             } catch {}
-            if (surrenderedUser === user.username.toLowerCase()) {
+            if (isSelf) {
               setGameOver('defeat');
             } else {
               setGameOver('victory');
@@ -19060,6 +19073,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
             user={user}
             turn={turn}
             matchStats={matchStatsRef.current}
+            surrenderReason={surrenderReason}
           />
         )}
       </AnimatePresence>

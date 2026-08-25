@@ -72,6 +72,7 @@ export default function App() {
   const [restoredState, setRestoredState] = useState<any | null>(null);
   const [reconnectChecking, setReconnectChecking] = useState(false);
   const [reconnectRoomLost, setReconnectRoomLost] = useState(false);
+  const [reconnectSurrender, setReconnectSurrender] = useState<{ surrenderedBy: string; isVictory: boolean } | null>(null);
   
   // Active Quest State
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
@@ -130,18 +131,38 @@ export default function App() {
             fetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`)
               .then(r => r.json())
               .then(data => {
-                setReconnectChecking(false);
                 if (data.status === 'matched' && data.roomId === parsed.onlineParams.roomId) {
+                  setReconnectChecking(false);
                   setReconnectRoomLost(false);
+                  setReconnectSurrender(null);
                 } else {
-                  // Server match is no longer active
-                  setReconnectRoomLost(true);
+                  // Server match idle - verifica se foi rendição antes de declarar sala perdida
+                  fetch(`/api/match/room-state?roomId=${encodeURIComponent(parsed.onlineParams.roomId)}&username=${encodeURIComponent(user.username)}`)
+                    .then(r => r.json())
+                    .then(roomData => {
+                      setReconnectChecking(false);
+                      if (roomData?.success && roomData?.room?.surrenderedBy) {
+                        const sb = String(roomData.room.surrenderedBy).toLowerCase();
+                        const isVictory = sb !== user.username.toLowerCase();
+                        setReconnectSurrender({ surrenderedBy: String(roomData.room.surrenderedBy), isVictory });
+                        setReconnectRoomLost(false);
+                      } else {
+                        setReconnectSurrender(null);
+                        setReconnectRoomLost(true);
+                      }
+                    })
+                    .catch(() => {
+                      setReconnectChecking(false);
+                      setReconnectSurrender(null);
+                      setReconnectRoomLost(true);
+                    });
                 }
               })
               .catch(() => {
                 // Network error, allow to try resuming anyway
                 setReconnectChecking(false);
                 setReconnectRoomLost(false);
+                setReconnectSurrender(null);
               });
           }
         }
@@ -166,6 +187,7 @@ export default function App() {
     setReconnectData(null);
     setReconnectChecking(false);
     setReconnectRoomLost(false);
+    setReconnectSurrender(null);
   };
 
   const handleDeclineReconnect = async () => {
@@ -190,6 +212,7 @@ export default function App() {
     setReconnectData(null);
     setReconnectChecking(false);
     setReconnectRoomLost(false);
+    setReconnectSurrender(null);
   };
 
   // Global sound effect triggers
@@ -392,20 +415,24 @@ export default function App() {
                   <div className="flex items-center justify-center gap-2">
                     <Swords className="w-6 h-6 text-orange-800 animate-pulse" />
                     <h2 className="text-xl font-black uppercase tracking-tight text-stone-950 font-sans">
-                      {reconnectChecking ? 'Verificando Sala...' : reconnectRoomLost ? 'Sala Perdida' : 'Combate Ativo Encontrado!'}
+                      {reconnectChecking ? 'Verificando Sala...' : reconnectSurrender ? (reconnectSurrender.isVictory ? 'Vitória por Rendição!' : 'Derrota por Rendição') : reconnectRoomLost ? 'Sala Perdida' : 'Combate Ativo Encontrado!'}
                     </h2>
                   </div>
                   {reconnectChecking ? (
                     <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
                       Sua batalha em andamento foi encontrada. Verificando a sala no servidor...
                     </p>
+                  ) : reconnectSurrender ? (
+                    <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
+                      {reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} se rendeu! Você venceu por rendição.` : `Você se rendeu para ${reconnectSurrender.surrenderedBy}. Derrota por rendição.`} A partida foi encerrada.
+                    </p>
                   ) : reconnectRoomLost ? (
                     <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                      A sala desta batalha não existe mais no servidor, então o combate será encerrado.
+                      A sala desta batalha no existe mais no servidor, ento o combate ser encerrado.
                     </p>
                   ) : (
                     <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                      Você possui uma batalha em andamento na Arena. Deseja retornar ao confronto ou declarar rendição?
+                      Voc possui uma batalha em andamento na Arena. Deseja retornar ao confronto ou declarar rendio?
                     </p>
                   )}
                 </div>
@@ -416,6 +443,20 @@ export default function App() {
                       <img src="/static/img/icon/star.svg" alt="Verificando" className="w-8 h-8 animate-spin object-contain" />
                       <span className="text-xs text-stone-700 font-mono font-bold uppercase tracking-wider">Aguarde...</span>
                     </div>
+                  ) : reconnectSurrender ? (
+                    <button
+                      onClick={() => {
+                        playClickSound();
+                        try { localStorage.removeItem('active_match_save'); } catch {}
+                        setReconnectData(null);
+                        setReconnectRoomLost(false);
+                        setReconnectSurrender(null);
+                      }}
+                      className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-700 to-emerald-800 hover:from-emerald-600 hover:to-emerald-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg border border-emerald-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <Flag className="w-4 h-4" />
+                      <span>{reconnectSurrender.isVictory ? 'Coletar Vitória' : 'Encerrar'}</span>
+                    </button>
                   ) : reconnectRoomLost ? (
                     <button
                       onClick={handleDeclineReconnect}

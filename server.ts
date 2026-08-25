@@ -710,7 +710,7 @@ async function startServer() {
     const now = Date.now();
     for (const id in activeRooms) {
       const room = activeRooms[id];
-      const ttl = room.surrenderedBy ? 120000 : 600000;
+      const ttl = room.surrenderedBy ? 600000 : 600000; // 10min para rendição também (era 2min) - dá tempo de voltar na aba e ver quem venceu
       if (now - room.lastActivity > ttl) {
         delete userMatches[room.players[0].username];
         delete userMatches[room.players[1].username];
