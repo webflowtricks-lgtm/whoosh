@@ -126,7 +126,7 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 
 **Chakra drain/steal/remove double-tick guard**: end-of-round tick block marks `(e as any).lastChakraTickTurn = turn` and filters it out — an effect can never tick twice in the same round even when created late (watchdog/catch-up path).
 
-**🛡️ Resolution must ADVANCE or be retried (v9)**: `executeTurnEndResolution()` returns boolean (`advanced`). `resolveOnlineRoundOnce` marks the turn in `resolvedTurnRef` ONLY when the resolution actually advanced; if the circuit breaker (<1500ms) or the re-entrancy guard blocked it, the turn stays UNMARKED and the next 1s poll retries. Marking before executing caused a lost round on one client only (no chakra roll, no planner switch) while the other client advanced — total desync ("chakra não gera / turno repete pra mesma pessoa").
+**🛡️ Resolution must ADVANCE or be retried (v9) + ANTI-LOOP (v12)**: `executeTurnEndResolution()` returns boolean (`advanced`). `resolveOnlineRoundOnce` marks the turn in `resolvedTurnRef` **IMMEDIATELY** (before the 250ms setTimeout) to close the re-entrancy window where the 1s poll re-schedules multiple resolutions of the SAME turn — that double-scheduling caused the **audio loop + repeated "oponente executou…" loop**. If the resolution ends up blocked by the circuit breaker (<1500ms) or the re-entrancy guard, the turn is UN-marked (`delete`) so the next poll retries. NEVER mark AFTER executing (v9 bug: desync) and NEVER leave it un-marked before the setTimeout (v12 bug: loop).
 
 **Guards / safety nets (keep all of them)**:
 - `resolvedTurnRef` + `forcedResolveTurnsRef`: resolve/force-resolve max once per turn.
@@ -136,7 +136,7 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - Per-click guard `finalizedKeysRef` (key `${turn}:${side}`); refs cleared at battle start only.
 
 **Diagnostics overlay (temporary but keep until fully stable)**:
-- `logs` state was NEVER rendered before — added fixed bottom-left panel "🧪 Log v7" (BattleBoard JSX end) showing last 7 logs incl. build marker line as first initial log. Bump this marker whenever touching turn flow again (current: `🧪 BUILD v10-single-planner-turns`).
+- `logs` state was NEVER rendered before — added fixed bottom-left panel "🧪 Log v7" (BattleBoard JSX end) showing last 7 logs incl. build marker line as first initial log. Bump this marker whenever touching turn flow again (current: `🧪 BUILD v12-antiloop-resolve`).
 
 **Server side**: rooms persist to `src/data/match_rooms.json` (debounced `markRoomsDirty`, restore-on-boot); `/api/health` reports version. Render free tier cold-start tolerances are baked into the 20-failure room-lost threshold.
 
