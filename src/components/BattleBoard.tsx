@@ -1403,6 +1403,8 @@ export default function BattleBoard({
   // + controle de qual turno já reportei/apliquei do oponente.
   const playerChakraRef = useRef(playerChakra);
   useEffect(() => { playerChakraRef.current = playerChakra; }, [playerChakra]);
+  const enemyChakraRef = useRef(enemyChakra);
+  useEffect(() => { enemyChakraRef.current = enemyChakra; }, [enemyChakra]);
   const stateReportSentTurnRef = useRef(0);
   const lastAppliedOppReportTurnRef = useRef(0);
 
@@ -1710,6 +1712,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       setEnemyCombatants(hydratedEnemy);
       setPlayerChakra(restoredState.playerChakra);
       setEnemyChakra(restoredState.enemyChakra);
+      playerChakraRef.current = { ...restoredState.playerChakra };
+      enemyChakraRef.current = { ...restoredState.enemyChakra };
       setCuedActions([]);
       setSelectedSkill(null);
       setGameOver(null);
@@ -2060,7 +2064,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v20-fix-turn-stuck', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v21-chakra-0-fix', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -2249,7 +2253,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   };
 
   // Roll Chakra logic (accepts count of chakra elements to roll)
-  const rollChakraForTurn = (isPlayer: boolean, count: number = 1) => {
+  const rollChakraForTurn = (isPlayer: boolean, count: number = 1, turnOverride?: number) => {
     // 🧊 Sandbox com geração pausada: não gera chakra ao virar o turno (mas gasto/remoção continuam contando)
     if (chakraGenPaused) return;
     const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
@@ -2258,10 +2262,11 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     // Deterministic PRNG for online sync (shared room seed → both clients roll
     // identical chakra for each slot every turn).
     let seed = 0;
+    const effectiveTurn = turnOverride ?? turn;
     if (onlineParams?.isOnline) {
       const mine = myOnlineIndex();
       const targetIndex = isPlayer ? mine : (1 - mine);
-      const seedStr = `${onlineParams.seed}-${turn}-slot-${targetIndex}`;
+      const seedStr = `${onlineParams.seed}-${effectiveTurn}-slot-${targetIndex}`;
       let hash = 0;
       for (let j = 0; j < seedStr.length; j++) {
         hash = seedStr.charCodeAt(j) + ((hash << 5) - hash);
@@ -2282,6 +2287,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     }
 
     if (isPlayer) {
+      // sync ref immediately to avoid race where executeSideActions reads stale 0 before re-render
+      rolled.forEach(r => { playerChakraRef.current[r] = (playerChakraRef.current[r] || 0) + 1; });
       setPlayerChakra(prev => {
         const updated = { ...prev };
         rolled.forEach(r => {
@@ -2305,6 +2312,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
         },
       ]);
     } else {
+      rolled.forEach(r => { enemyChakraRef.current[r] = (enemyChakraRef.current[r] || 0) + 1; });
       setEnemyChakra(prev => {
         const updated = { ...prev };
         rolled.forEach(r => {
@@ -3303,8 +3311,8 @@ const handleTradeChakra = () => {
     // Process revivals & caster-death effect removals from previous phases
     processDeathEvents([...updatedPlayer, ...updatedEnemy], newLogs);
 
-    const localPlayerChakra = { ...playerChakra };
-    const localEnemyChakra = { ...enemyChakra };
+    const localPlayerChakra = { ...playerChakraRef.current };
+    const localEnemyChakra = { ...enemyChakraRef.current };
 
     // Deduct chakra cost permanently for sideActions
     const currentSideChakra = isPlayerSide ? localPlayerChakra : localEnemyChakra;
@@ -9269,7 +9277,9 @@ splashOnlyTargets = splashPool.filter(c =>
       }));
     }
 
-    // Save updated state
+    // Save updated state + sync refs immediately (evita corrida com rollChakraForTurn pendente)
+    playerChakraRef.current = { ...localPlayerChakra };
+    enemyChakraRef.current = { ...localEnemyChakra };
     setPlayerChakra({ ...localPlayerChakra });
     setEnemyChakra({ ...localEnemyChakra });
     playerRef.current = updatedPlayer;
@@ -10093,8 +10103,8 @@ splashOnlyTargets = splashPool.filter(c =>
     // Roll chakra for the new turn (1 per alive character on each team)
     const alivePlayerCount = updatedPlayer.filter(c => !c.isDead).length;
     const aliveEnemyCount = updatedEnemy.filter(c => !c.isDead).length;
-    try { rollChakraForTurn(true, alivePlayerCount); } catch (e) { console.error('[BattleBoard] Falha ao rolar chakra do jogador:', e); }
-    try { rollChakraForTurn(false, aliveEnemyCount); } catch (e) { console.error('[BattleBoard] Falha ao rolar chakra do oponente:', e); }
+    try { rollChakraForTurn(true, alivePlayerCount, nextTurn); } catch (e) { console.error('[BattleBoard] Falha ao rolar chakra do jogador:', e); }
+    try { rollChakraForTurn(false, aliveEnemyCount, nextTurn); } catch (e) { console.error('[BattleBoard] Falha ao rolar chakra do oponente:', e); }
 
     newLogs.push({
       id: Math.random().toString(),
@@ -10120,8 +10130,8 @@ splashOnlyTargets = splashPool.filter(c =>
           setPassedPlayersThisTurn([]);
           passedPlayersRef.current = [];
           setIsWaitingForOpponent(onlineParams?.isOnline ? fbFirst !== 'player' : false);
-          try { rollChakraForTurn(true, Math.max(1, playerCombatants.filter(c => !c.isDead).length)); } catch (e) { console.error('[BattleBoard] Falha no chakra do jogador no fallback:', e); }
-          try { rollChakraForTurn(false, Math.max(1, enemyCombatants.filter(c => !c.isDead).length)); } catch (e) { console.error('[BattleBoard] Falha no chakra do oponente no fallback:', e); }
+          try { rollChakraForTurn(true, Math.max(1, playerCombatants.filter(c => !c.isDead).length), fbTurn); } catch (e) { console.error('[BattleBoard] Falha no chakra do jogador no fallback:', e); }
+          try { rollChakraForTurn(false, Math.max(1, enemyCombatants.filter(c => !c.isDead).length), fbTurn); } catch (e) { console.error('[BattleBoard] Falha no chakra do oponente no fallback:', e); }
           const fbErrDetail = String((err as any)?.message || err).slice(0, 160);
           console.error(`[BattleBoard] FALLBACK de resolução acionado na rodada ${turn}:`, fbErrDetail);
           setLogs(prev => [
@@ -11896,8 +11906,8 @@ splashOnlyTargets = splashPool.filter(c =>
 
   const executeTurnSimulation = (playerActions: CuedAction[] = [], enemyActions: CuedAction[] = []) => {
     const newLogs: CombatLog[] = [];
-    const localPlayerChakra = { ...playerChakra };
-    const localEnemyChakra = { ...enemyChakra };
+    const localPlayerChakra = { ...playerChakraRef.current };
+    const localEnemyChakra = { ...enemyChakraRef.current };
     const updatedPlayer = playerCombatants.map(c => ({ ...c, lastTurnStatus: null }));
     const updatedEnemy = enemyCombatants.map(c => ({ ...c, lastTurnStatus: null }));
 
