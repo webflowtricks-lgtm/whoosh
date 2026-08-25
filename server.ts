@@ -209,6 +209,8 @@ async function startServer() {
     surrenderedBy: string | null;
     pings: [number, number];
     phaseDeadline: number;
+    timeoutStreak: [number, number]; // turnos seguidos sem jogar (offline) - derrota apos 2
+    surrenderReason: string | null; // 'manual' | 'timeout' | 'disconnect'
   }
 
   const waitingQueue: QueuePlayer[] = [];
@@ -259,6 +261,8 @@ async function startServer() {
             pings: [fresh, fresh],
             lastActivity: fresh,
             phaseDeadline: typeof (r as any).phaseDeadline === "number" ? (r as any).phaseDeadline : fresh + 60000,
+            timeoutStreak: Array.isArray((r as any).timeoutStreak) ? (r as any).timeoutStreak : [0, 0],
+            surrenderReason: typeof (r as any).surrenderReason === "string" ? (r as any).surrenderReason : null,
           };
         }
       }
@@ -342,6 +346,8 @@ async function startServer() {
         surrenderedBy: null,
         pings: [Date.now(), Date.now()],
         phaseDeadline: Date.now() + 60000,
+        timeoutStreak: [0, 0],
+        surrenderReason: null,
       };
 
       activeRooms[roomId] = room;
@@ -422,6 +428,7 @@ async function startServer() {
     room.pings[idx] = Date.now();
     if (!room.turns[turn]) room.turns[turn] = [null, null];
     room.turns[turn][idx] = actions;
+    room.timeoutStreak[idx] = 0; // jogou -> zera streak de offline
     // deadline da fase: quando um lado envia, o outro ganha 60s reais (anti-burla refresh)
     {
       const _other = idx === 0 ? 1 : 0;
@@ -474,9 +481,11 @@ async function startServer() {
     if (!room.surrenderedBy) {
       if (now - room.pings[0] > 60000) {
         room.surrenderedBy = room.players[0].username;
+        (room as any).surrenderReason = 'disconnect';
         markRoomsDirty();
       } else if (now - room.pings[1] > 60000) {
         room.surrenderedBy = room.players[1].username;
+        (room as any).surrenderReason = 'disconnect';
         markRoomsDirty();
       }
     }
@@ -495,6 +504,7 @@ async function startServer() {
         resolvedTurn: room.resolvedTurn ?? 0,
         stateReports: room.stateReports || {},
         surrenderedBy: room.surrenderedBy || null,
+        surrenderReason: (room as any).surrenderReason || null,
         phaseDeadline: room.phaseDeadline ?? Date.now() + 60000,
       },
     });
@@ -537,6 +547,7 @@ async function startServer() {
     }
 
     room.surrenderedBy = username.trim().toLowerCase();
+    (room as any).surrenderReason = 'manual';
     room.lastActivity = Date.now();
     // 🧹 Limpa o mapeamento usuario→partida dos DOIS jogadores: sem isso,
     // /matchmaking/status continuava devolvendo esta sala como "matched" e a
@@ -745,9 +756,20 @@ async function startServer() {
       } else {
         continue; // ambos ja submeteram
       }
-      // Auto-passa com acoes vazias
+      // Auto-passa com acoes vazias (timeout 60s)
       slots[activeIdx] = [];
       room2.lastActivity = now2;
+      // streak de offline: 2 turnos seguidos sem jogar => derrota por falta de conexao
+      if (!room2.timeoutStreak) room2.timeoutStreak = [0, 0];
+      room2.timeoutStreak[activeIdx]++;
+      if (room2.timeoutStreak[activeIdx] >= 2) {
+        room2.surrenderedBy = room2.players[activeIdx].username;
+        (room2 as any).surrenderReason = 'timeout';
+        room2.phaseDeadline = now2 + 60000;
+        markRoomsDirty();
+        console.log(`[TIMEOUT] Sala ${id} slot ${activeIdx} DERROTA por 2 turnos offline (timeout)`);
+        continue;
+      }
       // Se era o ultimo a faltar, resolve o turno
       if (slots[0] !== null && slots[1] !== null) {
         let nxt = (room2.resolvedTurn ?? 0) + 1;
@@ -760,7 +782,7 @@ async function startServer() {
         room2.phaseDeadline = now2 + 60000;
       }
       markRoomsDirty();
-      console.log(`[TIMEOUT] Sala ${id} turno ${curTurn} slot ${activeIdx} auto-pass por timeout 60s`);
+      console.log(`[TIMEOUT] Sala ${id} turno ${curTurn} slot ${activeIdx} auto-pass por timeout 60s (streak ${room2.timeoutStreak[activeIdx]}/2)`);
     }
   }, 1000);
 

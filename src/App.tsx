@@ -72,7 +72,7 @@ export default function App() {
   const [restoredState, setRestoredState] = useState<any | null>(null);
   const [reconnectChecking, setReconnectChecking] = useState(false);
   const [reconnectRoomLost, setReconnectRoomLost] = useState(false);
-  const [reconnectSurrender, setReconnectSurrender] = useState<{ surrenderedBy: string; isVictory: boolean } | null>(null);
+  const [reconnectSurrender, setReconnectSurrender] = useState<{ surrenderedBy: string; isVictory: boolean; reason: string | null } | null>(null);
   
   // Active Quest State
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
@@ -144,7 +144,8 @@ export default function App() {
                       if (roomData?.success && roomData?.room?.surrenderedBy) {
                         const sb = String(roomData.room.surrenderedBy).toLowerCase();
                         const isVictory = sb !== user.username.toLowerCase();
-                        setReconnectSurrender({ surrenderedBy: String(roomData.room.surrenderedBy), isVictory });
+                        const reason = roomData.room.surrenderReason || 'manual';
+                        setReconnectSurrender({ surrenderedBy: String(roomData.room.surrenderedBy), isVictory, reason });
                         setReconnectRoomLost(false);
                       } else {
                         setReconnectSurrender(null);
@@ -415,7 +416,7 @@ export default function App() {
                   <div className="flex items-center justify-center gap-2">
                     <Swords className="w-6 h-6 text-orange-800 animate-pulse" />
                     <h2 className="text-xl font-black uppercase tracking-tight text-stone-950 font-sans">
-                      {reconnectChecking ? 'Verificando Sala...' : reconnectSurrender ? (reconnectSurrender.isVictory ? 'Vitória por Rendição!' : 'Derrota por Rendição') : reconnectRoomLost ? 'Sala Perdida' : 'Combate Ativo Encontrado!'}
+                      {reconnectChecking ? 'Verificando Sala...' : reconnectSurrender ? (reconnectSurrender.reason === 'timeout' ? (reconnectSurrender.isVictory ? 'Vitória por Inatividade!' : 'Derrota por Inatividade') : reconnectSurrender.reason === 'disconnect' ? (reconnectSurrender.isVictory ? 'Vitória por Desconexão!' : 'Derrota por Desconexão') : (reconnectSurrender.isVictory ? 'Vitória por Rendição!' : 'Derrota por Rendição')) : reconnectRoomLost ? 'Sala Perdida' : 'Combate Ativo Encontrado!'}
                     </h2>
                   </div>
                   {reconnectChecking ? (
@@ -424,7 +425,7 @@ export default function App() {
                     </p>
                   ) : reconnectSurrender ? (
                     <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                      {reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} se rendeu! Você venceu por rendição.` : `Você se rendeu para ${reconnectSurrender.surrenderedBy}. Derrota por rendição.`} A partida foi encerrada.
+                      {reconnectSurrender.reason === 'timeout' ? (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} perdeu por falta de conexão (2 turnos offline)! Você venceu.` : `Você perdeu por falta de conexão (2 turnos sem jogar).`) : reconnectSurrender.reason === 'disconnect' ? (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} desconectou! Você venceu.` : `Você desconectou e perdeu.`) : (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} se rendeu! Você venceu por rendição.` : `Você se rendeu para ${reconnectSurrender.surrenderedBy}. Derrota por rendição.`)} A partida foi encerrada.
                     </p>
                   ) : reconnectRoomLost ? (
                     <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">

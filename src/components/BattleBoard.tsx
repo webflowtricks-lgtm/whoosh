@@ -2060,7 +2060,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v17-timer-realtime', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v18-2turns-timeout', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -11418,10 +11418,22 @@ splashOnlyTargets = splashPool.filter(c =>
           if (data.room.surrenderedBy) {
             const surrenderedUser = String(data.room.surrenderedBy).toLowerCase();
             const isSelf = surrenderedUser === user.username.toLowerCase();
-            const reason = isSelf ? 'Você se rendeu.' : `Oponente ${data.room.surrenderedBy} se rendeu!`;
+            const sReason = (data.room as any).surrenderReason || 'manual';
+            let reason = '';
+            let logMsg = '';
+            if (sReason === 'timeout') {
+              reason = isSelf ? 'Você perdeu por falta de conexão (2 turnos sem jogar).' : `Oponente ${data.room.surrenderedBy} perdeu por falta de conexão (2 turnos offline)!`;
+              logMsg = isSelf ? '🏳️ Você perdeu por inatividade (2 turnos offline). Derrota.' : `🏳️ ${data.room.surrenderedBy} perdeu por inatividade! Vitória!`;
+            } else if (sReason === 'disconnect') {
+              reason = isSelf ? 'Você perdeu por desconexão.' : `Oponente ${data.room.surrenderedBy} desconectou!`;
+              logMsg = isSelf ? '🏳️ Você desconectou. Derrota.' : `🏳️ ${data.room.surrenderedBy} desconectou! Vitória!`;
+            } else {
+              reason = isSelf ? 'Você se rendeu.' : `Oponente ${data.room.surrenderedBy} se rendeu!`;
+              logMsg = isSelf ? '🏳️ Você se rendeu. Derrota.' : `🏳️ ${data.room.surrenderedBy} se rendeu! Vitória!`;
+            }
             // Notifica na hora mesmo com aba em segundo plano: log + razão para o overlay
             setSurrenderReason(reason);
-            setLogs(l => [...l, { id: Math.random().toString(), turn, message: isSelf ? '🏳️ Você se rendeu. Derrota.' : `🏳️ ${data.room.surrenderedBy} se rendeu! Vitória!`, type: 'system' }]);
+            setLogs(l => [...l, { id: Math.random().toString(), turn, message: logMsg, type: 'system' }]);
             try {
               localStorage.removeItem('active_match_save');
             } catch {}
