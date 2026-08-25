@@ -10123,6 +10123,8 @@ splashOnlyTargets = splashPool.filter(c =>
               type: 'system',
             }
           ]);
+          advanced = true; // 🛡️ o fallback AVANÇOU o turno → reporta true (senão o
+          // chamador acha que falhou e reagenda resoluções → loop).
         } catch (e2) {
           console.error('[BattleBoard] Falha no fallback de resolução:', e2);
           return false;
@@ -10134,36 +10136,41 @@ splashOnlyTargets = splashPool.filter(c =>
     }
   };
 
-  // 🌐 ONLINE — resolve a rodada UMA única vez por turno, independentemente de
-  // quem chegou por último (meu finalize ou o poll do oponente).
-  // 🛡️ ANTI-LOOP: marcamos o turno como resolvido IMEDIATAMENTE (antes do setTimeout)
-  // para fechar a janela em que o poll de 1s re-entra e agenda várias resoluções
-  // do MESMO turno (era isso que causava o loop de áudio e o loop das ações do
-  // oponente). Se a resolução acabar BLOQUEADA pelo disjuntor/guard, desmarcamos
-  // para o próximo poll tentar de novo — mas nunca há duas resoluções em voo.
+  // 🌐 ONLINE — resolve a rodada UMA única vez por turno.
+  // 🛡️ ANTI-LOOP (v13): marcamos o turno como resolvido IMEDIATAMENTE e NUNCA
+  // desmarcamos. Se a resolução for bloqueada pelo disjuntor anti-loop (<1.5s da
+  // anterior) ou pelo guard de re-entrância, reagendamos a tentativa AQUI DENTRO
+  // (mantendo a marca) até avançar — o poll de 1s nunca reentra nem re-executa as
+  // ações do oponente/áudio. Era o delete anterior que reabria o poll e causava o
+  // loop de áudio + "oponente executou" sem o turno avançar.
   const resolveOnlineRoundOnce = (force = false) => {
     const t = turnRef.current;
-    if (resolvedTurnRef.current.has(t)) {
-      if (!force) {
-        console.log(`[TURN] resolveOnlineRoundOnce ignorado: turno ${t} já resolvido/em resolução`);
-        return;
-      }
-      console.warn(`[TURN] resolveOnlineRoundOnce FORÇADO (watchdog de travamento): turno ${t}`);
+    if (resolvedTurnRef.current.has(t) && !force) {
+      console.log(`[TURN] resolveOnlineRoundOnce ignorado: turno ${t} já resolvido/em resolução`);
+      return;
     }
-    // Fecha a re-entrância AGORA (o poll de 1s não vai reagendar enquanto isto durar).
     resolvedTurnRef.current.add(t);
     setIsWaitingForOpponent(false);
-    setTimeout(() => {
-      // 🔒 Se uma resolução anterior ficou presa no guard (ex.: interrompida), ela
-      // bloquearia esta chamada SILENCIOSAMENTE. Limpamos o guard antes de invocar.
+    let attempts = 0;
+    const attempt = () => {
+      // Se o turno já avançou por outro caminho, para (não re-resolve turno antigo).
+      if (turnRef.current !== t) return;
       isResolvingTurnEndRef.current = false;
       const advancedNow = executeTurnEndResolution();
       if (!advancedNow) {
-        // Bloqueada (disjuntor/guard) → DESMARCA para o próximo poll tentar de novo.
-        resolvedTurnRef.current.delete(t);
-        console.warn(`[TURN] resolução do turno ${t} não avançou — liberada para nova tentativa no próximo poll.`);
+        attempts++;
+        if (attempts <= 8) {
+          // Bloqueada pelo disjuntor/guard → tenta de novo APÓS a janela de 1.5s,
+          // mantendo a marca (o poll não reentra). Bounded para nunca girar infinito.
+          console.warn(`[TURN] resolução do turno ${t} bloqueada (tentativa ${attempts}) — reagendando em 1600ms.`);
+          setTimeout(attempt, 1600);
+        } else {
+          console.error(`[TURN] resolução do turno ${t} falhou após ${attempts} tentativas — desistindo (o poll pode retentar).`);
+          resolvedTurnRef.current.delete(t);
+        }
       }
-    }, 250);
+    };
+    setTimeout(attempt, 250);
   };
 
   // Tick de Dano Contínuo (type 'damage' — dano normal com duração) no fim do turno do CONJURADOR:
