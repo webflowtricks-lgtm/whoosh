@@ -245,7 +245,7 @@ async function startServer() {
       return turnActions;
     })(),
     resolvedTurn: room.resolvedTurn ?? 0,
-    stateReports: room.stateReports || {},
+    stateReports: full ? (room.stateReports || {}) : undefined, // nos pushes enxutos o relato chega via evento {type:'report'}
     surrenderedBy: room.surrenderedBy || null,
     surrenderReason: (room as any).surrenderReason || null,
     phaseDeadline: room.phaseDeadline ?? Date.now() + 60000,
@@ -593,8 +593,10 @@ async function startServer() {
     };
     room.lastActivity = Date.now();
     markRoomsDirty();
-    // relato serve só para o oponente adotar (converge-para-menor) — não ecoa pro autor
-    try { broadcastRoomState(roomId, { exclude: username.trim().toLowerCase() }); } catch {}
+    // Render não negocia permessage-deflate → payload enxuto: envia SÓ o relato
+    // (evento minúsculo) em vez de um room-state completo a cada report.
+    const repUser = username.trim().toLowerCase();
+    try { sendToRoom(roomId, { type: 'report', username: repUser, turn, units, chakra: room.stateReports[repUser] }, { exclude: repUser }); } catch {}
     res.json({ success: true });
   });
 

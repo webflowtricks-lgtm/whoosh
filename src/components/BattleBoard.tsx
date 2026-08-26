@@ -1506,6 +1506,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const wsPushRef = useRef<((data: any) => void) | null>(null);
   const wsConnectedRef = useRef(false);
   const lastWsMsgAtRef = useRef(0);
+  const wsApplyReportRef = useRef<((username: string, rp: { turn: number; units?: any; chakra?: any }) => void) | null>(null);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -2074,7 +2075,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v26-ws-thin', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v27-report-thin', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -11430,6 +11431,39 @@ splashOnlyTargets = splashPool.filter(c =>
     };
     const runSync = (wsData?: any) => {
       trySubmitPending();
+      // 🔄 SINCRONIA (converge-para-menor): aplica o relato do OPONENTE ao esquadrão
+      // DELE na minha tela (fonte da verdade = dono do time). Compartilhado entre
+      // room-state (poll/push/submit-response) e o evento minúsculo {type:'report'} do WS.
+      const applyOppReport = (rp: any) => {
+        if (!rp || rp.turn !== turn || lastAppliedOppReportTurnRef.current === turn) return;
+        lastAppliedOppReportTurnRef.current = turn;
+        const flipId = (id: string) => id.startsWith('player')
+          ? id.replace('player', 'enemy')
+          : id.replace('enemy', 'player');
+        const rpUnits = rp.units || {};
+        // ⚖️ CONVERGE PARA O MENOR: se o cliente dele falhou em executar minha
+        // ação (RNG local divergente), o relato viria com vida cheia e "revogaria"
+        // meu dano. Ficando com o MENOR valor entre as duas visões, o dano que EU
+        // apliquei nunca é desfeito — e o que ELE aplicou e eu não vi também baixa.
+        setEnemyCombatants(prev => prev.map(c => {
+          const u = rpUnits[flipId(c.id)];
+          if (!u) return c;
+          return {
+            ...c,
+            health: Math.min(c.health, u.health),
+            shield: Math.min(c.shield ?? 0, u.shield ?? 0),
+            isDead: !!u.isDead || !!c.isDead,
+          };
+        }));
+        if (rp.chakra && typeof rp.chakra === 'object') {
+          setEnemyChakra(prev => ({ ...prev, ...rp.chakra }));
+        }
+        console.log(`[SYNC] Estado do oponente aplicado (turno ${turn}, converge-para-menor).`);
+      };
+      wsApplyReportRef.current = (u: string, rp: any) => {
+        if (String(u).toLowerCase() === user.username.trim().toLowerCase()) return;
+        applyOppReport(rp);
+      };
       const processData = (data: any) => {
           if (!data.success || !data.room) {
             handlePollFailure();
@@ -11472,39 +11506,11 @@ splashOnlyTargets = splashPool.filter(c =>
             return;
           }
 
-          // 🔄 SINCRONIA: adota o relato pós-resolução do OPONENTE para o esquadrão
-          // DELE na minha tela (a visão de cada jogador sobre os próprios personagens
-          // é a fonte da verdade). Corrige HP/escudo/morte/chakra divergentes.
           const oppUsernameLc = onlineParams.opponentProfile?.username
             ? String(onlineParams.opponentProfile.username).trim().toLowerCase()
             : (Array.isArray(data.room.players) ? data.room.players.find((p: any) => p && p.username && p.username !== user.username.toLowerCase())?.username : null);
           if (oppUsernameLc && data.room.stateReports?.[oppUsernameLc]) {
-            const rp = data.room.stateReports[oppUsernameLc];
-            if (rp && rp.turn === turn && lastAppliedOppReportTurnRef.current !== turn) {
-              lastAppliedOppReportTurnRef.current = turn;
-              const flipId = (id: string) => id.startsWith('player')
-                ? id.replace('player', 'enemy')
-                : id.replace('enemy', 'player');
-              const rpUnits = rp.units || {};
-              // ⚖️ CONVERGE PARA O MENOR: se o cliente dele falhou em executar minha
-              // ação (RNG local divergente), o relato viria com vida cheia e "revogaria"
-              // meu dano. Ficando com o MENOR valor entre as duas visões, o dano que EU
-              // apliquei nunca é desfeito — e o que ELE aplicou e eu não vi também baixa.
-              setEnemyCombatants(prev => prev.map(c => {
-                const u = rpUnits[flipId(c.id)];
-                if (!u) return c;
-                return {
-                  ...c,
-                  health: Math.min(c.health, u.health),
-                  shield: Math.min(c.shield ?? 0, u.shield ?? 0),
-                  isDead: !!u.isDead || !!c.isDead,
-                };
-              }));
-              if (rp.chakra && typeof rp.chakra === 'object') {
-                setEnemyChakra(prev => ({ ...prev, ...rp.chakra }));
-              }
-              console.log(`[SYNC] Estado do oponente aplicado (turno ${turn}, converge-para-menor).`);
-            }
+            applyOppReport(data.room.stateReports[oppUsernameLc]);
           }
 
           // Check online turn state sync
@@ -11769,6 +11775,9 @@ splashOnlyTargets = splashPool.filter(c =>
               setActiveEmojis(prev => [...prev, { id: Math.random().toString(), emoji: e.emoji, xOffset: Math.random() * 200 - 100, rotation: Math.random() * 60 - 30, senderName: e.senderName || e.username }]);
             }
             if (e.timestamp > lastPolledEmojiTimestamp.current) lastPolledEmojiTimestamp.current = e.timestamp;
+          } else if (msg && msg.type === 'report' && msg.username) {
+            // relato minúsculo do oponente (v27): mesma converge, sem room-state completo
+            wsApplyReportRef.current?.(String(msg.username), { turn: msg.turn, units: msg.units, chakra: msg.chakra });
           }
         } catch {}
       };
