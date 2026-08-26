@@ -147,22 +147,35 @@ function isFriendlyOrPassiveSkill(skill: Skill | null): boolean {
   return !isOffensiveSkill(skill);
 }
 
-export function pickChakraGainType(pool: ChakraPool, gainChakraTypes: string[] | undefined): ChakraType {
+export function pickChakraGainType(pool: ChakraPool, gainChakraTypes: string[] | undefined, rng: () => number = Math.random): ChakraType {
   const allTypes: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
   const sel = gainChakraTypes || [];
   if (sel.includes('Existing')) {
     const exists = allTypes.filter(k => (pool[k] || 0) > 0);
     const from = exists.length > 0 ? exists : allTypes;
-    return from[Math.floor(Math.random() * from.length)];
+    return from[Math.floor(rng() * from.length)];
   }
   if (sel.includes('Rand') || sel.length === 0) {
-    return allTypes[Math.floor(Math.random() * allTypes.length)];
+    return allTypes[Math.floor(rng() * allTypes.length)];
   }
   const fixed = allTypes.filter(k => sel.includes(k));
   const from = fixed.length > 0 ? fixed : allTypes;
-  return from[Math.floor(Math.random() * from.length)];
+  return from[Math.floor(rng() * from.length)];
 }
 
+// v29 — PRNG semeadado para execução online determinística.
+// Ambos clientes seedam com (matchSeed, turn) → mesma sequência → mesmos resultados.
+let _grngState = 0;
+export function seedGameRng(seed: number, turn: number) {
+  _grngState = (seed * 2654435761 + turn * 3266489917) | 0;
+  if (_grngState === 0) _grngState = 1;
+}
+export function gameRng(): number {
+  _grngState ^= _grngState << 13;
+  _grngState ^= _grngState >> 17;
+  _grngState ^= _grngState << 5;
+  return (_grngState >>> 0) / 4294967296;
+}
 export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveEffect[]): boolean {
   if (!activeEffects || activeEffects.length === 0) return false;
   // Esta skill é imune a atordoamento: pode ser usada mesmo sob stun
@@ -2075,7 +2088,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v27-report-thin', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v29-determinism', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -3037,7 +3050,7 @@ const handleTradeChakra = () => {
     for (let i = 0; i < amount; i++) {
       const nonZero = (Object.keys(currentVictimPool) as (keyof ChakraPool)[]).filter(k => currentVictimPool[k] > 0);
       if (nonZero.length > 0) {
-        const randType = nonZero[Math.floor(Math.random() * nonZero.length)];
+        const randType = nonZero[Math.floor(gameRng() * nonZero.length)];
         currentVictimPool[randType]--;
         affectedTypes.push(randType);
       }
@@ -3049,7 +3062,7 @@ const handleTradeChakra = () => {
       const missing = amount - stolenGainedTypes.length;
       const allTypes: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
       for (let i = 0; i < missing; i++) {
-        const randType = allTypes[Math.floor(Math.random() * allTypes.length)];
+        const randType = allTypes[Math.floor(gameRng() * allTypes.length)];
         stolenGainedTypes.push(randType);
       }
     }
@@ -3311,6 +3324,7 @@ const handleTradeChakra = () => {
 
   // Helper to execute actions for a single side (Player or Enemy) immediately
   const executeSideActions = (sideActions: CuedAction[], isPlayerSide: boolean, customRandAllocation?: ChakraPool): boolean => {
+    if (onlineParams?.isOnline) seedGameRng(onlineParams.seed, turn); // v29: same seed → same random results on both clients
     const newLogs: CombatLog[] = [];
     const srcPlayer = playerRef.current.length ? playerRef.current : playerCombatants;
     const srcEnemy = enemyRef.current.length ? enemyRef.current : enemyCombatants;
@@ -3434,11 +3448,11 @@ const handleTradeChakra = () => {
       }
       if (targetOverride === 'RandomEnemy') {
         const enemies = targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill?.ignoreInvulnerable));
-        return enemies.length > 0 ? [enemies[Math.floor(Math.random() * enemies.length)]] : [];
+        return enemies.length > 0 ? [enemies[Math.floor(gameRng() * enemies.length)]] : [];
       }
       if (targetOverride === 'RandomAlly') {
         const allies = sourceList.filter(c => !c.isDead);
-        return allies.length > 0 ? [allies[Math.floor(Math.random() * allies.length)]] : [];
+        return allies.length > 0 ? [allies[Math.floor(gameRng() * allies.length)]] : [];
       }
       if (targetOverride === 'AllEnemiesExceptTarget') {
         return targetList.filter(c => !c.isDead && c.id !== defaultTarget.id && (!checkCombatantInvulnerable(c, skill) || skill?.ignoreInvulnerable));
@@ -4501,7 +4515,7 @@ const handleTradeChakra = () => {
               const rType = r.damageType || 'direct_damage';
               let victim: CombatCharacter | undefined;
               if (r.target === 'random_enemy') {
-                victim = enemyPool.length > 0 ? enemyPool[Math.floor(Math.random() * enemyPool.length)] : undefined;
+                victim = enemyPool.length > 0 ? enemyPool[Math.floor(gameRng() * enemyPool.length)] : undefined;
               } else {
                 victim = defaultTarget && !defaultTarget.isDead ? defaultTarget : (enemyPool[0] || undefined);
               }
@@ -4996,7 +5010,7 @@ let directDamage = skill.directDamage || 0;
             const isPlayerCombatant = updatedPlayer.some(p => p.id === t.id);
             const targetPool = isPlayerCombatant ? localPlayerChakra : localEnemyChakra;
             for (let i = 0; i < amt; i++) {
-              const randType = pickChakraGainType(targetPool, skill.gainChakraTypes);
+              const randType = pickChakraGainType(targetPool, skill.gainChakraTypes, onlineParams?.isOnline ? gameRng : undefined);
               targetPool[randType] = (targetPool[randType] || 0) + 1;
             }
             newLogs.push({
@@ -5498,7 +5512,7 @@ const startingHealth = t.health;
           if (t.isDead) return;
           const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
           const pool = tIsPlayer ? localPlayerChakra : localEnemyChakra;
-          const randType = pickChakraGainType(pool, skill.gainChakraTypes);
+          const randType = pickChakraGainType(pool, skill.gainChakraTypes, onlineParams?.isOnline ? gameRng : undefined);
           pool[randType] = (pool[randType] || 0) + amt;
           newLogs.push({ id: Math.random().toString(), turn, message: `✨ [${skill.name}] → ${t.character.name}: +${amt} chakra (${randType})`, type: 'chakra' });
           addFloatingText(t.id, `+${amt} CHAKRA (${randType.toUpperCase()})`, 'effect');
@@ -7195,7 +7209,7 @@ splashOnlyTargets = splashPool.filter(c =>
             // Modo aleatório: copia UMA habilidade do alvo e substitui APENAS a própria skill de cópia por ela
             const pool = (t.character.skills || []).filter(s => s && s.name);
             if (pool.length > 0) {
-              const copiedSkill = JSON.parse(JSON.stringify(pool[Math.floor(Math.random() * pool.length)]));
+              const copiedSkill = JSON.parse(JSON.stringify(pool[Math.floor(gameRng() * pool.length)]));
               const newSkills = JSON.parse(JSON.stringify(source.character.skills || []));
               const myIdx = action.skillIndex;
               if (myIdx >= 0 && myIdx < newSkills.length) {
@@ -8832,7 +8846,7 @@ splashOnlyTargets = splashPool.filter(c =>
                 const selfIsPlayer = updatedPlayer.some(p => p.id === selfTarget.id);
                 const selfPool = selfIsPlayer ? localPlayerChakra : localEnemyChakra;
                 for (let i = 0; i < (selfSkill.gainChakra || 0); i++) {
-                  const randType = pickChakraGainType(selfPool, selfSkill.gainChakraTypes);
+                  const randType = pickChakraGainType(selfPool, selfSkill.gainChakraTypes, onlineParams?.isOnline ? gameRng : undefined);
                   selfPool[randType] = (selfPool[randType] || 0) + 1;
                 }
                 selfFloating(`+${selfSkill.gainChakra} CHAKRA`, 'effect');
@@ -9322,6 +9336,7 @@ splashOnlyTargets = splashPool.filter(c =>
     // 🛡️ Retorna true se a rodada AVANÇOU (ou o fallback avançou). false = bloqueada
     // (guard/disjuntor) — o chamador não deve marcar o turno como resolvido.
     const executeTurnEndResolution = (): boolean => {
+    if (onlineParams?.isOnline) seedGameRng(onlineParams.seed, turn); // v29: same seed → same random results on both clients
     if (isResolvingTurnEndRef.current) return false;
     // 🛑 DISJUNTOR ANTI-LOOP: resoluções legítimas NUNCA acontecem a menos de ~1.5s
     // uma da outra (uma rodada inteira leva vários segundos no mínimo). Chamadas
@@ -9585,7 +9600,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (amt <= 0) return;
           const targetPool = name === 'Player' ? endRoundPlayerChakra : endRoundEnemyChakra;
           for (let i = 0; i < amt; i++) {
-            const randType = pickChakraGainType(targetPool, effect.gainChakraTypes);
+            const randType = pickChakraGainType(targetPool, effect.gainChakraTypes, onlineParams?.isOnline ? gameRng : undefined);
             targetPool[randType]++;
           }
           endRoundChakraChanged = true;
@@ -9635,7 +9650,7 @@ splashOnlyTargets = splashPool.filter(c =>
           for (let i = 0; i < amt; i++) {
             const nonZero = (Object.keys(victimPool) as (keyof ChakraPool)[]).filter(k => victimPool[k] > 0);
             if (nonZero.length > 0) {
-              const randType = nonZero[Math.floor(Math.random() * nonZero.length)];
+              const randType = nonZero[Math.floor(gameRng() * nonZero.length)];
               victimPool[randType]--;
               affectedTypes.push(randType);
             }
@@ -9920,17 +9935,22 @@ splashOnlyTargets = splashPool.filter(c =>
             );
             if (isCondActive) {
               const victimSetter = targetIsPlayer ? setPlayerChakra : setEnemyChakra;
+              const _vicPool = targetIsPlayer ? playerChakraRef.current : enemyChakraRef.current;
+              const _vicCopy = { ..._vicPool };
+              const _vicTypes = (Object.keys(_vicCopy) as (keyof ChakraPool)[]).filter(k => _vicCopy[k] > 0);
+              const _preRemoved: (keyof ChakraPool)[] = [];
+              for (let _ri = 0; _ri < rule.removeAmount; _ri++) {
+                if (_vicTypes.length === 0) break;
+                const _idx = Math.floor(gameRng() * _vicTypes.length);
+                _preRemoved.push(_vicTypes[_idx]);
+                _vicCopy[_vicTypes[_idx]]--;
+                if (_vicCopy[_vicTypes[_idx]] <= 0) _vicTypes.splice(_idx, 1);
+              }
               victimSetter(prev => {
                 const pool = { ...prev };
-                const types = (Object.keys(pool) as (keyof ChakraPool)[]).filter(k => pool[k] > 0);
                 let removed = 0;
-                for (let i = 0; i < rule.removeAmount; i++) {
-                  if (types.length === 0) break;
-                  const randIdx = Math.floor(Math.random() * types.length);
-                  const randType = types[randIdx];
-                  pool[randType]--;
-                  if (pool[randType] <= 0) types.splice(randIdx, 1);
-                  removed++;
+                for (const _rt of _preRemoved) {
+                  if (pool[_rt] > 0) { pool[_rt]--; removed++; }
                 }
                 if (removed > 0) {
                   const affectedStr = (Object.keys(pool) as (keyof ChakraPool)[])
@@ -9989,19 +10009,23 @@ splashOnlyTargets = splashPool.filter(c =>
             {
               const victimSetter = casterIsPlayer ? setEnemyChakra : setPlayerChakra;
               const thiefSetter = casterIsPlayer ? setPlayerChakra : setEnemyChakra;
+              const _vPool = casterIsPlayer ? enemyChakraRef.current : playerChakraRef.current;
+              const _vCopy = { ..._vPool };
+              const _vTypes = (Object.keys(_vCopy) as (keyof ChakraPool)[]).filter(k => _vCopy[k] > 0);
+              const _preStolen: (keyof ChakraPool)[] = [];
+              for (let _si = 0; _si < rule.chakraAmount; _si++) {
+                if (_vTypes.length === 0) break;
+                const _sIdx = Math.floor(gameRng() * _vTypes.length);
+                _preStolen.push(_vTypes[_sIdx]);
+                _vCopy[_vTypes[_sIdx]]--;
+                if (_vCopy[_vTypes[_sIdx]] <= 0) _vTypes.splice(_sIdx, 1);
+              }
               victimSetter(prevVictim => {
                 const pool = { ...prevVictim };
-                const types = (Object.keys(pool) as (keyof ChakraPool)[]).filter(k => pool[k] > 0);
                 let stolen = 0;
                 const stolenTypes: (keyof ChakraPool)[] = [];
-                for (let i = 0; i < rule.chakraAmount; i++) {
-                  if (types.length === 0) break;
-                  const randIdx = Math.floor(Math.random() * types.length);
-                  const randType = types[randIdx];
-                  pool[randType]--;
-                  if (pool[randType] <= 0) types.splice(randIdx, 1);
-                  stolen++;
-                  stolenTypes.push(randType);
+                for (const _st of _preStolen) {
+                  if (pool[_st] > 0) { pool[_st]--; stolen++; stolenTypes.push(_st); }
                 }
                 if (stolen > 0) {
                   const affectedStr = stolenTypes.map(k => getChakraName(k)).join(', ');
@@ -10210,6 +10234,7 @@ splashOnlyTargets = splashPool.filter(c =>
   // quando o jogador passa o turno, os danos contínuos causados por ELE tickam imediatamente
   // (não aguardam o oponente passar). Retorna true se o jogo terminou.
   const tickCasterContinuousDamage = (casterIsPlayer: boolean): boolean => {
+    if (onlineParams?.isOnline) seedGameRng(onlineParams.seed, turn); // v29: same seed → same random results on both clients
     const srcPlayer = playerRef.current.length ? playerRef.current : playerCombatants;
     const srcEnemy = enemyRef.current.length ? enemyRef.current : enemyCombatants;
     const updatedPlayer = srcPlayer.map(c => ({ ...c }));
@@ -11434,9 +11459,16 @@ splashOnlyTargets = splashPool.filter(c =>
       // 🔄 SINCRONIA (converge-para-menor): aplica o relato do OPONENTE ao esquadrão
       // DELE na minha tela (fonte da verdade = dono do time). Compartilhado entre
       // room-state (poll/push/submit-response) e o evento minúsculo {type:'report'} do WS.
-      const applyOppReport = (rp: any) => {
-        if (!rp || rp.turn !== turn || lastAppliedOppReportTurnRef.current === turn) return;
-        lastAppliedOppReportTurnRef.current = turn;
+      const applyOppReport = (rp: any, opts?: { anyTurn?: boolean }) => {
+        if (!rp) return;
+        if (opts?.anyTurn) {
+          // fast-forward: adota o relato mais recente disponível, de QUALQUER turno
+          if (lastAppliedOppReportTurnRef.current === rp.turn) return;
+          lastAppliedOppReportTurnRef.current = typeof rp.turn === 'number' ? rp.turn : -1;
+        } else {
+          if (rp.turn !== turn || lastAppliedOppReportTurnRef.current === turn) return;
+          lastAppliedOppReportTurnRef.current = turn;
+        }
         const flipId = (id: string) => id.startsWith('player')
           ? id.replace('player', 'enemy')
           : id.replace('enemy', 'player');
@@ -11523,6 +11555,33 @@ splashOnlyTargets = splashPool.filter(c =>
           // o contador de turno IDÊNTICO nos dois clientes — impossível divergir.
           const serverResolvedTurn: number = typeof data.room.resolvedTurn === 'number' ? data.room.resolvedTurn : 0;
           if (typeof (data.room as any).phaseDeadline === 'number') setServerPhaseDeadline((data.room as any).phaseDeadline);
+          // ⏩ FAST-FORWARD (v28): servidor 2+ turnos à frente (reconexão/apagão/
+          // auto-pass antigo). NÃO executa o histórico em cadeia — cada turno repetia
+          // som StartTurn + geração de chakra + "🔄 Turno X" (o "loop de início").
+          // Salta direto para o turno corrente, adota o relato mais recente do
+          // oponente que veio no payload e segue a partida de onde ela está.
+          if (serverResolvedTurn > turn + 1 && onlineParams?.isOnline) {
+            const targetTurn = serverResolvedTurn + 1;
+            console.warn(`[TURN] FAST-FORWARD: local=${turn} servidor=${serverResolvedTurn} -> ${targetTurn}`);
+            const ffOppLc = onlineParams.opponentProfile?.username
+              ? String(onlineParams.opponentProfile.username).trim().toLowerCase()
+              : (Array.isArray(data.room.players) ? data.room.players.find((p: any) => p && p.username && p.username !== user.username.toLowerCase())?.username : null);
+            if (ffOppLc && data.room.stateReports?.[ffOppLc]) {
+              applyOppReport(data.room.stateReports[ffOppLc], { anyTurn: true });
+            }
+            processedOpponentTurnsRef.current.clear();
+            passedPlayersRef.current = [];
+            setPassedPlayersThisTurn([]);
+            setActivePlanner(matchStarterRef.current);
+            setIsWaitingForOpponent(matchStarterRef.current !== 'player');
+            const ffSrcP = playerRef.current.length ? playerRef.current : playerCombatants;
+            const ffSrcE = enemyRef.current.length ? enemyRef.current : enemyCombatants;
+            try { rollChakraForTurn(true, Math.max(1, ffSrcP.filter(c => !c.isDead).length), targetTurn); } catch {}
+            try { rollChakraForTurn(false, Math.max(1, ffSrcE.filter(c => !c.isDead).length), targetTurn); } catch {}
+            setLogs(prev => [...prev, { id: Math.random().toString(), turn: targetTurn, message: `⏩ Partida sincronizada com o servidor — Turno ${targetTurn}.`, type: 'system' }]);
+            setTurn(targetTurn);
+            return;
+          }
           // 🛡️ Servidor confirmou que MEU slot deste turno está registrado →
           // libera o force-resolve do watchdog (só roubo a rodada com essa prova).
           if (Array.isArray(currentTurnActions) && currentTurnActions[mine] != null) {

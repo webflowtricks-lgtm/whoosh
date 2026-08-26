@@ -827,6 +827,19 @@ async function startServer() {
       } else {
         continue; // ambos ja submeteram
       }
+      // 🛡️ ANTI-RUNAWAY (v28): só auto-passa se o jogador do slot está REALMENTE
+      // fora (ping stale >75s; cliente saudável pinga a cada 25s via WS e mantém ping
+      // fresco via room-state/submit/report). Conectado porém lento (aba em segundo
+      // plano, reconectando, handoff pendente) ganha carência de +45s em vez de ter o
+      // turno roubado — antes o servidor avançava rodadas sozinho a cada 60s mesmo
+      // com os DOIS online, e cada avanço disparava som+chakra+"🔄 Turno" no cliente
+      // (o "loop de início"). Quem desconecta continua sendo punido: ping congela,
+      // fica stale, auto-pass volta a agir e a derrota por 2 turnos acontece.
+      const msSincePing = now2 - ((room2.pings as any)?.[activeIdx] || 0);
+      if (msSincePing < 75000) {
+        room2.phaseDeadline = now2 + 45000;
+        continue;
+      }
       // Auto-passa com acoes vazias (timeout 60s)
       slots[activeIdx] = [];
       room2.lastActivity = now2;
