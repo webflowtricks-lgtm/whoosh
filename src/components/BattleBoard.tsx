@@ -18040,9 +18040,10 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 const simulatedChakra = getSimulatedRemainingChakra(playerChakra, cuedActions);
                 const chakraPositions: { key: keyof ChakraPool; className: string }[] = [
                   { key: 'Tai', className: 'chakra-number-tai' },
-                  { key: 'Blood', className: 'chakra-number-blood' },
-                  { key: 'Nin', className: 'chakra-number-nin' },
                   { key: 'Gen', className: 'chakra-number-gen' },
+                  { key: 'Nin', className: 'chakra-number-nin' },
+                  { key: 'Blood', className: 'chakra-number-blood' },
+                  
                 ];
 
                 return chakraPositions.map(({ key, className }) => {
