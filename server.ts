@@ -1,4 +1,6 @@
 import express from "express";
+import http from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
@@ -215,6 +217,9 @@ async function startServer() {
 
   const waitingQueue: QueuePlayer[] = [];
   const activeRooms: { [id: string]: MatchRoom } = {};
+  const roomSockets: Map<string, Set<WebSocket>> = new Map(); // ws por sala
+  const socketUsers: Map<WebSocket, string> = new Map(); // ws -> username (para pushes direcionados)
+  const lastPushBySocket: Map<WebSocket, string> = new Map(); // dedup: ultimo payload enviado por ws
   // maps a username -> which room they are in and their slot index (0 or 1)
   const userMatches: { [username: string]: { roomId: string; myIndex: 0 | 1 } } = {};
 
@@ -223,6 +228,58 @@ async function startServer() {
   // ficavam eternamente em "Aguardando oponente" + erros de conexão (404 de sala).
   const persistRoomsState = () => {
     writeJSON(MATCH_ROOMS_FILE, { rooms: activeRooms, matches: userMatches });
+  };
+
+  // Objeto leve de sala (mesmo formato do push room-state). full=true inclui
+  // historico completo de turnos + nomes/fotos (usado no join/reconexão).
+  const lightRoomObject = (room: MatchRoom, full?: boolean) => ({
+    id: room.id,
+    seed: room.seed,
+    players: full
+      ? room.players.map(p => ({ username: p.username, name: p.name, photoUrl: p.photoUrl }))
+      : room.players.map(p => ({ username: p.username })),
+    turnActions: full ? room.turns : (() => {
+      const turnActions: { [turn: number]: (any[] | null)[] } = {};
+      const cur = (room.resolvedTurn ?? 0) + 1;
+      for (let t = Math.max(1, cur - 1); t <= cur + 1; t++) if (room.turns[t]) turnActions[t] = room.turns[t];
+      return turnActions;
+    })(),
+    resolvedTurn: room.resolvedTurn ?? 0,
+    stateReports: room.stateReports || {},
+    surrenderedBy: room.surrenderedBy || null,
+    surrenderReason: (room as any).surrenderReason || null,
+    phaseDeadline: room.phaseDeadline ?? Date.now() + 60000,
+  });
+
+  const broadcastRoomState = (roomId: string, opts?: { full?: boolean; exclude?: string | null }) => {
+    const room = activeRooms[roomId];
+    if (!room) return;
+    const payload = JSON.stringify({ type: 'room-state', room: lightRoomObject(room, opts?.full) });
+    const excl = opts?.exclude ?? null;
+    const set = roomSockets.get(roomId);
+    if (!set) return;
+    for (const ws of set) {
+      if (ws.readyState !== WebSocket.OPEN) continue;
+      // push direcionado: não ecoa para quem gerou a mutação (já sabe via resposta HTTP/estado local)
+      if (excl && socketUsers.get(ws) === excl) continue;
+      // dedup: se o payload é idêntico ao último enviado para ESTE socket, pula (economia pura)
+      if (lastPushBySocket.get(ws) === payload) continue;
+      lastPushBySocket.set(ws, payload);
+      try { ws.send(payload); } catch {}
+    }
+  };
+
+  // Evento pontual minúsculo (chat/emoji) para os sockets da sala
+  const sendToRoom = (roomId: string, obj: any, opts?: { exclude?: string | null }) => {
+    const set = roomSockets.get(roomId);
+    if (!set) return;
+    const payload = JSON.stringify(obj);
+    const excl = opts?.exclude ?? null;
+    for (const ws of set) {
+      if (ws.readyState !== WebSocket.OPEN) continue;
+      if (excl && socketUsers.get(ws) === excl) continue;
+      try { ws.send(payload); } catch {}
+    }
   };
   let roomsDirty = false;
   let roomsSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -451,8 +508,10 @@ async function startServer() {
       room.phaseDeadline = Date.now() + 60000;
     }
     markRoomsDirty();
+    // push só para o OPONENTE: quem submeteu já recebe o estado na própria resposta HTTP
+    try { broadcastRoomState(roomId, { exclude: cleanUsername }); } catch {}
 
-    res.json({ success: true, resolvedTurn: room.resolvedTurn });
+    res.json({ success: true, resolvedTurn: room.resolvedTurn, room: lightRoomObject(room) });
   });
 
   // Get Room State (Polling)
@@ -534,6 +593,8 @@ async function startServer() {
     };
     room.lastActivity = Date.now();
     markRoomsDirty();
+    // relato serve só para o oponente adotar (converge-para-menor) — não ecoa pro autor
+    try { broadcastRoomState(roomId, { exclude: username.trim().toLowerCase() }); } catch {}
     res.json({ success: true });
   });
 
@@ -559,6 +620,7 @@ async function startServer() {
       delete userMatches[p.username];
     }
     markRoomsDirty();
+    try { broadcastRoomState(roomId); } catch {}
 
     res.json({ success: true });
   });
@@ -594,6 +656,8 @@ async function startServer() {
       room.emojis.shift();
     }
     markRoomsDirty();
+    // evento minúsculo em tempo real; autor já renderizou localmente (optimistic)
+    try { sendToRoom(roomId, { type: 'emoji', emoji: { username: cleanUsername, senderName, emoji, timestamp: Date.now() } }, { exclude: cleanUsername }); } catch {}
 
     res.json({ success: true });
   });
@@ -681,6 +745,8 @@ async function startServer() {
       room.chatMessages.shift();
     }
     markRoomsDirty();
+    // chat vai para TODOS (inclusive autor: cliente calcula isSelf pelo username)
+    try { sendToRoom(roomId, { type: 'chat', message: msg }); } catch {}
 
     res.json({ success: true, message: msg });
   });
@@ -770,6 +836,7 @@ async function startServer() {
         (room2 as any).surrenderReason = 'timeout';
         room2.phaseDeadline = now2 + 60000;
         markRoomsDirty();
+        try { broadcastRoomState(id); } catch {}
         console.log(`[TIMEOUT] Sala ${id} slot ${activeIdx} DERROTA por 2 turnos offline (timeout)`);
         continue;
       }
@@ -785,6 +852,7 @@ async function startServer() {
         room2.phaseDeadline = now2 + 60000;
       }
       markRoomsDirty();
+      try { broadcastRoomState(id); } catch {}
       console.log(`[TIMEOUT] Sala ${id} turno ${curTurn} slot ${activeIdx} auto-pass por timeout 60s (streak ${room2.timeoutStreak[activeIdx]}/2)`);
     }
   }, 1000);
@@ -1250,8 +1318,67 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  const httpServer = http.createServer(app);
+  const wss = new WebSocketServer({
+    server: httpServer,
+    path: "/ws",
+    // compressão no fio: JSON comprime ~3-5x; threshold baixo p/ comprimir também frames pequenos
+    perMessageDeflate: { threshold: 128, zlibDeflateOptions: { level: 9 } },
+  });
+
+  wss.on("connection", (ws, req) => {
+    let joinedRoomId: string | null = null;
+    let joinedUsername: string | null = null;
+    ws.on("message", (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === "join" && msg.roomId && msg.username) {
+          joinedRoomId = String(msg.roomId);
+          joinedUsername = String(msg.username).trim().toLowerCase();
+          if (!roomSockets.has(joinedRoomId)) roomSockets.set(joinedRoomId, new Set());
+          roomSockets.get(joinedRoomId)!.add(ws);
+          socketUsers.set(ws, String(msg.username).trim().toLowerCase());
+          lastPushBySocket.delete(ws);
+          // envia estado imediatamente ao entrar
+          const room = activeRooms[joinedRoomId];
+          if (room) {
+            // atualiza ping
+            const idx = room.players.findIndex(p => p.username === joinedUsername);
+            if (idx !== -1) { room.pings[idx] = Date.now(); room.lastActivity = Date.now(); }
+            broadcastRoomState(joinedRoomId, { full: true });
+          }
+        } else if (msg.type === "ping" && joinedRoomId && joinedUsername) {
+          const room = activeRooms[joinedRoomId];
+          if (room) {
+            const idx = room.players.findIndex(p => p.username === joinedUsername);
+            if (idx !== -1) { room.pings[idx] = Date.now(); room.lastActivity = Date.now(); }
+          }
+          try { ws.send(JSON.stringify({ type: 'pong' })); } catch {}
+        }
+      } catch {}
+    });
+    ws.on("close", () => {
+      if (joinedRoomId && roomSockets.has(joinedRoomId)) {
+        roomSockets.get(joinedRoomId)!.delete(ws);
+        if (roomSockets.get(joinedRoomId)!.size === 0) roomSockets.delete(joinedRoomId);
+      }
+      socketUsers.delete(ws);
+      lastPushBySocket.delete(ws);
+    });
+    ws.on("error", () => {
+      if (joinedRoomId && roomSockets.has(joinedRoomId)) roomSockets.get(joinedRoomId)!.delete(ws);
+      socketUsers.delete(ws);
+      lastPushBySocket.delete(ws);
+    });
+  });
+
+  // Hook broadcast into existing HTTP mutacoes (submit, surrender, timeout) - monkey patch markRoomsDirty to also broadcast
+  const _origMarkRoomsDirty = markRoomsDirty;
+  // @ts-ignore
+  (global as any).__broadcastRoomState = broadcastRoomState;
+
+  httpServer.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT} (HTTP+WebSocket /ws)`);
   });
 }
 

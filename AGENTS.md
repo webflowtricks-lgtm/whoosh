@@ -9,7 +9,7 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 - `npm run build` — vite build + esbuild server → `dist/server.cjs`
 - `npm run start` — `node dist/server.cjs` (production)
 - `npm run lint` — `tsc --noEmit`
-- Deploy: `vercel.json` rewrites `/api/*` to `https://naruto-3loc.onrender.com/api`
+- Deploy: `vercel.json` rewrites `/api/*` to `https://narutoarena.onrender.com/api`
 
 ## Architecture
 - **Backend**: single-file Express API (`server.ts`), persistence via JSON files in `src/data/` using `readJSON`/`writeJSON` helpers.
@@ -142,7 +142,18 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - Per-click guard `finalizedKeysRef` (key `${turn}:${side}`); refs cleared at battle start only.
 
 **Diagnostics overlay (temporary but keep until fully stable)**:
-- `logs` state was NEVER rendered before — added fixed bottom-left panel "🧪 Log v7" (BattleBoard JSX end) showing last 7 logs incl. build marker line as first initial log. Bump this marker whenever touching turn flow again (current: `🧪 BUILD v13-server-authority`).
+- `logs` state was NEVER rendered before — added fixed bottom-left panel "🧪 Log v7" (BattleBoard JSX end) showing last 7 logs incl. build marker line as first initial log. Bump this marker whenever touching turn flow again (current: `🧪 BUILD v25-ws-push`).
+
+**🔌 WebSocket push (v25→v26, target: 30 jogadores em batalha 24/7 dentro de ~5GB/mês)**:
+- Server: `wss` at path `/ws` on the same httpServer; `roomSockets` Map<roomId, Set<WebSocket>> + `socketUsers` Map<ws,username> + `lastPushBySocket` Map<ws,lastPayload> (dedup). `broadcastRoomState(roomId,{full?,exclude?})` sends lightweight `type:'room-state'` (`players` = username-only unless full; `turnActions` windowed resolvedTurn±1 unless full) — hooked on: submit-turn (**exclude submitter**), report-state (**exclude reporter**), surrender, timeout auto-pass, 2-turn defeat; ws `join` sends **full:true** (histórico completo p/ catch-up pós-reconexão). `sendToRoom(roomId,obj,{exclude})` for tiny events.
+- **Submit-turn response carries `{success,resolvedTurn,room}`** — the SUBMITTER processes it through the SAME `processData` (serverResolvedTurn advance without needing any push/poll). Opponent learns via targeted push. NEVER re-add a poll dependency for the submitter's own resolution.
+- Chat: `sendToRoom({type:'chat',message})` to ALL (author relies on echo for isSelf — do NOT make it optimistic-append without removing the echo). Emoji: `{type:'emoji'}` EXCLUDE author (client renders own optimistically).
+- Deflate ON: `perMessageDeflate:{threshold:128,zlibDeflateOptions:{level:9}}` (~3-5x wire reduction). Ping replies `{type:'pong'}`.
+- Client: data handling lives in `processData(data)` inside `runSync(wsData?)` — SHARED by HTTP fetch (`.then(processData)`), WS push and submit-response. Do NOT duplicate that logic again.
+- **WS health = `wsConnectedRef && Date.now()-lastWsMsgAtRef < 45000`** (ping every 25s keeps freshness). When healthy: syncLoop does ZERO HTTP (checks every 5s), chat poll returns early, emoji poll returns early, watchdog heartbeat skipped. When unhealthy: everything falls back automatically (sync 1500ms, polls resume).
+- URL: localhost → same-host `/ws`; production defaults to `wss://narutoarena.onrender.com/ws` because Vercel rewrites do NOT pass WS upgrade. Override with `VITE_WS_URL` env at build time or edit the constant when migrating Render service.
+- Smoke-tested locally (smoke v26): opponent-only pushes ✔, submitter fed by HTTP response room ✔, dedup collapses identical reports ✔, chat all / emoji opponent-only ✔, deflate negotiated ✔.
+- Budget math @30 players × 24h/day: ~4KB/round/player (2 submits + 2 reports HTTP ≈ 3.2KB + ~2 deflated pushes ≈ 1KB) ≈ 170KB/h/player ≈ **~4GB/month total** — fits 5GB free tier.
 
 **Server side**: rooms persist to `src/data/match_rooms.json` (debounced `markRoomsDirty`, restore-on-boot); `/api/health` reports version. Render free tier cold-start tolerances are baked into the 20-failure room-lost threshold. `resolvedTurn` is persisted per room and restored (fallback 0).
 

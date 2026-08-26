@@ -1496,9 +1496,16 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const isChatOpenRef = useRef(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const lastChatTimestampRef = useRef<number>(0);
+  // 🔌 WEBSOCKET PUSH (v26): canal compartilhado com o efeito ws.
+  // Saúde do canal = conectado E recebeu mensagem há <45s (ping a cada 25s).
+  // Quando saudável, TODOS os polls HTTP ficam em zero (sync/chat/emoji/heartbeat).
+  const wsPushRef = useRef<((data: any) => void) | null>(null);
+  const wsConnectedRef = useRef(false);
+  const lastWsMsgAtRef = useRef(0);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -1506,12 +1513,15 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
   }, [chatMessages, isChatOpen]);
+  useEffect(() => { isChatOpenRef.current = isChatOpen; }, [isChatOpen]);
 
   // Online Chat Polling Effect
   useEffect(() => {
     if (!onlineParams?.isOnline || !onlineParams.roomId) return;
 
     const interval = setInterval(async () => {
+      // v26: com WebSocket saudável o chat chega por push ({type:'chat'}) — não polla.
+      if (wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000) return;
       try {
         const res = await fetch(`/api/match/chat/messages?roomId=${onlineParams.roomId}&since=${lastChatTimestampRef.current}`);
         const data = await res.json();
@@ -2064,7 +2074,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v24-opt-30players', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v26-ws-thin', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -2112,6 +2122,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     if (!onlineParams?.isOnline) return;
 
     const interval = setInterval(async () => {
+      // v26: com WebSocket saudável o emoji chega por push ({type:'emoji'}) — não polla.
+      if (wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000) return;
       try {
         const res = await fetch(`/api/match/emojis?roomId=${onlineParams.roomId}&since=${lastPolledEmojiTimestamp.current}`);
         const data = await res.json();
@@ -10659,6 +10671,9 @@ splashOnlyTargets = splashPool.filter(c =>
                 // o pendingSubmit via poll até o servidor aceitar.
                 submittedTurnRef.current.add(turn);
                 if (pendingSubmitRef.current?.turn === turn) pendingSubmitRef.current = null;
+                // v26: a resposta ja traz o room leve - alimenta o MESMO processData
+                // (serverResolvedTurn avanca para QUEM SUBMETEU sem depender de push/poll).
+                try { const j = await r.json(); if (j?.room) wsPushRef.current?.({ success: true, room: j.room }); } catch {}
                 return;
               }
             } catch {}
@@ -11393,10 +11408,11 @@ splashOnlyTargets = splashPool.filter(c =>
           turn: pending.turn,
           actions: pending.actions
         })
-      }).then(r => {
+      }).then(async r => {
         if (r.ok && pendingSubmitRef.current?.turn === pending.turn) {
           submittedTurnRef.current.add(pending.turn);
           pendingSubmitRef.current = null;
+          try { const j = await r.json(); if (j?.room) wsPushRef.current?.({ success: true, room: j.room }); } catch {}
         }
       }).catch(() => {});
     };
@@ -11412,11 +11428,9 @@ splashOnlyTargets = splashPool.filter(c =>
         setShowRoomLostModal(true);
       }
     };
-    const runSync = () => {
+    const runSync = (wsData?: any) => {
       trySubmitPending();
-      fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}&turn=${turn}`)
-        .then(r => r.json())
-        .then(data => {
+      const processData = (data: any) => {
           if (!data.success || !data.room) {
             handlePollFailure();
             return;
@@ -11650,7 +11664,14 @@ splashOnlyTargets = splashPool.filter(c =>
               ]);
             }
           }
-        })
+      };
+      if (wsData) {
+        processData(wsData);
+        return;
+      }
+      fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}&turn=${turn}`)
+        .then(r => r.json())
+        .then(processData)
         .catch(err => {
           console.error('Online match sync error:', err);
           handlePollFailure();
@@ -11659,10 +11680,119 @@ splashOnlyTargets = splashPool.filter(c =>
 
     // Expõe o sync para o listener de visibilitychange (aba volta a ficar visível)
     syncFnRef.current = runSync;
-    const syncInterval = setInterval(runSync, 1500); // 1500ms p/ economizar banda (era 1000ms) - preview mantem tempo real, banda -33% extra
+    wsPushRef.current = (data: any) => runSync(data);
+    // 🔌 v25: com WebSocket conectado o push entrega tudo na hora;
+    // o poll HTTP vira só fallback lento (6s). Sem ws, mantém 1500ms.
+    let syncTimer: ReturnType<typeof setTimeout> | null = null;
+    let syncCancelled = false;
+    const syncLoop = () => {
+      if (syncCancelled) return;
+      // v26: WS saudável entrega TUDO por push — zero HTTP. Fallback só se o canal
+      // cair/mostrar-se mudo (>45s sem mensagem nenhuma, ping a cada 25s).
+      const wsHealthy = wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000;
+      if (!wsHealthy) runSync();
+      syncTimer = setTimeout(syncLoop, wsHealthy ? 5000 : 1500);
+    };
+    syncLoop();
 
-    return () => clearInterval(syncInterval);
+    return () => {
+      syncCancelled = true;
+      if (syncTimer) clearTimeout(syncTimer);
+      wsPushRef.current = null;
+    };
   }, [onlineParams, gameOver, user, turn]);
+
+  // 🔌 WEBSOCKET PUSH (v25): o servidor empurra room-state em submit/surrender/
+  // timeout/report — skills do oponente, resolução e rendição chegam SEM polling.
+  // Reconexão automática a cada 3s; ping keepalive a cada 25s (evita idle-timeout).
+  // O poll HTTP continua como fallback lento (syncLoop acima).
+  useEffect(() => {
+    if (!onlineParams?.isOnline || gameOver) return;
+    let closed = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let pingTimer: ReturnType<typeof setInterval> | null = null;
+    let ws: WebSocket | null = null;
+
+    const envUrl = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_WS_URL;
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    // Produção (Vercel): rewrite não repassa upgrade de WebSocket — aponta direto
+    // para o Render. Ao migrar de conta/serviço, ajuste aqui ou defina VITE_WS_URL.
+    const wsUrl = envUrl || (isLocal ? `${proto}//${window.location.host}/ws` : 'wss://narutoarena.onrender.com/ws');
+
+    const scheduleReconnect = () => {
+      if (closed || reconnectTimer) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, 3000);
+    };
+
+    const connect = () => {
+      if (closed) return;
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch {
+        scheduleReconnect();
+        return;
+      }
+      ws.onopen = () => {
+        wsConnectedRef.current = true;
+        console.log('[WS] conectado:', wsUrl);
+        try {
+          ws?.send(JSON.stringify({ type: 'join', roomId: onlineParams.roomId, username: user.username }));
+        } catch {}
+        if (pingTimer) clearInterval(pingTimer);
+        pingTimer = setInterval(() => {
+          try { ws?.send(JSON.stringify({ type: 'ping', roomId: onlineParams.roomId })); } catch {}
+        }, 25000);
+      };
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          lastWsMsgAtRef.current = Date.now();
+          if (msg && msg.type === 'room-state' && msg.room) {
+            wsPushRef.current?.({ success: true, room: msg.room });
+          } else if (msg && msg.type === 'pong') {
+            // keepalive OK — nada a fazer além da freshness acima
+          } else if (msg && msg.type === 'chat' && msg.message) {
+            const m = msg.message;
+            setChatMessages(prev => {
+              if (prev.some(x => x.id === m.id)) return prev;
+              if (!isChatOpenRef.current) setUnreadCount(c => c + 1);
+              return [...prev, { id: m.id, senderName: m.senderName, senderTitle: m.senderTitle, text: m.text, timestamp: m.timestamp, isSelf: String(m.username).toLowerCase() === user.username.trim().toLowerCase() }];
+            });
+            if (m.timestamp > lastChatTimestampRef.current) lastChatTimestampRef.current = m.timestamp;
+          } else if (msg && msg.type === 'emoji' && msg.emoji) {
+            const e = msg.emoji;
+            if (String(e.username).toLowerCase() !== user.username.toLowerCase()) {
+              setActiveEmojis(prev => [...prev, { id: Math.random().toString(), emoji: e.emoji, xOffset: Math.random() * 200 - 100, rotation: Math.random() * 60 - 30, senderName: e.senderName || e.username }]);
+            }
+            if (e.timestamp > lastPolledEmojiTimestamp.current) lastPolledEmojiTimestamp.current = e.timestamp;
+          }
+        } catch {}
+      };
+      ws.onclose = () => {
+        wsConnectedRef.current = false;
+        if (pingTimer) {
+          clearInterval(pingTimer);
+          pingTimer = null;
+        }
+        scheduleReconnect();
+      };
+      ws.onerror = () => {};
+    };
+
+    connect();
+
+    return () => {
+      closed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (pingTimer) clearInterval(pingTimer);
+      try { ws?.close(); } catch {}
+      wsConnectedRef.current = false;
+    };
+  }, [onlineParams?.isOnline, onlineParams?.roomId, gameOver]);
 
   // ⏱️ WATCHDOG ANTI-TRAVAMENTO (online): se finalizei meu turno e estou aguardando
   // o oponente há mais de ~20s sem nenhum progresso, resolvo a rodada LOCALMENTE
@@ -11689,7 +11819,8 @@ splashOnlyTargets = splashPool.filter(c =>
       // pergunta ao servidor quem já submetiu o turno atual. Com isso a gente VÊ
       // exatamente onde a corrente quebra: meu submit falhou? o oponente não
       // enviou? rendição por ping? servidor inacessível?
-      if (Date.now() - lastWaitBeatRef.current >= 10000) {
+      if (Date.now() - lastWaitBeatRef.current >= 10000 && !(wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000)) {
+        // v26: heartbeat HTTP sù quando o canal WS Não está saudável (diagnóstico de fallback).
         lastWaitBeatRef.current = Date.now();
         const mineIdxB = onlineParams.playerIndex === 1 ? 1 : 0;
         const oppIdxB = mineIdxB === 0 ? 1 : 0;

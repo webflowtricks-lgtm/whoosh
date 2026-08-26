@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://naruto-3loc.onrender.com/api/$1"
+      "destination": "https://narutoarena.onrender.com/api/$1"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
