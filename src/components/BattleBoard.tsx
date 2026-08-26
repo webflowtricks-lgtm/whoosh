@@ -2088,7 +2088,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v29-determinism', type: 'system' },
+      { id: '1', turn: 1, message: '🧪 BUILD v30-chakra-fix', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
@@ -2122,12 +2122,18 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
         ...prev,
         { id: Math.random().toString(), turn: 1, message: '🧊 [SANDBOX] Geração de chakra PAUSADA. Ambos começam com 10 chakras. Gasto/remoção ainda contam, mas passar o turno NÃO gera chakra.', type: 'system' },
       ]);
-    } else if (startingPlanner === 'player') {
-      rollChakraForTurn(true, 1);
-      rollChakraForTurn(false, 3);
     } else {
-      rollChakraForTurn(true, 3);
-      rollChakraForTurn(false, 1);
+      // 🛡️ v30: reseta refs para zero ANTES de rolar — garante idempotência mesmo
+      // se o efeito fire duas vezes (StrictMode dev / re-render com mesmas deps).
+      playerChakraRef.current = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
+      enemyChakraRef.current = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
+      if (startingPlanner === 'player') {
+        rollChakraForTurn(true, 1);
+        rollChakraForTurn(false, 3);
+      } else {
+        rollChakraForTurn(true, 3);
+        rollChakraForTurn(false, 1);
+      }
     }
   }, [playerTeam, enemyTeam, restoredState]);
 
@@ -11487,10 +11493,13 @@ splashOnlyTargets = splashPool.filter(c =>
             isDead: !!u.isDead || !!c.isDead,
           };
         }));
-        if (rp.chakra && typeof rp.chakra === 'object') {
-          setEnemyChakra(prev => ({ ...prev, ...rp.chakra }));
-        }
-        console.log(`[SYNC] Estado do oponente aplicado (turno ${turn}, converge-para-menor).`);
+        // ⚠️ v30: NÃO sobrescrever chakra via applyOppReport — o chakra já é
+        // sincronizado deterministicamente pelo seed em rollChakraForTurn (ambos os
+        // clientes geram idênticos para cada slot). Sobrescrever causava DUPLICAÇÃO
+        // quando o preview já tinha executado as ações do oponente (executeSideActions
+        // pulado na resolução → applyOppReport seta chakra pós-roll do oponente →
+        // rollChakraForTurn adiciona mais uma camada em cima).
+        console.log(`[SYNC] Estado do oponente aplicado (turno ${turn}, converge-para-menor, chakra preservado).`);
       };
       wsApplyReportRef.current = (u: string, rp: any) => {
         if (String(u).toLowerCase() === user.username.trim().toLowerCase()) return;
