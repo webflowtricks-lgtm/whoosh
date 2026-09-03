@@ -4,13 +4,14 @@
  */
 
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Sword, HelpCircle, Shield, Award, LogOut, Calendar, ShoppingBag, Sparkles, User } from 'lucide-react';
+import { Volume2, VolumeX, Sword, HelpCircle, Shield, Award, LogOut, Calendar, ShoppingBag, Sparkles, User, Images } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
 import ProfileModal from './ProfileModal';
 import ProfileCardModal from './ProfileCardModal';
+import CardGalleryModal from './CardGalleryModal';
 import MangekyoLoader from './MangekyoLoader';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
@@ -35,6 +36,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
   const [showShopModal, setShowShopModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProfileCardModal, setShowProfileCardModal] = useState(false);
+  const [showGalleryModal, setShowGalleryModal] = useState(false);
 
   const handleStart = () => {
     playClickSound();
@@ -190,6 +192,18 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
           <button
             onClick={() => {
               playClickSound();
+              setShowGalleryModal(true);
+            }}
+            className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-fuchsia-500 hover:bg-slate-950 hover:text-fuchsia-400 transition-all cursor-pointer text-slate-400 font-mono text-xs flex items-center gap-2 uppercase tracking-wider font-semibold shadow"
+            title={t('Galeria Ninja Cards (Figuras Colecionáveis)', 'Ninja Cards Gallery (Collectible Figures)')}
+          >
+            <Images className="w-4 h-4 text-fuchsia-500" />
+            <span>{t('Cards', 'Cards')}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              playClickSound();
               onToggleMute();
             }}
             className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800 transition-all cursor-pointer text-slate-300 shadow"
@@ -242,6 +256,15 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
           <ProfileModal
             user={user}
             onClose={() => setShowProfileModal(false)}
+            onUpdateUser={handleUserUpdate}
+            playClickSound={playClickSound}
+          />
+        )}
+
+        {user && showGalleryModal && (
+          <CardGalleryModal
+            user={user}
+            onClose={() => setShowGalleryModal(false)}
             onUpdateUser={handleUserUpdate}
             playClickSound={playClickSound}
           />

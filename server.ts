@@ -15,6 +15,8 @@ const SHOP_FILE = path.join(process.cwd(), "src", "data", "shop.json");
 const EVENTS_FILE = path.join(process.cwd(), "src", "data", "events.json");
 const BANNERS_FILE = path.join(process.cwd(), "src", "data", "banners.json");
 const FRAMES_FILE = path.join(process.cwd(), "src", "data", "frames.json");
+const CARDS_FILE = path.join(process.cwd(), "src", "data", "cards.json");
+const CARD_PACKS_FILE = path.join(process.cwd(), "src", "data", "card_packs.json");
 const MATCH_ROOMS_FILE = path.join(process.cwd(), "src", "data", "match_rooms.json");
 
 // Ensure data directory exists
@@ -1065,6 +1067,36 @@ async function startServer() {
     res.json({ success: true, message: "Molduras atualizadas no servidor com sucesso!" });
   });
 
+  // Ninja Cards API (figuras colecionáveis, sem poder de combate)
+  app.get("/api/cards", (req, res) => {
+    const cards = readJSON<any[]>(CARDS_FILE, []);
+    res.json({ success: true, cards });
+  });
+
+  app.post("/api/cards", (req, res) => {
+    const { cards } = req.body;
+    if (!Array.isArray(cards)) {
+      return res.status(400).json({ error: "Lista de cards inválida." });
+    }
+    writeJSON(CARDS_FILE, cards);
+    res.json({ success: true, message: "Cards atualizados no servidor com sucesso!" });
+  });
+
+  // Card Packs API
+  app.get("/api/cards/packs", (req, res) => {
+    const packs = readJSON<any[]>(CARD_PACKS_FILE, []);
+    res.json({ success: true, packs });
+  });
+
+  app.post("/api/cards/packs", (req, res) => {
+    const { packs } = req.body;
+    if (!Array.isArray(packs)) {
+      return res.status(400).json({ error: "Lista de pacotes inválida." });
+    }
+    writeJSON(CARD_PACKS_FILE, packs);
+    res.json({ success: true, message: "Pacotes atualizados no servidor com sucesso!" });
+  });
+
   // Quests API
   app.get("/api/quests", (req, res) => {
     // Default seed quests if the file is empty or missing
@@ -1253,6 +1285,8 @@ async function startServer() {
     const ranks = readJSON<any[]>(RANKS_FILE, []);
     const banners = readJSON<any[]>(BANNERS_FILE, []);
     const frames = readJSON<any[]>(FRAMES_FILE, []);
+    const cards = readJSON<any[]>(CARDS_FILE, []);
+    const cardPacks = readJSON<any[]>(CARD_PACKS_FILE, []);
 
     const configBackup = {
       appName: "Naruto Unison Combat",
@@ -1263,7 +1297,9 @@ async function startServer() {
       events,
       ranks,
       banners,
-      frames
+      frames,
+      cards,
+      cardPacks
     };
 
     res.setHeader("Content-Type", "application/json");
@@ -1306,6 +1342,14 @@ async function startServer() {
     if (Array.isArray(data.frames)) {
       writeJSON(FRAMES_FILE, data.frames);
       countDetails.push(`${data.frames.length} Molduras`);
+    }
+    if (Array.isArray(data.cards)) {
+      writeJSON(CARDS_FILE, data.cards);
+      countDetails.push(`${data.cards.length} Cards`);
+    }
+    if (Array.isArray(data.cardPacks)) {
+      writeJSON(CARD_PACKS_FILE, data.cardPacks);
+      countDetails.push(`${data.cardPacks.length} Pacotes de Cards`);
     }
 
     if (countDetails.length === 0) {

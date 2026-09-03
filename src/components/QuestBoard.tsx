@@ -38,6 +38,7 @@ import MangekyoLoader from './MangekyoLoader';
 import { RankConfig, getRanks, getUserRankFromConfig, fetchRanksFromServer } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { getCharacters } from '../lib/characterStorage';
+import { getCards } from '../lib/cardStorage';
 import { useLanguage } from '../lib/i18n';
 
 interface QuestBoardProps {
@@ -257,6 +258,7 @@ export default function QuestBoard({
       const updatedUnlockedFrameUrls = [...(user.unlockedFrameUrls || [])];
       const updatedUnlockedBanners = [...(user.unlockedBanners || [])];
       const updatedUnlockedBannerUrls = [...(user.unlockedBannerUrls || [])];
+      const updatedCollectedCards = [...(user.collectedCardIds || [])];
 
       let equippedFrame = user.equippedFrame;
       let equippedFrameUrl = user.equippedFrameUrl;
@@ -316,6 +318,11 @@ export default function QuestBoard({
             equippedBannerUrl = r.imageUrl;
           }
           otherRewardsList.push(r);
+        } else if (r.type === 'card') {
+          if (r.value && !updatedCollectedCards.includes(r.value)) {
+            updatedCollectedCards.push(r.value);
+          }
+          otherRewardsList.push(r);
         }
       });
 
@@ -328,6 +335,7 @@ export default function QuestBoard({
         unlockedFrameUrls: updatedUnlockedFrameUrls,
         unlockedBanners: updatedUnlockedBanners,
         unlockedBannerUrls: updatedUnlockedBannerUrls,
+        collectedCardIds: updatedCollectedCards,
         equippedFrame,
         equippedFrameUrl,
         equippedBannerUrl,
@@ -402,7 +410,7 @@ export default function QuestBoard({
             folder: r.value
           });
         }
-      } else if (r.type === 'frame' || r.type === 'banner') {
+      } else if (r.type === 'frame' || r.type === 'banner' || r.type === 'card') {
         otherRewardsList.push(r);
       }
     });
@@ -654,6 +662,10 @@ export default function QuestBoard({
                         <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                         {r.type === 'title' ? `Título: « ${r.value} »` :
                          r.type === 'banner' ? `Banner: ${r.value}` :
+                         r.type === 'card' ? (() => {
+                           const found = getCards().find(c => c.id === r.value);
+                           return `🃏 Figura: ${found ? found.characterName + ' — ' + found.title : r.value}`;
+                         })() :
                          `Moldura: ${r.value}`}
                       </div>
                     ))}
@@ -1113,6 +1125,10 @@ export default function QuestBoard({
                                       {r.type === 'title' ? `Título: « ${r.value} »` : 
                                        r.type === 'unlock_character' ? r.value :
                                        r.type === 'banner' ? `🖼️ Banner: ${r.value}` :
+                                       r.type === 'card' ? (() => {
+                                         const fc = getCards().find(c => c.id === r.value);
+                                         return `🃏 ${fc ? fc.characterName + ' — ' + fc.title : r.value}`;
+                                       })() :
                                        `🖼️ Moldura: ${r.value}`}
                                     </span>
                                   </div>

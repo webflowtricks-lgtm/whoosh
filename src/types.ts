@@ -1170,6 +1170,37 @@ export interface UserProfile {
   equippedBannerPositionX?: number;
   equippedShowcaseSkinUrl?: string;
   claimedEventRewardIds?: string[];
+  collectedCardIds?: string[];
+}
+
+// 🃏 Ninja Cards — Figuras colecionáveis (puramente estéticas, sem poder de combate)
+export type CardRarity = 'comum' | 'raro' | 'epico' | 'lendario' | 'secreto';
+
+export interface NinjaCard {
+  id: string;
+  characterId: string;   // id do personagem no roster (p/ puxar a arte icon.jpg)
+  characterName: string; // nome de exibição no card
+  slug: string;          // folder do personagem em public/static/img/ninja/<slug>/
+  rarity: CardRarity;
+  title: string;         // ex: "Lenda da Folha", "Modo Sábio"
+  description: string;   // texto flavor no verso do card
+  variant?: string;      // ex: "ANBU", "Clássico", "Sábio" — permite múltiplas figuras por ninja
+  imageUrl?: string;     // arte externa (opcional; padrão = icon.jpg do personagem)
+  points: number;        // pontos de raridade (coleção total)
+  packs?: string[];      // ids dos pacotes dos quais o card pode sair
+}
+
+// 🎁 Pacotes de Ninja Cards — agrupam cards por raridade/foco para abrir na galeria
+export interface NinjaPack {
+  id: string;
+  name: string;           // ex: "Pacote Lendário"
+  description: string;
+  currency: 'gems';
+  price: number;          // custo em gemas para abrir
+  cardsPerPack: number;   // quantos cards ao abrir
+  allowedRarities?: CardRarity[]; // raridades permitidas (se definido, filtro por raridade)
+  badge?: string;
+  imageUrl?: string;      // arte/preview opcional
 }
 
 export interface ShopItem {
@@ -1242,9 +1273,9 @@ export interface QuestGoal {
 }
 
 export interface QuestReward {
-  type: 'title' | 'unlock_character' | 'frame' | 'banner';
-  value: string; // Título, nome do personagem, ou nome/descrição da moldura ou banner
-  imageUrl?: string; // URL da imagem da moldura ou banner de fundo do perfil
+  type: 'title' | 'unlock_character' | 'frame' | 'banner' | 'card';
+  value: string; // Título, nome do personagem, nome/descrição da moldura ou banner, ou ID do card
+  imageUrl?: string; // URL da imagem da moldura ou banner de fundo do perfil (ou imagem do card)
 }
 
 export interface Quest {

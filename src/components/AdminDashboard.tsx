@@ -8,7 +8,7 @@ import {
   ArrowLeft, Shield, Plus, Trash2, Edit3, Save, 
   Database, RefreshCw, AlertTriangle, CheckCircle, Sparkles, User, HelpCircle, Shirt,
   Lock, Unlock, Search, Trophy, Award, X, Download, Upload, FolderArchive, FileText, Server, CheckCircle2,
-  GripVertical, ArrowUp, ArrowDown, Image
+  GripVertical, ArrowUp, ArrowDown, Image, Images as ImagesIcon
 } from 'lucide-react';
 import { Character, Skill, ChakraType, CharacterSkin, Quest } from '../types';
 import { getCharacters, saveCharacters, resetToDefaultCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import QuestAdmin from './QuestAdmin';
 import ShopAdmin from './ShopAdmin';
 import EventAdmin from './EventAdmin';
+import CardAdmin from './CardAdmin';
 import { useLanguage } from '../lib/i18n';
 import { RICH_TEXT_COLOR_PALETTE, htmlToRichMarkup, parseRichTextToHtml } from '../lib/richText';
 
@@ -94,7 +95,7 @@ interface AdminDashboardProps {
 export default function AdminDashboard({ onBack, playClickSound }: AdminDashboardProps) {
   const { t } = useLanguage();
   const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events' | 'ranks' | 'backup'>('ninjas');
+  const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events' | 'ranks' | 'cards' | 'backup'>('ninjas');
 
   // Character list state loaded from storage
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -806,6 +807,17 @@ const newSkill: Skill = {
                 {t('Ranks & XP', 'Ranks & XP')}
               </button>
               <button
+                onClick={() => { playClickSound(); setActiveTab('cards'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'cards'
+                    ? 'bg-gradient-to-r from-fuchsia-600 to-purple-500 text-slate-950 shadow-md font-extrabold'
+                    : 'text-fuchsia-400/90 hover:text-fuchsia-300 font-bold'
+                }`}
+              >
+                <ImagesIcon className="w-3.5 h-3.5 inline mr-1" />
+                {t('Cards & Pacotes', 'Cards & Packs')}
+              </button>
+              <button
                 onClick={() => { playClickSound(); setActiveTab('backup'); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                   activeTab === 'backup'
@@ -846,6 +858,8 @@ const newSkill: Skill = {
         <ShopAdmin playClickSound={playClickSound} />
       ) : activeTab === 'events' ? (
         <EventAdmin playClickSound={playClickSound} />
+      ) : activeTab === 'cards' ? (
+        <CardAdmin playClickSound={playClickSound} />
       ) : activeTab === 'ranks' ? (
         <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 z-10 space-y-6">
           {/* Header Card */}

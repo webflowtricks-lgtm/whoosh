@@ -41,8 +41,17 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 ## Data Files (src/data/)
 - `characters.ts` — default characters (large)
 - `custom_characters.json` — server-side override (server falls back to defaults)
-- `users.json`, `quests.json`, `ranks.json`, `shop.json`, `events.json`, `banners.json`, `frames.json`
+- `users.json`, `quests.json`, `ranks.json`, `shop.json`, `events.json`, `banners.json`, `frames.json`, `cards.json`, `card_packs.json`
 - Character images: `public/static/img/ninja/<slug>/` (icon.jpg + skill images)
+
+## 🃏 Ninja Cards & Pacotes (Figuras Colecionáveis)
+- **Owner/admin**: `src/components/CardAdmin.tsx` (new "Cards & Pacotes" tab in AdminDashboard) — CRUD de figuras (`NinjaCard`) e de pacotes (`NinjaPack`).
+- **Types**: `src/types.ts` — `NinjaCard` (com `packs?: string[]` = ids dos pacotes dos quais o card pode sair) e `NinjaPack` (nome, preço em gemas, `cardsPerPack`, `allowedRarities?: CardRarity[]`, badge, imageUrl).
+- **Storage**: `src/lib/cardStorage.ts` — `getCards/saveCards/fetchCardsFromServer` (key `naruto_cards`) + `getPacks/savePacks/fetchPacksFromServer` (key `naruto_card_packs`, defaults `DEFAULT_PACKS`).
+- **Server** (`server.ts`): `GET/POST /api/cards` e `GET/POST /api/cards/packs`, persistidos em `cards.json`/`card_packs.json`; incluídos em `/api/config/export` e `/api/config/import`.
+- **Abertura de pacote**: `src/lib/collection.ts` `useCollection().openPack` agora aceita `options.pack?: NinjaPack`. Filtra candidatos por `card.packs.includes(pack.id)` OU (se o pack tiver `allowedRarities`) por raridade; `rollPackRarity(allowed)` pondera pelas raridades permitidas do pack.
+- **Galeria**: `src/components/CardGalleryModal.tsx` — botão "Pacote" abre um picker com os pacotes salvos (cada um com seu preço/cards/raridades), em vez do antigo pacote fixo de 20 gemas/3 cards.
+- **Recompensa de missão**: `QuestReward.type` aceita `'card'` (types.ts). No QuestAdmin, recompensa "🃏 Figura Colecionável" tem autocomplete das figuras existentes (busca por personagem/título/id/variante) e campo de **ID editável**; ao resgatar a missão, o QuestBoard adiciona `r.value` (id do card) em `user.collectedCardIds`.
 
 ## Conventions & Notes
 - **Before building any new feature/option, check if it already exists** (grep the codebase for related flags/fields). If it does, STOP and tell the user it already exists (name + location) instead of duplicating it. Ex.: `removedOnTargetSkillUse` already removes an effect when the affected target uses any skill (AdminDashboard "🧹 Removida do alvo quando ele usar uma habilidade", engine at BattleBoard `executeSideActions` ~line 7247).

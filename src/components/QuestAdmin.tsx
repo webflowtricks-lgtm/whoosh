@@ -9,8 +9,9 @@ import {
   ArrowLeft, Plus, Trash2, Edit3, Save, Sparkles, CheckCircle, AlertTriangle, 
   Search, Shield, Image, Trophy, Heart, ShieldAlert, Zap, Swords, UserPlus
 } from 'lucide-react';
-import { Quest, QuestGoal, QuestReward, Character } from '../types';
+import { Quest, QuestGoal, QuestReward, Character, NinjaCard } from '../types';
 import { getCharacters } from '../lib/characterStorage';
+import { getCards, fetchCardsFromServer, CARD_RARITY_META } from '../lib/cardStorage';
 import { getGoalDescription } from '../lib/questUtils';
 import { safeFetchJson } from '../lib/api';
 import { RankConfig, getRanks, fetchRanksFromServer } from '../lib/rankStorage';
@@ -68,6 +69,10 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
   const [rewardCharInput, setRewardCharInput] = useState('');
   const [showRewardCharSuggestions, setShowRewardCharSuggestions] = useState(false);
 
+  // Reward card autocomplete (figuras colecionáveis)
+  const [allCards, setAllCards] = useState<NinjaCard[]>(() => getCards());
+  const [showRewardCardSuggestions, setShowRewardCardSuggestions] = useState(false);
+
   // Fetch quests, ranks and characters on mount
   useEffect(() => {
     fetchQuests();
@@ -91,6 +96,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
     });
     setAllSkillNames(Array.from(skills).sort());
     setAllTagsList(Array.from(tagsSet).sort());
+    fetchCardsFromServer().then(setAllCards);
   }, []);
 
   const fetchQuests = async () => {
@@ -956,6 +962,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                             <option value="unlock_character">Desbloquear Personagem</option>
                             <option value="banner">🖼️ Banner do Perfil (Fundo do Card)</option>
                             <option value="frame">🖼️ Moldura (Frame da Foto)</option>
+                            <option value="card">🃏 Figura Colecionável (Card)</option>
                           </select>
                         </div>
 
@@ -1118,6 +1125,97 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                                   </div>
                                 </div>
                               )}
+                            </div>
+                          ) : r.type === 'card' ? (
+                            <div className="space-y-2">
+                              <div className="relative">
+                                <label className="text-[10px] font-bold text-fuchsia-400 uppercase tracking-wider block mb-1">Figura Colecionável (Recompensa)</label>
+                                <input
+                                  type="text"
+                                  value={r.value}
+                                  onChange={(e) => {
+                                    updateRewardField(rIdx, 'value', e.target.value);
+                                    setShowRewardCardSuggestions(true);
+                                  }}
+                                  onFocus={() => setShowRewardCardSuggestions(true)}
+                                  placeholder="Digite o nome/título da figura..."
+                                  className="w-full bg-slate-950 border border-fuchsia-500/40 rounded-lg px-2.5 py-1.5 text-xs text-white font-sans"
+                                />
+                                {showRewardCardSuggestions && (
+                                  <div className="absolute left-0 right-0 mt-1 max-h-44 overflow-y-auto bg-slate-950 border border-slate-800 rounded-lg z-30 shadow-2xl">
+                                    {allCards
+                                      .filter(c => {
+                                        const q = (r.value || '').toLowerCase();
+                                        return c.characterName.toLowerCase().includes(q) || c.title.toLowerCase().includes(q) || c.id.toLowerCase().includes(q) || (c.variant || '').toLowerCase().includes(q);
+                                      })
+                                      .slice(0, 8)
+                                      .map(card => (
+                                        <div
+                                          key={card.id}
+                                          onClick={() => {
+                                            updateRewardField(rIdx, 'value', card.id);
+                                            updateRewardField(rIdx, 'imageUrl', card.imageUrl || '');
+                                            setShowRewardCardSuggestions(false);
+                                          }}
+                                          className="px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white cursor-pointer border-b border-slate-900/60 flex items-center gap-2"
+                                        >
+                                          <div className={`w-7 h-7 rounded overflow-hidden border flex-shrink-0 ${CARD_RARITY_META[card.rarity].border}`}>
+                                            <img src={card.imageUrl || `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${card.slug}/icon.jpg`} alt={card.characterName} className="w-full h-full object-cover" />
+                                          </div>
+                                          <div className="min-w-0">
+                                            <span className="block truncate">{card.characterName} — {card.title}</span>
+                                            <span className={`text-[9px] font-mono uppercase font-bold ${CARD_RARITY_META[card.rarity].text}`}>
+                                              {CARD_RARITY_META[card.rarity].label} • {card.id}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    {allCards.length === 0 && (
+                                      <div className="px-3 py-2 text-[11px] text-slate-500 font-mono">Nenhuma figura cadastrada.</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* ID editável */}
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">ID do Card (editável)</label>
+                                <input
+                                  type="text"
+                                  value={r.value}
+                                  onChange={(e) => updateRewardField(rIdx, 'value', e.target.value)}
+                                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-fuchsia-300 font-mono"
+                                  placeholder="card-xxxx"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">URL da Imagem</label>
+                                <input
+                                  type="text"
+                                  value={r.imageUrl || ''}
+                                  onChange={(e) => updateRewardField(rIdx, 'imageUrl', e.target.value)}
+                                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-amber-300 font-mono"
+                                  placeholder="https://... (deixe vazio p/ usar a arte padrão do card)"
+                                />
+                              </div>
+
+                              {/* Live Mini Preview */}
+                              <div className="p-2 bg-slate-950 rounded-lg border border-slate-800 flex items-center gap-3">
+                                <div className="w-12 h-14 rounded overflow-hidden relative bg-slate-900 border border-fuchsia-500/30 flex-shrink-0">
+                                  <img
+                                    src={r.imageUrl || (allCards.find(c => c.id === r.value)?.imageUrl || `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${allCards.find(c => c.id === r.value)?.slug || ''}/icon.jpg`)}
+                                    alt="Preview"
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div className="text-[10px] text-slate-300 truncate font-mono">
+                                  <span className="text-fuchsia-300 font-bold block truncate">
+                                    {allCards.find(c => c.id === r.value)?.characterName || 'Selecione uma figura'}
+                                  </span>
+                                  <span className="text-slate-500">{r.value || 'sem id'}</span>
+                                </div>
+                              </div>
                             </div>
                           ) : (
                             <div>
