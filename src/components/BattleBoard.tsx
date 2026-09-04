@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo, SlidersHorizontal } from 'lucide-react';
+import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo, SlidersHorizontal, Settings } from 'lucide-react';
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, getEffectiveTargetType, getEffectiveCooldown, getSkillCombatTypes, Quest, QuestGoal } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
@@ -822,8 +822,8 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       };
       const bombType = bombTypeMap[(effect as any).damageType] || 'Dano';
       rawPt = val > 0
-        ? `💣 Bomba (Contagem Regressiva): em ${durText} este personagem sofrerá ${val} de ${bombType}`
-        : `💣 Bomba (Contagem Regressiva): explodirá em ${durText}`;
+        ? `(Contagem Regressiva): em ${durText} este personagem sofrerá ${val} de ${bombType}`
+        : `(Contagem Regressiva): explodirá em ${durText}`;
       break;
     }
     case 'death_link': {
@@ -1618,6 +1618,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const [activeEmojis, setActiveEmojis] = useState<{ id: string; emoji: string; xOffset: number; rotation: number; senderName?: string }[]>([]);
   const [lastEmojiClicked, setLastEmojiClicked] = useState<Record<string, number>>({});
   const [globalEmojiCooldownUntil, setGlobalEmojiCooldownUntil] = useState<number>(0);
+  const [showBattleSettings, setShowBattleSettings] = useState(false);
 
   // Multiplayer state
   const [isWaitingForOpponent, setIsWaitingForOpponent] = useState(false);
@@ -1631,6 +1632,19 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     }, 100);
     return () => clearInterval(interval);
   }, []);
+
+  // Close battle settings dropdown when clicking outside
+  useEffect(() => {
+    if (!showBattleSettings) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-battle-settings]')) {
+        setShowBattleSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showBattleSettings]);
 
   const handleSendEmoji = (emoji: string) => {
     const now = Date.now();
@@ -6699,7 +6713,7 @@ splashOnlyTargets = splashPool.filter(c =>
               message: `💣 ${bt.character.name} recebeu uma bomba de [${skill.name}] — em ${dur} turno(s) sofrerá ${rule.damage} de dano!`,
               type: 'buff',
             });
-            addFloatingText(bt.id, `💣 BOMBA (${dur}T)`, 'effect');
+            addFloatingText(bt.id, `(${dur}T)`, 'effect');
           });
         });
       }
@@ -9782,7 +9796,7 @@ splashOnlyTargets = splashPool.filter(c =>
             }
             if (finalDamage > 0) {
               dmgTarget.health = hasImmortalEffect(dmgTarget) ? Math.max(1, dmgTarget.health - finalDamage) : Math.max(0, dmgTarget.health - finalDamage);
-              newLogs.push({ id: Math.random().toString(), turn, message: `💣 [EXPLODIU] A bomba de [${bomb.sourceSkillName}] explodiu em ${c.character.name} e ${dmgTarget.character.name} recebeu ${finalDamage} de dano${dmgType !== 'damage' ? ` (${dmgType})` : ''}!`, type: 'damage' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `[${bomb.sourceSkillName}] em ${c.character.name} e ${dmgTarget.character.name} recebeu ${finalDamage} de dano${dmgType !== 'damage' ? ` (${dmgType})` : ''}!`, type: 'damage' });
               addFloatingText(dmgTarget.id, `-${finalDamage} 💥`, 'damage');
               if (dmgTarget.health === 0 && !dmgTarget.isDead) {
                 dmgTarget.isDead = true;
@@ -14047,7 +14061,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               message: `💣 ${bt.character.name} recebeu uma bomba de [${skill.name}] — em ${dur} turno(s) sofrerá ${rule.damage} de dano!`,
               type: 'buff',
             });
-            addFloatingText(bt.id, `💣 BOMBA (${dur}T)`, 'effect');
+            addFloatingText(bt.id, `(${dur}T)`, 'effect');
           });
         });
       }
@@ -15970,11 +15984,7 @@ if (skill.redirectOffensiveToCaster) {
       name = 'Qualquer Chakra (Rand)';
     }
     return (
-      <div className={`w-3.5 h-3.5 rounded-full ${color} border flex items-center justify-center`} title={name}>
-        <span className="text-[8px] text-white leading-none font-bold font-mono">
-          {type === 'Rand' ? 'R' : type[0]}
-        </span>
-      </div>
+      <div className={`w-3.5 h-3.5 rounded-full ${color} border`} title={name} />
     );
   };
 
@@ -17030,11 +17040,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         )}
       </AnimatePresence>
 
-      <img
+       {/*<img
   src="/static/img/ui/madeira.png"
   alt=""
   className="battle-wood-beam"
-/>
+/>*/}
 
       {/* Battle Header (Fixed Bottom) */}
       <header className="fixed bottom-0 left-0 right-0 z-20 h-16 sm:h-20 shadow-2xl flex items-center select-none header-footer">
@@ -17042,43 +17052,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         
         <div className="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-10 flex justify-between items-center">
           <div className="flex items-center gap-2 sm:gap-4">
-            {/* Recarregar Batalha button */}
-            {!gameOver && !onlineParams?.isOnline && (
-              <button
-                onClick={handleReloadBattle}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-slate-950/40 border border-slate-500/50 transition-all cursor-pointer active:scale-95"
-                title="Recarregar Batalha (atualizar sem perder progresso)"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Recarregar</span>
-              </button>
-            )}
-
-            {/* Render-se button */}
-            {!gameOver && (
-              <button
-                onClick={handleSurrender}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition-all cursor-pointer active:scale-95"
-                title="Render-se da Partida"
-              >
-                <Flag className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Render-se</span>
-              </button>
-            )}
-
-            {/* Quests Modal Toggle Button */}
-            <button
-              onClick={() => {
-                playClickSound();
-                setIsQuestModalOpen(true);
-              }}
-              className="px-2.5 sm:px-3 py-2 rounded-xl bg-gradient-to-r from-amber-900 via-amber-800 to-yellow-900 hover:from-amber-800 hover:to-yellow-800 border-2 border-amber-500/80 text-amber-100 transition-all cursor-pointer shadow-lg shadow-amber-950/50 active:scale-95 flex items-center gap-1.5"
-              title={t("Ver Missões em Andamento", "View Active Quests")}
-            >
-              <Scroll className="w-4 h-4 text-amber-300 animate-pulse" />
-              <span className="hidden sm:inline text-xs font-black uppercase tracking-wider">{t("Missões", "Quests")}</span>
-            </button>
-
             {gameOver && (
               <button
                 onClick={handleQuit}
@@ -17091,23 +17064,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            {/* Music/Sound Toggle */}
-            <button
-              onClick={() => {
-                playClickSound();
-                onToggleMute();
-              }}
-              className="p-2 sm:p-2.5 rounded-xl bg-[#d3ad75]/90 hover:bg-[#c49a5d] border-2 border-[#7a4e25] text-stone-950 transition-all cursor-pointer shadow-md active:scale-95"
-              title={isMuted ? 'Ativar som' : 'Desativar som'}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4 text-stone-900" /> : <Volume2 className="w-4 h-4 text-amber-950" />}
-            </button>
-
             {/* End Turn Button */}
             <button
               onClick={handleEndTurnClick}
               disabled={isEndingTurn || isPreparing || isWaitingForOpponent || (!isSandbox && activePlanner !== 'player')}
-              className={`px-4 sm:px-6 py-2 sm:py-2.5 ${
+              className={`btn-end-turn px-4 sm:px-6 py-2 sm:py-2.5 ${
                 isEndingTurn || isWaitingForOpponent
                   ? 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
                   : isSandbox
@@ -17160,34 +17121,119 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         {/* Left Side: PLAYER SQUAD */}
         <section className="battle-left-squad space-y-6">
           {/* BEAUTIFUL COMPETITIVE GAME USER PROFILE CARD */}
-          <div
-            onClick={() => {
-              playClickSound();
-              setViewingProfile({
-                profile: {
-                  name: user.name,
-                  username: user.username,
-                  photoUrl: user.photoUrl,
-                  title: user.title,
-                  equippedFrame: user.equippedFrame,
-                  equippedFrameUrl: user.equippedFrameUrl,
-                  equippedBannerUrl: user.equippedBannerUrl,
-                  equippedBannerPositionY: user.equippedBannerPositionY,
-                  equippedBannerPositionX: user.equippedBannerPositionX,
-                  equippedShowcaseSkinUrl: user.equippedShowcaseSkinUrl,
-                  xp: Math.max(0, user.xp || 0),
-                  rank: user.rank,
-                  wins: user.wins || 0,
-                  losses: user.losses || 0,
-                  village: 'Vila da Folha (Konoha)',
-                  collectedCardIds: user.collectedCardIds || [],
-                },
-                isSelf: true,
-              });
-            }}
-            className="relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer"
-            title="Clique para ver o Card do Perfil & Curtidas"
-          >
+          <div className="relative flex items-center gap-2" data-battle-settings>
+            {/* Gear Icon - Battle Settings */}
+            <div className="relative" data-battle-settings>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  playClickSound();
+                  setShowBattleSettings(prev => !prev);
+                }}
+                className={`p-2 rounded-xl border transition-all cursor-pointer active:scale-95 shadow-lg ${
+                  showBattleSettings
+                    ? 'bg-orange-600 border-orange-500 text-white shadow-orange-500/30'
+                    : 'bg-slate-800/90 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-orange-400 hover:border-orange-500/50 shadow-slate-950/40'
+                }`}
+                title="Configurações da Batalha"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+
+              {/* Settings Dropdown */}
+              {showBattleSettings && (
+                <div className="absolute left-full ml-2 top-0 z-50 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl shadow-slate-950/60 p-2 min-w-[160px] flex flex-col gap-1">
+                  {/* Volume Toggle */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      playClickSound();
+                      onToggleMute();
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                  >
+                    {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
+                    <span>{isMuted ? 'Ativar Som' : 'Desativar Som'}</span>
+                  </button>
+
+                  {/* Recarregar */}
+                  {!gameOver && !onlineParams?.isOnline && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        playClickSound();
+                        handleReloadBattle();
+                        setShowBattleSettings(false);
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Recarregar</span>
+                    </button>
+                  )}
+
+                  {/* Render-se */}
+                  {!gameOver && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        playClickSound();
+                        handleSurrender();
+                        setShowBattleSettings(false);
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-red-900/60 text-slate-300 hover:text-red-300 transition-all text-xs font-bold cursor-pointer"
+                    >
+                      <Flag className="w-3.5 h-3.5 text-red-400" />
+                      <span>Render-se</span>
+                    </button>
+                  )}
+
+                  {/* Missões */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      playClickSound();
+                      setIsQuestModalOpen(true);
+                      setShowBattleSettings(false);
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                  >
+                    <Scroll className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Missões</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Profile Card */}
+            <div
+              onClick={() => {
+                playClickSound();
+                setViewingProfile({
+                  profile: {
+                    name: user.name,
+                    username: user.username,
+                    photoUrl: user.photoUrl,
+                    title: user.title,
+                    equippedFrame: user.equippedFrame,
+                    equippedFrameUrl: user.equippedFrameUrl,
+                    equippedBannerUrl: user.equippedBannerUrl,
+                    equippedBannerPositionY: user.equippedBannerPositionY,
+                    equippedBannerPositionX: user.equippedBannerPositionX,
+                    equippedShowcaseSkinUrl: user.equippedShowcaseSkinUrl,
+                    xp: Math.max(0, user.xp || 0),
+                    rank: user.rank,
+                    wins: user.wins || 0,
+                    losses: user.losses || 0,
+                    village: 'Vila da Folha (Konoha)',
+                    collectedCardIds: user.collectedCardIds || [],
+                  },
+                  isSelf: true,
+                });
+              }}
+              className="relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer flex-1"
+              title="Clique para ver o Card do Perfil & Curtidas"
+            >
             {/* Profile Banner Background */}
             {user.equippedBannerUrl && (
               <img
@@ -17262,6 +17308,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   ⚡ Chakra: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
                 </span>
               </div>
+            </div>
             </div>
           </div>
           <div className="space-y-4">
@@ -17717,15 +17764,13 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                 }}
                                 className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
                                   isSelected
-                                    ? 'border-amber-400 shadow-lg shadow-amber-500/50 ring-2 ring-amber-400 z-20 scale-105'
+                                    ? 'shadow-lg shadow-amber-500/50 ring-2 ring-amber-400 z-20 scale-105'
                                     : isCued
-                                    ? 'border-orange-500 shadow shadow-orange-600/35 ring-1 ring-orange-500'
+                                    ? 'border-orange-500 shadow shadow-orange-600/35'
                                     : isStunBlocked
                                     ? 'border-red-600 bg-red-950/80 opacity-40 grayscale shadow-md shadow-red-950/60'
                                     : isCooldown
                                     ? 'border-slate-950 opacity-30 cursor-not-allowed'
-                                    : isRequiredEffectLocked
-                                    ? 'border-red-950/60 opacity-20 grayscale cursor-not-allowed hover:opacity-30'
                                     : !canAfford
                                     ? 'border-slate-950 opacity-20 grayscale-[60%] hover:opacity-40'
                                     : 'border-slate-800 hover:border-slate-600'
@@ -17758,14 +17803,18 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                     </div>
                                   )}
 
-                                   {/* Required Effect Locked Overlay (🔒) */}
-                                   {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
-                                     <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                       <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
-                                     </div>
-                                   )}
+                                    {/* Required Effect Locked Overlay (selo) */}
+                                    {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
+                                      <div className="absolute inset-0 bg-slate-950/45 flex items-center justify-center z-10">
+                                        <img
+                                          src="/static/img/icon/selo.svg"
+                                          alt="Requer efeito"
+                                          className="selo-lock-anim w-3/4 h-3/4 object-contain"
+                                        />
+                                      </div>
+                                    )}
 
-                                   {/* Delayed Unlock Locked Overlay (selo) */}
+                                    {/* Delayed Unlock Locked Overlay (selo) */}
                                    {isDelayedUnlockLocked && !isCooldown && !isStunBlocked && (
                                      <div className="absolute inset-0 bg-slate-950/45 flex items-center justify-center z-10">
                                        <img
@@ -17787,14 +17836,18 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                      </div>
                                    )}
 
-                                   {/* Previous Skill Locked Overlay (🔒) */}
-                                   {isPrevSkillLocked && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && (
-                                     <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                       <span className="text-cyan-500 font-bold drop-shadow-md text-xs">🔒</span>
-                                     </div>
-                                   )}
+                                    {/* Previous Skill Locked Overlay (selo) */}
+                                    {isPrevSkillLocked && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && (
+                                      <div className="absolute inset-0 bg-slate-950/45 flex items-center justify-center z-10">
+                                        <img
+                                          src="/static/img/icon/selo.svg"
+                                          alt="Requer habilidade anterior"
+                                          className="selo-lock-anim w-3/4 h-3/4 object-contain"
+                                        />
+                                      </div>
+                                    )}
 
-                                  {/* HP Threshold Locked Overlay */}
+                                   {/* HP Threshold Locked Overlay */}
                                   {skill.requireHpBelow && skill.requireHpBelow > 0 && combatant.health > skill.requireHpBelow && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
                                     <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
                                       <span className="text-red-500 font-bold drop-shadow-md text-xs">❤️‍acyl</span>
@@ -17812,7 +17865,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                                   {/* Cued Indicator Overlay */}
                                   {isCued && (
-                                    <div className="absolute inset-0 bg-orange-600/10 border-2 border-orange-500 flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-orange-600/10 flex items-center justify-center">
                                       <div className="bg-orange-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
                                         PREPARADO
                                       </div>
@@ -17821,7 +17874,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                                   {/* Selected Target Prompt Overlay */}
                                   {isSelected && !isCued && (
-                                    <div className="absolute inset-0 bg-amber-950/90 border-2 border-amber-400 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
+                                    <div className="absolute inset-0 bg-amber-950/90 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
                                       <span className="text-amber-300 text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md">
                                         SELECIONE O ALVO
                                       </span>
@@ -17967,7 +18020,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
       <section className="battle-center-squad space-y-4 p-1 sm:p-2">
         {/* TURN, TIMER, TURN STATUS & CHAKRA PANEL (turnoss.webp) */}
           <div
-            className="relative w-full rounded-2xl overflow-hidden p-3 sm:p-4 shadow-2xl flex flex-col justify-between border border-amber-900/30"
+            className="relative w-full rounded-2xl overflow-hidden p-3 sm:p-4 shadow-2xl flex flex-col justify-between"
             style={{
               backgroundImage: "url('/static/img/turnoss.webp')",
               backgroundSize: "100% 100%",
@@ -17980,7 +18033,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
             <div className="space-y-1.5 px-1 pt-1 flex flex-col items-center justify-center text-center">
               <div className="flex flex-col items-center justify-center gap-1.5 pb-1">
                 <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" />
+                 
                   <h2 className="text-sm sm:text-base font-black tracking-wider text-amber-100 font-sans drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)] uppercase">
                     TURNO {turn}
                   </h2>
@@ -18074,7 +18127,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
           {/* Skill Inspector Details (skills_detalhes.webp) */}
           <div
-            className="relative w-full rounded-2xl overflow-hidden p-3.5 sm:p-5 shadow-2xl flex flex-col border border-amber-900/30"
+            className="relative w-full rounded-2xl overflow-hidden p-3.5 sm:p-5 shadow-2xl flex flex-col"
             style={{
               backgroundImage: "url('/static/img/skills_detalhes.webp')",
               backgroundSize: "100% 100%",
@@ -18862,15 +18915,13 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                   }}
                                   className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
                                     isSelected
-                                      ? 'border-amber-400 shadow-lg shadow-amber-500/50 ring-2 ring-amber-400 z-20 scale-105'
+                                    ? 'shadow-lg shadow-amber-500/50 ring-2 ring-amber-400 z-20 scale-105'
                                       : isCued
-                                      ? 'border-emerald-500 shadow shadow-emerald-600/35 ring-1 ring-emerald-500'
+                                      ? 'border-emerald-500 shadow shadow-emerald-600/35'
                                       : isStunBlocked
                                       ? 'border-red-600 bg-red-950/80 opacity-40 grayscale shadow-md shadow-red-950/60'
                                       : isCooldown
                                       ? 'border-slate-950 opacity-30 cursor-not-allowed'
-                                      : isRequiredEffectLocked
-                                      ? 'border-red-950/60 opacity-20 grayscale cursor-not-allowed hover:opacity-30'
                                       : !canAfford
                                       ? 'border-slate-950 opacity-20 grayscale-[60%] hover:opacity-40'
                                       : 'border-slate-800 hover:border-slate-600'
@@ -18903,10 +18954,14 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                       </div>
                                     )}
 
-                                    {/* Required Effect Locked Overlay (🔒) */}
+                                    {/* Required Effect Locked Overlay (selo) */}
                                     {isRequiredEffectLocked && !isCooldown && !isStunBlocked && (
-                                      <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                        <span className="text-red-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                      <div className="absolute inset-0 bg-slate-950/45 flex items-center justify-center z-10">
+                                        <img
+                                          src="/static/img/icon/selo.svg"
+                                          alt="Requer efeito"
+                                          className="selo-lock-anim w-3/4 h-3/4 object-contain"
+                                        />
                                       </div>
                                     )}
 
@@ -18932,10 +18987,14 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                       </div>
                                     )}
 
-                                    {/* Previous Skill Locked Overlay (🔒) */}
+                                    {/* Previous Skill Locked Overlay (selo) */}
                                     {isPrevSkillLocked && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && (
-                                      <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                        <span className="text-cyan-500 font-bold drop-shadow-md text-xs">🔒</span>
+                                      <div className="absolute inset-0 bg-slate-950/45 flex items-center justify-center z-10">
+                                        <img
+                                          src="/static/img/icon/selo.svg"
+                                          alt="Requer habilidade anterior"
+                                          className="selo-lock-anim w-3/4 h-3/4 object-contain"
+                                        />
                                       </div>
                                     )}
 
@@ -18962,7 +19021,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                                     {/* Cued Indicator Overlay */}
                                     {isCued && (
-                                      <div className="absolute inset-0 bg-emerald-600/10 border-2 border-emerald-500 flex items-center justify-center">
+                                      <div className="absolute inset-0 bg-emerald-600/10 flex items-center justify-center">
                                         <div className="bg-emerald-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
                                           PREPARADO
                                         </div>
@@ -18971,7 +19030,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                                     {/* Selected Target Prompt Overlay */}
                                     {isSelected && !isCued && (
-                                      <div className="absolute inset-0 bg-amber-950/90 border-2 border-amber-400 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
+                                    <div className="absolute inset-0 bg-amber-950/90 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
                                         <span className="text-amber-300 text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md">
                                           SELECIONE O ALVO
                                         </span>
@@ -19244,7 +19303,8 @@ onClick={() => handleSelectTarget(combatant.id, true)}
         </main>
       </div>
 
-      {/* FIXED INTERACTIVE EMOJI COCKPIT */}
+      {/* FIXED INTERACTIVE EMOJI COCKPIT — oculto temporariamente */}
+      {false && (
       <div className="fixed bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 backdrop-blur-md border border-slate-800/80 px-4 py-2.5 rounded-full flex items-center gap-3.5 shadow-[0_12px_40px_-8px_rgba(0,0,0,0.8)] select-none">
         <div className="flex items-center gap-1.5 border-r border-slate-800/80 pr-3.5 text-[9px] font-mono font-black text-slate-400 tracking-wider">
           <Sparkles className="w-3.5 h-3.5 text-orange-400 animate-pulse" />
@@ -19286,6 +19346,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
           })}
         </div>
       </div>
+      )}
 
       {/* FLOATING EMOJIS WORLD CANVAS */}
       <div className="fixed inset-0 pointer-events-none z-50">
