@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Images, Lock, Star, Package, Gem, Sparkles } from 'lucide-react';
 import { UserProfile, NinjaCard, CardRarity } from '../types';
-import { getCards, fetchCardsFromServer, CARD_RARITY_META, RARITY_ORDER, getPacks, fetchPacksFromServer } from '../lib/cardStorage';
+import { getCards, fetchCardsFromServer, CARD_RARITY_META, RARITY_ORDER, getPacks, fetchPacksFromServer, rarityFx } from '../lib/cardStorage';
 import { NinjaPack } from '../types';
 import { useCollection } from '../lib/collection';
 import { useLanguage } from '../lib/i18n';
@@ -296,13 +296,14 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
               {filtered.map(card => {
                 const isOwned = owned.has(card.id);
                 const meta = CARD_RARITY_META[card.rarity];
+                const fx = isOwned ? rarityFx(card.rarity) : null;
                 return (
                   <div
                     key={card.id}
                     onClick={() => { playClickSound(); setSelectedCard(card); }}
-                    className={`relative aspect-[3/4] rounded-2xl border-2 overflow-hidden cursor-pointer shadow-lg transition-transform hover:scale-[1.03] active:scale-[0.98] group ${
+                    className={`relative aspect-[3/4] rounded-2xl border-2 overflow-hidden cursor-pointer shadow-lg transition-transform hover:scale-[1.03] group ${
                       isOwned
-                        ? `${meta.border} ${meta.glow} shadow-xl bg-slate-900`
+                        ? `${meta.border} ${meta.glow} shadow-xl bg-slate-900 ${fx?.frame || ''}`
                         : 'border-slate-800 bg-slate-950/80'
                     }`}
                   >
@@ -323,6 +324,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
                           </div>
                         </div>
                       )}
+                      {fx && <span className={fx.sweep} />}
                       {/* rarity gradient overlay */}
                       <div className={`absolute inset-0 bg-gradient-to-t ${isOwned ? 'from-slate-950/90 via-transparent to-transparent' : 'from-slate-950/90 via-slate-950/40 to-slate-950/70'}`} />
                     </div>

@@ -244,6 +244,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               wins: user.wins || 0,
               losses: user.losses || 0,
               village: t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)'),
+              collectedCardIds: user.collectedCardIds || [],
             }}
             isSelf={true}
             onClose={() => setShowProfileCardModal(false)}

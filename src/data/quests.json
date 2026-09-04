@@ -11,7 +11,7 @@
         "id": "goal_1784869393005_1",
         "type": "win_battles_with_chars",
         "targetValue": 5,
-        "currentValue": 3,
+        "currentValue": 4,
         "singleMatch": false,
         "targetCharacters": [
           "Naruto Uzumaki"
@@ -27,8 +27,9 @@
         ],
         "targetSkill": "",
         "targetValue": 5,
-        "currentValue": 0,
-        "singleMatch": false
+        "currentValue": 1,
+        "singleMatch": false,
+        "currentStreak": 0
       }
     ],
     "rewards": [
@@ -46,7 +47,7 @@
         "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/itachi-uchiha/icon.jpg"
       }
     ],
-    "completed": true
+    "completed": false
   },
   {
     "id": "quest_1786039551209",

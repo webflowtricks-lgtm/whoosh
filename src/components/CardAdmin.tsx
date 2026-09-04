@@ -6,13 +6,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Images, Plus, Trash2, Save, RefreshCw,
-  CheckCircle, AlertTriangle, Search, Package, Sparkles, Eye, Image as ImageIcon
+  CheckCircle, AlertTriangle, Search, Package, Sparkles, Eye, Image as ImageIcon, Upload, Link2
 } from 'lucide-react';
 import { NinjaCard, NinjaPack, CardRarity } from '../types';
 import {
   getCards, saveCards, buildDefaultCards, fetchCardsFromServer,
   getPacks, savePacks, DEFAULT_PACKS, fetchPacksFromServer,
-  CARD_RARITY_META, RARITY_ORDER
+  CARD_RARITY_META, RARITY_ORDER, rarityFx
 } from '../lib/cardStorage';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -79,6 +79,19 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
 
   const cardImage = (card: NinjaCard) => card.imageUrl || `${CARD_IMG_FALLBACK}${card.slug}/icon.jpg`;
 
+  const handleUploadCardImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingCard) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setEditingCard({ ...editingCard, imageUrl: reader.result, slug: '' });
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   // ─── CARDS ─────────────────────────────────────────────
   const handleCreateNewCard = () => {
     playClickSound();
@@ -89,8 +102,8 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
       characterName: 'Novo Ninja',
       slug: '',
       rarity: 'comum',
-      title: 'Nova Figura',
-      description: 'Descrição da nova figura colecionável.',
+      title: 'Novo Ninja',
+      description: '',
       variant: '',
       imageUrl: '',
       points: CARD_RARITY_META.comum.points,
@@ -107,14 +120,30 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
   const handleSaveCard = () => {
     if (!editingCard) return;
     playClickSound();
-    if (!editingCard.title.trim()) {
-      showError('O título do card não pode estar vazio.');
+    if (!editingCard.characterName.trim()) {
+      showError('Informe o nome do ninja da figura.');
       return;
     }
-    const updated = cards.map(c => c.id === editingCard.id ? editingCard : c);
+    if (!editingCard.id.trim()) {
+      showError('Informe o ID (número) da figurinha.');
+      return;
+    }
+    if (newIdConflict) {
+      showError('Já existe outra figurinha com esse ID. Escolha um número único.');
+      return;
+    }
+    // Título mantido como alias do nome (a figura é exibida só pela foto)
+    const toSave: NinjaCard = {
+      ...editingCard,
+      title: editingCard.title?.trim() || editingCard.characterName.trim(),
+      description: editingCard.description || '',
+    };
+    const updated = cards.map(c => c.id === selectedCardId ? toSave : c);
     setCards(updated);
     saveCards(updated);
-    showSuccess(`Card "${editingCard.title}" salvo com sucesso!`);
+    setEditingCard(toSave);
+    setSelectedCardId(editingCard.id);
+    showSuccess(`Figura "${toSave.characterName}" salva com sucesso!`);
   };
 
   const handleDeleteCard = (cardId: string) => {
@@ -154,6 +183,15 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
     const matchSearch = (c.characterName + ' ' + c.title + ' ' + (c.variant || '')).toLowerCase().includes(searchTerm.toLowerCase());
     return matchRarity && matchSearch;
   });
+
+  const newIdConflict = !!editingCard
+    && cards.some(c => c.id === editingCard.id && c.id !== selectedCardId);
+
+  // Organiza os cards em ordem numérica pelo ID
+  const orderedCards = [...cards].sort((a, b) =>
+    String(a.id).localeCompare(String(b.id), undefined, { numeric: true })
+  );
+  const cardNumber = (id: string) => (orderedCards.findIndex(c => c.id === id) + 1).toString().padStart(3, '0');
 
   const toggleCardPack = (packId: string) => {
     if (!editingCard) return;
@@ -367,7 +405,7 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
                       <img src={cardImage(card)} alt={card.characterName} className="w-full h-full object-cover" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-bold text-xs text-slate-200 truncate group-hover:text-fuchsia-300">{card.title}</p>
+                      <p className="font-mono font-black text-xs text-fuchsia-300 group-hover:text-fuchsia-200">#{cardNumber(card.id)}</p>
                       <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
                         <span className={`uppercase font-bold ${CARD_RARITY_META[card.rarity].text}`}>{CARD_RARITY_META[card.rarity].label}</span>
                         <span>•</span>
@@ -405,7 +443,7 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
                 <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-4 gap-4">
                   <div>
                     <span className="text-[10px] font-mono text-fuchsia-400 uppercase font-bold">Editando Figura</span>
-                    <h2 className="text-xl font-extrabold text-slate-100">{editingCard.title}</h2>
+                    <h2 className="text-xl font-extrabold text-slate-100">{editingCard.characterName}</h2>
                   </div>
                   <button
                     onClick={handleSaveCard}
@@ -417,8 +455,20 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">ID Único</label>
-                    <input type="text" disabled value={editingCard.id} className="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 text-slate-500 rounded-xl text-xs font-mono cursor-not-allowed" />
+                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">ID Único (número da figurinha)</label>
+                    <input
+                      type="text"
+                      value={editingCard.id}
+                      onChange={e => setEditingCard({ ...editingCard, id: e.target.value })}
+                      placeholder="Ex: 001, 002..."
+                      className={`w-full px-3 py-2 bg-slate-950 border rounded-xl text-xs font-mono outline-none ${
+                        newIdConflict ? 'border-red-500 text-red-300' : 'border-slate-800 focus:border-fuchsia-500 text-slate-100'
+                      }`}
+                    />
+                    {newIdConflict && (
+                      <p className="text-[9px] text-red-400 font-mono mt-1">Este ID já existe em outra figurinha.</p>
+                    )}
+                    <p className="text-[9px] text-slate-500 font-mono mt-1">Edite o ID para renumerar a figurinha (ex: 001).</p>
                   </div>
 
                   <div>
@@ -435,17 +485,6 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
                         <option key={r} value={r}>{CARD_RARITY_META[r].label} ({CARD_RARITY_META[r].points} pts)</option>
                       ))}
                     </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Título da Figura</label>
-                    <input
-                      type="text"
-                      value={editingCard.title}
-                      onChange={e => setEditingCard({ ...editingCard, title: e.target.value })}
-                      placeholder="Ex: Lenda da Folha, Modo Sábio"
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-fuchsia-500 text-slate-100 rounded-xl text-xs outline-none"
-                    />
                   </div>
 
                   <div>
@@ -481,24 +520,27 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Descrição (verso do card)</label>
-                    <textarea
-                      rows={2}
-                      value={editingCard.description}
-                      onChange={e => setEditingCard({ ...editingCard, description: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-fuchsia-500 text-slate-100 rounded-xl text-xs outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">URL da Imagem (opcional)</label>
-                    <input
-                      type="text"
-                      value={editingCard.imageUrl || ''}
-                      onChange={e => setEditingCard({ ...editingCard, imageUrl: e.target.value })}
-                      placeholder="https://...  (vazio = icon.jpg do personagem)"
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-fuchsia-500 text-slate-100 rounded-xl text-xs outline-none font-mono"
-                    />
+                    <label className="block text-[10px] font-mono uppercase font-bold text-fuchsia-400 mb-1">Foto da Figura</label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <label className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-fuchsia-500/40 bg-fuchsia-500/5 hover:bg-fuchsia-500/10 hover:border-fuchsia-400 text-fuchsia-300 text-xs font-mono font-bold uppercase tracking-wide transition cursor-pointer">
+                        <Upload className="w-4 h-4" />
+                        {editingCard.imageUrl?.startsWith('data:') ? 'Trocar foto enviada' : 'Enviar foto do dispositivo'}
+                        <input type="file" accept="image/*" onChange={handleUploadCardImage} className="hidden" />
+                      </label>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Link2 className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                      <input
+                        type="text"
+                        value={editingCard.imageUrl && !editingCard.imageUrl.startsWith('data:') ? editingCard.imageUrl : ''}
+                        onChange={e => setEditingCard({ ...editingCard, imageUrl: e.target.value })}
+                        placeholder="ou cole o link da imagem (https://...)"
+                        className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 focus:border-fuchsia-500 text-slate-100 rounded-xl text-xs outline-none font-mono"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-mono mt-1.5">
+                      A figura é exibida como foto completa (cover) no card. Se não enviar foto nem link, é usada a arte <code>{CARD_IMG_FALLBACK}{editingCard.slug || '&lt;slug&gt;'}/icon.jpg</code>.
+                    </p>
                   </div>
 
                   <div>
@@ -548,21 +590,19 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
                   <h4 className="text-xs font-mono uppercase font-bold text-slate-400 mb-3 flex items-center gap-1.5">
                     <Eye className="w-3.5 h-3.5 text-fuchsia-400" /> Pré-visualização da Figura
                   </h4>
-                  <div className={`max-w-[220px] rounded-2xl border-2 p-3 bg-slate-950 shadow-2xl ${CARD_RARITY_META[editingCard.rarity].border} ${CARD_RARITY_META[editingCard.rarity].glow}`}>
-                    <div className={`w-full h-40 rounded-xl overflow-hidden border ${CARD_RARITY_META[editingCard.rarity].border} relative`}>
-                      <img src={cardImage(editingCard)} alt={editingCard.characterName} className="w-full h-full object-cover" />
-                      <span className={`absolute top-1.5 right-1.5 text-[8px] font-mono font-black uppercase px-1.5 py-0.5 rounded ${CARD_RARITY_META[editingCard.rarity].chip}`}>
-                        {editingCard.rarity === 'secreto' ? '??? ' : ''}{editingCard.rarity}
-                      </span>
-                    </div>
-                    <div className="mt-2 text-center">
-                      <p className="text-xs font-extrabold text-slate-100">{editingCard.title}</p>
-                      <p className="text-[10px] text-slate-400">{editingCard.characterName}{editingCard.variant ? ` • ${editingCard.variant}` : ''}</p>
-                      <p className="mt-1 text-[9px] text-slate-500 leading-snug line-clamp-3">{editingCard.description}</p>
-                    </div>
+                  <div className={`max-w-[220px] aspect-[3/4] rounded-2xl overflow-hidden border-2 bg-slate-950 shadow-2xl relative ${CARD_RARITY_META[editingCard.rarity].border} ${CARD_RARITY_META[editingCard.rarity].glow} ${(() => { const fx = rarityFx(editingCard.rarity); return fx ? fx.frame : ''; })()}`}>
+                    <img src={cardImage(editingCard)} alt={editingCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
+                    {(() => { const fx = rarityFx(editingCard.rarity); return fx ? <span className={fx.sweep} /> : null; })()}
+                    <span className={`absolute top-1.5 right-1.5 text-[8px] font-mono font-black uppercase px-1.5 py-0.5 rounded ${CARD_RARITY_META[editingCard.rarity].chip}`}>
+                      {editingCard.rarity === 'secreto' ? '??? ' : ''}{editingCard.rarity}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-center">
+                    <p className="text-xs font-extrabold text-slate-100">{editingCard.characterName}</p>
+                    <p className="text-[10px] text-slate-400">{editingCard.variant || 'Figura colecionável'}</p>
                   </div>
                   <p className="text-[10px] text-slate-500 font-mono mt-2">
-                    Dica: se deixar a URL vazia, a arte usada é a de <code>{CARD_IMG_FALLBACK}{editingCard.slug || '&lt;slug&gt;'}/icon.jpg</code>.
+                    A figurinha é exibida como foto sem texto.
                   </p>
                 </div>
               </div>

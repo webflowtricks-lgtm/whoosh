@@ -17180,6 +17180,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   wins: user.wins || 0,
                   losses: user.losses || 0,
                   village: 'Vila da Folha (Konoha)',
+                  collectedCardIds: user.collectedCardIds || [],
                 },
                 isSelf: true,
               });
@@ -18333,6 +18334,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                   wins: opp?.wins || 35,
                   losses: opp?.losses || 12,
                   village: isOnline ? 'Vila Oponente' : 'Vila do Som',
+                  collectedCardIds: opp?.collectedCardIds || [],
                 },
                 isSelf: false,
               });

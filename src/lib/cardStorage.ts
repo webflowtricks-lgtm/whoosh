@@ -63,6 +63,21 @@ export const CARD_RARITY_META: Record<CardRarity, {
 
 export const RARITY_ORDER: CardRarity[] = ['comum', 'raro', 'epico', 'lendario', 'secreto'];
 
+// Classes de animação para raridades especiais (aplicadas nas figurinhas).
+// Retorna { frame, sweep } com as classes de animação do frame e da linha de luz brilhante.
+export function rarityFx(rarity: CardRarity): { frame: string; sweep: string } | null {
+  switch (rarity) {
+    case 'epico':
+      return { frame: 'card-fx-epico', sweep: 'card-fx-sweep' };
+    case 'lendario':
+      return { frame: 'card-fx-lendario', sweep: 'card-fx-sweep' };
+    case 'secreto':
+      return { frame: 'card-fx-secreto', sweep: 'card-fx-sweep' };
+    default:
+      return null;
+  }
+}
+
 // Gera um card comum padrão a partir de um personagem do roster.
 function baseCard(char: Character, index: number): NinjaCard {
   return {

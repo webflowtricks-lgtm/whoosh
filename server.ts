@@ -164,10 +164,24 @@ async function startServer() {
     if (equippedFrame) users[userIdx].equippedFrame = equippedFrame;
     if (equippedFrameUrl !== undefined) users[userIdx].equippedFrameUrl = equippedFrameUrl;
     if (equippedBannerUrl !== undefined) users[userIdx].equippedBannerUrl = equippedBannerUrl;
+    if (Array.isArray(req.body.collectedCardIds)) users[userIdx].collectedCardIds = req.body.collectedCardIds;
 
     writeJSON(USERS_FILE, users);
 
     res.json({ success: true, user: users[userIdx] });
+  });
+
+  app.get("/api/user/profile", (req, res) => {
+    const username = String(req.query.username || "").trim().toLowerCase();
+    if (!username) {
+      return res.status(400).json({ error: "Nome de usuário é obrigatório." });
+    }
+    const users = readJSON<any[]>(USERS_FILE, []);
+    const user = users.find((u) => u.username === username);
+    if (!user) {
+      return res.status(404).json({ error: "Usuário não encontrado." });
+    }
+    res.json({ success: true, user });
   });
 
   // ==========================================

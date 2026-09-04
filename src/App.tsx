@@ -114,6 +114,39 @@ export default function App() {
     fetchPngFramesFromServer().catch(() => {});
   }, []);
 
+  // Pull the full profile (incl. collectedCardIds/collection) from the server and
+  // merge with the local cached profile so collection edits made elsewhere persist.
+  useEffect(() => {
+    if (!user || !user.username) return;
+    let cancelled = false;
+    fetch(`/api/user/profile?username=${encodeURIComponent(user.username)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(async (data) => {
+        if (cancelled || !data?.success || !data.user) return;
+        const serverProfile = data.user;
+        const localCollected = user.collectedCardIds || [];
+        const serverCollected = Array.isArray(serverProfile.collectedCardIds)
+          ? serverProfile.collectedCardIds
+          : (serverProfile.collectedCardIds ? [serverProfile.collectedCardIds] : []);
+        // Union (não destrutiva) entre coleção local e do servidor
+        const merged = Array.from(new Set([...localCollected, ...serverCollected]));
+        const mergedUser = {
+          ...user,
+          ...serverProfile,
+          collectedCardIds: merged,
+        };
+        mergedUser.xp = Math.max(0, serverProfile.xp ?? user.xp ?? 0);
+        setUser(mergedUser);
+        try { localStorage.setItem('naruto_user_profile', JSON.stringify(mergedUser)); } catch {}
+        // Se a coleção local tinha cards que o servidor não conhecia, sobe pro servidor
+        if (merged.length > serverCollected.length) {
+          await safeFetchJson('/api/user/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user.username, collectedCardIds: merged }) });
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.username]);
+
   // Check for active match/reconnection on load
   useEffect(() => {
     if (!user) return;

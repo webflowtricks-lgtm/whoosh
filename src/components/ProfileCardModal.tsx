@@ -5,10 +5,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Heart, Shield, Award, Sparkles, User, Swords, Trophy, Flame, CheckCircle2, Calendar } from 'lucide-react';
-import { UserProfile } from '../types';
+import { X, Heart, Shield, Award, Sparkles, User, Swords, Trophy, Flame, CheckCircle2, Calendar, ChevronLeft, ChevronRight, Images } from 'lucide-react';
+import { UserProfile, NinjaCard } from '../types';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
+import { getCards, fetchCardsFromServer, CARD_RARITY_META, rarityFx } from '../lib/cardStorage';
 import { useLanguage } from '../lib/i18n';
 import MangekyoLoader from './MangekyoLoader';
 
@@ -32,6 +33,7 @@ export interface ProfileCardData {
   losses?: number;
   village?: string;
   likes?: number;
+  collectedCardIds?: string[];
 }
 
 interface ProfileCardModalProps {
@@ -89,6 +91,15 @@ export default function ProfileCardModal({
   const [showHeartBurst, setShowHeartBurst] = useState<boolean>(false);
   const [bannerHover, setBannerHover] = useState<boolean>(false);
 
+  // Figurinhas colecionáveis do jogador
+  const [allCards, setAllCards] = useState<NinjaCard[]>(() => getCards());
+  const [lightboxCard, setLightboxCard] = useState<NinjaCard | null>(null);
+  const [cardPage, setCardPage] = useState(0);
+
+  useEffect(() => {
+    fetchCardsFromServer().then(setAllCards);
+  }, []);
+
   const frameStyle = profile.equippedFrame ? (PRESET_STYLED_FRAMES[profile.equippedFrame] || 'border-2 border-orange-400') : 'border-2 border-orange-400';
 
   const handleLike = () => {
@@ -135,6 +146,19 @@ export default function ProfileCardModal({
   const rankBgClass = rankIsNone
     ? 'bg-slate-800 text-amber-300 border border-amber-500/30'
     : (rankR.color.includes('bg-gradient') ? rankR.color : `bg-gradient-to-r ${rankR.color}`);
+
+  // Figurinhas do jogador (coleção) + paginação
+  const cardImage = (c: NinjaCard) => c.imageUrl || `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${c.slug || ''}/icon.jpg`;
+  const ownedCards = (profile.collectedCardIds || [])
+    .map(id => allCards.find(c => c.id === id))
+    .filter((c): c is NinjaCard => !!c)
+    .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+  const CARDS_PER_PAGE = 12;
+  const totalCardPages = Math.max(1, Math.ceil(ownedCards.length / CARDS_PER_PAGE));
+  const safeCardPage = Math.min(cardPage, totalCardPages - 1);
+  const pagedCards = ownedCards.slice(safeCardPage * CARDS_PER_PAGE, safeCardPage * CARDS_PER_PAGE + CARDS_PER_PAGE);
+  // Numeração global (renumeradas em ordem sequencial)
+  const pagedCardsWithNumber = pagedCards.map((c, i) => ({ card: c, num: safeCardPage * CARDS_PER_PAGE + i + 1 }));
 
   return (
     <AnimatePresence>
@@ -312,6 +336,78 @@ export default function ProfileCardModal({
                   )}
                 </div>
 
+                {/* FIGURINHAS COLECIONÁVEIS DO JOGADOR */}
+                <div className="bg-slate-950/90 border border-slate-800/90 rounded-2xl p-4 space-y-3 shadow-inner">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center text-fuchsia-400 flex-shrink-0">
+                        <Images className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-mono block uppercase tracking-wider">{t('FIGURINHAS', 'CARDS')}</span>
+                        <span className="text-xs font-black text-white font-mono">{ownedCards.length} {t('colecionadas', 'collected')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {ownedCards.length === 0 ? (
+                    <p className="text-[10px] text-slate-500 font-mono text-center py-2">
+                      {t('Nenhuma figurinha ainda. Abra pacotes para colecionar!', 'No cards yet. Open packs to collect!')}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {pagedCardsWithNumber.map(({ card: c, num }) => {
+                          const fx = rarityFx(c.rarity);
+                          return (
+                          <button
+                            key={c.id}
+                            onClick={() => { if (playClickSound) playClickSound(); setLightboxCard(c); }}
+                            className={`relative aspect-[3/4] rounded-lg overflow-hidden border-2 ${CARD_RARITY_META[c.rarity].border} ${CARD_RARITY_META[c.rarity].glow} bg-slate-900 cursor-pointer group hover:scale-105 transition-transform shadow-lg flex-shrink-0 ${fx?.frame || ''}`}
+                            title={`#${String(num).padStart(3, '0')} — ${c.characterName} (${c.title})`}
+                          >
+                            <img src={cardImage(c)} alt={c.characterName} className="w-full h-full object-cover" />
+                            {fx && <span className={fx.sweep} />}
+                            {/* Nº no lugar do nome (canto superior esquerdo) */}
+                            <span className="absolute top-0.5 left-0.5 text-[8px] font-mono font-black text-white px-1 py-0.5 rounded bg-slate-950/80 leading-none">
+                              #{String(num).padStart(3, '0')}
+                            </span>
+                            {/* Tag de raridade */}
+                            <span className={`absolute bottom-0.5 right-0.5 text-[7px] font-mono font-black uppercase px-1.5 py-0.5 rounded ${CARD_RARITY_META[c.rarity].chip}`}>
+                              {c.rarity}
+                            </span>
+                          </button>
+                          );
+                        })}
+                      </div>
+
+                      {totalCardPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 pt-1">
+                          <button
+                            onClick={() => { if (playClickSound) playClickSound(); setCardPage(p => Math.max(0, p - 1)); }}
+                            disabled={safeCardPage === 0}
+                            className={`p-1.5 rounded-lg border border-slate-800 transition cursor-pointer ${safeCardPage === 0 ? 'opacity-40 cursor-not-allowed' : 'text-slate-200 hover:border-fuchsia-500/50 hover:bg-slate-800'}`}
+                            title={t('Anterior', 'Previous')}
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <span className="text-[10px] font-mono text-slate-400">
+                            {safeCardPage + 1} / {totalCardPages}
+                          </span>
+                          <button
+                            onClick={() => { if (playClickSound) playClickSound(); setCardPage(p => Math.min(totalCardPages - 1, p + 1)); }}
+                            disabled={safeCardPage >= totalCardPages - 1}
+                            className={`p-1.5 rounded-lg border border-slate-800 transition cursor-pointer ${safeCardPage >= totalCardPages - 1 ? 'opacity-40 cursor-not-allowed' : 'text-slate-200 hover:border-fuchsia-500/50 hover:bg-slate-800'}`}
+                            title={t('Próxima', 'Next')}
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
                 {/* VILA NINJA — ocultada por enquanto (permanece no DOM) */}
                 <div className="hidden bg-slate-950/90 border border-slate-800/90 rounded-2xl p-3.5 flex items-center gap-3.5 shadow-inner">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
@@ -408,6 +504,91 @@ export default function ProfileCardModal({
           </div>
         </motion.div>
       </div>
+
+      {/* LIGHTBOX — figurinha ampliada */}
+      <AnimatePresence>
+        {lightboxCard && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md"
+            onClick={() => setLightboxCard(null)}
+          >
+            <button
+              className="absolute top-5 right-5 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition cursor-pointer z-10 shadow-lg"
+              title={t('Fechar', 'Close')}
+              onClick={(e) => { e.stopPropagation(); setLightboxCard(null); }}
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative flex flex-col items-center"
+            >
+              {/* Navegação (anterior) */}
+              {ownedCards.length > 1 && (
+                <button
+                  onClick={() => {
+                    if (playClickSound) playClickSound();
+                    const idx = ownedCards.findIndex(c => c.id === lightboxCard.id);
+                    const prev = ownedCards[(idx - 1 + ownedCards.length) % ownedCards.length];
+                    setLightboxCard(prev);
+                  }}
+                  className="absolute left-[-52px] top-1/2 -translate-y-1/2 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition cursor-pointer shadow-lg hidden sm:block"
+                  title={t('Anterior', 'Previous')}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+              )}
+
+              {/* Card ampliado — foto completa (cover), borda única, sem texto na imagem */}
+              <div className={`relative w-56 sm:w-64 aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
+                <img src={cardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
+                <span className={`absolute top-2 right-2 text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
+                  {lightboxCard.rarity}
+                </span>
+              </div>
+
+              {/* Informações da figurinha (fora da imagem) */}
+              <div className="mt-3 text-center max-w-xs">
+                <span className={`inline-block text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded mb-1 ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
+                  #{(ownedCards.findIndex(x => x.id === lightboxCard.id) + 1).toString().padStart(3, '0')} • {lightboxCard.rarity}
+                </span>
+                {lightboxCard.title && (
+                  <p className="text-white text-sm font-extrabold leading-tight">{lightboxCard.title}</p>
+                )}
+                <p className="text-slate-300 text-[11px] font-mono">
+                  {lightboxCard.characterName}{lightboxCard.variant ? ` • ${lightboxCard.variant}` : ''}
+                </p>
+                {lightboxCard.description && (
+                  <p className="mt-1 text-xs text-slate-400 leading-snug">{lightboxCard.description}</p>
+                )}
+              </div>
+
+              {/* Navegação (próxima) */}
+              {ownedCards.length > 1 && (
+                <button
+                  onClick={() => {
+                    if (playClickSound) playClickSound();
+                    const idx = ownedCards.findIndex(c => c.id === lightboxCard.id);
+                    const next = ownedCards[(idx + 1) % ownedCards.length];
+                    setLightboxCard(next);
+                  }}
+                  className="absolute right-[-52px] top-1/2 -translate-y-1/2 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition cursor-pointer shadow-lg hidden sm:block"
+                  title={t('Próxima', 'Next')}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 }
