@@ -39,6 +39,11 @@
       {
         "type": "title",
         "value": "Novo Título"
+      },
+      {
+        "type": "card",
+        "value": "",
+        "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/itachi-uchiha/icon.jpg"
       }
     ],
     "completed": true

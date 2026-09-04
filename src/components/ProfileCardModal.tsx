@@ -87,6 +87,7 @@ export default function ProfileCardModal({
 
   const [likeFeedback, setLikeFeedback] = useState<string | null>(null);
   const [showHeartBurst, setShowHeartBurst] = useState<boolean>(false);
+  const [bannerHover, setBannerHover] = useState<boolean>(false);
 
   const frameStyle = profile.equippedFrame ? (PRESET_STYLED_FRAMES[profile.equippedFrame] || 'border-2 border-orange-400') : 'border-2 border-orange-400';
 
@@ -126,6 +127,15 @@ export default function ProfileCardModal({
   const winRate = totalBattles > 0 ? Math.round((wins / totalBattles) * 100) : 100;
   const village = profile.village || t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)');
 
+  // Rank badge (só o selo, exibido no cabeçalho)
+  const rankRanks = getRanks();
+  const rankProgress = getRankProgress(profile.xp || 0, rankRanks);
+  const rankR = rankProgress.currentRank;
+  const rankIsNone = !rankR.color || rankR.color === 'none';
+  const rankBgClass = rankIsNone
+    ? 'bg-slate-800 text-amber-300 border border-amber-500/30'
+    : (rankR.color.includes('bg-gradient') ? rankR.color : `bg-gradient-to-r ${rankR.color}`);
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
@@ -137,17 +147,21 @@ export default function ProfileCardModal({
           className="profile-card-modal-container bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col"
         >
           {/* HEADER BANNER CARD */}
-          <div className="bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 p-5 sm:p-6 text-slate-950 relative overflow-hidden flex-shrink-0">
+          <div
+            className="bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 p-5 sm:p-6 text-slate-950 relative overflow-hidden flex-shrink-0 select-none"
+            onMouseEnter={() => setBannerHover(true)}
+            onMouseLeave={() => setBannerHover(false)}
+          >
             {profile.equippedBannerUrl ? (
               <>
                 <img
                   src={profile.equippedBannerUrl || null}
                   alt={t('Banner de Perfil', 'Profile Banner')}
-                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-500"
                   style={{ objectPosition: `${profile.equippedBannerPositionX ?? 50}% ${profile.equippedBannerPositionY ?? 50}%` }}
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/45 to-slate-950/25 pointer-events-none" />
+                <div className={`absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/45 to-slate-950/25 pointer-events-none transition-opacity duration-500 ${bannerHover ? 'opacity-0' : 'opacity-100'}`} />
               </>
             ) : (
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
@@ -159,13 +173,13 @@ export default function ProfileCardModal({
                 if (playClickSound) playClickSound();
                 onClose();
               }}
-              className="absolute top-4 right-4 p-2 rounded-full bg-slate-950/50 hover:bg-slate-950/90 text-white transition cursor-pointer z-30 shadow-lg"
+              className={`absolute top-4 right-4 p-2 rounded-full text-white transition cursor-pointer z-30 shadow-lg ${bannerHover ? 'bg-slate-950/70 hover:bg-slate-950/90' : 'bg-slate-950/50 hover:bg-slate-950/90'}`}
               title={t('Fechar Card', 'Close Card')}
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center gap-4 relative z-10">
+            <div className={`flex items-center gap-4 relative z-10 transition-opacity duration-500 ${bannerHover ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
               {/* Avatar Container with Equipped Frame */}
               <div className="relative group flex-shrink-0">
                 <div className={`w-20 h-20 rounded-full overflow-hidden bg-slate-950 flex items-center justify-center relative shadow-2xl ${
@@ -192,7 +206,31 @@ export default function ProfileCardModal({
 
               {/* Badges & Name & Level Header */}
               <div className="min-w-0 flex-1 pr-8">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
+                {/* Rank badge (patente) acima do nome — substitui o título */}
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider shadow overflow-hidden relative mb-1 ${rankBgClass}`}
+                  style={{
+                    ...(rankR.bgColor ? { backgroundColor: rankR.bgColor } : {}),
+                    color: rankR.fontColor || '#ffffff'
+                  }}
+                >
+                  {rankR.imageUrl && (
+                    <img src={rankR.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                  )}
+                  {rankR.iconUrl ? (
+                    <img src={rankR.iconUrl} alt="" className="w-3.5 h-3.5 object-contain relative z-10" />
+                  ) : (
+                    <Award className="w-3.5 h-3.5 text-white relative z-10" />
+                  )}
+                  <span className="relative z-10">{rankR.name}</span>
+                </span>
+
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight truncate drop-shadow-md leading-tight">
+                  {profile.name}
+                </h2>
+
+                {/* Título do jogador abaixo do nome */}
+                <div className="flex flex-wrap items-center gap-2 mt-1">
                   <span className="text-[10px] font-mono font-black uppercase px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 shadow">
                     {profile.title || t('ESTUDANTE', 'STUDENT')}
                   </span>
@@ -201,14 +239,10 @@ export default function ProfileCardModal({
                   </span>
                 </div>
 
-                <div className="flex items-baseline gap-3">
-                  <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight truncate drop-shadow-md">
-                    {profile.name}
-                  </h2>
-                  <span className="text-xl sm:text-2xl font-black text-amber-400 font-mono drop-shadow">
-                    {level}
-                  </span>
-                </div>
+                {/* Nível oculto (permanece no DOM, mas invisível) */}
+                <span className="hidden text-xl sm:text-2xl font-black text-amber-400 font-mono drop-shadow">
+                  {level}
+                </span>
               </div>
             </div>
           </div>
@@ -278,68 +312,8 @@ export default function ProfileCardModal({
                   )}
                 </div>
 
-                {/* 2. PATENTE / RANK CARD */}
-                {(() => {
-                  const ranks = getRanks();
-                  const userXp = profile.xp || 0;
-                  const rankProgress = getRankProgress(userXp, ranks);
-
-                  return (
-                    <div className="bg-slate-950/90 border border-slate-800/90 rounded-2xl p-4 space-y-2.5 shadow-inner">
-                      <div className="flex items-center justify-between text-xs font-mono font-bold">
-                        <span className="text-slate-400 uppercase text-[10px] tracking-wider">{t('Patente / Rank', 'Rank')}</span>
-                        {(() => {
-                          const r = rankProgress.currentRank;
-                          const isNone = !r.color || r.color === 'none';
-                          const bgClass = isNone
-                            ? 'bg-slate-800 text-amber-300 border border-amber-500/30'
-                            : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
-                          return (
-                            <span
-                              className={`px-3 py-1 rounded-xl text-[10px] font-extrabold uppercase shadow flex items-center gap-1.5 overflow-hidden relative ${bgClass}`}
-                              style={{
-                                ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
-                                color: r.fontColor || '#ffffff'
-                              }}
-                            >
-                              {r.imageUrl && (
-                                <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
-                              )}
-                              {r.iconUrl ? (
-                                <img src={r.iconUrl} alt="" className="w-3.5 h-3.5 object-contain relative z-10" />
-                              ) : (
-                                <Award className="w-3.5 h-3.5 text-white relative z-10" />
-                              )}
-                              <span className="relative z-10">{r.name}</span>
-                            </span>
-                          );
-                        })()}
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="relative w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800/80">
-                          <div
-                            className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400 transition-all duration-500 shadow-sm"
-                            style={{ width: `${rankProgress.progressPercent}%` }}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                          <span>{userXp.toLocaleString()} XP Total</span>
-                          {rankProgress.isMaxRank ? (
-                            <span className="text-amber-300 font-bold">{t('Posto Máximo', 'Max Rank')}</span>
-                          ) : (
-                            <span>
-                              {t('Próximo:', 'Next:')} {rankProgress.nextRank?.requiredXp.toLocaleString()} XP ({rankProgress.nextRank?.name})
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 3. VILA NINJA CARD */}
-                <div className="bg-slate-950/90 border border-slate-800/90 rounded-2xl p-3.5 flex items-center gap-3.5 shadow-inner">
+                {/* VILA NINJA — ocultada por enquanto (permanece no DOM) */}
+                <div className="hidden bg-slate-950/90 border border-slate-800/90 rounded-2xl p-3.5 flex items-center gap-3.5 shadow-inner">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
                     <Shield className="w-5 h-5" />
                   </div>
@@ -349,23 +323,7 @@ export default function ProfileCardModal({
                   </div>
                 </div>
 
-                {/* 4. HISTÓRICO DA ARENA CARD */}
-                <div className="bg-slate-950/90 border border-slate-800/90 rounded-2xl p-3.5 flex items-center gap-3.5 shadow-inner">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 flex-shrink-0">
-                    <Swords className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">{t('HISTÓRICO DA ARENA', 'ARENA HISTORY')}</span>
-                      <span className="text-[10px] text-cyan-300 font-mono font-bold">{winRate}% {t('Vitórias', 'Win Rate')}</span>
-                    </div>
-                    <div className="flex items-center gap-2.5 text-xs font-black font-mono">
-                      <span className="text-emerald-400">⚔️ {wins} {t('Vitórias', 'Wins')}</span>
-                      <span className="text-slate-700">|</span>
-                      <span className="text-red-400">🛡️ {losses} {t('Derrotas', 'Losses')}</span>
-                    </div>
-                  </div>
-                </div>
+                {/* HISTÓRICO DA ARENA — movido para a barra do FECHAR (rodapé) */}
 
               </div>
 
@@ -401,8 +359,27 @@ export default function ProfileCardModal({
 
             </div>
 
-            {/* ACTION FOOTER */}
-            <div className="mt-5 pt-3 flex items-center justify-between border-t border-slate-800/80">
+            {/* ACTION FOOTER (com o Histórico da Arena à esquerda) */}
+            <div className="mt-5 pt-3 flex flex-wrap items-center gap-3 border-t border-slate-800/80">
+
+              {/* Histórico da Arena (posicionado na barra do FECHAR, à esquerda) */}
+              <div className="bg-slate-950/90 border border-slate-800/90 rounded-xl px-3.5 py-2 shadow-inner flex items-center gap-3.5 flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 flex-shrink-0">
+                  <Swords className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] text-slate-400 font-mono uppercase tracking-wider">{t('HISTÓRICO DA ARENA', 'ARENA HISTORY')}</span>
+                    <span className="text-[9px] text-cyan-300 font-mono font-bold">{winRate}% {t('Vitórias', 'Win Rate')}</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-[11px] font-black font-mono">
+                    <span className="text-emerald-400">⚔️ {wins} {t('Vitórias', 'Wins')}</span>
+                    <span className="text-slate-700">|</span>
+                    <span className="text-red-400">🛡️ {losses} {t('Derrotas', 'Losses')}</span>
+                  </div>
+                </div>
+              </div>
+
               {isSelf && onOpenEditModal && (
                 <button
                   onClick={() => {
