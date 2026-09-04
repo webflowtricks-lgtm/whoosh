@@ -16982,7 +16982,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
  return (
   <div
     className="min-h-screen text-slate-100 flex flex-col font-sans relative select-none"
-    style={{ zoom: 0.85 }}
   >
      <div
   className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
@@ -17156,6 +17155,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       </div>
 
 
+      <div className="battle-scale-wrapper" style={{ transform: 'scale(0.85)', transformOrigin: 'top center' }}>
       <main className="main-area battle-arena-layout max-w-[1700px] w-full mx-auto px-2 sm:px-4 pt-4 pb-36 flex-1 items-start">
         {/* Left Side: PLAYER SQUAD */}
         <section className="battle-left-squad space-y-6">
@@ -19240,8 +19240,9 @@ onClick={() => handleSelectTarget(combatant.id, true)}
             );
           })}
           </div>
-        </section>
-      </main>
+</section>
+        </main>
+      </div>
 
       {/* FIXED INTERACTIVE EMOJI COCKPIT */}
       <div className="fixed bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 backdrop-blur-md border border-slate-800/80 px-4 py-2.5 rounded-full flex items-center gap-3.5 shadow-[0_12px_40px_-8px_rgba(0,0,0,0.8)] select-none">

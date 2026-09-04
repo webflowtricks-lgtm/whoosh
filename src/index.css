@@ -743,6 +743,13 @@ e-squad-name {
   align-items: start;
 }
 
+.battle-scale-wrapper {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 @media (max-width: 1024px) {
   .battle-arena-layout {
     gap: 0.5rem;
@@ -799,9 +806,9 @@ e-squad-name {
     90deg,
     rgba(255, 255, 255, 0) 0%,
     rgba(255, 255, 255, 0) 15%,
-    rgba(255, 255, 255, 0.35) 32%,
-    rgba(255, 255, 255, 0.95) 48%,
-    rgba(255, 255, 255, 0.35) 64%,
+    rgba(255, 255, 255, 0.15) 32%,
+    rgba(255, 255, 255, 0.35) 48%,
+    rgba(255, 255, 255, 0.15) 64%,
     rgba(255, 255, 255, 0) 85%,
     rgba(255, 255, 255, 0) 100%
   );

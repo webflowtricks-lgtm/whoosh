@@ -9,7 +9,7 @@ import { X, Heart, Shield, Award, Sparkles, User, Swords, Trophy, Flame, CheckCi
 import { UserProfile, NinjaCard } from '../types';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
-import { getCards, fetchCardsFromServer, CARD_RARITY_META, rarityFx } from '../lib/cardStorage';
+import { getCards, fetchCardsFromServer, CARD_RARITY_META, rarityFx, RARITY_ORDER } from '../lib/cardStorage';
 import { useLanguage } from '../lib/i18n';
 import MangekyoLoader from './MangekyoLoader';
 
@@ -94,7 +94,6 @@ export default function ProfileCardModal({
   // Figurinhas colecionáveis do jogador
   const [allCards, setAllCards] = useState<NinjaCard[]>(() => getCards());
   const [lightboxCard, setLightboxCard] = useState<NinjaCard | null>(null);
-  const [cardPage, setCardPage] = useState(0);
 
   useEffect(() => {
     fetchCardsFromServer().then(setAllCards);
@@ -152,23 +151,25 @@ export default function ProfileCardModal({
   const ownedCards = (profile.collectedCardIds || [])
     .map(id => allCards.find(c => c.id === id))
     .filter((c): c is NinjaCard => !!c)
-    .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
-  const CARDS_PER_PAGE = 12;
-  const totalCardPages = Math.max(1, Math.ceil(ownedCards.length / CARDS_PER_PAGE));
-  const safeCardPage = Math.min(cardPage, totalCardPages - 1);
-  const pagedCards = ownedCards.slice(safeCardPage * CARDS_PER_PAGE, safeCardPage * CARDS_PER_PAGE + CARDS_PER_PAGE);
+    .sort((a, b) => {
+      // Raridade maior primeiro e, dentro da mesma raridade, por numeração (id numérico)
+      const rarityDiff = RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity);
+      if (rarityDiff !== 0) return rarityDiff;
+      return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+    });
   // Numeração global (renumeradas em ordem sequencial)
-  const pagedCardsWithNumber = pagedCards.map((c, i) => ({ card: c, num: safeCardPage * CARDS_PER_PAGE + i + 1 }));
+  const numberedOwned = ownedCards.map((c, i) => ({ card: c, num: i + 1 }));
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div className="flex items-stretch gap-3 max-h-[92vh]">
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="profile-card-modal-container bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col"
+          className="profile-card-modal-container bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col max-h-[92vh]"
         >
           {/* HEADER BANNER CARD */}
           <div
@@ -336,78 +337,6 @@ export default function ProfileCardModal({
                   )}
                 </div>
 
-                {/* FIGURINHAS COLECIONÁVEIS DO JOGADOR */}
-                <div className="bg-slate-950/90 border border-slate-800/90 rounded-2xl p-4 space-y-3 shadow-inner">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center text-fuchsia-400 flex-shrink-0">
-                        <Images className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-slate-400 font-mono block uppercase tracking-wider">{t('FIGURINHAS', 'CARDS')}</span>
-                        <span className="text-xs font-black text-white font-mono">{ownedCards.length} {t('colecionadas', 'collected')}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {ownedCards.length === 0 ? (
-                    <p className="text-[10px] text-slate-500 font-mono text-center py-2">
-                      {t('Nenhuma figurinha ainda. Abra pacotes para colecionar!', 'No cards yet. Open packs to collect!')}
-                    </p>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                        {pagedCardsWithNumber.map(({ card: c, num }) => {
-                          const fx = rarityFx(c.rarity);
-                          return (
-                          <button
-                            key={c.id}
-                            onClick={() => { if (playClickSound) playClickSound(); setLightboxCard(c); }}
-                            className={`relative aspect-[3/4] rounded-lg overflow-hidden border-2 ${CARD_RARITY_META[c.rarity].border} ${CARD_RARITY_META[c.rarity].glow} bg-slate-900 cursor-pointer group hover:scale-105 transition-transform shadow-lg flex-shrink-0 ${fx?.frame || ''}`}
-                            title={`#${String(num).padStart(3, '0')} — ${c.characterName} (${c.title})`}
-                          >
-                            <img src={cardImage(c)} alt={c.characterName} className="w-full h-full object-cover" />
-                            {fx && <span className={fx.sweep} />}
-                            {/* Nº no lugar do nome (canto superior esquerdo) */}
-                            <span className="absolute top-0.5 left-0.5 text-[8px] font-mono font-black text-white px-1 py-0.5 rounded bg-slate-950/80 leading-none">
-                              #{String(num).padStart(3, '0')}
-                            </span>
-                            {/* Tag de raridade */}
-                            <span className={`absolute bottom-0.5 right-0.5 text-[7px] font-mono font-black uppercase px-1.5 py-0.5 rounded ${CARD_RARITY_META[c.rarity].chip}`}>
-                              {c.rarity}
-                            </span>
-                          </button>
-                          );
-                        })}
-                      </div>
-
-                      {totalCardPages > 1 && (
-                        <div className="flex items-center justify-center gap-2 pt-1">
-                          <button
-                            onClick={() => { if (playClickSound) playClickSound(); setCardPage(p => Math.max(0, p - 1)); }}
-                            disabled={safeCardPage === 0}
-                            className={`p-1.5 rounded-lg border border-slate-800 transition cursor-pointer ${safeCardPage === 0 ? 'opacity-40 cursor-not-allowed' : 'text-slate-200 hover:border-fuchsia-500/50 hover:bg-slate-800'}`}
-                            title={t('Anterior', 'Previous')}
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                          </button>
-                          <span className="text-[10px] font-mono text-slate-400">
-                            {safeCardPage + 1} / {totalCardPages}
-                          </span>
-                          <button
-                            onClick={() => { if (playClickSound) playClickSound(); setCardPage(p => Math.min(totalCardPages - 1, p + 1)); }}
-                            disabled={safeCardPage >= totalCardPages - 1}
-                            className={`p-1.5 rounded-lg border border-slate-800 transition cursor-pointer ${safeCardPage >= totalCardPages - 1 ? 'opacity-40 cursor-not-allowed' : 'text-slate-200 hover:border-fuchsia-500/50 hover:bg-slate-800'}`}
-                            title={t('Próxima', 'Next')}
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-
                 {/* VILA NINJA — ocultada por enquanto (permanece no DOM) */}
                 <div className="hidden bg-slate-950/90 border border-slate-800/90 rounded-2xl p-3.5 flex items-center gap-3.5 shadow-inner">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
@@ -503,6 +432,55 @@ export default function ProfileCardModal({
 
           </div>
         </motion.div>
+
+        {/* PAINEL LATERAL — FIGURINHAS COLECIONÁVEIS */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 20 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          className="w-[230px] sm:w-[335px] bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col"
+        >
+          <div className="flex-shrink-0 px-3 py-3 bg-gradient-to-r from-fuchsia-700/40 to-purple-700/40 border-b border-slate-800 flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-fuchsia-500/20 border border-fuchsia-500/40 flex items-center justify-center text-fuchsia-300 flex-shrink-0">
+              <Images className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[9px] text-fuchsia-300/80 font-mono block uppercase tracking-wider leading-none">{t('FIGURINHAS', 'CARDS')}</span>
+              <span className="text-[11px] font-black text-white font-mono leading-tight whitespace-nowrap">{ownedCards.length} {t('colecionadas', 'collected')}</span>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2.5">
+            {ownedCards.length === 0 ? (
+              <p className="text-[9px] text-slate-500 font-mono text-center py-3">{t('Nenhuma figurinha ainda. Abra pacotes para colecionar!', 'No cards yet. Open packs to collect!')}</p>
+            ) : (
+              <div className="grid grid-cols-5 gap-1.5">
+                {numberedOwned.map(({ card: c, num }) => {
+                  const fx = rarityFx(c.rarity);
+                  return (
+                  <button
+                    key={c.id}
+                    onClick={() => { if (playClickSound) playClickSound(); setLightboxCard(c); }}
+                    className={`relative aspect-[3/4] rounded-md overflow-hidden border ${CARD_RARITY_META[c.rarity].border} ${CARD_RARITY_META[c.rarity].glow} bg-slate-900 cursor-pointer group hover:scale-105 transition-transform shadow-lg flex-shrink-0 ${fx?.frame || ''}`}
+                    title={`#${String(num).padStart(3, '0')} — ${c.characterName} (${c.title})`}
+                  >
+                    <img src={cardImage(c)} alt={c.characterName} className="w-full h-full object-cover" />
+                    {fx && <span className={fx.sweep} />}
+                    <span className="absolute top-0.5 left-0.5 text-[6px] font-mono font-black text-white px-0.5 py-px rounded bg-slate-950/80 leading-none">
+                      #{String(num).padStart(3, '0')}
+                    </span>
+                    <span className={`absolute bottom-0.5 right-0.5 text-[5px] font-mono font-black uppercase px-1 py-px rounded ${CARD_RARITY_META[c.rarity].chip}`}>
+                      {c.rarity}
+                    </span>
+                  </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </motion.div>
+        </div>
       </div>
 
       {/* LIGHTBOX — figurinha ampliada */}
