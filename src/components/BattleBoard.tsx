@@ -2584,7 +2584,6 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       });
       setSelectedSkill(null);
       playCustomSound('Target');
-      addFloatingText(charId, 'Preparado!', 'effect');
     } else {
       setSelectedSkill({ charId, skillIndex: skillIdx });
     }
@@ -16958,7 +16957,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (effects.length === 0) return null;
 
     return (
-      <div className="mt-2.5 pt-2 border-t border-amber-900/30 space-y-1.5 text-[10px] font-mono text-left">
+      <div className="mt-2.5 pt-2 border-t border-amber-900/30 space-y-1.5 text-[10px] font-sans text-left">
         <p className="text-[10px] text-amber-950 font-extrabold uppercase tracking-wider mb-1 flex items-center gap-1">
           <span>Efeitos da Habilidade</span>
           <span className="bg-amber-900/30 text-amber-950 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold">{effects.length}</span>
@@ -16967,7 +16966,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           {effects.map((eff, idx) => (
             <div
               key={idx}
-              className="flex flex-col gap-1 bg-amber-100/70 border border-amber-900/30 p-2 rounded-lg text-[10px] font-mono shadow-sm"
+              className="flex flex-col gap-1 bg-amber-100/70 border border-amber-900/30 p-2 rounded-lg text-[10px] font-sans shadow-sm"
             >
               <div className="flex items-center justify-between">
                 <span className={`${eff.color} font-extrabold text-[10px]`}>{eff.label}</span>
@@ -17631,7 +17630,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                                     {/* Overlay stack badge ONLY if stacks > 1 */}
                                     {item.stacks > 1 && (
-                                      <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-amber-400 border-2 border-slate-950 text-[10px] font-mono font-black text-slate-950 shadow-md z-20">
+                                      <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-amber-400 border-2 border-slate-950 text-[10px] font-sans font-black text-slate-950 shadow-md z-20">
                                         {item.stacks}
                                       </span>
                                     )}
@@ -17640,7 +17639,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
                                       <div className="bg-slate-950/95 border border-slate-700 rounded-xl p-2.5 text-center shadow-2xl backdrop-blur-md min-w-[13rem] max-w-[16rem] text-white">
                                         <div className="flex items-center justify-center gap-1.5 mb-1.5 border-b border-slate-800/80 pb-1">
-                                          <span className={`text-[8px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
+                                          <span className={`text-[8px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
                                             isDebuff ? 'bg-red-950/80 border-red-800/80 text-red-400' : 'bg-emerald-950/80 border-emerald-800/80 text-emerald-400'
                                           }`}>
                                             {isDebuff ? 'DEBUFF' : 'BUFF'}
@@ -17650,7 +17649,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                                         {item.subEffects && item.subEffects.length > 1 ? (
                                           <div className="flex flex-col gap-1.5 my-1 text-left">
-                                            <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider text-center block">
+                                            <span className="text-[9px] font-sans font-bold text-slate-400 uppercase tracking-wider text-center block">
                                               Efeitos Aplicados ({item.subEffects.length}):
                                             </span>
                                             {item.subEffects.map((sub, sIdx) => (
@@ -17659,7 +17658,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                                   <span className="font-extrabold text-[11px] text-amber-300 truncate">
                                                     {sub.effect.name}
                                                   </span>
-                                                  <span className="text-[9px] font-mono text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
+                                                  <span className="text-[9px] font-sans text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
                                                     {sub.effect.duration >= 99999 ? '♾️ Permanente' : sub.effect.duration + 'T'}
                                                   </span>
                                                 </div>
@@ -17675,7 +17674,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                           </p>
                                         )}
 
-                                        <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 mt-1">
+                                        <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-sans text-slate-400 mt-1">
                                           <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️ Permanente' : eff.duration + 'T'}</strong></span>
                                           {item.stacks > 1 && (
                                             <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
@@ -17762,11 +17761,15 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                   }
                                   handleSelectSkill(combatant.id, sIdx);
                                 }}
-                                className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                                className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
+                                  isSelected || isCued
+                                    ? 'scale-110 -translate-y-2 z-30'
+                                    : ''
+                                } ${
                                   isSelected
-                                    ? 'shadow-lg shadow-amber-500/50 ring-2 ring-amber-400 z-20 scale-105'
+                                    ? 'shadow-lg shadow-amber-500/50 ring-2 ring-amber-400'
                                     : isCued
-                                    ? 'border-orange-500 shadow shadow-orange-600/35'
+                                    ? 'border-orange-500 shadow-lg shadow-orange-600/35 ring-2 ring-orange-400/70'
                                     : isStunBlocked
                                     ? 'border-red-600 bg-red-950/80 opacity-40 grayscale shadow-md shadow-red-950/60'
                                     : isCooldown
@@ -17863,20 +17866,13 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                                   
 
-                                  {/* Cued Indicator Overlay */}
-                                  {isCued && (
-                                    <div className="absolute inset-0 bg-orange-600/10 flex items-center justify-center">
-                                      <div className="bg-orange-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
-                                        PREPARADO
-                                      </div>
-                                    </div>
-                                  )}
-
                                   {/* Selected Target Prompt Overlay */}
                                   {isSelected && !isCued && (
-                                    <div className="absolute inset-0 bg-amber-950/90 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
-                                      <span className="text-amber-300 text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md">
+                                    <div className="absolute inset-0 bg-amber-950/90 flex flex-col items-center justify-center p-1 text-center z-20 animate-pulse">
+                                      <span className="text-amber-300 text-[9px] sm:text-[11px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md flex items-center gap-1.5">
+                                        <span>🎯</span>
                                         SELECIONE O ALVO
+                                        <span>🎯</span>
                                       </span>
                                     </div>
                                   )}
@@ -18758,7 +18754,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                                     {/* Overlay stack badge ONLY if stacks > 1 */}
                                     {item.stacks > 1 && (
-                                      <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-amber-400 border-2 border-slate-950 text-[10px] font-mono font-black text-slate-950 shadow-md z-20">
+                                      <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-amber-400 border-2 border-slate-950 text-[10px] font-sans font-black text-slate-950 shadow-md z-20">
                                         {item.stacks}
                                       </span>
                                     )}
@@ -18767,7 +18763,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
                                       <div className="bg-slate-950/95 border border-slate-700 rounded-xl p-2.5 text-center shadow-2xl backdrop-blur-md min-w-[13rem] max-w-[16rem] text-white">
                                         <div className="flex items-center justify-center gap-1.5 mb-1.5 border-b border-slate-800/80 pb-1">
-                                          <span className={`text-[8px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
+                                          <span className={`text-[8px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
                                             isDebuff ? 'bg-red-950/80 border-red-800/80 text-red-400' : 'bg-emerald-950/80 border-emerald-800/80 text-emerald-400'
                                           }`}>
                                             {isDebuff ? 'DEBUFF' : 'BUFF'}
@@ -18776,14 +18772,14 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                         </div>
 
                                         {(eff.isInvisible || eff.type === 'invisible') && (
-                                          <p className="text-[9px] font-mono font-bold text-pink-400 bg-pink-950/80 px-1.5 py-0.5 rounded border border-pink-800/80 my-1">
+                                          <p className="text-[9px] font-sans font-bold text-pink-400 bg-pink-950/80 px-1.5 py-0.5 rounded border border-pink-800/80 my-1">
                                             👁️‍🗨️ INVISÍVEL PARA O OPONENTE
                                           </p>
                                         )}
 
                                         {item.subEffects && item.subEffects.length > 1 ? (
                                           <div className="flex flex-col gap-1.5 my-1 text-left">
-                                            <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider text-center block">
+                                            <span className="text-[9px] font-sans font-bold text-slate-400 uppercase tracking-wider text-center block">
                                               Efeitos Aplicados ({item.subEffects.length}):
                                             </span>
                                             {item.subEffects.map((sub, sIdx) => (
@@ -18792,7 +18788,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                                   <span className="font-extrabold text-[11px] text-amber-300 truncate">
                                                     {sub.effect.name}
                                                   </span>
-                                                  <span className="text-[9px] font-mono text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
+                                                  <span className="text-[9px] font-sans text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
                                                     {sub.effect.duration >= 99999 ? '♾️ Permanente' : sub.effect.duration + 'T'}
                                                   </span>
                                                 </div>
@@ -18808,7 +18804,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                           </p>
                                         )}
 
-                                        <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-mono text-slate-400 mt-1">
+                                        <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-sans text-slate-400 mt-1">
                                           <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️ Permanente' : eff.duration + 'T'}</strong></span>
                                           {item.stacks > 1 && (
                                             <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
@@ -18911,11 +18907,15 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     }
                                     handleSelectSkill(combatant.id, sIdx);
                                   }}
-                                  className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                                  className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
+                                    isSelected || isCued
+                                    ? 'scale-110 -translate-y-2 z-30'
+                                    : ''
+                                  } ${
                                     isSelected
-                                    ? 'shadow-lg shadow-amber-500/50 ring-2 ring-amber-400 z-20 scale-105'
+                                    ? 'shadow-lg shadow-amber-500/50 ring-2 ring-amber-400'
                                       : isCued
-                                      ? 'border-emerald-500 shadow shadow-emerald-600/35'
+                                      ? 'border-emerald-500 shadow-lg shadow-emerald-600/35 ring-2 ring-emerald-400/70'
                                       : isStunBlocked
                                       ? 'border-red-600 bg-red-950/80 opacity-40 grayscale shadow-md shadow-red-950/60'
                                       : isCooldown
@@ -19017,20 +19017,13 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                       </div>
                                     )}
 
-                                    {/* Cued Indicator Overlay */}
-                                    {isCued && (
-                                      <div className="absolute inset-0 bg-emerald-600/10 flex items-center justify-center">
-                                        <div className="bg-emerald-500 text-slate-950 font-mono text-[8px] font-black uppercase px-1 rounded shadow-md">
-                                          PREPARADO
-                                        </div>
-                                      </div>
-                                    )}
-
                                     {/* Selected Target Prompt Overlay */}
                                     {isSelected && !isCued && (
-                                    <div className="absolute inset-0 bg-amber-950/90 flex flex-col items-center justify-center p-0.5 text-center z-20 animate-pulse">
-                                        <span className="text-amber-300 text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md">
+                                    <div className="absolute inset-0 bg-amber-950/90 flex flex-col items-center justify-center p-1 text-center z-20 animate-pulse">
+                                        <span className="text-amber-300 text-[9px] sm:text-[11px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md flex items-center gap-1.5">
+                                          <span>🎯</span>
                                           SELECIONE O ALVO
+                                          <span>🎯</span>
                                         </span>
                                       </div>
                                     )}
@@ -19414,9 +19407,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
               />
 
               <div className="relative z-10 flex flex-col items-center justify-between text-center space-y-4 h-full">
-                <h3 className="text-lg font-black uppercase tracking-tight text-center text-stone-950 font-sans">
-                  Trocar Chakra (4 → 1)
-                </h3>
+              
 
                 <div className="w-full">
                   <p className="text-xs font-bold text-stone-800 mb-2">Escolha 4 chakras para gastar:</p>

@@ -153,11 +153,15 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
   const currentPreset = PRESET_STYLED_FRAMES.find(f => f.name === equippedFrame);
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div
+        className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto"
+        onClick={() => { playClickSound(); onClose(); }}
+      >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
         className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]"
       >
         {/* Header Banner Preview */}

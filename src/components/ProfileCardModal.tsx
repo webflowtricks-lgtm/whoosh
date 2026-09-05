@@ -162,8 +162,11 @@ export default function ProfileCardModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-        <div className="flex items-stretch gap-3 max-h-[92vh]">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+        onClick={() => { if (playClickSound) playClickSound(); onClose(); }}
+      >
+        <div className="flex items-stretch gap-3 max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
