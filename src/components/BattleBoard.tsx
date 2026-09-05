@@ -15964,26 +15964,42 @@ if (skill.redirectOffensiveToCaster) {
 
   // Helper to render element icons
   const renderChakraIcon = (type: string) => {
-    let color = '';
+    let bg = '';
+    let glow = '';
+    let border = '';
     let name = '';
     if (type === 'Tai') {
-      color = 'bg-green-600 border-green-400';
+      bg = 'radial-gradient(circle at 35% 30%, #bbf7d0, #22c55e 45%, #14532d)';
+      glow = '0 0 5px rgba(34,197,94,0.95), 0 0 12px rgba(34,197,94,0.55)';
+      border = 'border-green-300/80';
       name = 'Taijutsu';
     } else if (type === 'Nin') {
-      color = 'bg-blue-600 border-blue-400';
+      bg = 'radial-gradient(circle at 35% 30%, #bfdbfe, #2563eb 45%, #1e3a8a)';
+      glow = '0 0 5px rgba(37,99,235,0.95), 0 0 12px rgba(37,99,235,0.55)';
+      border = 'border-blue-300/80';
       name = 'Ninjutsu';
     } else if (type === 'Gen') {
-      color = 'bg-white border-white/60';
+      bg = 'radial-gradient(circle at 35% 30%, #ffffff, #e2e8f0 55%, #94a3b8)';
+      glow = '0 0 5px rgba(255,255,255,0.95), 0 0 12px rgba(255,255,255,0.5)';
+      border = 'border-white/80';
       name = 'Genjutsu';
     } else if (type === 'Blood') {
-      color = 'bg-red-600 border-red-400';
+      bg = 'radial-gradient(circle at 35% 30%, #fecaca, #dc2626 45%, #7f1d1d)';
+      glow = '0 0 5px rgba(220,38,38,0.95), 0 0 12px rgba(220,38,38,0.55)';
+      border = 'border-red-300/80';
       name = 'Bloodline';
     } else {
-      color = 'bg-slate-600 border-slate-500';
+      bg = 'radial-gradient(circle at 35% 30%, #e2e8f0, #64748b 50%, #334155)';
+      glow = '0 0 5px rgba(148,163,184,0.95), 0 0 12px rgba(148,163,184,0.5)';
+      border = 'border-slate-300/80';
       name = 'Qualquer Chakra (Rand)';
     }
     return (
-      <div className={`w-3.5 h-3.5 rounded-full ${color} border`} title={name} />
+      <div
+        className={`w-3.5 h-3.5 rounded-full border ${border} shrink-0`}
+        style={{ background: bg, boxShadow: glow }}
+        title={name}
+      />
     );
   };
 
@@ -18175,8 +18191,8 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 <div className="grid grid-cols-3 gap-1 font-mono pb-0.5 px-1" style={{ paddingTop: '11px' }}>
                   {/* Paper 1: Custo */}
                   <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
-                    <span className="text-amber-950 font-black uppercase tracking-wider text-[8.5px] leading-none drop-shadow-xs">Custo</span>
-                    <div className="flex flex-wrap justify-center gap-0.5 mt-0.5 items-center max-w-full">
+                   
+                    <div className="flex flex-wrap justify-center gap-1 mt-0.5 items-center max-w-full">
                       {(() => {
                         const effectiveCost = getEffectiveSkillCost(inspectedSkill.skill, inspectedSkill.combatant, [...playerCombatants, ...enemyCombatants]);
                         if (inspectedSkill.skill.noChakraCost || effectiveCost.length === 0) {
@@ -18185,10 +18201,10 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                         return (
                           <>
                             {effectiveCost.map((c, idx) => (
-                              <div key={idx} className="scale-90 -m-0.5">{renderChakraIcon(c)}</div>
+                              <div key={idx} className="scale-90">{renderChakraIcon(c)}</div>
                             ))}
                             {effectiveCost.length < inspectedSkill.skill.cost.length && (
-                              <span className="text-[7.5px] font-black text-emerald-950 font-mono leading-none">⚡Reduzido</span>
+                              <span className="w-full text-center text-[7.5px] font-black text-emerald-950 font-mono leading-none mt-0.5">⚡Reduzido</span>
                             )}
                           </>
                         );
@@ -19146,8 +19162,8 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                   });
                                   setCenterTab('inspector');
                                 }}
-                                className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer opacity-70 hover:opacity-100 transition-all ${
-                                  isCooldown ? 'border-slate-950 opacity-30' : 'border-slate-800'
+                                className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                                  isCooldown ? 'border-slate-950 opacity-30' : 'border-slate-800 hover:border-slate-600'
                                 }`}
                               >
                                 <div className="absolute inset-0 rounded-lg overflow-hidden flex flex-col items-center justify-center">
