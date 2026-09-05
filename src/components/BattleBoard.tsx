@@ -979,7 +979,7 @@ function GameOverOverlay({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 select-none ${
+      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 select-none overflow-y-auto ${
         isVictory
           ? 'bg-slate-950/95 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-950/40 via-slate-950 to-slate-950'
           : 'bg-slate-950/95 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-950/40 via-slate-950 to-slate-950'
@@ -991,19 +991,19 @@ function GameOverOverlay({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="relative z-20 w-full max-w-3xl flex flex-col items-center justify-between text-center gap-4 sm:gap-6"
+        className="relative z-20 w-full max-w-2xl sm:max-w-[720px] flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2"
       >
         {/* Top Victory/Defeat Banner Badge */}
         <div className="flex flex-col items-center justify-center relative">
-          <div className="relative flex items-center justify-center gap-3 px-6 sm:px-10 py-2.5 sm:py-3 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+          <div className="relative flex items-center justify-center gap-2.5 px-6 sm:px-10 py-2 sm:py-2.5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
             {isVictory ? (
-              <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-amber-400" />
+              <Trophy className="w-7 h-7 sm:w-9 sm:h-9 text-amber-400" />
             ) : (
-              <Swords className="w-8 h-8 sm:w-10 sm:h-10 text-red-500" />
+              <Swords className="w-7 h-7 sm:w-9 sm:h-9 text-red-500" />
             )}
 
             <h1
-              className={`text-2xl sm:text-4xl font-black uppercase tracking-tight font-display ${
+              className={`text-2xl sm:text-3.5xl font-black uppercase tracking-tight font-display ${
                 isVictory
                   ? 'bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-400 bg-clip-text text-transparent'
                   : 'bg-gradient-to-r from-red-500 via-rose-400 to-red-600 bg-clip-text text-transparent'
@@ -1012,23 +1012,28 @@ function GameOverOverlay({
               {isVictory ? 'VITÓRIA!' : 'DERROTA!'}
             </h1>
             {surrenderReason && (
-              <p className="mt-2 text-sm font-bold px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-amber-200">
+              <p className="mt-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-amber-200">
                 {surrenderReason}
               </p>
             )}
           </div>
 
-          <p className="mt-2 text-xs sm:text-sm font-mono uppercase tracking-widest text-slate-300 font-bold bg-slate-900/90 px-4 py-1 rounded-full border border-slate-800">
+          <p className="mt-1.5 text-xs sm:text-xs font-mono uppercase tracking-wider text-slate-300 font-bold bg-slate-900/90 px-3.5 py-0.5 rounded-full border border-slate-800">
             {isVictory ? 'Esquadrão Conquistou a Supremacia' : 'Esquadrão Foi Superado'} • Turno {turn}
           </p>
         </div>
 
         {/* XP REWARD & RANK PROGRESS CARD */}
-        <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 text-center shadow-xl backdrop-blur-sm space-y-2">
+        <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-3.5 text-center shadow-xl backdrop-blur-sm space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs font-black uppercase text-amber-400">
-              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-              <span>Experiência da Batalha</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-300">Seu Posto:</span>
+              <span
+                className={`px-2.5 py-0.5 rounded-lg bg-gradient-to-r font-extrabold text-[11px] uppercase tracking-wider shadow ${newRankProgress.currentRank.color}`}
+                style={{ color: '#ffffff' }}
+              >
+                {newRankProgress.currentRank.name}
+              </span>
             </div>
             {actualXpChange >= 0 ? (
               <span className="text-xs font-black font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-500/40 shadow">
@@ -1041,18 +1046,8 @@ function GameOverOverlay({
             )}
           </div>
 
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-            <span>Seu Posto:</span>
-            <span
-              className={`px-2.5 py-0.5 rounded-lg bg-gradient-to-r font-extrabold text-[11px] uppercase tracking-wider shadow ${newRankProgress.currentRank.color}`}
-              style={{ color: '#ffffff' }}
-            >
-              {newRankProgress.currentRank.name}
-            </span>
-          </div>
-
           <div className="space-y-1">
-            <div className="relative w-full h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+            <div className="relative w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
               <motion.div
                 initial={{ width: `${oldRankProgress.progressPercent}%` }}
                 animate={{ width: `${newRankProgress.progressPercent}%` }}
@@ -1081,10 +1076,10 @@ function GameOverOverlay({
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
               transition={{ duration: 0.5, type: 'spring' }}
-              className="bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border border-amber-400/60 p-2 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+              className="bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border border-amber-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
             >
               <div className="text-xs font-black text-amber-300 uppercase tracking-wide flex items-center justify-center gap-1">
-                <Trophy className="w-4 h-4 text-yellow-300 animate-bounce" />
+                <Trophy className="w-3.5 h-3.5 text-yellow-300 animate-bounce" />
                 <span>SUBIU DE RANK!</span>
               </div>
               <p className="text-[11px] font-bold text-white">
@@ -1099,10 +1094,10 @@ function GameOverOverlay({
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
               transition={{ duration: 0.5, type: 'spring' }}
-              className="bg-gradient-to-r from-red-500/20 via-rose-500/30 to-red-500/20 border border-red-400/60 p-2 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
+              className="bg-gradient-to-r from-red-500/20 via-rose-500/30 to-red-500/20 border border-red-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
             >
               <div className="text-xs font-black text-rose-300 uppercase tracking-wide flex items-center justify-center gap-1">
-                <ShieldAlert className="w-4 h-4 text-rose-400 animate-bounce" />
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-400 animate-bounce" />
                 <span>DESCEU DE RANK!</span>
               </div>
               <p className="text-[11px] font-bold text-white">
@@ -1113,8 +1108,8 @@ function GameOverOverlay({
           )}
         </div>
 
-        {/* Center Stage: Character Lineup */}
-        <div className="w-full my-1 sm:my-2 flex items-center justify-center gap-3 sm:gap-5 flex-wrap min-h-[140px] sm:min-h-[180px]">
+        {/* Center Stage: Character Lineup with Pergaminho 3 */}
+        <div className="w-full flex items-center justify-center gap-3 sm:gap-6 flex-wrap">
           {showcaseTeam.map((combatant) => {
             const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
             const portrait = combatant.character.portrait;
@@ -1130,59 +1125,60 @@ function GameOverOverlay({
             return (
               <div
                 key={combatant.id}
-                className="relative group flex flex-col items-center"
+                className="relative group flex flex-col items-center select-none"
               >
-                {/* Character Box */}
+                {/* Pergaminho 3 Card Container */}
                 <div
-                  className={`relative w-28 sm:w-34 h-38 sm:h-48 rounded-2xl overflow-hidden border flex flex-col items-center p-2 shadow-xl ${
-                    skinImg ? 'justify-end' : 'justify-between'
-                  } ${
-                    isVictory
-                      ? combatant.isDead
-                        ? 'bg-slate-950 border-slate-800 opacity-60 grayscale'
-                        : 'bg-slate-900 border-amber-500/50 shadow-amber-950/30'
-                      : 'bg-slate-900 border-red-500/50 shadow-red-950/30'
+                  className={`relative w-30 sm:w-36 h-48 sm:h-58 flex flex-col items-center justify-center pt-3.5 pb-3.5 px-3 sm:px-4 filter drop-shadow-xl transition-transform duration-300 hover:scale-105 ${
+                    combatant.isDead ? 'opacity-60 grayscale' : ''
                   }`}
                 >
-                  {/* Character Standing PNG or Portrait */}
-                  <div className="relative flex-1 w-full min-h-0 flex items-center justify-center">
+                  {/* Background Pergaminho 3 Image */}
+                  <img
+                    src="/static/img/ui/pergaminho3.webp"
+                    alt="Pergaminho Ninja"
+                    className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
+                  />
+
+                  {/* Character Portrait / Skin Artwork */}
+                  <div className="relative z-10 flex items-center justify-center">
                     {skinImg ? (
-                      <MangekyoLoader
-                        src={skinImg}
-                        alt={combatant.character.name}
-                        className={`absolute inset-0 z-0 w-auto h-full max-w-none ${combatant.isDead ? 'grayscale opacity-50' : ''}`}
-                        imgClassName={`w-auto h-full max-w-none object-contain ${combatant.isDead ? 'grayscale opacity-50' : ''}`}
-                        iconScale={0.35}
-                      />
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
+                        <MangekyoLoader
+                          src={skinImg}
+                          alt={combatant.character.name}
+                          className="w-full h-full"
+                          imgClassName="w-full h-full object-contain filter drop-shadow-lg"
+                          iconScale={0.45}
+                        />
+                      </div>
                     ) : (
-                      <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full overflow-hidden border-2 border-amber-400/50 relative bg-slate-950">
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-amber-900/60 relative bg-slate-950 shadow-xl">
                         <MangekyoLoader
                           src={portrait}
                           alt={combatant.character.name}
                           className="w-full h-full"
-                          imgClassName={`${combatant.isDead ? 'grayscale opacity-50' : ''}`}
-                          iconScale={0.6}
+                          imgClassName="w-full h-full object-cover"
+                          iconScale={0.65}
                         />
                       </div>
                     )}
                   </div>
 
-                  {/* Character Name & Status Badge */}
-                  <div className="w-full text-center z-10 bg-slate-950/90 px-1.5 py-1 rounded-xl border border-slate-800">
-                    <p className="text-[10px] sm:text-xs font-extrabold text-white truncate font-display">
+                  {/* Character Name & Status right below photo */}
+                  <div className="relative z-10 w-full text-center flex flex-col items-center gap-0.5 mt-4.5">
+                    <p className="text-[11px] sm:text-xs font-black text-amber-950 truncate max-w-full font-display drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)] leading-tight">
                       {combatant.character.name}
                     </p>
-                    <div className="flex items-center justify-center gap-1 mt-0.5">
-                      {combatant.isDead ? (
-                        <span className="text-[9px] font-mono text-slate-400 bg-slate-900 px-1.5 py-0.2 rounded border border-slate-700">
-                          CAÍDO
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/80 px-1.5 py-0.2 rounded border border-amber-500/40">
-                          SOBREVIVENTE
-                        </span>
-                      )}
-                    </div>
+                    {combatant.isDead ? (
+                      <span className="text-[8px] sm:text-[9px] font-mono font-black text-red-950 bg-red-900/20 px-2 py-0.2 rounded-full border border-red-900/40 uppercase tracking-wider">
+                        MORTO
+                      </span>
+                    ) : (
+                      <span className="text-[8px] sm:text-[9px] font-mono font-black text-emerald-950 bg-emerald-700/20 px-2 py-0.2 rounded-full border border-emerald-800/40 uppercase tracking-wider shadow-xs">
+                        SOBREVIVENTE
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1191,29 +1187,29 @@ function GameOverOverlay({
         </div>
 
         {/* Scroll Banner Text & Action Button Card */}
-        <div className="relative max-w-md sm:max-w-lg w-full min-h-[160px] p-5 sm:p-6 flex flex-col items-center justify-between text-center gap-3">
+        <div className="relative max-w-sm w-full min-h-[135px] p-4 sm:p-5 flex flex-col items-center justify-between text-center gap-2.5">
           {/* Background Pergaminho Image */}
           <img
-            src="/static/img/ui/pergaminho.webp"
+            src="/static/img/ui/pergaminho2.webp"
             alt="Pergaminho Shinobi"
-            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none"
+            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
           />
 
-          <div className="relative z-10 px-4 pt-1 space-y-1">
-            <p className="text-xs sm:text-sm text-stone-900 font-extrabold leading-relaxed">
+          <div className="relative z-10 px-5 pt-1 space-y-0.5">
+            <p className="text-xs sm:text-sm text-stone-900 font-extrabold leading-snug">
               {isVictory
-                ? 'Parabéns! Você executou sua tática com maestria, subjugou as forças inimigas e conquistou a vitória no campo de batalha!'
-                : 'Seu esquadrão combateu bravamente, mas foi superado pelas táticas adversárias. Reorganize seus jutsus para a desforra!'}
+                ? 'Parabéns! Você executou sua tática com maestria e conquistou a vitória no campo de batalha!'
+                : 'Seu esquadrão combateu bravamente, mas foi superado pelas táticas adversárias!'}
             </p>
           </div>
 
-          <div className="relative z-10 w-full px-4 pb-1">
+          <div className="relative z-10 w-full flex justify-center pb-0.5">
             <button
               onClick={handleQuit}
-              className={`w-full py-3 px-6 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2 shadow-lg border ${
+              className={`py-2 sm:py-2.5 px-6 sm:px-8 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2 shadow-lg border ${
                 isVictory
-                  ? 'bg-gradient-to-r from-amber-700 via-amber-800 to-yellow-900 hover:from-amber-600 hover:to-yellow-800 text-amber-100 border-amber-600/70'
-                  : 'bg-gradient-to-r from-red-800 via-rose-900 to-red-950 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-600/70'
+                  ? 'bg-gradient-to-r from-amber-700 via-amber-800 to-yellow-900 hover:from-amber-600 hover:to-yellow-800 text-amber-100 border-amber-600/70 shadow-amber-950/40'
+                  : 'bg-gradient-to-r from-red-800 via-rose-900 to-red-950 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-600/70 shadow-red-950/40'
               }`}
             >
               <Sparkles className="w-4 h-4 text-amber-300" />
@@ -17062,15 +17058,15 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 />*/}
 
       {/* Battle Header (Fixed Bottom) */}
-      <header className="fixed bottom-0 left-0 right-0 z-20 h-16 sm:h-20 shadow-2xl flex items-center select-none header-footer">
+      <header className="fixed bottom-0 left-0 right-0 z-20 h-16 sm:h-20 flex items-center select-none header-footer pointer-events-none">
         {/* Background Pergaminho Image */}
         
-        <div className="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-10 flex justify-between items-center">
-          <div className="flex items-center gap-2 sm:gap-4">
+        <div className="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-10 flex justify-between items-center pointer-events-none">
+          <div className="flex items-center gap-2 sm:gap-4 pointer-events-none">
             {gameOver && (
               <button
                 onClick={handleQuit}
-                className="p-2 hover:bg-[#c49a5d] bg-[#d3ad75]/90 rounded-xl border border-[#7a4e25] text-stone-950 transition-all cursor-pointer shadow"
+                className="p-2 hover:bg-[#c49a5d] bg-[#d3ad75]/90 rounded-xl border border-[#7a4e25] text-stone-950 transition-all cursor-pointer shadow pointer-events-auto"
                 title="Sair do Combate"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -17078,12 +17074,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             )}
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 pointer-events-none">
             {/* End Turn Button */}
             <button
               onClick={handleEndTurnClick}
               disabled={isEndingTurn || isPreparing || isWaitingForOpponent || (!isSandbox && activePlanner !== 'player')}
-              className={`btn-end-turn px-4 sm:px-6 py-2 sm:py-2.5 ${
+              className={`btn-end-turn pointer-events-auto px-4 sm:px-6 py-2 sm:py-2.5 ${
                 isEndingTurn || isWaitingForOpponent
                   ? 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
                   : isSandbox
@@ -19510,7 +19506,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
               />
 
               {/* Parchment Content */}
-              <div className="relative z-10 flex flex-col items-center justify-between text-center space-y-6 h-full">
+              <div className="text-surrender relative z-10 flex flex-col items-center justify-between text-center space-y-6 h-full">
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center justify-center gap-2">
                     <Flag className="w-6 h-6 text-red-700 fill-red-600 animate-bounce" />
