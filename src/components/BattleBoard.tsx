@@ -17116,8 +17116,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       </div>
 
 
-      <div className="battle-scale-wrapper" style={{ transform: 'scale(0.85)', transformOrigin: 'top center' }}>
-      <main className="main-area battle-arena-layout max-w-[1700px] w-full mx-auto px-2 sm:px-4 pt-4 pb-36 flex-1 items-start">
+      <div className="battle-scale-wrapper">
+      <main className="main-area battle-arena-layout max-w-[1920px] w-full mx-auto px-2 sm:px-4 pt-4 pb-36 flex-1 items-start">
         {/* Left Side: PLAYER SQUAD */}
         <section className="battle-left-squad space-y-6">
           {/* BEAUTIFUL COMPETITIVE GAME USER PROFILE CARD */}
@@ -18111,11 +18111,12 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-auto ${className}`}
                     >
                       <span className="font-mono text-xs sm:text-sm font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] flex items-center justify-center">
-                        {val}
-                        {hasChange && (
-                          <span className="text-orange-300 text-[10px] sm:text-xs ml-1 font-bold animate-pulse">
+                        {hasChange ? (
+                          <span className="text-orange-300 font-bold animate-pulse">
                             ({simulatedVal})
                           </span>
+                        ) : (
+                          val
                         )}
                       </span>
                     </div>
@@ -18171,9 +18172,6 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                         </div>
                       </div>
                     </div>
-                    <p className="text-xs text-amber-100 font-medium mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-                     <span className="text-amber-300 font-extrabold">{inspectedSkill.ownerName}</span>
-                    </p>
                   </div>
                 </div>
 
@@ -18611,15 +18609,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     })()}
 
                     <div className="flex-1 space-y-1.5">
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-bold text-sm tracking-tight flex items-center gap-1.5 flex-wrap">
-                          {combatant.character.name}
-                          {checkCombatantInvulnerable(combatant) && (
-                            <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
-                              🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
-                            </span>
-                          )}
-                        </h4>
+                      <div className="flex items-start gap-2 flex-row-reverse">
                         {combatant.shield > 0 && (() => {
                           const shieldRemaining = combatant.shieldExpiresTurn ? combatant.shieldExpiresTurn - turn : null;
                           return (
@@ -18636,6 +18626,14 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                             </span>
                           );
                         })()}
+                        <h4 className="font-bold text-sm tracking-tight flex items-center gap-1.5 flex-wrap justify-end text-right">
+                          {combatant.character.name}
+                          {checkCombatantInvulnerable(combatant) && (
+                            <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
+                              🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
+                            </span>
+                          )}
+                        </h4>
                       </div>
 
                       {/* Health bar */}
