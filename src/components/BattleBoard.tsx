@@ -944,6 +944,15 @@ interface GameOverOverlayProps {
   turn: number;
   matchStats?: { damageDealt: number };
   surrenderReason?: string | null;
+  onlineParams?: {
+    isOnline: boolean;
+    roomId: string;
+    playerIndex: number;
+    seed: number;
+    opponentProfile: UserProfile;
+  } | null;
+  onViewProfile?: (profile: ProfileCardData, isSelf: boolean) => void;
+  playClickSound?: () => void;
 }
 
 function GameOverOverlay({
@@ -955,6 +964,9 @@ function GameOverOverlay({
   turn,
   matchStats,
   surrenderReason,
+  onlineParams,
+  onViewProfile,
+  playClickSound,
 }: GameOverOverlayProps) {
   const { t } = useLanguage();
   const isVictory = gameOver === 'victory';
@@ -972,6 +984,13 @@ function GameOverOverlay({
   const oldRankProgress = getRankProgress(oldXp, ranks);
   const newRankProgress = getRankProgress(newXp, ranks);
   const rankChangeInfo = checkRankChange(oldXp, newXp, ranks);
+
+  const isOnline = !!onlineParams?.isOnline;
+  const opp = isOnline ? onlineParams.opponentProfile : null;
+  const opponentXp = isOnline ? (onlineParams.opponentProfile?.xp || 0) : 0;
+  const oppRankProgress = getRankProgress(opponentXp, ranks);
+  const oppCurrentRank = oppRankProgress.currentRank;
+  const playerRankObj = newRankProgress.currentRank;
 
   return (
     <motion.div
@@ -1044,7 +1063,7 @@ function GameOverOverlay({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="relative z-20 w-full max-w-2xl sm:max-w-[720px] flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2"
+        className="relative z-20 w-full max-w-5xl flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
       >
         {/* Top Victory/Defeat Banner Badge */}
         <div className="flex flex-col items-center justify-center relative">
@@ -1076,104 +1095,313 @@ function GameOverOverlay({
           </p>
         </div>
 
-        {/* XP REWARD & RANK PROGRESS CARD */}
-        <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-3.5 text-center shadow-xl backdrop-blur-sm space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-300">RANK:</span>
-              <span
-                className={`px-2.5 py-0.5 rounded-lg bg-gradient-to-r font-extrabold text-[11px] uppercase tracking-wider shadow ${newRankProgress.currentRank.color}`}
-                style={{ color: '#ffffff' }}
-              >
-                {newRankProgress.currentRank.name}
-              </span>
+        {/* ROW: PLAYER PROFILE CARD | XP REWARD & RANK PROGRESS CARD | OPPONENT PROFILE CARD */}
+        <div className="w-full flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 relative">
+          {/* Left: Player Profile Card with Floating Standing Skin Artwork below */}
+          <div className="relative flex-1 w-full max-w-[290px] flex flex-col items-center">
+            <div
+              onClick={() => {
+                if (playClickSound) playClickSound();
+                if (onViewProfile) {
+                  onViewProfile({
+                    name: user.name,
+                    username: user.username,
+                    photoUrl: user.photoUrl,
+                    title: user.title,
+                    equippedFrame: user.equippedFrame,
+                    equippedFrameUrl: user.equippedFrameUrl,
+                    equippedBannerUrl: user.equippedBannerUrl,
+                    equippedBannerPositionY: user.equippedBannerPositionY,
+                    equippedBannerPositionX: user.equippedBannerPositionX,
+                    equippedShowcaseSkinUrl: user.equippedShowcaseSkinUrl,
+                    xp: newXp,
+                    rank: user.rank,
+                    wins: user.wins || 0,
+                    losses: user.losses || 0,
+                    village: 'Vila da Folha (Konoha)',
+                    collectedCardIds: user.collectedCardIds || [],
+                  }, true);
+                }
+              }}
+              className="relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-3 sm:p-3.5 flex items-center gap-3 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer w-full z-10"
+              title="Clique para ver o Card do Perfil"
+            >
+              {user.equippedBannerUrl && (
+                <img
+                  src={user.equippedBannerUrl || undefined}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none rounded-2xl z-0"
+                  style={{ objectPosition: `${user.equippedBannerPositionX ?? 50}% ${user.equippedBannerPositionY ?? 50}%` }}
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              {user.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/50 to-slate-900/20 pointer-events-none rounded-2xl z-0" />}
+              <div className="absolute top-0 right-0 w-24 h-24 bg-orange-600/5 rounded-full blur-2xl group-hover:bg-orange-600/10 transition-all pointer-events-none z-0" />
+
+              <div className="relative z-10 w-12 h-12 flex-shrink-0">
+                <div className="absolute inset-0 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
+                <div className="relative w-full h-full rounded-full border-2 border-orange-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
+                  <img
+                    src={user.photoUrl || undefined}
+                    alt={user.name}
+                    className="w-full h-full rounded-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                {user.equippedFrameUrl && (
+                  <img
+                    src={user.equippedFrameUrl || undefined}
+                    alt="Moldura"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[135%] h-[135%] max-w-none pointer-events-none object-contain z-10"
+                  />
+                )}
+              </div>
+
+              <div className="relative z-10 flex-1 text-left min-w-0">
+                <p className="text-[10px] font-mono text-orange-400 font-black uppercase tracking-wider mb-0.5 drop-shadow truncate">
+                  {user.title || 'Shinobi'}
+                </p>
+                <h4 className="text-sm font-black tracking-tight text-white uppercase truncate flex items-center gap-1 font-display group-hover:text-orange-400 transition-colors drop-shadow">
+                  {user.name}
+                </h4>
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  {(() => {
+                    const r = playerRankObj;
+                    const isNone = !r.color || r.color === 'none';
+                    const bgClass = isNone ? '' : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
+                    return (
+                      <span
+                        className={`px-2 py-0.5 rounded-md border text-[9px] font-mono font-black uppercase tracking-wider shadow-md flex items-center gap-1 overflow-hidden relative ${bgClass}`}
+                        style={{
+                          ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
+                          color: r.fontColor || '#ffffff',
+                        }}
+                      >
+                        {r.name}
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
-            {actualXpChange >= 0 ? (
-              <span className="text-xs font-black font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-500/40 shadow">
-                +{actualXpChange} XP
-              </span>
-            ) : (
-              <span className="text-xs font-black font-mono text-rose-400 bg-rose-950/80 px-2.5 py-0.5 rounded-full border border-rose-500/40 shadow">
-                {actualXpChange} XP
-              </span>
+
+            {/* Player Full Standing Skin Artwork (Sem borda, sem fundo, posição absoluta para não empurrar nada) */}
+            {user.equippedShowcaseSkinUrl && user.equippedShowcaseSkinUrl !== 'none' && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-36 sm:w-44 h-48 sm:h-60 pointer-events-none select-none z-0 flex items-start justify-center">
+                <img
+                  src={user.equippedShowcaseSkinUrl}
+                  alt={user.name}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-contain filter drop-shadow-[0_8px_20px_rgba(0,0,0,0.85)] drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    img.style.display = 'none';
+                  }}
+                />
+              </div>
             )}
           </div>
 
-          <div className="space-y-1">
-            <div className="relative w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-              <motion.div
-                initial={{ width: `${oldRankProgress.progressPercent}%` }}
-                animate={{ width: `${newRankProgress.progressPercent}%` }}
-                transition={{ duration: 1, ease: 'easeOut' }}
-                className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400 shadow-[0_0_12px_rgba(251,191,36,0.5)]"
-              />
-            </div>
-            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-              {newRankProgress.isMaxRank ? (
-                <span className="text-amber-300 font-bold w-full text-center">
-                  🏆 Posto Máximo Alcançado! ({newXp.toLocaleString()} XP)
+          {/* Center: XP REWARD & RANK PROGRESS CARD */}
+          <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-3.5 text-center shadow-xl backdrop-blur-sm space-y-2 flex-shrink-0 z-10">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-300">RANK:</span>
+                <span
+                  className={`px-2.5 py-0.5 rounded-lg bg-gradient-to-r font-extrabold text-[11px] uppercase tracking-wider shadow ${newRankProgress.currentRank.color}`}
+                  style={{ color: '#ffffff' }}
+                >
+                  {newRankProgress.currentRank.name}
+                </span>
+              </div>
+              {actualXpChange >= 0 ? (
+                <span className="text-xs font-black font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-500/40 shadow">
+                  +{actualXpChange} XP
                 </span>
               ) : (
-                <>
-                  <span>{newRankProgress.currentXp.toLocaleString()} XP</span>
-                  <span>
-                    Próximo: {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP ({newRankProgress.nextRank?.name})
-                  </span>
-                </>
+                <span className="text-xs font-black font-mono text-rose-400 bg-rose-950/80 px-2.5 py-0.5 rounded-full border border-rose-500/40 shadow">
+                  {actualXpChange} XP
+                </span>
               )}
             </div>
+
+            <div className="space-y-1">
+              <div className="relative w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                <motion.div
+                  initial={{ width: `${oldRankProgress.progressPercent}%` }}
+                  animate={{ width: `${newRankProgress.progressPercent}%` }}
+                  transition={{ duration: 1, ease: 'easeOut' }}
+                  className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400 shadow-[0_0_12px_rgba(251,191,36,0.5)]"
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                {newRankProgress.isMaxRank ? (
+                  <span className="text-amber-300 font-bold w-full text-center">
+                    🏆 Posto Máximo Alcançado! ({newXp.toLocaleString()} XP)
+                  </span>
+                ) : (
+                  <>
+                    <span>{newRankProgress.currentXp.toLocaleString()} XP</span>
+                    <span>
+                      Próximo: {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP ({newRankProgress.nextRank?.name})
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {rankChangeInfo.rankedUp && (
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
+                transition={{ duration: 0.5, type: 'spring' }}
+                className="bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border border-amber-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+              >
+                <div className="text-xs font-black text-amber-300 uppercase tracking-wide flex items-center justify-center gap-1">
+                  <Trophy className="w-3.5 h-3.5 text-yellow-300 animate-bounce" />
+                  <span>SUBIU DE RANK!</span>
+                </div>
+                <p className="text-[11px] font-bold text-white">
+                  Parabéns! Você alcançou o posto de{' '}
+                  <span className="text-amber-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>!
+                </p>
+              </motion.div>
+            )}
+
+            {rankChangeInfo.rankedDown && (
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
+                transition={{ duration: 0.5, type: 'spring' }}
+                className="bg-gradient-to-r from-red-500/20 via-rose-500/30 to-red-500/20 border border-red-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
+              >
+                <div className="text-xs font-black text-rose-300 uppercase tracking-wide flex items-center justify-center gap-1">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400 animate-bounce" />
+                  <span>DESCEU DE RANK!</span>
+                </div>
+                <p className="text-[11px] font-bold text-white">
+                  A perda de XP rebaixou seu posto para{' '}
+                  <span className="text-rose-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>.
+                </p>
+              </motion.div>
+            )}
           </div>
 
-          {rankChangeInfo.rankedUp && (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
-              transition={{ duration: 0.5, type: 'spring' }}
-              className="bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border border-amber-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+          {/* Right: Opponent Profile Card with Floating Standing Skin Artwork below */}
+          <div className="relative flex-1 w-full max-w-[290px] flex flex-col items-center">
+            <div
+              onClick={() => {
+                if (playClickSound) playClickSound();
+                if (onViewProfile) {
+                  onViewProfile({
+                    name: opp?.name || 'I.A. Kakashi',
+                    username: opp?.username || 'ia_kakashi',
+                    photoUrl: opp?.photoUrl || 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kakashi-hatake/icon.jpg',
+                    title: opp?.title || (isOnline ? 'Oponente' : 'Renegado S-Rank'),
+                    equippedFrame: opp?.equippedFrame,
+                    equippedFrameUrl: opp?.equippedFrameUrl,
+                    equippedBannerUrl: opp?.equippedBannerUrl,
+                    equippedBannerPositionY: opp?.equippedBannerPositionY,
+                    equippedBannerPositionX: opp?.equippedBannerPositionX,
+                    equippedShowcaseSkinUrl: opp?.equippedShowcaseSkinUrl,
+                    isBot: !isOnline,
+                    xp: opp?.xp || 1500,
+                    rank: opp?.rank || 'Anbu',
+                    wins: opp?.wins || 35,
+                    losses: opp?.losses || 12,
+                    village: isOnline ? 'Vila Oponente' : 'Vila do Som',
+                    collectedCardIds: opp?.collectedCardIds || [],
+                  }, false);
+                }
+              }}
+              className="relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-3 sm:p-3.5 flex items-center gap-3 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer w-full z-10"
+              title="Clique para ver o Card do Perfil do Oponente"
             >
-              <div className="text-xs font-black text-amber-300 uppercase tracking-wide flex items-center justify-center gap-1">
-                <Trophy className="w-3.5 h-3.5 text-yellow-300 animate-bounce" />
-                <span>SUBIU DE RANK!</span>
-              </div>
-              <p className="text-[11px] font-bold text-white">
-                Parabéns! Você alcançou o posto de{' '}
-                <span className="text-amber-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>!
-              </p>
-            </motion.div>
-          )}
+              {isOnline && opp?.equippedBannerUrl && (
+                <img
+                  src={opp.equippedBannerUrl || undefined}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none rounded-2xl z-0"
+                  style={{ objectPosition: `${opp.equippedBannerPositionX ?? 50}% ${opp.equippedBannerPositionY ?? 50}%` }}
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              {isOnline && opp?.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/50 to-slate-900/20 pointer-events-none rounded-2xl z-0" />}
+              <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 rounded-full blur-2xl group-hover:bg-red-600/10 transition-all pointer-events-none z-0" />
 
-          {rankChangeInfo.rankedDown && (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
-              transition={{ duration: 0.5, type: 'spring' }}
-              className="bg-gradient-to-r from-red-500/20 via-rose-500/30 to-red-500/20 border border-red-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
-            >
-              <div className="text-xs font-black text-rose-300 uppercase tracking-wide flex items-center justify-center gap-1">
-                <ShieldAlert className="w-3.5 h-3.5 text-rose-400 animate-bounce" />
-                <span>DESCEU DE RANK!</span>
+              <div className="relative z-10 w-12 h-12 flex-shrink-0">
+                <div className="absolute inset-0 bg-gradient-to-tr from-red-600 to-rose-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
+                <div className="relative w-full h-full rounded-full border-2 border-red-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
+                  <MangekyoLoader
+                    src={isOnline && opp ? opp.photoUrl : 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kakashi-hatake/icon.jpg'}
+                    alt={isOnline && opp ? opp.name : 'I.A. Oponente'}
+                    className="w-full h-full rounded-full"
+                    imgClassName="rounded-full scale-x-[-1]"
+                    iconScale={0.5}
+                  />
+                </div>
+                {isOnline && opp?.equippedFrameUrl && (
+                  <img
+                    src={opp.equippedFrameUrl || undefined}
+                    alt="Moldura Oponente"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[135%] h-[135%] max-w-none pointer-events-none object-contain z-10"
+                  />
+                )}
+                <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-red-600 to-rose-500 text-white text-[7px] font-black font-mono uppercase tracking-widest px-1.5 py-0.2 rounded-full border border-slate-950 shadow z-20">
+                  {isOnline ? 'LIVE' : 'BOT'}
+                </div>
               </div>
-              <p className="text-[11px] font-bold text-white">
-                A perda de XP rebaixou seu posto para{' '}
-                <span className="text-rose-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>.
-              </p>
-            </motion.div>
-          )}
+
+              <div className="relative z-10 flex-1 text-right min-w-0">
+                <p className="text-[10px] font-mono text-red-400 font-black uppercase tracking-wider mb-0.5 drop-shadow truncate">
+                  {isOnline && opp ? (opp.title || 'Oponente') : 'Renegado S-Rank'}
+                </p>
+                <h4 className="text-sm font-black tracking-tight text-white uppercase truncate flex items-center justify-end gap-1 font-display group-hover:text-red-400 transition-colors drop-shadow">
+                  {isOnline && opp ? opp.name : 'I.A. Kakashi'}
+                </h4>
+                <div className="flex items-center justify-end gap-1.5 mt-0.5 flex-wrap">
+                  {(() => {
+                    const r = oppCurrentRank;
+                    const isNone = !r.color || r.color === 'none';
+                    const bgClass = isNone ? '' : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
+                    return (
+                      <span
+                        className={`px-2 py-0.5 rounded-md border text-[9px] font-mono font-black uppercase tracking-wider shadow-md flex items-center justify-end gap-1 overflow-hidden relative ${bgClass}`}
+                        style={{
+                          ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
+                          color: r.fontColor || '#ffffff',
+                        }}
+                      >
+                        {r.name}
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Opponent Full Standing Skin Artwork (Sem borda, sem fundo, posição absoluta para não empurrar nada) */}
+            {isOnline && opp?.equippedShowcaseSkinUrl && opp.equippedShowcaseSkinUrl !== 'none' && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-36 sm:w-44 h-48 sm:h-60 pointer-events-none select-none z-0 flex items-start justify-center">
+                <img
+                  src={opp.equippedShowcaseSkinUrl}
+                  alt={opp.name}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-contain filter drop-shadow-[0_8px_20px_rgba(0,0,0,0.85)] drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] scale-x-[-1]"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    img.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Center Stage: Character Lineup with Pergaminho 3 */}
         <div className="w-full flex items-center justify-center gap-3 sm:gap-6 flex-wrap">
           {showcaseTeam.map((combatant) => {
-            const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
             const portrait = combatant.character.portrait;
-            const isPortrait = !!(
-              rawSkin &&
-              portrait &&
-              (rawSkin.trim().toLowerCase() === portrait.trim().toLowerCase() ||
-                rawSkin.toLowerCase().endsWith('/icon.jpg') ||
-                rawSkin.toLowerCase().endsWith('/icon.png'))
-            );
-            const skinImg = rawSkin && !isPortrait ? rawSkin : null;
 
             return (
               <div
@@ -1193,33 +1421,21 @@ function GameOverOverlay({
                     className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
                   />
 
-                  {/* Character Portrait / Skin Artwork */}
+                  {/* Character Portrait (Sempre a foto oficial do ninja) */}
                   <div className="relative z-10 flex items-center justify-center">
-                    {skinImg ? (
-                      <div className="w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
-                        <MangekyoLoader
-                          src={skinImg}
-                          alt={combatant.character.name}
-                          className="w-full h-full"
-                          imgClassName="w-full h-full object-contain filter drop-shadow-lg"
-                          iconScale={0.45}
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-amber-900/60 relative bg-slate-950 shadow-xl">
-                        <MangekyoLoader
-                          src={portrait}
-                          alt={combatant.character.name}
-                          className="w-full h-full"
-                          imgClassName="w-full h-full object-cover"
-                          iconScale={0.65}
-                        />
-                      </div>
-                    )}
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-amber-900/60 relative bg-slate-950 shadow-xl">
+                      <MangekyoLoader
+                        src={portrait}
+                        alt={combatant.character.name}
+                        className="w-full h-full"
+                        imgClassName="w-full h-full object-cover"
+                        iconScale={0.65}
+                      />
+                    </div>
                   </div>
 
                   {/* Character Name & Status right below photo */}
-                  <div className="relative z-10 w-full text-center flex flex-col items-center gap-0.5 mt-4.5">
+                  <div className="relative z-10 w-full text-center flex flex-col items-center gap-0.5 mt-2">
                     <p className="text-[11px] sm:text-xs font-black text-amber-950 truncate max-w-full font-display drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)] leading-tight">
                       {combatant.character.name}
                     </p>
@@ -1228,9 +1444,14 @@ function GameOverOverlay({
                         MORTO
                       </span>
                     ) : (
-                      <span className="text-[8px] sm:text-[9px] font-mono font-black text-emerald-950 bg-emerald-700/20 px-2 py-0.2 rounded-full border border-emerald-800/40 uppercase tracking-wider shadow-xs">
-                        SOBREVIVENTE
-                      </span>
+                      <>
+                        <span className="text-[8px] sm:text-[9px] font-mono font-black text-emerald-950 bg-emerald-700/20 px-2 py-0.2 rounded-full border border-emerald-800/40 uppercase tracking-wider shadow-xs">
+                          SOBREVIVENTE
+                        </span>
+                        <span className="text-[9px] sm:text-[10px] font-mono font-black text-emerald-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+                          ❤️ {combatant.health} / {combatant.maxHealth}
+                        </span>
+                      </>
                     )}
                   </div>
                 </div>
@@ -19430,6 +19651,9 @@ onClick={() => handleSelectTarget(combatant.id, true)}
             turn={turn}
             matchStats={matchStatsRef.current}
             surrenderReason={surrenderReason}
+            onlineParams={onlineParams}
+            onViewProfile={(profile, isSelf) => setViewingProfile({ profile, isSelf })}
+            playClickSound={playClickSound}
           />
         )}
       </AnimatePresence>
