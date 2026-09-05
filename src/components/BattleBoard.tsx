@@ -17774,7 +17774,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                   }
                                   handleSelectSkill(combatant.id, sIdx);
                                 }}
-                                className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
+                                className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-[transform,box-shadow,border-color,opacity,filter] duration-300 will-change-transform ${
                                   isSelected || isCued
                                     ? 'scale-110 -translate-y-2 z-30'
                                     : ''
@@ -17796,7 +17796,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                   <img 
                                     src={skill.icon || null} 
                                     alt={skill.name} 
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover skill-tile-img"
                                     onError={(e) => {
                                       const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
                                     }}
@@ -18154,7 +18154,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                     <img 
                       src={inspectedSkill.skill.icon || null} 
                       alt={inspectedSkill.skill.name} 
-                      className={`w-full h-full object-cover ${inspectedSkill.isEnemy ? 'scale-x-[-1]' : ''}`}
+                      className={`w-full h-full object-cover skill-tile-img ${inspectedSkill.isEnemy ? 'scale-x-[-1]' : ''}`}
                       onError={(e) => {
                         const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
                       }}
@@ -18939,7 +18939,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     <img 
                                       src={skill.icon || null} 
                                       alt={skill.name} 
-                                      className="w-full h-full object-cover scale-x-[-1]" 
+                                      className="w-full h-full object-cover scale-x-[-1] skill-tile-img" 
                                       onError={(e) => {
                                         const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
                                       }}
@@ -19161,7 +19161,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                 }`}
                               >
                                 <div className="absolute inset-0 rounded-lg overflow-hidden flex flex-col items-center justify-center">
-                                  <img src={skill.icon || null} alt={skill.name} className="w-full h-full object-cover scale-x-[-1]" />
+                                  <img src={skill.icon || null} alt={skill.name} className="w-full h-full object-cover scale-x-[-1] skill-tile-img" />
 
                                   {/* Cooldown Overlay */}
                                   {isCooldown && (

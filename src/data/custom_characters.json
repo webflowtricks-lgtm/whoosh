@@ -5911,7 +5911,7 @@
           "Físico",
           "Melee"
         ],
-        "damage": 30,
+        "damage": 25,
         "costRules": [
           {
             "activeSkillName": "Sand Transformation",
@@ -7107,7 +7107,8 @@
         ],
         "cannotBeReflected": true,
         "cannotBeCountered": true,
-        "ignoreInvulnerable": true
+        "ignoreInvulnerable": true,
+        "deathLinkDuration": 4
       },
       {
         "name": "Life Transfer",

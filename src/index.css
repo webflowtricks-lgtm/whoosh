@@ -673,6 +673,17 @@ html, body {
   scrollbar-color: #d97706 rgba(15, 23, 42, 0.35);
 }
 
+/* =========================================================
+   IMAGENS DE SKILL NOS TILES DA BATALHA
+   As imagens originais são 75x75 e são ampliadas (object-cover)
+   nos tiles; forçamos reamostragem mais nítida no upscale.
+   ========================================================= */
+.skill-tile-img {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  backface-visibility: hidden;
+}
+
 .quest-div-pai {
   background-image: url('/static/img/bg/background-quest.jpg');
   background-size: cover;
