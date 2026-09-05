@@ -7087,8 +7087,10 @@
           "all_buffs",
           "stack"
         ],
-        "invulnerableDuration": 1,
-        "invulnerableTarget": "Target"
+        "invulnerableDuration": 0,
+        "invulnerableTarget": "Target",
+        "totalInvulnerableDuration": 2,
+        "totalInvulnerableTarget": "Target"
       },
       {
         "name": "Life Link",
@@ -7142,7 +7144,7 @@
         ],
         "cooldown": 4,
         "currentCooldown": 0,
-        "targetType": "Enemy",
+        "targetType": "Self",
         "classes": [
           "Amigável",
           "Físico"

@@ -17727,7 +17727,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                               }));
                             }}
                             disabled={skillsPage === 0}
-                            className={`absolute -left-2 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
+                            className={`absolute -left-2 top-1/2 -translate-y-1/2 z-40 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
                               skillsPage === 0 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
                             }`}
                             title="Anterior"
@@ -17760,18 +17760,9 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                 key={sIdx}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (isStunBlocked) {
-                                    addFloatingText(combatant.id, `⚡ ATORDOADO! (${skill.name})`, 'stun');
-                                    return;
-                                  }
-                                  if (isDelayedUnlockLocked) {
-                                    addFloatingText(combatant.id, `🔒 BLOQUEADA! (${skill.name})`, 'stun');
-                                    return;
-                                  }
-                                  if (isRequiredEffectLocked) {
-                                    addFloatingText(combatant.id, `Requer ${skill.requireEffect}!`, 'effect');
-                                    return;
-                                  }
+                                  // Sempre chama handleSelectSkill: ele ABRE o inspector (para ler as
+                                  // características da skill) e depois bloqueia a seleção com floating
+                                  // text se a skill estiver atordoada/bloqueada/render usos etc.
                                   handleSelectSkill(combatant.id, sIdx);
                                 }}
                                 className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-[transform,box-shadow,border-color,opacity,filter] duration-300 will-change-transform ${
@@ -17804,7 +17795,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                                   {/* Cooldown Overlay */}
                                   {isCooldown && (
-                                    <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center pointer-events-none">
                                       <span className="font-mono text-xs font-black text-orange-400">
                                         {skill.currentCooldown}
                                       </span>
@@ -17813,7 +17804,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                                   {/* Stun Blocked Overlay */}
                                   {isStunBlocked && !isCooldown && (
-                                    <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10">
+                                    <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10 pointer-events-none">
                                       <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">⚡</span>
                                       <span className="text-[8px] font-mono font-black text-red-200 uppercase tracking-wider drop-shadow-md">STUN</span>
                                     </div>
@@ -18007,7 +17998,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                               }));
                             }}
                             disabled={skillsPage === totalSkillPages - 1}
-                            className={`absolute -right-2 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
+                            className={`absolute -right-2 top-1/2 -translate-y-1/2 z-40 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
                               skillsPage === totalSkillPages - 1 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
                             }`}
                             title="Próximo"
@@ -18854,7 +18845,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                               }));
                             }}
                             disabled={skillsPage === 0}
-                            className={`absolute -left-2 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
+                            className={`absolute -left-2 top-1/2 -translate-y-1/2 z-40 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
                               skillsPage === 0 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
                             }`}
                             title="Anterior"
@@ -18907,14 +18898,9 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                   key={sIdx}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (isStunBlocked) {
-                                      addFloatingText(combatant.id, 'ATORDOADO!', 'stun');
-                                      return;
-                                    }
-                                    if (isRequiredEffectLocked) {
-                                      addFloatingText(combatant.id, `Requer ${skill.requireEffect}!`, 'effect');
-                                      return;
-                                    }
+                                    // Sempre chama handleSelectSkill: ele ABRE o inspector (para ler as
+                                    // características da skill) e depois bloqueia a seleção com floating
+                                    // text se a skill estiver bloqueada.
                                     handleSelectSkill(combatant.id, sIdx);
                                   }}
                                   className={`group relative aspect-square rounded-lg border bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
@@ -18947,7 +18933,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                                     {/* Cooldown Overlay */}
                                     {isCooldown && (
-                                      <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
+                                      <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center pointer-events-none">
                                         <span className="font-mono text-xs font-black text-orange-400">
                                           {skill.currentCooldown}
                                         </span>
@@ -18956,7 +18942,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                                     {/* Stun Blocked Overlay */}
                                     {isStunBlocked && !isCooldown && (
-                                      <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10">
+                                      <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10 pointer-events-none">
                                         <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">⚡</span>
                                         <span className="text-[8px] font-mono font-black text-red-200 uppercase tracking-wider drop-shadow-md">STUN</span>
                                       </div>
@@ -19165,7 +19151,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                                   {/* Cooldown Overlay */}
                                   {isCooldown && (
-                                    <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center pointer-events-none">
                                       <span className="font-mono text-xs font-black text-orange-400">
                                         {skill.currentCooldown}
                                       </span>
@@ -19256,7 +19242,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                               }));
                             }}
                             disabled={skillsPage === totalSkillPages - 1}
-                            className={`absolute -right-2 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
+                            className={`absolute -right-2 top-1/2 -translate-y-1/2 z-40 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
                               skillsPage === totalSkillPages - 1 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
                             }`}
                             title="Próximo"

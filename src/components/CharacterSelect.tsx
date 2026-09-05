@@ -1002,11 +1002,18 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   <div className="flex gap-4 overflow-x-auto pb-2 pt-2 items-center justify-center min-h-[160px] max-h-[220px] bg-amber-950/10 rounded-xl border border-amber-900/20 p-3">
                     {(() => {
                       const skinsList = (previewCharacter.skins && previewCharacter.skins.length > 0)
-                        ? previewCharacter.skins 
-                        : [
-                            { id: 'default', name: 'Padrão', image: previewCharacter.portrait }
-                          ];
-                      
+                        ? previewCharacter.skins
+                        : [];
+
+                      if (skinsList.length === 0) {
+                        return (
+                          <div className="flex flex-col items-center justify-center gap-2 text-amber-900/60 py-4">
+                            <Shirt className="w-8 h-8 opacity-30" />
+                            <span className="text-xs font-mono font-bold uppercase tracking-wider">Sem skins disponíveis</span>
+                          </div>
+                        );
+                      }
+
                       return skinsList.map((skin) => {
                         const isEquipped = (equippedSkins[previewCharacter.id] || skinsList[0]?.id) === skin.id;
 
@@ -1037,7 +1044,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                                 src={skin.image || null}
                                 alt={skin.name}
                                 referrerPolicy="no-referrer"
-                                className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)] transition-transform group-hover:scale-105"
+                                className="max-h-full max-w-full object-contain transition-transform group-hover:scale-105"
                                 onError={(e) => {
                                   const img = e.currentTarget; img.onerror = null; img.src = previewCharacter.portrait;
                                 }}
