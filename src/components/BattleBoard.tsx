@@ -979,12 +979,65 @@ function GameOverOverlay({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 select-none overflow-y-auto ${
-        isVictory
-          ? 'bg-slate-950/95 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-950/40 via-slate-950 to-slate-950'
-          : 'bg-slate-950/95 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-950/40 via-slate-950 to-slate-950'
-      }`}
+      className="fixed inset-0 z-[10000] w-full h-full flex items-center justify-center p-3 sm:p-4 select-none overflow-y-auto bg-cover bg-center bg-no-repeat bg-fixed"
+      style={{ backgroundImage: "url('/static/img/bg/background-battle.webp')" }}
     >
+      {/* Background Dark/Atmospheric Tint Overlay (Defeat Only - Victory keeps background 100% original & clear) */}
+      {!isVictory && (
+        <div className="fixed inset-0 pointer-events-none bg-slate-950/75 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-950/40 via-slate-950/80 to-slate-950/85" />
+      )}
+
+      {/* Victory Upward Rising Particle Effect (Pure CSS Sparkles) */}
+      {isVictory && (
+        <div className="victory-particles-container">
+          {Array.from({ length: 45 }).map((_, i) => {
+            const left = (i * 2.22 + (i % 5) * 0.8) % 100;
+            const size = 4 + ((i * 3) % 7); // 4px to 10px
+            const duration = 2.2 + ((i * 7) % 5) * 0.4; // 2.2s to 3.8s
+            const delay = ((i * 13) % 25) * 0.12; // 0s to 3s
+            const drift = ((i % 2 === 0 ? 1 : -1) * (15 + ((i * 11) % 40))); // -55px to +55px
+            const isLarge = i % 4 === 0;
+            return (
+              <div
+                key={i}
+                className={`victory-particle ${isLarge ? 'large' : ''}`}
+                style={{
+                  left: `${left}%`,
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  animationDuration: `${duration}s`,
+                  animationDelay: `${delay}s`,
+                  ['--drift' as any]: `${drift}px`,
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Defeat Rain Particle Effect (Pure Vertical CSS) */}
+      {!isVictory && (
+        <div className="rain-container">
+          {Array.from({ length: 50 }).map((_, i) => {
+            const left = (i * 2.0 + (i % 3) * 0.6) % 100;
+            const duration = 0.55 + ((i * 7) % 6) * 0.07;
+            const delay = ((i * 11) % 25) * 0.05;
+            const isHeavy = i % 3 === 0;
+            return (
+              <div
+                key={i}
+                className={`rain-drop ${isHeavy ? 'splash' : ''}`}
+                style={{
+                  left: `${left}%`,
+                  animationDuration: `${duration}s`,
+                  animationDelay: `${delay}s`,
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+
       {/* Lightweight Main Modal Content */}
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
@@ -1027,7 +1080,7 @@ function GameOverOverlay({
         <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-3.5 text-center shadow-xl backdrop-blur-sm space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-300">Seu Posto:</span>
+              <span className="text-xs font-bold text-slate-300">RANK:</span>
               <span
                 className={`px-2.5 py-0.5 rounded-lg bg-gradient-to-r font-extrabold text-[11px] uppercase tracking-wider shadow ${newRankProgress.currentRank.color}`}
                 style={{ color: '#ffffff' }}
