@@ -17481,10 +17481,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                     <span className="text-[7px] text-red-400">BLOQUEADAS</span>
                                   </>
                                 ) : (
-                                  <>
-                                    <span>⚡ STUN</span>
-                                    <span className="text-[7px] text-red-400">DEBUFF</span>
-                                  </>
+                                  <span>STUN</span>
                                 )}
                               </div>
                             );
@@ -18605,10 +18602,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     <span className="text-[7px] text-red-400">BLOQUEADAS</span>
                                   </>
                                 ) : (
-                                  <>
-                                    <span>⚡ STUN</span>
-                                    <span className="text-[7px] text-red-400">DEBUFF</span>
-                                  </>
+                                  <span>STUN</span>
                                 )}
                               </div>
                             );
@@ -18622,6 +18616,14 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                     <div className="flex-1 space-y-1.5">
                       <div className="flex items-start gap-2 flex-row-reverse">
+                        <h4 className="font-bold text-sm tracking-tight flex items-center gap-1.5 flex-wrap justify-end text-right">
+                          {combatant.character.name}
+                          {checkCombatantInvulnerable(combatant) && (
+                            <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
+                              🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
+                            </span>
+                          )}
+                        </h4>
                         {combatant.shield > 0 && (() => {
                           const shieldRemaining = combatant.shieldExpiresTurn ? combatant.shieldExpiresTurn - turn : null;
                           return (
@@ -18638,14 +18640,6 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                             </span>
                           );
                         })()}
-                        <h4 className="font-bold text-sm tracking-tight flex items-center gap-1.5 flex-wrap justify-end text-right">
-                          {combatant.character.name}
-                          {checkCombatantInvulnerable(combatant) && (
-                            <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
-                              🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
-                            </span>
-                          )}
-                        </h4>
                       </div>
 
                       {/* Health bar */}
