@@ -17,6 +17,10 @@
   max-width: 620px;
 }
 
+.content-trade {
+  padding: 30px;
+}
+
 /* =========================================================
    CLASSE ÚNICA DA LARGURA DO CARD DE RECOMPENSA (.quest-reward-card)
    =========================================================

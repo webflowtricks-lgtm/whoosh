@@ -15963,7 +15963,7 @@ if (skill.redirectOffensiveToCaster) {
   };
 
   // Helper to render element icons
-  const renderChakraIcon = (type: string) => {
+  const renderChakraIcon = (type: string, sizeClass = 'w-3.5 h-3.5') => {
     let bg = '';
     let glow = '';
     let border = '';
@@ -15996,7 +15996,7 @@ if (skill.redirectOffensiveToCaster) {
     }
     return (
       <div
-        className={`w-3.5 h-3.5 rounded-full border ${border} shrink-0`}
+        className={`${sizeClass} rounded-full border ${border} shrink-0`}
         style={{ background: bg, boxShadow: glow }}
         title={name}
       />
@@ -19407,7 +19407,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.85, opacity: 0, y: 15 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative rounded-3xl overflow-hidden shadow-2xl max-w-sm w-full min-h-[320px] flex flex-col justify-between p-6 sm:p-8"
+              className="relative rounded-3xl overflow-hidden shadow-2xl max-w-xl w-full min-h-[420px] flex flex-col justify-between p-8 sm:p-10"
             >
               {/* Background Pergaminho Image */}
               <img
@@ -19416,12 +19416,11 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                 className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
               />
 
-              <div className="relative z-10 flex flex-col items-center justify-between text-center space-y-4 h-full">
-              
+              <div className="content-trade relative z-10 flex flex-col items-center justify-between text-center space-y-5 h-full">
 
                 <div className="w-full">
                   <p className="text-xs font-bold text-stone-800 mb-2">Escolha 4 chakras para gastar:</p>
-                  <div className="flex justify-around items-center bg-[#d3ad75]/30 p-2 rounded-xl border border-[#7a4e25]/30">
+                  <div className="flex justify-around items-center bg-[#d3ad75]/30 p-3 rounded-xl border border-[#7a4e25]/30">
                     {(Object.keys(playerChakra) as (keyof ChakraPool)[]).map(key => {
                       const totalSelected = (Object.keys(tradeSelection) as (keyof ChakraPool)[])
                         .reduce((sum, k) => sum + tradeSelection[k], 0);
@@ -19449,14 +19448,14 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                 <div className="w-full">
                   <p className="text-xs font-bold text-stone-800 mb-2">Escolha o chakra que vai receber:</p>
-                  <div className="flex justify-around items-center bg-[#d3ad75]/30 p-2 rounded-xl border border-[#7a4e25]/30">
+                  <div className="flex justify-around items-center px-3 py-2">
                     {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map(key => (
                       <button
                         key={key}
                         onClick={() => setTradeTarget(key)}
-                        className={`p-1.5 rounded-lg border-2 transition cursor-pointer ${tradeTarget === key ? 'border-amber-800 bg-amber-800/20 scale-110' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                        className={`p-2 rounded-lg transition cursor-pointer ${tradeTarget === key ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
                       >
-                        {renderChakraIcon(key)}
+                        {renderChakraIcon(key, 'w-12 h-12')}
                       </button>
                     ))}
                   </div>
