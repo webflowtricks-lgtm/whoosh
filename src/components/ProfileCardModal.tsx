@@ -276,7 +276,7 @@ export default function ProfileCardModal({
           </div>
 
           {/* CARD BODY: TWO COLUMNS (LEFT STATS | RIGHT SHOWCASE CHARACTER SKIN ARTWORK) */}
-          <div className="p-4 sm:p-6 bg-slate-900 flex-1 overflow-y-auto relative">
+          <div className="p-4 sm:p-6 bg-slate-900 flex-1 overflow-y-auto relative custom-scrollbar">
             <div className="flex flex-col md:flex-row gap-4 sm:gap-6 items-stretch">
               
               {/* LEFT COLUMN: STATS & DETAILS */}
@@ -454,7 +454,7 @@ export default function ProfileCardModal({
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2.5">
+          <div className="flex-1 overflow-y-auto p-2.5 custom-scrollbar">
             {ownedCards.length === 0 ? (
               <p className="text-[9px] text-slate-500 font-mono text-center py-3">{t('Nenhuma figurinha ainda. Abra pacotes para colecionar!', 'No cards yet. Open packs to collect!')}</p>
             ) : (

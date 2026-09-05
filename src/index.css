@@ -633,6 +633,42 @@ html, body {
   border-radius: 9999px;
 }
 
+/* =========================================================
+   SCROLLBAR PERSONALIZADA (cards de perfil, modais etc.)
+   Tema âmbar/ninja com thumb em gradiente e brilho sutil.
+   ========================================================= */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #d97706 rgba(15, 23, 42, 0.35);
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.35);
+  border-radius: 9999px;
+  border: 1px solid rgba(120, 80, 20, 0.25);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #f59e0b, #d97706 55%, #b45309);
+  border-radius: 9999px;
+  border: 2px solid rgba(15, 23, 42, 0.55);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.35);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #fbbf24, #f59e0b 55%, #d97706);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+}
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+/* Firefox: mantém o thumb âmbar mesmo sem gradiente */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #d97706 rgba(15, 23, 42, 0.35);
+}
+
 .quest-div-pai {
   background-image: url('/static/img/bg/background-quest.jpg');
   background-size: cover;
@@ -723,20 +759,21 @@ e-squad-name {
 
 /* =========================================================
    POSIÇÕES DOS NÚMEROS DE CHAKRA NOS CILINDROS DA ARENA (.turnoss)
+   Ordem dos cilindros: 1º Taijutsu | 2º Ninjutsu | 3º Genjutsu | 4º Blood
    ========================================================= */
 .chakra-number-tai {
   left: 13.0%;
 }
 
-.chakra-number-blood {
+.chakra-number-nin {
   left: 37.0%;
 }
 
-.chakra-number-nin {
+.chakra-number-gen {
   left: 60.1%;
 }
 
-.chakra-number-gen {
+.chakra-number-blood {
   left: 84.4%;
 }
 
