@@ -54,6 +54,7 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 - **Recompensa de missão**: `QuestReward.type` aceita `'card'` (types.ts). No QuestAdmin, recompensa "🃏 Figura Colecionável" tem autocomplete das figuras existentes (busca por personagem/título/id/variante) e campo de **ID editável**; ao resgatar a missão, o QuestBoard adiciona `r.value` (id do card) em `user.collectedCardIds`.
 
 ## Conventions & Notes
+- A área administrativa não deve reproduzir efeitos sonoros nem música. Exceções futuras só podem existir para prévias de áudio disponibilizadas aos jogadores; essas prévias devem ser explicitamente marcadas e não devem alterar o áudio global do painel.
 - **Before building any new feature/option, check if it already exists** (grep the codebase for related flags/fields). If it does, STOP and tell the user it already exists (name + location) instead of duplicating it. Ex.: `removedOnTargetSkillUse` already removes an effect when the affected target uses any skill (AdminDashboard "🧹 Removida do alvo quando ele usar uma habilidade", engine at BattleBoard `executeSideActions` ~line 7247).
 - UI text is PT-BR; use `t()` for UI strings needing EN support.
 - Language: `'pt' | 'en'`, persisted in localStorage key `ninja_app_language`.

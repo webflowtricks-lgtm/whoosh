@@ -14,9 +14,10 @@ interface ShopModalProps {
   onClose: () => void;
   onUpdateUser: (updatedUser: UserProfile) => void;
   playClickSound: () => void;
+  playScrollSound: () => void;
 }
 
-export default function ShopModal({ user, onClose, onUpdateUser, playClickSound }: ShopModalProps) {
+export default function ShopModal({ user, onClose, onUpdateUser, playClickSound, playScrollSound }: ShopModalProps) {
   const [items, setItems] = useState<ShopItem[]>(() => getShopItems());
   const [activeTab, setActiveTab] = useState<'all' | 'skin' | 'title' | 'frame' | 'bundle'>('all');
   const [purchaseToast, setPurchaseToast] = useState<string | null>(null);
@@ -248,6 +249,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound 
                 key={tab.id}
                 onClick={() => {
                   playClickSound();
+                  playScrollSound();
                   setActiveTab(tab.id as any);
                 }}
                 className={`px-4 py-2 rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${

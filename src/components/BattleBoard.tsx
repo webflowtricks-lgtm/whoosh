@@ -2850,6 +2850,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       combatant,
     });
     setCenterTab('inspector');
+    playScrollSound();
 
     if (combatant.isDead) return;
     if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current || isWaitingForOpponent) return;
@@ -17489,7 +17490,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             >
               {isEndingTurn ? (
                 <>
-                  <img src="/static/img/icon/star.svg" alt="Calculando" className="w-4 h-4 animate-spin object-contain" />
+                  <img src="/static/img/ui/gold-shuriken.webp" alt="Calculando" className="w-4 h-4 animate-spin object-contain" />
                   <span className="normal-case font-bold">(calculando...)</span>
                 </>
               ) : (
@@ -19569,6 +19570,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   playClickSound();
+                                  playScrollSound();
                                   setInspectedSkill({
                                     skill,
                                     ownerName: combatant.character.name,

@@ -337,6 +337,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             onUpdateUser={handleUserUpdate}
             playClickSound={playClickSound}
             playUahSound={playUahSound}
+            playScrollSound={playScrollSound}
           />
         )}
 

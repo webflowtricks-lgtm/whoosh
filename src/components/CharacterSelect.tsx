@@ -978,6 +978,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     <button
                       onClick={() => {
                         playClickSound();
+                        playScrollSound();
                         setShowSkinsTab(prev => !prev);
                       }}
                       className={`px-3 py-1 rounded-lg font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-md font-mono ${
@@ -1278,7 +1279,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   className="absolute inset-0 rounded-full border-4 border-t-orange-500 border-r-transparent border-b-amber-500 border-l-transparent"
                 />
                 <div className="absolute inset-2 bg-slate-900 rounded-full flex items-center justify-center border border-slate-800">
-                  <Swords className="w-10 h-10 text-orange-500 animate-pulse" />
+                  <img src="/static/img/ui/gold-shuriken.webp" alt="Processando" className="w-10 h-10 animate-spin object-contain" />
                 </div>
               </div>
 

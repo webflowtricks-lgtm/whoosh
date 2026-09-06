@@ -20,9 +20,10 @@ const CARD_IMG_FALLBACK = 'https://raw.githubusercontent.com/naruto-unison/narut
 
 interface CardAdminProps {
   playClickSound: () => void;
+  playScrollSound: () => void;
 }
 
-export default function CardAdmin({ playClickSound }: CardAdminProps) {
+export default function CardAdmin({ playClickSound, playScrollSound }: CardAdminProps) {
   const [tab, setTab] = useState<'cards' | 'packs'>('cards');
 
   // Cards state
@@ -323,7 +324,7 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
       {/* Tab switch */}
       <div className="flex bg-slate-950 border border-slate-800 p-1 rounded-xl gap-1 w-fit mb-5">
         <button
-          onClick={() => { playClickSound(); setTab('cards'); }}
+          onClick={() => { playScrollSound(); setTab('cards'); }}
           className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
             tab === 'cards'
               ? 'bg-gradient-to-r from-fuchsia-600 to-purple-500 text-slate-950 shadow-md font-extrabold'
@@ -333,7 +334,7 @@ export default function CardAdmin({ playClickSound }: CardAdminProps) {
           <span className="flex items-center gap-1.5"><Images className="w-3.5 h-3.5" /> Cards ({cards.length})</span>
         </button>
         <button
-          onClick={() => { playClickSound(); setTab('packs'); }}
+          onClick={() => { playScrollSound(); setTab('packs'); }}
           className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
             tab === 'packs'
               ? 'bg-gradient-to-r from-fuchsia-600 to-purple-500 text-slate-950 shadow-md font-extrabold'

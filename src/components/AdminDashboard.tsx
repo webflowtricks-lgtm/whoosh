@@ -860,9 +860,9 @@ const newSkill: Skill = {
       ) : activeTab === 'shop' ? (
         <ShopAdmin playClickSound={playClickSound} />
       ) : activeTab === 'events' ? (
-        <EventAdmin playClickSound={playClickSound} />
+        <EventAdmin playClickSound={playClickSound} playScrollSound={playScrollSound} />
       ) : activeTab === 'cards' ? (
-        <CardAdmin playClickSound={playClickSound} />
+        <CardAdmin playClickSound={playClickSound} playScrollSound={playScrollSound} />
       ) : activeTab === 'ranks' ? (
         <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 z-10 space-y-6">
           {/* Header Card */}

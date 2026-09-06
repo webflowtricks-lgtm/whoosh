@@ -19,6 +19,7 @@ interface ProfileModalProps {
   onUpdateUser: (updated: UserProfile) => void;
   playClickSound: () => void;
   playUahSound: () => void;
+  playScrollSound: () => void;
 }
 
 const PRESET_STYLED_FRAMES = [
@@ -30,7 +31,7 @@ const PRESET_STYLED_FRAMES = [
   { name: 'Guerra Shinobi', style: 'border-2 border-orange-500 shadow-[0_0_18px_rgba(249,115,22,0.6)] bg-gradient-to-tr from-orange-500 via-amber-500 to-red-600 p-0.5', badge: 'ALIANÇA' }
 ];
 
-export default function ProfileModal({ user, onClose, onUpdateUser, playClickSound, playUahSound }: ProfileModalProps) {
+export default function ProfileModal({ user, onClose, onUpdateUser, playClickSound, playUahSound, playScrollSound }: ProfileModalProps) {
   const { t } = useLanguage();
   const [name, setName] = useState(user.name);
   const [photoUrl, setPhotoUrl] = useState(user.photoUrl);
@@ -241,6 +242,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
           <button
             onClick={() => {
               playClickSound();
+              playScrollSound();
               setActiveTab('banners');
             }}
             className={`px-4 py-2 rounded-xl text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
@@ -256,6 +258,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
           <button
             onClick={() => {
               playClickSound();
+              playScrollSound();
               setActiveTab('showcase');
             }}
             className={`px-4 py-2 rounded-xl text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
@@ -271,6 +274,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
           <button
             onClick={() => {
               playClickSound();
+              playScrollSound();
               setActiveTab('frames');
             }}
             className={`px-4 py-2 rounded-xl text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
@@ -286,6 +290,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
           <button
             onClick={() => {
               playClickSound();
+              playScrollSound();
               setActiveTab('profile');
             }}
             className={`px-4 py-2 rounded-xl text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${

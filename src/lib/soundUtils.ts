@@ -63,12 +63,14 @@ export const preloadGlobalSounds = (soundNames: string[]) => {
  * sobrescrever o som padrão via data-sound.
  */
 let globalClickBound = false;
+let globalClickSoundEnabled = () => true;
 export const bindGlobalClickSound = (enabled: () => boolean) => {
+  globalClickSoundEnabled = enabled;
   if (globalClickBound) return;
   globalClickBound = true;
 
   document.addEventListener('click', (e) => {
-    if (!enabled()) return;
+    if (!globalClickSoundEnabled()) return;
 
     const target = e.target as HTMLElement | null;
     if (!target) return;
@@ -120,7 +122,9 @@ export const bindGlobalClickSound = (enabled: () => boolean) => {
 };
 
 let globalModalObserverBound = false;
+let globalModalSoundEnabled = () => true;
 export const bindGlobalModalSound = (enabled: () => boolean) => {
+  globalModalSoundEnabled = enabled;
   if (globalModalObserverBound || typeof MutationObserver === 'undefined') return;
   globalModalObserverBound = true;
 
@@ -133,7 +137,7 @@ export const bindGlobalModalSound = (enabled: () => boolean) => {
   };
 
   const observer = new MutationObserver((mutations) => {
-    if (!enabled()) return;
+    if (!globalModalSoundEnabled()) return;
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (isModalRoot(node)) {

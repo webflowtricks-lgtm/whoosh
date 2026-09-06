@@ -17,10 +17,11 @@ const AVATAR_PRESETS = [
 interface AuthScreenProps {
   onLoginSuccess: (user: UserProfile) => void;
   playClickSound: () => void;
+  playScrollSound: () => void;
   onBack?: () => void;
 }
 
-export default function AuthScreen({ onLoginSuccess, playClickSound, onBack }: AuthScreenProps) {
+export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollSound, onBack }: AuthScreenProps) {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   
@@ -165,7 +166,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, onBack }: A
         {/* Tab Selection */}
         <div className="flex bg-slate-950 border border-slate-800/60 p-1 rounded-xl mb-6">
           <button
-            onClick={() => { playClickSound(); setActiveTab('login'); setError(''); setSuccess(''); }}
+            onClick={() => { playScrollSound(); setActiveTab('login'); setError(''); setSuccess(''); }}
             className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'login'
                 ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow'
@@ -176,7 +177,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, onBack }: A
             {t('Entrar', 'Log In')}
           </button>
           <button
-            onClick={() => { playClickSound(); setActiveTab('register'); setError(''); setSuccess(''); }}
+            onClick={() => { playScrollSound(); setActiveTab('register'); setError(''); setSuccess(''); }}
             className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'register'
                 ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow'

@@ -18,9 +18,10 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface EventAdminProps {
   playClickSound: () => void;
+  playScrollSound: () => void;
 }
 
-export default function EventAdmin({ playClickSound }: EventAdminProps) {
+export default function EventAdmin({ playClickSound, playScrollSound }: EventAdminProps) {
   const [activeTab, setActiveTab] = useState<'events' | 'png-frames' | 'banners' | 'skins'>('events');
 
   // Events State
@@ -563,7 +564,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
       {/* Top Submenu: Events vs PNG Frames Gallery vs Banners Gallery vs Skins Gallery */}
       <div className="flex bg-slate-900/80 border border-slate-800 p-1.5 rounded-2xl max-w-3xl flex-wrap gap-1">
         <button
-          onClick={() => { playClickSound(); setActiveTab('events'); }}
+          onClick={() => { playScrollSound(); setActiveTab('events'); }}
           className={`flex-1 py-2 px-3 rounded-xl text-xs font-mono uppercase tracking-wider font-extrabold transition flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 'events'
               ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md'
@@ -575,7 +576,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
         </button>
 
         <button
-          onClick={() => { playClickSound(); setActiveTab('png-frames'); }}
+          onClick={() => { playScrollSound(); setActiveTab('png-frames'); }}
           className={`flex-1 py-2 px-3 rounded-xl text-xs font-mono uppercase tracking-wider font-extrabold transition flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 'png-frames'
               ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md'
@@ -587,7 +588,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
         </button>
 
         <button
-          onClick={() => { playClickSound(); setActiveTab('banners'); }}
+          onClick={() => { playScrollSound(); setActiveTab('banners'); }}
           className={`flex-1 py-2 px-3 rounded-xl text-xs font-mono uppercase tracking-wider font-extrabold transition flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 'banners'
               ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md'
@@ -599,7 +600,7 @@ export default function EventAdmin({ playClickSound }: EventAdminProps) {
         </button>
 
         <button
-          onClick={() => { playClickSound(); setActiveTab('skins'); }}
+          onClick={() => { playScrollSound(); setActiveTab('skins'); }}
           className={`flex-1 py-2 px-3 rounded-xl text-xs font-mono uppercase tracking-wider font-extrabold transition flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 'skins'
               ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md'

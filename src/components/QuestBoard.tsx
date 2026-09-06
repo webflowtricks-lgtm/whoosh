@@ -689,6 +689,7 @@ export default function QuestBoard({
             onUpdateUser={onUpdateUser}
             playClickSound={playClickSound}
             playUahSound={playUahSound}
+            playScrollSound={playScrollSound}
           />
         )}
 
@@ -699,6 +700,7 @@ export default function QuestBoard({
             onClose={() => setShowEventsModal(false)}
             onUpdateUser={onUpdateUser}
             playClickSound={playClickSound}
+            playScrollSound={playScrollSound}
           />
         )}
 

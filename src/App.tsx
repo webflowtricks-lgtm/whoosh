@@ -271,7 +271,7 @@ export default function App() {
 
   // Global sound effect triggers (mp3, com throttle anti-duplicação)
   const playSound = (soundName: string, volume = 0.45) => {
-    if (isMuted) return;
+    if (isMuted || screen === 'admin') return;
     playGlobalSound(soundName, volume);
   };
 
@@ -292,9 +292,9 @@ export default function App() {
 
   // 🔊 SOM DE CLIQUE GLOBAL: qualquer elemento clicável no jogo inteiro toca Click.mp3
   useEffect(() => {
-    bindGlobalClickSound(() => !isMuted);
-    bindGlobalModalSound(() => !isMuted);
-  }, [isMuted]);
+    bindGlobalClickSound(() => !isMuted && screen !== 'admin');
+    bindGlobalModalSound(() => !isMuted && screen !== 'admin');
+  }, [isMuted, screen]);
 
   useEffect(() => {
     setEffectsVolumeMultiplier(audioSettings.effects * audioSettings.master);
@@ -408,6 +408,7 @@ export default function App() {
       if (!battleMusicRef.current) startBattleMusic();
     } else {
       stopBattleMusic();
+      stopResultMusic();
     }
   }, [screen, isMuted]);
 
@@ -570,6 +571,7 @@ export default function App() {
         <AuthScreen
           onLoginSuccess={handleLoginSuccess}
           playClickSound={playClickSound}
+          playScrollSound={playScrollSound}
           onBack={() => setShowAuth(false)}
         />
       </Suspense>
