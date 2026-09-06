@@ -16,7 +16,7 @@ import { fetchPngFramesFromServer } from './lib/frameStorage';
 import { calculateBattleXp } from './lib/xpSystem';
 import { getRanks, getUserRankFromConfig } from './lib/rankStorage';
 import { preloadCommonUI, preloadCharacters } from './lib/imagePreloader';
-import { playGlobalSound, bindGlobalClickSound, bindGlobalModalSound, setEffectsVolumeMultiplier } from './lib/soundUtils';
+import { playGlobalSound, bindGlobalClickSound, bindGlobalModalSound, preloadGlobalSounds, setEffectsVolumeMultiplier } from './lib/soundUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Swords, Flag } from 'lucide-react';
 
@@ -123,6 +123,7 @@ export default function App() {
   // Sync all configurations (characters, ranks, shop, events, banners, frames) from server on startup
   useEffect(() => {
     preloadCommonUI();
+    preloadGlobalSounds(['Scroll']);
     fetchCharactersFromServer().catch(() => {});
     fetchRanksFromServer().catch(() => {});
     fetchShopItemsFromServer().catch(() => {});

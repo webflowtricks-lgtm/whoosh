@@ -8,6 +8,7 @@ const lastSoundTime: Record<string, number> = {};
 const THROTTLE_MS = 120;
 let effectsVolumeMultiplier = 1;
 const LOUD_EFFECTS = new Set(['NextTurn', 'ApplySkill', 'Cancel', 'Click', 'Target', 'Death']);
+const soundTemplates = new Map<string, HTMLAudioElement>();
 
 export const setEffectsVolumeMultiplier = (value: number) => {
   effectsVolumeMultiplier = Math.max(0, Math.min(1, value));
@@ -26,7 +27,15 @@ export const playGlobalSound = (soundName: string, volume = 0.45) => {
   lastSoundTime[soundName] = now;
 
   try {
-    const audio = new Audio(`/static/audio/${soundName}.mp3`);
+    let template = soundTemplates.get(soundName);
+    if (!template) {
+      template = new Audio(`/static/audio/${soundName}.mp3`);
+      template.preload = 'auto';
+      soundTemplates.set(soundName, template);
+      template.load();
+    }
+    const audio = template.cloneNode(true) as HTMLAudioElement;
+    audio.currentTime = 0;
     const nativeGain = LOUD_EFFECTS.has(soundName) ? 2.5 : 1;
     audio.volume = Math.min(1, volume * nativeGain * effectsVolumeMultiplier);
     audio.play().catch(() => {
@@ -35,6 +44,16 @@ export const playGlobalSound = (soundName: string, volume = 0.45) => {
   } catch {
     /* ignore */
   }
+};
+
+export const preloadGlobalSounds = (soundNames: string[]) => {
+  soundNames.forEach(soundName => {
+    if (soundTemplates.has(soundName)) return;
+    const audio = new Audio(`/static/audio/${soundName}.mp3`);
+    audio.preload = 'auto';
+    soundTemplates.set(soundName, audio);
+    audio.load();
+  });
 };
 
 /**
