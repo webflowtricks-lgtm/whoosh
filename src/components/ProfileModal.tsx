@@ -672,9 +672,10 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                     <div
                       key="no-skin-default"
                       onClick={() => {
-                        playClickSound();
+                        playUahSound();
                         setEquippedShowcaseSkinUrl('');
                       }}
+                      data-sound="uah"
                       className={`relative bg-slate-950/90 border-2 rounded-2xl p-3 flex flex-col items-center text-center gap-2 cursor-pointer transition-all hover:scale-105 ${
                         isSelected
                           ? 'border-amber-400 bg-amber-500/10 shadow-[0_0_20px_rgba(251,191,36,0.3)]'
@@ -730,9 +731,10 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                     <div
                       key={item.id}
                       onClick={() => {
-                        playClickSound();
+                        playUahSound();
                         setEquippedShowcaseSkinUrl(item.imageUrl);
                       }}
+                      data-sound="uah"
                       className={`relative bg-slate-950/90 border-2 rounded-2xl p-3 flex flex-col items-center text-center gap-2 cursor-pointer transition-all hover:scale-105 ${
                         isSelected
                           ? 'border-amber-400 bg-amber-500/10 shadow-[0_0_20px_rgba(251,191,36,0.3)]'

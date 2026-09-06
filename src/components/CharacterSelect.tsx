@@ -867,9 +867,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             <div className="relative z-10 w-full flex items-center justify-center gap-3 sm:gap-6 px-6 sm:px-10 py-3">
               <button
                 onClick={() => {
-                  playClickSound();
+                  playScrollSound();
                   setCurrentPage(prev => Math.max(prev - 1, 1));
                 }}
+                data-sound="Scroll"
                 disabled={activePage <= 1}
                 className={`px-3 py-1.5 rounded-lg border flex items-center gap-1 transition-all cursor-pointer text-xs font-mono font-bold ${
                   activePage <= 1
@@ -906,9 +907,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                         <button
                           key={pageNum}
                           onClick={() => {
-                            playClickSound();
+                            playScrollSound();
                             setCurrentPage(pageNum);
                           }}
+                          data-sound="Scroll"
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs font-mono font-bold flex items-center justify-center transition-all cursor-pointer border ${
                             isActive
                               ? 'bg-amber-800 border-amber-700 text-amber-50 shadow-md font-black scale-105'
@@ -925,9 +927,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
               <button
                 onClick={() => {
-                  playClickSound();
+                  playScrollSound();
                   setCurrentPage(prev => Math.min(prev + 1, totalPages));
                 }}
+                data-sound="Scroll"
                 disabled={activePage >= totalPages || totalPages <= 1}
                 className={`px-3 py-1.5 rounded-lg border flex items-center gap-1 transition-all cursor-pointer text-xs font-mono font-bold ${
                   activePage >= totalPages || totalPages <= 1
@@ -962,10 +965,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               <div className="flex gap-4 items-center p-2.5">
                 <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-amber-900/60 bg-amber-950/20 flex-shrink-0 shadow-md">
                   <MangekyoLoader
-                    src={
-                      (equippedSkins[previewCharacter.id] && previewCharacter.skins?.find(s => s.id === equippedSkins[previewCharacter.id])?.image) ||
-                      previewCharacter.portrait
-                    }
+                    src={previewCharacter.portrait}
                     alt={previewCharacter.name}
                     className="w-full h-full"
                     iconScale={0.5}
@@ -1039,12 +1039,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           <div
                             key={skin.id}
                             onClick={() => {
-                              playClickSound();
+                              playUahSound();
                               setEquippedSkins(prev => ({
                                 ...prev,
                                 [previewCharacter.id]: skin.id
                               }));
                             }}
+                            data-sound="uah"
                             className={`relative group flex-shrink-0 w-32 h-44 rounded-xl border-2 overflow-hidden flex flex-col items-center justify-between p-2 cursor-pointer transition-all ${
                               isEquipped
                                 ? 'border-amber-700 ring-2 ring-amber-600/50 shadow-xl bg-amber-500/20 scale-102'

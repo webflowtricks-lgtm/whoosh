@@ -43,6 +43,7 @@ interface ProfileCardModalProps {
   onClose: () => void;
   playClickSound?: () => void;
   playUahSound?: () => void;
+  playScrollSound?: () => void;
   onOpenEditModal?: () => void;
 }
 
@@ -62,10 +63,11 @@ export default function ProfileCardModal({
   onClose,
   playClickSound,
   playUahSound,
+  playScrollSound,
   onOpenEditModal,
 }: ProfileCardModalProps) {
   const closeModal = () => {
-    if (playUahSound) playUahSound();
+    if (playScrollSound) playScrollSound();
     onClose();
   };
   const { t } = useLanguage();
@@ -170,7 +172,7 @@ export default function ProfileCardModal({
     <AnimatePresence>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
-        onClick={() => { if (playClickSound) playClickSound(); closeModal(); }}
+        onClick={closeModal}
       >
         <div className="flex items-stretch gap-3 max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
         <motion.div
@@ -204,9 +206,9 @@ export default function ProfileCardModal({
             {/* Close button (X) top right matching screenshot */}
             <button
               onClick={() => {
-                if (playClickSound) playClickSound();
                 closeModal();
               }}
+              data-sound="Scroll"
               className={`absolute top-4 right-4 p-2 rounded-full text-white transition cursor-pointer z-30 shadow-lg ${bannerHover ? 'bg-slate-950/70 hover:bg-slate-950/90' : 'bg-slate-950/50 hover:bg-slate-950/90'}`}
               title={t('Fechar Card', 'Close Card')}
             >
@@ -418,10 +420,10 @@ export default function ProfileCardModal({
               {isSelf && onOpenEditModal && (
                 <button
                   onClick={() => {
-                    if (playClickSound) playClickSound();
                     closeModal();
                     onOpenEditModal();
                   }}
+                  data-sound="Scroll"
                   className="px-4 py-2 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/25 text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-2"
                 >
                   <User className="w-3.5 h-3.5" />
@@ -431,9 +433,9 @@ export default function ProfileCardModal({
 
               <button
                 onClick={() => {
-                  if (playClickSound) playClickSound();
                   closeModal();
                 }}
+                data-sound="Scroll"
                 className="ml-auto px-6 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer shadow"
               >
                 {t('FECHAR', 'CLOSE')}

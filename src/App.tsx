@@ -65,14 +65,16 @@ export default function App() {
       return {
         master: typeof saved.master === 'number' ? Math.max(0, Math.min(1, saved.master)) : 1,
         effects: typeof saved.effects === 'number' ? Math.max(0, Math.min(1, saved.effects)) : 1,
-        music: typeof saved.music === 'number' ? Math.max(0, Math.min(1, saved.music)) : 1,
+        music: typeof saved.music === 'number' ? Math.max(0, Math.min(1, saved.music)) : 0.3,
       };
     } catch {
-      return { master: 1, effects: 1, music: 1 };
+      return { master: 1, effects: 1, music: 0.3 };
     }
   });
   const characterSelectMusicRef = useRef<HTMLAudioElement | null>(null);
   const battleMusicRef = useRef<HTMLAudioElement | null>(null);
+  const resultMusicRef = useRef<HTMLAudioElement | null>(null);
+  const resultMusicGain = 4;
   const [isSandbox, setIsSandbox] = useState(false);
   const [sandboxPauseChakraGen, setSandboxPauseChakraGen] = useState(false);
   const [onlineParams, setOnlineParams] = useState<{
@@ -284,8 +286,8 @@ export default function App() {
   const playScrollSound = () => playSound('Scroll');
   const playUahSound = () => playSound('uah');
   const playTargetSound = () => playSound('Target');
-  const playWinSound = () => playSound('Win');
-  const playLoseSound = () => playSound('Lose');
+  const playWinSound = () => playResultMusic('Win');
+  const playLoseSound = () => playResultMusic('Lose');
 
   // 🔊 SOM DE CLIQUE GLOBAL: qualquer elemento clicável no jogo inteiro toca Click.mp3
   useEffect(() => {
@@ -298,6 +300,7 @@ export default function App() {
     const musicVolume = 0.45 * audioSettings.music * audioSettings.master;
     if (battleMusicRef.current) battleMusicRef.current.volume = musicVolume;
     if (characterSelectMusicRef.current) characterSelectMusicRef.current.volume = musicVolume;
+    if (resultMusicRef.current) resultMusicRef.current.volume = Math.min(1, musicVolume * resultMusicGain);
   }, [audioSettings.music, audioSettings.master]);
 
   const stopCharacterSelectMusic = () => {
@@ -319,8 +322,31 @@ export default function App() {
     battleMusicRef.current = null;
   };
 
+  const stopResultMusic = () => {
+    const audio = resultMusicRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.onended = null;
+    resultMusicRef.current = null;
+  };
+
+  const playResultMusic = (soundName: 'Win' | 'Lose') => {
+    if (isMuted) return;
+    stopResultMusic();
+    const audio = new Audio(`/static/audio/${soundName}.mp3`);
+    audio.preload = 'auto';
+    audio.volume = Math.min(1, 0.45 * audioSettings.music * audioSettings.master * resultMusicGain);
+    resultMusicRef.current = audio;
+    audio.onended = () => {
+      if (resultMusicRef.current === audio) resultMusicRef.current = null;
+    };
+    void audio.play().catch(() => {});
+  };
+
   const startBattleMusic = () => {
     if (isMuted) return;
+    stopResultMusic();
     const currentAudio = battleMusicRef.current;
     if (currentAudio) {
       void currentAudio.play().catch((error) => {
@@ -345,6 +371,7 @@ export default function App() {
 
   const startCharacterSelectMusic = () => {
     if (isMuted) return;
+    stopResultMusic();
     stopBattleMusic();
     const currentAudio = characterSelectMusicRef.current;
     if (currentAudio) {
@@ -386,6 +413,7 @@ export default function App() {
   useEffect(() => () => {
     stopCharacterSelectMusic();
     stopBattleMusic();
+    stopResultMusic();
   }, []);
 
   const handleStartGame = () => {
@@ -568,12 +596,12 @@ export default function App() {
                 className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
               />
 
-              <div className="relative z-10 flex flex-col items-center justify-between text-center space-y-6 h-full">
+              <div className="text-surrender relative z-10 flex flex-col items-center justify-between text-center space-y-6 h-full">
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center justify-center gap-2">
                     <Swords className="w-6 h-6 text-orange-800 animate-pulse" />
                     <h2 className="text-xl font-black uppercase tracking-tight text-stone-950 font-sans">
-                      {reconnectChecking ? 'Verificando Sala...' : reconnectSurrender ? (reconnectSurrender.reason === 'timeout' ? (reconnectSurrender.isVictory ? 'Vitória por Inatividade!' : 'Derrota por Inatividade') : reconnectSurrender.reason === 'disconnect' ? (reconnectSurrender.isVictory ? 'Vitória por Desconexão!' : 'Derrota por Desconexão') : (reconnectSurrender.isVictory ? 'Vitória por Rendição!' : 'Derrota por Rendição')) : reconnectRoomLost ? 'Sala Perdida' : 'Combate Ativo Encontrado!'}
+                      {reconnectChecking ? 'Verificando Sala...' : reconnectSurrender ? (reconnectSurrender.reason === 'timeout' ? (reconnectSurrender.isVictory ? 'Vitória por Inatividade!' : 'Derrota por Inatividade') : reconnectSurrender.reason === 'disconnect' ? (reconnectSurrender.isVictory ? 'Vitória por Desconexão!' : 'Derrota por Desconexão') : (reconnectSurrender.isVictory ? 'Vitória por Rendição!' : 'Derrota por Rendição')) : reconnectRoomLost ? 'Sala Perdida' : 'Combate Encontrado!'}
                     </h2>
                   </div>
                   {reconnectChecking ? (
@@ -736,6 +764,7 @@ export default function App() {
             playTargetSound={playTargetSound}
             playWinSound={playWinSound}
             playLoseSound={playLoseSound}
+            onBattleFinished={stopBattleMusic}
             user={user}
             onlineParams={onlineParams}
             isSandbox={isSandbox}

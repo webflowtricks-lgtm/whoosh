@@ -322,6 +322,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             isSelf={true}
             onClose={() => setShowProfileCardModal(false)}
             playClickSound={playClickSound}
+            playScrollSound={playScrollSound}
             onOpenEditModal={() => {
               playScrollSound();
               setShowProfileModal(true);

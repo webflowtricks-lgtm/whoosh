@@ -7,7 +7,7 @@
 const lastSoundTime: Record<string, number> = {};
 const THROTTLE_MS = 120;
 let effectsVolumeMultiplier = 1;
-const LOUD_EFFECTS = new Set(['NextTurn', 'ApplySkill', 'Cancel', 'Click', 'Target']);
+const LOUD_EFFECTS = new Set(['NextTurn', 'ApplySkill', 'Cancel', 'Click', 'Target', 'Death']);
 
 export const setEffectsVolumeMultiplier = (value: number) => {
   effectsVolumeMultiplier = Math.max(0, Math.min(1, value));
@@ -117,6 +117,11 @@ export const bindGlobalModalSound = (enabled: () => boolean) => {
     if (!enabled()) return;
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
+        if (isModalRoot(node)) {
+          playGlobalSound('Scroll');
+        }
+      }
+      for (const node of mutation.removedNodes) {
         if (isModalRoot(node)) {
           playGlobalSound('Scroll');
         }

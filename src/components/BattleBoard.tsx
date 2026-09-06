@@ -35,6 +35,7 @@ interface BattleBoardProps {
   playTargetSound: () => void;
   playWinSound: () => void;
   playLoseSound: () => void;
+  onBattleFinished?: () => void;
   user: UserProfile;
   onlineParams?: {
     isOnline: boolean;
@@ -1592,7 +1593,7 @@ function GameOverOverlay({
               alt=""
               className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none"
             />
-            <div className="relative z-10 flex flex-col items-center gap-3 py-1">
+            <div className="text-surrender relative z-10 flex flex-col items-center gap-3 py-1">
               <h2 className={`font-brush text-3xl sm:text-4xl md:text-5xl font-black uppercase flex items-center justify-center gap-3 ${isVictory ? 'text-amber-500 drop-shadow-[0_3px_0_rgba(120,53,15,0.9)]' : 'text-red-600 drop-shadow-[0_3px_0_rgba(127,29,29,0.9)]'}`}>
                 <img
                   src={isVictory ? '/static/img/ui/trophy.webp' : '/static/img/ui/naruto-meme.webp'}
@@ -1634,6 +1635,7 @@ export default function BattleBoard({
   playTargetSound,
   playWinSound,
   playLoseSound,
+  onBattleFinished,
   user,
   onlineParams,
   isSandbox,
@@ -2626,11 +2628,13 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   // Play Victory / Defeat sound when game finishes
   useEffect(() => {
     if (gameOver === 'victory') {
+      onBattleFinished?.();
       playWinSound();
     } else if (gameOver === 'defeat') {
+      onBattleFinished?.();
       playLoseSound();
     }
-  }, [gameOver, playWinSound, playLoseSound]);
+  }, [gameOver, onBattleFinished, playWinSound, playLoseSound]);
 
   // Add floating combat numbers helper
   const addFloatingText = (targetId: string, text: string, type: FloatingText['type']) => {
@@ -19839,7 +19843,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                 className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
               />
 
-              <div className="content-trade relative z-10 flex flex-col items-center justify-between text-center space-y-5 h-full">
+              <div className="text-surrender content-trade relative z-10 flex flex-col items-center justify-between text-center space-y-5 h-full">
 
                 <div className="w-full">
                   <p className="text-xs font-bold text-stone-800 mb-2">Escolha 4 chakras para gastar:</p>
@@ -20403,7 +20407,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     setShowRandChakraModal(false);
                     handleEndTurn(randAllocation);
                   }}
-                  data-sound="uah"
+                  data-sound="Click"
                   className="flex-1 py-2.5 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-amber-100 bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 border border-orange-600/50 shadow-md transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Confirmar e Finalizar
@@ -20621,6 +20625,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
           onClose={() => setViewingProfile(null)}
           playClickSound={playClickSound}
           playUahSound={playUahSound}
+          playScrollSound={playScrollSound}
         />
       )}
 

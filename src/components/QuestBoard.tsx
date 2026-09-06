@@ -1196,9 +1196,10 @@ export default function QuestBoard({
                 <div className="flex items-center justify-center gap-2 mt-6">
                   <button
                     onClick={() => {
-                      playClickSound();
+                      playScrollSound();
                       setCurrentPage(p => Math.max(1, p - 1));
                     }}
+                    data-sound="Scroll"
                     disabled={currentPage === 1}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
                   >
@@ -1208,9 +1209,10 @@ export default function QuestBoard({
                     <button
                       key={page}
                       onClick={() => {
-                        playClickSound();
+                        playScrollSound();
                         setCurrentPage(page);
                       }}
+                      data-sound="Scroll"
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
                         page === currentPage
                           ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-black shadow-md shadow-orange-600/10'
@@ -1222,9 +1224,10 @@ export default function QuestBoard({
                   ))}
                   <button
                     onClick={() => {
-                      playClickSound();
+                      playScrollSound();
                       setCurrentPage(p => Math.min(totalPages, p + 1));
                     }}
+                    data-sound="Scroll"
                     disabled={currentPage === totalPages}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
                   >
