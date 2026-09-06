@@ -1065,34 +1065,41 @@ function GameOverOverlay({
         transition={{ duration: 0.25, ease: 'easeOut' }}
         className="relative z-20 w-full max-w-5xl flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
       >
-        {/* Top Victory/Defeat Banner Badge */}
-        <div className="flex flex-col items-center justify-center relative">
-          <div className="relative flex items-center justify-center gap-2.5 px-6 sm:px-10 py-2 sm:py-2.5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
-            {isVictory ? (
-              <Trophy className="w-7 h-7 sm:w-9 sm:h-9 text-amber-400" />
-            ) : (
-              <Swords className="w-7 h-7 sm:w-9 sm:h-9 text-red-500" />
-            )}
+        {/* Top Victory/Defeat Banner — Cloud Badge (title + icon + turn on nuvem.webp) */}
+        <div className="relative flex flex-col items-center justify-center">
+          <img
+            src="/static/img/ui/nuvem.webp"
+            alt=""
+            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
+          />
+          <div className="relative z-10 flex flex-col items-center justify-center gap-0.5 px-8 sm:px-14 py-3.5 sm:py-5 w-max">
+            <div className="flex items-center justify-center gap-2.5 sm:gap-3">
+              {isVictory ? (
+                <Trophy className="w-7 h-7 sm:w-9 sm:h-9 text-amber-600" />
+              ) : (
+                <Swords className="w-7 h-7 sm:w-9 sm:h-9 text-red-700" />
+              )}
 
-            <h1
-              className={`text-2xl sm:text-3.5xl font-black uppercase tracking-tight font-display ${
-                isVictory
-                  ? 'bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-400 bg-clip-text text-transparent'
-                  : 'bg-gradient-to-r from-red-500 via-rose-400 to-red-600 bg-clip-text text-transparent'
-              }`}
-            >
-              {isVictory ? 'VITÓRIA!' : 'DERROTA!'}
-            </h1>
-            {surrenderReason && (
-              <p className="mt-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-amber-200">
-                {surrenderReason}
-              </p>
-            )}
+              <h1
+                className={`text-2xl sm:text-3.5xl font-black uppercase tracking-tight font-display ${
+                  isVictory
+                    ? 'bg-gradient-to-r from-amber-600 via-yellow-500 to-emerald-600 bg-clip-text text-transparent'
+                    : 'bg-gradient-to-r from-red-700 via-rose-600 to-red-800 bg-clip-text text-transparent'
+                }`}
+              >
+                {isVictory ? 'VITÓRIA!' : 'DERROTA!'}
+              </h1>
+              {surrenderReason && (
+                <p className="text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/70 border border-slate-300 text-amber-800">
+                  {surrenderReason}
+                </p>
+              )}
+            </div>
+
+            <p className="text-xs sm:text-sm font-mono uppercase tracking-wider font-black text-white">
+              {isVictory ? 'Esquadrão Conquistou a Supremacia' : 'Esquadrão Foi Superado'} • Turno {turn}
+            </p>
           </div>
-
-          <p className="mt-1.5 text-xs sm:text-xs font-mono uppercase tracking-wider text-slate-300 font-bold bg-slate-900/90 px-3.5 py-0.5 rounded-full border border-slate-800">
-            {isVictory ? 'Esquadrão Conquistou a Supremacia' : 'Esquadrão Foi Superado'} • Turno {turn}
-          </p>
         </div>
 
         {/* ROW: PLAYER PROFILE CARD | XP REWARD & RANK PROGRESS CARD | OPPONENT PROFILE CARD */}
@@ -1410,7 +1417,7 @@ function GameOverOverlay({
               >
                 {/* Pergaminho 3 Card Container */}
                 <div
-                  className={`relative w-30 sm:w-36 h-48 sm:h-58 flex flex-col items-center justify-center pt-3.5 pb-3.5 px-3 sm:px-4 filter drop-shadow-xl transition-transform duration-300 hover:scale-105 ${
+                  className={`relative w-30 sm:w-36 h-48 sm:h-58 flex flex-col items-center justify-center pt-[36px] pb-3.5 px-3 sm:px-4 filter drop-shadow-xl transition-transform duration-300 hover:scale-105 ${
                     combatant.isDead ? 'opacity-60 grayscale' : ''
                   }`}
                 >
@@ -1435,20 +1442,20 @@ function GameOverOverlay({
                   </div>
 
                   {/* Character Name & Status right below photo */}
-                  <div className="relative z-10 w-full text-center flex flex-col items-center gap-0.5 mt-2">
+                  <div className="relative z-10 w-full text-center flex flex-col items-center gap-1.5 mt-2.5">
                     <p className="text-[11px] sm:text-xs font-black text-amber-950 truncate max-w-full font-display drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)] leading-tight">
                       {combatant.character.name}
                     </p>
                     {combatant.isDead ? (
-                      <span className="text-[8px] sm:text-[9px] font-mono font-black text-red-950 bg-red-900/20 px-2 py-0.2 rounded-full border border-red-900/40 uppercase tracking-wider">
+                      <span className="text-[8px] sm:text-[9px] font-mono font-black text-red-950 bg-red-900/20 px-2.5 py-0.5 rounded-full border border-red-900/40 uppercase tracking-wider">
                         MORTO
                       </span>
                     ) : (
                       <>
-                        <span className="text-[8px] sm:text-[9px] font-mono font-black text-emerald-950 bg-emerald-700/20 px-2 py-0.2 rounded-full border border-emerald-800/40 uppercase tracking-wider shadow-xs">
+                        <span className="text-[8px] sm:text-[9px] font-mono font-black text-emerald-950 bg-emerald-700/20 px-2.5 py-0.5 rounded-full border border-emerald-800/40 uppercase tracking-wider shadow-xs">
                           SOBREVIVENTE
                         </span>
-                        <span className="text-[9px] sm:text-[10px] font-mono font-black text-emerald-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+                        <span className="text-[9.5px] sm:text-[10.5px] font-mono font-black text-emerald-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] pt-0.5">
                           ❤️ {combatant.health} / {combatant.maxHealth}
                         </span>
                       </>
@@ -1480,14 +1487,23 @@ function GameOverOverlay({
           <div className="relative z-10 w-full flex justify-center pb-0.5">
             <button
               onClick={handleQuit}
-              className={`py-2 sm:py-2.5 px-6 sm:px-8 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2 shadow-lg border ${
-                isVictory
-                  ? 'bg-gradient-to-r from-amber-700 via-amber-800 to-yellow-900 hover:from-amber-600 hover:to-yellow-800 text-amber-100 border-amber-600/70 shadow-amber-950/40'
-                  : 'bg-gradient-to-r from-red-800 via-rose-900 to-red-950 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-600/70 shadow-red-950/40'
-              }`}
+              className="relative py-2.5 sm:py-3 px-7 sm:px-10 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer active:scale-95 hover:scale-105 flex items-center justify-center gap-2 shadow-lg shadow-red-950/50"
             >
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>{t("Voltar ao Menu", "Back to Selection")}</span>
+              {/* Fundo do botão (red-button.webp) */}
+              <img
+                src="/static/img/ui/red-button.webp"
+                alt=""
+                className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none"
+              />
+              {/* Ícone shuriken girando */}
+              <img
+                src="/static/img/ui/gold-shuriken.webp"
+                alt=""
+                className="relative z-10 w-5 h-5 sm:w-6 sm:h-6 animate-[shuriken-spin_2.5s_linear_infinite] drop-shadow-[0_0_6px_rgba(255,200,50,0.9)] drop-shadow-[0_0_14px_rgba(255,170,20,0.6)]"
+              />
+              <span className="relative z-10 text-amber-100 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                {t("Voltar ao Menu", "Back to Selection")}
+              </span>
             </button>
           </div>
         </div>

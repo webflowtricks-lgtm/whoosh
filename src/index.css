@@ -199,6 +199,16 @@
   }
 }
 
+/* Shuriken girando (botões com gold-shuriken.webp) */
+@keyframes shuriken-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes portal-glow-pulse {
   0%, 100% {
     opacity: 0.7;
