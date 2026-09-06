@@ -395,7 +395,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (screen === 'character-select' && !isMuted) {
+    if ((screen === 'quests' || screen === 'character-select') && !isMuted) {
       if (!characterSelectMusicRef.current) startCharacterSelectMusic();
     } else {
       stopCharacterSelectMusic();
