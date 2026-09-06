@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { GameScreen, Character, UserProfile, Quest } from './types';
 import { evaluateQuestGoal } from './lib/questUtils';
 import { safeFetchJson } from './lib/api';
@@ -58,6 +58,7 @@ export default function App() {
   const [playerTeam, setPlayerTeam] = useState<Character[]>([]);
   const [enemyTeam, setEnemyTeam] = useState<Character[]>([]);
   const [isMuted, setIsMuted] = useState(false);
+  const characterSelectMusicRef = useRef<HTMLAudioElement | null>(null);
   const [isSandbox, setIsSandbox] = useState(false);
   const [sandboxPauseChakraGen, setSandboxPauseChakraGen] = useState(false);
   const [onlineParams, setOnlineParams] = useState<{
@@ -268,6 +269,49 @@ export default function App() {
   const playWinSound = () => playSound('Win');
   const playLoseSound = () => playSound('Lose');
 
+  const stopCharacterSelectMusic = () => {
+    const audio = characterSelectMusicRef.current;
+    if (!audio) return;
+    audio.onended = null;
+    audio.onerror = null;
+    audio.pause();
+    audio.currentTime = 0;
+    characterSelectMusicRef.current = null;
+  };
+
+  const startCharacterSelectMusic = () => {
+    if (isMuted) return;
+    const currentAudio = characterSelectMusicRef.current;
+    if (currentAudio) {
+      void currentAudio.play().catch((error) => {
+        console.log('Character select music playback prevented:', error);
+      });
+      return;
+    }
+
+    const audio = new Audio('/static/audio/character-select-theme.mp3');
+    audio.preload = 'metadata';
+    audio.loop = true;
+    audio.volume = 0.45;
+    characterSelectMusicRef.current = audio;
+    audio.onerror = () => {
+      if (characterSelectMusicRef.current === audio) characterSelectMusicRef.current = null;
+    };
+    audio.play().catch((error) => {
+      console.log('Character select music playback prevented:', error);
+    });
+  };
+
+  useEffect(() => {
+    if (screen === 'character-select' && !isMuted) {
+      if (!characterSelectMusicRef.current) startCharacterSelectMusic();
+    } else {
+      stopCharacterSelectMusic();
+    }
+  }, [screen, isMuted]);
+
+  useEffect(() => () => stopCharacterSelectMusic(), []);
+
   const handleStartGame = () => {
     if (!user) {
       setShowAuth(true);
@@ -276,11 +320,13 @@ export default function App() {
     // DESATIVADO TEMPORARIAMENTE (preload/download de tudo antes da arena):
     // entra direto na seleção de time sem a tela de download.
     // Reativar: troque a linha abaixo por setShowArenaLoading(true);
+    startCharacterSelectMusic();
     setScreen('character-select');
   };
 
   const handleSelectQuest = (quest: Quest) => {
     setActiveQuest(quest);
+    startCharacterSelectMusic();
     setScreen('character-select');
   };
 
@@ -383,6 +429,7 @@ export default function App() {
     setSandboxPauseChakraGen(false);
     setRestoredState(null);
     setActiveQuest(null); // Reset active quest on exit
+    startCharacterSelectMusic();
     setScreen('character-select'); // Return directly to character selection!
   };
 
@@ -565,7 +612,10 @@ export default function App() {
               localStorage.setItem('naruto_user_profile', JSON.stringify(safe));
             }}
             onSelectQuest={handleSelectQuest}
-            onGoToBattle={() => setScreen('character-select')}
+            onGoToBattle={() => {
+              startCharacterSelectMusic();
+              setScreen('character-select');
+            }}
             onBack={() => setScreen('main-menu')}
             playClickSound={playClickSound}
             playWinSound={playWinSound}

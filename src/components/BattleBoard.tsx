@@ -1003,6 +1003,10 @@ function GameOverOverlay({
   const [showRankUpModal, setShowRankUpModal] = useState(rankChangeInfo.rankedUp);
   // 📉 Modal de DESCEU DE RANK (abre sozinho se o jogador caiu de posto)
   const [showRankDownModal, setShowRankDownModal] = useState(rankChangeInfo.rankedDown);
+  // 🏆 Modal de resultado: só aparece quando não houve mudança de rank.
+  const [showBattleResultModal, setShowBattleResultModal] = useState(
+    !rankChangeInfo.rankedUp && !rankChangeInfo.rankedDown,
+  );
 
   const isOnline = !!onlineParams?.isOnline;
   const opp = isOnline ? onlineParams.opponentProfile : null;
@@ -1548,6 +1552,50 @@ function GameOverOverlay({
                 <span className="text-rose-700 underline font-extrabold">{newRankProgress.currentRank.name}</span>.
               </p>
               <button onClick={() => setShowRankDownModal(false)} className="btn-red-image mt-1">
+                <span className="font-brush text-[13px] sm:text-[15px]">Continuar</span>
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {showBattleResultModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          onClick={() => setShowBattleResultModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.7, opacity: 0, y: 30 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.15 }}
+            className="relative w-full max-w-xl rounded-2xl p-6 sm:p-8 text-center overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src="/static/img/ui/pergaminho.webp"
+              alt=""
+              className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none"
+            />
+            <div className="relative z-10 flex flex-col items-center gap-3 py-1">
+              <h2 className={`font-brush text-3xl sm:text-4xl md:text-5xl font-black uppercase flex items-center justify-center gap-3 ${isVictory ? 'text-amber-500 drop-shadow-[0_3px_0_rgba(120,53,15,0.9)]' : 'text-red-600 drop-shadow-[0_3px_0_rgba(127,29,29,0.9)]'}`}>
+                <img
+                  src={isVictory ? '/static/img/ui/trophy.webp' : '/static/img/ui/naruto-meme.webp'}
+                  alt={isVictory ? 'Troféu' : 'Naruto meme'}
+                  className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain animate-bounce"
+                />
+                {isVictory ? 'VOCÊ VENCEU!' : 'VOCÊ PERDEU!'}
+              </h2>
+
+              <p className="text-sm sm:text-base font-bold text-slate-900 max-w-md">
+                {isVictory
+                  ? 'Parabéns! Você venceu a batalha com sua estratégia ninja.'
+                  : 'Você perdeu a batalha, mas ainda pode voltar mais forte.'}
+              </p>
+
+              <button onClick={() => setShowBattleResultModal(false)} className="btn-red-image mt-1">
                 <span className="font-brush text-[13px] sm:text-[15px]">Continuar</span>
               </button>
             </div>
