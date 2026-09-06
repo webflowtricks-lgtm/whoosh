@@ -39,8 +39,9 @@
 /* Fallback explícito da classe (garante a fonte mesmo sem o Tailwind gerar) */
 .font-brush {
   font-family: var(--font-brush);
-  letter-spacing: 0.06em; /* Blowbrush é condensada — espaçamento extra melhora a leitura */
+  letter-spacing: 2.5px; /* Blowbrush é condensada — espaçamento extra melhora a leitura */
 }
+ 
 
 /* =========================================================
    CLASSE ÚNICA DA LARGURA DO CARD DO PERFIL (.profile-card-modal-container)
@@ -344,6 +345,9 @@
   animation:
     xp-lost-glow 1.6s ease-in-out infinite,
     xp-lost-wiggle 1.6s ease-in-out infinite;
+  /* GPU layer: evita o text-shadow "borrar/duplicar" durante o wiggle (scale+rotate) */
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* =========================================================
@@ -371,6 +375,9 @@
   animation:
     xp-gain-glow 1.6s ease-in-out infinite,
     xp-lost-wiggle 1.6s ease-in-out infinite;
+  /* GPU layer: evita o text-shadow "borrar/duplicar" durante o wiggle (scale+rotate) */
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .xp-final-battle {
