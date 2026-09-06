@@ -977,13 +977,27 @@ function GameOverOverlay({
 
   const gainedXp = calculateBattleXp(isVictory, turn, alivePlayerCount, damageDealt);
   const ranks = getRanks();
-  const oldXp = Math.max(0, user?.xp || 0);
-  const newXp = Math.max(0, oldXp + gainedXp);
-  const actualXpChange = newXp - oldXp;
 
-  const oldRankProgress = getRankProgress(oldXp, ranks);
-  const newRankProgress = getRankProgress(newXp, ranks);
-  const rankChangeInfo = checkRankChange(oldXp, newXp, ranks);
+  // 🎬 Valores capturados UMA vez na montagem da tela (lazy state):
+  // o "oldXp" é o XP do usuário no momento em que a batalha terminou.
+  // Assim a animação da barra (initial -> animate) roda IMEDIATAMENTE ao
+  // abrir a tela de vitória/derrota, sem depender de nenhum clique.
+  // (Antes, oldXp lia user.xp a cada render e só mudava quando onBattleEnd
+  // era chamado no handleQuit -> a barra só animava ao clicar "Voltar ao Menu".)
+  const [xpSnapshot] = useState(() => {
+    const oldXpRaw = Math.max(0, user?.xp || 0);
+    const newXpRaw = Math.max(0, oldXpRaw + gainedXp);
+    return {
+      oldXp: oldXpRaw,
+      newXp: newXpRaw,
+      actualXpChange: newXpRaw - oldXpRaw,
+      oldRankProgress: getRankProgress(oldXpRaw, ranks),
+      newRankProgress: getRankProgress(newXpRaw, ranks),
+      rankChangeInfo: checkRankChange(oldXpRaw, newXpRaw, ranks),
+    };
+  });
+
+  const { actualXpChange, oldRankProgress, newRankProgress, rankChangeInfo, newXp } = xpSnapshot;
 
   const isOnline = !!onlineParams?.isOnline;
   const opp = isOnline ? onlineParams.opponentProfile : null;
@@ -1065,41 +1079,17 @@ function GameOverOverlay({
         transition={{ duration: 0.25, ease: 'easeOut' }}
         className="gameover-content relative z-20 w-full max-w-5xl flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
       >
-        {/* Top Victory/Defeat Banner — Cloud Badge (title + icon + turn on nuvem.webp) */}
-        <div className="relative flex flex-col items-center justify-center">
+        {/* Top Victory/Defeat Banner — imagem YW (vitória) / YL (derrota), mesma classe .gameover-banner-img.
+            Absoluta: não empurra o restante do layout (harmonia preservada). */}
+        <div className="gameover-banner-wrap">
           <img
-            src="/static/img/ui/nuvem.webp"
-            alt=""
-            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
+            src={isVictory ? '/static/img/ui/YW.webp' : '/static/img/ui/YL.webp'}
+            alt={isVictory ? 'Vitória' : 'Derrota'}
+            className="gameover-banner-img"
           />
-          <div className="relative z-10 flex flex-col items-center justify-center gap-0.5 px-8 sm:px-14 py-3.5 sm:py-5 w-max">
-            <div className="flex items-center justify-center gap-2.5 sm:gap-3">
-              {isVictory ? (
-                <Trophy className="w-7 h-7 sm:w-9 sm:h-9 text-amber-600" />
-              ) : (
-                <Swords className="w-7 h-7 sm:w-9 sm:h-9 text-red-700" />
-              )}
-
-              <h1
-                className={`text-2xl sm:text-3.5xl font-black uppercase tracking-tight font-display ${
-                  isVictory
-                    ? 'bg-gradient-to-r from-amber-600 via-yellow-500 to-emerald-600 bg-clip-text text-transparent'
-                    : 'bg-gradient-to-r from-red-700 via-rose-600 to-red-800 bg-clip-text text-transparent'
-                }`}
-              >
-                {isVictory ? 'VITÓRIA!' : 'DERROTA!'}
-              </h1>
-              {surrenderReason && (
-                <p className="text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/70 border border-slate-300 text-amber-800">
-                  {surrenderReason}
-                </p>
-              )}
-            </div>
-
-            <p className="text-xs sm:text-sm font-mono uppercase tracking-wider font-black text-white">
-              {isVictory ? 'Esquadrão Conquistou a Supremacia' : 'Esquadrão Foi Superado'} • Turno {turn}
-            </p>
-          </div>
+          {surrenderReason && (
+            <p className="gameover-surrender-pill">{surrenderReason}</p>
+          )}
         </div>
 
         {/* ROW: PLAYER PROFILE CARD | XP REWARD & RANK PROGRESS CARD | OPPONENT PROFILE CARD */}
@@ -1209,98 +1199,107 @@ function GameOverOverlay({
             )}
           </div>
 
-          {/* Center: XP REWARD & RANK PROGRESS CARD */}
-          <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-3.5 text-center shadow-xl backdrop-blur-sm space-y-2 flex-shrink-0 z-10">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-300">RANK:</span>
-                <span
-                  className={`px-2.5 py-0.5 rounded-lg bg-gradient-to-r font-extrabold text-[11px] uppercase tracking-wider shadow ${newRankProgress.currentRank.color}`}
-                  style={{ color: '#ffffff' }}
-                >
-                  {newRankProgress.currentRank.name}
-                </span>
-              </div>
-              {actualXpChange >= 0 ? (
-                <span className="xp-gain-badge text-xs font-black font-mono px-2.5 py-0.5 rounded-full">
-                  +{actualXpChange} XP
-                </span>
-              ) : (
-                <span className="xp-lost-badge text-xs font-black font-mono px-2.5 py-0.5 rounded-full">
-                  {actualXpChange} XP
-                </span>
-              )}
-            </div>
+          {/* Center: XP REWARD & RANK PROGRESS CARD (fundo xp-pergaminho.webp) */}
+          <div className="relative w-full max-w-md rounded-2xl p-3 sm:p-3.5 text-center  overflow-hidden flex-shrink-0 z-10">
+            {/* Background Pergaminho de XP */}
+            <img
+              src="/static/img/ui/xp-pergaminho.webp"
+              alt=""
+              className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none"
+            />
 
-            <div className="space-y-1">
-              <div className="relative w-full h-2.5 bg-slate-950 rounded-full border border-slate-800">
-                <motion.div
-                  initial={{ width: `${oldRankProgress.progressPercent}%` }}
-                  animate={{ width: `${newRankProgress.progressPercent}%` }}
-                  transition={{ duration: 1, ease: 'easeOut' }}
-                  className="relative h-full"
-                >
-                  <div className="absolute inset-0 rounded-full bg-[#0cad81] overflow-hidden shadow-[0_0_12px_rgba(12,173,129,0.6)] xp-bar-ray">
-                    <div className="xp-bar-shimmer" />
-                  </div>
-                  <img
-                    src="/static/img/ui/xpicon.webp"
-                    alt=""
-                    className="xp-final-battle absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 object-contain drop-shadow-[0_0_6px_rgba(12,173,129,0.85)]"
-                  />
-                </motion.div>
-              </div>
-              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                {newRankProgress.isMaxRank ? (
-                  <span className="text-amber-300 font-bold w-full text-center">
-                    🏆 Posto Máximo Alcançado! ({newXp.toLocaleString()} XP)
+            <div className="relative z-10 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-slate-300 drop-shadow font-brush">RANK:</span>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-lg bg-gradient-to-r font-extrabold text-[11px] uppercase tracking-wider shadow ${newRankProgress.currentRank.color}`}
+                    style={{ color: '#ffffff' }}
+                  >
+                    {newRankProgress.currentRank.name}
+                  </span>
+                </div>
+                {actualXpChange >= 0 ? (
+                  <span className="xp-gain-badge text-sm font-black font-brush px-3 py-0.5 rounded-full">
+                    +{actualXpChange} XP
                   </span>
                 ) : (
-                  <>
-                    <span>{newRankProgress.currentXp.toLocaleString()} XP</span>
-                    <span>
-                      Próximo: {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP ({newRankProgress.nextRank?.name})
-                    </span>
-                  </>
+                  <span className="xp-lost-badge text-sm font-black font-brush px-3 py-0.5 rounded-full">
+                    {actualXpChange} XP
+                  </span>
                 )}
               </div>
+
+              <div className="space-y-1">
+                <div className="relative w-full h-2.5 bg-slate-950 rounded-full border border-slate-800">
+                  <motion.div
+                    initial={{ width: `${oldRankProgress.progressPercent}%` }}
+                    animate={{ width: `${newRankProgress.progressPercent}%` }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                    className="relative h-full"
+                  >
+                    <div className="absolute inset-0 rounded-full bg-[#0cad81] overflow-hidden shadow-[0_0_12px_rgba(12,173,129,0.6)] xp-bar-ray">
+                      <div className="xp-bar-shimmer" />
+                    </div>
+                    <img
+                      src="/static/img/ui/xpicon.webp"
+                      alt=""
+                      className="xp-final-battle absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 object-contain drop-shadow-[0_0_6px_rgba(12,173,129,0.85)]"
+                    />
+                  </motion.div>
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                  {newRankProgress.isMaxRank ? (
+                    <span className="text-amber-300 font-bold w-full text-center">
+                      🏆 Posto Máximo Alcançado! ({newXp.toLocaleString()} XP)
+                    </span>
+                  ) : (
+                    <>
+                      <span>{newRankProgress.currentXp.toLocaleString()} XP</span>
+                      <span>
+                        Próximo: {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP ({newRankProgress.nextRank?.name})
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {rankChangeInfo.rankedUp && (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
+                  transition={{ duration: 0.5, type: 'spring' }}
+                  className="bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border border-amber-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                >
+                  <div className="text-xs font-black text-amber-300 uppercase tracking-wide flex items-center justify-center gap-1">
+                    <Trophy className="w-3.5 h-3.5 text-yellow-300 animate-bounce" />
+                    <span>SUBIU DE RANK!</span>
+                  </div>
+                  <p className="text-[11px] font-bold text-white">
+                    Parabéns! Você alcançou o posto de{' '}
+                    <span className="text-amber-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>!
+                  </p>
+                </motion.div>
+              )}
+
+              {rankChangeInfo.rankedDown && (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
+                  transition={{ duration: 0.5, type: 'spring' }}
+                  className="bg-gradient-to-r from-red-500/20 via-rose-500/30 to-red-500/20 border border-red-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
+                >
+                  <div className="text-xs font-black text-rose-300 uppercase tracking-wide flex items-center justify-center gap-1">
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-400 animate-bounce" />
+                    <span>DESCEU DE RANK!</span>
+                  </div>
+                  <p className="text-[11px] font-bold text-white">
+                    A perda de XP rebaixou seu posto para{' '}
+                    <span className="text-rose-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>.
+                  </p>
+                </motion.div>
+              )}
             </div>
-
-            {rankChangeInfo.rankedUp && (
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
-                transition={{ duration: 0.5, type: 'spring' }}
-                className="bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border border-amber-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-              >
-                <div className="text-xs font-black text-amber-300 uppercase tracking-wide flex items-center justify-center gap-1">
-                  <Trophy className="w-3.5 h-3.5 text-yellow-300 animate-bounce" />
-                  <span>SUBIU DE RANK!</span>
-                </div>
-                <p className="text-[11px] font-bold text-white">
-                  Parabéns! Você alcançou o posto de{' '}
-                  <span className="text-amber-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>!
-                </p>
-              </motion.div>
-            )}
-
-            {rankChangeInfo.rankedDown && (
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
-                transition={{ duration: 0.5, type: 'spring' }}
-                className="bg-gradient-to-r from-red-500/20 via-rose-500/30 to-red-500/20 border border-red-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
-              >
-                <div className="text-xs font-black text-rose-300 uppercase tracking-wide flex items-center justify-center gap-1">
-                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400 animate-bounce" />
-                  <span>DESCEU DE RANK!</span>
-                </div>
-                <p className="text-[11px] font-bold text-white">
-                  A perda de XP rebaixou seu posto para{' '}
-                  <span className="text-rose-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>.
-                </p>
-              </motion.div>
-            )}
           </div>
 
           {/* Right: Opponent Profile Card with Floating Standing Skin Artwork below */}
@@ -1497,7 +1496,7 @@ function GameOverOverlay({
             <button onClick={handleQuit} className="btn-red-image">
               {/* Ícone shuriken girando com glow dourado */}
               <img src="/static/img/ui/gold-shuriken.webp" alt="" className="btn-shuriken" />
-              <span>{t("Voltar ao Menu", "Back to Selection")}</span>
+              <span className="font-brush text-[13px] sm:text-[15px]">{t("Voltar ao Menu", "Back to Selection")}</span>
             </button>
           </div>
         </div>

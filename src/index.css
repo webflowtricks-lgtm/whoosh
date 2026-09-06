@@ -1,10 +1,45 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
+/* =========================================================
+   FONTE BLOWBRUSH (títulos/botões estilo pincel ninja)
+   Fonte 100% free (Petar Acanski) — adicionada via DaFont.
+   Use via var(--font-brush) ou classe .font-brush.
+
+   >>> ONDE EDITAR O PADRÃO GLOBAL DESSA FONTE <<<
+   Nesta tela (vitória/derrota) a Blowbrush aparece em:
+   - Badges de XP (+XP/-XP) e "RANK:" -> <span class="font-brush"> no JSX
+   - Botão "VOLTAR AO MENU" -> <span class="font-brush text-[13px] sm:text-[15px]">
+   Todos usam a classe .font-brush (linhas 30-34) que define:
+   * font-family  = var(--font-brush)  -> família (arquivo blowbrush.ttf)
+   * letter-spacing = 0.06em           -> espaçamento entre letras
+   Para o TAMANHO: ajuste o text-*  (ex: text-sm) direto no JSX.
+   Para o LETTER-SPACING/outros: edite .font-brush aqui embaixo.
+   ========================================================= */
+@font-face {
+  font-family: 'Blowbrush';
+  src: url('/fonts/blowbrush.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-brush: "Blowbrush", "Space Grotesk", sans-serif;
+}
+
+/* Tailwind 4: registra --font-brush como utility (gera a classe font-brush) */
+@theme {
+  --font-brush: "Blowbrush", "Space Grotesk", sans-serif;
+}
+
+/* Fallback explícito da classe (garante a fonte mesmo sem o Tailwind gerar) */
+.font-brush {
+  font-family: var(--font-brush);
+  letter-spacing: 0.06em; /* Blowbrush é condensada — espaçamento extra melhora a leitura */
 }
 
 /* =========================================================
@@ -215,6 +250,10 @@
     fire-glow 0.8s ease-in-out infinite;
 }
 
+.gameover-content {
+  margin-top: -13px;
+}
+
 .arena-progress-sheen {
   position: absolute;
   top: 0;
@@ -336,7 +375,21 @@
 
 .xp-final-battle {
   margin-top: -3px;
- 
+  filter: drop-shadow(0 0 6px rgba(12, 173, 129, 0.85)) drop-shadow(0 0 14px rgba(12, 173, 129, 0.4));
+  animation: xp-icon-glow 1.8s ease-in-out infinite;
+  will-change: filter, scale;
+}
+
+/* Brilho pulsante do ícone na ponta da barra de XP */
+@keyframes xp-icon-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 3px rgba(12, 173, 129, 0.7)) drop-shadow(0 0 9px rgba(12, 173, 129, 0.35));
+    scale: 1;
+  }
+  50% {
+    filter: drop-shadow(0 0 9px rgba(12, 173, 129, 1)) drop-shadow(0 0 20px rgba(150, 255, 230, 0.7)) drop-shadow(0 0 34px rgba(12, 173, 129, 0.45));
+    scale: 1.22;
+  }
 }
 
 /* =========================================================
@@ -379,6 +432,56 @@
   width: 30%;
   background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.55), transparent);
   animation: xp-bar-shimmer 2.2s ease-in-out infinite;
+}
+
+/* =========================================================
+   BANNER DE VITÓRIA/DERROTA (.gameover-banner-img) - YW/YL
+   =========================================================
+   MESMA classe para vitória (yw.webp) e derrota (yl.webp) —
+   basta alterar width aqui para redimensionar os dois.
+
+   .gameover-banner-wrap  -> reserva a altura (mesmo valor do
+   banner + a pill de rendição) para o banner ABSOLUTO não
+   sobrepor o conteúdo abaixo nem quebrar o layout.
+   ========================================================= */
+.gameover-banner-wrap {
+  position: relative;
+  width: min(260px, 82vw);
+  max-width: 100%;
+  height: 90px; /* reserva o espaço vertical do banner */
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.gameover-banner-img {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: min(560px, 82vw);
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Pill de rendição que fica abaixo do banner (opcional) */
+.gameover-surrender-pill {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.65rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid #cbd5e1;
+  color: #92400e;
+  pointer-events: auto;
+  white-space: nowrap;
 }
 
 /* =========================================================
