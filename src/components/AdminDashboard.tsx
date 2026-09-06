@@ -90,9 +90,10 @@ function DamageTypeToggles({ selected, onChange, title, activeClass, checkClass,
 interface AdminDashboardProps {
   onBack: () => void;
   playClickSound: () => void;
+  playScrollSound: () => void;
 }
 
-export default function AdminDashboard({ onBack, playClickSound }: AdminDashboardProps) {
+export default function AdminDashboard({ onBack, playClickSound, playScrollSound }: AdminDashboardProps) {
   const { t } = useLanguage();
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events' | 'ranks' | 'cards' | 'backup'>('ninjas');
@@ -164,6 +165,8 @@ export default function AdminDashboard({ onBack, playClickSound }: AdminDashboar
   });
 
   const requestConfirm = (title: string, message: string, onConfirm: () => void) => {
+    playClickSound();
+    playScrollSound();
     setConfirmModal({
       isOpen: true,
       title,

@@ -42,6 +42,7 @@ interface ProfileCardModalProps {
   hideLikeButton?: boolean;
   onClose: () => void;
   playClickSound?: () => void;
+  playUahSound?: () => void;
   onOpenEditModal?: () => void;
 }
 
@@ -60,8 +61,13 @@ export default function ProfileCardModal({
   hideLikeButton = false,
   onClose,
   playClickSound,
+  playUahSound,
   onOpenEditModal,
 }: ProfileCardModalProps) {
+  const closeModal = () => {
+    if (playUahSound) playUahSound();
+    onClose();
+  };
   const { t } = useLanguage();
   const profileKey = (profile.username || profile.name || 'ninja').toLowerCase().replace(/[^a-z0-9]/g, '_');
   const likesStorageKey = `naruto_profile_real_likes_${profileKey}`;
@@ -102,7 +108,7 @@ export default function ProfileCardModal({
   const frameStyle = profile.equippedFrame ? (PRESET_STYLED_FRAMES[profile.equippedFrame] || 'border-2 border-orange-400') : 'border-2 border-orange-400';
 
   const handleLike = () => {
-    if (playClickSound) playClickSound();
+    if (playUahSound) playUahSound();
 
     const today = getTodayStr();
 
@@ -164,7 +170,7 @@ export default function ProfileCardModal({
     <AnimatePresence>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
-        onClick={() => { if (playClickSound) playClickSound(); onClose(); }}
+        onClick={() => { if (playClickSound) playClickSound(); closeModal(); }}
       >
         <div className="flex items-stretch gap-3 max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
         <motion.div
@@ -199,7 +205,7 @@ export default function ProfileCardModal({
             <button
               onClick={() => {
                 if (playClickSound) playClickSound();
-                onClose();
+                closeModal();
               }}
               className={`absolute top-4 right-4 p-2 rounded-full text-white transition cursor-pointer z-30 shadow-lg ${bannerHover ? 'bg-slate-950/70 hover:bg-slate-950/90' : 'bg-slate-950/50 hover:bg-slate-950/90'}`}
               title={t('Fechar Card', 'Close Card')}
@@ -317,6 +323,7 @@ export default function ProfileCardModal({
                     {!hideLikeButton && (
                       <button
                         onClick={handleLike}
+                        data-sound="uah"
                         className={`px-3.5 py-2 rounded-xl font-mono text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow flex-shrink-0 ${
                           hasLikedToday
                             ? 'bg-slate-800 text-rose-300 border border-rose-500/30 hover:bg-slate-700/80'
@@ -412,7 +419,7 @@ export default function ProfileCardModal({
                 <button
                   onClick={() => {
                     if (playClickSound) playClickSound();
-                    onClose();
+                    closeModal();
                     onOpenEditModal();
                   }}
                   className="px-4 py-2 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/25 text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-2"
@@ -425,7 +432,7 @@ export default function ProfileCardModal({
               <button
                 onClick={() => {
                   if (playClickSound) playClickSound();
-                  onClose();
+                  closeModal();
                 }}
                 className="ml-auto px-6 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer shadow"
               >

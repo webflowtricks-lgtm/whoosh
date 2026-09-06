@@ -17,17 +17,22 @@ import { useLanguage, translateGameText, translateSkillName, translateTargetType
 import { getGoalDescription } from '../lib/questUtils';
 import { safeFetchJson } from '../lib/api';
 import { RichText } from '../lib/richText';
+import { playGlobalSound } from '../lib/soundUtils';
 
 interface BattleBoardProps {
   playerTeam: Character[];
   enemyTeam: Character[];
   isMuted: boolean;
   onToggleMute: () => void;
+  audioSettings: { master: number; effects: number; music: number };
+  onUpdateAudioSetting: (key: 'master' | 'effects' | 'music', value: number) => void;
   onQuit: () => void;
   /** ⚠️ TEMPORÁRIO: atalho para o painel admin durante o desenvolvimento (remover no lançamento) */
   onOpenAdmin?: () => void;
   playClickSound: () => void;
   playScrollSound: () => void;
+  playUahSound: () => void;
+  playTargetSound: () => void;
   playWinSound: () => void;
   playLoseSound: () => void;
   user: UserProfile;
@@ -953,6 +958,7 @@ interface GameOverOverlayProps {
   } | null;
   onViewProfile?: (profile: ProfileCardData, isSelf: boolean) => void;
   playClickSound?: () => void;
+  playScrollSound?: () => void;
 }
 
 function GameOverOverlay({
@@ -967,6 +973,7 @@ function GameOverOverlay({
   onlineParams,
   onViewProfile,
   playClickSound,
+  playScrollSound,
 }: GameOverOverlayProps) {
   const { t } = useLanguage();
   const isVictory = gameOver === 'victory';
@@ -1007,6 +1014,12 @@ function GameOverOverlay({
   const [showBattleResultModal, setShowBattleResultModal] = useState(
     !rankChangeInfo.rankedUp && !rankChangeInfo.rankedDown,
   );
+
+  useEffect(() => {
+    if (showRankUpModal || showRankDownModal || showBattleResultModal) {
+      playScrollSound?.();
+    }
+  }, [showRankUpModal, showRankDownModal, showBattleResultModal, playScrollSound]);
 
   const isOnline = !!onlineParams?.isOnline;
   const opp = isOnline ? onlineParams.opponentProfile : null;
@@ -1482,7 +1495,7 @@ function GameOverOverlay({
           </div>
 
           <div className="relative z-10 w-full flex justify-center" >
-            <button onClick={handleQuit} className="btn-red-image">
+            <button onClick={handleQuit} data-sound="uah" className="btn-red-image">
               {/* Ícone shuriken girando com glow dourado */}
               <img src="/static/img/ui/gold-shuriken.webp" alt="" className="btn-shuriken" />
               <span className="font-brush text-[13px] sm:text-[15px]">{t("Voltar ao Menu", "Back to Selection")}</span>
@@ -1518,7 +1531,7 @@ function GameOverOverlay({
                 Parabéns! Você alcançou o posto de{' '}
                 <span className="text-amber-700 underline font-extrabold">{newRankProgress.currentRank.name}</span>!
               </p>
-              <button onClick={() => setShowRankUpModal(false)} className="btn-red-image mt-1">
+              <button onClick={() => setShowRankUpModal(false)} data-sound="uah" className="btn-red-image mt-1">
                 <span className="font-brush text-[13px] sm:text-[15px]">Continuar</span>
               </button>
             </div>
@@ -1551,7 +1564,7 @@ function GameOverOverlay({
                 A perda de XP rebaixou seu posto para{' '}
                 <span className="text-rose-700 underline font-extrabold">{newRankProgress.currentRank.name}</span>.
               </p>
-              <button onClick={() => setShowRankDownModal(false)} className="btn-red-image mt-1">
+              <button onClick={() => setShowRankDownModal(false)} data-sound="uah" className="btn-red-image mt-1">
                 <span className="font-brush text-[13px] sm:text-[15px]">Continuar</span>
               </button>
             </div>
@@ -1595,7 +1608,7 @@ function GameOverOverlay({
                   : 'Você perdeu a batalha, mas ainda pode voltar mais forte.'}
               </p>
 
-              <button onClick={() => setShowBattleResultModal(false)} className="btn-red-image mt-1">
+              <button onClick={() => setShowBattleResultModal(false)} data-sound="uah" className="btn-red-image mt-1">
                 <span className="font-brush text-[13px] sm:text-[15px]">Continuar</span>
               </button>
             </div>
@@ -1611,10 +1624,14 @@ export default function BattleBoard({
   enemyTeam,
   isMuted,
   onToggleMute,
+  audioSettings,
+  onUpdateAudioSetting,
   onQuit,
   onOpenAdmin,
   playClickSound,
   playScrollSound,
+  playUahSound,
+  playTargetSound,
   playWinSound,
   playLoseSound,
   user,
@@ -1999,6 +2016,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const [lastEmojiClicked, setLastEmojiClicked] = useState<Record<string, number>>({});
   const [globalEmojiCooldownUntil, setGlobalEmojiCooldownUntil] = useState<number>(0);
   const [showBattleSettings, setShowBattleSettings] = useState(false);
+  const [showVolumeControls, setShowVolumeControls] = useState(false);
 
   // Multiplayer state
   const [isWaitingForOpponent, setIsWaitingForOpponent] = useState(false);
@@ -2599,24 +2617,10 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
-  // Audio utility helper (tenta OGG, fallback MP3 com throttling contra sons duplos)
-  const lastSoundTimeRef = useRef<{ [key: string]: number }>({});
+  // Audio utility helper (compartilhado globalmente, mp3 com throttling contra sons duplos)
   const playCustomSound = (soundName: string) => {
     if (isMuted) return;
-    const now = Date.now();
-    if (lastSoundTimeRef.current[soundName] && now - lastSoundTimeRef.current[soundName] < 150) {
-      return;
-    }
-    lastSoundTimeRef.current[soundName] = now;
-
-    const tryExt = (ext: string) => {
-      try {
-        const a = new Audio(`/static/audio/${soundName}.${ext}`);
-        a.volume = 0.4;
-        return a.play();
-      } catch { return Promise.reject(); }
-    };
-    tryExt('ogg').catch(() => tryExt('mp3')).catch(() => {});
+    playGlobalSound(soundName, 0.4);
   };
 
   // Play Victory / Defeat sound when game finishes
@@ -2963,7 +2967,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
         return [...filtered, { sourceId: charId, skillIndex: skillIdx, targetId: charId }];
       });
       setSelectedSkill(null);
-      playCustomSound('Target');
+      playTargetSound();
     } else {
       setSelectedSkill({ charId, skillIndex: skillIdx });
     }
@@ -11695,6 +11699,7 @@ splashOnlyTargets = splashPool.filter(c =>
       });
       setRandAllocation(initialAllocation);
       setShowRandChakraModal(true);
+      playScrollSound();
       turnActionLockedRef.current = false;
       isEndingTurnRef.current = false;
       setIsEndingTurn(false);
@@ -11726,11 +11731,13 @@ splashOnlyTargets = splashPool.filter(c =>
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       playCustomSound('Error');
       setShowNoInternetModal(true);
+      playScrollSound();
       return;
     }
 
     if (isSandbox && !dontShowSandboxConfirmAgain) {
       playClickSound();
+      playScrollSound();
       setShowSandboxConfirmModal(true);
     } else {
       checkAndProceedWithEndTurn();
@@ -11851,6 +11858,7 @@ splashOnlyTargets = splashPool.filter(c =>
       if (pollFailureStreakRef.current >= 20 && !showRoomLostModalRef.current && Date.now() - roomLostDismissedAtRef.current > 30000) {
         showRoomLostModalRef.current = true;
         setShowRoomLostModal(true);
+        playScrollSound();
       }
     };
     const runSync = (wsData?: any) => {
@@ -17543,13 +17551,51 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     onClick={(e) => {
                       e.stopPropagation();
                       playClickSound();
-                      onToggleMute();
+                      setShowVolumeControls(prev => !prev);
                     }}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
                   >
                     {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
-                    <span>{isMuted ? 'Ativar Som' : 'Desativar Som'}</span>
+                    <span>Volume</span>
                   </button>
+
+                  {showVolumeControls && (
+                    <div className="mt-1 space-y-3 rounded-lg border border-slate-700 bg-slate-950/90 p-3">
+                      {([
+                        ['master', 'Volume geral'],
+                        ['effects', 'Efeitos'],
+                        ['music', 'Música'],
+                      ] as const).map(([key, label]) => (
+                        <label key={key} className="block space-y-1">
+                          <span className="flex items-center justify-between gap-3 text-[10px] font-bold text-slate-300">
+                            <span>{label}</span>
+                            <span className="font-mono text-orange-300">{Math.round(audioSettings[key] * 100)}%</span>
+                          </span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={audioSettings[key]}
+                            onChange={e => onUpdateAudioSetting(key, Number(e.target.value))}
+                            className="h-1.5 w-full cursor-pointer accent-orange-500"
+                          />
+                        </label>
+                      ))}
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          playClickSound();
+                          onToggleMute();
+                        }}
+                        className="flex w-full items-center gap-2 border-t border-slate-800 pt-3 text-left text-[10px] font-bold text-slate-300 transition hover:text-white cursor-pointer"
+                      >
+                        {isMuted ? <Volume2 className="h-3.5 w-3.5 text-emerald-400" /> : <VolumeX className="h-3.5 w-3.5 text-red-400" />}
+                        <span>{isMuted ? 'Ativar todos os sons' : 'Mutar todos os sons'}</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* Recarregar */}
                   {!gameOver && !onlineParams?.isOnline && (
@@ -17588,6 +17634,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     onClick={(e) => {
                       e.stopPropagation();
                       playClickSound();
+                      playScrollSound();
                       setIsQuestModalOpen(true);
                       setShowBattleSettings(false);
                     }}
@@ -18456,7 +18503,11 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 </span>
                 <div className="flex items-center justify-center gap-2.5">
                   <button
-                    onClick={() => setShowChakraTrade(true)}
+                    onClick={() => {
+                      playClickSound();
+                      playScrollSound();
+                      setShowChakraTrade(true);
+                    }}
                     className="text-[10px] font-mono uppercase tracking-wider font-extrabold text-amber-950 bg-amber-100/80 hover:bg-amber-200/90 border border-amber-800/50 rounded px-2.5 py-0.5 cursor-pointer shadow transition-all"
                   >
                     Trocar 4→1
@@ -19762,8 +19813,11 @@ onClick={() => handleSelectTarget(combatant.id, true)}
             matchStats={matchStatsRef.current}
             surrenderReason={surrenderReason}
             onlineParams={onlineParams}
-            onViewProfile={(profile, isSelf) => setViewingProfile({ profile, isSelf })}
+            onViewProfile={(profile, isSelf) => {
+              setViewingProfile({ profile, isSelf });
+            }}
             playClickSound={playClickSound}
+            playScrollSound={playScrollSound}
           />
         )}
       </AnimatePresence>
@@ -19833,12 +19887,14 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                 <div className="flex gap-3 pt-2 w-full">
                   <button
                     onClick={() => { setShowChakraTrade(false); setTradeSelection({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 }); setTradeTarget(null); }}
+                    data-sound="uah"
                     className="flex-1 py-2 px-3 bg-[#d3ad75]/90 hover:bg-[#c49a5d] text-stone-950 font-black text-xs uppercase tracking-wider border-2 border-[#7a4e25] rounded-xl shadow-md transition cursor-pointer active:scale-95"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={handleTradeChakra}
+                    data-sound="uah"
                     className="flex-1 py-2 px-3 bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-orange-950/40 border border-orange-600/50 transition cursor-pointer active:scale-95"
                   >
                     Confirmar
@@ -19909,6 +19965,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full pt-1">
                   <button
                     onClick={confirmSurrender}
+                    data-sound="uah"
                     className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95"
                   >
                     Sim, Render-me
@@ -19964,6 +20021,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full pt-1">
                   <button
                     onClick={confirmReloadBattle}
+                    data-sound="uah"
                     className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-slate-950/40 border border-slate-500/50 transition cursor-pointer active:scale-95"
                   >
                     Sim, Recarregar
@@ -20071,6 +20129,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                 </button>
                 <button
                   disabled={isEndingTurn}
+                  data-sound="uah"
                   onClick={() => {
                     if (isEndingTurnRef.current || isEndingTurn) return;
                     turnActionLockedRef.current = false;
@@ -20115,6 +20174,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                   playClickSound();
                   setShowNoInternetModal(false);
                 }}
+                data-sound="uah"
                 className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white font-extrabold text-xs uppercase tracking-wider border border-red-500/50 shadow-md transition active:scale-95 cursor-pointer"
               >
                 Conectar-se à Internet
@@ -20149,6 +20209,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     setShowRoomLostModal(false);
                     syncFnRef.current?.();
                   }}
+                  data-sound="uah"
                   className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-xs uppercase tracking-wider border border-emerald-500/50 shadow-md transition active:scale-95 cursor-pointer"
                 >
                   Continuar Tentando
@@ -20161,6 +20222,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     setShowRoomLostModal(false);
                     confirmSurrender();
                   }}
+                  data-sound="uah"
                   className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white font-extrabold text-xs uppercase tracking-wider border border-red-500/50 shadow-md transition active:scale-95 cursor-pointer"
                 >
                   Encerrar Partida (Derrota)
@@ -20323,6 +20385,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     turnActionLockedRef.current = false;
                     setShowRandChakraModal(false);
                   }}
+                  data-sound="uah"
                   className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition active:scale-95 border border-slate-700 cursor-pointer"
                 >
                   Cancelar
@@ -20340,6 +20403,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     setShowRandChakraModal(false);
                     handleEndTurn(randAllocation);
                   }}
+                  data-sound="uah"
                   className="flex-1 py-2.5 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-amber-100 bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 border border-orange-600/50 shadow-md transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Confirmar e Finalizar
@@ -20556,6 +20620,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
           isSelf={viewingProfile.isSelf}
           onClose={() => setViewingProfile(null)}
           playClickSound={playClickSound}
+          playUahSound={playUahSound}
         />
       )}
 

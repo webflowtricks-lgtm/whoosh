@@ -48,6 +48,8 @@ interface QuestBoardProps {
   onGoToBattle: () => void;
   onBack: () => void;
   playClickSound: () => void;
+  playScrollSound: () => void;
+  playUahSound: () => void;
   playWinSound: () => void;
 }
 
@@ -80,6 +82,8 @@ export default function QuestBoard({
   onGoToBattle,
   onBack,
   playClickSound,
+  playScrollSound,
+  playUahSound,
   playWinSound,
 }: QuestBoardProps) {
   const { t } = useLanguage();
@@ -366,6 +370,7 @@ export default function QuestBoard({
         unlockedCharacters: unlockedChars,
         otherRewards: otherRewardsList
       });
+      playScrollSound();
     }, 800);
   };
 
@@ -426,6 +431,7 @@ export default function QuestBoard({
   const handleViewCompletedRewards = (quest: Quest) => {
     playClickSound();
     playWinSound();
+    playScrollSound();
     buildRewardModalData(quest);
   };
 
@@ -682,6 +688,7 @@ export default function QuestBoard({
             onClose={() => setShowProfileModal(false)}
             onUpdateUser={onUpdateUser}
             playClickSound={playClickSound}
+            playUahSound={playUahSound}
           />
         )}
 
@@ -735,6 +742,7 @@ export default function QuestBoard({
             <button
               onClick={() => {
                 playClickSound();
+                playScrollSound();
                 setShowProfileModal(true);
               }}
               className="flex items-center gap-3 bg-slate-950/80 hover:bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-800 hover:border-orange-500/60 transition cursor-pointer group"

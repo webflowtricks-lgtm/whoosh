@@ -18,6 +18,7 @@ interface ProfileModalProps {
   onClose: () => void;
   onUpdateUser: (updated: UserProfile) => void;
   playClickSound: () => void;
+  playUahSound: () => void;
 }
 
 const PRESET_STYLED_FRAMES = [
@@ -29,7 +30,7 @@ const PRESET_STYLED_FRAMES = [
   { name: 'Guerra Shinobi', style: 'border-2 border-orange-500 shadow-[0_0_18px_rgba(249,115,22,0.6)] bg-gradient-to-tr from-orange-500 via-amber-500 to-red-600 p-0.5', badge: 'ALIANÇA' }
 ];
 
-export default function ProfileModal({ user, onClose, onUpdateUser, playClickSound }: ProfileModalProps) {
+export default function ProfileModal({ user, onClose, onUpdateUser, playClickSound, playUahSound }: ProfileModalProps) {
   const { t } = useLanguage();
   const [name, setName] = useState(user.name);
   const [photoUrl, setPhotoUrl] = useState(user.photoUrl);
@@ -130,7 +131,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
   };
 
   const handleSaveProfile = () => {
-    playClickSound();
+    playUahSound();
     const updated: UserProfile = {
       ...user,
       name,
@@ -828,6 +829,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
 
           <button
             onClick={handleSaveProfile}
+            data-sound="uah"
             className="px-6 py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-slate-950 font-mono font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer"
           >
             <Save className="w-4 h-4" />

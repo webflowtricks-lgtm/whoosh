@@ -11,6 +11,7 @@ import { safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage, translateGameText, translateSkillName, translateTargetType } from '../lib/i18n';
 import { RichText, stripRichMarkup } from '../lib/richText';
+import { playGlobalSound } from '../lib/soundUtils';
 import MangekyoLoader from './MangekyoLoader';
 
 interface CharacterSelectProps {
@@ -23,12 +24,14 @@ interface CharacterSelectProps {
   ) => void;
   playClickSound: () => void;
   playScrollSound: () => void;
+  playUahSound: () => void;
+  playTargetSound: () => void;
   user: UserProfile;
   activeQuest?: Quest | null;
   onBack?: () => void;
 }
 
-export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, user, activeQuest, onBack }: CharacterSelectProps) {
+export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, playUahSound, playTargetSound, user, activeQuest, onBack }: CharacterSelectProps) {
   const { t, language } = useLanguage();
   const [charList, setCharList] = useState<Character[]>(() => getCharacters());
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
@@ -44,6 +47,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     return [];
   });
   const [sandboxPlayerTeam, setSandboxPlayerTeam] = useState<Character[] | null>(null);
+  const pendingCharacterClickRef = useRef<{ id: string; at: number } | null>(null);
   // 🧊 Sandbox: modal perguntando se deseja pausar a geração de chakra (10 chakras fixos p/ ambos)
   const [showSandboxChakraModal, setShowSandboxChakraModal] = useState(false);
   const [previewCharacter, setPreviewCharacter] = useState<Character>(() => {
@@ -222,10 +226,20 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     }
 
     if (selectedIds.includes(character.id)) {
+      pendingCharacterClickRef.current = null;
       setSelectedIds(selectedIds.filter(id => id !== character.id));
     } else {
       if (selectedIds.length < 3) {
-        setSelectedIds([...selectedIds, character.id]);
+        const now = Date.now();
+        const pending = pendingCharacterClickRef.current;
+        if (pending?.id === character.id && now - pending.at <= 500) {
+          pendingCharacterClickRef.current = null;
+          setSelectedIds([...selectedIds, character.id]);
+          playUahSound();
+          playTargetSound();
+        } else {
+          pendingCharacterClickRef.current = { id: character.id, at: now };
+        }
       }
     }
   };
@@ -276,7 +290,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   const handleConfirm = () => {
     if (selectedIds.length !== 3) return;
-    playClickSound();
+    playUahSound();
 
     const rawPlayerTeam = charList.filter(c => selectedIds.includes(c.id));
     const playerTeam = attachSkinsToTeam(rawPlayerTeam);
@@ -291,7 +305,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   const handleStartSandboxPhase = () => {
     if (selectedIds.length !== 3) return;
-    playClickSound();
+    playUahSound();
     const rawPlayerTeam = charList.filter(c => selectedIds.includes(c.id));
     const playerTeam = attachSkinsToTeam(rawPlayerTeam);
     setSandboxPlayerTeam(playerTeam);
@@ -299,7 +313,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   };
 
   const handleBackToPlayerSelect = () => {
-    playClickSound();
+    playUahSound();
     if (sandboxPlayerTeam) {
       setSelectedIds(sandboxPlayerTeam.map(c => c.id));
       setSandboxPlayerTeam(null);
@@ -308,14 +322,15 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   const handleConfirmSandboxMatch = () => {
     if (selectedIds.length !== 3 || !sandboxPlayerTeam) return;
-    playClickSound();
+    playUahSound();
     // Abre o modal perguntando sobre pausar a geração de chakra (só em sandbox)
     setShowSandboxChakraModal(true);
+    playScrollSound();
   };
 
   const finalizeSandboxMatch = (pauseChakraGen: boolean) => {
     if (selectedIds.length !== 3 || !sandboxPlayerTeam) return;
-    playClickSound();
+    playUahSound();
     const rawEnemyTeam = charList.filter(c => selectedIds.includes(c.id));
     const enemyTeam = attachSkinsToTeam(rawEnemyTeam);
     setShowSandboxChakraModal(false);
@@ -325,7 +340,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   // Handle Online Matchmaking Flow
   const handleStartMatchmaking = async () => {
     if (selectedIds.length !== 3) return;
-    playClickSound();
+    playUahSound();
 
     const playerTeam = attachSkinsToTeam(charList.filter(c => selectedIds.includes(c.id)));
 
@@ -429,11 +444,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     setOpponent(opponentData);
 
     // Audio cue
-    try {
-      const audio = new Audio('/static/audio/NextTurn.ogg');
-      audio.volume = 0.55;
-      audio.play().catch(() => {});
-    } catch (e) {}
+    playGlobalSound('NextTurn', 0.55);
 
     // Start 5 second countdown before starting battle
     let currentCountdown = 5;
@@ -574,6 +585,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           setSelectedIds(prev => prev.filter(id => id !== char.id));
                         }
                       }}
+                      data-sound={char ? 'uah' : undefined}
                       title={char ? `${char.name} (${t("Clique para remover", "Click to remove")})` : `Slot ${idx + 1}`}
                       className={`group relative w-12 h-12 sm:w-14 sm:h-14 rounded-lg border-2 overflow-hidden flex items-center justify-center transition-all ${
                         char
@@ -607,6 +619,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   <>
                     <button
                       onClick={handleBackToPlayerSelect}
+                      data-sound="uah"
                       className="px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md font-mono"
                     >
                       <ChevronLeft className="w-4 h-4" />
@@ -615,6 +628,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
                     <button
                       onClick={handleConfirmSandboxMatch}
+                      data-sound="uah"
                       disabled={selectedIds.length !== 3}
                       className={`px-4 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
                         selectedIds.length === 3
@@ -631,9 +645,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     {onBack && (
                       <button
                         onClick={() => {
-                          playClickSound();
+                          playUahSound();
                           onBack();
                         }}
+                        data-sound="uah"
                         className="px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md font-mono"
                       >
                         <ChevronLeft className="w-4 h-4" />
@@ -643,6 +658,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
                     <button
                       onClick={handleConfirm}
+                      data-sound="uah"
                       disabled={selectedIds.length !== 3}
                       className={`px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
                         selectedIds.length === 3
@@ -656,6 +672,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
                     <button
                       onClick={handleStartSandboxPhase}
+                      data-sound="uah"
                       disabled={selectedIds.length !== 3}
                       className={`px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
                         selectedIds.length === 3
@@ -669,6 +686,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
                     <button
                       onClick={handleStartMatchmaking}
+                      data-sound="uah"
                       disabled={selectedIds.length !== 3}
                       className={`px-4 py-2.5 rounded-lg font-black flex items-center gap-2 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
                         selectedIds.length === 3
@@ -1374,18 +1392,21 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               <div className="flex flex-col gap-2 pt-2">
                 <button
                   onClick={() => finalizeSandboxMatch(true)}
+                  data-sound="uah"
                   className="w-full rounded-lg py-3 text-sm font-bold font-mono tracking-wider uppercase transition-all active:scale-95 cursor-pointer bg-gradient-to-r from-cyan-700 to-cyan-900 hover:from-cyan-600 hover:to-cyan-800 text-cyan-50 border border-cyan-600/60"
                 >
                   🧊 {t('Sim, pausar (10 chakras cada)', 'Yes, pause (10 chakras each)')}
                 </button>
                 <button
                   onClick={() => finalizeSandboxMatch(false)}
+                  data-sound="uah"
                   className="w-full rounded-lg py-3 text-sm font-bold font-mono tracking-wider uppercase transition-all active:scale-95 cursor-pointer bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700"
                 >
                   {t('Não, geração normal', 'No, normal generation')}
                 </button>
                 <button
                   onClick={() => setShowSandboxChakraModal(false)}
+                  data-sound="uah"
                   className="w-full rounded-lg py-2 text-[11px] font-mono text-slate-500 hover:text-slate-300 transition-all cursor-pointer"
                 >
                   {t('Cancelar', 'Cancel')}

@@ -16,6 +16,7 @@ import { fetchPngFramesFromServer } from './lib/frameStorage';
 import { calculateBattleXp } from './lib/xpSystem';
 import { getRanks, getUserRankFromConfig } from './lib/rankStorage';
 import { preloadCommonUI, preloadCharacters } from './lib/imagePreloader';
+import { playGlobalSound, bindGlobalClickSound, bindGlobalModalSound, setEffectsVolumeMultiplier } from './lib/soundUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Swords, Flag } from 'lucide-react';
 
@@ -58,7 +59,20 @@ export default function App() {
   const [playerTeam, setPlayerTeam] = useState<Character[]>([]);
   const [enemyTeam, setEnemyTeam] = useState<Character[]>([]);
   const [isMuted, setIsMuted] = useState(false);
+  const [audioSettings, setAudioSettings] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('ninja_audio_settings') || '{}');
+      return {
+        master: typeof saved.master === 'number' ? Math.max(0, Math.min(1, saved.master)) : 1,
+        effects: typeof saved.effects === 'number' ? Math.max(0, Math.min(1, saved.effects)) : 1,
+        music: typeof saved.music === 'number' ? Math.max(0, Math.min(1, saved.music)) : 1,
+      };
+    } catch {
+      return { master: 1, effects: 1, music: 1 };
+    }
+  });
   const characterSelectMusicRef = useRef<HTMLAudioElement | null>(null);
+  const battleMusicRef = useRef<HTMLAudioElement | null>(null);
   const [isSandbox, setIsSandbox] = useState(false);
   const [sandboxPauseChakraGen, setSandboxPauseChakraGen] = useState(false);
   const [onlineParams, setOnlineParams] = useState<{
@@ -160,6 +174,7 @@ export default function App() {
           // Show the modal IMMEDIATELY; for online matches verify the room in background.
           setReconnectData(parsed);
           setReconnectRoomLost(false);
+          playScrollSound();
           if (parsed.onlineParams?.isOnline) {
             setReconnectChecking(true);
             fetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`)
@@ -217,6 +232,7 @@ export default function App() {
     setOnlineParams(savedState.onlineParams || null);
     setIsSandbox(!!savedState.isSandbox);
     setSandboxPauseChakraGen(!!savedState.isSandbox && !!savedState.sandboxPauseChakraGen);
+    startBattleMusic();
     setRestoredState(savedState);
     setScreen('battle');
     setReconnectData(null);
@@ -250,24 +266,39 @@ export default function App() {
     setReconnectSurrender(null);
   };
 
-  // Global sound effect triggers
-  const playSound = (soundName: string) => {
+  // Global sound effect triggers (mp3, com throttle anti-duplicação)
+  const playSound = (soundName: string, volume = 0.45) => {
     if (isMuted) return;
-    try {
-      const audio = new Audio(`/static/audio/${soundName}.ogg`);
-      audio.volume = 0.45;
-      audio.play().catch(e => {
-        console.log('Audio autoplay prevented:', e);
-      });
-    } catch (err) {
-      console.error('Audio playback error:', err);
-    }
+    playGlobalSound(soundName, volume);
+  };
+
+  const updateAudioSetting = (key: 'master' | 'effects' | 'music', value: number) => {
+    setAudioSettings(prev => {
+      const next = { ...prev, [key]: Math.max(0, Math.min(1, value)) };
+      try { localStorage.setItem('ninja_audio_settings', JSON.stringify(next)); } catch {}
+      return next;
+    });
   };
 
   const playClickSound = () => playSound('Click');
   const playScrollSound = () => playSound('Scroll');
+  const playUahSound = () => playSound('uah');
+  const playTargetSound = () => playSound('Target');
   const playWinSound = () => playSound('Win');
   const playLoseSound = () => playSound('Lose');
+
+  // 🔊 SOM DE CLIQUE GLOBAL: qualquer elemento clicável no jogo inteiro toca Click.mp3
+  useEffect(() => {
+    bindGlobalClickSound(() => !isMuted);
+    bindGlobalModalSound(() => !isMuted);
+  }, [isMuted]);
+
+  useEffect(() => {
+    setEffectsVolumeMultiplier(audioSettings.effects * audioSettings.master);
+    const musicVolume = 0.45 * audioSettings.music * audioSettings.master;
+    if (battleMusicRef.current) battleMusicRef.current.volume = musicVolume;
+    if (characterSelectMusicRef.current) characterSelectMusicRef.current.volume = musicVolume;
+  }, [audioSettings.music, audioSettings.master]);
 
   const stopCharacterSelectMusic = () => {
     const audio = characterSelectMusicRef.current;
@@ -279,8 +310,42 @@ export default function App() {
     characterSelectMusicRef.current = null;
   };
 
+  const stopBattleMusic = () => {
+    const audio = battleMusicRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.onerror = null;
+    battleMusicRef.current = null;
+  };
+
+  const startBattleMusic = () => {
+    if (isMuted) return;
+    const currentAudio = battleMusicRef.current;
+    if (currentAudio) {
+      void currentAudio.play().catch((error) => {
+        console.log('Battle music playback prevented:', error);
+      });
+      return;
+    }
+
+    stopCharacterSelectMusic();
+    const audio = new Audio('/static/audio/battle-theme.mp3');
+    audio.preload = 'metadata';
+    audio.loop = true;
+    audio.volume = 0.45 * audioSettings.music * audioSettings.master;
+    battleMusicRef.current = audio;
+    audio.onerror = () => {
+      if (battleMusicRef.current === audio) battleMusicRef.current = null;
+    };
+    void audio.play().catch((error) => {
+      console.log('Battle music playback prevented:', error);
+    });
+  };
+
   const startCharacterSelectMusic = () => {
     if (isMuted) return;
+    stopBattleMusic();
     const currentAudio = characterSelectMusicRef.current;
     if (currentAudio) {
       void currentAudio.play().catch((error) => {
@@ -292,7 +357,7 @@ export default function App() {
     const audio = new Audio('/static/audio/character-select-theme.mp3');
     audio.preload = 'metadata';
     audio.loop = true;
-    audio.volume = 0.45;
+    audio.volume = 0.45 * audioSettings.music * audioSettings.master;
     characterSelectMusicRef.current = audio;
     audio.onerror = () => {
       if (characterSelectMusicRef.current === audio) characterSelectMusicRef.current = null;
@@ -310,7 +375,18 @@ export default function App() {
     }
   }, [screen, isMuted]);
 
-  useEffect(() => () => stopCharacterSelectMusic(), []);
+  useEffect(() => {
+    if (screen === 'battle' && !isMuted) {
+      if (!battleMusicRef.current) startBattleMusic();
+    } else {
+      stopBattleMusic();
+    }
+  }, [screen, isMuted]);
+
+  useEffect(() => () => {
+    stopCharacterSelectMusic();
+    stopBattleMusic();
+  }, []);
 
   const handleStartGame = () => {
     if (!user) {
@@ -343,6 +419,7 @@ export default function App() {
     setOnlineParams(online || null);
     setIsSandbox(!!sandbox);
     setSandboxPauseChakraGen(!!sandbox && !!sandboxPauseChakraGen);
+    startBattleMusic();
     setScreen('battle');
   };
 
@@ -518,7 +595,7 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center gap-3 w-full pt-1">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full pt-1">
                   {reconnectChecking ? (
                     <div className="flex items-center justify-center gap-3 py-1 w-full">
                       <img src="/static/img/icon/star.svg" alt="Verificando" className="w-8 h-8 animate-spin object-contain" />
@@ -541,6 +618,7 @@ export default function App() {
                   ) : reconnectRoomLost ? (
                     <button
                       onClick={handleDeclineReconnect}
+                        data-sound="uah"
                       className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-600 hover:to-slate-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-slate-950/40 border border-slate-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
                     >
                       <Flag className="w-4 h-4" />
@@ -550,15 +628,17 @@ export default function App() {
                     <>
                       <button
                         onClick={() => handleRestoreGame(reconnectData)}
-                        className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-orange-950/40 border border-orange-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
+                        data-sound="uah"
+                        className="sm:w-auto sm:flex-none w-full py-2.5 px-5 rounded-xl bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-orange-950/40 border border-orange-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
                       >
                         <Swords className="w-4 h-4" />
-                        <span>Voltar à Batalha</span>
+                        <span>Continuar</span>
                       </button>
 
                       <button
                         onClick={handleDeclineReconnect}
-                        className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
+                        data-sound="uah"
+                        className="sm:w-auto sm:flex-none w-full py-2.5 px-5 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
                       >
                         <Flag className="w-4 h-4" />
                         <span>Render-se</span>
@@ -592,9 +672,12 @@ export default function App() {
             onToggleMute={() => setIsMuted(!isMuted)}
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
+            playUahSound={playUahSound}
             onOpenAdmin={() => setScreen('admin')}
             user={user}
             onLogout={handleLogout}
+            audioSettings={audioSettings}
+            onUpdateAudioSetting={updateAudioSetting}
             onUpdateUser={(updated) => {
               const safe = { ...updated, xp: Math.max(0, updated.xp ?? 0) };
               setUser(safe);
@@ -618,6 +701,8 @@ export default function App() {
             }}
             onBack={() => setScreen('main-menu')}
             playClickSound={playClickSound}
+            playScrollSound={playScrollSound}
+            playUahSound={playUahSound}
             playWinSound={playWinSound}
           />
         )}
@@ -627,6 +712,8 @@ export default function App() {
             onConfirmTeams={handleConfirmTeams}
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
+            playUahSound={playUahSound}
+            playTargetSound={playTargetSound}
             user={user}
             activeQuest={activeQuest}
             onBack={() => setScreen('quests')}
@@ -639,10 +726,14 @@ export default function App() {
             enemyTeam={enemyTeam}
             isMuted={isMuted}
             onToggleMute={() => setIsMuted(!isMuted)}
+            audioSettings={audioSettings}
+            onUpdateAudioSetting={updateAudioSetting}
             onQuit={handleQuit}
             onOpenAdmin={() => setScreen('admin')}
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
+            playUahSound={playUahSound}
+            playTargetSound={playTargetSound}
             playWinSound={playWinSound}
             playLoseSound={playLoseSound}
             user={user}
@@ -659,6 +750,7 @@ export default function App() {
           <AdminDashboard
             onBack={() => setScreen('main-menu')}
             playClickSound={playClickSound}
+            playScrollSound={playScrollSound}
           />
         )}
       </Suspense>

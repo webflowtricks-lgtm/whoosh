@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Sword, HelpCircle, Shield, Award, LogOut, Calendar, ShoppingBag, Sparkles, User, Images } from 'lucide-react';
+import { Volume2, VolumeX, Sword, HelpCircle, Shield, Award, LogOut, Calendar, ShoppingBag, Sparkles, User, Images, Settings, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import EventsModal from './EventsModal';
@@ -23,13 +23,16 @@ interface MainMenuProps {
   onToggleMute: () => void;
   playClickSound: () => void;
   playScrollSound: () => void;
+  playUahSound: () => void;
   onOpenAdmin: () => void;
   user: UserProfile | null;
   onLogout: () => void;
   onUpdateUser?: (updatedUser: UserProfile) => void;
+  audioSettings: { master: number; effects: number; music: number };
+  onUpdateAudioSetting: (key: 'master' | 'effects' | 'music', value: number) => void;
 }
 
-export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClickSound, playScrollSound, onOpenAdmin, user, onLogout, onUpdateUser }: MainMenuProps) {
+export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClickSound, playScrollSound, playUahSound, onOpenAdmin, user, onLogout, onUpdateUser, audioSettings, onUpdateAudioSetting }: MainMenuProps) {
   const { t } = useLanguage();
   const [showRules, setShowRules] = useState(false);
   const [showEventsModal, setShowEventsModal] = useState(false);
@@ -37,6 +40,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProfileCardModal, setShowProfileCardModal] = useState(false);
   const [showGalleryModal, setShowGalleryModal] = useState(false);
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
 
   const handleStart = () => {
     playClickSound();
@@ -192,6 +196,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
           <button
             onClick={() => {
               playClickSound();
+              playScrollSound();
               setShowGalleryModal(true);
             }}
             className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-fuchsia-500 hover:bg-slate-950 hover:text-fuchsia-400 transition-all cursor-pointer text-slate-400 font-mono text-xs flex items-center gap-2 uppercase tracking-wider font-semibold shadow"
@@ -212,6 +217,18 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5 text-orange-400" />}
           </button>
 
+          <button
+            onClick={() => {
+              playClickSound();
+              playScrollSound();
+              setShowAudioSettings(true);
+            }}
+            className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-orange-500 hover:bg-slate-800 transition-all cursor-pointer text-slate-300 shadow"
+            title={t('Configurações de volume', 'Volume settings')}
+          >
+            <Settings className="w-5 h-5 text-orange-400" />
+          </button>
+
           {user && (
             <button
               onClick={onLogout}
@@ -226,6 +243,62 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
 
       {/* Modals */}
       <AnimatePresence>
+        {showAudioSettings && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
+            onClick={() => setShowAudioSettings(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 15 }}
+              onClick={e => e.stopPropagation()}
+              className="relative w-full max-w-md overflow-hidden rounded-2xl border border-orange-500/40 bg-slate-900 p-6 text-slate-100 shadow-2xl"
+            >
+              <div className="mb-6 flex items-center justify-between border-b border-slate-800 pb-4">
+                <h2 className="flex items-center gap-2 text-lg font-black uppercase tracking-wider text-orange-300">
+                  <Settings className="h-5 w-5" />
+                  {t('Configurações de Volume', 'Volume Settings')}
+                </h2>
+                <button
+                  onClick={() => setShowAudioSettings(false)}
+                  className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+                  title={t('Fechar', 'Close')}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-5">
+                {([
+                  ['master', t('Volume geral', 'Master volume')],
+                  ['effects', t('Efeitos sonoros', 'Sound effects')],
+                  ['music', t('Música', 'Music')],
+                ] as const).map(([key, label]) => (
+                  <label key={key} className="block space-y-2">
+                    <span className="flex items-center justify-between text-sm font-bold text-slate-200">
+                      <span>{label}</span>
+                      <span className="font-mono text-orange-300">{Math.round(audioSettings[key] * 100)}%</span>
+                    </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={audioSettings[key]}
+                      onChange={e => onUpdateAudioSetting(key, Number(e.target.value))}
+                      className="h-2 w-full cursor-pointer accent-orange-500"
+                    />
+                  </label>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
         {user && showProfileCardModal && (
           <ProfileCardModal
             profile={{
@@ -249,7 +322,10 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             isSelf={true}
             onClose={() => setShowProfileCardModal(false)}
             playClickSound={playClickSound}
-            onOpenEditModal={() => setShowProfileModal(true)}
+            onOpenEditModal={() => {
+              playScrollSound();
+              setShowProfileModal(true);
+            }}
           />
         )}
 
@@ -259,6 +335,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             onClose={() => setShowProfileModal(false)}
             onUpdateUser={handleUserUpdate}
             playClickSound={playClickSound}
+            playUahSound={playUahSound}
           />
         )}
 
