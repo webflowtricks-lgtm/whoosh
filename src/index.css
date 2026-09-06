@@ -40,6 +40,68 @@
 }
 
 /* =========================================================
+   BOTÃO VERMELHO COM IMAGEM (red-button.webp) + SHURIKEN DOURADA
+   Reutilizável — use .btn-red-image no <button> e .btn-shuriken
+   no <img> da shuriken (gold-shuriken.webp, gira com glow dourado).
+
+   Exemplo de uso:
+   <button className="btn-red-image">
+     <img src="/static/img/ui/gold-shuriken.webp" alt="" className="btn-shuriken" />
+     <span>Texto do Botão</span>
+   </button>
+
+   Para texto sem ícone, basta omitir o <img>.
+   ========================================================= */
+.btn-red-image {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.75rem; /* py-2.5 px-7 */
+  border-radius: 0.75rem;
+  background-image: url('/static/img/ui/red-button.webp');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  font-size: 0.75rem; /* text-xs */
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #fef3c7; /* amber-100 */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 10px 15px -3px rgba(127, 29, 29, 0.5), 0 4px 6px -4px rgba(127, 29, 29, 0.5);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.btn-red-image:hover {
+  transform: scale(1.05);
+}
+
+.btn-red-image:active {
+  transform: scale(0.95);
+}
+
+.btn-shuriken {
+  width: 1.25rem;
+  height: 1.25rem;
+  animation: shuriken-spin 2.5s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(255, 200, 50, 0.9)) drop-shadow(0 0 14px rgba(255, 170, 20, 0.6));
+}
+
+@media (min-width: 640px) {
+  .btn-red-image {
+    padding: 0.75rem 2.5rem; /* sm:py-3 sm:px-10 */
+    font-size: 0.875rem; /* sm:text-sm */
+  }
+  .btn-shuriken {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+/* =========================================================
    CLASSE ÚNICA DO TAMANHO DO BOTÃO ENTRAR NA ARENA (.entrar-na-arena-btn)
    =========================================================
    Para ajustar o tamanho do botão "Entrar na Arena" (imagem entrar-na-arena.webp),

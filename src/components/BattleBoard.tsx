@@ -1485,25 +1485,10 @@ function GameOverOverlay({
           </div>
 
           <div className="relative z-10 w-full flex justify-center pb-0.5">
-            <button
-              onClick={handleQuit}
-              className="relative py-2.5 sm:py-3 px-7 sm:px-10 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer active:scale-95 hover:scale-105 flex items-center justify-center gap-2 shadow-lg shadow-red-950/50"
-            >
-              {/* Fundo do botão (red-button.webp) */}
-              <img
-                src="/static/img/ui/red-button.webp"
-                alt=""
-                className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none"
-              />
-              {/* Ícone shuriken girando */}
-              <img
-                src="/static/img/ui/gold-shuriken.webp"
-                alt=""
-                className="relative z-10 w-5 h-5 sm:w-6 sm:h-6 animate-[shuriken-spin_2.5s_linear_infinite] drop-shadow-[0_0_6px_rgba(255,200,50,0.9)] drop-shadow-[0_0_14px_rgba(255,170,20,0.6)]"
-              />
-              <span className="relative z-10 text-amber-100 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-                {t("Voltar ao Menu", "Back to Selection")}
-              </span>
+            <button onClick={handleQuit} className="btn-red-image">
+              {/* Ícone shuriken girando com glow dourado */}
+              <img src="/static/img/ui/gold-shuriken.webp" alt="" className="btn-shuriken" />
+              <span>{t("Voltar ao Menu", "Back to Selection")}</span>
             </button>
           </div>
         </div>
