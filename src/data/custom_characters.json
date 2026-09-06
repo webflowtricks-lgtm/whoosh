@@ -19006,5 +19006,35 @@
       }
     ],
     "skins": []
+  },
+  {
+    "id": "aaaaa",
+    "name": "Novo Ninja",
+    "description": "Escreva a biografia e estilo de luta do seu novo personagem aqui.",
+    "tags": [
+      "Vila da Folha",
+      "Genin"
+    ],
+    "portrait": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+    "folder": "naruto-uzumaki",
+    "skills": [
+      {
+        "name": "Golpe Básico",
+        "desc": "Causa 20 de dano físico a um inimigo.",
+        "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
+        "cost": [
+          "Tai"
+        ],
+        "cooldown": 0,
+        "currentCooldown": 0,
+        "targetType": "AllEnemies",
+        "classes": [
+          "Físico",
+          "Corpo a Corpo"
+        ],
+        "damage": 1000
+      }
+    ],
+    "skins": []
   }
 ]

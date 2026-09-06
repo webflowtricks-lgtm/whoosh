@@ -41,7 +41,15 @@
   font-family: var(--font-brush);
   letter-spacing: 2.5px; /* Blowbrush é condensada — espaçamento extra melhora a leitura */
 }
+
+.xp-pergaminho {
+
+}
  
+.pergaminho-voltar-ao-menu {
+  padding-top: 23px;
+  padding-bottom: 28px;
+}
 
 /* =========================================================
    CLASSE ÚNICA DA LARGURA DO CARD DO PERFIL (.profile-card-modal-container)
@@ -314,8 +322,8 @@
 /* =========================================================
    BADGE DE XP PERDIDO (tela de derrota) - vermelho vivo
    =========================================================
-   .xp-lost-badge  -> pill vermelho vivo com pulso de brilho,
-   borda que "respira" e leve balanço. Use com o texto em branco.
+   .xp-lost-badge -> badge vermelho com pulso de brilho,
+   borda que respira e leve balanço.
    ========================================================= */
 @keyframes xp-lost-glow {
   0%, 100% {
@@ -345,7 +353,6 @@
   animation:
     xp-lost-glow 1.6s ease-in-out infinite,
     xp-lost-wiggle 1.6s ease-in-out infinite;
-  /* GPU layer: evita o text-shadow "borrar/duplicar" durante o wiggle (scale+rotate) */
   will-change: transform;
   backface-visibility: hidden;
 }
@@ -455,7 +462,7 @@
   position: relative;
   width: min(260px, 82vw);
   max-width: 100%;
-  height: 90px; /* reserva o espaço vertical do banner */
+  height: 65px; /* reserva o espaço vertical do banner */
   flex-shrink: 0;
   pointer-events: none;
 }
@@ -489,6 +496,23 @@
   color: #92400e;
   pointer-events: auto;
   white-space: nowrap;
+}
+
+/* Naruto chorando — exibido no canto inferior esquerdo da derrota */
+.gameover-naruto-chorando {
+  position: fixed !important;
+  left: -48px !important;
+  bottom: 0;
+    width: 300px;
+    height: 270px;
+  max-height: 45vh;
+  object-fit: contain;
+  transform: none !important;
+  margin: 0 !important;
+  pointer-events: none;
+  user-select: none;
+  z-index: 9999;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.6));
 }
 
 /* =========================================================

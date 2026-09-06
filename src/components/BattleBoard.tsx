@@ -999,6 +999,11 @@ function GameOverOverlay({
 
   const { actualXpChange, oldRankProgress, newRankProgress, rankChangeInfo, newXp } = xpSnapshot;
 
+  // 🎉 Modal de SUBIU DE RANK (abre sozinho se o jogador subiu de posto)
+  const [showRankUpModal, setShowRankUpModal] = useState(rankChangeInfo.rankedUp);
+  // 📉 Modal de DESCEU DE RANK (abre sozinho se o jogador caiu de posto)
+  const [showRankDownModal, setShowRankDownModal] = useState(rankChangeInfo.rankedDown);
+
   const isOnline = !!onlineParams?.isOnline;
   const opp = isOnline ? onlineParams.opponentProfile : null;
   const opponentXp = isOnline ? (onlineParams.opponentProfile?.xp || 0) : 0;
@@ -1069,6 +1074,17 @@ function GameOverOverlay({
             );
           })}
         </div>
+      )}
+
+      {/* Naruto Chorando — portal direto no body para ignorar qualquer scale ancestral */}
+      {!isVictory && createPortal(
+        <img
+          src="/static/img/ui/naruto-chorando.webp"
+          alt="Naruto chorando"
+          className="gameover-naruto-chorando"
+          draggable={false}
+        />,
+        document.body,
       )}
 
       {/* Lightweight Main Modal Content */}
@@ -1184,7 +1200,7 @@ function GameOverOverlay({
 
             {/* Player Full Standing Skin Artwork (Sem borda, sem fundo, posição absoluta para não empurrar nada) */}
             {user.equippedShowcaseSkinUrl && user.equippedShowcaseSkinUrl !== 'none' && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-36 sm:w-44 h-48 sm:h-60 pointer-events-none select-none z-0 flex items-start justify-center">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 sm:w-72 h-80 sm:h-96 pointer-events-none select-none z-0 flex items-start justify-center">
                 <img
                   src={user.equippedShowcaseSkinUrl}
                   alt={user.name}
@@ -1200,12 +1216,17 @@ function GameOverOverlay({
           </div>
 
           {/* Center: XP REWARD & RANK PROGRESS CARD (fundo xp-pergaminho.webp) */}
-          <div className="relative w-full max-w-md rounded-2xl p-3 sm:p-3.5 text-center  overflow-hidden flex-shrink-0 z-10">
+          <div className="xp-pergaminho relative w-full max-w-md rounded-2xl p-3 sm:p-3.5 text-center  overflow-hidden flex-shrink-0 z-10 "style={{
+    paddingLeft: '35px',
+    paddingRight: '35px',
+    paddingTop: '25px',
+    paddingBottom: '19px'
+  }}>
             {/* Background Pergaminho de XP */}
             <img
               src="/static/img/ui/xp-pergaminho.webp"
               alt=""
-              className="xp-pergaminho absolute inset-0 w-full h-full object-fill z-0 pointer-events-none"
+              className=" absolute inset-0 w-full h-full object-fill z-0 pointer-events-none"
             />
 
             <div className="relative z-10 space-y-2">
@@ -1263,42 +1284,6 @@ function GameOverOverlay({
                   )}
                 </div>
               </div>
-
-              {rankChangeInfo.rankedUp && (
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
-                  transition={{ duration: 0.5, type: 'spring' }}
-                  className="bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border border-amber-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-                >
-                  <div className="text-xs font-black text-amber-300 uppercase tracking-wide flex items-center justify-center gap-1">
-                    <Trophy className="w-3.5 h-3.5 text-yellow-300 animate-bounce" />
-                    <span>SUBIU DE RANK!</span>
-                  </div>
-                  <p className="text-[11px] font-bold text-white">
-                    Parabéns! Você alcançou o posto de{' '}
-                    <span className="text-amber-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>!
-                  </p>
-                </motion.div>
-              )}
-
-              {rankChangeInfo.rankedDown && (
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: [0.9, 1.05, 1], opacity: 1 }}
-                  transition={{ duration: 0.5, type: 'spring' }}
-                  className="bg-gradient-to-r from-red-500/20 via-rose-500/30 to-red-500/20 border border-red-400/60 p-1.5 rounded-xl text-center space-y-0.5 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
-                >
-                  <div className="text-xs font-black text-rose-300 uppercase tracking-wide flex items-center justify-center gap-1">
-                    <ShieldAlert className="w-3.5 h-3.5 text-rose-400 animate-bounce" />
-                    <span>DESCEU DE RANK!</span>
-                  </div>
-                  <p className="text-[11px] font-bold text-white">
-                    A perda de XP rebaixou seu posto para{' '}
-                    <span className="text-rose-300 underline font-extrabold">{newRankProgress.currentRank.name}</span>.
-                  </p>
-                </motion.div>
-              )}
             </div>
           </div>
 
@@ -1397,7 +1382,7 @@ function GameOverOverlay({
 
             {/* Opponent Full Standing Skin Artwork (Sem borda, sem fundo, posição absoluta para não empurrar nada) */}
             {isOnline && opp?.equippedShowcaseSkinUrl && opp.equippedShowcaseSkinUrl !== 'none' && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-36 sm:w-44 h-48 sm:h-60 pointer-events-none select-none z-0 flex items-start justify-center">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 sm:w-72 h-80 sm:h-96 pointer-events-none select-none z-0 flex items-start justify-center">
                 <img
                   src={opp.equippedShowcaseSkinUrl}
                   alt={opp.name}
@@ -1476,7 +1461,7 @@ function GameOverOverlay({
         </div>
 
         {/* Scroll Banner Text & Action Button Card */}
-        <div className="relative max-w-sm w-full min-h-[125px] p-4 sm:p-4.5 flex flex-col items-center justify-between text-center gap-2.5">
+        <div className="pergaminho-voltar-ao-menu relative max-w-sm w-full min-h-[125px] p-4 sm:p-4.5 flex flex-col items-center justify-between text-center gap-2.5">
           {/* Background Pergaminho Image */}
           <img
             src="/static/img/ui/pergaminho2.webp"
@@ -1492,7 +1477,7 @@ function GameOverOverlay({
             </p>
           </div>
 
-          <div className="relative z-10 w-full flex justify-center pb-0.5">
+          <div className="relative z-10 w-full flex justify-center" >
             <button onClick={handleQuit} className="btn-red-image">
               {/* Ícone shuriken girando com glow dourado */}
               <img src="/static/img/ui/gold-shuriken.webp" alt="" className="btn-shuriken" />
@@ -1500,7 +1485,75 @@ function GameOverOverlay({
             </button>
           </div>
         </div>
+
       </motion.div>
+
+      {/* Modais ficam fora do stacking context do conteúdo para sobrepor Naruto. */}
+      {showRankUpModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          onClick={() => setShowRankUpModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.7, opacity: 0, y: 30 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.15 }}
+            className="relative w-full max-w-xl rounded-2xl p-6 sm:p-8 text-center overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img src="/static/img/ui/pergaminho.webp" alt="" className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none" />
+            <div className="relative z-10 flex flex-col items-center gap-3 py-1">
+              <h2 className="font-brush text-3xl sm:text-4xl md:text-5xl font-black uppercase text-amber-500 drop-shadow-[0_3px_0_rgba(120,53,15,0.9)] flex items-center justify-center gap-3">
+                <img src="/static/img/ui/trophy.webp" alt="Troféu" className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain animate-bounce" />
+                SUBIU DE RANK!
+              </h2>
+              <p className="text-sm sm:text-base font-bold text-slate-900 max-w-md">
+                Parabéns! Você alcançou o posto de{' '}
+                <span className="text-amber-700 underline font-extrabold">{newRankProgress.currentRank.name}</span>!
+              </p>
+              <button onClick={() => setShowRankUpModal(false)} className="btn-red-image mt-1">
+                <span className="font-brush text-[13px] sm:text-[15px]">Continuar</span>
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {showRankDownModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          onClick={() => setShowRankDownModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.7, opacity: 0, y: 30 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.15 }}
+            className="relative w-full max-w-xl rounded-2xl p-6 sm:p-8 text-center overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img src="/static/img/ui/pergaminho.webp" alt="" className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none" />
+            <div className="relative z-10 flex flex-col items-center gap-3 py-1">
+              <h2 className="font-brush text-3xl sm:text-4xl md:text-5xl font-black uppercase text-red-600 drop-shadow-[0_3px_0_rgba(127,29,29,0.9)] flex items-center justify-center gap-3">
+                <img src="/static/img/ui/naruto-meme.webp" alt="Naruto meme" className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain animate-bounce" />
+                DESCEU DE RANK!
+              </h2>
+              <p className="text-sm sm:text-base font-bold text-slate-900 max-w-md">
+                A perda de XP rebaixou seu posto para{' '}
+                <span className="text-rose-700 underline font-extrabold">{newRankProgress.currentRank.name}</span>.
+              </p>
+              <button onClick={() => setShowRankDownModal(false)} className="btn-red-image mt-1">
+                <span className="font-brush text-[13px] sm:text-[15px]">Continuar</span>
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </motion.div>
   );
 }
