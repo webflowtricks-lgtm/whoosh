@@ -1222,11 +1222,11 @@ function GameOverOverlay({
                 </span>
               </div>
               {actualXpChange >= 0 ? (
-                <span className="text-xs font-black font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-500/40 shadow">
+                <span className="xp-gain-badge text-xs font-black font-mono px-2.5 py-0.5 rounded-full">
                   +{actualXpChange} XP
                 </span>
               ) : (
-                <span className="text-xs font-black font-mono text-rose-400 bg-rose-950/80 px-2.5 py-0.5 rounded-full border border-rose-500/40 shadow">
+                <span className="xp-lost-badge text-xs font-black font-mono px-2.5 py-0.5 rounded-full">
                   {actualXpChange} XP
                 </span>
               )}
@@ -19774,7 +19774,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.85, opacity: 0, y: 15 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative rounded-3xl overflow-hidden shadow-2xl max-w-md w-full min-h-[250px] flex flex-col justify-between p-8 sm:p-10"
+              className="relative rounded-3xl overflow-hidden max-w-md w-full min-h-[250px] flex flex-col justify-between p-8 sm:p-10"
             >
               {/* Background Pergaminho Image */}
               <img
@@ -19829,7 +19829,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.85, opacity: 0, y: 15 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative rounded-3xl overflow-hidden shadow-2xl max-w-md w-full min-h-[250px] flex flex-col justify-between p-8 sm:p-10"
+              className="relative rounded-3xl overflow-hidden max-w-md w-full min-h-[250px] flex flex-col justify-between p-8 sm:p-10"
             >
               {/* Background Pergaminho Image */}
               <img
