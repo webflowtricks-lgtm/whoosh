@@ -998,7 +998,7 @@ function GameOverOverlay({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-[10000] w-full h-full flex items-center justify-center p-3 sm:p-4 select-none overflow-y-auto bg-cover bg-center bg-no-repeat bg-fixed"
+      className="fixed inset-0 z-[10000] w-full h-full flex items-center justify-center p-3 sm:p-4 select-none overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
       style={{ backgroundImage: "url('/static/img/bg/background-battle.webp')" }}
     >
       {/* Background Dark/Atmospheric Tint Overlay (Defeat Only - Victory keeps background 100% original & clear) */}
@@ -1063,7 +1063,7 @@ function GameOverOverlay({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="relative z-20 w-full max-w-5xl flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
+        className="gameover-content relative z-20 w-full max-w-5xl flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
       >
         {/* Top Victory/Defeat Banner — Cloud Badge (title + icon + turn on nuvem.webp) */}
         <div className="relative flex flex-col items-center justify-center">
@@ -1233,13 +1233,22 @@ function GameOverOverlay({
             </div>
 
             <div className="space-y-1">
-              <div className="relative w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+              <div className="relative w-full h-2.5 bg-slate-950 rounded-full border border-slate-800">
                 <motion.div
                   initial={{ width: `${oldRankProgress.progressPercent}%` }}
                   animate={{ width: `${newRankProgress.progressPercent}%` }}
                   transition={{ duration: 1, ease: 'easeOut' }}
-                  className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-400 shadow-[0_0_12px_rgba(251,191,36,0.5)]"
-                />
+                  className="relative h-full"
+                >
+                  <div className="absolute inset-0 rounded-full bg-[#0cad81] overflow-hidden shadow-[0_0_12px_rgba(12,173,129,0.6)] xp-bar-ray">
+                    <div className="xp-bar-shimmer" />
+                  </div>
+                  <img
+                    src="/static/img/ui/xpicon.webp"
+                    alt=""
+                    className="xp-final-battle absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 object-contain drop-shadow-[0_0_6px_rgba(12,173,129,0.85)]"
+                  />
+                </motion.div>
               </div>
               <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
                 {newRankProgress.isMaxRank ? (
@@ -1417,7 +1426,7 @@ function GameOverOverlay({
               >
                 {/* Pergaminho 3 Card Container */}
                 <div
-                  className={`relative w-30 sm:w-36 h-48 sm:h-58 flex flex-col items-center justify-center pt-[36px] pb-3.5 px-3 sm:px-4 filter drop-shadow-xl transition-transform duration-300 hover:scale-105 ${
+                  className={`relative w-30 sm:w-36 h-48 sm:h-56 flex flex-col items-center justify-center pt-[34px] pb-3 px-3 sm:px-4 filter drop-shadow-xl transition-transform duration-300 hover:scale-105 ${
                     combatant.isDead ? 'opacity-60 grayscale' : ''
                   }`}
                 >
@@ -1468,7 +1477,7 @@ function GameOverOverlay({
         </div>
 
         {/* Scroll Banner Text & Action Button Card */}
-        <div className="relative max-w-sm w-full min-h-[135px] p-4 sm:p-5 flex flex-col items-center justify-between text-center gap-2.5">
+        <div className="relative max-w-sm w-full min-h-[125px] p-4 sm:p-4.5 flex flex-col items-center justify-between text-center gap-2.5">
           {/* Background Pergaminho Image */}
           <img
             src="/static/img/ui/pergaminho2.webp"

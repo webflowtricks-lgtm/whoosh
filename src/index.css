@@ -334,6 +334,82 @@
     xp-lost-wiggle 1.6s ease-in-out infinite;
 }
 
+.xp-final-battle {
+  margin-top: -3px;
+ 
+}
+
+/* =========================================================
+   BARRA DE XP (tela de vitória/derrota) - brilho + raio
+   =========================================================
+   .xp-bar-ray      -> borda e glow "respiram" (raio na borda)
+   .xp-bar-shimmer  -> faixa de luz que varre a barra
+   ========================================================= */
+@keyframes xp-bar-ray {
+  0%, 100% {
+    box-shadow:
+      0 0 6px rgba(12, 173, 129, 0.5),
+      0 0 14px rgba(12, 173, 129, 0.25),
+      inset 0 0 4px rgba(160, 255, 230, 0.3);
+    border-color: rgba(12, 173, 129, 0.7);
+  }
+  50% {
+    box-shadow:
+      0 0 14px rgba(12, 173, 129, 0.95),
+      0 0 28px rgba(12, 173, 129, 0.5),
+      inset 0 0 10px rgba(190, 255, 235, 0.55);
+    border-color: rgba(190, 255, 235, 0.95);
+  }
+}
+
+@keyframes xp-bar-shimmer {
+  0% {
+    transform: translateX(-130%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(430%) skewX(-20deg);
+  }
+}
+
+.xp-bar-shimmer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: xp-bar-shimmer 2.2s ease-in-out infinite;
+}
+
+/* =========================================================
+   TELA DE VITÓRIA/DERROTA - ajuste automático por altura
+   =========================================================
+   .gameover-content encolhe proporcionalmente em viewports
+   baixas para caber tudo sem scroll (overflow-hidden no
+   container pai garante que nunca role).
+   ========================================================= */
+.gameover-content {
+  transform-origin: center center;
+}
+
+@media (max-height: 800px) {
+  .gameover-content {
+    transform: scale(0.92);
+  }
+}
+
+@media (max-height: 700px) {
+  .gameover-content {
+    transform: scale(0.85);
+  }
+}
+
+@media (max-height: 600px) {
+  .gameover-content {
+    transform: scale(0.78);
+  }
+}
+
 @keyframes portal-glow-pulse {
   0%, 100% {
     opacity: 0.7;
