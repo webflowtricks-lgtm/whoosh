@@ -1325,10 +1325,10 @@ e-squad-name {
 .pergaminho-profile-modal {
     position: fixed;
     top: -2%;
-    left: 13%;
+    left: 9%;
     transform: translate(-50%, -50%);
     /* width: min(1179px, 136vw); */
-    max-width: 995px;
+    max-width: 1195px;
     height: 700px;
     pointer-events: none;
     z-index: 0;

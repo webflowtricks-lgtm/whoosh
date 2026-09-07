@@ -175,7 +175,30 @@ export default function ProfileCardModal({
         onClick={closeModal}
         data-no-uah
       >
-        <div className="flex items-stretch gap-3 max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
+        {/* Background Image (floresta dos perfis — mesmo visual do editar perfil) */}
+        <img
+          src="/static/img/bg/forest.webp"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+        />
+        {/* Folhas animadas (mesma da batalha) */}
+        <div className="leaves-modal gpu-accelerated">
+          <img src="/static/img/ui/folha.webp" className="leaf leaf1" alt="" loading="lazy" decoding="async" />
+          <img src="/static/img/ui/folha.webp" className="leaf leaf2" alt="" loading="lazy" decoding="async" />
+          <img src="/static/img/ui/folha.webp" className="leaf leaf3" alt="" loading="lazy" decoding="async" />
+          <img src="/static/img/ui/folha.webp" className="leaf leaf4" alt="" loading="lazy" decoding="async" />
+          <img src="/static/img/ui/folha.webp" className="leaf leaf5" alt="" loading="lazy" decoding="async" />
+          <img src="/static/img/ui/folha.webp" className="leaf leaf6" alt="" loading="lazy" decoding="async" />
+        </div>
+        {/* Pergaminho decorativo flutuando atrás do modal */}
+        <img
+          src="/static/img/ui/pergaminho-profile-modal.webp"
+          alt=""
+          aria-hidden="true"
+          className="pergaminho-profile-modal"
+        />
+        <div className="flex items-stretch gap-3 max-h-[92vh] relative z-10" onClick={(e) => e.stopPropagation()}>
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
