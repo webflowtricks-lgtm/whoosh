@@ -228,6 +228,16 @@ body.processing-cursor * {
 }
 
 /* =========================================================
+   BOTÃO DIAMANTE HORIZONTAL (Partida Rápida)
+   clip-path hexagonal com pontas laterais.
+   Aplicar a um wrapper com padding para servir de "borda",
+   e ao botão interno para o preenchimento.
+   ========================================================= */
+.clip-diamond {
+  clip-path: polygon(12% 0%, 88% 0%, 100% 50%, 88% 100%, 12% 100%, 0% 50%);
+}
+
+/* =========================================================
    BOTÃO MADEIRA COM IMAGEM (btn-wood.webp)
    Estrutura espelhada de .btn-red-image mas com tema madeira.
    ========================================================= */

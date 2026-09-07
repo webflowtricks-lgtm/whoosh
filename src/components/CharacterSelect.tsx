@@ -641,7 +641,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     <button
                       onClick={handleBackToPlayerSelect}
                       data-sound="uah"
-                      className="px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md font-mono"
+                      className="px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md shadow-black/20 font-mono"
                     >
                       <ChevronLeft className="w-4 h-4" />
                       {t("Voltar (Time A)", "Back (Team A)")}
@@ -653,8 +653,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       disabled={selectedIds.length !== 3}
                       className={`px-4 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
                         selectedIds.length === 3
-                          ? 'bg-gradient-to-r from-emerald-700 to-teal-600 hover:brightness-110 text-white border-emerald-500 shadow-lg'
-                          : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium'
+                          ? 'bg-gradient-to-r from-emerald-700 to-teal-600 hover:brightness-110 text-white border-emerald-500 shadow-lg shadow-black/25'
+                          : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium shadow-sm shadow-black/10'
                       }`}
                     >
                       <Swords className="w-4 h-4 animate-pulse" />
@@ -670,7 +670,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           onBack();
                         }}
                         data-sound="uah"
-                        className="px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md font-mono"
+                        className="px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md shadow-black/20 font-mono"
                       >
                         <ChevronLeft className="w-4 h-4" />
                         {t("Voltar", "Back")}
@@ -683,8 +683,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       disabled={selectedIds.length !== 3}
                       className={`px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
                         selectedIds.length === 3
-                          ? 'bg-amber-900 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md'
-                          : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium'
+                          ? 'bg-amber-900 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md shadow-black/20'
+                          : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium shadow-sm shadow-black/10'
                       }`}
                     >
                       <Swords className="w-4 h-4" />
@@ -697,27 +697,35 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       disabled={selectedIds.length !== 3}
                       className={`px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
                         selectedIds.length === 3
-                          ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:brightness-110 text-amber-950 border-amber-500 shadow-md'
-                          : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium'
+                          ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:brightness-110 text-amber-950 border-amber-500 shadow-md shadow-black/20'
+                          : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium shadow-sm shadow-black/10'
                       }`}
                     >
                       <Sparkles className="w-4 h-4 text-amber-400" />
                       Sandbox
                     </button>
 
-                    <button
-                      onClick={handleStartMatchmaking}
-                      data-sound="uah"
-                      disabled={selectedIds.length !== 3}
-                      className={`px-4 py-2.5 rounded-lg font-black flex items-center gap-2 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
+                    <div
+                      className={`clip-diamond p-[2px] transition-all ${
                         selectedIds.length === 3
-                          ? 'bg-amber-950 text-amber-100 border-amber-700 hover:bg-amber-900 shadow-md'
-                          : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium'
+                          ? 'bg-amber-700 [filter:drop-shadow(0_4px_6px_rgba(0,0,0,0.2))_drop-shadow(0_2px_4px_rgba(0,0,0,0.2))]'
+                          : 'bg-amber-900/30 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.1))]'
                       }`}
                     >
-                      <img src="/static/img/icon/star.svg" alt="Shuriken" className="w-4 h-4 animate-spin object-contain" />
-                      {t("Partida Rápida", "Quick Match")}
-                    </button>
+                      <button
+                        onClick={handleStartMatchmaking}
+                        data-sound="uah"
+                        disabled={selectedIds.length !== 3}
+                        className={`clip-diamond px-5 py-2 font-black flex items-center gap-2 tracking-wide text-xs uppercase cursor-pointer select-none active:scale-95 transition-all font-mono ${
+                          selectedIds.length === 3
+                            ? 'bg-amber-950 text-amber-100 hover:bg-amber-900'
+                            : 'bg-amber-950/20 text-amber-900/50 cursor-not-allowed font-medium'
+                        }`}
+                      >
+                        <img src="/static/img/icon/star.svg" alt="Shuriken" className="w-4 h-4 animate-spin object-contain" />
+                        {t("Partida Rápida", "Quick Match")}
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
@@ -981,7 +989,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               }}
             />
 
-            <div className="relative z-10 space-y-6 px-3 sm:px-6 py-2">
+            <div className=" relative z-10 space-y-6 px-3 pt-[0px] pb-[10px]">
               {/* Header Portrait + Description */}
               <div className="mb-[0px] flex gap-4 items-center p-2.5">
                 <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-amber-900/60 bg-amber-950/20 flex-shrink-0 shadow-md">

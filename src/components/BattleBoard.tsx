@@ -2021,6 +2021,15 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const [globalEmojiCooldownUntil, setGlobalEmojiCooldownUntil] = useState<number>(0);
   const [showBattleSettings, setShowBattleSettings] = useState(false);
   const [showVolumeControls, setShowVolumeControls] = useState(false);
+  // Log da Batalha (overlay no canto inferior esquerdo) — configurável nas
+  // Configurações da Batalha e persistido localmente.
+  const [showBattleLog, setShowBattleLog] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('ninja_show_battle_log') !== '0';
+    } catch {
+      return true;
+    }
+  });
 
   // Multiplayer state
   const [isWaitingForOpponent, setIsWaitingForOpponent] = useState(false);
@@ -17608,6 +17617,28 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     </div>
                   )}
 
+                  {/* Log da Batalha */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      playClickSound();
+                      setShowBattleLog(prev => {
+                        const next = !prev;
+                        try {
+                          localStorage.setItem('ninja_show_battle_log', next ? '1' : '0');
+                        } catch {}
+                        return next;
+                      });
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                  >
+                    <Info className={`w-3.5 h-3.5 ${showBattleLog ? 'text-amber-400' : 'text-slate-500'}`} />
+                    <span className="flex-1">{t("Log da Batalha", "Battle Log")}</span>
+                    <span className={`relative inline-flex h-4 w-8 shrink-0 items-center rounded-full transition-colors ${showBattleLog ? 'bg-amber-500' : 'bg-slate-700'}`}>
+                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${showBattleLog ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </span>
+                  </button>
+
                   {/* Recarregar */}
                   {!gameOver && !onlineParams?.isOnline && (
                     <button
@@ -17978,17 +18009,10 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                         const stunEffs = combatant.activeEffects.filter(e => (e.type === 'stun' || (e as any).type === 'blocks_offensive_skills') && isEffectVisibleToViewer(e, 'player'));
                         const hasOffensiveBlockOnly = stunEffs.some(e => e.blocksOffensiveSkills || (e as any).type === 'blocks_offensive_skills');
                         const hasNormalStun = stunEffs.some(e => !e.blocksOffensiveSkills && (e as any).type !== 'blocks_offensive_skills');
-                        const maxDur = Math.max(...stunEffs.map(e => e.duration), 1);
 
                         if (hasOffensiveBlockOnly && !hasNormalStun) {
                           return (
                             <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
-                              <div className="flex items-center justify-between font-bold text-red-400 text-[10px]">
-                                <span className="flex items-center gap-1">🛑 <span>DEBUFF: SKILLS OFENSIVAS BLOQUEADAS</span></span>
-                                <span className="text-[9px] bg-red-900/90 text-red-100 px-1.5 py-0.2 rounded border border-red-700 font-black">
-                                  {maxDur >= 99999 ? '♾️ Permanente' : maxDur + 'T'}
-                                </span>
-                              </div>
                               <p className="text-[9px] text-red-300/90 font-sans leading-tight">
                                 🚫 <strong>Impedido:</strong> Apenas habilidades ofensivas no oponente estão bloqueadas. Habilidades em si mesmo ou amigáveis continuam ativas.
                               </p>
@@ -18010,12 +18034,6 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                         return (
                           <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
-                            <div className="flex items-center justify-between font-bold text-red-400 text-[10px]">
-                              <span className="flex items-center gap-1">⚡ <span>DEBUFF: ATORDOADO</span></span>
-                              <span className="text-[9px] bg-red-900/90 text-red-100 px-1.5 py-0.2 rounded border border-red-700 font-black">
-                                {maxDur >= 99999 ? '♾️ Permanente' : maxDur + 'T'}
-                              </span>
-                            </div>
                             <p className="text-[9px] text-red-300/90 font-sans leading-tight">
                               🚫 <strong>Impedido:</strong> {stunTypesStr}
                             </p>
@@ -18520,7 +18538,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       playScrollSound();
                       setShowChakraTrade(true);
                     }}
-                    className="bg-[#cb6a22] border border-[#cb6a22] text-[#fef3c7] text-[10px] sm:text-[11px] uppercase tracking-wider cursor-pointer rounded-md px-1.5 py-0.5 shadow transition-all"
+                    className="bg-[#cb6a22] border border-[#cb6a22] text-[#fef3c7] text-[10px] sm:text-[11px] uppercase tracking-wider cursor-pointer rounded-md px-1.5 py-0.5 shadow transition-all hover:scale-110 active:scale-95 will-change-transform"
                   >
                     <span className="relative z-10 font-brush drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
                       Trocar 4→1
@@ -18623,7 +18641,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 </div>
 
                 {/* 3 Papers Grid: Custo, Recarga, Alvo positioned cleanly over paper artwork */}
-                <div className="grid grid-cols-3 gap-1 font-mono pb-0.5 px-1" style={{ paddingTop: '11px' }}>
+                <div className="grid grid-cols-3 gap-1 font-mono pb-3.5 px-1" style={{ paddingTop: '11px' }}>
                   {/* Paper 1: Custo */}
                   <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
                    
@@ -18631,7 +18649,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       {(() => {
                         const effectiveCost = getEffectiveSkillCost(inspectedSkill.skill, inspectedSkill.combatant, [...playerCombatants, ...enemyCombatants]);
                         if (inspectedSkill.skill.noChakraCost || effectiveCost.length === 0) {
-                          return <span className="text-emerald-950 text-[8.5px] font-black leading-tight whitespace-normal text-center">Sem Custo</span>;
+                          return <span className="text-emerald-950 text-[8.5px] whitespace-normal text-center font-extrabold uppercase">Sem Custo</span>;
                         }
                         return (
                           <>
@@ -18649,22 +18667,22 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                   {/* Paper 2: Recarga */}
                   <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
-                    <span className="text-amber-950 font-black uppercase tracking-wider text-[8.5px] leading-none drop-shadow-xs">Recarga</span>
-                    <p className="font-extrabold text-amber-950 text-[8.5px] leading-[1.1] mt-0.5 whitespace-normal break-words text-center">
-                      {inspectedSkill.skill.cooldown === 0 ? 'Sem Recarga' : `${inspectedSkill.skill.cooldown} turnos`}
+ 
+                    <p className="font-extrabold text-amber-950 text-[10.5px] leading-[1.1] mt-0.5 whitespace-normal break-words text-center uppercase">
+                      {inspectedSkill.skill.cooldown === 0 ? <span>Sem<br />Recarga</span> : <span>{inspectedSkill.skill.cooldown}<br />turnos</span>}
                     </p>
                   </div>
 
                   {/* Paper 3: Alvo */}
-                  <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
-                    <span className="text-amber-950 font-black uppercase tracking-wider text-[8.5px] leading-none drop-shadow-xs">Alvo</span>
-                    <p className="font-extrabold text-amber-950 text-[8.5px] leading-[1.1] mt-0.5 whitespace-normal break-words text-center max-w-full px-0.5">
-                      {inspectedSkill.skill.targetType === 'Enemy' && 'Inimigo Único'}
+                  <div className="ml-[-4px] flex flex-col justify-center items-center text-center p-0.5 min-w-0">
+ 
+                    <p className="font-extrabold text-amber-950 text-[10.5px] leading-[1.1] mt-0.5 whitespace-normal break-words text-center max-w-full px-0.5 uppercase">
+                      {inspectedSkill.skill.targetType === 'Enemy' && <span>Inimigo<br />Único</span>}
                       {inspectedSkill.skill.targetType === 'Self' && 'Próprio'}
-                      {inspectedSkill.skill.targetType === 'Ally' && 'Aliado Único'}
-                      {inspectedSkill.skill.targetType === 'AllEnemies' && 'Todos Inimigos'}
-                      {inspectedSkill.skill.targetType === 'AllAllies' && 'Todos Aliados'}
-                      {inspectedSkill.skill.targetType === 'AnyLiving' && 'Qualquer Vivo'}
+                      {inspectedSkill.skill.targetType === 'Ally' && <span>Aliado<br />Único</span>}
+                      {inspectedSkill.skill.targetType === 'AllEnemies' && <span>Todos<br />Inimigos</span>}
+                      {inspectedSkill.skill.targetType === 'AllAllies' && <span>Todos<br />Aliados</span>}
+                      {inspectedSkill.skill.targetType === 'AnyLiving' && <span>Qualquer<br />Vivo</span>}
                     </p>
                   </div>
                 </div>
@@ -19099,17 +19117,10 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                         const stunEffs = combatant.activeEffects.filter(e => (e.type === 'stun' || (e as any).type === 'blocks_offensive_skills') && isEffectVisibleToViewer(e, 'player'));
                         const hasOffensiveBlockOnly = stunEffs.some(e => e.blocksOffensiveSkills || (e as any).type === 'blocks_offensive_skills');
                         const hasNormalStun = stunEffs.some(e => !e.blocksOffensiveSkills && (e as any).type !== 'blocks_offensive_skills');
-                        const maxDur = Math.max(...stunEffs.map(e => e.duration), 1);
 
                         if (hasOffensiveBlockOnly && !hasNormalStun) {
                           return (
                             <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
-                              <div className="flex items-center justify-between font-bold text-red-400 text-[10px]">
-                                <span className="flex items-center gap-1">🛑 <span>DEBUFF: SKILLS OFENSIVAS BLOQUEADAS</span></span>
-                                <span className="text-[9px] bg-red-900/90 text-red-100 px-1.5 py-0.2 rounded border border-red-700 font-black">
-                                  {maxDur >= 99999 ? '♾️ Permanente' : maxDur + 'T'}
-                                </span>
-                              </div>
                               <p className="text-[9px] text-red-300/90 font-sans leading-tight">
                                 🚫 <strong>Impedido:</strong> Apenas habilidades ofensivas no oponente estão bloqueadas. Habilidades em si mesmo ou amigáveis continuam ativas.
                               </p>
@@ -19131,12 +19142,6 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                         return (
                           <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
-                            <div className="flex items-center justify-between font-bold text-red-400 text-[10px]">
-                              <span className="flex items-center gap-1">⚡ <span>DEBUFF: ATORDOADO</span></span>
-                              <span className="text-[9px] bg-red-900/90 text-red-100 px-1.5 py-0.2 rounded border border-red-700 font-black">
-                                {maxDur >= 99999 ? '♾️ Permanente' : maxDur + 'T'}
-                              </span>
-                            </div>
                             <p className="text-[9px] text-red-300/90 font-sans leading-tight">
                               🚫 <strong>Impedido:</strong> {stunTypesStr}
                             </p>
@@ -20699,7 +20704,6 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                     <div>
                       <h4 className="text-sm sm:text-base font-extrabold text-amber-100">{activeQuest.title}</h4>
-                      <p className="text-xs text-slate-300 mt-1 leading-relaxed">{activeQuest.desc}</p>
                     </div>
 
                     {/* Goals Progress */}
@@ -20768,12 +20772,9 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2 mb-2">
-                              <div>
-                                <h5 className="text-xs sm:text-sm font-bold text-slate-100 flex items-center gap-1.5">
-                                  {quest.title}
-                                </h5>
-                                <p className="text-[11px] text-slate-400 line-clamp-2 mt-0.5">{quest.desc}</p>
-                              </div>
+                              <h5 className="text-xs sm:text-sm font-bold text-slate-100 flex items-center gap-1.5">
+                                {quest.title}
+                              </h5>
                               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 shrink-0">
                                 {quest.category || 'Ninja'}
                               </span>
@@ -20825,22 +20826,25 @@ onClick={() => handleSelectTarget(combatant.id, true)}
       </AnimatePresence>
 
       {/* 🧪 OVERLAY DE DIAGNÓSTICO (temporário) — log de combate visível no canto.
-          Mostra as últimas mensagens de sistema (⏳ watchdog, 🛑 anti-loop, iniciativa). */}
-      <div className="fixed bottom-2 left-2 z-[90] max-w-[280px] pointer-events-none select-none">
-        <div className="bg-black/75 border border-orange-900/60 rounded-lg px-2 py-1.5 font-mono text-[9px] leading-snug text-slate-200 shadow-lg">
-          <div className="text-orange-400 font-bold uppercase tracking-wider mb-0.5">🧪 Log v7</div>
-          {logs.slice(-7).map(l => (
-            <div
-              key={l.id}
-              className={`truncate ${l.message.startsWith('🧪') || l.message.includes('⏳') || l.message.includes('🛑') || l.message.includes('⚠️') ? 'text-amber-300' : 'text-slate-300'}`}
-              title={l.message}
-            >
-              {l.message}
-            </div>
-          ))}
-          <div ref={logsEndRef} />
+          Mostra as últimas mensagens de sistema (⏳ watchdog, 🛑 anti-loop, iniciativa).
+          Pode ser ocultado via Configurações da Batalha → "Log da Batalha". */}
+      {showBattleLog && (
+        <div className="fixed bottom-2 left-2 z-[90] max-w-[280px] pointer-events-none select-none">
+          <div className="bg-black/75 border border-orange-900/60 rounded-lg px-2 py-1.5 font-mono text-[9px] leading-snug text-slate-200 shadow-lg">
+            <div className="text-orange-400 font-bold uppercase tracking-wider mb-0.5">🧪 Log v7</div>
+            {logs.slice(-7).map(l => (
+              <div
+                key={l.id}
+                className={`truncate ${l.message.startsWith('🧪') || l.message.includes('⏳') || l.message.includes('🛑') || l.message.includes('⚠️') ? 'text-amber-300' : 'text-slate-300'}`}
+                title={l.message}
+              >
+                {l.message}
+              </div>
+            ))}
+            <div ref={logsEndRef} />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 } 
