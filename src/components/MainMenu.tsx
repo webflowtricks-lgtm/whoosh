@@ -369,8 +369,8 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
 
           <p className="text-escolha-seu-time text-slate-400 text-base md:text-lg max-w-2xl mx-auto font-light leading-relaxed">
             {t(
-              'Escolha seu time de 3 ninjas lendários, gerencie suas reservas elementais de chakra e esmague os oponentes com habilidades e combos sincronizados.',
-              'Choose your team of 3 legendary ninjas, manage your elemental chakra reserves and crush opponents with synchronized skills and combos.'
+              'Escolha seu time de 3 ninjas, gerencie suas reservas elementais de chakra e esmague os oponentes com habilidades e combos sincronizados.',
+              'Choose your team of 3 ninjas, manage your elemental chakra reserves and crush opponents with synchronized skills and combos.'
             )}
           </p>
 
@@ -378,7 +378,14 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
           <div className="botões-main-menu pt-1 flex flex-wrap items-center justify-center gap-3 md:gap-4 max-w-4xl mx-auto">
 
             {/* ENTRAR NA ARENA CTA BUTTON */}
-            <div className="relative">
+            <div className="arena-btn-wrap relative">
+              {/* Naruto vs Sasuke atrás do botão, um pouco acima */}
+              <img
+                src="/static/img/ui/narutovssasuke.webp"
+                alt=""
+                aria-hidden="true"
+                className="entrar-na-arena-vs"
+              />
               {/* PORTAL ANIMATION (apenas as partículas girando — círculos removidos) */}
               <div className="portal-animation absolute -inset-8 pointer-events-none flex items-center justify-center" aria-hidden>
                 <div className="portal-orbit absolute w-56 h-56">
@@ -409,7 +416,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             </div>
 
             {/* COMO JOGAR BUTTON */}
-            <div className="relative flex items-center justify-center">
+            <div className="como-jogar-wrap relative flex items-center justify-center">
               {/* Naruto duvida atrás do botão, um pouco acima */}
               <img
                 src="/static/img/ui/naruto-duvida.webp"
