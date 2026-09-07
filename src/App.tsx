@@ -59,6 +59,8 @@ export default function App() {
   const [playerTeam, setPlayerTeam] = useState<Character[]>([]);
   const [enemyTeam, setEnemyTeam] = useState<Character[]>([]);
   const [isMuted, setIsMuted] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const [audioSettings, setAudioSettings] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('ninja_audio_settings') || '{}');
@@ -295,6 +297,17 @@ export default function App() {
     bindGlobalClickSound(() => !isMuted && screen !== 'admin');
     bindGlobalModalSound(() => !isMuted && screen !== 'admin');
   }, [isMuted, screen]);
+
+  useEffect(() => {
+    if (!isProcessing) return;
+    const handleMouseMove = (event: MouseEvent) => setCursorPosition({ x: event.clientX, y: event.clientY });
+    document.addEventListener('mousemove', handleMouseMove);
+    document.body.classList.add('processing-cursor');
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.body.classList.remove('processing-cursor');
+    };
+  }, [isProcessing]);
 
   useEffect(() => {
     setEffectsVolumeMultiplier(audioSettings.effects * audioSettings.master);
@@ -581,6 +594,14 @@ export default function App() {
   return (
     <div className={`relative z-10 min-h-screen text-slate-100 flex flex-col justify-between selection:bg-orange-600 selection:text-white ${screen === 'battle' ? '' : 'bg-slate-950'}`}>
       <RotateOverlay />
+      {isProcessing && (
+        <div
+          className="pointer-events-none fixed z-[1000000] -translate-x-1/2 -translate-y-1/2"
+          style={{ left: cursorPosition.x, top: cursorPosition.y }}
+        >
+          <img src="/static/img/icon/mangeky.svg" alt="Processando" className="h-16 w-16 animate-spin object-contain drop-shadow-lg" />
+        </div>
+      )}
       {/* RECONNECTION / RECOVERY MODAL */}
       <AnimatePresence>
         {reconnectData && (
@@ -745,6 +766,7 @@ export default function App() {
             playScrollSound={playScrollSound}
             playUahSound={playUahSound}
             playTargetSound={playTargetSound}
+            onProcessingChange={setIsProcessing}
             user={user}
             activeQuest={activeQuest}
             onBack={() => setScreen('quests')}
@@ -768,6 +790,7 @@ export default function App() {
             playWinSound={playWinSound}
             playLoseSound={playLoseSound}
             onBattleFinished={stopBattleMusic}
+            onProcessingChange={setIsProcessing}
             user={user}
             onlineParams={onlineParams}
             isSandbox={isSandbox}

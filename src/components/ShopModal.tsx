@@ -237,8 +237,8 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         <div className="bg-slate-950/60 p-3 border-b border-slate-800/80 flex items-center gap-2 overflow-x-auto">
           {[
             { id: 'all', label: 'Todos os Itens', icon: ShoppingBag },
-            { id: 'title', label: 'Títulos Shinobi', icon: Award },
-            { id: 'skin', label: 'Skins de Ninjas', icon: Shirt },
+            { id: 'title', label: 'Títulos', icon: Award },
+            { id: 'skin', label: 'Skins', icon: Shirt },
             { id: 'frame', label: 'Molduras de Perfil', icon: Shield },
             { id: 'bundle', label: 'Pacotes & Moedas', icon: CircleDollarSign }
           ].map(tab => {
@@ -248,10 +248,10 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
               <button
                 key={tab.id}
                 onClick={() => {
-                  playClickSound();
                   playScrollSound();
                   setActiveTab(tab.id as any);
                 }}
+                data-sound="Scroll"
                 className={`px-4 py-2 rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
                   isActive
                     ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md shadow-orange-600/20'

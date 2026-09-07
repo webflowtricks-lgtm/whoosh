@@ -90,7 +90,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
   });
 
   return (
-    <div className="fixed inset-0 bg-slate-950/90 z-50 flex items-center justify-center backdrop-blur-md p-3 sm:p-6 select-none gpu-accelerated">
+    <div className="fixed inset-0 bg-slate-950/90 z-50 flex items-center justify-center backdrop-blur-md p-3 sm:p-6 select-none gpu-accelerated" data-no-uah>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

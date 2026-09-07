@@ -244,7 +244,7 @@ export default function QuestBoard({
 
   // Claim reward once all goals are completed
   const handleClaimReward = async (quest: Quest) => {
-    playClickSound();
+    playUahSound();
     
     // Check if goals are fully completed
     const allGoalsMet = quest.goals.every(g => g.currentValue >= g.targetValue);
@@ -693,26 +693,15 @@ export default function QuestBoard({
           />
         )}
 
-        {/* EVENTOS E LOJA DESATIVADOS TEMPORARIAMENTE (CÓDIGO PRESERVADO)
-        {showEventsModal && (
-          <EventsModal
-            user={user}
-            onClose={() => setShowEventsModal(false)}
-            onUpdateUser={onUpdateUser}
-            playClickSound={playClickSound}
-            playScrollSound={playScrollSound}
-          />
-        )}
-
         {showShopModal && (
           <ShopModal
             user={user}
             onClose={() => setShowShopModal(false)}
             onUpdateUser={onUpdateUser}
             playClickSound={playClickSound}
+            playScrollSound={playScrollSound}
           />
         )}
-        */}
       </AnimatePresence>
 
       <div className="relative z-10 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
@@ -816,25 +805,23 @@ export default function QuestBoard({
           );
         })()}
 
-        {/* Right: Actions and Modals Toolbar (EVENTOS | LOJA | PERFIL & MOLDURAS | MISSÕES | BATALHA | MENU) */}
+        {/* Right: Actions and Modals Toolbar (LOJA | PERFIL & MOLDURAS | BATALHA | MENU) */}
         <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800 w-full lg:w-auto justify-center">
-          {/* MISSÕES TAB */}
+          {/* LOJA */}
           <button
             onClick={() => {
               playClickSound();
-              setMainTab('missoes');
+              playScrollSound();
+              setShowShopModal(true);
             }}
-            className={`px-3.5 py-2 rounded-lg text-xs font-extrabold uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 ${
-              mainTab === 'missoes'
-                ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-lg shadow-orange-500/20 font-black'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-            }`}
+            className="px-3.5 py-2 rounded-lg text-xs font-extrabold uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+            title={t('Loja Shinobi', 'Shinobi Shop')}
           >
-            <BookOpen className="w-4 h-4" />
-            <span>{t('Missões', 'Quests')}</span>
+            <ShoppingBag className="w-4 h-4 text-amber-400" />
+            <span>{t('Loja', 'Shop')}</span>
           </button>
 
-          {/* EVENTOS E LOJA BOTÕES DESATIVADOS TEMPORARIAMENTE (CÓDIGO PRESERVADO)
+          {/* EVENTOS BOTÃO DESATIVADO TEMPORARIAMENTE (CÓDIGO PRESERVADO)
           <button
             onClick={() => {
               playClickSound();
@@ -846,18 +833,6 @@ export default function QuestBoard({
             <Calendar className="w-4 h-4 text-orange-400" />
             <span>Eventos</span>
             <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping absolute top-1 right-1" />
-          </button>
-
-          <button
-            onClick={() => {
-              playClickSound();
-              setShowShopModal(true);
-            }}
-            className="px-3 py-2 rounded-lg text-xs font-extrabold uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
-            title="Loja Shinobi"
-          >
-            <ShoppingBag className="w-4 h-4 text-amber-400" />
-            <span>Loja</span>
           </button>
           */}
 
@@ -899,7 +874,7 @@ export default function QuestBoard({
                   <button
                     key={tab.id}
                     onClick={() => {
-                      playClickSound();
+                      playUahSound();
                       setActiveTab(tab.id as any);
                       setCurrentPage(1);
                     }}
@@ -1167,6 +1142,7 @@ export default function QuestBoard({
                             <button
                               onClick={() => handleClaimReward(quest)}
                               disabled={claimedRewardId === quest.id}
+                              data-sound="uah"
                               className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 active:scale-95 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer font-sans uppercase tracking-wider shadow-lg shadow-emerald-500/20"
                             >
                               {claimedRewardId === quest.id ? (

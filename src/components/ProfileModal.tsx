@@ -102,19 +102,19 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
   );
 
   const handleEquipStyledFrame = (frameName: string) => {
-    playClickSound();
+    playUahSound();
     setEquippedFrame(frameName);
     setEquippedFrameUrl(undefined); // Reset PNG frame URL when choosing CSS frame
   };
 
   const handleEquipPngFrame = (frame: PngFrameItem) => {
-    playClickSound();
+    playUahSound();
     setEquippedFrame(frame.name);
     setEquippedFrameUrl(frame.imageUrl);
   };
 
   const handleEquipBanner = (bannerUrl?: string) => {
-    playClickSound();
+    playUahSound();
     setEquippedBannerUrl(bannerUrl);
   };
 
@@ -238,7 +238,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
         </div>
 
         {/* Modal Navigation Tabs */}
-        <div className="bg-slate-950/80 p-3 border-b border-slate-800 flex items-center gap-2 px-6 flex-shrink-0 overflow-x-auto">
+        <div className="bg-slate-950/80 p-3 border-b border-slate-800 flex items-center gap-2 px-6 flex-shrink-0 overflow-x-auto custom-scrollbar">
           <button
             onClick={() => {
               playClickSound();
@@ -309,20 +309,67 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
           {activeTab === 'banners' && (
             <div className="space-y-6">
               {/* Banner Info */}
-              <div className="bg-slate-950/80 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-inner">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
-                    <ImageIcon className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-mono uppercase tracking-wider text-amber-300 font-extrabold">
-                      Banners de Perfil (Fundo do Card)
-                    </h3>
-                    <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                      Banners ficam posicionados ao fundo do card do perfil, atrás das informações e foto. Conclua missões ou eventos para desbloquear novos banners!
-                    </p>
-                  </div>
-                </div>
+              
+
+              {/* Banners Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {allBanners.map((banner, bIdx) => {
+                  const isEquipped = equippedBannerUrl === banner.url;
+                  return (
+                    <div
+                      key={bIdx}
+                      onClick={() => handleEquipBanner(banner.url)}
+                      className={`rounded-2xl border transition cursor-pointer overflow-hidden relative flex flex-col group ${
+                        isEquipped
+                          ? 'bg-slate-950 border-amber-500 shadow-xl shadow-amber-950/40 ring-1 ring-amber-500'
+                          : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-950'
+                      }`}
+                    >
+                      {/* Banner Preview Area */}
+                      <div className="h-28 w-full relative bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 overflow-hidden flex items-center justify-center">
+                        {banner.url ? (
+                          <img
+                            src={banner.url || null}
+                            alt={banner.name}
+                            className="w-full h-full object-cover transition-all duration-150"
+                            style={isEquipped ? { objectPosition: `${equippedBannerPositionX}% ${equippedBannerPositionY}%` } : { objectPosition: '50% 50%' }}
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="text-center p-2 text-slate-950 font-black text-xs uppercase tracking-widest">
+                            Gradiente Padrão
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+
+                        {isEquipped && (
+                          <span className="absolute top-2 right-2 text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-amber-500 text-slate-950 flex items-center gap-1 shadow-lg z-10">
+                            <Check className="w-3 h-3 stroke-[3]" /> Banner Equipado
+                          </span>
+                        )}
+
+                        <span className="absolute bottom-2 left-2 text-[9px] font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-slate-950/80 text-amber-300 border border-amber-500/30">
+                          {banner.badge}
+                        </span>
+                      </div>
+
+                      {/* Banner Info footer */}
+                      <div className="p-3 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-200 font-mono truncate">{banner.name}</span>
+                        <button
+                          type="button"
+                          className={`text-[10px] font-mono font-bold uppercase px-3 py-1 rounded-lg transition ${
+                            isEquipped
+                              ? 'bg-amber-500 text-slate-950'
+                              : 'bg-slate-800 text-slate-300 group-hover:bg-amber-500/20 group-hover:text-amber-300'
+                          }`}
+                        >
+                          {isEquipped ? 'Equipado' : 'Equipar'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Banner Position Adjustment Section (Visible when an image banner is equipped) */}
@@ -463,140 +510,57 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                 </div>
               )}
 
-              {/* Banners Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {allBanners.map((banner, bIdx) => {
-                  const isEquipped = equippedBannerUrl === banner.url;
-                  return (
-                    <div
-                      key={bIdx}
-                      onClick={() => handleEquipBanner(banner.url)}
-                      className={`rounded-2xl border transition cursor-pointer overflow-hidden relative flex flex-col group ${
-                        isEquipped
-                          ? 'bg-slate-950 border-amber-500 shadow-xl shadow-amber-950/40 ring-1 ring-amber-500'
-                          : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-950'
-                      }`}
-                    >
-                      {/* Banner Preview Area */}
-                      <div className="h-28 w-full relative bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 overflow-hidden flex items-center justify-center">
-                        {banner.url ? (
-                          <img
-                            src={banner.url || null}
-                            alt={banner.name}
-                            className="w-full h-full object-cover transition-all duration-150"
-                            style={isEquipped ? { objectPosition: `${equippedBannerPositionX}% ${equippedBannerPositionY}%` } : { objectPosition: '50% 50%' }}
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="text-center p-2 text-slate-950 font-black text-xs uppercase tracking-widest">
-                            Gradiente Padrão
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
-
-                        {isEquipped && (
-                          <span className="absolute top-2 right-2 text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-amber-500 text-slate-950 flex items-center gap-1 shadow-lg z-10">
-                            <Check className="w-3 h-3 stroke-[3]" /> Banner Equipado
-                          </span>
-                        )}
-
-                        <span className="absolute bottom-2 left-2 text-[9px] font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-slate-950/80 text-amber-300 border border-amber-500/30">
-                          {banner.badge}
-                        </span>
-                      </div>
-
-                      {/* Banner Info footer */}
-                      <div className="p-3 flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-200 font-mono truncate">{banner.name}</span>
-                        <button
-                          type="button"
-                          className={`text-[10px] font-mono font-bold uppercase px-3 py-1 rounded-lg transition ${
-                            isEquipped
-                              ? 'bg-amber-500 text-slate-950'
-                              : 'bg-slate-800 text-slate-300 group-hover:bg-amber-500/20 group-hover:text-amber-300'
-                          }`}
-                        >
-                          {isEquipped ? 'Equipado' : 'Equipar'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
 
             </div>
           )}
 
           {activeTab === 'frames' && (
             <div className="space-y-6">
-              {/* Exclusivity Information Banner */}
-              <div className="bg-slate-950/80 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-inner">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
-                    <Sparkles className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-mono uppercase tracking-wider text-amber-300 font-extrabold">
-                      Molduras Exclusivas Shinobi
-                    </h3>
-                    <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                      Molduras raras e PNG são obtidas exclusivamente em Eventos ou comprando na Loja.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-mono uppercase tracking-wider text-amber-400 font-extrabold flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
-                    Molduras PNG Exclusivas (Eventos & Loja)
-                  </h3>
-                  <span className="text-[10px] font-mono text-slate-500">Transparência PNG em camada sobre a foto</span>
-                </div>
+                <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-extrabold mb-3 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-blue-400" />
+                  Molduras
+                </h3>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   {allPngFrames.map(frame => {
                     const isEquipped = equippedFrameUrl === frame.imageUrl;
                     return (
                       <div
                         key={frame.id}
                         onClick={() => handleEquipPngFrame(frame)}
-                        className={`p-3 rounded-2xl border transition cursor-pointer flex flex-col items-center text-center gap-2 relative group ${
+                        className={`p-3 rounded-2xl border transition cursor-pointer flex flex-col justify-between gap-3 relative group ${
                           isEquipped
                             ? 'bg-slate-950 border-amber-500 shadow-lg shadow-amber-950/40 ring-1 ring-amber-500'
                             : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-950'
                         }`}
                       >
-                        {isEquipped && (
-                          <span className="absolute top-2 right-2 text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-amber-500 text-slate-950 flex items-center gap-1 shadow">
-                            <Check className="w-3 h-3 stroke-[3]" /> Ativa
-                          </span>
-                        )}
+                        <div className="flex items-center gap-3">
+                          <div className="relative w-12 h-12 rounded-full overflow-hidden bg-slate-900 flex-shrink-0">
+                            {/* Sample user photo underneath */}
+                            <MangekyoLoader
+                              src={photoUrl}
+                              alt="Preview"
+                              className="w-full h-full rounded-full"
+                              imgClassName="rounded-full"
+                              iconScale={0.55}
+                            />
+                            {/* PNG Frame overlay */}
+                            <img
+                              src={frame.imageUrl || null}
+                              alt={frame.name}
+                              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain"
+                            />
+                          </div>
 
-                        <div className="relative w-16 h-16 my-1">
-                          {/* Sample user photo underneath */}
-                          <MangekyoLoader
-                            src={photoUrl}
-                            alt="Preview"
-                            className="w-full h-full rounded-full"
-                            imgClassName="rounded-full"
-                            iconScale={0.55}
-                          />
-                          {/* PNG Frame overlay */}
-                          <img
-                            src={frame.imageUrl || null}
-                            alt={frame.name}
-                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain"
-                          />
-                        </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-extrabold text-xs text-slate-200 truncate group-hover:text-amber-300">{frame.name}</p>
+                            <span className="text-[9px] font-mono text-orange-400 uppercase font-bold">{frame.badge || 'MOLDURA PNG'}</span>
+                          </div>
 
-                        <div>
-                          <p className="font-extrabold text-xs text-slate-200 group-hover:text-amber-300 transition line-clamp-1">{frame.name}</p>
-                          <span className="text-[9px] font-mono text-orange-400 uppercase font-bold block mt-0.5">
-                            {frame.badge || 'MOLDURA PNG'}
-                          </span>
+                          {isEquipped && (
+                            <Check className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                          )}
                         </div>
                       </div>
                     );
@@ -604,14 +568,8 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                 </div>
               </div>
 
-              <div className="border-t border-slate-800/80 pt-6">
-                <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400 font-extrabold mb-3 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-blue-400" />
-                  Molduras Estilizadas do Sistema (CSS)
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {PRESET_STYLED_FRAMES.map(frame => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {PRESET_STYLED_FRAMES.map(frame => {
                     const isEquipped = !equippedFrameUrl && equippedFrame === frame.name;
                     return (
                       <div
@@ -641,7 +599,6 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                     );
                   })}
                 </div>
-              </div>
             </div>
           )}
 

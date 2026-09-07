@@ -35,6 +35,7 @@ interface BattleBoardProps {
   playTargetSound: () => void;
   playWinSound: () => void;
   playLoseSound: () => void;
+  onProcessingChange: (processing: boolean) => void;
   onBattleFinished?: () => void;
   user: UserProfile;
   onlineParams?: {
@@ -1635,6 +1636,7 @@ export default function BattleBoard({
   playTargetSound,
   playWinSound,
   playLoseSound,
+  onProcessingChange,
   onBattleFinished,
   user,
   onlineParams,
@@ -3206,6 +3208,10 @@ const handleTradeChakra = () => {
   const activePlannerRef = useRef<'player' | 'enemy'>('player');
   useEffect(() => { activePlannerRef.current = activePlanner; }, [activePlanner]);
   const [isPreparing, setIsPreparing] = useState(false);
+  useEffect(() => {
+    onProcessingChange(isEndingTurn || isPreparing);
+    return () => onProcessingChange(false);
+  }, [isEndingTurn, isPreparing, onProcessingChange]);
   const [passedPlayersThisTurn, setPassedPlayersThisTurn] = useState<('player' | 'enemy')[]>([]);
   const [lastResolutionError, setLastResolutionError] = useState<string | null>(null);
   const [lastAIError, setLastAIError] = useState<string | null>(null);
@@ -18192,6 +18198,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                 key={sIdx}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  playScrollSound();
                                   // Sempre chama handleSelectSkill: ele ABRE o inspector (para ler as
                                   // características da skill) e depois bloqueia a seleção com floating
                                   // text se a skill estiver atordoada/bloqueada/render usos etc.
@@ -19334,6 +19341,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                   key={sIdx}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    playScrollSound();
                                     // Sempre chama handleSelectSkill: ele ABRE o inspector (para ler as
                                     // características da skill) e depois bloqueia a seleção com floating
                                     // text se a skill estiver bloqueada.

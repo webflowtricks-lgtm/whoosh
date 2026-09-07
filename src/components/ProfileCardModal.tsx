@@ -173,6 +173,7 @@ export default function ProfileCardModal({
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
         onClick={closeModal}
+        data-no-uah
       >
         <div className="flex items-stretch gap-3 max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
         <motion.div
@@ -427,7 +428,7 @@ export default function ProfileCardModal({
                   className="px-4 py-2 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/25 text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-2"
                 >
                   <User className="w-3.5 h-3.5" />
-                  {t('Editar Skin & Perfil', 'Edit Skin & Profile')}
+                  {t('Editar perfil', 'Edit Profile')}
                 </button>
               )}
 
@@ -504,6 +505,7 @@ export default function ProfileCardModal({
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md"
             onClick={() => setLightboxCard(null)}
+            data-no-uah
           >
             <button
               className="absolute top-5 right-5 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition cursor-pointer z-10 shadow-lg"
@@ -524,11 +526,12 @@ export default function ProfileCardModal({
               {ownedCards.length > 1 && (
                 <button
                   onClick={() => {
-                    if (playClickSound) playClickSound();
+                    if (playScrollSound) playScrollSound();
                     const idx = ownedCards.findIndex(c => c.id === lightboxCard.id);
                     const prev = ownedCards[(idx - 1 + ownedCards.length) % ownedCards.length];
                     setLightboxCard(prev);
                   }}
+                  data-sound="Scroll"
                   className="absolute left-[-52px] top-1/2 -translate-y-1/2 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition cursor-pointer shadow-lg hidden sm:block"
                   title={t('Anterior', 'Previous')}
                 >
@@ -564,11 +567,12 @@ export default function ProfileCardModal({
               {ownedCards.length > 1 && (
                 <button
                   onClick={() => {
-                    if (playClickSound) playClickSound();
+                    if (playScrollSound) playScrollSound();
                     const idx = ownedCards.findIndex(c => c.id === lightboxCard.id);
                     const next = ownedCards[(idx + 1) % ownedCards.length];
                     setLightboxCard(next);
                   }}
+                  data-sound="Scroll"
                   className="absolute right-[-52px] top-1/2 -translate-y-1/2 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition cursor-pointer shadow-lg hidden sm:block"
                   title={t('Próxima', 'Next')}
                 >

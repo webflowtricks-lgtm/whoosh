@@ -114,7 +114,11 @@ export const bindGlobalClickSound = (enabled: () => boolean) => {
       /z-(?:50|70|\[|[1-9]\d{2,})/.test(modalAncestor.className) &&
       !modalAncestor.className.includes('-z-')
     ) {
-      customSound = customSound || 'uah';
+      // Modais marcados com data-no-uah (ex.: galeria de figurinhas/cards)
+      // NÃO sobrescrevem o som padrão para uah — voltam ao Click normal.
+      if (!(modalAncestor as HTMLElement).hasAttribute?.('data-no-uah')) {
+        customSound = customSound || 'uah';
+      }
     }
 
     playGlobalSound(customSound || 'Click');
@@ -136,15 +140,24 @@ export const bindGlobalModalSound = (enabled: () => boolean) => {
     return /z-(?:50|70|\[|[1-9]\d{2,})/.test(classes) && !classes.includes('-z-');
   };
 
+  document.addEventListener('mousedown', (e) => {
+    if (!globalModalSoundEnabled()) return;
+    const target = e.target as HTMLElement | null;
+    const modal = target?.closest<HTMLElement>('[class*="fixed"][class*="inset-0"]');
+    if (!modal || !isModalRoot(modal)) return;
+    // Só toca Scroll ao clicar no FUNDO do modal (fechar por backdrop).
+    // Botões/interações dentro do modal já têm o próprio som (Click/uah),
+    // e a abertura de modais aninhados (ex.: lightbox de figurinha) é
+    // anunciada pelo MutationObserver — senão toca Scroll DUAS vezes.
+    if (target === modal) {
+      playGlobalSound('Scroll');
+    }
+  }, true);
+
   const observer = new MutationObserver((mutations) => {
     if (!globalModalSoundEnabled()) return;
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
-        if (isModalRoot(node)) {
-          playGlobalSound('Scroll');
-        }
-      }
-      for (const node of mutation.removedNodes) {
         if (isModalRoot(node)) {
           playGlobalSound('Scroll');
         }

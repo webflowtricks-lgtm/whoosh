@@ -26,12 +26,13 @@ interface CharacterSelectProps {
   playScrollSound: () => void;
   playUahSound: () => void;
   playTargetSound: () => void;
+  onProcessingChange: (processing: boolean) => void;
   user: UserProfile;
   activeQuest?: Quest | null;
   onBack?: () => void;
 }
 
-export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, playUahSound, playTargetSound, user, activeQuest, onBack }: CharacterSelectProps) {
+export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, playUahSound, playTargetSound, onProcessingChange, user, activeQuest, onBack }: CharacterSelectProps) {
   const { t, language } = useLanguage();
   const [charList, setCharList] = useState<Character[]>(() => getCharacters());
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
@@ -148,6 +149,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   // Matchmaking State
   const [isMatchmaking, setIsMatchmaking] = useState(false);
+  useEffect(() => {
+    onProcessingChange(isMatchmaking);
+    return () => onProcessingChange(false);
+  }, [isMatchmaking, onProcessingChange]);
   const [matchmakingTime, setMatchmakingTime] = useState(0);
   const [matchmakingStatus, setMatchmakingStatus] = useState<'searching' | 'matched' | 'error'>('searching');
   const [opponent, setOpponent] = useState<UserProfile | null>(null);
@@ -507,23 +512,39 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     return (
       <div className="flex items-center gap-1">
         {costs.map((cost, idx) => {
-          let bgClass = 'bg-slate-600';
-          if (cost === 'Tai') bgClass = 'bg-green-600 border border-green-400';
-          else if (cost === 'Nin') bgClass = 'bg-blue-600 border border-blue-400';
-          else if (cost === 'Gen') bgClass = 'bg-white border border-white/60';
-          else if (cost === 'Blood') bgClass = 'bg-red-600 border border-red-400';
-          else if (cost === 'Rand') bgClass = 'bg-slate-600 border border-slate-500';
+          // Mesma estilização (gradiente radial + brilho) usada na batalha
+          let bg = '';
+          let glow = '';
+          let border = '';
+          if (cost === 'Tai') {
+            bg = 'radial-gradient(circle at 35% 30%, #bbf7d0, #22c55e 45%, #14532d)';
+            glow = '0 0 5px rgba(34,197,94,0.95), 0 0 12px rgba(34,197,94,0.55)';
+            border = 'border-green-300/80';
+          } else if (cost === 'Nin') {
+            bg = 'radial-gradient(circle at 35% 30%, #bfdbfe, #2563eb 45%, #1e3a8a)';
+            glow = '0 0 5px rgba(37,99,235,0.95), 0 0 12px rgba(37,99,235,0.55)';
+            border = 'border-blue-300/80';
+          } else if (cost === 'Gen') {
+            bg = 'radial-gradient(circle at 35% 30%, #ffffff, #e2e8f0 55%, #94a3b8)';
+            glow = '0 0 5px rgba(255,255,255,0.95), 0 0 12px rgba(255,255,255,0.5)';
+            border = 'border-white/80';
+          } else if (cost === 'Blood') {
+            bg = 'radial-gradient(circle at 35% 30%, #fecaca, #dc2626 45%, #7f1d1d)';
+            glow = '0 0 5px rgba(220,38,38,0.95), 0 0 12px rgba(220,38,38,0.55)';
+            border = 'border-red-300/80';
+          } else {
+            bg = 'radial-gradient(circle at 35% 30%, #e2e8f0, #64748b 50%, #334155)';
+            glow = '0 0 5px rgba(148,163,184,0.95), 0 0 12px rgba(148,163,184,0.5)';
+            border = 'border-slate-300/80';
+          }
 
           return (
             <span
               key={idx}
-              className={`w-3.5 h-3.5 rounded-full ${bgClass} shadow-inner flex items-center justify-center`}
+              className={`w-3.5 h-3.5 rounded-full border ${border} flex items-center justify-center shrink-0`}
+              style={{ background: bg, boxShadow: glow }}
               title={`${cost} Chakra`}
-            >
-              <span className="text-[9px] font-bold text-white leading-none scale-90">
-                {cost[0]}
-              </span>
-            </span>
+            />
           );
         })}
       </div>
@@ -1201,10 +1222,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     <div className="flex items-center justify-between bg-amber-950/10 p-2 rounded-xl border border-amber-900/20 mt-2">
                       <button
                         onClick={() => {
-                          playClickSound();
+                          playScrollSound();
                           setPreviewSkillsPage(prev => Math.max(prev - 1, 0));
                         }}
                         disabled={previewSkillsPage === 0}
+                        data-sound="Scroll"
                         className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
                           previewSkillsPage === 0
                             ? 'border-amber-900/10 bg-amber-950/5 text-amber-900/30 cursor-not-allowed'
@@ -1220,9 +1242,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           <button
                             key={idx}
                             onClick={() => {
-                              playClickSound();
+                              playScrollSound();
                               setPreviewSkillsPage(idx);
                             }}
+                            data-sound="Scroll"
                             className={`w-6 h-6 rounded-md text-[10px] font-mono font-bold flex items-center justify-center transition-all cursor-pointer border ${
                               idx === previewSkillsPage
                                 ? 'bg-amber-700 border-amber-800 text-amber-50 shadow-md font-black'
@@ -1236,10 +1259,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
                       <button
                         onClick={() => {
-                          playClickSound();
+                          playScrollSound();
                           setPreviewSkillsPage(prev => Math.min(prev + 1, totalPages - 1));
                         }}
                         disabled={previewSkillsPage === totalPages - 1}
+                        data-sound="Scroll"
                         className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
                           previewSkillsPage === totalPages - 1
                             ? 'border-amber-900/10 bg-amber-950/5 text-amber-900/30 cursor-not-allowed'
@@ -1273,13 +1297,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             <div className="max-w-md w-full text-center space-y-8 z-10">
               {/* Spinning Logo / Matchmaking Status indicator */}
               <div className="relative w-28 h-28 mx-auto">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
-                  className="absolute inset-0 rounded-full border-4 border-t-orange-500 border-r-transparent border-b-amber-500 border-l-transparent"
-                />
-                <div className="absolute inset-2 bg-slate-900 rounded-full flex items-center justify-center border border-slate-800">
-                  <img src="/static/img/ui/gold-shuriken.webp" alt="Processando" className="w-10 h-10 animate-spin object-contain" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <img src="/static/img/icon/mangeky.svg" alt="Processando" className="w-24 h-24 animate-spin" />
                 </div>
               </div>
 
