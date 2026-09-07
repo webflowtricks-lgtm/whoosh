@@ -7260,7 +7260,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛑 ${t.character.name} teve suas habilidades ofensivas bloqueadas por [${skill.name}] de ${source.character.name} por ${blockDuration} turno(s)!`,
+            message: `${t.character.name} teve suas habilidades ofensivas bloqueadas por [${skill.name}] de ${source.character.name} por ${blockDuration} turno(s)!`,
             type: 'stun',
           });
           addFloatingText(t.id, `SKILLS OFENSIVAS BLOQUEADAS (${blockDuration}T)`, 'stun');
@@ -14596,7 +14596,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛑 ${t.character.name} teve suas habilidades ofensivas bloqueadas por [${skill.name}] de ${source.character.name} por ${blockDuration} turno(s)!`,
+            message: `${t.character.name} teve suas habilidades ofensivas bloqueadas por [${skill.name}] de ${source.character.name} por ${blockDuration} turno(s)!`,
             type: 'stun',
           });
           addFloatingText(t.id, `SKILLS OFENSIVAS BLOQUEADAS (${blockDuration}T)`, 'stun');
@@ -18654,10 +18654,10 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                         return (
                           <>
                             {effectiveCost.map((c, idx) => (
-                              <div key={idx} className="scale-90">{renderChakraIcon(c)}</div>
+                              <div key={idx} className="scale-100">{renderChakraIcon(c, 'w-4 h-4')}</div>
                             ))}
                             {effectiveCost.length < inspectedSkill.skill.cost.length && (
-                              <span className="w-full text-center text-[7.5px] font-black text-emerald-950 font-mono leading-none mt-0.5">⚡Reduzido</span>
+                              <span className="w-full text-center text-[7.5px] font-black text-emerald-950 font-mono leading-none mt-0.5">Reduzido</span>
                             )}
                           </>
                         );
@@ -19122,7 +19122,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                           return (
                             <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
                               <p className="text-[9px] text-red-300/90 font-sans leading-tight">
-                                🚫 <strong>Impedido:</strong> Apenas habilidades ofensivas no oponente estão bloqueadas. Habilidades em si mesmo ou amigáveis continuam ativas.
+                                🚫 <strong>Impedido:</strong> Apenas habilidades ofensivas no oponente estão bloqueadas.
                               </p>
                             </div>
                           );
