@@ -502,6 +502,7 @@ body.processing-cursor * {
   white-space: nowrap;
 }
 
+ 
 /* Naruto chorando — exibido no canto inferior esquerdo da derrota */
 .gameover-naruto-chorando {
   position: fixed !important;
@@ -1310,4 +1311,37 @@ e-squad-name {
   );
   filter: blur(1px) drop-shadow(0 0 9px rgba(255, 255, 255, 0.75)) drop-shadow(0 0 3px rgba(255, 255, 255, 0.9));
   mix-blend-mode: screen;
+}
+
+/* =========================================================
+   PERGAMINHO FLUTUANTE (ProfileModal)
+   Imagem decorativa atrás do modal, flutuando suavemente.
+   ========================================================= */
+@keyframes pergaminho-float {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50%     { transform: translateY(-14px) rotate(-1deg); }
+}
+
+.pergaminho-profile-modal {
+    position: fixed;
+    top: -2%;
+    left: 13%;
+    transform: translate(-50%, -50%);
+    /* width: min(1179px, 136vw); */
+    max-width: 995px;
+    height: 700px;
+    pointer-events: none;
+    z-index: 0;
+    animation: pergaminho-float 6s ease-in-out infinite;
+    filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.55));
+    opacity: 1;
+}
+
+/* Folhas animadas no ProfileModal (mesma animação da batalha, atrás do modal) */
+.leaves-modal {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
 }

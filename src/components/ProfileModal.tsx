@@ -156,9 +156,32 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
 
   return (
     <div
-        className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto custom-scrollbar"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto custom-scrollbar"
         onClick={() => { playClickSound(); onClose(); }}
       >
+      {/* Background Image */}
+      <img
+        src="/static/img/bg/forest.webp"
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+      />
+      {/* Folhas animadas (mesma da batalha) */}
+      <div className="leaves-modal gpu-accelerated">
+        <img src="/static/img/ui/folha.webp" className="leaf leaf1" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf2" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf3" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf4" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf5" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf6" alt="" loading="lazy" decoding="async" />
+      </div>
+      {/* Pergaminho decorativo flutuando atrás do modal */}
+      <img
+        src="/static/img/ui/pergaminho-profile-modal.webp"
+        alt=""
+        aria-hidden="true"
+        className="pergaminho-profile-modal"
+      />
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -167,7 +190,11 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
         className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]"
       >
         {/* Header Banner Preview */}
-        <div className="bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 p-6 text-slate-950 relative overflow-hidden flex-shrink-0 transition-all duration-300">
+        <div className={`p-6 text-slate-950 relative overflow-hidden flex-shrink-0 transition-all duration-300 ${
+          equippedBannerUrl
+            ? 'bg-gradient-to-r from-orange-600 via-amber-600 to-red-600'
+            : 'bg-gradient-to-r from-slate-800 via-slate-900 to-slate-950'
+        }`}>
           {equippedBannerUrl ? (
             <>
               <img
@@ -361,7 +388,11 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
                       }`}
                     >
                       {/* Banner Preview Area */}
-                      <div className="h-28 w-full relative bg-gradient-to-r from-orange-600 via-amber-600 to-red-600 overflow-hidden flex items-center justify-center">
+                      <div className={`h-28 w-full relative overflow-hidden flex items-center justify-center ${
+                        banner.url
+                          ? 'bg-gradient-to-r from-orange-600 via-amber-600 to-red-600'
+                          : 'bg-gradient-to-r from-slate-800 via-slate-900 to-slate-950'
+                      }`}>
                         {banner.url ? (
                           <img
                             src={banner.url || null}
@@ -371,7 +402,7 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
                             referrerPolicy="no-referrer"
                           />
                         ) : (
-                          <div className="text-center p-2 text-slate-950 font-black text-xs uppercase tracking-widest">
+                          <div className="text-center p-2 text-slate-400 font-black text-xs uppercase tracking-widest">
                             Gradiente Padrão
                           </div>
                         )}
