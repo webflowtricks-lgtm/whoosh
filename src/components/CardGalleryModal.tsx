@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Images, Lock, Star, Package, Gem, Sparkles } from 'lucide-react';
+import { X, Images, Lock, Star, Package, Gem, Sparkles, Check } from 'lucide-react';
 import { UserProfile, NinjaCard, CardRarity } from '../types';
 import { getCards, fetchCardsFromServer, CARD_RARITY_META, RARITY_ORDER, getPacks, fetchPacksFromServer, rarityFx } from '../lib/cardStorage';
 import { NinjaPack } from '../types';
@@ -243,16 +243,19 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
         </div>
 
         {/* Filters */}
-        <div className="bg-slate-950/60 p-3 border-b border-slate-800/80 flex items-center gap-2 overflow-x-auto flex-wrap">
+        <div className="p-3 border-b border-slate-800/80 flex items-center gap-3 overflow-x-auto flex-wrap">
           <button
             onClick={() => { playClickSound(); setRarityFilter('todas'); }}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer whitespace-nowrap ${
+            className={`relative px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer whitespace-nowrap ${
               rarityFilter === 'todas'
-                ? 'bg-slate-200 text-slate-950'
-                : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
+                ? 'text-amber-950 brightness-110'
+                : 'text-stone-800 opacity-70 hover:opacity-100'
             }`}
           >
-            {t('Todas', 'All')}
+            <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
+            <span className="relative z-10 font-brush text-[12px] tracking-wider drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+              {t('Todas', 'All')}
+            </span>
           </button>
           {RARITY_ORDER.map(r => {
             const meta = CARD_RARITY_META[r];
@@ -261,11 +264,17 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
               <button
                 key={r}
                 onClick={() => { playClickSound(); setRarityFilter(r); }}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer whitespace-nowrap border ${
-                  isActive ? meta.chip : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
+                className={`relative px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? 'text-amber-950 brightness-110'
+                    : 'text-stone-800 opacity-70 hover:opacity-100'
                 }`}
               >
-                {meta.label}
+                <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
+                <span className="relative z-10 font-brush text-[12px] tracking-wider flex items-center gap-1.5 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+                  {meta.label}
+                  {isActive && <Check className="w-3 h-3" />}
+                </span>
               </button>
             );
           })}

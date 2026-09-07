@@ -584,7 +584,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           <div className="top-items-battle relative z-10 w-full max-w-7xl mx-auto flex flex-col md:flex-row justify-center items-center gap-4 md:gap-10 px-4 sm:px-8 py-2.5">
             <div className="text-center md:text-left shrink-0">
         
-              <h2 className="main-title-teams text-xl sm:text-2xl font-black tracking-tight text-amber-950 font-mono uppercase drop-shadow-sm">
+              <h2 className="main-title-teams text-xl sm:text-2xl font-brush tracking-tight text-[#823500] drop-shadow-[0_1px_1px_rgba(255,255,255,0.6)] uppercase">
                 {sandboxPlayerTeam ? t("ESCOLHA O ESQUADRÃO ADVERSÁRIO", "CHOOSE OPPONENT SQUAD") : t("ESCOLHA SEU ESQUADRÃO", "CHOOSE YOUR SQUAD")}
               </h2>
             </div>
@@ -746,7 +746,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               />
 
               {/* Filter inputs inside parchment printable bounds */}
-              <div className="relative z-10 w-full grid sm:grid-cols-2 gap-2.5 px-7 sm:px-10 py-3">
+              <div className="mb-[5px] mt-[2px] relative z-10 w-full grid sm:grid-cols-2 gap-2.5 px-7 sm:px-10 py-3">
                 {/* Search Input */}
                 <div className="relative flex items-center">
                   <Search className="absolute left-3 w-4 h-4 text-amber-950/70" />
@@ -983,7 +983,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
             <div className="relative z-10 space-y-6 px-3 sm:px-6 py-2">
               {/* Header Portrait + Description */}
-              <div className="flex gap-4 items-center p-2.5">
+              <div className="mb-[0px] flex gap-4 items-center p-2.5">
                 <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-amber-900/60 bg-amber-950/20 flex-shrink-0 shadow-md">
                   <MangekyoLoader
                     src={previewCharacter.portrait}
@@ -1102,7 +1102,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   </div>
                 </div>
               ) : (
-                <p className="text-amber-950 text-xs leading-relaxed font-medium p-1">
+                <p className="text-amber-950 text-xs leading-relaxed mb-[15px] font-medium p-1" >
                   {translateGameText(previewCharacter.description, language)}
                 </p>
               )}

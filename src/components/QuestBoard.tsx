@@ -865,7 +865,7 @@ export default function QuestBoard({
           {/* Sub-Filters Bar for Quests */}
           <div className="bg-slate-900/60 backdrop-blur-md p-2 rounded-xl border border-slate-800/80 space-y-2">
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 {[
                   { id: 'available', pt: 'Disponíveis', en: 'Available' },
                   { id: 'completed', pt: 'Concluídas', en: 'Completed' },
@@ -874,17 +874,20 @@ export default function QuestBoard({
                   <button
                     key={tab.id}
                     onClick={() => {
-                      playUahSound();
+                      playScrollSound();
                       setActiveTab(tab.id as any);
                       setCurrentPage(1);
                     }}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                    className={`relative px-4 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
                       activeTab === tab.id
-                        ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-black shadow-md shadow-orange-600/10'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                        ? 'text-amber-950 brightness-110'
+                        : 'text-stone-800 opacity-70 hover:opacity-100'
                     }`}
                   >
-                    {t(tab.pt, tab.en)}
+                    <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
+                    <span className="relative z-10 font-brush text-[13px] tracking-wider drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+                      {t(tab.pt, tab.en)}
+                    </span>
                   </button>
                 ))}
               </div>

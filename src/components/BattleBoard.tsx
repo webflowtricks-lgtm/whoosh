@@ -18473,7 +18473,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
               <div className="flex flex-col items-center justify-center gap-1.5 pb-1">
                 <div className="flex items-center gap-1.5">
                  
-                  <h2 className="text-sm sm:text-base font-black tracking-wider text-amber-100 font-sans drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)] uppercase">
+                  <h2 className="text-lg sm:text-xl font-black tracking-wider text-[#823500] font-brush drop-shadow-[0_1px_1px_rgba(255,255,255,0.6)] uppercase">
                     TURNO {turn}
                   </h2>
                 </div>
@@ -18493,7 +18493,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       isWaitingForOpponent
                         ? 'bg-amber-950/80 border-amber-500/60 text-amber-200 animate-pulse'
                         : activePlanner === 'player'
-                          ? 'bg-emerald-950/80 border-emerald-500/60 text-emerald-100'
+                          ? 'bg-[#cb6a22] border-[#cb6a22] text-white'
                           : 'bg-red-950/80 border-red-500/60 text-red-100 animate-pulse'
                     }`}>
                       {isWaitingForOpponent
@@ -18510,7 +18510,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
               {/* Chakra Header Row */}
               <div className="flex flex-col items-center justify-center gap-1 pt-0.5 text-center">
-                <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-amber-100 font-extrabold drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)]">
+                <span className="text-[11px] sm:text-sm font-brush tracking-wider text-[#823500] drop-shadow-[0_1px_1px_rgba(255,255,255,0.6)] uppercase">
                   Estoque de Chakra
                 </span>
                 <div className="flex items-center justify-center gap-2.5">
@@ -18520,12 +18520,16 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       playScrollSound();
                       setShowChakraTrade(true);
                     }}
-                    className="text-[10px] font-mono uppercase tracking-wider font-extrabold text-amber-950 bg-amber-100/80 hover:bg-amber-200/90 border border-amber-800/50 rounded px-2.5 py-0.5 cursor-pointer shadow transition-all"
+                    className="bg-[#cb6a22] border border-[#cb6a22] text-[#fef3c7] text-[10px] sm:text-[11px] uppercase tracking-wider cursor-pointer rounded-md px-1.5 py-0.5 shadow transition-all"
                   >
-                    Trocar 4→1
+                    <span className="relative z-10 font-brush drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
+                      Trocar 4→1
+                    </span>
                   </button>
-                  <span className="text-[10px] text-amber-950 font-mono font-black bg-amber-100/80 border border-amber-800/50 px-2 py-0.5 rounded shadow">
-                    Total: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
+                  <span className="bg-[#cb6a22] border border-[#cb6a22] text-[#fef3c7] text-[10px] sm:text-[11px] uppercase tracking-wider rounded-md px-2 py-0.5 shadow">
+                    <span className="relative z-10 font-brush drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
+                      Total: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
+                    </span>
                   </span>
                 </div>
               </div>
@@ -18571,7 +18575,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
           {/* Skill Inspector Details (skills_detalhes.webp) */}
           <div
-            className="relative w-full rounded-2xl overflow-hidden p-3.5 sm:p-5 shadow-2xl flex flex-col"
+            className="relative w-full overflow-hidden p-3.5 sm:p-5 shadow-2xl flex flex-col"
             style={{
               backgroundImage: "url('/static/img/skills_detalhes.webp')",
               backgroundSize: "100% 100%",

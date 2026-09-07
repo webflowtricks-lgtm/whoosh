@@ -234,7 +234,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         </AnimatePresence>
 
         {/* Categories Tab Navigation */}
-        <div className="bg-slate-950/60 p-3 border-b border-slate-800/80 flex items-center gap-2 overflow-x-auto">
+        <div className="p-3 border-b border-slate-800/80 flex items-center gap-3 overflow-x-auto">
           {[
             { id: 'all', label: 'Todos os Itens', icon: ShoppingBag },
             { id: 'title', label: 'Títulos', icon: Award },
@@ -252,14 +252,17 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                   setActiveTab(tab.id as any);
                 }}
                 data-sound="Scroll"
-                className={`px-4 py-2 rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+                className={`relative px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
                   isActive
-                    ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md shadow-orange-600/20'
-                    : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    ? 'text-amber-950 brightness-110'
+                    : 'text-stone-800 opacity-70 hover:opacity-100'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
+                <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
+                <span className="relative z-10 font-brush text-[13px] tracking-wider flex items-center gap-2 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </span>
               </button>
             );
           })}

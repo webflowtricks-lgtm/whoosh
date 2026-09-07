@@ -249,7 +249,7 @@ body.processing-cursor * {
  
   color: #fef3c7;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-  box-shadow: 0 10px 15px -3px rgba(120, 80, 30, 0.5), 0 4px 6px -4px rgba(120, 80, 30, 0.5);
+ 
   cursor: pointer;
   transition: transform 0.2s ease;
 }
@@ -267,7 +267,7 @@ body.processing-cursor * {
 }
 
 .main-title-teams {
-  font-size: 19px;
+  font-size: 21px;
 }
 
  .como-jogar-text span{

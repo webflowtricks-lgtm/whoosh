@@ -153,7 +153,8 @@ export function getRanks(): RankConfig[] {
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.sort((a, b) => a.requiredXp - b.requiredXp);
+        // Preserve the manual admin order (do NOT re-sort by requiredXp).
+        return parsed;
       }
     }
   } catch (err) {
@@ -164,7 +165,8 @@ export function getRanks(): RankConfig[] {
 
 export function saveRanks(ranks: RankConfig[]): void {
   try {
-    const sorted = [...ranks].sort((a, b) => a.requiredXp - b.requiredXp);
+    // Preserve the manual admin order (do NOT re-sort by requiredXp).
+    const sorted = [...ranks];
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sorted));
     
     // Sync with server if available
@@ -183,7 +185,8 @@ export async function fetchRanksFromServer(): Promise<RankConfig[]> {
     const data = await safeFetchJson<{ success?: boolean; ranks?: RankConfig[] }>('/api/ranks');
     if (data && data.success && Array.isArray(data.ranks) && data.ranks.length > 0) {
       saveRanks(data.ranks);
-      return data.ranks.sort((a: RankConfig, b: RankConfig) => a.requiredXp - b.requiredXp);
+      // Preserve the server order (manual admin order) — do NOT re-sort by requiredXp.
+      return data.ranks;
     }
   } catch (err) {
     console.error('Error fetching ranks from server:', err);

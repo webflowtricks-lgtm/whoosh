@@ -1,7 +1,7 @@
 [
   {
     "id": "rank_estudante",
-    "name": "Estudante dA Academia",
+    "name": "STUDENT",
     "requiredXp": 0,
     "color": "from-slate-500 to-slate-400 border-slate-500/30 text-white",
     "fontColor": "#fff"
@@ -26,6 +26,14 @@
     "requiredXp": 8500,
     "color": "from-teal-400 via-cyan-500 to-blue-500 border-cyan-300/40 text-white",
     "fontColor": "#fff"
+  },
+  {
+    "id": "rank_1786098053445",
+    "name": "ANBU",
+    "requiredXp": 100008,
+    "color": "none",
+    "bgColor": "#fff",
+    "fontColor": "#ff0000"
   },
   {
     "id": "rank_sannin",
@@ -87,13 +95,5 @@
     "name": "Hokage",
     "requiredXp": 100007,
     "color": "from-amber-600 to-yellow-500 border-amber-500/30 text-amber-400"
-  },
-  {
-    "id": "rank_1786098053445",
-    "name": "Anbu",
-    "requiredXp": 100008,
-    "color": "none",
-    "bgColor": "#fff",
-    "fontColor": "#ff0000"
   }
 ]

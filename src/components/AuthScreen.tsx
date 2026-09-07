@@ -164,28 +164,34 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
         </div>
 
         {/* Tab Selection */}
-        <div className="flex bg-slate-950 border border-slate-800/60 p-1 rounded-xl mb-6">
+        <div className="flex gap-3 justify-center mb-6">
           <button
             onClick={() => { playScrollSound(); setActiveTab('login'); setError(''); setSuccess(''); }}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`relative flex-1 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'login'
-                ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-amber-950 brightness-110'
+                : 'text-stone-800 opacity-70 hover:opacity-100'
             }`}
           >
-            <LogIn className="w-3.5 h-3.5" />
-            {t('Entrar', 'Log In')}
+            <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
+            <span className="relative z-10 font-brush text-[13px] tracking-wider flex items-center justify-center gap-1.5 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+              <LogIn className="w-3.5 h-3.5" />
+              {t('Entrar', 'Log In')}
+            </span>
           </button>
           <button
             onClick={() => { playScrollSound(); setActiveTab('register'); setError(''); setSuccess(''); }}
-            className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`relative flex-1 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'register'
-                ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-amber-950 brightness-110'
+                : 'text-stone-800 opacity-70 hover:opacity-100'
             }`}
           >
-            <UserPlus className="w-3.5 h-3.5" />
-            {t('Cadastrar', 'Sign Up')}
+            <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
+            <span className="relative z-10 font-brush text-[13px] tracking-wider flex items-center justify-center gap-1.5 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+              <UserPlus className="w-3.5 h-3.5" />
+              {t('Cadastrar', 'Sign Up')}
+            </span>
           </button>
         </div>
 

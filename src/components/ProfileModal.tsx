@@ -261,21 +261,24 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
         </div>
 
         {/* Modal Navigation Tabs */}
-        <div className="bg-slate-950/80 p-3 border-b border-slate-800 flex items-center gap-2 px-6 flex-shrink-0 overflow-x-auto custom-scrollbar">
+        <div className="p-3 border-b border-slate-800 flex items-center gap-3 px-6 flex-shrink-0 overflow-x-auto custom-scrollbar">
           <button
             onClick={() => {
               playClickSound();
               playScrollSound();
               setActiveTab('banners');
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
+            className={`relative px-4 py-2 text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
               activeTab === 'banners'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-amber-950 brightness-110'
+                : 'text-stone-800 opacity-70 hover:opacity-100'
             }`}
           >
-            <ImageIcon className="w-4 h-4 text-amber-400" />
-            {t('Banners do Perfil', 'Profile Banners')} ({allBanners.length})
+            <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
+            <span className="relative z-10 font-brush text-[13px] tracking-wider flex items-center gap-2 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+              <ImageIcon className="w-4 h-4" />
+              {t('Banners do Perfil', 'Profile Banners')}
+            </span>
           </button>
 
           <button
@@ -284,21 +287,24 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
               playScrollSound();
               setActiveTab('showcase');
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
+            className={`relative px-4 py-2 text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
               activeTab === 'showcase'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-amber-950 brightness-110'
+                : 'text-stone-800 opacity-70 hover:opacity-100'
             }`}
           >
-            <svg viewBox="0 0 48 48" className="w-4 h-4 text-amber-400" aria-hidden="true">
-              <g transform="translate(0,48) scale(0.1,-0.1)" fill="currentColor" stroke="none">
-                <path d="M168 433 c-36 -42 -28 -138 15 -168 28 -19 86 -19 114 0 27 19 46 83 37 122 -12 50 -32 63 -94 63 -42 0 -61 -5 -72 -17z"/>
-                <path d="M47 272 c-10 -10 -17 -25 -17 -34 0 -17 31 -48 48 -48 16 0 15 23 0 38 -9 9 -9 15 0 24 16 16 15 38 -1 38 -8 0 -21 -8 -30 -18z"/>
-                <path d="M390 277 c0 -7 5 -18 12 -25 9 -9 9 -15 0 -24 -16 -16 -15 -38 1 -38 18 0 47 32 47 52 0 17 -31 48 -48 48 -7 0 -12 -6 -12 -13z"/>
-                <path d="M136 200 c-24 -29 -42 -98 -34 -136 5 -30 47 -44 138 -44 91 0 133 14 138 44 8 38 -10 107 -34 136 -25 29 -29 30 -104 30 -75 0 -79 -1 -104 -30z"/>
-              </g>
-            </svg>
-            {t('Skin de Destaque', 'Showcase Skin')}
+            <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
+            <span className="relative z-10 font-brush text-[13px] tracking-wider flex items-center gap-2 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+              <svg viewBox="0 0 48 48" className="w-4 h-4" aria-hidden="true">
+                <g transform="translate(0,48) scale(0.1,-0.1)" fill="currentColor" stroke="none">
+                  <path d="M168 433 c-36 -42 -28 -138 15 -168 28 -19 86 -19 114 0 27 19 46 83 37 122 -12 50 -32 63 -94 63 -42 0 -61 -5 -72 -17z"/>
+                  <path d="M47 272 c-10 -10 -17 -25 -17 -34 0 -17 31 -48 48 -48 16 0 15 23 0 38 -9 9 -9 15 0 24 16 16 15 38 -1 38 -8 0 -21 -8 -30 -18z"/>
+                  <path d="M390 277 c0 -7 5 -18 12 -25 9 -9 9 -15 0 -24 -16 -16 -15 -38 1 -38 18 0 47 32 47 52 0 17 -31 48 -48 48 -7 0 -12 -6 -12 -13z"/>
+                  <path d="M136 200 c-24 -29 -42 -98 -34 -136 5 -30 47 -44 138 -44 91 0 133 14 138 44 8 38 -10 107 -34 136 -25 29 -29 30 -104 30 -75 0 -79 -1 -104 -30z"/>
+                </g>
+              </svg>
+              {t('Skin de Destaque', 'Showcase Skin')}
+            </span>
           </button>
 
           <button
@@ -307,46 +313,49 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
               playScrollSound();
               setActiveTab('frames');
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
+            className={`relative px-4 py-2 text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
               activeTab === 'frames'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-amber-950 brightness-110'
+                : 'text-stone-800 opacity-70 hover:opacity-100'
             }`}
           >
-            <svg viewBox="0 0 587 669" className="w-4 h-4 text-amber-400" aria-hidden="true">
-              <g transform="translate(0,669) scale(0.1,-0.1)" fill="currentColor" stroke="none">
-                <path d="M2745 6646 c-38 -24 -115 -70 -170 -102 -116 -69 -117 -72 -136 -231
--6 -56 -17 -110 -23 -119 -7 -10 -58 -27 -127 -44 -419 -100 -743 -254 -1089
--516 -138 -104 -144 -112 -148 -194 -3 -51 -9 -74 -23 -87 -10 -10 -64 -67
--121 -128 -297 -321 -517 -711 -633 -1125 -31 -111 -75 -318 -75 -355 0 -45
--26 -89 -74 -125 -26 -19 -65 -61 -87 -94 l-39 -58 0 -106 c0 -95 2 -110 26
--151 34 -59 59 -86 111 -122 46 -32 58 -59 67 -154 9 -81 59 -298 97 -415 80
--245 192 -478 333 -689 109 -163 187 -260 318 -397 l98 -101 0 -59 c0 -83 20
--109 159 -213 333 -248 695 -419 1074 -506 92 -21 121 -32 131 -49 8 -11 21
--76 30 -144 8 -67 20 -131 26 -142 6 -11 43 -38 83 -61 39 -23 116 -68 171
--100 137 -82 135 -82 342 39 92 53 175 108 186 122 12 17 23 64 33 145 11 79
-21 124 31 131 8 6 67 22 132 34 278 54 498 128 747 252 279 140 586 357 616
-436 5 13 6 47 3 77 l-7 53 103 108 c385 405 633 900 725 1449 21 129 25 142
-51 160 99 72 111 84 144 149 78 154 31 328 -115 422 -32 20 -57 44 -60 57 -2
-12 -14 76 -25 142 -89 520 -348 1034 -707 1406 l-108 111 0 74 c0 83 -7 93
--125 189 -346 277 -787 476 -1260 565 -57 11 -110 26 -118 34 -8 8 -20 60 -28
-127 -8 62 -20 121 -27 132 -7 11 -89 64 -181 118 -204 120 -219 122 -331 55z
-m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
--116 263 -296 447 -620 553 -978 33 -113 66 -262 76 -347 l7 -57 -52 -52 c-74
--74 -104 -144 -104 -239 0 -95 33 -173 106 -247 l51 -52 -12 -93 c-26 -187
--111 -467 -204 -671 -107 -231 -330 -544 -511 -716 l-36 -35 -50 13 c-28 7
--63 10 -78 6 -15 -4 -67 -37 -117 -74 -210 -159 -464 -299 -670 -371 -127 -44
--325 -93 -355 -87 -14 3 -124 51 -245 107 -179 83 -225 101 -252 97 -18 -3
--106 -40 -195 -83 -208 -98 -231 -106 -276 -98 -77 13 -315 95 -426 148 -149
-70 -282 150 -424 253 -159 116 -138 109 -262 88 -34 -6 -39 -3 -107 67 -267
-276 -461 584 -578 918 -52 150 -106 372 -112 460 l-5 75 65 66 c80 82 101 135
-95 247 -4 98 -32 158 -106 228 l-55 52 7 73 c9 92 63 311 111 448 73 208 179
-415 314 606 107 153 319 385 351 385 4 0 27 -7 50 -15 60 -21 94 -9 203 73
-237 179 479 305 732 383 61 18 128 33 150 33 30 0 91 -24 240 -94 151 -71 210
--94 240 -94 30 1 96 27 260 107 121 58 232 106 247 106 14 1 55 -6 90 -15z"/>
-              </g>
-            </svg>
-            {t('Alterar Moldura', 'Change Frame')} ({unlockedFrames.length + unlockedFrameUrls.length})
+            <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
+            <span className="relative z-10 font-brush text-[13px] tracking-wider flex items-center gap-2 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+              <svg viewBox="0 0 587 669" className="w-4 h-4" aria-hidden="true">
+                <g transform="translate(0,669) scale(0.1,-0.1)" fill="currentColor" stroke="none">
+                  <path d="M2745 6646 c-38 -24 -115 -70 -170 -102 -116 -69 -117 -72 -136 -231
+  -6 -56 -17 -110 -23 -119 -7 -10 -58 -27 -127 -44 -419 -100 -743 -254 -1089
+  -516 -138 -104 -144 -112 -148 -194 -3 -51 -9 -74 -23 -87 -10 -10 -64 -67
+  -121 -128 -297 -321 -517 -711 -633 -1125 -31 -111 -75 -318 -75 -355 0 -45
+  -26 -89 -74 -125 -26 -19 -65 -61 -87 -94 l-39 -58 0 -106 c0 -95 2 -110 26
+  -151 34 -59 59 -86 111 -122 46 -32 58 -59 67 -154 9 -81 59 -298 97 -415 80
+  -245 192 -478 333 -689 109 -163 187 -260 318 -397 l98 -101 0 -59 c0 -83 20
+  -109 159 -213 333 -248 695 -419 1074 -506 92 -21 121 -32 131 -49 8 -11 21
+  -76 30 -144 8 -67 20 -131 26 -142 6 -11 43 -38 83 -61 39 -23 116 -68 171
+  -100 137 -82 135 -82 342 39 92 53 175 108 186 122 12 17 23 64 33 145 11 79
+  21 124 31 131 8 6 67 22 132 34 278 54 498 128 747 252 279 140 586 357 616
+  436 5 13 6 47 3 77 l-7 53 103 108 c385 405 633 900 725 1449 21 129 25 142
+  51 160 99 72 111 84 144 149 78 154 31 328 -115 422 -32 20 -57 44 -60 57 -2
+  12 -14 76 -25 142 -89 520 -348 1034 -707 1406 l-108 111 0 74 c0 83 -7 93
+  -125 189 -346 277 -787 476 -1260 565 -57 11 -110 26 -118 34 -8 8 -20 60 -28
+  127 -8 62 -20 121 -27 132 -7 11 -89 64 -181 118 -204 120 -219 122 -331 55z
+  m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
+  -116 263 -296 447 -620 553 -978 33 -113 66 -262 76 -347 l7 -57 -52 -52 c-74
+  -74 -104 -144 -104 -239 0 -95 33 -173 106 -247 l51 -52 -12 -93 c-26 -187
+  -111 -467 -204 -671 -107 -231 -330 -544 -511 -716 l-36 -35 -50 13 c-28 7
+  -63 10 -78 6 -15 -4 -67 -37 -117 -74 -210 -159 -464 -299 -670 -371 -127 -44
+  -325 -93 -355 -87 -14 3 -124 51 -245 107 -179 83 -225 101 -252 97 -18 -3
+  -106 -40 -195 -83 -208 -98 -231 -106 -276 -98 -77 13 -315 95 -426 148 -149
+  70 -282 150 -424 253 -159 116 -138 109 -262 88 -34 -6 -39 -3 -107 67 -267
+  276 -461 584 -578 918 -52 150 -106 372 -112 460 l-5 75 65 66 c80 82 101 135
+  95 247 -4 98 -32 158 -106 228 l-55 52 7 73 c9 92 63 311 111 448 73 208 179
+  415 314 606 107 153 319 385 351 385 4 0 27 -7 50 -15 60 -21 94 -9 203 73
+  237 179 479 305 732 383 61 18 128 33 150 33 30 0 91 -24 240 -94 151 -71 210
+  -94 240 -94 30 1 96 27 260 107 121 58 232 106 247 106 14 1 55 -6 90 -15z"/>
+                </g>
+              </svg>
+              {t('Alterar Moldura', 'Change Frame')}
+            </span>
           </button>
 
           <button
@@ -355,14 +364,17 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
               playScrollSound();
               setActiveTab('profile');
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
+            className={`relative px-4 py-2 text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
               activeTab === 'profile'
-                ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40 shadow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-amber-950 brightness-110'
+                : 'text-stone-800 opacity-70 hover:opacity-100'
             }`}
           >
-            <User className="w-4 h-4 text-orange-400" />
-            {t('Editar Perfil & Título', 'Edit Profile & Title')}
+            <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
+            <span className="relative z-10 font-brush text-[13px] tracking-wider flex items-center gap-2 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+              <User className="w-4 h-4" />
+              {t('Editar Perfil', 'Edit Profile')}
+            </span>
           </button>
         </div>
 
@@ -899,10 +911,13 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
           <button
             onClick={handleSaveProfile}
             data-sound="uah"
-            className="px-6 py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-slate-950 font-mono font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer"
+            className="btn-wood-image"
           >
-            <Save className="w-4 h-4" />
-            Salvar Alterações
+            <Save
+              className="w-4 h-4"
+              style={{ filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5))', marginBottom: 7 }}
+            />
+            <span className="salvar-font font-brush text-[13px] sm:text-[15px]">Salvar Alterações</span>
           </button>
         </div>
       </motion.div>
