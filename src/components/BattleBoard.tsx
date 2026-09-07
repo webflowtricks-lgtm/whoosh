@@ -17795,7 +17795,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             </div>
             </div>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-2">
             {playerCombatants.map((combatant, idx) => {
               const isMyTurn = activePlanner === 'player' || isSandbox;
               const isSelectedSource = selectedSkill?.charId === combatant.id;
@@ -17840,18 +17840,26 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   {/* Main Combatant Card Container */}
                   <div
 onClick={() => handleSelectTarget(combatant.id, false)}
-                    className={`flex-1 relative p-4 rounded-xl border bg-slate-900/60 transition-all ${
+                    className={`flex-1 relative isolate p-5 rounded-xl transition-all ${
                       combatant.isDead
                         ? (combatant.isDead && isMyTurn && isReviveSelectionActive()
-                          ? 'border-emerald-500/70 hover:border-emerald-400 hover:shadow-emerald-500/20 bg-emerald-950/30 opacity-80 cursor-pointer shadow-lg animate-pulse'
-                          : 'border-slate-950 bg-slate-950/40 opacity-40 pointer-events-none')
+                          ? 'opacity-80 cursor-pointer shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40 hover:ring-emerald-400/80 animate-pulse'
+                          : 'opacity-40 pointer-events-none')
                         : !isMyTurn
-                        ? 'border-slate-800/50 opacity-50'
+                        ? 'opacity-50'
                         : selectedSkill && selectedSkill.charId !== combatant.id
-                        ? 'border-blue-500/40 hover:border-blue-500 bg-blue-950/5 cursor-pointer shadow-lg shadow-blue-500/5'
-                        : 'border-slate-800'
+                        ? 'cursor-pointer'
+                        : ''
                     }`}
                   >
+                    {/* P-batalha parchment background (lado aliado) */}
+                    <img
+                      src="/static/img/ui/p-batalha.webp"
+                      alt=""
+                      aria-hidden
+                      draggable={false}
+                      className="absolute inset-0 w-full h-full object-cover rounded-xl -z-10 pointer-events-none select-none"
+                    />
                     {/* Floating combat numbers portal */}
                     <div className="absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
                       {floatingTexts
@@ -17916,7 +17924,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                   )}
 
                   {/* Character Info */}
-                  <div className="flex gap-3">
+                  <div className="flex gap-4">
                     {(() => {
                       const isInvul = checkCombatantInvulnerable(combatant);
                       const invulnEff = isInvul ? combatant.activeEffects.find(e => e.type === 'invulnerable') : undefined;
@@ -17929,7 +17937,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       const displayPortrait = (isInvul && invulnSkillIcon) ? invulnSkillIcon : combatant.character.portrait;
 
                       return (
-                        <div className={`w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
+                        <div className={`w-16 h-16 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
                           isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] bg-slate-950' : 'border-slate-800 bg-slate-950'
                         }`}>
                           <MangekyoLoader
@@ -17962,9 +17970,9 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       );
                     })()}
 
-                    <div className="flex-1 space-y-1.5">
+                    <div className="flex-1 space-y-2">
                       <div className="flex justify-between items-start">
-                        <h4 className="font-bold text-sm tracking-tight flex items-center gap-1.5 flex-wrap">
+                        <h4 className="font-bold text-base tracking-tight text-[#823500] flex items-center gap-1.5 flex-wrap">
                           {combatant.character.name}
                           {checkCombatantInvulnerable(combatant) && (
                             <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
@@ -17992,11 +18000,11 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                       {/* Health bar */}
                       <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] font-mono text-slate-400 leading-none">
+                        <div className="flex justify-between text-[11px] font-mono text-slate-400 leading-none">
                            
-                          <span className="font-bold text-slate-100">{combatant.health} / {combatant.maxHealth}</span>
+                          <span className="font-bold text-[#cb6a22]">{combatant.health} / {combatant.maxHealth}</span>
                         </div>
-                        <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-900">
+                        <div className="h-2.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-900">
                           <div
                             className={`h-full transition-all duration-300 ${getHealthColor(combatant.health)}`}
                             style={{ width: `${combatant.health}%` }}
@@ -18170,7 +18178,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                     const paginatedSkills = combatant.character.skills.slice(skillsPage * skillsPerPage, (skillsPage + 1) * skillsPerPage);
 
                     return (
-                      <div className="relative pt-3 mt-3 border-t border-slate-800/80">
+                      <div className="relative pt-1 mt-1">
                         {/* Left side pagination arrow */}
                         {totalSkillPages > 1 && (
                           <button
@@ -18192,7 +18200,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                           </button>
                         )}
 
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-4 gap-2.5">
                           {paginatedSkills.map((skill, pIdx) => {
                             const sIdx = skillsPage * skillsPerPage + pIdx;
                             const isCooldown = skill.currentCooldown > 0;
@@ -18606,7 +18614,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
               <div className="flex flex-col h-full space-y-3">
                 {/* Top Green Header Area: No dark background box, clean alignment over green top banner */}
                 <div className="flex items-center gap-3 px-1 pt-0.5 pb-2" style={{ marginTop: '-5px' }}>
-                  <div className="w-12 h-12 rounded-lg overflow-hidden border border-amber-300/60 flex-shrink-0 bg-black/40 shadow-md">
+                  <div className="w-12 h-12 rounded-lg overflow-hidden border border-[#823500] flex-shrink-0 bg-black/40 shadow-md">
                     <img 
                       src={inspectedSkill.skill.icon || null} 
                       alt={inspectedSkill.skill.name} 
@@ -18620,7 +18628,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="group relative inline-block max-w-full">
                         <h4 
-                          className="font-extrabold text-sm sm:text-base text-white tracking-tight drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)] leading-tight"
+                          className="font-extrabold text-sm sm:text-base text-[#823500] tracking-tight drop-shadow-[0_1px_1px_rgba(255,255,255,0.6)] leading-tight"
                         >
                           {translateSkillName(inspectedSkill.skill.name, language)}
                         </h4>
@@ -18641,7 +18649,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 </div>
 
                 {/* 3 Papers Grid: Custo, Recarga, Alvo positioned cleanly over paper artwork */}
-                <div className="grid grid-cols-3 gap-1 font-mono pb-3.5 px-1" style={{ paddingTop: '11px' }}>
+                <div className="grid grid-cols-3 gap-1 font-mono pb-3.5 px-1" style={{ paddingTop: '13px' }}>
                   {/* Paper 1: Custo */}
                   <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
                    
@@ -18939,7 +18947,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
             </div>
           </div>
        
-          <div className="space-y-4">
+          <div className="space-y-2">
             {enemyCombatants.map((combatant, idx) => {
               const isStunned = combatant.activeEffects.some(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]));
               const incomingCues = getIncomingCuesForCombatant(combatant);
@@ -18949,16 +18957,24 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                   {/* Main Combatant Card Container */}
                   <div
 onClick={() => handleSelectTarget(combatant.id, true)}
-                    className={`flex-1 relative p-4 rounded-xl border bg-slate-900/60 transition-all ${
+                    className={`flex-1 relative isolate p-5 rounded-xl transition-all ${
                       combatant.isDead
                         ? (isReviveSelectionActive()
-                          ? 'border-emerald-500/70 hover:border-emerald-400 hover:shadow-emerald-500/20 bg-emerald-950/30 opacity-80 cursor-pointer shadow-lg animate-pulse'
-                          : 'border-slate-950 bg-slate-950/40 opacity-40 pointer-events-none')
+                          ? 'opacity-80 cursor-pointer shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40 hover:ring-emerald-400/80 animate-pulse'
+                          : 'opacity-40 pointer-events-none')
                         : selectedSkill && selectedSkill.charId !== combatant.id
-                        ? 'border-red-500/40 hover:border-red-500 bg-red-950/5 cursor-pointer shadow-lg shadow-red-500/5'
-                        : 'border-slate-800'
+                        ? 'cursor-pointer shadow-lg shadow-red-500/25 ring-2 ring-red-500/40 hover:ring-red-400/80'
+                        : ''
                     }`}
                   >
+                    {/* P-batalha parchment background (espelhada para o lado inimigo) */}
+                    <img
+                      src="/static/img/ui/p-batalha.webp"
+                      alt=""
+                      aria-hidden
+                      draggable={false}
+                      className="absolute inset-0 w-full h-full object-cover rounded-xl scale-x-[-1] -z-10 pointer-events-none select-none"
+                    />
                     {/* Floating combat numbers portal */}
                     <div className="absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
                       {floatingTexts
@@ -19023,7 +19039,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                   )}
 
                   {/* Character Info */}
-                  <div className="flex gap-3 flex-row-reverse">
+                  <div className="flex gap-4 flex-row-reverse">
                     {(() => {
                       const isInvul = checkCombatantInvulnerable(combatant);
                       const invulnEff = isInvul ? combatant.activeEffects.find(e => e.type === 'invulnerable') : undefined;
@@ -19036,7 +19052,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                       const displayPortrait = (isInvul && invulnSkillIcon) ? invulnSkillIcon : combatant.character.portrait;
 
                       return (
-                        <div className={`w-14 h-14 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
+                        <div className={`w-16 h-16 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
                           isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] bg-slate-950' : 'border-slate-800 bg-slate-950'
                         }`}>
                           <MangekyoLoader
@@ -19070,9 +19086,9 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                       );
                     })()}
 
-                    <div className="flex-1 space-y-1.5">
+                    <div className="flex-1 space-y-2">
                       <div className="flex items-start gap-2 flex-row-reverse">
-                        <h4 className="font-bold text-sm tracking-tight flex items-center gap-1.5 flex-wrap justify-end text-right">
+                        <h4 className="font-bold text-base tracking-tight text-[#823500] flex items-center gap-1.5 flex-wrap justify-end text-right">
                           {combatant.character.name}
                           {checkCombatantInvulnerable(combatant) && (
                             <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
@@ -19100,11 +19116,11 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                       {/* Health bar */}
                       <div className="space-y-1">
-                        <div className="flex justify-end text-[10px] font-mono text-slate-400 leading-none">
+                        <div className="flex justify-end text-[11px] font-mono text-slate-400 leading-none">
                            
-                          <span className="font-bold text-slate-100">{combatant.health} / {combatant.maxHealth}</span>
+                          <span className="font-bold text-[#cb6a22]">{combatant.health} / {combatant.maxHealth}</span>
                         </div>
-                        <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-900">
+                        <div className="h-2.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-900">
                           <div
                             className={`h-full transition-all duration-300 ${getHealthColor(combatant.health)}`}
                             style={{ width: `${combatant.health}%` }}
@@ -19284,7 +19300,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     const paginatedSkills = combatant.character.skills.slice(skillsPage * skillsPerPage, (skillsPage + 1) * skillsPerPage);
 
                     return (
-                      <div className="relative pt-3 mt-3 border-t border-slate-800/80">
+                      <div className="relative pt-1 mt-1">
                         {/* Left side pagination arrow */}
                         {totalSkillPages > 1 && (
                           <button
@@ -19306,7 +19322,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                           </button>
                         )}
 
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-4 gap-2.5">
                           {paginatedSkills.map((skill, pIdx) => {
                             const sIdx = skillsPage * skillsPerPage + pIdx;
                             const isCooldown = skill.currentCooldown > 0;
