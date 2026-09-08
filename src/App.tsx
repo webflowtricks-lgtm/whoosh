@@ -27,7 +27,7 @@ import ArenaLoading from './components/ArenaLoading';
 import AdminDashboard from './components/AdminDashboard';
 import AuthScreen from './components/AuthScreen';
 import QuestBoard from './components/QuestBoard';
-import RotateOverlay from './components/RotateOverlay';
+// import RotateOverlay from './components/RotateOverlay'; // DESABILITADO temporariamente — reativar quando necessário
 
 function ScreenLoadingFallback() {
   return (
@@ -593,7 +593,7 @@ export default function App() {
 
   return (
     <div className={`relative z-10 min-h-screen text-slate-100 flex flex-col justify-between selection:bg-orange-600 selection:text-white ${screen === 'battle' ? '' : 'bg-slate-950'}`}>
-      <RotateOverlay />
+      {/* <RotateOverlay /> DESABILITADO temporariamente — reativar quando necessário */}
       {isProcessing && (
         <div
           className="pointer-events-none fixed z-[1000000] -translate-x-1/2 -translate-y-1/2"

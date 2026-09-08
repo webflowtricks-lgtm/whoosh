@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Send, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, MessageSquare, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo, SlidersHorizontal, Settings } from 'lucide-react';
+import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo, SlidersHorizontal, Settings } from 'lucide-react';
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, getEffectiveTargetType, getEffectiveCooldown, getSkillCombatTypes, Quest, QuestGoal } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
@@ -81,6 +81,7 @@ interface CuedAction {
   targetId: string; // 'player-1', 'enemy-0', etc.
 }
 
+/* ── CHAT DESABILITADO (por enquanto) ───────────────────────────────────────────
 interface BattleChatMessage {
   id: string;
   senderName: string;
@@ -94,30 +95,18 @@ interface BattleChatMessage {
 function sanitizeBattleChatMessage(rawText: string): string {
   if (!rawText) return '';
   let text = String(rawText).trim();
-
-  // Strip HTML / XML tags
   text = text.replace(/<[^>]*>/g, '');
-
-  // Strip Emojis
   text = text.replace(
-    /([\u{1F300}-\u{1F9FF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F1E6}-\u{1F1FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F004}]|[\u{1F0CF}]|[\u{1F170}-\u{1F251}]|[\u{2B50}]|[\u{2B55}]|[\u{3030}]|[\u{303D}]|[\u{3297}]|[\u{3299}]|[\u{FE00}-\u{FE0F}])/gu,
-    ''
+    /([\u{1F300}-\u{1F9FF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F1E6}-\u{1F1FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F004}]|[\u{1F0CF}]|[\u{1F170}-\u{1F251}]|[\u{2B50}]|[\u{2B55}]|[\u{3030}]|[\u{303D}]|[\u{3297}]|[\u{3299}]|[\u{FE00}-\u{FE0F}])/gu, ''
   );
-
-  // Replace web URLs & domain patterns
   const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.(com|net|org|io|br|edu|gov|xyz|app|dev)(\/[^\s]*)?)/gi;
   text = text.replace(urlPattern, '[link removido]');
-
-  // Replace media file references (.png, .jpg, .gif, .mp4, etc.)
   const mediaPattern = /[a-zA-Z0-9_.-]+\.(png|jpg|jpeg|gif|webp|mp4|webm|mov|avi|mkv)/gi;
   text = text.replace(mediaPattern, '[mídia removida]');
-
-  if (text.length > 100) {
-    text = text.substring(0, 100);
-  }
-
+  if (text.length > 100) text = text.substring(0, 100);
   return text.trim();
 }
+─────────────────────────────────────────────────────────────────────────── */
 
 export interface EffectSubItem {
   effect: ActiveEffect;
@@ -1918,15 +1907,15 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const COOLDOWN_MS = 3000;
   const GLOBAL_COOLDOWN_MS = 1000;
 
-  // Transient Battle Chat State
-  const [chatMessages, setChatMessages] = useState<BattleChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState('');
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const isChatOpenRef = useRef(false);
-  const [chatError, setChatError] = useState<string | null>(null);
-  const chatScrollRef = useRef<HTMLDivElement>(null);
-  const lastChatTimestampRef = useRef<number>(0);
+  // ── CHAT DESABILITADO (por enquanto) ──
+  // const [chatMessages, setChatMessages] = useState<BattleChatMessage[]>([]);
+  // const [chatInput, setChatInput] = useState('');
+  // const [isChatOpen, setIsChatOpen] = useState(false);
+  // const [unreadCount, setUnreadCount] = useState(0);
+  // const isChatOpenRef = useRef(false);
+  // const [chatError, setChatError] = useState<string | null>(null);
+  // const chatScrollRef = useRef<HTMLDivElement>(null);
+  // const lastChatTimestampRef = useRef<number>(0);
   // 🔌 WEBSOCKET PUSH (v26): canal compartilhado com o efeito ws.
   // Saúde do canal = conectado E recebeu mensagem há <45s (ping a cada 25s).
   // Quando saudável, TODOS os polls HTTP ficam em zero (sync/chat/emoji/heartbeat).
@@ -1935,99 +1924,98 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const lastWsMsgAtRef = useRef(0);
   const wsApplyReportRef = useRef<((username: string, rp: { turn: number; units?: any; chakra?: any }) => void) | null>(null);
 
-  // Auto-scroll chat to bottom
-  useEffect(() => {
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-    }
-  }, [chatMessages, isChatOpen]);
-  useEffect(() => { isChatOpenRef.current = isChatOpen; }, [isChatOpen]);
+  // ── CHAT DESABILITADO: sem auto-scroll / sync de isChatOpenRef ──
+  // useEffect(() => {
+  //   if (chatScrollRef.current) {
+  //     chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+  //   }
+  // }, [chatMessages, isChatOpen]);
+  // useEffect(() => { isChatOpenRef.current = isChatOpen; }, [isChatOpen]);
 
   // Online Chat Polling Effect
-  useEffect(() => {
-    if (!onlineParams?.isOnline || !onlineParams.roomId) return;
+  // useEffect(() => {
+  //   if (!onlineParams?.isOnline || !onlineParams.roomId) return;
 
-    const interval = setInterval(async () => {
-      // v26: com WebSocket saudável o chat chega por push ({type:'chat'}) — não polla.
-      if (wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000) return;
-      try {
-        const res = await fetch(`/api/match/chat/messages?roomId=${onlineParams.roomId}&since=${lastChatTimestampRef.current}`);
-        const data = await res.json();
-        if (data.success && Array.isArray(data.messages) && data.messages.length > 0) {
-          const newMsgs: BattleChatMessage[] = data.messages.map((m: any) => {
-            if (m.timestamp > lastChatTimestampRef.current) {
-              lastChatTimestampRef.current = m.timestamp;
-            }
-            return {
-              id: m.id,
-              senderName: m.senderName,
-              senderTitle: m.senderTitle,
-              text: m.text,
-              timestamp: m.timestamp,
-              isSelf: m.username === user.username.trim().toLowerCase()
-            };
-          });
+  //   const interval = setInterval(async () => {
+  //     if (wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000) return;
+  //     try {
+  //       const res = await fetch(`/api/match/chat/messages?roomId=${onlineParams.roomId}&since=${lastChatTimestampRef.current}`);
+  //       const data = await res.json();
+  //       if (data.success && Array.isArray(data.messages) && data.messages.length > 0) {
+  //         const newMsgs: BattleChatMessage[] = data.messages.map((m: any) => {
+  //           if (m.timestamp > lastChatTimestampRef.current) {
+  //             lastChatTimestampRef.current = m.timestamp;
+  //           }
+  //           return {
+  //             id: m.id,
+  //             senderName: m.senderName,
+  //             senderTitle: m.senderTitle,
+  //             text: m.text,
+  //             timestamp: m.timestamp,
+  //             isSelf: m.username === user.username.trim().toLowerCase()
+  //           };
+  //         });
 
-          setChatMessages(prev => {
-            const existingIds = new Set(prev.map(p => p.id));
-            const filtered = newMsgs.filter(m => !existingIds.has(m.id));
-            if (filtered.length === 0) return prev;
-            if (!isChatOpen) {
-              setUnreadCount(c => c + filtered.length);
-            }
-            return [...prev, ...filtered];
-          });
-        }
-      } catch (e) {
-        // silent catch
-      }
-    }, 1500);
+  //         setChatMessages(prev => {
+  //           const existingIds = new Set(prev.map(p => p.id));
+  //           const filtered = newMsgs.filter(m => !existingIds.has(m.id));
+  //           if (filtered.length === 0) return prev;
+  //           if (!isChatOpen) {
+  //             setUnreadCount(c => c + filtered.length);
+  //           }
+  //           return [...prev, ...filtered];
+  //         });
+  //       }
+  //     } catch (e) {
+  //       // silent catch
+  //     }
+  //   }, 1500);
 
-    return () => clearInterval(interval);
-  }, [onlineParams, user.username, isChatOpen]);
+  //   return () => clearInterval(interval);
+  // }, [onlineParams, user.username, isChatOpen]);
 
   // Handle Sending Chat Message
-  const handleSendChatMessage = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setChatError(null);
+  // const handleSendChatMessage = async (e?: React.FormEvent) => {
+  //   if (e) e.preventDefault();
+  //   setChatError(null);
 
-    const cleanText = sanitizeBattleChatMessage(chatInput);
-    if (!cleanText) {
-      setChatError("Emojis, links ou mídias não são permitidos.");
-      setTimeout(() => setChatError(null), 3500);
-      return;
-    }
+  //   const cleanText = sanitizeBattleChatMessage(chatInput);
+  //   if (!cleanText) {
+  //     setChatError("Emojis, links ou mídias não são permitidos.");
+  //     setTimeout(() => setChatError(null), 3500);
+  //     return;
+  //   }
 
-    setChatInput('');
+  //   setChatInput('');
 
-    if (onlineParams?.isOnline && onlineParams.roomId) {
-      try {
-        await fetch('/api/match/chat/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomId: onlineParams.roomId,
-            username: user.username,
-            text: cleanText,
-            title: user.title
-          })
-        });
-      } catch (err) {
-        console.error("Erro ao enviar mensagem no chat:", err);
-      }
-    } else {
-      // Offline / Sandbox / Vs Bot match
-      const newMsg: BattleChatMessage = {
-        id: "msg_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
-        senderName: user.name || user.username,
-        senderTitle: user.title,
-        text: cleanText,
-        timestamp: Date.now(),
-        isSelf: true
-      };
-      setChatMessages(prev => [...prev, newMsg]);
-    }
-  };
+  //   if (onlineParams?.isOnline && onlineParams.roomId) {
+  //     try {
+  //       await fetch('/api/match/chat/send', {
+  //         method: 'POST',
+  //         headers: { 'Content-Type': 'application/json' },
+  //         body: JSON.stringify({
+  //           roomId: onlineParams.roomId,
+  //           username: user.username,
+  //           text: cleanText,
+  //           title: user.title
+  //         })
+  //       });
+  //     } catch (err) {
+  //       console.error("Erro ao enviar mensagem no chat:", err);
+  //     }
+  //   } else {
+  //     // Offline / Sandbox / Vs Bot match
+  //     const newMsg: BattleChatMessage = {
+  //       id: "msg_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
+  //       senderName: user.name || user.username,
+  //       senderTitle: user.title,
+  //       text: cleanText,
+  //       timestamp: Date.now(),
+  //       isSelf: true
+  //     };
+  //     setChatMessages(prev => [...prev, newMsg]);
+  //   }
+  // };
 
   const [activeEmojis, setActiveEmojis] = useState<{ id: string; emoji: string; xOffset: number; rotation: number; senderName?: string }[]>([]);
   const [lastEmojiClicked, setLastEmojiClicked] = useState<Record<string, number>>({});
@@ -10382,11 +10370,11 @@ splashOnlyTargets = splashPool.filter(c =>
           // ("aparece e some em segundos antes do inimigo agir"). O trigger em modo 'first' consome
           // o efeito ao anular, então nada fica eterno.
           'counter_attack', 'invisible',
-          // 🚫 Incapacidades (Kick Assault e afins): "Incapaz de Reduzir Dano / Ficar Invulnerável /
-          // Receber Habilidades Amigáveis / Anulação de Efeitos Amigáveis" com duração 1 devem
-          // sobreviver à rodada em que foram aplicadas (igual STUN) — senão o debuff é aplicado
-          // e removido na MESMA resolução, nunca aparecendo no painel do alvo.
-          'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'negate_friendly_effects',
+          // 🚫 NOTA: incapacidades (cannot_reduce_damage, cannot_be_invulnerable, cannot_receive_friendly,
+          // negate_friendly_effects) NÃO estão no skip. Elas decrementam normalmente: duração 1 = ativas
+          // apenas durante a fase de planejamento do alvo na rodada do cast, expirando na resolução
+          // dessa mesma rodada. O efeito mecânico (bloquear invuln/redução) é preservado porque o
+          // decremento acontece DEPOIS das verificações em applyTurnEndUpdates.
         ]);
         c.activeEffects = c.activeEffects
           .map(eff => {
@@ -12362,14 +12350,6 @@ splashOnlyTargets = splashPool.filter(c =>
             wsPushRef.current?.({ success: true, room: msg.room });
           } else if (msg && msg.type === 'pong') {
             // keepalive OK — nada a fazer além da freshness acima
-          } else if (msg && msg.type === 'chat' && msg.message) {
-            const m = msg.message;
-            setChatMessages(prev => {
-              if (prev.some(x => x.id === m.id)) return prev;
-              if (!isChatOpenRef.current) setUnreadCount(c => c + 1);
-              return [...prev, { id: m.id, senderName: m.senderName, senderTitle: m.senderTitle, text: m.text, timestamp: m.timestamp, isSelf: String(m.username).toLowerCase() === user.username.trim().toLowerCase() }];
-            });
-            if (m.timestamp > lastChatTimestampRef.current) lastChatTimestampRef.current = m.timestamp;
           } else if (msg && msg.type === 'emoji' && msg.emoji) {
             const e = msg.emoji;
             if (String(e.username).toLowerCase() !== user.username.toLowerCase()) {
@@ -20573,165 +20553,9 @@ onClick={() => handleSelectTarget(combatant.id, true)}
         )}
       </AnimatePresence>
 
-      {/* TRANSIENT EPHEMERAL BATTLE CHAT WIDGET */}
-      <div className="fixed bottom-4 right-4 z-40 select-none flex flex-col items-end">
-        <AnimatePresence>
-          {isChatOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: 15, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 15, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-              className="mb-3 w-80 sm:w-96 bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md flex flex-col h-96 border-orange-500/30"
-            >
-              {/* Chat Header */}
-              <div className="bg-slate-950 p-3 border-b border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                    <img
-                      src="/static/img/ui/bubble-chat.webp"
-                      alt="Chat"
-                      className="w-5 h-5 object-contain"
-                    />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-100 flex items-center gap-1.5 font-display">
-                      Chat da Partida
-                    </h4>
-                    <p className="text-[10px] text-slate-400 font-mono"></p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    playClickSound();
-                    setIsChatOpen(false);
-                  }}
-                  className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Chat Messages Feed */}
-              <div ref={chatScrollRef} className="flex-1 p-3 overflow-y-auto space-y-2.5">
-                {chatMessages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-500 space-y-2">
-                    <img
-                      src="/static/img/ui/bubble-chat.webp"
-                      alt="Chat Vazio"
-                      className="w-10 h-10 opacity-40 object-contain"
-                    />
-                    <p className="text-xs font-medium">Nenhuma mensagem nesta partida ainda.</p>
-                    <p className="text-[10px] text-slate-600">Envie um cumprimento ninja ao seu oponente!</p>
-                  </div>
-                ) : (
-                  chatMessages.map(msg => (
-                    <div
-                      key={msg.id}
-                      className={`p-2.5 rounded-xl text-xs space-y-1 ${
-                        msg.isSelf
-                          ? 'bg-gradient-to-r from-orange-950/40 to-slate-900 border border-orange-500/30 ml-4'
-                          : 'bg-slate-800/50 border border-slate-700/40 mr-4'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {msg.senderTitle && (
-                          <span className="text-[9px] font-mono font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            [{msg.senderTitle}]
-                          </span>
-                        )}
-                        <span className={`font-bold text-xs ${msg.isSelf ? 'text-orange-400' : 'text-slate-200'}`}>
-                          {msg.senderName}
-                        </span>
-                        <span className="text-[9px] font-mono text-slate-500 ml-auto">
-                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <p className="text-slate-300 break-words font-sans text-xs leading-relaxed">
-                        {msg.text}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Chat Form Input */}
-              <form onSubmit={handleSendChatMessage} className="p-2.5 bg-slate-950 border-t border-slate-800 space-y-1">
-                {chatError && (
-                  <p className="text-[10px] font-mono text-rose-400 px-1 animate-pulse">
-                    {chatError}
-                  </p>
-                )}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={e => setChatInput(e.target.value)}
-                    maxLength={100}
-                    placeholder="Sua mensagem..."
-                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-orange-500 transition"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!chatInput.trim()}
-                    className="p-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-bold hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 transition cursor-pointer"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Chat Toggle Floating Button */}
-        <div className="relative">
-          <AnimatePresence>
-            {unreadCount > 0 && !isChatOpen && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8, x: 10 }}
-                animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.8, x: 10 }}
-                className="absolute right-16 top-1/2 -translate-y-1/2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-3.5 py-1.5 rounded-xl shadow-xl shadow-red-600/40 flex items-center gap-2 whitespace-nowrap border border-red-400/50 pointer-events-none z-50 animate-pulse"
-              >
-                <div className="w-2 h-2 rounded-full bg-white animate-ping shrink-0" />
-                <span className="text-xs font-black uppercase tracking-wide font-mono">
-                  {unreadCount === 1 ? '1 Nova Mensagem!' : `${unreadCount} Novas Mensagens!`}
-                </span>
-                <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 border-y-4 border-y-transparent border-l-[6px] border-l-rose-600" />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <button
-            onClick={() => {
-              playClickSound();
-              setIsChatOpen(!isChatOpen);
-              setUnreadCount(0);
-            }}
-            className={` ${
-              unreadCount > 0 && !isChatOpen
-                ? 'border-red-500 text-red-400 shadow-red-600/40 animate-bounce'
-                : 'border-orange-500 text-orange-400 hover:scale-105 active:scale-95'
-            }`}
-            title="Abrir Chat da Partida"
-          >
-            {unreadCount > 0 && !isChatOpen && (
-              <span className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-75 pointer-events-none" />
-            )}
-            <img
-              src="/static/img/ui/bubble-chat.webp"
-              alt="Chat"
-              className="bubble-chat object-contain group-hover:scale-110 transition-transform filter drop-shadow"
-            />
-            {unreadCount > 0 && !isChatOpen && (
-              <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white font-mono font-black text-[11px] min-w-[22px] h-[22px] px-1 rounded-full flex items-center justify-center border-2 border-slate-950 shadow-lg shadow-red-600/60 z-10">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
+      {/* CHAT DESABILITADO (por enquanto) — widget removido.
+          Para reativar: descomente os blocos de chat neste arquivo (interface/sanitize,
+          estados, auto-scroll/polling/handler e o handler WS) e restaure este widget. */}
 
       {/* CHAKRA DRAIN / STOLEN / REMOVED NOTIFICATION BANNER */}
       <AnimatePresence>
