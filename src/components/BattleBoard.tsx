@@ -18963,7 +18963,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                           ? 'opacity-80 cursor-pointer shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40 hover:ring-emerald-400/80 animate-pulse'
                           : 'opacity-40 pointer-events-none')
                         : selectedSkill && selectedSkill.charId !== combatant.id
-                        ? 'cursor-pointer shadow-lg shadow-red-500/25 ring-2 ring-red-500/40 hover:ring-red-400/80'
+                        ? 'cursor-pointer'
                         : ''
                     }`}
                   >
