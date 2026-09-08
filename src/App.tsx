@@ -598,7 +598,7 @@ export default function App() {
         <div
           className="pointer-events-none fixed z-[1000000] -translate-x-1/2 -translate-y-1/2"
           style={{ left: cursorPosition.x, top: cursorPosition.y }}
-        >
+        > 
           <img src="/static/img/icon/mangeky.svg" alt="Processando" className="h-16 w-16 animate-spin object-contain drop-shadow-lg" />
         </div>
       )}
