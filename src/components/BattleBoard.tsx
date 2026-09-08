@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -27,7 +27,7 @@ interface BattleBoardProps {
   audioSettings: { master: number; effects: number; music: number };
   onUpdateAudioSetting: (key: 'master' | 'effects' | 'music', value: number) => void;
   onQuit: () => void;
-  /** ⚠️ TEMPORÁRIO: atalho para o painel admin durante o desenvolvimento (remover no lançamento) */
+  /** âš ï¸ TEMPORÃRIO: atalho para o painel admin durante o desenvolvimento (remover no lanÃ§amento) */
   onOpenAdmin?: () => void;
   playClickSound: () => void;
   playScrollSound: () => void;
@@ -46,7 +46,7 @@ interface BattleBoardProps {
     opponentProfile: UserProfile;
   } | null;
   isSandbox?: boolean;
-  /** 🧊 Sandbox: geração automática de chakra pausada (ambos começam com 10 chakras variados) */
+  /** ðŸ§Š Sandbox: geraÃ§Ã£o automÃ¡tica de chakra pausada (ambos comeÃ§am com 10 chakras variados) */
   sandboxPauseChakraGen?: boolean;
   restoredState?: {
     turn: number;
@@ -110,7 +110,7 @@ function sanitizeBattleChatMessage(rawText: string): string {
 
   // Replace media file references (.png, .jpg, .gif, .mp4, etc.)
   const mediaPattern = /[a-zA-Z0-9_.-]+\.(png|jpg|jpeg|gif|webp|mp4|webm|mov|avi|mkv)/gi;
-  text = text.replace(mediaPattern, '[mídia removida]');
+  text = text.replace(mediaPattern, '[mÃ­dia removida]');
 
   if (text.length > 100) {
     text = text.substring(0, 100);
@@ -144,7 +144,7 @@ export function isOffensiveSkill(skill: Skill | null): boolean {
     return true;
   }
   const classes = (skill.classes || []).map(c => c.toLowerCase());
-  if (classes.some(c => c.includes('friendly') || c.includes('amigável') || c.includes('suporte') || c.includes('cura') || c.includes('heal'))) {
+  if (classes.some(c => c.includes('friendly') || c.includes('amigÃ¡vel') || c.includes('suporte') || c.includes('cura') || c.includes('heal'))) {
     return false;
   }
   return true;
@@ -170,8 +170,8 @@ export function pickChakraGainType(pool: ChakraPool, gainChakraTypes: string[] |
   return from[Math.floor(rng() * from.length)];
 }
 
-// v29 — PRNG semeadado para execução online determinística.
-// Ambos clientes seedam com (matchSeed, turn) → mesma sequência → mesmos resultados.
+// v29 â€” PRNG semeadado para execuÃ§Ã£o online determinÃ­stica.
+// Ambos clientes seedam com (matchSeed, turn) â†’ mesma sequÃªncia â†’ mesmos resultados.
 let _grngState = 0;
 export function seedGameRng(seed: number, turn: number) {
   _grngState = (seed * 2654435761 + turn * 3266489917) | 0;
@@ -185,7 +185,7 @@ export function gameRng(): number {
 }
 export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveEffect[]): boolean {
   if (!activeEffects || activeEffects.length === 0) return false;
-  // Esta skill é imune a atordoamento: pode ser usada mesmo sob stun
+  // Esta skill Ã© imune a atordoamento: pode ser usada mesmo sob stun
   if (skill && skill.cannotBeStunned) return false;
   // Stun immunity: if character has ignore_stun effect, they cannot be stunned
   if (activeEffects.some(e => e.type === 'ignore_stun')) return false;
@@ -210,16 +210,16 @@ export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveE
     }
     const skillClasses = (skill.classes || []).map(c => c.toLowerCase());
     for (const st of eff.stunType) {
-      if (st === 'physical' && (skillClasses.includes('physical') || skillClasses.includes('físico') || skillClasses.includes('melee') || skillClasses.includes('corpo a corpo') || skillClasses.includes('taijutsu'))) {
+      if (st === 'physical' && (skillClasses.includes('physical') || skillClasses.includes('fÃ­sico') || skillClasses.includes('melee') || skillClasses.includes('corpo a corpo') || skillClasses.includes('taijutsu'))) {
         return true;
       }
       if (st === 'mental' && (skillClasses.includes('mental') || skillClasses.includes('genjutsu'))) {
         return true;
       }
-      if (st === 'affliction' && (skillClasses.includes('affliction') || skillClasses.includes('aflição') || skillClasses.includes('dot'))) {
+      if (st === 'affliction' && (skillClasses.includes('affliction') || skillClasses.includes('afliÃ§Ã£o') || skillClasses.includes('dot'))) {
         return true;
       }
-      if (st === 'chakra' && (skillClasses.includes('chakra') || skillClasses.includes('ninjutsu') || skillClasses.includes('ranged') || skillClasses.includes('à distância'))) {
+      if (st === 'chakra' && (skillClasses.includes('chakra') || skillClasses.includes('ninjutsu') || skillClasses.includes('ranged') || skillClasses.includes('Ã  distÃ¢ncia'))) {
         return true;
       }
     }
@@ -227,9 +227,9 @@ export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveE
   return false;
 }
 
-// 🔓 Liberação Atrasada: retorna true se a skill está bloqueada pela regra delayedUnlockSkills.
+// ðŸ”“ LiberaÃ§Ã£o Atrasada: retorna true se a skill estÃ¡ bloqueada pela regra delayedUnlockSkills.
 // Enquanto a fase for 'locked', a skill listada fica bloqueada. Na fase 'window', fica liberada.
-// Se não houver efeito ativo com a skill listada, ela NÃO é bloqueada por esta regra.
+// Se nÃ£o houver efeito ativo com a skill listada, ela NÃƒO Ã© bloqueada por esta regra.
 export function isSkillBlockedByDelayedUnlock(skill: Skill | null, activeEffects: ActiveEffect[]): boolean {
   if (!skill || !activeEffects || activeEffects.length === 0) return false;
   const skillName = (skill.name || '').toLowerCase();
@@ -237,7 +237,7 @@ export function isSkillBlockedByDelayedUnlock(skill: Skill | null, activeEffects
     if (eff.type !== 'custom' || !Array.isArray(eff.delayedUnlockSkills)) continue;
     const listed = eff.delayedUnlockSkills.map(s => (s || '').toLowerCase());
     if (!listed.includes(skillName)) continue;
-    // A skill está listada: bloqueada na fase 'locked', liberada na fase 'window'.
+    // A skill estÃ¡ listada: bloqueada na fase 'locked', liberada na fase 'window'.
     if (eff.delayedUnlockPhase === 'locked') return true;
   }
   return false;
@@ -246,7 +246,7 @@ export function isSkillBlockedByDelayedUnlock(skill: Skill | null, activeEffects
 export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Skill | string | string[], caster?: CombatCharacter): boolean {
   if (!c || !c.activeEffects) return false;
   if (c.activeEffects.some(e => e.type === 'cannot_be_invulnerable')) return false;
-  // Negação de efeitos amigáveis: invulnerabilidade é ignorada enquanto ativa
+  // NegaÃ§Ã£o de efeitos amigÃ¡veis: invulnerabilidade Ã© ignorada enquanto ativa
   if (hasNegateFriendlyEffects(c)) return false;
   // Conditional bypass: skill ignores invulnerability when the listed skill/effect is active
   // (on the target by default, or on the caster if activeOn='self')
@@ -260,9 +260,9 @@ export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Ski
     const types = eff.invulnerableTypes;
     const invClasses = eff.invulnerableClasses;
 
-    // 0. Proteção por classe é AUTORITATIVA quando definida: o alvo fica invulnerável
+    // 0. ProteÃ§Ã£o por classe Ã© AUTORITATIVA quando definida: o alvo fica invulnerÃ¡vel
     // contra skills que tenham UMA das classes protegidas (independente de invulnerableTypes).
-    // Esse gate vem ANTES dos short-circuits de types para não ser ignorado por
+    // Esse gate vem ANTES dos short-circuits de types para nÃ£o ser ignorado por
     // invulnerableTypes vazio/indefinido.
     if (invClasses && invClasses.length > 0) {
       // Sem contexto de skill (aura/AI): considerado protegido
@@ -273,7 +273,7 @@ export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Ski
         const normInv = invClasses.map(ic => ic.trim().toLowerCase()).filter(Boolean);
         return normInv.length > 0 && classes.some(cls => normInv.includes(cls));
       }
-      // skillOrType é string/array de tipos: sem contexto de classe → protegido
+      // skillOrType Ã© string/array de tipos: sem contexto de classe â†’ protegido
       return true;
     }
 
@@ -297,11 +297,11 @@ export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Ski
       const skill = skillOrType as Skill;
       const classes = (skill.classes || []).map(cls => cls.toLowerCase());
 
-      const isPhysical = classes.some(cls => ['physical', 'físico', 'fisico', 'taijutsu', 'melee', 'corpo a corpo'].includes(cls));
+      const isPhysical = classes.some(cls => ['physical', 'fÃ­sico', 'fisico', 'taijutsu', 'melee', 'corpo a corpo'].includes(cls));
       const isMental = classes.some(cls => ['mental', 'genjutsu'].includes(cls));
       const isChakra = classes.some(cls => ['chakra', 'ninjutsu'].includes(cls));
-      const isRanged = classes.some(cls => ['ranged', 'à distância', 'distância', 'distancia'].includes(cls));
-      const isAffliction = classes.some(cls => ['affliction', 'aflição', 'aflicao'].includes(cls));
+      const isRanged = classes.some(cls => ['ranged', 'Ã  distÃ¢ncia', 'distÃ¢ncia', 'distancia'].includes(cls));
+      const isAffliction = classes.some(cls => ['affliction', 'afliÃ§Ã£o', 'aflicao'].includes(cls));
       const isFriendly = classes.some(cls => ['friendly', 'suporte', 'cura'].includes(cls));
 
       // If skill has Physical class, target MUST be protected against Physical
@@ -322,9 +322,9 @@ export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Ski
       // If skill has Friendly class, target MUST be protected against Friendly
       if (isFriendly && !types.includes('friendly')) return false;
 
-      // Se a skill TEM classes reconhecidas (físico/mental/chakra/etc.) e passou pelos
-      // checks de proteção acima, ela JÁ ESTÁ protegida — não deixar os checks de campos
-      // específicos (directDamage/dot/bleeding) anularem a proteção por classe.
+      // Se a skill TEM classes reconhecidas (fÃ­sico/mental/chakra/etc.) e passou pelos
+      // checks de proteÃ§Ã£o acima, ela JÃ ESTÃ protegida â€” nÃ£o deixar os checks de campos
+      // especÃ­ficos (directDamage/dot/bleeding) anularem a proteÃ§Ã£o por classe.
       if (isPhysical || isMental || isChakra || isRanged || isAffliction || isFriendly) return true;
 
       // Check specific damage/effect fields if skill has no primary class tags or passed all class checks
@@ -349,16 +349,16 @@ export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Ski
 }
 
 // Invulnerabilidade Total: alvo com efeito de invulnerabilidade TOTAL (flag invulnerableTotal)
-// também fica imune a skills amigáveis (curas, escudos, buffs) — nem aliados podem marcá-lo.
-// A Invulnerabilidade (Desvio) só bloqueia amigáveis se o tipo 'friendly' estiver marcado.
+// tambÃ©m fica imune a skills amigÃ¡veis (curas, escudos, buffs) â€” nem aliados podem marcÃ¡-lo.
+// A Invulnerabilidade (Desvio) sÃ³ bloqueia amigÃ¡veis se o tipo 'friendly' estiver marcado.
 export function isInvulnToFriendlyEffects(c: CombatCharacter, skill?: Skill): boolean {
   if (skill?.ignoreInvulnerable) return false;
   if (hasTotalInvulnerability(c)) return true;
   return checkCombatantInvulnerable(c, 'friendly');
 }
 
-// "Invulnerabilidade Total" (flag invulnerableTotal): o alvo fica SELADO — não pode
-// selecionar skills (só passar o turno) e ninguém pode marcá-lo como alvo (nem aliados).
+// "Invulnerabilidade Total" (flag invulnerableTotal): o alvo fica SELADO â€” nÃ£o pode
+// selecionar skills (sÃ³ passar o turno) e ninguÃ©m pode marcÃ¡-lo como alvo (nem aliados).
 export function hasTotalInvulnerability(c?: CombatCharacter | null): boolean {
   if (!c || !c.activeEffects) return false;
   if (c.activeEffects.some(e => e.type === 'cannot_be_invulnerable')) return false;
@@ -370,11 +370,11 @@ function isSingleTypeProtected(typeStr: string, types: string[]): boolean {
   if (types.includes('all')) return true;
   const st = typeStr.toLowerCase();
   if (types.includes(st)) return true;
-  if (['físico', 'fisico', 'taijutsu', 'melee', 'corpo a corpo'].includes(st) && types.includes('physical')) return true;
+  if (['fÃ­sico', 'fisico', 'taijutsu', 'melee', 'corpo a corpo'].includes(st) && types.includes('physical')) return true;
   if (['genjutsu'].includes(st) && types.includes('mental')) return true;
   if (['ninjutsu'].includes(st) && types.includes('chakra')) return true;
-  if (['aflição', 'aflicao'].includes(st) && types.includes('affliction')) return true;
-  if (['à distância', 'distância', 'distancia', 'ranged'].includes(st) && types.includes('ranged')) return true;
+  if (['afliÃ§Ã£o', 'aflicao'].includes(st) && types.includes('affliction')) return true;
+  if (['Ã  distÃ¢ncia', 'distÃ¢ncia', 'distancia', 'ranged'].includes(st) && types.includes('ranged')) return true;
   return false;
 }
 
@@ -401,14 +401,14 @@ function hasConditionalInvulnBypass(c: CombatCharacter, skill: Skill, caster?: C
   });
 }
 
-// Negação de efeitos amigáveis: enquanto ativo no combatente, buffs de dano,
-// invulnerabilidade, redução de dano, curas, escudos, counters, reflect, retaliate,
-// imortalidade, revives e imunidades são todos IGNORADOS.
+// NegaÃ§Ã£o de efeitos amigÃ¡veis: enquanto ativo no combatente, buffs de dano,
+// invulnerabilidade, reduÃ§Ã£o de dano, curas, escudos, counters, reflect, retaliate,
+// imortalidade, revives e imunidades sÃ£o todos IGNORADOS.
 export function hasNegateFriendlyEffects(c?: CombatCharacter | null): boolean {
   return !!c && !!c.activeEffects && c.activeEffects.some(e => e.type === 'negate_friendly_effects');
 }
 
-// Imortalidade também é efeito amigável: anulada sob negate_friendly_effects.
+// Imortalidade tambÃ©m Ã© efeito amigÃ¡vel: anulada sob negate_friendly_effects.
 export function hasImmortalEffect(c?: CombatCharacter | null): boolean {
   if (!c) return false;
   if (hasNegateFriendlyEffects(c)) return false;
@@ -460,7 +460,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
     lowerName.includes('burn') ||
     lowerName.includes('stun') ||
     lowerName.includes('sangramento') ||
-    lowerName.includes('aflição') ||
+    lowerName.includes('afliÃ§Ã£o') ||
     lowerName.includes('queimadura') ||
     lowerName.includes('atordoado') ||
     lowerName.includes('atordoamento') ||
@@ -469,7 +469,7 @@ export function isDebuffEffect(eff: ActiveEffect): boolean {
   );
 }
 
-// Bônus de dano adicional que o alvo recebe de skills cuja classe bate com
+// BÃ´nus de dano adicional que o alvo recebe de skills cuja classe bate com
 // vulnerabilityTypes do efeito damage_vulnerability (ex: mental, physical, ranged).
 // Se vulnerabilityTypes estiver vazio, vale para qualquer dano de skill.
 export function getTargetVulnerabilityBonus(t: CombatCharacter, skill: Skill | null): number {
@@ -488,11 +488,11 @@ export function getTargetVulnerabilityBonus(t: CombatCharacter, skill: Skill | n
   return bonus;
 }
 
-// Conversão de dano em escudo: enquanto o efeito damage_to_shield estiver ativo no alvo,
-// TODO o dano que ele receber é convertido em escudo (não reduz a vida).
-// incomingTypes: tipos de dano do ataque (combat classes e/ou tipos específicos como
+// ConversÃ£o de dano em escudo: enquanto o efeito damage_to_shield estiver ativo no alvo,
+// TODO o dano que ele receber Ã© convertido em escudo (nÃ£o reduz a vida).
+// incomingTypes: tipos de dano do ataque (combat classes e/ou tipos especÃ­ficos como
 // 'direct_damage', 'dot', 'bleeding', 'affliction', 'life_steal'). Se o efeito tiver
-// tipos configurados, só converte os que casarem (vazio = converte TODOS).
+// tipos configurados, sÃ³ converte os que casarem (vazio = converte TODOS).
 // Retorna true se o dano foi convertido.
 export function convertDamageToShield(t: CombatCharacter, rawDamage: number, currentTurn: number, incomingTypes?: string[]): boolean {
   if (!t || !t.activeEffects || rawDamage <= 0) return false;
@@ -521,7 +521,7 @@ export function getSkillBaseName(eff: ActiveEffect): string {
   if (eff.sourceSkillName) return eff.sourceSkillName;
 
   let name = eff.name || '';
-  const prefixMatch = name.match(/^(?:Dreno de Chakra|Cura Contínua|Invisibilidade|Fluxo de Chakra)\s*\((.+)\)$/i);
+  const prefixMatch = name.match(/^(?:Dreno de Chakra|Cura ContÃ­nua|Invisibilidade|Fluxo de Chakra)\s*\((.+)\)$/i);
   if (prefixMatch) {
     return prefixMatch[1].trim();
   }
@@ -529,10 +529,10 @@ export function getSkillBaseName(eff: ActiveEffect): string {
   name = name.replace(/\s*\([^)]*\)$/, '');
 
   const trailingKeywords = [
-    'Burn', 'Sangramento', 'Aflição', 'Paralisia de Cooldown',
+    'Burn', 'Sangramento', 'AfliÃ§Ã£o', 'Paralisia de Cooldown',
     'Guard', 'Power', 'Escape', 'Shield Decay', 'Contra-Ataque',
     'Reflect', 'Counter', 'Shield', 'Weakness', 'Fraqueza',
-    'Retaliação', 'Stack', 'Retaliation'
+    'RetaliaÃ§Ã£o', 'Stack', 'Retaliation'
   ];
   const regex = new RegExp(`\\s+(?:${trailingKeywords.join('|')})$`, 'i');
   name = name.replace(regex, '');
@@ -545,14 +545,14 @@ export function formatInvulnerableSummary(types?: string[]): string {
   const TYPE_LABELS: Record<string, string> = {
     damage: 'dano normal',
     direct_damage: 'dano direto',
-    affliction: 'aflição',
+    affliction: 'afliÃ§Ã£o',
     bleeding: 'sangramento',
-    dot: 'dano contínuo',
+    dot: 'dano contÃ­nuo',
     mental: 'mental',
-    physical: 'físico',
+    physical: 'fÃ­sico',
     chakra: 'chakra',
-    ranged: 'distância',
-    friendly: 'amigável',
+    ranged: 'distÃ¢ncia',
+    friendly: 'amigÃ¡vel',
     stun: 'atordoamento',
   };
 
@@ -589,7 +589,7 @@ export function getCaptureArrestBonusDamage(t: CombatCharacter, skill: Skill): n
   if (!hasDebuff) return 0;
   const isPhysicalOrChakra = skill.classes?.some((c: string) => {
     const lower = c.toLowerCase();
-    return lower.includes('físico') || lower.includes('fisico') || lower.includes('physical') ||
+    return lower.includes('fÃ­sico') || lower.includes('fisico') || lower.includes('physical') ||
            lower.includes('tai') || lower.includes('corpo a corpo') || lower.includes('melee') ||
            lower.includes('chakra') || lower.includes('nin') || lower.includes('blood');
   });
@@ -597,9 +597,9 @@ export function getCaptureArrestBonusDamage(t: CombatCharacter, skill: Skill): n
 }
 
 /**
- * 🎯 Verifica se o alvo tem ALGUMA regra de targetActiveSkillDamageRules ativa nele.
+ * ðŸŽ¯ Verifica se o alvo tem ALGUMA regra de targetActiveSkillDamageRules ativa nele.
  * Com requireIgnoreBase, apenas regras com ignoreBaseDamage ativado contam
- * (usado para zerar o dano base/direto padrão da habilidade para esse alvo).
+ * (usado para zerar o dano base/direto padrÃ£o da habilidade para esse alvo).
  */
 export function targetHasActiveSkillRuleMatch(t: CombatCharacter | null | undefined, skill: Skill, requireIgnoreBase = false): boolean {
   if (!t || !skill.targetActiveSkillDamageRules || skill.targetActiveSkillDamageRules.length === 0) return false;
@@ -619,7 +619,7 @@ export function targetHasActiveSkillRuleMatch(t: CombatCharacter | null | undefi
 export function getSingleEffectDescription(effect: ActiveEffect): string {
   const lang = getLanguage();
   let desc = (effect as any).description || '';
-  if (desc && desc !== 'Efeito invisível ativo') return translateGameText(desc, lang);
+  if (desc && desc !== 'Efeito invisÃ­vel ativo') return translateGameText(desc, lang);
 
   const durText = effect.duration >= 99999
     ? (lang === 'en' ? 'infinite' : 'Infinito')
@@ -633,14 +633,14 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
   switch (effect.type) {
     case 'stun': {
       if (effect.blocksOffensiveSkills || (effect as any).type === 'blocks_offensive_skills') {
-        rawPt = `🛑 Bloqueio Ofensivo: Apenas habilidades ofensivas estão bloqueadas por ${durText}. Habilidades amigáveis e em si mesmo funcionam normalmente.`;
+        rawPt = `ðŸ›‘ Bloqueio Ofensivo: Apenas habilidades ofensivas estÃ£o bloqueadas por ${durText}. Habilidades amigÃ¡veis e em si mesmo funcionam normalmente.`;
         break;
       }
       const typesMap: Record<string, string> = {
-        physical: 'Físicas (Corpo a Corpo/Ataque)',
-        mental: 'Mentais (Genjutsu/Ilusão)',
-        affliction: 'Aflição (Sangramento/Veneno/Efeito)',
-        chakra: 'Chakra (Ninjutsu/Energia/Distância)'
+        physical: 'FÃ­sicas (Corpo a Corpo/Ataque)',
+        mental: 'Mentais (Genjutsu/IlusÃ£o)',
+        affliction: 'AfliÃ§Ã£o (Sangramento/Veneno/Efeito)',
+        chakra: 'Chakra (Ninjutsu/Energia/DistÃ¢ncia)'
       };
       const resolvedTypes = (!effect.stunType || effect.stunType.length === 0 || effect.stunType.length >= 4)
         ? ['physical', 'mental', 'affliction', 'chakra']
@@ -650,9 +650,9 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       const stTypes = resolvedTypes.map(t => typesMap[t] || t).join(', ');
 
       if (isComplete) {
-        rawPt = `🚫 Atordoado Completo: Não pode usar QUALQUER habilidade por ${durText}.`;
+        rawPt = `ðŸš« Atordoado Completo: NÃ£o pode usar QUALQUER habilidade por ${durText}.`;
       } else {
-        rawPt = `🚫 Atordoado Parcial: Não pode usar habilidades das categorias (${stTypes}) por ${durText}.`;
+        rawPt = `ðŸš« Atordoado Parcial: NÃ£o pode usar habilidades das categorias (${stTypes}) por ${durText}.`;
       }
       break;
     }
@@ -660,23 +660,23 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       rawPt = val > 0 ? `Fragilidade: Reduz o dano do alvo em ${val} por ${durText}` : `Fraqueza por ${durText}`;
       break;
     case 'damage_vulnerability':
-      rawPt = val > 0 ? `Vulnerabilidade: Alvo recebe +${val} de dano extra de skills das classes (${((effect.vulnerabilityTypes as string[]) || []).map(ct => ({ physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'Distância', friendly: 'Amigável' } as Record<string, string>)[ct] || ct).join(', ') || 'Todas'}) por ${durText}` : `Vulnerabilidade por ${durText}`;
+      rawPt = val > 0 ? `Vulnerabilidade: Alvo recebe +${val} de dano extra de skills das classes (${((effect.vulnerabilityTypes as string[]) || []).map(ct => ({ physical: 'FÃ­sico', mental: 'Mental', affliction: 'AfliÃ§Ã£o', chakra: 'Chakra', ranged: 'DistÃ¢ncia', friendly: 'AmigÃ¡vel' } as Record<string, string>)[ct] || ct).join(', ') || 'Todas'}) por ${durText}` : `Vulnerabilidade por ${durText}`;
       break;
     case 'damage_buff':
       const bTypes = (effect.buffTypes as string[] | undefined);
-      const bLbl: Record<string, string> = { physical: '💪Físico', mental: '🧠Mental', affliction: '💀Aflição', chakra: '⚡Chakra', ranged: '🏹Distância', friendly: '🤝Amigável' };
+      const bLbl: Record<string, string> = { physical: 'ðŸ’ªFÃ­sico', mental: 'ðŸ§ Mental', affliction: 'ðŸ’€AfliÃ§Ã£o', chakra: 'âš¡Chakra', ranged: 'ðŸ¹DistÃ¢ncia', friendly: 'ðŸ¤AmigÃ¡vel' };
       const bText = bTypes && bTypes.length > 0 ? ` de classes (${bTypes.map(t => bLbl[t] || t).join(', ')})` : '';
       rawPt = val > 0 ? `Aumenta o ataque${bText} das suas habilidades em ${val}` : `Aumenta o ataque das habilidades por ${durText}`;
       break;
     case 'damage_reduction':
-      rawPt = val > 0 ? `Redução de ${val} de dano por ${durText}` : `Redução de dano por ${durText}`;
+      rawPt = val > 0 ? `ReduÃ§Ã£o de ${val} de dano por ${durText}` : `ReduÃ§Ã£o de dano por ${durText}`;
       break;
     case 'damage_reduction_pierce':
-      rawPt = val > 0 ? `Redução de ${val} de dano (imune a perfuração, reduz dano direto também) por ${durText}` : `Redução de dano imune a perfuração por ${durText}`;
+      rawPt = val > 0 ? `ReduÃ§Ã£o de ${val} de dano (imune a perfuraÃ§Ã£o, reduz dano direto tambÃ©m) por ${durText}` : `ReduÃ§Ã£o de dano imune a perfuraÃ§Ã£o por ${durText}`;
       break;
     case 'skill_copy': {
-      const copiedName = (effect.name.match(/\(Cópia:\s*([^)]+)\)/) || [])[1] || effect.sourceSkillName || effect.name;
-      rawPt = `🪞 Suas habilidades foram substituídas pelas de ${copiedName.trim()} por ${durText}`;
+      const copiedName = (effect.name.match(/\(CÃ³pia:\s*([^)]+)\)/) || [])[1] || effect.sourceSkillName || effect.name;
+      rawPt = `ðŸªž Suas habilidades foram substituÃ­das pelas de ${copiedName.trim()} por ${durText}`;
       break;
     }
     case 'shield':
@@ -687,22 +687,22 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       const shieldDurText = st && st !== 99999 ? ` por ${st} ${st === 1 ? 'turno' : 'turnos'}` : ' por tempo indeterminado';
       const d2sTypes = (effect as any).shieldDamageTypes as string[] | undefined;
       const typeText = d2sTypes && d2sTypes.length > 0 ? ` (tipos: ${d2sTypes.join(', ')})` : ' (todos os tipos)';
-      const firstHitText = (effect as any).shieldFirstHitOnly ? ' — apenas o PRIMEIRO dano recebido' : '';
-      rawPt = `Conversão de Dano em Escudo${typeText}${firstHitText}: o dano recebido vira escudo${shieldDurText} enquanto durar (${durText})`;
+      const firstHitText = (effect as any).shieldFirstHitOnly ? ' â€” apenas o PRIMEIRO dano recebido' : '';
+      rawPt = `ConversÃ£o de Dano em Escudo${typeText}${firstHitText}: o dano recebido vira escudo${shieldDurText} enquanto durar (${durText})`;
       break;
     }
     case 'dot':
     case 'damage':
-      rawPt = val > 0 ? `Recebe ${val} de dano contínuo por turno por ${durText}` : `Dano contínuo por ${durText}`;
+      rawPt = val > 0 ? `Recebe ${val} de dano contÃ­nuo por turno por ${durText}` : `Dano contÃ­nuo por ${durText}`;
       break;
     case 'bleeding': {
-      const delayInfo = (effect.delayTurns || 0) > 0 ? ` (começa a causar dano em ${effect.delayTurns} ${effect.delayTurns === 1 ? 'turno' : 'turnos'})` : '';
+      const delayInfo = (effect.delayTurns || 0) > 0 ? ` (comeÃ§a a causar dano em ${effect.delayTurns} ${effect.delayTurns === 1 ? 'turno' : 'turnos'})` : '';
       rawPt = val > 0 ? `Sangramento: Recebe ${val} de dano por turno por ${durText}${delayInfo}` : `Sangramento por ${durText}`;
       break;
     }
     case 'affliction': {
-      const delayInfo = (effect.delayTurns || 0) > 0 ? ` (começa a causar dano em ${effect.delayTurns} ${effect.delayTurns === 1 ? 'turno' : 'turnos'})` : '';
-      rawPt = val > 0 ? `Aflição: Recebe ${val} de dano por turno por ${durText}${delayInfo}` : `Aflição por ${durText}`;
+      const delayInfo = (effect.delayTurns || 0) > 0 ? ` (comeÃ§a a causar dano em ${effect.delayTurns} ${effect.delayTurns === 1 ? 'turno' : 'turnos'})` : '';
+      rawPt = val > 0 ? `AfliÃ§Ã£o: Recebe ${val} de dano por turno por ${durText}${delayInfo}` : `AfliÃ§Ã£o por ${durText}`;
       break;
     }
     case 'direct_damage':
@@ -718,14 +718,14 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       const summary = formatInvulnerableSummary(effect.invulnerableTypes);
       const invClasses = effect.invulnerableClasses;
       const classText = invClasses && invClasses.length > 0 ? ` (apenas contra classes: ${invClasses.join(', ')})` : '';
-      rawPt = `Inviolável: Imune ${summary}${classText} por ${durText}`;
+      rawPt = `InviolÃ¡vel: Imune ${summary}${classText} por ${durText}`;
       break;
     }
     case 'counter':
     case 'counter_attack':
       rawPt = effect.counterAttackUntilTriggered
-        ? `Marcado: a próxima habilidade será contra-atacada (persiste até acionar)`
-        : `Pronto para contra-atacar por ${durText}${effect.counterAttackMode === 'all' ? ' (anula TODAS as skills durante a duração)' : ' (anula somente a 1ª skill)'}`;
+        ? `Marcado: a prÃ³xima habilidade serÃ¡ contra-atacada (persiste atÃ© acionar)`
+        : `Pronto para contra-atacar por ${durText}${effect.counterAttackMode === 'all' ? ' (anula TODAS as skills durante a duraÃ§Ã£o)' : ' (anula somente a 1Âª skill)'}`;
       break;
     case 'reflect':
       rawPt = `Reflete habilidades do oponente por ${durText}`;
@@ -735,11 +735,11 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       if (effect.noCounterProtect !== false) parts.push('contra-atacadas');
       if (effect.noReflectProtect !== false) parts.push('refletidas');
       const what = parts.length === 2 ? 'contra-atacadas nem refletidas' : (parts[0] || 'contra-atacadas nem refletidas');
-      rawPt = `🛡️ Proteção (Vida Baixa): as habilidades deste personagem NÃO podem ser ${what} por ${durText}`;
+      rawPt = `ðŸ›¡ï¸ ProteÃ§Ã£o (Vida Baixa): as habilidades deste personagem NÃƒO podem ser ${what} por ${durText}`;
       break;
     }
     case 'redirect_offensive':
-      rawPt = `Guarda-Costas: Toda habilidade ofensiva usada contra ${effect.redirectOffensiveScope === 'team' ? 'a equipe' : 'este aliado'} é redirecionada para o conjurador por ${durText}`;
+      rawPt = `Guarda-Costas: Toda habilidade ofensiva usada contra ${effect.redirectOffensiveScope === 'team' ? 'a equipe' : 'este aliado'} Ã© redirecionada para o conjurador por ${durText}`;
       break;
     case 'paralyze_cooldown':
       rawPt = `Recargas de habilidades paralisadas por ${durText}`;
@@ -748,16 +748,16 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       rawPt = `Recarga Aumentada: cada habilidade que este personagem usar ganha +${effect.value || 1} de cooldown por ${durText}`;
       break;
     case 'invisible':
-      rawPt = `Efeito Invisível [${effect.sourceSkillName || effect.name}] (Invisível para o oponente) por ${durText}`;
+      rawPt = `Efeito InvisÃ­vel [${effect.sourceSkillName || effect.name}] (InvisÃ­vel para o oponente) por ${durText}`;
       break;
     case 'reveal_invisible':
-      rawPt = `Revelar Habilidades Invisíveis: Habilidades e efeitos invisíveis deste personagem revelados por ${durText}`;
+      rawPt = `Revelar Habilidades InvisÃ­veis: Habilidades e efeitos invisÃ­veis deste personagem revelados por ${durText}`;
       break;
     case 'cannot_reduce_damage':
-      rawPt = `Incapaz de Reduzir Dano: Bônus de redução ignorados por ${durText}`;
+      rawPt = `Incapaz de Reduzir Dano: BÃ´nus de reduÃ§Ã£o ignorados por ${durText}`;
       break;
     case 'cannot_be_invulnerable':
-      rawPt = `Incapaz de Ficar Invulnerável: Invulnerabilidade bloqueada por ${durText}`;
+      rawPt = `Incapaz de Ficar InvulnerÃ¡vel: Invulnerabilidade bloqueada por ${durText}`;
       break;
     case 'ignore_stun':
       rawPt = `Imune a Stun: Stuns ignorados por ${durText}`;
@@ -765,41 +765,41 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'damage_immunity': {
       const immTypes = (effect as any).immunityTypes as string[] | undefined;
       const immTypeText = immTypes && immTypes.length > 0 ? ` aos tipos (${immTypes.join(', ')})` : ' a Todo dano';
-      rawPt = `Imune a Dano${immTypeText} por ${durText}${effect.firstHitOnly ? ' (Só o 1º dano - consumida após bloquear)' : ''}`;
+      rawPt = `Imune a Dano${immTypeText} por ${durText}${effect.firstHitOnly ? ' (SÃ³ o 1Âº dano - consumida apÃ³s bloquear)' : ''}`;
       break;
     }
     case 'immortal':
-      rawPt = `Imortal: Não pode morrer enquanto este efeito estiver ativo por ${durText}`;
+      rawPt = `Imortal: NÃ£o pode morrer enquanto este efeito estiver ativo por ${durText}`;
       break;
     case 'revive_on_death':
-      rawPt = `Ressurreição (passiva): Ao morrer, volta com ${val > 0 ? val : 'X'} de vida (${(effect.stacks || 1)} uso(s) restante(s))`;
+      rawPt = `RessurreiÃ§Ã£o (passiva): Ao morrer, volta com ${val > 0 ? val : 'X'} de vida (${(effect.stacks || 1)} uso(s) restante(s))`;
       break;
     case 'cannot_receive_friendly':
-      rawPt = `Bloqueio Amigável: Não pode receber habilidades de aliados por ${durText}`;
+      rawPt = `Bloqueio AmigÃ¡vel: NÃ£o pode receber habilidades de aliados por ${durText}`;
       break;
     case 'negate_friendly_effects':
-      rawPt = `Anulação Amigável: TODOS os efeitos amigáveis (buffs, invulnerabilidade, redução de dano, curas) são ignorados por ${durText}`;
+      rawPt = `AnulaÃ§Ã£o AmigÃ¡vel: TODOS os efeitos amigÃ¡veis (buffs, invulnerabilidade, reduÃ§Ã£o de dano, curas) sÃ£o ignorados por ${durText}`;
       break;
     case 'on_skill_use_damage':
-      rawPt = val > 0 ? `Punição por Habilidade: Sofre ${val} de dano a cada habilidade que usar por ${durText}` : `Punição por usar habilidade por ${durText}`;
+      rawPt = val > 0 ? `PuniÃ§Ã£o por Habilidade: Sofre ${val} de dano a cada habilidade que usar por ${durText}` : `PuniÃ§Ã£o por usar habilidade por ${durText}`;
       break;
     case 'capture_arrest_trap':
-      rawPt = `Armadilha Capture and Arrest (Invisível): Se usar habilidade ofensiva, sofrerá 40 de dano e +15 de dano de físicas/chakra por 1 turno.`;
+      rawPt = `Armadilha Capture and Arrest (InvisÃ­vel): Se usar habilidade ofensiva, sofrerÃ¡ 40 de dano e +15 de dano de fÃ­sicas/chakra por 1 turno.`;
       break;
     case 'capture_arrest_debuff':
-      rawPt = `Vulnerabilidade (Capture and Arrest): Sofre +15 de dano adicional de habilidades Físicas e de Chakra por ${durText}`;
+      rawPt = `Vulnerabilidade (Capture and Arrest): Sofre +15 de dano adicional de habilidades FÃ­sicas e de Chakra por ${durText}`;
       break;
     case 'chakra_cost_increase': {
-      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
-      const skillLbl: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'AleatÃ³rio' };
+      const skillLbl: Record<string, string> = { physical: 'FÃ­sico', mental: 'Mental', affliction: 'AfliÃ§Ã£o', chakra: 'Chakra', ranged: 'A distancia', friendly: 'AmigÃ¡vel' };
       const ctLabel = (effect.costIncreaseChakraTypes || []).map(ct => chakraLbl[ct] || ct).join(' + ');
       const stLabel = (effect.costIncreaseSkillTypes || []).map(st => skillLbl[st] || st).join(' + ');
       rawPt = `Aumento de Custo: Habilidades${stLabel ? ` de ${stLabel}` : ''} custam +1 ${ctLabel || 'chakra'} por ${durText}`;
       break;
     }
     case 'chakra_cost_reduce': {
-      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
-      const skillLbl: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'AleatÃ³rio' };
+      const skillLbl: Record<string, string> = { physical: 'FÃ­sico', mental: 'Mental', affliction: 'AfliÃ§Ã£o', chakra: 'Chakra', ranged: 'A distancia', friendly: 'AmigÃ¡vel' };
       const ctLabel = (effect.costReduceChakraTypes || []).map(ct => chakraLbl[ct] || ct).join(' + ');
       const stLabel = (effect.costReduceSkillTypes || []).map(st => skillLbl[st] || st).join(' + ');
       rawPt = `Custo Reduzido: Habilidades${stLabel ? ` de ${stLabel}` : ''} custam -${effect.value || 1} ${ctLabel || 'chakra'} por ${durText}`;
@@ -811,10 +811,10 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       const rVal = baseVal * stacks;
       const rScope = effect.retaliateTargetScope || 'self';
       const rScopeText = rScope === 'self' ? 'nele' : rScope === 'ally' ? 'em um aliado' : rScope === 'self_or_ally' ? 'nele ou em um aliado' : 'no time';
-      const rModeText = effect.retaliateTriggerMode === 'first_only' ? ' (apenas 1º inimigo)' : '';
+      const rModeText = effect.retaliateTriggerMode === 'first_only' ? ' (apenas 1Âº inimigo)' : '';
       const stackText = stacks > 1 ? ` (${stacks}x stacks = ${rVal} de dano)` : '';
-      const rClassesText = effect.retaliateClasses && effect.retaliateClasses.length > 0 ? ` (só com skills de ${effect.retaliateClasses.join(' / ')})` : '';
-      rawPt = `Retaliação: Se oponente usar skill ${rScopeText}, sofre ${rVal} de dano${rModeText}${stackText}${rClassesText} por ${durText}`;
+      const rClassesText = effect.retaliateClasses && effect.retaliateClasses.length > 0 ? ` (sÃ³ com skills de ${effect.retaliateClasses.join(' / ')})` : '';
+      rawPt = `RetaliaÃ§Ã£o: Se oponente usar skill ${rScopeText}, sofre ${rVal} de dano${rModeText}${stackText}${rClassesText} por ${durText}`;
       break;
     }
     case 'countdown_bomb': {
@@ -823,22 +823,22 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
         'direct_damage': 'Dano Direto',
         'piercing': 'Dano Perfurante',
         'true': 'Dano Verdadeiro',
-        'affliction': 'Dano de Aflição',
+        'affliction': 'Dano de AfliÃ§Ã£o',
         'bleeding': 'Dano de Sangramento',
         'dot': 'Dano de Queimadura',
       };
       const bombType = bombTypeMap[(effect as any).damageType] || 'Dano';
       rawPt = val > 0
-        ? `(Contagem Regressiva): em ${durText} este personagem sofrerá ${val} de ${bombType}`
-        : `(Contagem Regressiva): explodirá em ${durText}`;
+        ? `(Contagem Regressiva): em ${durText} este personagem sofrerÃ¡ ${val} de ${bombType}`
+        : `(Contagem Regressiva): explodirÃ¡ em ${durText}`;
       break;
     }
     case 'death_link': {
-      rawPt = `💞 Vínculo de Morte: se este personagem ou o vinculado morrer, o outro também morre (${durText})`;
+      rawPt = `ðŸ’ž VÃ­nculo de Morte: se este personagem ou o vinculado morrer, o outro tambÃ©m morre (${durText})`;
       break;
     }
     case 'pending_invulnerable': {
-      rawPt = `⏭️ Invulnerabilidade Atrasada: a partir do próximo turno, ficará invulnerável por ${(effect as any).pendingInvulnDuration || 1} turno(s)`;
+      rawPt = `â­ï¸ Invulnerabilidade Atrasada: a partir do prÃ³ximo turno, ficarÃ¡ invulnerÃ¡vel por ${(effect as any).pendingInvulnDuration || 1} turno(s)`;
       break;
     }
     default:
@@ -877,7 +877,7 @@ function getGroupedActiveEffects(
     let groupKey: string;
     if (isDebuff) {
       // Group ALL debuffs from the same skill under ONE group key.
-      // NÃO incluir o ícone na chave: efeitos da mesma skill às vezes têm ícone ausente/diferente,
+      // NÃƒO incluir o Ã­cone na chave: efeitos da mesma skill Ã s vezes tÃªm Ã­cone ausente/diferente,
       // o que fazia o mesmo grupo ser dividido em 2/3 tooltips duplicados.
       groupKey = `DEBUFF_${skillBaseName}`;
     } else {
@@ -928,7 +928,7 @@ function getGroupedActiveEffects(
     if (subEffects.length === 1) {
       combinedDescription = subEffects[0].description;
     } else {
-      combinedDescription = subEffects.map(s => `• ${s.description}`).join('\n');
+      combinedDescription = subEffects.map(s => `â€¢ ${s.description}`).join('\n');
     }
 
     return {
@@ -987,12 +987,12 @@ function GameOverOverlay({
   const gainedXp = calculateBattleXp(isVictory, turn, alivePlayerCount, damageDealt);
   const ranks = getRanks();
 
-  // 🎬 Valores capturados UMA vez na montagem da tela (lazy state):
-  // o "oldXp" é o XP do usuário no momento em que a batalha terminou.
-  // Assim a animação da barra (initial -> animate) roda IMEDIATAMENTE ao
-  // abrir a tela de vitória/derrota, sem depender de nenhum clique.
-  // (Antes, oldXp lia user.xp a cada render e só mudava quando onBattleEnd
-  // era chamado no handleQuit -> a barra só animava ao clicar "Voltar ao Menu".)
+  // ðŸŽ¬ Valores capturados UMA vez na montagem da tela (lazy state):
+  // o "oldXp" Ã© o XP do usuÃ¡rio no momento em que a batalha terminou.
+  // Assim a animaÃ§Ã£o da barra (initial -> animate) roda IMEDIATAMENTE ao
+  // abrir a tela de vitÃ³ria/derrota, sem depender de nenhum clique.
+  // (Antes, oldXp lia user.xp a cada render e sÃ³ mudava quando onBattleEnd
+  // era chamado no handleQuit -> a barra sÃ³ animava ao clicar "Voltar ao Menu".)
   const [xpSnapshot] = useState(() => {
     const oldXpRaw = Math.max(0, user?.xp || 0);
     const newXpRaw = Math.max(0, oldXpRaw + gainedXp);
@@ -1008,11 +1008,11 @@ function GameOverOverlay({
 
   const { actualXpChange, oldRankProgress, newRankProgress, rankChangeInfo, newXp } = xpSnapshot;
 
-  // 🎉 Modal de SUBIU DE RANK (abre sozinho se o jogador subiu de posto)
+  // ðŸŽ‰ Modal de SUBIU DE RANK (abre sozinho se o jogador subiu de posto)
   const [showRankUpModal, setShowRankUpModal] = useState(rankChangeInfo.rankedUp);
-  // 📉 Modal de DESCEU DE RANK (abre sozinho se o jogador caiu de posto)
+  // ðŸ“‰ Modal de DESCEU DE RANK (abre sozinho se o jogador caiu de posto)
   const [showRankDownModal, setShowRankDownModal] = useState(rankChangeInfo.rankedDown);
-  // 🏆 Modal de resultado: só aparece quando não houve mudança de rank.
+  // ðŸ† Modal de resultado: sÃ³ aparece quando nÃ£o houve mudanÃ§a de rank.
   const [showBattleResultModal, setShowBattleResultModal] = useState(
     !rankChangeInfo.rankedUp && !rankChangeInfo.rankedDown,
   );
@@ -1095,7 +1095,7 @@ function GameOverOverlay({
         </div>
       )}
 
-      {/* Naruto Chorando — portal direto no body para ignorar qualquer scale ancestral */}
+      {/* Naruto Chorando â€” portal direto no body para ignorar qualquer scale ancestral */}
       {!isVictory && createPortal(
         <img
           src="/static/img/ui/naruto-chorando.webp"
@@ -1114,12 +1114,12 @@ function GameOverOverlay({
         transition={{ duration: 0.25, ease: 'easeOut' }}
         className="gameover-content relative z-20 w-full max-w-5xl flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
       >
-        {/* Top Victory/Defeat Banner — imagem YW (vitória) / YL (derrota), mesma classe .gameover-banner-img.
-            Absoluta: não empurra o restante do layout (harmonia preservada). */}
+        {/* Top Victory/Defeat Banner â€” imagem YW (vitÃ³ria) / YL (derrota), mesma classe .gameover-banner-img.
+            Absoluta: nÃ£o empurra o restante do layout (harmonia preservada). */}
         <div className="gameover-banner-wrap">
           <img
             src={isVictory ? '/static/img/ui/YW.webp' : '/static/img/ui/YL.webp'}
-            alt={isVictory ? 'Vitória' : 'Derrota'}
+            alt={isVictory ? 'VitÃ³ria' : 'Derrota'}
             className="gameover-banner-img"
           />
           {surrenderReason && (
@@ -1217,7 +1217,7 @@ function GameOverOverlay({
               </div>
             </div>
 
-            {/* Player Full Standing Skin Artwork (Sem borda, sem fundo, posição absoluta para não empurrar nada) */}
+            {/* Player Full Standing Skin Artwork (Sem borda, sem fundo, posiÃ§Ã£o absoluta para nÃ£o empurrar nada) */}
             {user.equippedShowcaseSkinUrl && user.equippedShowcaseSkinUrl !== 'none' && (
               <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 sm:w-72 h-80 sm:h-96 pointer-events-none select-none z-0 flex items-start justify-center">
                 <img
@@ -1291,13 +1291,13 @@ function GameOverOverlay({
                 <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
                   {newRankProgress.isMaxRank ? (
                     <span className="text-amber-300 font-bold w-full text-center">
-                      🏆 Posto Máximo Alcançado! ({newXp.toLocaleString()} XP)
+                      ðŸ† Posto MÃ¡ximo AlcanÃ§ado! ({newXp.toLocaleString()} XP)
                     </span>
                   ) : (
                     <>
                       <span>{newRankProgress.currentXp.toLocaleString()} XP</span>
                       <span>
-                        Próximo: {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP ({newRankProgress.nextRank?.name})
+                        PrÃ³ximo: {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP ({newRankProgress.nextRank?.name})
                       </span>
                     </>
                   )}
@@ -1399,7 +1399,7 @@ function GameOverOverlay({
               </div>
             </div>
 
-            {/* Opponent Full Standing Skin Artwork (Sem borda, sem fundo, posição absoluta para não empurrar nada) */}
+            {/* Opponent Full Standing Skin Artwork (Sem borda, sem fundo, posiÃ§Ã£o absoluta para nÃ£o empurrar nada) */}
             {isOnline && opp?.equippedShowcaseSkinUrl && opp.equippedShowcaseSkinUrl !== 'none' && (
               <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 sm:w-72 h-80 sm:h-96 pointer-events-none select-none z-0 flex items-start justify-center">
                 <img
@@ -1468,7 +1468,7 @@ function GameOverOverlay({
                           SOBREVIVENTE
                         </span>
                         <span className="text-[9.5px] sm:text-[10.5px] font-mono font-black text-emerald-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] pt-0.5">
-                          ❤️ {combatant.health} / {combatant.maxHealth}
+                          â¤ï¸ {combatant.health} / {combatant.maxHealth}
                         </span>
                       </>
                     )}
@@ -1491,14 +1491,14 @@ function GameOverOverlay({
           <div className="relative z-10 px-5 pt-1 space-y-0.5">
             <p className="text-xs sm:text-sm text-stone-900 font-extrabold leading-snug">
               {isVictory
-                ? 'Parabéns! Você executou sua tática com maestria e conquistou a vitória no campo de batalha!'
-                : 'Seu esquadrão combateu bravamente, mas foi superado pelas táticas adversárias!'}
+                ? 'ParabÃ©ns! VocÃª executou sua tÃ¡tica com maestria e conquistou a vitÃ³ria no campo de batalha!'
+                : 'Seu esquadrÃ£o combateu bravamente, mas foi superado pelas tÃ¡ticas adversÃ¡rias!'}
             </p>
           </div>
 
           <div className="relative z-10 w-full flex justify-center" >
             <button onClick={handleQuit} data-sound="uah" className="btn-red-image">
-              {/* Ícone shuriken girando com glow dourado */}
+              {/* Ãcone shuriken girando com glow dourado */}
               <img src="/static/img/ui/gold-shuriken.webp" alt="" className="btn-shuriken" />
               <span className="font-brush text-[13px] sm:text-[15px]">{t("Voltar ao Menu", "Back to Selection")}</span>
             </button>
@@ -1507,7 +1507,7 @@ function GameOverOverlay({
 
       </motion.div>
 
-      {/* Modais ficam fora do stacking context do conteúdo para sobrepor Naruto. */}
+      {/* Modais ficam fora do stacking context do conteÃºdo para sobrepor Naruto. */}
       {showRankUpModal && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -1526,11 +1526,11 @@ function GameOverOverlay({
             <img src="/static/img/ui/pergaminho.webp" alt="" className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none" />
             <div className="relative z-10 flex flex-col items-center gap-3 py-1">
               <h2 className="font-brush text-3xl sm:text-4xl md:text-5xl font-black uppercase text-amber-500 drop-shadow-[0_3px_0_rgba(120,53,15,0.9)] flex items-center justify-center gap-3">
-                <img src="/static/img/ui/trophy.webp" alt="Troféu" className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain animate-bounce" />
+                <img src="/static/img/ui/trophy.webp" alt="TrofÃ©u" className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain animate-bounce" />
                 SUBIU DE RANK!
               </h2>
               <p className="text-sm sm:text-base font-bold text-slate-900 max-w-md">
-                Parabéns! Você alcançou o posto de{' '}
+                ParabÃ©ns! VocÃª alcanÃ§ou o posto de{' '}
                 <span className="text-amber-700 underline font-extrabold">{newRankProgress.currentRank.name}</span>!
               </p>
               <button onClick={() => setShowRankUpModal(false)} data-sound="uah" className="btn-red-image mt-1">
@@ -1598,16 +1598,16 @@ function GameOverOverlay({
               <h2 className={`font-brush text-3xl sm:text-4xl md:text-5xl font-black uppercase flex items-center justify-center gap-3 ${isVictory ? 'text-amber-500 drop-shadow-[0_3px_0_rgba(120,53,15,0.9)]' : 'text-red-600 drop-shadow-[0_3px_0_rgba(127,29,29,0.9)]'}`}>
                 <img
                   src={isVictory ? '/static/img/ui/trophy.webp' : '/static/img/ui/naruto-meme.webp'}
-                  alt={isVictory ? 'Troféu' : 'Naruto meme'}
+                  alt={isVictory ? 'TrofÃ©u' : 'Naruto meme'}
                   className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain animate-bounce"
                 />
-                {isVictory ? 'VOCÊ VENCEU!' : 'VOCÊ PERDEU!'}
+                {isVictory ? 'VOCÃŠ VENCEU!' : 'VOCÃŠ PERDEU!'}
               </h2>
 
               <p className="text-sm sm:text-base font-bold text-slate-900 max-w-md">
                 {isVictory
-                  ? 'Parabéns! Você venceu a batalha com sua estratégia ninja.'
-                  : 'Você perdeu a batalha, mas ainda pode voltar mais forte.'}
+                  ? 'ParabÃ©ns! VocÃª venceu a batalha com sua estratÃ©gia ninja.'
+                  : 'VocÃª perdeu a batalha, mas ainda pode voltar mais forte.'}
               </p>
 
               <button onClick={() => setShowBattleResultModal(false)} data-sound="uah" className="btn-red-image mt-1">
@@ -1646,7 +1646,7 @@ export default function BattleBoard({
   onBattleEnd,
   activeQuest,
 }: BattleBoardProps) {
-  // 🧊 Sandbox: geração de chakra pausada (só vale em sandbox). Restaurado da reconexão quando existir.
+  // ðŸ§Š Sandbox: geraÃ§Ã£o de chakra pausada (sÃ³ vale em sandbox). Restaurado da reconexÃ£o quando existir.
   const chakraGenPaused = !!isSandbox && !!(restoredState ? restoredState.sandboxPauseChakraGen : sandboxPauseChakraGen);
   const { t, language } = useLanguage();
 
@@ -1659,13 +1659,13 @@ export default function BattleBoard({
   const opponentRankProgress = useMemo(() => getRankProgress(opponentXp, ranksList), [opponentXp, ranksList]);
   const opponentCurrentRank = opponentRankProgress.currentRank;
 
-  // 🔑 ONLINE INITIATIVE — single source of truth, server-authoritative.
+  // ðŸ”‘ ONLINE INITIATIVE â€” single source of truth, server-authoritative.
   // Both clients share the same room `seed`. Turn 1's starter is the seed-derived
   // slot; every following round the initiative ALTERNATES (turn parity). Because
   // both clients compute this from the SAME (seed, turn), they always agree on
-  // whose turn it is → the turn always passes cleanly. (The old bug was a
+  // whose turn it is â†’ the turn always passes cleanly. (The old bug was a
   // separate effect re-deriving the planner on every state change and racing the
-  // poll; that effect is gone — initiative is now set only at mount + resolution.)
+  // poll; that effect is gone â€” initiative is now set only at mount + resolution.)
   const onlineStarterSlot = (): 0 | 1 => {
     const seed = onlineParams?.seed || 0;
     let x = (seed + 0x9e3779b9) >>> 0;
@@ -1758,20 +1758,20 @@ export default function BattleBoard({
       const damageDealt = matchStatsRef.current.damageDealt || 0;
       const gainedXp = calculateBattleXp(isVictory, turn, alivePlayerCount, damageDealt);
 
-      // 🛡️ A sincronização NUNCA pode bloquear a saída: se onBattleEnd falhar/lançar
+      // ðŸ›¡ï¸ A sincronizaÃ§Ã£o NUNCA pode bloquear a saÃ­da: se onBattleEnd falhar/lanÃ§ar
       // erro, o jogador ficava preso eternamente na tela de batalha ("looping").
       try {
         await onBattleEnd(isVictory, { ...matchStatsRef.current, turn, alivePlayerCount }, gainedXp);
       } catch (err) {
-        console.error('[BattleBoard] Erro ao sincronizar fim de batalha (saída continua):', err);
+        console.error('[BattleBoard] Erro ao sincronizar fim de batalha (saÃ­da continua):', err);
       }
     }
-    // Saída INTENCIONAL: limpa o save de reconexão para a batalha não "ressuscitar"
-    // no modal de reconexão depois (o F5/reload ainda restaura porque não passa aqui).
+    // SaÃ­da INTENCIONAL: limpa o save de reconexÃ£o para a batalha nÃ£o "ressuscitar"
+    // no modal de reconexÃ£o depois (o F5/reload ainda restaura porque nÃ£o passa aqui).
     try { localStorage.removeItem('active_match_save'); } catch {}
     pendingSubmitRef.current = null;
-    // 🧹 Online: sai da sala no servidor também (limpa o mapeamento da partida para
-    // esta conta — sem isso /matchmaking/status continuava devolvendo a mesma sala).
+    // ðŸ§¹ Online: sai da sala no servidor tambÃ©m (limpa o mapeamento da partida para
+    // esta conta â€” sem isso /matchmaking/status continuava devolvendo a mesma sala).
     if (onlineParams?.isOnline && onlineParams.roomId) {
       fetch('/api/matchmaking/quit', {
         method: 'POST',
@@ -1804,7 +1804,7 @@ export default function BattleBoard({
   // Track skills used per character per turn (for requirePreviousSkill)
   const currentTurnUsedSkills = useRef<Record<string, Set<string>>>({});
   const lastTurnUsedSkills = useRef<Record<string, Set<string>>>({});
-  // Marca quem usou skill OFENSIVA neste turno (Wood Spire Prison pune quem não usar)
+  // Marca quem usou skill OFENSIVA neste turno (Wood Spire Prison pune quem nÃ£o usar)
   const usedOffensiveThisTurnRef = useRef<Record<string, boolean>>({});
   const currentSkillRef = useRef<Skill | null>(null);
   // Map<targetId, airBulletsIcon>
@@ -1813,8 +1813,8 @@ export default function BattleBoard({
   // Chakra Pools (start at 0, first turn rolls 1 random element)
   const [playerChakra, setPlayerChakra] = useState<ChakraPool>({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
   const [enemyChakra, setEnemyChakra] = useState<ChakraPool>({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
-  // 🔄 Sincronia pós-resolução: espelho do meu chakra para envio fora do ciclo de render
-  // + controle de qual turno já reportei/apliquei do oponente.
+  // ðŸ”„ Sincronia pÃ³s-resoluÃ§Ã£o: espelho do meu chakra para envio fora do ciclo de render
+  // + controle de qual turno jÃ¡ reportei/apliquei do oponente.
   const playerChakraRef = useRef(playerChakra);
   useEffect(() => { playerChakraRef.current = playerChakra; }, [playerChakra]);
   const enemyChakraRef = useRef(enemyChakra);
@@ -1829,14 +1829,14 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
   // Floating text animations
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
-  // 🎯 Sistema de floating texts agrupados por tipo: textos com o mesmo conteúdo aparecem
-  // simultaneamente em TODOS os alvos, depois somem e o próximo grupo aparece.
-  // O buffer acumula textos durante uma resolução; o flush agrupa por texto e exibe em sequência.
+  // ðŸŽ¯ Sistema de floating texts agrupados por tipo: textos com o mesmo conteÃºdo aparecem
+  // simultaneamente em TODOS os alvos, depois somem e o prÃ³ximo grupo aparece.
+  // O buffer acumula textos durante uma resoluÃ§Ã£o; o flush agrupa por texto e exibe em sequÃªncia.
   const floatingBufferRef = useRef<Array<{ id: string; targetId: string; text: string; type: FloatingText['type'] }>>([]);
   const floatingFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const FLOATING_BATCH_WINDOW = 700; // ms — janela de silêncio para considerar o lote completo
-  const FLOATING_STEP_DELAY = 500;   // ms — atraso entre cada grupo de textos idênticos (próximo aparece 0.5s após o anterior)
-  const FLOATING_BASE_LIFE = 3000;   // ms — vida útil de cada texto no DOM
+  const FLOATING_BATCH_WINDOW = 0;    // ms â€” janela de silÃªncio p/ considerar o lote completo (0 = flush imediato apÃ³s o tick sÃ­ncrono: primeiro tooltip na hora)
+  const FLOATING_STEP_DELAY = 2000;  // ms â€” atraso entre cada grupo de textos idÃªnticos (prÃ³ximo aparece 2s apÃ³s o anterior)
+  const FLOATING_BASE_LIFE = 3000;   // ms â€” vida Ãºtil de cada texto no DOM
 
   // Battle logs
   const [logs, setLogs] = useState<CombatLog[]>([]);
@@ -1852,40 +1852,40 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const processedOpponentTurnsRef = useRef<Set<number>>(new Set());
   const passedPlayersRef = useRef<('player' | 'enemy')[]>([]);
   const isResolvingTurnEndRef = useRef(false);
-  // ⏱️ Cooldown de 5s antes de poder finalizar turno novamente (após transição de turno)
+  // â±ï¸ Cooldown de 5s antes de poder finalizar turno novamente (apÃ³s transiÃ§Ã£o de turno)
   const turnCooldownUntilRef = useRef(0);
   const [turnCooldownRemaining, setTurnCooldownRemaining] = useState(0);
   const turnCooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const battleStartedRef = useRef(false); // evita cooldown na primeira aparição do player
-  // 🛑 Timestamp da última resolução de rodada (disjuntor anti-loop).
+  const battleStartedRef = useRef(false); // evita cooldown na primeira apariÃ§Ã£o do player
+  // ðŸ›‘ Timestamp da Ãºltima resoluÃ§Ã£o de rodada (disjuntor anti-loop).
   const lastResolutionAtRef = useRef(0);
-  // 🎲 Iniciativa da partida — sorteada UMA ÚNICA VEZ quando a partida é encontrada
+  // ðŸŽ² Iniciativa da partida â€” sorteada UMA ÃšNICA VEZ quando a partida Ã© encontrada
   // (montagem) e mantida fixa para TODOS os turnos. Nada de re-sorteio dentro da partida.
   const matchStarterRef = useRef<'player' | 'enemy'>('player');
   const randConfirmLockRef = useRef(false);
-  // 🔒 GARANTIA GLOBAL (todos os modos): cada lado só pode finalizar UMA vez por
-  // número de turno. Chave = `${turn}:${side}`. Como o turno sempre incrementa na
-  // resolução, as chaves são únicas e nunca precisam ser limpas. Isso mata de vez
-  // o "cliquei em finalizar e joguei 2x / o turno não passa / voltou pra mim".
+  // ðŸ”’ GARANTIA GLOBAL (todos os modos): cada lado sÃ³ pode finalizar UMA vez por
+  // nÃºmero de turno. Chave = `${turn}:${side}`. Como o turno sempre incrementa na
+  // resoluÃ§Ã£o, as chaves sÃ£o Ãºnicas e nunca precisam ser limpas. Isso mata de vez
+  // o "cliquei em finalizar e joguei 2x / o turno nÃ£o passa / voltou pra mim".
   const finalizedKeysRef = useRef<Set<string>>(new Set());
-  // 🌐 ONLINE turn-phase tracking (server-derived, idempotent). These make the
+  // ðŸŒ ONLINE turn-phase tracking (server-derived, idempotent). These make the
   // turn pass reliably: the server stores who submitted each turn, and both
   // clients derive the phase from that truth instead of racing local flags.
   const submittedTurnRef = useRef<Set<number>>(new Set());   // turns I already submitted (CONFIRMED by server)
   const resolvedTurnRef = useRef<Set<number>>(new Set());    // turns I already resolved
-  // 🛡️ Última vez que o SERVIDOR confirmou que MEU slot deste turno está registrado.
-  // O force-resolve do watchdog só pode roubar a rodada se isso estiver fresco —
+  // ðŸ›¡ï¸ Ãšltima vez que o SERVIDOR confirmou que MEU slot deste turno estÃ¡ registrado.
+  // O force-resolve do watchdog sÃ³ pode roubar a rodada se isso estiver fresco â€”
   // nunca resolvemos sem oponente durante cold start/instabilidade de rede.
   const lastServerConfirmRef = useRef<{ turn: number; at: number } | null>(null);
-  // ⏱️ Watchdog de travamento: desde quando estou aguardando o oponente. Se passar
+  // â±ï¸ Watchdog de travamento: desde quando estou aguardando o oponente. Se passar
   // de ~20s sem progresso (oponente sumiu, sala perdida, submit falhou dos dois
-  // lados), a rodada é resolvida localmente para a partida NUNCA congelar.
+  // lados), a rodada Ã© resolvida localmente para a partida NUNCA congelar.
   const waitingSinceRef = useRef(0);
   const forcedResolveTurnsRef = useRef<Set<number>>(new Set());
-  // 💓 Último heartbeat de diagnóstico emitido enquanto aguardando (a cada ~10s).
+  // ðŸ’“ Ãšltimo heartbeat de diagnÃ³stico emitido enquanto aguardando (a cada ~10s).
   const lastWaitBeatRef = useRef(0);
-  // 📡 Sequência atual de falhas de poll (compartilhada entre o efeito de polling e
-  // o watchdog: se o servidor está inacessível há muito tempo E eu ainda nem joguei,
+  // ðŸ“¡ SequÃªncia atual de falhas de poll (compartilhada entre o efeito de polling e
+  // o watchdog: se o servidor estÃ¡ inacessÃ­vel hÃ¡ muito tempo E eu ainda nem joguei,
   // destravo minha fase em vez de congelar para sempre).
   const pollFailureStreakRef = useRef(0);
 
@@ -1914,7 +1914,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Interactive Emojis State
-  const PRESET_EMOJIS = ['🔥', '⚡', '🤣', '😎', '🦊'];
+  const PRESET_EMOJIS = ['ðŸ”¥', 'âš¡', 'ðŸ¤£', 'ðŸ˜Ž', 'ðŸ¦Š'];
   const COOLDOWN_MS = 3000;
   const GLOBAL_COOLDOWN_MS = 1000;
 
@@ -1927,9 +1927,9 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const lastChatTimestampRef = useRef<number>(0);
-  // 🔌 WEBSOCKET PUSH (v26): canal compartilhado com o efeito ws.
-  // Saúde do canal = conectado E recebeu mensagem há <45s (ping a cada 25s).
-  // Quando saudável, TODOS os polls HTTP ficam em zero (sync/chat/emoji/heartbeat).
+  // ðŸ”Œ WEBSOCKET PUSH (v26): canal compartilhado com o efeito ws.
+  // SaÃºde do canal = conectado E recebeu mensagem hÃ¡ <45s (ping a cada 25s).
+  // Quando saudÃ¡vel, TODOS os polls HTTP ficam em zero (sync/chat/emoji/heartbeat).
   const wsPushRef = useRef<((data: any) => void) | null>(null);
   const wsConnectedRef = useRef(false);
   const lastWsMsgAtRef = useRef(0);
@@ -1948,7 +1948,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     if (!onlineParams?.isOnline || !onlineParams.roomId) return;
 
     const interval = setInterval(async () => {
-      // v26: com WebSocket saudável o chat chega por push ({type:'chat'}) — não polla.
+      // v26: com WebSocket saudÃ¡vel o chat chega por push ({type:'chat'}) â€” nÃ£o polla.
       if (wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000) return;
       try {
         const res = await fetch(`/api/match/chat/messages?roomId=${onlineParams.roomId}&since=${lastChatTimestampRef.current}`);
@@ -1993,7 +1993,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
     const cleanText = sanitizeBattleChatMessage(chatInput);
     if (!cleanText) {
-      setChatError("Emojis, links ou mídias não são permitidos.");
+      setChatError("Emojis, links ou mÃ­dias nÃ£o sÃ£o permitidos.");
       setTimeout(() => setChatError(null), 3500);
       return;
     }
@@ -2034,8 +2034,8 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const [globalEmojiCooldownUntil, setGlobalEmojiCooldownUntil] = useState<number>(0);
   const [showBattleSettings, setShowBattleSettings] = useState(false);
   const [showVolumeControls, setShowVolumeControls] = useState(false);
-  // Log da Batalha (overlay no canto inferior esquerdo) — configurável nas
-  // Configurações da Batalha e persistido localmente.
+  // Log da Batalha (overlay no canto inferior esquerdo) â€” configurÃ¡vel nas
+  // ConfiguraÃ§Ãµes da Batalha e persistido localmente.
   const [showBattleLog, setShowBattleLog] = useState<boolean>(() => {
     try {
       return localStorage.getItem('ninja_show_battle_log') !== '0';
@@ -2159,7 +2159,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   useEffect(() => {
     if (restoredState) {
       setTurn(restoredState.turn);
-      // 🎲 Recupera quem foi sorteado a iniciar a PARTIDA (fixo para todos os turnos).
+      // ðŸŽ² Recupera quem foi sorteado a iniciar a PARTIDA (fixo para todos os turnos).
       if (restoredState.matchStarter === 'player' || restoredState.matchStarter === 'enemy') {
         matchStarterRef.current = restoredState.matchStarter;
       } else {
@@ -2180,21 +2180,21 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       setSelectedSkill(null);
       setGameOver(null);
 
-      // Restaura o estado de processamento/passes do turno: evita que as ações
-      // do oponente sejam re-executadas (2x) ou que o turno avance sozinho após reconexão.
+      // Restaura o estado de processamento/passes do turno: evita que as aÃ§Ãµes
+      // do oponente sejam re-executadas (2x) ou que o turno avance sozinho apÃ³s reconexÃ£o.
       if (Array.isArray(restoredState.processedOpponentTurns)) {
         processedOpponentTurnsRef.current = new Set(restoredState.processedOpponentTurns);
       }
       if (Array.isArray(restoredState.passedPlayersThisTurn)) {
         passedPlayersRef.current = restoredState.passedPlayersThisTurn;
         setPassedPlayersThisTurn(restoredState.passedPlayersThisTurn);
-        // Continua de onde parou: se eu já passei, é a vez do oponente (e vice-versa)
+        // Continua de onde parou: se eu jÃ¡ passei, Ã© a vez do oponente (e vice-versa)
         const rPassed = restoredState.passedPlayersThisTurn as ('player' | 'enemy')[];
         if (rPassed.includes('player') && !rPassed.includes('enemy')) {
           setActivePlanner('enemy');
           setIsWaitingForOpponent(!!restoredState.onlineParams?.isOnline);
-          // 🌐 ONLINE: eu já submeti este turno antes de recarregar → marca para
-          // que o poll do oponente feche a rodada corretamente (não trave esperando).
+          // ðŸŒ ONLINE: eu jÃ¡ submeti este turno antes de recarregar â†’ marca para
+          // que o poll do oponente feche a rodada corretamente (nÃ£o trave esperando).
           if (restoredState.onlineParams?.isOnline) {
             submittedTurnRef.current.add(restoredState.turn);
           }
@@ -2214,7 +2214,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       }
 
       setLogs([
-        { id: Math.random().toString(), turn: restoredState.turn, message: '⚔️ BATALHA RECUPERADA! Retornando ao confronto.', type: 'system' }
+        { id: Math.random().toString(), turn: restoredState.turn, message: 'âš”ï¸ BATALHA RECUPERADA! Retornando ao confronto.', type: 'system' }
       ]);
       return;
     }
@@ -2226,8 +2226,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     setCuedActions([]);
     setSelectedSkill(null);
     setGameOver(null);
-    // 🔒 Limpa as chaves de finalização por-turno ao (re)iniciar a batalha, senão um
-    // novo combate (turno volta a 1) ficaria travado pelo histórico do combate anterior.
+    // ðŸ”’ Limpa as chaves de finalizaÃ§Ã£o por-turno ao (re)iniciar a batalha, senÃ£o um
+    // novo combate (turno volta a 1) ficaria travado pelo histÃ³rico do combate anterior.
     finalizedKeysRef.current.clear();
     submittedTurnRef.current.clear();
     processedOpponentTurnsRef.current.clear();
@@ -2239,17 +2239,17 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     let startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     if (onlineParams?.isOnline) {
-      // Server-authoritative random initiative (shared seed) — decidido UMA vez,
-      // quando a partida é encontrada. Fica FIXO para a partida inteira.
+      // Server-authoritative random initiative (shared seed) â€” decidido UMA vez,
+      // quando a partida Ã© encontrada. Fica FIXO para a partida inteira.
       startingPlanner = iGoFirstOnTurn(1) ? 'player' : 'enemy';
     }
     matchStarterRef.current = startingPlanner;
     setActivePlanner(startingPlanner);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
-    // ONLINE: se o oponente joga primeiro no turno 1, já entro aguardando (o botão
-    // de finalizar fica travado até o poll me passar a vez). Sem isso, o cliente do
-    // 2º jogador aparecia com o botão liberado indevidamente no início.
+    // ONLINE: se o oponente joga primeiro no turno 1, jÃ¡ entro aguardando (o botÃ£o
+    // de finalizar fica travado atÃ© o poll me passar a vez). Sem isso, o cliente do
+    // 2Âº jogador aparecia com o botÃ£o liberado indevidamente no inÃ­cio.
     if (onlineParams?.isOnline) {
       setIsWaitingForOpponent(startingPlanner !== 'player');
     }
@@ -2307,10 +2307,10 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
         const startTags = (skill.stackStartTags || []).map(t => String(t).toLowerCase()).filter(Boolean);
         const hasTag = (c: CombatCharacter) => (c.character.tags || []).some(ct => startTags.includes(String(ct).toLowerCase()));
 
-        // Alvos por tag/afiliação: aplica a stack em CADA aliado (incluindo o próprio) que tiver uma das tags.
+        // Alvos por tag/afiliaÃ§Ã£o: aplica a stack em CADA aliado (incluindo o prÃ³prio) que tiver uma das tags.
         const tagTargets = startTags.length > 0 ? allies.filter(c => !c.isDead && hasTag(c)) : [];
 
-        // Alvos "Passiva" clássica (stackStartActive): usa o stackTarget configurado.
+        // Alvos "Passiva" clÃ¡ssica (stackStartActive): usa o stackTarget configurado.
         const resolveInitTargets = (): CombatCharacter[] => {
           const st = skill.stackTarget || 'Self';
           if (st === 'Self') return [combatant];
@@ -2321,7 +2321,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
         };
         const passiveTargets = skill.stackStartActive ? resolveInitTargets() : [];
 
-        // União dos alvos (sem duplicar)
+        // UniÃ£o dos alvos (sem duplicar)
         const targetSet = new Map<string, CombatCharacter>();
         [...passiveTargets, ...tagTargets].forEach(t => { if (t && !t.isDead) targetSet.set(t.id, t); });
         if (targetSet.size === 0) return;
@@ -2352,14 +2352,14 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
             });
           }
           maybeAttachReflectByStackMarker(st, skill, effStackType, combatant.id, casterSide);
-          passiveInitMessages.push(`🌀 PASSIVA [${effStackType}] aplicada em ${st.character.name} com ${startCount} stack(s) (via ${skill.name})!`);
+          passiveInitMessages.push(`ðŸŒ€ PASSIVA [${effStackType}] aplicada em ${st.character.name} com ${startCount} stack(s) (via ${skill.name})!`);
         });
       });
     };
     pCombat.forEach(c => applyStartOfBattleStacks(c, pCombat, eCombat));
     eCombat.forEach(c => applyStartOfBattleStacks(c, eCombat, pCombat));
 
-    // 🌀 Habilidades PASSIVAS (isPassive): os efeitos principais já iniciam aplicados
+    // ðŸŒ€ Habilidades PASSIVAS (isPassive): os efeitos principais jÃ¡ iniciam aplicados
     // no alvo escolhido no editor (passiveStartTarget: 'self' | 'allies' | 'enemies').
     const applyStartOfBattlePassives = (combatant: CombatCharacter, allies: CombatCharacter[], enemies: CombatCharacter[]) => {
       const casterSide = allies.includes(combatant) ? 'player' : 'enemy';
@@ -2378,47 +2378,47 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
               tg.shieldExpiresTurn = Math.max(tg.shieldExpiresTurn || 0, skill.shieldDuration);
             }
             applied = true;
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] concedeu +${skill.shieldVal} de escudo para ${tg.character.name}!`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] concedeu +${skill.shieldVal} de escudo para ${tg.character.name}!`);
           }
           if ((skill.damageBuffVal || 0) > 0) {
             tg.activeEffects.push({ name: `${skill.name} (Passiva +${skill.damageBuffVal} Dano)`, type: 'damage_buff', value: skill.damageBuffVal, duration: normDur(skill.damageBuffDuration), castTurn: 0, buffTypes: skill.damageBuffTypes, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
             applied = true;
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] deu +${skill.damageBuffVal} de dano para ${tg.character.name}!`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] deu +${skill.damageBuffVal} de dano para ${tg.character.name}!`);
           }
           if ((skill.damageReductionVal || 0) > 0) {
             tg.activeEffects.push({ name: `${skill.name} (Passiva Guard)`, type: 'damage_reduction', value: skill.damageReductionVal, duration: normDur(skill.damageReductionDuration), castTurn: 0, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
             applied = true;
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] reduziu o dano recebido por ${tg.character.name} em ${skill.damageReductionVal}!`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] reduziu o dano recebido por ${tg.character.name} em ${skill.damageReductionVal}!`);
           }
           if ((skill.damageReductionPierceVal || 0) > 0) {
             tg.activeEffects.push({ name: `${skill.name} (Passiva Guard+)`, type: 'damage_reduction_pierce', value: skill.damageReductionPierceVal, duration: normDur(skill.damageReductionPierceDuration), castTurn: 0, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
             applied = true;
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] reduziu TODO o dano (inclusive direto) recebido por ${tg.character.name} em ${skill.damageReductionPierceVal}!`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] reduziu TODO o dano (inclusive direto) recebido por ${tg.character.name} em ${skill.damageReductionPierceVal}!`);
           }
           if ((skill.damageDebuffVal || 0) > 0) {
             tg.activeEffects.push({ name: `${skill.name} (Passiva -Dano)`, type: 'damage_debuff', value: skill.damageDebuffVal, duration: normDur(skill.damageDebuffDuration), castTurn: 0, debuffTypes: skill.damageDebuffTypes, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
             applied = true;
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] enfraqueceu as habilidades de ${tg.character.name} em -${skill.damageDebuffVal}!`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] enfraqueceu as habilidades de ${tg.character.name} em -${skill.damageDebuffVal}!`);
           }
           if ((skill.damageVulnerabilityVal || 0) > 0) {
-            tg.activeEffects.push({ name: `${skill.name} (Passiva Vulnerável)`, type: 'damage_vulnerability', value: skill.damageVulnerabilityVal, duration: normDur(skill.damageVulnerabilityDuration), castTurn: 0, vulnerabilityTypes: skill.damageVulnerabilityTypes, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
+            tg.activeEffects.push({ name: `${skill.name} (Passiva VulnerÃ¡vel)`, type: 'damage_vulnerability', value: skill.damageVulnerabilityVal, duration: normDur(skill.damageVulnerabilityDuration), castTurn: 0, vulnerabilityTypes: skill.damageVulnerabilityTypes, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
             applied = true;
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] deixou ${tg.character.name} vulnerável a +${skill.damageVulnerabilityVal} de dano!`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] deixou ${tg.character.name} vulnerÃ¡vel a +${skill.damageVulnerabilityVal} de dano!`);
           }
           if ((skill.dotVal || 0) > 0) {
             tg.activeEffects.push({ name: `${skill.name} (Passiva Queima)`, type: 'dot', value: skill.dotVal, duration: normDur(skill.dotDuration), castTurn: 0, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
             applied = true;
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] queimará ${tg.character.name} em ${skill.dotVal}/turno!`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] queimarÃ¡ ${tg.character.name} em ${skill.dotVal}/turno!`);
           }
           if ((skill.invulnerableDuration || 0) > 0) {
-            tg.activeEffects.push({ name: `${skill.name} (Passiva Invulnerável)`, type: 'invulnerable', duration: normDur(skill.invulnerableDuration), castTurn: 0, immunityTypes: skill.invulnerableTypes as string[] | undefined, invulnerableClasses: skill.invulnerableClasses as string[] | undefined, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
+            tg.activeEffects.push({ name: `${skill.name} (Passiva InvulnerÃ¡vel)`, type: 'invulnerable', duration: normDur(skill.invulnerableDuration), castTurn: 0, immunityTypes: skill.invulnerableTypes as string[] | undefined, invulnerableClasses: skill.invulnerableClasses as string[] | undefined, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
             applied = true;
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] tornou ${tg.character.name} INVULNERÁVEL por ${normDur(skill.invulnerableDuration) < 99999 ? `${normDur(skill.invulnerableDuration)} turno(s)` : 'sempre'}!`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] tornou ${tg.character.name} INVULNERÃVEL por ${normDur(skill.invulnerableDuration) < 99999 ? `${normDur(skill.invulnerableDuration)} turno(s)` : 'sempre'}!`);
           }
           if ((skill.stunTurns || 0) > 0) {
             tg.activeEffects.push({ name: `${skill.name} (Passiva Stun)`, type: 'stun', duration: Math.max(1, skill.stunTurns || 1), stunType: skill.stunType as string[] | undefined, castTurn: 0, icon: skill.icon, casterId: combatant.id, casterSide, sourceSkillName: skill.name });
             applied = true;
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] começou com ${tg.character.name} STUNADO por ${Math.max(1, skill.stunTurns || 1)} turno(s)!`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] comeÃ§ou com ${tg.character.name} STUNADO por ${Math.max(1, skill.stunTurns || 1)} turno(s)!`);
           }
           if (skill.counterAttack) {
             const untilTriggered = !!skill.counterAttackUntilTriggered;
@@ -2440,7 +2440,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
               sourceSkillName: skill.name,
             });
             applied = true;
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] deixou ${tg.character.name} com CONTRA-ATAQUE ativo!`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] deixou ${tg.character.name} com CONTRA-ATAQUE ativo!`);
           }
           if (skill.reflect) {
             tg.activeEffects.push({
@@ -2456,10 +2456,10 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
               sourceSkillName: skill.name,
             });
             applied = true;
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] deixou ${tg.character.name} com REFLEXO ativo!`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] deixou ${tg.character.name} com REFLEXO ativo!`);
           }
-          // Fallback: passiva sem campos de efeito específicos → registra um marcador persistente
-          // para que a passiva fique visivelmente ATIVA no alvo (badge) desde o início da batalha.
+          // Fallback: passiva sem campos de efeito especÃ­ficos â†’ registra um marcador persistente
+          // para que a passiva fique visivelmente ATIVA no alvo (badge) desde o inÃ­cio da batalha.
           if (!applied) {
             tg.activeEffects.push({
               name: skill.name,
@@ -2474,7 +2474,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
               irremovable: !!skill.permanent,
               description: skill.desc,
             } as ActiveEffect);
-            passiveInitMessages.push(`🌀 PASSIVA [${skill.name}] está ativa em ${tg.character.name}.`);
+            passiveInitMessages.push(`ðŸŒ€ PASSIVA [${skill.name}] estÃ¡ ativa em ${tg.character.name}.`);
           }
         });
       });
@@ -2482,16 +2482,16 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     pCombat.forEach(c => applyStartOfBattlePassives(c, pCombat, eCombat));
     eCombat.forEach(c => applyStartOfBattlePassives(c, eCombat, pCombat));
 
-    // 🔓 Liberação Atrasada: skills marcadas como bloqueadas já iniciam a batalha BLOQUEADAS.
-    // NÃO conta os turnos de bloqueio desde o início — fica bloqueada indefinidamente até a skill-chave
-    // ser usada. A contagem do bloqueio (delayedUnlockDuration) só começa ao usar a skill.
+    // ðŸ”“ LiberaÃ§Ã£o Atrasada: skills marcadas como bloqueadas jÃ¡ iniciam a batalha BLOQUEADAS.
+    // NÃƒO conta os turnos de bloqueio desde o inÃ­cio â€” fica bloqueada indefinidamente atÃ© a skill-chave
+    // ser usada. A contagem do bloqueio (delayedUnlockDuration) sÃ³ comeÃ§a ao usar a skill.
     const applyStartOfBattleDelayedLocks = (combatant: CombatCharacter) => {
       const casterSide = combatant.id.startsWith('player') ? 'player' : 'enemy';
       combatant.character.skills.forEach(skill => {
         if (!skill.delayedUnlockSkills || skill.delayedUnlockSkills.length === 0) return;
         const alreadyActive = combatant.activeEffects.some(e => e.type === 'custom' && e.sourceSkillName === skill.name && Array.isArray(e.delayedUnlockSkills));
         if (alreadyActive) return;
-        // Bloqueio inicial infinito: só sai da fase 'locked' quando a skill-chave for usada.
+        // Bloqueio inicial infinito: sÃ³ sai da fase 'locked' quando a skill-chave for usada.
         combatant.activeEffects.push({
           name: `${skill.name} (Bloqueio)`,
           sourceSkillName: skill.name,
@@ -2506,7 +2506,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
           delayedUnlockSkills: skill.delayedUnlockSkills,
           delayedUnlockWindowTurns: skill.delayedUnlockWindowTurns || 1,
         });
-        passiveInitMessages.push(`🔒 [${skill.name}] iniciou bloqueando ${skill.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${combatant.character.name}!`);
+        passiveInitMessages.push(`ðŸ”’ [${skill.name}] iniciou bloqueando ${skill.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${combatant.character.name}!`);
       });
     };
     pCombat.forEach(c => applyStartOfBattleDelayedLocks(c));
@@ -2526,12 +2526,12 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Initial logs with random initiative
     const initialLogs: CombatLog[] = [
-      { id: '1', turn: 1, message: '🧪 BUILD v30-chakra-fix', type: 'system' },
-      { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
+      { id: '1', turn: 1, message: 'ðŸ§ª BUILD v30-chakra-fix', type: 'system' },
+      { id: '1b', turn: 1, message: 'âš”ï¸ BATALHA INICIADA! EsquadrÃ£o confirmado.', type: 'system' },
       { id: '2', turn: 1, message: startingPlanner === 'player'
-          ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
-          : '🎲 [INICIATIVA] O Oponente ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Você inicia com 3 Chakras)', type: 'system' },
-      { id: '3', turn: 1, message: 'Gere seus chakras e escolha suas táticas!', type: 'system' },
+          ? 'ðŸŽ² [INICIATIVA] VocÃª ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
+          : 'ðŸŽ² [INICIATIVA] O Oponente ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (VocÃª inicia com 3 Chakras)', type: 'system' },
+      { id: '3', turn: 1, message: 'Gere seus chakras e escolha suas tÃ¡ticas!', type: 'system' },
       ...passiveInitMessages.map((msg, i) => ({ id: `passive-${i}`, turn: 1, message: msg, type: 'buff' as const })),
     ];
     setLogs(initialLogs);
@@ -2546,8 +2546,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     // Trigger initial chakra generation for Turn 1:
     // The player who starts first receives 1 chakra; the second player receives 3 chakra.
     if (chakraGenPaused) {
-      // 🧊 Sandbox com geração pausada: ambos começam com 10 chakras variados (fixos).
-      // A partir daqui NÃO gera chakra ao virar o turno (rollChakraForTurn é ignorado).
+      // ðŸ§Š Sandbox com geraÃ§Ã£o pausada: ambos comeÃ§am com 10 chakras variados (fixos).
+      // A partir daqui NÃƒO gera chakra ao virar o turno (rollChakraForTurn Ã© ignorado).
       const buildTenVaried = (): ChakraPool => {
         const pool: ChakraPool = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
         const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
@@ -2558,10 +2558,10 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       setEnemyChakra(buildTenVaried());
       setLogs(prev => [
         ...prev,
-        { id: Math.random().toString(), turn: 1, message: '🧊 [SANDBOX] Geração de chakra PAUSADA. Ambos começam com 10 chakras. Gasto/remoção ainda contam, mas passar o turno NÃO gera chakra.', type: 'system' },
+        { id: Math.random().toString(), turn: 1, message: 'ðŸ§Š [SANDBOX] GeraÃ§Ã£o de chakra PAUSADA. Ambos comeÃ§am com 10 chakras. Gasto/remoÃ§Ã£o ainda contam, mas passar o turno NÃƒO gera chakra.', type: 'system' },
       ]);
     } else {
-      // 🛡️ v30: reseta refs para zero ANTES de rolar — garante idempotência mesmo
+      // ðŸ›¡ï¸ v30: reseta refs para zero ANTES de rolar â€” garante idempotÃªncia mesmo
       // se o efeito fire duas vezes (StrictMode dev / re-render com mesmas deps).
       playerChakraRef.current = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
       enemyChakraRef.current = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
@@ -2580,7 +2580,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     if (!onlineParams?.isOnline) return;
 
     const interval = setInterval(async () => {
-      // v26: com WebSocket saudável o emoji chega por push ({type:'emoji'}) — não polla.
+      // v26: com WebSocket saudÃ¡vel o emoji chega por push ({type:'emoji'}) â€” nÃ£o polla.
       if (wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000) return;
       try {
         const res = await fetch(`/api/match/emojis?roomId=${onlineParams.roomId}&since=${lastPolledEmojiTimestamp.current}`);
@@ -2614,11 +2614,11 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   }, [onlineParams, user]);
 
   // Multiplayer cleanup on unmount.
-  // ⚠️ Deve rodar SOMENTE ao desmontar de verdade (sair da batalha). Antes o
-  // array de deps era [onlineParams, user] — qualquer mudança de referência
+  // âš ï¸ Deve rodar SOMENTE ao desmontar de verdade (sair da batalha). Antes o
+  // array de deps era [onlineParams, user] â€” qualquer mudanÃ§a de referÃªncia
   // (ex.: perfil atualizado) disparava o cleanup e DELETAVA a sala no meio da
   // partida, gerando "sala perdida" fantasma para os DOIS jogadores. Agora
-  // lemos os valores por ref e usamos deps [] para só quitar no unmount real.
+  // lemos os valores por ref e usamos deps [] para sÃ³ quitar no unmount real.
   const quitInfoRef = useRef<{ username: string; roomId: string } | null>(null);
   useEffect(() => {
     quitInfoRef.current = onlineParams?.isOnline
@@ -2661,14 +2661,14 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   }, [gameOver, onBattleFinished, playWinSound, playLoseSound]);
 
   // Add floating combat numbers helper
-  // 🎯 Textos com o mesmo conteúdo aparecem simultaneamente em TODOS os alvos:
-  // O buffer acumula textos durante a resolução. Quando nenhum texto novo chega
+  // ðŸŽ¯ Textos com o mesmo conteÃºdo aparecem simultaneamente em TODOS os alvos:
+  // O buffer acumula textos durante a resoluÃ§Ã£o. Quando nenhum texto novo chega
   // por FLOATING_BATCH_WINDOW ms, o flush agrupa por text, e exibe cada grupo
   // simultaneamente (todos os alvos ao mesmo tempo) com stagger entre grupos.
   const addFloatingText = (targetId: string, text: string, type: FloatingText['type']) => {
     const id = Math.random().toString();
     floatingBufferRef.current.push({ id, targetId, text, type });
-    // Reinicia o timer: flush só acontece quando nenhum texto novo chegar por BATCH_WINDOW
+    // Reinicia o timer: flush sÃ³ acontece quando nenhum texto novo chegar por BATCH_WINDOW
     if (floatingFlushTimerRef.current) clearTimeout(floatingFlushTimerRef.current);
     floatingFlushTimerRef.current = setTimeout(flushFloatingBatch, FLOATING_BATCH_WINDOW);
   };
@@ -2678,10 +2678,10 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     floatingBufferRef.current = [];
     if (buffer.length === 0) return;
 
-    // Agrupar por conteúdo do texto, preservando ordem de primeira aparição.
+    // Agrupar por conteÃºdo do texto, preservando ordem de primeira apariÃ§Ã£o.
     // Deduplica entradas com o MESMO texto no MESMO alvo: quando o motor dispara
     // o mesmo floating (ex.: dano aplicado + proc duplicado) ele cairia 2x no mesmo
-    // alvo e ficaria visível duplicado no agrupamento. Mantendo apenas 1 por alvo.
+    // alvo e ficaria visÃ­vel duplicado no agrupamento. Mantendo apenas 1 por alvo.
     const groupOrder: string[] = [];
     const groups = new Map<string, Array<{ id: string; targetId: string; text: string; type: FloatingText['type'] }>>();
     const seen = new Set<string>();
@@ -2706,7 +2706,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
           id: e.id, targetId: e.targetId, text: e.text, type: e.type, order: groupIdx,
         }));
         setFloatingTexts(prev => [...prev, ...newFloats]);
-        // Remover após vida útil (cronômetro a partir da inserção no DOM)
+        // Remover apÃ³s vida Ãºtil (cronÃ´metro a partir da inserÃ§Ã£o no DOM)
         setTimeout(() => {
           const ids = new Set(entries.map(e => e.id));
           setFloatingTexts(prev => prev.filter(t => !ids.has(t.id)));
@@ -2764,12 +2764,12 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
   // Roll Chakra logic (accepts count of chakra elements to roll)
   const rollChakraForTurn = (isPlayer: boolean, count: number = 1, turnOverride?: number) => {
-    // 🧊 Sandbox com geração pausada: não gera chakra ao virar o turno (mas gasto/remoção continuam contando)
+    // ðŸ§Š Sandbox com geraÃ§Ã£o pausada: nÃ£o gera chakra ao virar o turno (mas gasto/remoÃ§Ã£o continuam contando)
     if (chakraGenPaused) return;
     const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
     const rolled: (keyof ChakraPool)[] = [];
 
-    // Deterministic PRNG for online sync (shared room seed → both clients roll
+    // Deterministic PRNG for online sync (shared room seed â†’ both clients roll
     // identical chakra for each slot every turn).
     let seed = 0;
     const effectiveTurn = turnOverride ?? turn;
@@ -2817,7 +2817,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
         {
           id: Math.random().toString(),
           turn,
-          message: `🌀 Jogador gerou (${count > 1 ? `${count} chakras` : '1 chakra'}): ${rolled.map(r => `[${r}]`).join(', ')}`,
+          message: `ðŸŒ€ Jogador gerou (${count > 1 ? `${count} chakras` : '1 chakra'}): ${rolled.map(r => `[${r}]`).join(', ')}`,
           type: 'chakra',
         },
       ]);
@@ -2936,7 +2936,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       if (activePlanner === 'enemy' && !isEnemyChar) return;
     }
 
-    // 🌀 Habilidade Passiva: não pode ser selecionada em batalha
+    // ðŸŒ€ Habilidade Passiva: nÃ£o pode ser selecionada em batalha
     if (skill.isPassive) {
       addFloatingText(charId, 'HABILIDADE PASSIVA', 'effect');
       playCustomSound('Error');
@@ -2949,21 +2949,21 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       return;
     }
 
-    // Invulnerabilidade Total (Selo): o personagem não pode selecionar nenhuma skill
-    // enquanto estiver selado — apenas passar o turno
+    // Invulnerabilidade Total (Selo): o personagem nÃ£o pode selecionar nenhuma skill
+    // enquanto estiver selado â€” apenas passar o turno
     if (hasTotalInvulnerability(combatant)) {
-      addFloatingText(charId, 'SELADO (INVULNERÁVEL)!', 'invulnerable');
+      addFloatingText(charId, 'SELADO (INVULNERÃVEL)!', 'invulnerable');
       playCustomSound('Error');
       return;
     }
 
-    // 🔓 Liberação Atrasada: skill bloqueada enquanto o efeito não termina
+    // ðŸ”“ LiberaÃ§Ã£o Atrasada: skill bloqueada enquanto o efeito nÃ£o termina
     if (isSkillBlockedByDelayedUnlock(skill, combatant.activeEffects)) {
       addFloatingText(charId, 'SKILL BLOQUEADA!', 'stun');
       return;
     }
 
-    // 🔢 Limite de usos: se já atingiu o total de usos bem-sucedidos, fica bloqueada
+    // ðŸ”¢ Limite de usos: se jÃ¡ atingiu o total de usos bem-sucedidos, fica bloqueada
     if ((skill.maxUses || 0) > 0 && (combatant.skillUseCounts?.[skill.name] || 0) >= skill.maxUses!) {
       addFloatingText(charId, 'LIMITE DE USOS ATINGIDO!', 'stun');
       return;
@@ -2996,7 +2996,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     if (skill.requireHpBelow && skill.requireHpBelow > 0) {
       const hpThreshold = skill.requireHpBelow;
       if (combatant.health > hpThreshold) {
-        addFloatingText(charId, `Requer HP ≤ ${hpThreshold}!`, 'effect');
+        addFloatingText(charId, `Requer HP â‰¤ ${hpThreshold}!`, 'effect');
         return;
       }
     }
@@ -3009,7 +3009,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     // Blocked after resurrecting (blockIfRevived)
     if (skill.blockIfRevived && combatant.hasRevived) {
-      addFloatingText(charId, 'Bloqueada após ressuscitar!', 'effect');
+      addFloatingText(charId, 'Bloqueada apÃ³s ressuscitar!', 'effect');
       return;
     }
 
@@ -3131,7 +3131,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     const targetChar = targetList.find(c => c.id === targetId);
     if (!targetChar) return;
 
-    // ✨ Reviver: com reviveDeadAllies ativo, um ALIADO MORTO pode ser clicado para ser revivido
+    // âœ¨ Reviver: com reviveDeadAllies ativo, um ALIADO MORTO pode ser clicado para ser revivido
     if (skill.reviveDeadAllies && targetChar.isDead && !isSourceEnemy) {
       playCustomSound('Target');
       setCuedActions(prev => {
@@ -3142,7 +3142,6 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
         ];
       });
       setSelectedSkill(null);
-      addFloatingText(targetId, 'ALVO MARCADO!', 'effect');
       return;
     }
     if (targetChar.isDead) return;
@@ -3150,7 +3149,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     // Check if skill is already active on target and skill prevents re-application
     if (skill.doNotApplyIfActive && isSkillActiveOnTarget(targetChar, skill.name)) {
       playCustomSound('Error');
-      addFloatingText(targetId, 'EFEITO JÁ ATIVO NO ALVO!', 'stun');
+      addFloatingText(targetId, 'EFEITO JÃ ATIVO NO ALVO!', 'stun');
       return;
     }
 
@@ -3171,14 +3170,14 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       const isBlockedFromFriendly = targetChar.activeEffects.some(e => e.type === 'cannot_receive_friendly');
       if (isBlockedFromFriendly) {
         playCustomSound('Error');
-        addFloatingText(targetId, 'IMPOSSIBILITADO DE RECEBER SKILLS AMIGÁVEIS!', 'stun');
+        addFloatingText(targetId, 'IMPOSSIBILITADO DE RECEBER SKILLS AMIGÃVEIS!', 'stun');
         return;
       }
-      // Invulnerabilidade Total: skills amigáveis (aliados/próprio) também não podem
+      // Invulnerabilidade Total: skills amigÃ¡veis (aliados/prÃ³prio) tambÃ©m nÃ£o podem
       // marcar o alvo, exceto skills com ignoreInvulnerable
       if (isInvulnToFriendlyEffects(targetChar, skill)) {
         playCustomSound('Error');
-        addFloatingText(targetId, 'ALVO INVULNERÁVEL!', 'invulnerable');
+        addFloatingText(targetId, 'ALVO INVULNERÃVEL!', 'invulnerable');
         return;
       }
     } else {
@@ -3188,20 +3187,20 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
         const allInvulnerable = livingTargets.length > 0 && livingTargets.every(c => checkCombatantInvulnerable(c, skill, sourceChar));
         if (allInvulnerable && !skill.ignoreInvulnerable) {
           playCustomSound('Error');
-          addFloatingText(targetId, 'TODOS INIMIGOS INVULNERÁVEIS!', 'invulnerable');
+          addFloatingText(targetId, 'TODOS INIMIGOS INVULNERÃVEIS!', 'invulnerable');
           return;
         }
       } else {
         const isTargetInvisible = hasNegateFriendlyEffects(targetChar) ? false : targetChar.activeEffects.some(e => e.type === 'invisible');
         if (isTargetInvisible) {
           playCustomSound('Error');
-          addFloatingText(targetId, 'ALVO INVISÍVEL!', 'stun');
+          addFloatingText(targetId, 'ALVO INVISÃVEL!', 'stun');
           return;
         }
         const isTargetInvulnerable = checkCombatantInvulnerable(targetChar, skill, sourceChar);
         if (isTargetInvulnerable && !skill.ignoreInvulnerable) {
           playCustomSound('Error');
-          addFloatingText(targetId, 'ALVO INVULNERÁVEL!', 'invulnerable');
+          addFloatingText(targetId, 'ALVO INVULNERÃVEL!', 'invulnerable');
           return;
         }
       }
@@ -3219,16 +3218,9 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     });
 
     setSelectedSkill(null);
-
-    if (effectiveTargetType === 'AllEnemies') {
-      const nonInvulTargets = targetList.filter(c => !c.isDead && (!checkCombatantInvulnerable(c, skill) || skill.ignoreInvulnerable));
-      nonInvulTargets.forEach(t => {
-        addFloatingText(t.id, 'Alvo Marcado!', 'effect');
-      });
-    }
   };
 
-  // ✨ Reviver: true quando a skill selecionada tem reviveDeadAllies (permite clicar em aliados mortos)
+  // âœ¨ Reviver: true quando a skill selecionada tem reviveDeadAllies (permite clicar em aliados mortos)
   const isReviveSelectionActive = (): boolean => {
     if (!selectedSkill) return false;
     const src = selectedSkill.charId.startsWith('enemy')
@@ -3271,7 +3263,7 @@ const handleTradeChakra = () => {
     {
       id: Math.random().toString(),
       turn,
-      message: `🔄 Troca de Chakra: 4 chakras convertidos em 1 [${currentTarget}]!`,
+      message: `ðŸ”„ Troca de Chakra: 4 chakras convertidos em 1 [${currentTarget}]!`,
       type: 'chakra',
     },
   ]);
@@ -3281,12 +3273,12 @@ const handleTradeChakra = () => {
   const [activePlanner, setActivePlanner] = useState<'player' | 'enemy'>('player');
   const activePlannerRef = useRef<'player' | 'enemy'>('player');
   useEffect(() => { activePlannerRef.current = activePlanner; }, [activePlanner]);
-  // ⏱️ COOLDOWN DE TURNO: quando o jogador se torna o planner (após a 1ª resolução),
+  // â±ï¸ COOLDOWN DE TURNO: quando o jogador se torna o planner (apÃ³s a 1Âª resoluÃ§Ã£o),
   // inicia um cooldown de 5s antes dele poder finalizar o turno novamente.
-  // No sandbox, o cooldown vale também para a fase do OPONENTE (que vc comanda manualmente).
+  // No sandbox, o cooldown vale tambÃ©m para a fase do OPONENTE (que vc comanda manualmente).
   useEffect(() => {
     if (gameOver) return;
-    // Limpa qualquer interval anterior (deps mudaram → nova fase de planejamento)
+    // Limpa qualquer interval anterior (deps mudaram â†’ nova fase de planejamento)
     if (turnCooldownIntervalRef.current) {
       clearInterval(turnCooldownIntervalRef.current);
       turnCooldownIntervalRef.current = null;
@@ -3336,13 +3328,13 @@ const handleTradeChakra = () => {
     }) ?? false;
   };
 
-  // Tipos de redução de dano: Guard reduz dano normal (não perfuração);
-  // damage_reduction_pierce (Imune a Perfuração) reduz dano normal E dano direto/perfuração.
+  // Tipos de reduÃ§Ã£o de dano: Guard reduz dano normal (nÃ£o perfuraÃ§Ã£o);
+  // damage_reduction_pierce (Imune a PerfuraÃ§Ã£o) reduz dano normal E dano direto/perfuraÃ§Ã£o.
   const NORMAL_DAMAGE_REDUCTION_TYPES = ['damage_reduction', 'damage_reduction_pierce'];
   const PIERCE_DAMAGE_REDUCTION_TYPES = ['damage_reduction_pierce'];
 
-  // Reduções de dano que valem para a skill em questão: effects com excludeAffliction
-  // (Wood Spire Prison aliado) NÃO reduzem dano de skills da classe Aflição.
+  // ReduÃ§Ãµes de dano que valem para a skill em questÃ£o: effects com excludeAffliction
+  // (Wood Spire Prison aliado) NÃƒO reduzem dano de skills da classe AfliÃ§Ã£o.
   const getEffectiveTargetReductions = (target: CombatCharacter, skill: Skill | null, pierce: boolean = false): ActiveEffect[] => {
     const base = target.activeEffects.filter(e => (pierce ? PIERCE_DAMAGE_REDUCTION_TYPES : NORMAL_DAMAGE_REDUCTION_TYPES).includes(e.type));
     if (!skill || base.length === 0) return base;
@@ -3369,8 +3361,8 @@ const handleTradeChakra = () => {
     return true;
   };
 
-  // Shield Stun Immunity: enquanto o alvo tiver escudo ativo (com a proteção marcada
-  // por shield_stun_immunity), stuns são bloqueados.
+  // Shield Stun Immunity: enquanto o alvo tiver escudo ativo (com a proteÃ§Ã£o marcada
+  // por shield_stun_immunity), stuns sÃ£o bloqueados.
   const hasShieldStunImmunity = (c: CombatCharacter): boolean => {
     if ((c.shield || 0) <= 0) return false;
     if (!c.activeEffects.some(e => e.type === 'shield_stun_immunity')) return false;
@@ -3379,7 +3371,7 @@ const handleTradeChakra = () => {
   };
 
   const pushActiveEffect = (character: CombatCharacter, effect: ActiveEffect) => {
-    // 🚑 Bloqueio de curas: skills com "não pode ser curada enquanto ativa" marcam seus efeitos
+    // ðŸš‘ Bloqueio de curas: skills com "nÃ£o pode ser curada enquanto ativa" marcam seus efeitos
     if (!effect.blocksHeals && currentSkillRef.current?.blocksHealsWhileActive) {
       effect = { ...effect, blocksHeals: true };
     }
@@ -3404,11 +3396,11 @@ const handleTradeChakra = () => {
 
     // Check if character is blocked from receiving friendly skills
     if ((character.activeEffects.some(e => e.type === 'cannot_receive_friendly') || hasNegateFriendlyEffects(character)) && !isDebuffEffect(effect)) {
-      addFloatingText(character.id, 'BLOQUEADO (SKILL AMIGÁVEL)', 'stun');
+      addFloatingText(character.id, 'BLOQUEADO (SKILL AMIGÃVEL)', 'stun');
       return;
     }
 
-    // Reativar o mesmo efeito/skill reseta o consumo de regras de alvo "uma vez por ativação"
+    // Reativar o mesmo efeito/skill reseta o consumo de regras de alvo "uma vez por ativaÃ§Ã£o"
     character.activeEffects.forEach(e => {
       if ((e as any).targetRuleConsumedAt && e.name === effect.name) {
         delete (e as any).targetRuleConsumedAt;
@@ -3419,7 +3411,7 @@ const handleTradeChakra = () => {
     const execSkill = currentSkillRef.current;
     const skill = character.character.skills.find(s => s.name === effect.name || effect.name.startsWith(s.name));
     // Apenas efeitos 'custom' (marcadores de stack reais) herdam stackable/stackType da skill executada.
-    // Buffs comuns (redução de dano, escudo, etc.) NÃO devem virar "stacks fantasma".
+    // Buffs comuns (reduÃ§Ã£o de dano, escudo, etc.) NÃƒO devem virar "stacks fantasma".
     const isStackEffect = effect.type === 'custom';
     const isStackable = effect.stackable ?? (isStackEffect ? (execSkill?.stackable ?? skill?.stackable ?? false) : false);
     const stackType = effect.stackType ?? (isStackEffect ? (execSkill?.stackType ?? skill?.stackType) : undefined);
@@ -3429,8 +3421,8 @@ const handleTradeChakra = () => {
     const skillInvisible = execSkill?.invisible || (execSkill?.invisibleDuration !== undefined && execSkill?.invisibleDuration > 0);
     const sourceName = effect.sourceSkillName || execSkill?.name || skill?.name || effect.name;
     const effectiveStackType = stackType || (isStackable ? sourceName : undefined);
-    // ♾️ Permanente: se a skill que originou o efeito for permanente, o efeito NÃO pode ser removido
-    // por nenhuma skill (nem cleanse de aflição/etc). Só sai pela morte do conjurador quando
+    // â™¾ï¸ Permanente: se a skill que originou o efeito for permanente, o efeito NÃƒO pode ser removido
+    // por nenhuma skill (nem cleanse de afliÃ§Ã£o/etc). SÃ³ sai pela morte do conjurador quando
     // removedOnCasterDeath estiver marcado (tratado em processDeathEvents, que ignora irremovable).
     const originSkill = execSkill || skill;
     const isPermanentEffect = !!originSkill?.permanent;
@@ -3458,8 +3450,8 @@ const handleTradeChakra = () => {
       }
     }
 
-    // Efeitos não-stack de skills stackable (ex.: redução de dano): reaplicar a skill
-    // refresca a duração do efeito existente, sem duplicar nem inflar stacks fantasma.
+    // Efeitos nÃ£o-stack de skills stackable (ex.: reduÃ§Ã£o de dano): reaplicar a skill
+    // refresca a duraÃ§Ã£o do efeito existente, sem duplicar nem inflar stacks fantasma.
     if (!isStackable && !effectiveStackType && effect.sourceSkillName && effect.type !== 'retaliate_damage' && (execSkill?.stackable || skill?.stackable)) {
       const existing = character.activeEffects.find(
         e => e.type === effect.type && e.sourceSkillName === effect.sourceSkillName && !e.stackable && !e.stackType
@@ -3488,7 +3480,7 @@ const handleTradeChakra = () => {
     });
   };
 
-  // Attach a "Reflexão por Stack" marker whenever a stack (from a skill configured
+  // Attach a "ReflexÃ£o por Stack" marker whenever a stack (from a skill configured
   // with reflectByStackRules) is applied to a combatant. While the marker + the stack
   // are both active on the defender, offensive skills used by the attacker on the
   // defender are redirected to an enemy with the stack. The marker respects the rule's
@@ -3511,16 +3503,16 @@ const handleTradeChakra = () => {
     const markerDuration = matchedRule.durationTurns && matchedRule.durationTurns > 0 ? matchedRule.durationTurns : 999;
     const existingMarker = character.activeEffects.find(e => e.type === 'redirect_by_stack' && e.stackType === effStackType);
     if (existingMarker) {
-      // Re-aplicação da stack renova a janela de reflexão
+      // Re-aplicaÃ§Ã£o da stack renova a janela de reflexÃ£o
       existingMarker.duration = markerDuration;
       existingMarker.castTurn = turn;
       existingMarker.casterId = casterId;
       existingMarker.casterSide = casterSide;
-      addFloatingText(character.id, '🔁 REFLEXO DE STACK', 'effect');
+      addFloatingText(character.id, 'ðŸ” REFLEXO DE STACK', 'effect');
       return;
     }
     character.activeEffects.push({
-      name: `Reflexão de Stack (${effStackType})`,
+      name: `ReflexÃ£o de Stack (${effStackType})`,
       type: 'redirect_by_stack',
       value: 0,
       duration: markerDuration,
@@ -3532,7 +3524,7 @@ const handleTradeChakra = () => {
       sourceSkillName: sourceSkill.name,
       castTurn: turn,
     });
-    addFloatingText(character.id, '🔁 REFLEXO DE STACK', 'effect');
+    addFloatingText(character.id, 'ðŸ” REFLEXO DE STACK', 'effect');
   };
 
   // If the stack effect's origin skill has a cap (stackCapReset), reset stacks to 1 when the cap is reached
@@ -3542,7 +3534,7 @@ const handleTradeChakra = () => {
     if (!cap || cap <= 0) return false;
     if ((eff.stacks || 1) >= cap) {
       eff.stacks = 1;
-      addFloatingText(character.id, `🔄 RESET (${(eff.stackType || '').toUpperCase()})`, 'effect');
+      addFloatingText(character.id, `ðŸ”„ RESET (${(eff.stackType || '').toUpperCase()})`, 'effect');
       return true;
     }
     return false;
@@ -3611,14 +3603,14 @@ const handleTradeChakra = () => {
         logsList.push({
           id: Math.random().toString(),
           turn,
-          message: `🔥 [${skillName}] de ${sourceName} REMOVEU ${affectedTypes.length} chakra (${affectedStr}) do estoque de chakra de ${victimIsPlayer ? 'seu time' : 'oponente'}!`,
+          message: `ðŸ”¥ [${skillName}] de ${sourceName} REMOVEU ${affectedTypes.length} chakra (${affectedStr}) do estoque de chakra de ${victimIsPlayer ? 'seu time' : 'oponente'}!`,
           type: 'chakra',
         });
         addFloatingText(targetId, `-${affectedTypes.length} CHAKRA REMOVIDO`, 'effect');
         if (victimIsPlayer) {
-          triggerChakraToast(`🔥 ${sourceName} removeu ${affectedTypes.length} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
+          triggerChakraToast(`ðŸ”¥ ${sourceName} removeu ${affectedTypes.length} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
         } else {
-          triggerChakraToast(`🔥 CHAKRA REMOVIDO: ${sourceName} removeu ${affectedTypes.length} chakra (${affectedStr}) do estoque do oponente!`, 'removed');
+          triggerChakraToast(`ðŸ”¥ CHAKRA REMOVIDO: ${sourceName} removeu ${affectedTypes.length} chakra (${affectedStr}) do estoque do oponente!`, 'removed');
         }
       } else {
         if (isPlayerAction && !victimIsPlayer) {
@@ -3629,7 +3621,7 @@ const handleTradeChakra = () => {
         logsList.push({
           id: Math.random().toString(),
           turn,
-          message: `🌀 [${skillName}] de ${sourceName} ${actionType === 'drain' ? 'drenou' : 'roubou'} ${stolenGainedTypes.length} chakra (${gainedStr}) para a sua equipe! ${victimNote}`,
+          message: `ðŸŒ€ [${skillName}] de ${sourceName} ${actionType === 'drain' ? 'drenou' : 'roubou'} ${stolenGainedTypes.length} chakra (${gainedStr}) para a sua equipe! ${victimNote}`,
           type: 'chakra',
         });
         addFloatingText(sourceId, `+${stolenGainedTypes.length} CHAKRA ROUBADO`, 'effect');
@@ -3637,22 +3629,22 @@ const handleTradeChakra = () => {
           addFloatingText(targetId, `-${affectedTypes.length} CHAKRA ${actionType === 'drain' ? 'DRENADO' : 'ROUBADO'}`, 'effect');
         }
         if (victimIsPlayer) {
-          triggerChakraToast(`⚠️ ${sourceName} roubou ${stolenGainedTypes.length} chakra (${gainedStr}) do estoque!`, 'lost');
+          triggerChakraToast(`âš ï¸ ${sourceName} roubou ${stolenGainedTypes.length} chakra (${gainedStr}) do estoque!`, 'lost');
         } else {
-          triggerChakraToast(`⚡ ROUBO CONFIRMADO: ${sourceName} roubou ${stolenGainedTypes.length} chakra (${gainedStr}) para seu time!`, 'stolen');
+          triggerChakraToast(`âš¡ ROUBO CONFIRMADO: ${sourceName} roubou ${stolenGainedTypes.length} chakra (${gainedStr}) para seu time!`, 'stolen');
         }
       }
     } else {
       logsList.push({
         id: Math.random().toString(),
         turn,
-        message: `🌀 [${skillName}] de ${sourceName} tentou remover chakra, mas o ${victimIsPlayer ? 'seu time' : 'oponente'} não tinha chakra no estoque!`,
+        message: `ðŸŒ€ [${skillName}] de ${sourceName} tentou remover chakra, mas o ${victimIsPlayer ? 'seu time' : 'oponente'} nÃ£o tinha chakra no estoque!`,
         type: 'chakra',
       });
       if (!victimIsPlayer) {
-        triggerChakraToast(`ℹ️ [${skillName}] tentou remover chakra, mas o oponente estava sem chakra no estoque!`, 'info');
+        triggerChakraToast(`â„¹ï¸ [${skillName}] tentou remover chakra, mas o oponente estava sem chakra no estoque!`, 'info');
       } else {
-        triggerChakraToast(`ℹ️ [${skillName}] tentou remover chakra, mas seu time estava sem chakra no estoque!`, 'info');
+        triggerChakraToast(`â„¹ï¸ [${skillName}] tentou remover chakra, mas seu time estava sem chakra no estoque!`, 'info');
       }
     }
   };
@@ -3681,7 +3673,7 @@ const handleTradeChakra = () => {
     }, 0);
   };
 
-  // Total damage_buff currently active on the caster of an effect (bônus de dano)
+  // Total damage_buff currently active on the caster of an effect (bÃ´nus de dano)
   const damageBuffAppliesToSkill = (buff: ActiveEffect, skill: Character['skills'][number] | null): boolean => {
     const types = buff.buffTypes;
     if (!types || types.length === 0) return true;
@@ -3694,14 +3686,14 @@ const handleTradeChakra = () => {
   // Localiza a skill que originou um efeito nos skills do conjurador (mesmo matching do turno)
   const getEffectSkillFromCaster = (eff: ActiveEffect, caster: CombatCharacter): Character['skills'][number] | null => {
     const effName = eff.name || '';
-    const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|Aflição|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
+    const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|AfliÃ§Ã£o|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
     return caster.character.skills.find(s => !!s.name && (s.name === baseName || effName.startsWith(s.name))) || null;
   };
 
   // Process revivals (revive_on_death) and removal of effects whose caster died
   const processDeathEvents = (combatantList: CombatCharacter[], logs: CombatLog[]) => {
-    // 0) 💞 Vínculo de Morte (death_link): se um vinculado morre, o outro também morre.
-    //    Propaga em cascata até estabilizar (um vínculo pode encadear outros).
+    // 0) ðŸ’ž VÃ­nculo de Morte (death_link): se um vinculado morre, o outro tambÃ©m morre.
+    //    Propaga em cascata atÃ© estabilizar (um vÃ­nculo pode encadear outros).
     let dlChanged = true;
     let dlGuard = 0;
     while (dlChanged && dlGuard < 20) {
@@ -3719,10 +3711,10 @@ const handleTradeChakra = () => {
             logs.push({
               id: Math.random().toString(),
               turn,
-              message: `💞💀 ${partner.character.name} morreu junto com ${c.character.name} pelo Vínculo de Morte!`,
+              message: `ðŸ’žðŸ’€ ${partner.character.name} morreu junto com ${c.character.name} pelo VÃ­nculo de Morte!`,
               type: 'death',
             });
-            addFloatingText(partner.id, '💞 VÍNCULO DE MORTE', 'damage');
+            addFloatingText(partner.id, 'ðŸ’ž VÃNCULO DE MORTE', 'damage');
           }
         });
       });
@@ -3745,7 +3737,7 @@ const handleTradeChakra = () => {
       logs.push({
         id: Math.random().toString(),
         turn,
-        message: `💀✨ ${c.character.name} RESSUSCITOU com ${reviveVal} de vida!${remainingStacks > 0 ? ` (${remainingStacks} ressurreição(ões) restante(s))` : ''}`,
+        message: `ðŸ’€âœ¨ ${c.character.name} RESSUSCITOU com ${reviveVal} de vida!${remainingStacks > 0 ? ` (${remainingStacks} ressurreiÃ§Ã£o(Ãµes) restante(s))` : ''}`,
         type: 'heal',
       });
       addFloatingText(c.id, `RESSUSCITADO (+${reviveVal} HP)`, 'heal');
@@ -3766,16 +3758,16 @@ const handleTradeChakra = () => {
           logs.push({
             id: Math.random().toString(),
             turn,
-            message: `💀 A morte de ${dead.character.name} removeu seus efeitos de ${other.character.name}!`,
+            message: `ðŸ’€ A morte de ${dead.character.name} removeu seus efeitos de ${other.character.name}!`,
             type: 'buff',
           });
           addFloatingText(other.id, 'EFEITOS REMOVIDOS', 'effect');
         }
       });
     });
-    // 3) 💀 Limpeza total na morte: TODOS os buffs/debuffs de quem morreu são removidos,
-    //    INCLUSIVE efeitos marcados como irremovíveis (🔒 Nunca Remover).
-    //    Roda DEPOIS dos vínculos de morte e das ressurreições passivas para não quebrá-las.
+    // 3) ðŸ’€ Limpeza total na morte: TODOS os buffs/debuffs de quem morreu sÃ£o removidos,
+    //    INCLUSIVE efeitos marcados como irremovÃ­veis (ðŸ”’ Nunca Remover).
+    //    Roda DEPOIS dos vÃ­nculos de morte e das ressurreiÃ§Ãµes passivas para nÃ£o quebrÃ¡-las.
     combatantList.forEach(dead => {
       if (!dead.isDead || dead.activeEffects.length === 0) return;
       const removedCount = dead.activeEffects.length;
@@ -3783,14 +3775,14 @@ const handleTradeChakra = () => {
       logs.push({
         id: Math.random().toString(),
         turn,
-        message: `💀 A morte de ${dead.character.name} removeu TODOS os seus ${removedCount} efeito(s) ativo(s) (inclusive irremovíveis)!`,
+        message: `ðŸ’€ A morte de ${dead.character.name} removeu TODOS os seus ${removedCount} efeito(s) ativo(s) (inclusive irremovÃ­veis)!`,
         type: 'buff',
       });
       addFloatingText(dead.id, 'EFEITOS REMOVIDOS', 'effect');
     });
   };
 
-  // Origami Lotus rule (Young Konan only): quando um aliado/personagem com Origami Lotus é curado,
+  // Origami Lotus rule (Young Konan only): quando um aliado/personagem com Origami Lotus Ã© curado,
   // a conjuradora (Young Konan) ganha +1 stack de "Paper Gathering".
   const checkAndGrantOrigamiLotusGathering = (
     target: CombatCharacter,
@@ -3819,7 +3811,7 @@ const handleTradeChakra = () => {
       } else {
         const pgSkill = caster.character.skills.find(s => s.name === 'Paper Gathering');
         pushActiveEffect(caster, {
-          name: 'Paper Gathering Retaliação',
+          name: 'Paper Gathering RetaliaÃ§Ã£o',
           type: 'retaliate_damage',
           value: 5,
           retaliateDamageVal: 5,
@@ -3836,7 +3828,7 @@ const handleTradeChakra = () => {
       logArr.push({
         id: Math.random().toString(),
         turn,
-        message: `🌺 [Origami Lotus] ${target.character.name} foi curado e concedeu +1 stack de [Paper Gathering] a ${caster.character.name}!`,
+        message: `ðŸŒº [Origami Lotus] ${target.character.name} foi curado e concedeu +1 stack de [Paper Gathering] a ${caster.character.name}!`,
         type: 'buff',
       });
       addFloatingText(caster.id, '+1 PAPER GATHERING', 'effect');
@@ -3845,7 +3837,7 @@ const handleTradeChakra = () => {
 
   // Helper to execute actions for a single side (Player or Enemy) immediately
   const executeSideActions = (sideActions: CuedAction[], isPlayerSide: boolean, customRandAllocation?: ChakraPool): boolean => {
-    if (onlineParams?.isOnline) seedGameRng(onlineParams.seed, turn); // v29: same seed → same random results on both clients
+    if (onlineParams?.isOnline) seedGameRng(onlineParams.seed, turn); // v29: same seed â†’ same random results on both clients
     const newLogs: CombatLog[] = [];
     const srcPlayer = playerRef.current.length ? playerRef.current : playerCombatants;
     const srcEnemy = enemyRef.current.length ? enemyRef.current : enemyCombatants;
@@ -4001,7 +3993,7 @@ const handleTradeChakra = () => {
         casterSide: isPlayerAction ? 'player' : 'enemy',
         castTurn: turn,
       });
-      newLogs.push({ id: Math.random().toString(), turn, message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`, type: 'stun' });
+      newLogs.push({ id: Math.random().toString(), turn, message: `âš¡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`, type: 'stun' });
       addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
     };
 
@@ -4026,8 +4018,8 @@ const handleTradeChakra = () => {
       (source as any)._executingSkill = skill;
       currentSkillRef.current = skill;
 
-      // Regra de alvo "uma vez por ativação": marca o consumo na 1ª skill usada enquanto a condição está ativa.
-      // Depois disso, o alvo volta ao normal até a condição ser REATIVADA (reseta o marcador no pushActiveEffect).
+      // Regra de alvo "uma vez por ativaÃ§Ã£o": marca o consumo na 1Âª skill usada enquanto a condiÃ§Ã£o estÃ¡ ativa.
+      // Depois disso, o alvo volta ao normal atÃ© a condiÃ§Ã£o ser REATIVADA (reseta o marcador no pushActiveEffect).
       if (skill.targetRules && skill.targetRules.length > 0) {
         const allEffects = [
           ...source.activeEffects,
@@ -4045,14 +4037,14 @@ const handleTradeChakra = () => {
             (condEffect as any).targetRuleConsumedAt = turn;
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🎯 ${source.character.name} usou [${skill.name}] com alvo alterado (${rule.activeSkillName} ativo) — SÓ NESTA VEZ; o alvo volta ao normal até reativar ${rule.activeSkillName}!`,
+              message: `ðŸŽ¯ ${source.character.name} usou [${skill.name}] com alvo alterado (${rule.activeSkillName} ativo) â€” SÃ“ NESTA VEZ; o alvo volta ao normal atÃ© reativar ${rule.activeSkillName}!`,
               type: 'buff',
             });
           }
         }
       }
 
-      // Helper: encontra a marcação (efeito de stack) pelo nome da skill de marcação
+      // Helper: encontra a marcaÃ§Ã£o (efeito de stack) pelo nome da skill de marcaÃ§Ã£o
       const findMarkingEffect = (c: CombatCharacter, markingName: string) => {
         const mn = (markingName || '').trim().toLowerCase();
         if (!mn) return null;
@@ -4064,7 +4056,7 @@ const handleTradeChakra = () => {
         }) || null;
       };
 
-      // Janela temporária: MUDANÇA DE ALVO quando a marcação tiver X stacks (some quando o turno acabar)
+      // Janela temporÃ¡ria: MUDANÃ‡A DE ALVO quando a marcaÃ§Ã£o tiver X stacks (some quando o turno acabar)
       if (rawSkill.targetChangeOnStacksRules && rawSkill.targetChangeOnStacksRules.length > 0) {
         rawSkill.targetChangeOnStacksRules.forEach(rule => {
           if (!rule.markingSkillName || !rule.overrideTarget) return;
@@ -4087,14 +4079,14 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🎯 [MUDANÇA DE ALVO] ${source.character.name} tinha ${markEff.stacks} stacks de [${rule.markingSkillName}] e [${rawSkill.name}] agora tem alvo ${rule.overrideTarget} por ${dur} turno(s)!`,
+            message: `ðŸŽ¯ [MUDANÃ‡A DE ALVO] ${source.character.name} tinha ${markEff.stacks} stacks de [${rule.markingSkillName}] e [${rawSkill.name}] agora tem alvo ${rule.overrideTarget} por ${dur} turno(s)!`,
             type: 'buff',
           });
           addFloatingText(source.id, `ALVO: ${rule.overrideTarget}`, 'effect');
         });
       }
 
-      // Janela temporária: DANO ADICIONAL quando a marcação tiver X stacks (some quando o turno acabar)
+      // Janela temporÃ¡ria: DANO ADICIONAL quando a marcaÃ§Ã£o tiver X stacks (some quando o turno acabar)
       if (rawSkill.bonusDamageOnStacksRules && rawSkill.bonusDamageOnStacksRules.length > 0) {
         rawSkill.bonusDamageOnStacksRules.forEach(rule => {
           if (!rule.markingSkillName || !(rule.bonusDamage > 0)) return;
@@ -4117,7 +4109,7 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💥 [DANO ADICIONAL] ${source.character.name} tinha ${markEff.stacks} stacks de [${rule.markingSkillName}] e [${rawSkill.name}] agora causa +${rule.bonusDamage} de dano por ${dur} turno(s)!`,
+            message: `ðŸ’¥ [DANO ADICIONAL] ${source.character.name} tinha ${markEff.stacks} stacks de [${rule.markingSkillName}] e [${rawSkill.name}] agora causa +${rule.bonusDamage} de dano por ${dur} turno(s)!`,
             type: 'damage',
           });
           addFloatingText(source.id, `DANO +${rule.bonusDamage}`, 'effect');
@@ -4135,7 +4127,7 @@ const handleTradeChakra = () => {
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `📚 ${source.character.name} ganhou +${gain} stack(s) de [${eff.stackType}] ao usar [${skill.name}]! (${eff.stacks} total)`,
+          message: `ðŸ“š ${source.character.name} ganhou +${gain} stack(s) de [${eff.stackType}] ao usar [${skill.name}]! (${eff.stacks} total)`,
           type: 'buff',
         });
         addFloatingText(source.id, `+${gain} ${eff.stackType.toUpperCase()}`, 'effect');
@@ -4143,7 +4135,7 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔄 ${source.character.name} atingiu o limite de stacks de [${eff.stackType}] e resetou para 1!`,
+            message: `ðŸ”„ ${source.character.name} atingiu o limite de stacks de [${eff.stackType}] e resetou para 1!`,
             type: 'buff',
           });
         }
@@ -4160,14 +4152,14 @@ const handleTradeChakra = () => {
         if (triggeredRules.length > 0) {
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `⛓️ [${skill.name}] de ${source.character.name} IGNORA a invulnerabilidade porque [${triggeredRules.map(r => r.activeSkillName).join(', ')}] está ativo ${triggeredRules.some(r => r.activeOn === 'self') ? 'em mim' : 'no Oponente'}!`,
+            message: `â›“ï¸ [${skill.name}] de ${source.character.name} IGNORA a invulnerabilidade porque [${triggeredRules.map(r => r.activeSkillName).join(', ')}] estÃ¡ ativo ${triggeredRules.some(r => r.activeOn === 'self') ? 'em mim' : 'no Oponente'}!`,
             type: 'buff',
           });
           addFloatingText(source.id, 'IGNORA INVULN!', 'effect');
         }
       }
 
-      // Regra única do Mubi: usar skill amigável/passiva remove DoTs infinitos marcados com removedOnFriendlySkillUse
+      // Regra Ãºnica do Mubi: usar skill amigÃ¡vel/passiva remove DoTs infinitos marcados com removedOnFriendlySkillUse
       if (isFriendlyOrPassiveSkill(skill)) {
         const friendlyDots = source.activeEffects.filter(e => e.type === 'dot' && e.removedOnFriendlySkillUse);
         if (friendlyDots.length > 0) {
@@ -4176,7 +4168,7 @@ const handleTradeChakra = () => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💨 ${source.character.name} usou uma habilidade amigável/passiva e o dano contínuo infinito de [${dot.name}] foi removido!`,
+              message: `ðŸ’¨ ${source.character.name} usou uma habilidade amigÃ¡vel/passiva e o dano contÃ­nuo infinito de [${dot.name}] foi removido!`,
               type: 'heal',
             });
             addFloatingText(source.id, 'DOT REMOVIDO', 'heal');
@@ -4188,9 +4180,9 @@ const handleTradeChakra = () => {
       const effectiveCd = getEffectiveCooldown(skill, source, allCombatants);
       skill.currentCooldown = effectiveCd;
 
-      // 🩸 Regra exclusiva do Uchiha Fugaku: se [Ninjutsu Commanding] ou [Seals Commanding]
-      // forem usadas em um aliado que JÁ possui a stack "Uchiha Clan Member" (ativa, não pendente),
-      // a recarga da habilidade usada é reduzida em 1 (2 turnos → 1 turno).
+      // ðŸ©¸ Regra exclusiva do Uchiha Fugaku: se [Ninjutsu Commanding] ou [Seals Commanding]
+      // forem usadas em um aliado que JÃ possui a stack "Uchiha Clan Member" (ativa, nÃ£o pendente),
+      // a recarga da habilidade usada Ã© reduzida em 1 (2 turnos â†’ 1 turno).
       if (
         source.character.name === 'Uchiha Fugaku' &&
         (skill.name === 'Ninjutsu Commanding' || skill.name === 'Seals Commanding') &&
@@ -4208,16 +4200,16 @@ const handleTradeChakra = () => {
           skill.currentCooldown = beforeCd - 1;
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🩸 ${source.character.name} usou [${skill.name}] em ${fugakuAlly!.character.name} (que tem [Uchiha Clan Member]) — recarga reduzida de ${beforeCd} para ${skill.currentCooldown} turno(s)!`,
+            message: `ðŸ©¸ ${source.character.name} usou [${skill.name}] em ${fugakuAlly!.character.name} (que tem [Uchiha Clan Member]) â€” recarga reduzida de ${beforeCd} para ${skill.currentCooldown} turno(s)!`,
             type: 'buff',
           });
           addFloatingText(source.id, `-1 RECARGA (${skill.name})`, 'effect');
         }
       }
 
-      // Redução condicional de cooldown ATUAL de outra skill (cooldownReduceRules):
+      // ReduÃ§Ã£o condicional de cooldown ATUAL de outra skill (cooldownReduceRules):
       // quando a habilidade/efeito requerido estiver ativo (ou sempre, se o campo estiver vazio),
-      // reduz a recarga ATUAL da skill alvo (no próprio conjurador ou em aliados).
+      // reduz a recarga ATUAL da skill alvo (no prÃ³prio conjurador ou em aliados).
       if (skill.cooldownReduceRules && skill.cooldownReduceRules.length > 0) {
         const allActiveEffects = [
           ...source.activeEffects,
@@ -4225,9 +4217,9 @@ const handleTradeChakra = () => {
         ];
         for (const rule of skill.cooldownReduceRules) {
           if (!rule.targetSkillName || !(rule.reduceAmount > 0)) continue;
-          // Condição: se activeSkillName estiver vazio, aplica SEMPRE; se apontar para a
-          // PRÓPRIA skill sendo usada, também conta como ativo (o efeito/stack pode só ser
-          // aplicado mais adiante no pipeline). Caso contrário, exige o efeito ativo.
+          // CondiÃ§Ã£o: se activeSkillName estiver vazio, aplica SEMPRE; se apontar para a
+          // PRÃ“PRIA skill sendo usada, tambÃ©m conta como ativo (o efeito/stack pode sÃ³ ser
+          // aplicado mais adiante no pipeline). Caso contrÃ¡rio, exige o efeito ativo.
           const condLower = (rule.activeSkillName || '').trim().toLowerCase();
           const isSelfSkill = !!condLower && condLower === skill.name.trim().toLowerCase();
           const isCondActive = !condLower || isSelfSkill || allActiveEffects.some(e => {
@@ -4237,7 +4229,7 @@ const handleTradeChakra = () => {
           });
           if (!isCondActive) continue;
           const targetLower = rule.targetSkillName.trim().toLowerCase();
-          // Procura a skill alvo primeiro no conjurador; se não achar, procura nos aliados vivos
+          // Procura a skill alvo primeiro no conjurador; se nÃ£o achar, procura nos aliados vivos
           let targetOwner = source;
           let targetSkill = source.character.skills.find(s => s.name.trim().toLowerCase() === targetLower);
           if (!targetSkill) {
@@ -4247,11 +4239,11 @@ const handleTradeChakra = () => {
             }
           }
           if (!targetSkill) {
-            console.log('[COOLDOWN-REDUCE] skill alvo não encontrada:', rule.targetSkillName);
+            console.log('[COOLDOWN-REDUCE] skill alvo nÃ£o encontrada:', rule.targetSkillName);
             continue;
           }
           if (targetSkill.currentCooldown <= 0) {
-            console.log('[COOLDOWN-REDUCE] skill alvo já está sem recarga:', targetSkill.name, targetSkill.currentCooldown);
+            console.log('[COOLDOWN-REDUCE] skill alvo jÃ¡ estÃ¡ sem recarga:', targetSkill.name, targetSkill.currentCooldown);
             continue;
           }
           const before = targetSkill.currentCooldown;
@@ -4260,7 +4252,7 @@ const handleTradeChakra = () => {
           if (reduced > 0) {
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `⏱️ [RECARGA REDUZIDA] ${source.character.name} usou [${skill.name}] e reduziu a recarga de [${targetSkill.name}]${targetOwner.id !== source.id ? ` de ${targetOwner.character.name}` : ''} em ${reduced} (de ${before} para ${targetSkill.currentCooldown})${condLower ? ` porque [${rule.activeSkillName}] está ativo` : ''}!`,
+              message: `â±ï¸ [RECARGA REDUZIDA] ${source.character.name} usou [${skill.name}] e reduziu a recarga de [${targetSkill.name}]${targetOwner.id !== source.id ? ` de ${targetOwner.character.name}` : ''} em ${reduced} (de ${before} para ${targetSkill.currentCooldown})${condLower ? ` porque [${rule.activeSkillName}] estÃ¡ ativo` : ''}!`,
               type: 'buff',
             });
             addFloatingText(targetOwner.id, `-${reduced} RECARGA (${targetSkill.name})`, 'effect');
@@ -4279,7 +4271,7 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⏱️ ${source.character.name} usou [${skill.name}], mas seu cooldown foi AUMENTADO em +${cdBoost} (agora ${skill.currentCooldown}) pela maldição de recarga!`,
+            message: `â±ï¸ ${source.character.name} usou [${skill.name}], mas seu cooldown foi AUMENTADO em +${cdBoost} (agora ${skill.currentCooldown}) pela maldiÃ§Ã£o de recarga!`,
             type: 'stun',
           });
           addFloatingText(source.id, `CD +${cdBoost}`, 'stun');
@@ -4291,33 +4283,33 @@ const handleTradeChakra = () => {
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `🚫 ${source.character.name} tentou usar [${skill.name}], mas está ATORDOADO!`,
+          message: `ðŸš« ${source.character.name} tentou usar [${skill.name}], mas estÃ¡ ATORDOADO!`,
           type: 'system',
         });
         addFloatingText(source.id, 'ATORDOADO!', 'stun');
         return;
       }
 
-      // 🔓 Liberação Atrasada: skill bloqueada enquanto o efeito de bloqueio não termina
+      // ðŸ”“ LiberaÃ§Ã£o Atrasada: skill bloqueada enquanto o efeito de bloqueio nÃ£o termina
       if (isSkillBlockedByDelayedUnlock(skill, source.activeEffects)) {
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `🔒 ${source.character.name} tentou usar [${skill.name}], mas ela está BLOQUEADA até o efeito terminar!`,
+          message: `ðŸ”’ ${source.character.name} tentou usar [${skill.name}], mas ela estÃ¡ BLOQUEADA atÃ© o efeito terminar!`,
           type: 'system',
         });
         addFloatingText(source.id, 'SKILL BLOQUEADA!', 'stun');
         return;
       }
 
-      // 🔢 Limite de usos (maxUses): se a skill já atingiu o total de usos bem-sucedidos, fica bloqueada.
+      // ðŸ”¢ Limite de usos (maxUses): se a skill jÃ¡ atingiu o total de usos bem-sucedidos, fica bloqueada.
       if ((skill.maxUses || 0) > 0) {
         const usedCount = source.skillUseCounts?.[skill.name] || 0;
         if (usedCount >= skill.maxUses!) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔒 ${source.character.name} tentou usar [${skill.name}], mas ela já atingiu o limite de ${skill.maxUses} uso(s)!`,
+            message: `ðŸ”’ ${source.character.name} tentou usar [${skill.name}], mas ela jÃ¡ atingiu o limite de ${skill.maxUses} uso(s)!`,
             type: 'system',
           });
           addFloatingText(source.id, 'LIMITE DE USOS ATINGIDO!', 'stun');
@@ -4325,10 +4317,10 @@ const handleTradeChakra = () => {
         }
       }
 
-      // ♻️ Cancelar ao reusar (cancelSelfOnReuse): se esta skill JÁ está ativa no conjurador,
-      // usá-la de novo REMOVE o efeito anterior (buff E debuff) e não reaplica nesta ativação.
-      // Danos contínuos da própria skill (dano próprio/bleeding/dot/aflição/etc) batem um
-      // ÚLTIMO tique e saem — só voltam quando a skill for ativada de novo.
+      // â™»ï¸ Cancelar ao reusar (cancelSelfOnReuse): se esta skill JÃ estÃ¡ ativa no conjurador,
+      // usÃ¡-la de novo REMOVE o efeito anterior (buff E debuff) e nÃ£o reaplica nesta ativaÃ§Ã£o.
+      // Danos contÃ­nuos da prÃ³pria skill (dano prÃ³prio/bleeding/dot/afliÃ§Ã£o/etc) batem um
+      // ÃšLTIMO tique e saem â€” sÃ³ voltam quando a skill for ativada de novo.
       if (skill.cancelSelfOnReuse) {
         const priorEffects = source.activeEffects.filter(e =>
           (e.sourceSkillName && e.sourceSkillName === skill.name) ||
@@ -4344,23 +4336,23 @@ const handleTradeChakra = () => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🩸 ${source.character.name} sofreu o último -${dmg} de dano contínuo de [${skill.name}] antes do efeito acabar!`,
+              message: `ðŸ©¸ ${source.character.name} sofreu o Ãºltimo -${dmg} de dano contÃ­nuo de [${skill.name}] antes do efeito acabar!`,
               type: 'damage',
             });
-            addFloatingText(source.id, `-${dmg} HP (ÚLTIMO TICK)`, 'damage');
+            addFloatingText(source.id, `-${dmg} HP (ÃšLTIMO TICK)`, 'damage');
           });
           if (source.health <= 0 && !hasImmortalEffect(source)) {
             source.isDead = true;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💀 ${source.character.name} CAIU EM BATALHA!`,
+              message: `ðŸ’€ ${source.character.name} CAIU EM BATALHA!`,
               type: 'death',
             });
             addFloatingText(source.id, 'DERROTADO', 'damage');
           }
           source.activeEffects = source.activeEffects.filter(e => !priorEffects.includes(e));
-          newLogs.push({ id: Math.random().toString(), turn, message: `♻️ [${skill.name}] foi CANCELADO — ${source.character.name} perdeu seus efeitos e voltou a ficar vulnerável!`, type: 'buff' });
+          newLogs.push({ id: Math.random().toString(), turn, message: `â™»ï¸ [${skill.name}] foi CANCELADO â€” ${source.character.name} perdeu seus efeitos e voltou a ficar vulnerÃ¡vel!`, type: 'buff' });
           addFloatingText(source.id, `${skill.name} CANCELADO`, 'effect');
           return;
         }
@@ -4370,18 +4362,18 @@ const handleTradeChakra = () => {
       if (!currentTurnUsedSkills.current[source.id]) currentTurnUsedSkills.current[source.id] = new Set();
       currentTurnUsedSkills.current[source.id].add(skill.name);
       {
-        // Mesma definição de isOffensiveSkill (módulo) — a const local do bloco sombreia o nome aqui
+        // Mesma definiÃ§Ã£o de isOffensiveSkill (mÃ³dulo) â€” a const local do bloco sombreia o nome aqui
         const skTarget = skill.targetType || 'Enemy';
         const skIsOffensive = !['Self', 'Ally', 'AllAllies', 'SelfAndAlly', 'AnyLiving'].includes(skTarget)
           && !((skill.classes || []).some((c: string) => {
             const l = c.toLowerCase();
-            return l.includes('friendly') || l.includes('amigável') || l.includes('suporte') || l.includes('cura') || l.includes('heal');
+            return l.includes('friendly') || l.includes('amigÃ¡vel') || l.includes('suporte') || l.includes('cura') || l.includes('heal');
           }));
         if (skIsOffensive) usedOffensiveThisTurnRef.current[source.id] = true;
       }
 
-      // 🛡️ Proteção por Stack em Vida Baixa (no_counter_reflect): se o CONJURADOR possui o buff de
-      // proteção (aplicado por uma regra stackLowHpProtectionRules), suas skills não podem ser
+      // ðŸ›¡ï¸ ProteÃ§Ã£o por Stack em Vida Baixa (no_counter_reflect): se o CONJURADOR possui o buff de
+      // proteÃ§Ã£o (aplicado por uma regra stackLowHpProtectionRules), suas skills nÃ£o podem ser
       // contra-atacadas e/ou refletidas enquanto o buff estiver ativo.
       {
         const protection = source.activeEffects.find(e => e.type === 'no_counter_reflect');
@@ -4404,7 +4396,7 @@ const handleTradeChakra = () => {
       const defaultTarget = targetList.find(c => c.id === action.targetId) || sourceList.find(c => c.id === action.targetId) || source;
 
       // Regra condicional de contra-ataque/reflexo (noCounterReflectWhenActiveRules): se a habilidade
-      // listada estiver ATIVA (em mim ou no alvo), esta skill NÃO pode ser contra-atacada e/ou refletida
+      // listada estiver ATIVA (em mim ou no alvo), esta skill NÃƒO pode ser contra-atacada e/ou refletida
       if (rawSkill.noCounterReflectWhenActiveRules && rawSkill.noCounterReflectWhenActiveRules.length > 0) {
         for (const rule of rawSkill.noCounterReflectWhenActiveRules) {
           if (!rule.activeSkillName) continue;
@@ -4423,7 +4415,7 @@ const handleTradeChakra = () => {
           currentSkillRef.current = skill;
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🛡️ [SEM CONTRA-ATAQUE/REFLEXO] [${skill.name}] de ${source.character.name} não pode ser ${rule.noCounter && rule.noReflect ? 'contra-atacada nem refletida' : rule.noCounter ? 'contra-atacada' : 'refletida'} enquanto [${rule.activeSkillName}] estiver ativo ${rule.activeOn === 'self' ? 'em mim' : 'no alvo'}!`,
+            message: `ðŸ›¡ï¸ [SEM CONTRA-ATAQUE/REFLEXO] [${skill.name}] de ${source.character.name} nÃ£o pode ser ${rule.noCounter && rule.noReflect ? 'contra-atacada nem refletida' : rule.noCounter ? 'contra-atacada' : 'refletida'} enquanto [${rule.activeSkillName}] estiver ativo ${rule.activeOn === 'self' ? 'em mim' : 'no alvo'}!`,
             type: 'buff',
           });
         }
@@ -4453,7 +4445,7 @@ const handleTradeChakra = () => {
             _conditionalStunAppliedForAction = true;
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🌀 [STUN CONDICIONAL] ${source.character.name} stunnou ${defaultTarget.character.name} com [${skill.name}] por ${dur} turno(s) (${stunLabel}) porque [${rule.activeSkillName}] está ativo ${rule.activeOn === 'self' ? 'em mim' : 'no alvo'}!`,
+              message: `ðŸŒ€ [STUN CONDICIONAL] ${source.character.name} stunnou ${defaultTarget.character.name} com [${skill.name}] por ${dur} turno(s) (${stunLabel}) porque [${rule.activeSkillName}] estÃ¡ ativo ${rule.activeOn === 'self' ? 'em mim' : 'no alvo'}!`,
               type: 'stun',
             });
             addFloatingText(defaultTarget.id, `STUN (${stunLabel})`, 'stun');
@@ -4473,7 +4465,7 @@ const handleTradeChakra = () => {
           if (!condMet) continue;
           const shieldAmount = Math.max(0, rule.shieldVal || 0);
           if (shieldAmount <= 0) continue;
-          // Duração: vazio/0/99999 = PERMANENTE (fica até ser destruído); número = expira após X turnos
+          // DuraÃ§Ã£o: vazio/0/99999 = PERMANENTE (fica atÃ© ser destruÃ­do); nÃºmero = expira apÃ³s X turnos
           const shieldDur = rule.shieldDuration && rule.shieldDuration > 0 && rule.shieldDuration < 99999 ? rule.shieldDuration : undefined;
           const shieldRecipients = rule.shieldTarget === 'team'
             ? (action.isPlayer ? updatedPlayer : updatedEnemy).filter(c => !c.isDead)
@@ -4487,7 +4479,7 @@ const handleTradeChakra = () => {
             const actualAdded = rc.shield - prevShield;
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🛡️ [ESCUDO CONDICIONAL] ${rc.character.name} ganhou +${actualAdded} de escudo com [${skill.name}]${shieldDur < 99999 ? ` por ${shieldDur} turnos` : ''} porque [${rule.activeSkillName}] está ativo ${rule.activeOn === 'self' ? 'em mim' : 'no alvo'}!`,
+              message: `ðŸ›¡ï¸ [ESCUDO CONDICIONAL] ${rc.character.name} ganhou +${actualAdded} de escudo com [${skill.name}]${shieldDur < 99999 ? ` por ${shieldDur} turnos` : ''} porque [${rule.activeSkillName}] estÃ¡ ativo ${rule.activeOn === 'self' ? 'em mim' : 'no alvo'}!`,
               type: 'buff',
             });
             addFloatingText(rc.id, `ESCUDO +${actualAdded}`, 'shield');
@@ -4504,7 +4496,7 @@ const handleTradeChakra = () => {
         }
       }
 
-      // Young Nagato: Air Bullets track target — ONLY counts when Air Bullets is
+      // Young Nagato: Air Bullets track target â€” ONLY counts when Air Bullets is
       // the FIRST action of this turn (actionIndex === 0). Damage from any other
       // ally skill on the marked target in this same turn triggers the stun.
       if ((skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets')) && defaultTarget && !defaultTarget.isDead && actionIndex === 0) {
@@ -4526,7 +4518,7 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `👁️ [Implanted Sharingan] de ${source.character.name}: ${defaultTarget.character.name} foi marcado pelo Sharingan por 2 turnos!`,
+            message: `ðŸ‘ï¸ [Implanted Sharingan] de ${source.character.name}: ${defaultTarget.character.name} foi marcado pelo Sharingan por 2 turnos!`,
             type: 'buff',
           });
           addFloatingText(defaultTarget.id, 'MARCADO (SHARINGAN)', 'effect');
@@ -4562,7 +4554,7 @@ const handleTradeChakra = () => {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `👁️ [Implanted Sharingan] de ${kakashiCaster.character.name}: Copiou o Stun de ${source.character.name}! Suas habilidades causarão Stun Completo por 1 turno!`,
+                message: `ðŸ‘ï¸ [Implanted Sharingan] de ${kakashiCaster.character.name}: Copiou o Stun de ${source.character.name}! Suas habilidades causarÃ£o Stun Completo por 1 turno!`,
                 type: 'buff',
               });
               addFloatingText(kakashiCaster.id, 'BUFF: STUN COMPLETO', 'effect');
@@ -4593,7 +4585,7 @@ const handleTradeChakra = () => {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `👁️ [Implanted Sharingan] de ${kakashiCaster.character.name}: Analisou o dano de ${source.character.name}! Kakashi causará +10 de dano adicional por 1 turno!`,
+                message: `ðŸ‘ï¸ [Implanted Sharingan] de ${kakashiCaster.character.name}: Analisou o dano de ${source.character.name}! Kakashi causarÃ¡ +10 de dano adicional por 1 turno!`,
                 type: 'buff',
               });
               addFloatingText(kakashiCaster.id, '+10 DANO (SHARINGAN)', 'effect');
@@ -4607,10 +4599,10 @@ const handleTradeChakra = () => {
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `⚠️ [${skill.name}] de ${source.character.name} não foi aplicada em ${defaultTarget.character.name} pois a habilidade já está ativa no alvo.`,
+          message: `âš ï¸ [${skill.name}] de ${source.character.name} nÃ£o foi aplicada em ${defaultTarget.character.name} pois a habilidade jÃ¡ estÃ¡ ativa no alvo.`,
           type: 'buff',
         });
-        addFloatingText(defaultTarget.id, 'JÁ ATIVA NO ALVO!', 'effect');
+        addFloatingText(defaultTarget.id, 'JÃ ATIVA NO ALVO!', 'effect');
         return;
       }
 
@@ -4634,10 +4626,10 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️ ${source.character.name} usou [${skill.name}], mas TODOS os inimigos estão INVULNERÁVEIS!`,
+            message: `ðŸ›¡ï¸ ${source.character.name} usou [${skill.name}], mas TODOS os inimigos estÃ£o INVULNERÃVEIS!`,
             type: 'buff',
           });
-          addFloatingText(defaultTarget.id, 'TODOS INVULNERÁVEIS!', 'invulnerable');
+          addFloatingText(defaultTarget.id, 'TODOS INVULNERÃVEIS!', 'invulnerable');
         }
       } else {
         const isTargetInvulnerable = checkCombatantInvulnerable(defaultTarget, skill);
@@ -4645,10 +4637,10 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️ ${source.character.name} usou [${skill.name}] em ${defaultTarget.character.name}, mas o alvo está INVULNERÁVEL!`,
+            message: `ðŸ›¡ï¸ ${source.character.name} usou [${skill.name}] em ${defaultTarget.character.name}, mas o alvo estÃ¡ INVULNERÃVEL!`,
             type: 'buff',
           });
-          addFloatingText(defaultTarget.id, 'INVULNERÁVEL!', 'invulnerable');
+          addFloatingText(defaultTarget.id, 'INVULNERÃVEL!', 'invulnerable');
         }
       }
 
@@ -4664,13 +4656,13 @@ const handleTradeChakra = () => {
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `🚫 [${skill.name}] de ${source.character.name} foi ANULADO pelo Contra-Ataque ativo nele!`,
+          message: `ðŸš« [${skill.name}] de ${source.character.name} foi ANULADO pelo Contra-Ataque ativo nele!`,
           type: 'system',
         });
         addFloatingText(source.id, 'ANULADO', 'effect');
         source.lastTurnStatus = 'ANULADO';
         if (attackerCounterEffect.counterAttackUntilTriggered) {
-          // Persiste até efetivamente contra-atacar: agora que anulou, é removido
+          // Persiste atÃ© efetivamente contra-atacar: agora que anulou, Ã© removido
           source.activeEffects = source.activeEffects.filter(e => e !== attackerCounterEffect);
         } else if (attackerCounterEffect.counterAttackMode !== 'all') {
           attackerCounterEffect.duration = (attackerCounterEffect.duration || 1) - 1;
@@ -4678,8 +4670,8 @@ const handleTradeChakra = () => {
             source.activeEffects = source.activeEffects.filter(e => e !== attackerCounterEffect);
           }
         }
-        // 🌪️ REGRA ÚNICA DO GAARA (Constricting Sand Prison): ao contra-atacar, remove TODOS os
-        // efeitos dessa habilidade do inimigo (inclusive o dano contínuo).
+        // ðŸŒªï¸ REGRA ÃšNICA DO GAARA (Constricting Sand Prison): ao contra-atacar, remove TODOS os
+        // efeitos dessa habilidade do inimigo (inclusive o dano contÃ­nuo).
         if (attackerCounterEffect.sourceSkillName === 'Constricting Sand Prison') {
           const removedCount = source.activeEffects.filter(e => e.sourceSkillName === 'Constricting Sand Prison').length;
           source.activeEffects = source.activeEffects.filter(e => e.sourceSkillName !== 'Constricting Sand Prison');
@@ -4687,26 +4679,26 @@ const handleTradeChakra = () => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🌪️ [Constricting Sand Prison] foi rompida! Todos os efeitos dessa habilidade em ${source.character.name} foram removidos.`,
+              message: `ðŸŒªï¸ [Constricting Sand Prison] foi rompida! Todos os efeitos dessa habilidade em ${source.character.name} foram removidos.`,
               type: 'buff',
             });
-            addFloatingText(source.id, 'PRISÃO DE AREIA ROMPIDA', 'effect');
+            addFloatingText(source.id, 'PRISÃƒO DE AREIA ROMPIDA', 'effect');
           }
         }
-        // 📚💥⛓️ Regras de sucesso do contra-ataque (attacker mode): o "source" é quem teve a skill anulada.
-        // Aplica dano bônus / stun / stack no source (o atacante que foi anulado).
+        // ðŸ“šðŸ’¥â›“ï¸ Regras de sucesso do contra-ataque (attacker mode): o "source" Ã© quem teve a skill anulada.
+        // Aplica dano bÃ´nus / stun / stack no source (o atacante que foi anulado).
         if (!source.isDead && attackerCounterEffect.sourceSkillName) {
           const counterCaster = [...sourceList, ...targetList].find(c => c.id === attackerCounterEffect.casterId) || defaultTarget;
           const applierSkill = (counterCaster?.character.skills || source.character.skills || []).find(s => s.name === attackerCounterEffect.sourceSkillName);
-          // 💥 Dano bônus
+          // ðŸ’¥ Dano bÃ´nus
           const bonusRules = (applierSkill?.counterSuccessDamageRules || []).filter(r => (r.damage || 0) > 0);
-          const typeLabels: Record<string, string> = { damage: 'dano', direct_damage: 'dano direto', true: 'dano direto', piercing: 'dano direto', dot: 'queimadura', bleeding: 'sangramento', affliction: 'aflição' };
+          const typeLabels: Record<string, string> = { damage: 'dano', direct_damage: 'dano direto', true: 'dano direto', piercing: 'dano direto', dot: 'queimadura', bleeding: 'sangramento', affliction: 'afliÃ§Ã£o' };
           for (const r of bonusRules) {
             const rDmg = r.damage || 0;
             const rType = r.damageType || 'direct_damage';
             if (checkCombatantInvulnerable(source) || hasDamageImmunity(source, [rType])) {
               if (hasDamageImmunity(source, [rType])) consumeFirstHitOnlyImmunity(source, [rType]);
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${counterCaster.character.name} contra-atacou, mas ${source.character.name} é IMUNE ao dano bônus!`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${counterCaster.character.name} contra-atacou, mas ${source.character.name} Ã© IMUNE ao dano bÃ´nus!`, type: 'buff' });
               continue;
             }
             let actualDmg = rDmg;
@@ -4718,10 +4710,10 @@ const handleTradeChakra = () => {
               if (source.health <= 0 && !hasImmortalEffect(source)) source.isDead = true;
             }
             const typeLabel = typeLabels[rType] || 'dano direto';
-            newLogs.push({ id: Math.random().toString(), turn, message: `💥 [CONTRA-ATAQUE] ${counterCaster.character.name} causou +${rDmg} de ${typeLabel} em ${source.character.name} ao anular sua habilidade!`, type: 'damage' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’¥ [CONTRA-ATAQUE] ${counterCaster.character.name} causou +${rDmg} de ${typeLabel} em ${source.character.name} ao anular sua habilidade!`, type: 'damage' });
             addFloatingText(source.id, `-${rDmg} ${typeLabel.toUpperCase()}`, 'damage');
           }
-          // ⛓️ Stun
+          // â›“ï¸ Stun
           const stunRules = (applierSkill?.counterSuccessStunRules || []).filter(r => (r.stunTurns || 0) > 0);
           if (stunRules.length > 0 && !source.activeEffects?.some(e => e.type === 'ignore_stun')) {
             for (const r of stunRules) {
@@ -4732,11 +4724,11 @@ const handleTradeChakra = () => {
               if ((r.bonusDamage || 0) > 0) {
                 pushActiveEffect(source, { name: `Vulnerabilidade (${applierSkill?.name || 'Contra-Ataque'})`, type: 'damage_vulnerability', value: r.bonusDamage || 0, duration: stunDur, vulnerabilityTypes: r.damageClasses || [], icon: applierSkill?.icon || counterCaster.character.portrait, casterId: counterCaster.id, sourceSkillName: applierSkill?.name });
               }
-              newLogs.push({ id: Math.random().toString(), turn, message: `⛓️ [CONTRA-ATAQUE] ${counterCaster.character.name} STUNNOU ${source.character.name} por ${stunDur} turno(s) (${stunLabel})!`, type: 'stun' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `â›“ï¸ [CONTRA-ATAQUE] ${counterCaster.character.name} STUNNOU ${source.character.name} por ${stunDur} turno(s) (${stunLabel})!`, type: 'stun' });
               addFloatingText(source.id, `STUN (${stunLabel})`, 'stun');
             }
           }
-          // 📚 Stack
+          // ðŸ“š Stack
           const stackRules = (applierSkill?.counterSuccessStackRules || []).filter(r => (r.stackName || '').trim().length > 0);
           for (const r of stackRules) {
             const stName = r.stackName.trim();
@@ -4749,10 +4741,10 @@ const handleTradeChakra = () => {
             } else {
               source.activeEffects.push({ name: `${stName} (Stack)`, type: 'custom', value: 0, duration: stDur, icon: applierSkill?.icon || counterCaster.character.portrait, stackable: true, stackType: stName, casterId: counterCaster.id, sourceSkillName: applierSkill?.name, stacks: 1, castTurn: turn });
             }
-            newLogs.push({ id: Math.random().toString(), turn, message: `📚 [CONTRA-ATAQUE] ${counterCaster.character.name} aplicou a stack [${stName}] em ${source.character.name}${stDur < 99999 ? ` por ${stDur} turno(s)` : ' (permanente)'} ao anular sua habilidade!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ“š [CONTRA-ATAQUE] ${counterCaster.character.name} aplicou a stack [${stName}] em ${source.character.name}${stDur < 99999 ? ` por ${stDur} turno(s)` : ' (permanente)'} ao anular sua habilidade!`, type: 'buff' });
             addFloatingText(source.id, `+1 ${stName.toUpperCase()}`, 'effect');
           }
-          // ⚡ BUFF DE DANO NO CONTRA-ATAQUE (counterSuccessBuffRules): quando o contra-ataque desta skill funciona,
+          // âš¡ BUFF DE DANO NO CONTRA-ATAQUE (counterSuccessBuffRules): quando o contra-ataque desta skill funciona,
           // o conjurador (ou todos os aliados dele) recebe um buff de dano das classes escolhidas por X turnos
           const buffRules = (applierSkill?.counterSuccessBuffRules || []).filter(r => (r.buffValue || 0) > 0);
           for (const r of buffRules) {
@@ -4760,7 +4752,7 @@ const handleTradeChakra = () => {
             const bDur = (r.duration && r.duration > 0 && r.duration < 99999) ? r.duration : 99999;
             const bClasses = (r.buffClasses || []).map(c => c.toLowerCase()).filter(Boolean);
             const bLabel = bClasses.length === 0 || bClasses.length >= 4 ? '' : ` (${bClasses.join('/')})`;
-            // O conjurador do contra-ataque está no lado OPOSTO a quem agiu
+            // O conjurador do contra-ataque estÃ¡ no lado OPOSTO a quem agiu
             const buffRecipients = r.buffTarget === 'team'
               ? (action.isPlayer ? updatedEnemy : updatedPlayer).filter(c => !c.isDead)
               : [counterCaster];
@@ -4780,7 +4772,7 @@ const handleTradeChakra = () => {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `⚡ [CONTRA-ATAQUE] ${rc.id === counterCaster.id ? `${counterCaster.character.name} ganhou` : `${counterCaster.character.name} concedeu a ${rc.character.name}`} +${bVal} de dano${bLabel}${bDur < 99999 ? ` por ${bDur} turno(s)` : ''} ao anular uma habilidade!`,
+                message: `âš¡ [CONTRA-ATAQUE] ${rc.id === counterCaster.id ? `${counterCaster.character.name} ganhou` : `${counterCaster.character.name} concedeu a ${rc.character.name}`} +${bVal} de dano${bLabel}${bDur < 99999 ? ` por ${bDur} turno(s)` : ''} ao anular uma habilidade!`,
                 type: 'buff',
               });
               addFloatingText(rc.id, `+${bVal} DANO${bLabel}`, 'effect');
@@ -4796,20 +4788,20 @@ const handleTradeChakra = () => {
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `🚫 ${defaultTarget.character.name} CONTRA-ATACOU e anulou [${skill.name}] de ${source.character.name}!`,
+          message: `ðŸš« ${defaultTarget.character.name} CONTRA-ATACOU e anulou [${skill.name}] de ${source.character.name}!`,
           type: 'system',
         });
         addFloatingText(defaultTarget.id, 'CONTRA-ATAQUE!', 'effect');
         addFloatingText(source.id, 'HABILIDADE ANULADA!', 'damage');
         defaultTarget.lastTurnStatus = 'CONTRA-ATAQUE';
         source.lastTurnStatus = 'ANULADO';
-        // O CONJURADOR do contra-ataque pode não ser o defaultTarget (ex.: skill que dá contra-ataque
-        // a TODOS os aliados). As regras counterSuccess* pertencem à skill de quem CONJUROU o efeito.
+        // O CONJURADOR do contra-ataque pode nÃ£o ser o defaultTarget (ex.: skill que dÃ¡ contra-ataque
+        // a TODOS os aliados). As regras counterSuccess* pertencem Ã  skill de quem CONJUROU o efeito.
         const counterCasterDef = [...sourceList, ...targetList].find(c => c.id === counterEffect.casterId) || defaultTarget;
         const counterApplierSkill = (counterCasterDef.character.skills || []).find(s => s.name === counterEffect.sourceSkillName)
           || (defaultTarget.character.skills || []).find(s => s.name === counterEffect.sourceSkillName);
         if (counterEffect.counterAttackUntilTriggered) {
-          // Persiste até efetivamente contra-atacar: agora que anulou, é removido
+          // Persiste atÃ© efetivamente contra-atacar: agora que anulou, Ã© removido
           defaultTarget.activeEffects = defaultTarget.activeEffects.filter(e => e !== counterEffect);
         } else if (counterEffect.counterAttackMode !== 'all') {
           counterEffect.duration = (counterEffect.duration || 1) - 1;
@@ -4817,7 +4809,7 @@ const handleTradeChakra = () => {
             defaultTarget.activeEffects = defaultTarget.activeEffects.filter(e => e !== counterEffect);
           }
         }
-        // 💥 CONTRA-ATAQUE BÔNUS (counterSuccessDamageRules): quando o contra-ataque desta skill funciona,
+        // ðŸ’¥ CONTRA-ATAQUE BÃ”NUS (counterSuccessDamageRules): quando o contra-ataque desta skill funciona,
         // o inimigo que atacou recebe o dano configurado do tipo escolhido
         if (!source.isDead && counterEffect.sourceSkillName) {
           const applierSkill = (defaultTarget.character.skills || []).find(s => s.name === counterEffect.sourceSkillName);
@@ -4827,7 +4819,7 @@ const handleTradeChakra = () => {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️ ${defaultTarget.character.name} contra-atacou, mas ${source.character.name} é IMUNE ao dano bônus do contra-ataque!`,
+                message: `ðŸ›¡ï¸ ${defaultTarget.character.name} contra-atacou, mas ${source.character.name} Ã© IMUNE ao dano bÃ´nus do contra-ataque!`,
                 type: 'buff',
               });
             } else {
@@ -4838,7 +4830,7 @@ const handleTradeChakra = () => {
                 piercing: 'dano direto',
                 dot: 'queimadura',
                 bleeding: 'sangramento',
-                affliction: 'aflição',
+                affliction: 'afliÃ§Ã£o',
               };
               for (const r of bonusRules) {
                 const rDmg = r.damage || 0;
@@ -4848,7 +4840,7 @@ const handleTradeChakra = () => {
                   newLogs.push({
                     id: Math.random().toString(),
                     turn,
-                    message: `🛡️ ${defaultTarget.character.name} contra-atacou, mas ${source.character.name} é IMUNE ao dano bônus de ${typeLabels[rType] || 'dano direto'} do contra-ataque!${consumedFh ? ' (Imunidade de 1º dano usada!)' : ''}`,
+                    message: `ðŸ›¡ï¸ ${defaultTarget.character.name} contra-atacou, mas ${source.character.name} Ã© IMUNE ao dano bÃ´nus de ${typeLabels[rType] || 'dano direto'} do contra-ataque!${consumedFh ? ' (Imunidade de 1Âº dano usada!)' : ''}`,
                     type: 'buff',
                   });
                   continue;
@@ -4864,7 +4856,7 @@ const handleTradeChakra = () => {
                   }
                 }
                 if (actualDmg > 0 && convertDamageToShield(source, actualDmg, turn, [rType])) {
-                  newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${source.character.name} converteu ${actualDmg} de dano bônus do contra-ataque em escudo!`, type: 'buff' });
+                  newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${source.character.name} converteu ${actualDmg} de dano bÃ´nus do contra-ataque em escudo!`, type: 'buff' });
                   addFloatingText(source.id, `+${actualDmg} ESCUDO`, 'shield');
                   actualDmg = 0;
                 }
@@ -4880,7 +4872,7 @@ const handleTradeChakra = () => {
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `💥 [CONTRA-ATAQUE] ${defaultTarget.character.name} causou +${rDmg} de ${typeLabel} em ${source.character.name} ao contra-atacar com sucesso!`,
+                  message: `ðŸ’¥ [CONTRA-ATAQUE] ${defaultTarget.character.name} causou +${rDmg} de ${typeLabel} em ${source.character.name} ao contra-atacar com sucesso!`,
                   type: 'damage',
                 });
                 addFloatingText(source.id, `-${rDmg} ${typeLabel.toUpperCase()}`, 'damage');
@@ -4888,7 +4880,7 @@ const handleTradeChakra = () => {
             }
           }
         }
-        // ⛓️ STUN NO CONTRA-ATAQUE (counterSuccessStunRules): quando o contra-ataque desta skill funciona,
+        // â›“ï¸ STUN NO CONTRA-ATAQUE (counterSuccessStunRules): quando o contra-ataque desta skill funciona,
         // o inimigo que atacou fica stunado por X turnos e recebe dano adicional de skills das classes escolhidas
         if (!source.isDead && counterEffect.sourceSkillName) {
           const applierSkill = (defaultTarget.character.skills || []).find(s => s.name === counterEffect.sourceSkillName);
@@ -4903,7 +4895,7 @@ const handleTradeChakra = () => {
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `🛡️ ${defaultTarget.character.name} tentou stunnar ${source.character.name} no contra-ataque, mas ele é IMUNE a stun!`,
+                  message: `ðŸ›¡ï¸ ${defaultTarget.character.name} tentou stunnar ${source.character.name} no contra-ataque, mas ele Ã© IMUNE a stun!`,
                   type: 'buff',
                 });
                 continue;
@@ -4934,7 +4926,7 @@ const handleTradeChakra = () => {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `⛓️ [CONTRA-ATAQUE] ${defaultTarget.character.name} STUNNOU ${source.character.name} por ${stunDur} turno(s) (${stunLabel})${(r.bonusDamage || 0) > 0 ? ` e ele receberá +${r.bonusDamage} de dano de ${stunClasses.length > 0 ? stunClasses.join('/') : 'qualquer'} classe(s)` : ''}!`,
+                message: `â›“ï¸ [CONTRA-ATAQUE] ${defaultTarget.character.name} STUNNOU ${source.character.name} por ${stunDur} turno(s) (${stunLabel})${(r.bonusDamage || 0) > 0 ? ` e ele receberÃ¡ +${r.bonusDamage} de dano de ${stunClasses.length > 0 ? stunClasses.join('/') : 'qualquer'} classe(s)` : ''}!`,
                 type: 'stun',
               });
               addFloatingText(source.id, `STUN (${stunLabel})`, 'stun');
@@ -4942,8 +4934,8 @@ const handleTradeChakra = () => {
             }
           }
         }
-        // 📚 STACK NO CONTRA-ATAQUE (counterSuccessStackRules): quando o contra-ataque desta skill funciona,
-        // o inimigo que atacou recebe uma stack pelo nome/duração configurados
+        // ðŸ“š STACK NO CONTRA-ATAQUE (counterSuccessStackRules): quando o contra-ataque desta skill funciona,
+        // o inimigo que atacou recebe uma stack pelo nome/duraÃ§Ã£o configurados
         if (!source.isDead && counterEffect.sourceSkillName) {
           const applierSkill = (defaultTarget.character.skills || []).find(s => s.name === counterEffect.sourceSkillName);
           const stackRules = (applierSkill?.counterSuccessStackRules || []).filter(r => (r.stackName || '').trim().length > 0);
@@ -4974,12 +4966,12 @@ const handleTradeChakra = () => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `📚 [CONTRA-ATAQUE] ${defaultTarget.character.name} aplicou a stack [${stName}] em ${source.character.name}${stDur < 99999 ? ` por ${stDur} turno(s)` : ' (permanente)'} ao contra-atacar com sucesso!`,
+              message: `ðŸ“š [CONTRA-ATAQUE] ${defaultTarget.character.name} aplicou a stack [${stName}] em ${source.character.name}${stDur < 99999 ? ` por ${stDur} turno(s)` : ' (permanente)'} ao contra-atacar com sucesso!`,
               type: 'buff',
             });
             addFloatingText(source.id, `+1 ${stName.toUpperCase()}`, 'effect');
           }
-          // ⚡ BUFF DE DANO NO CONTRA-ATAQUE (counterSuccessBuffRules): quando o contra-ataque desta skill funciona,
+          // âš¡ BUFF DE DANO NO CONTRA-ATAQUE (counterSuccessBuffRules): quando o contra-ataque desta skill funciona,
           // o conjurador (ou todos os aliados dele) recebe um buff de dano das classes escolhidas por X turnos
           if (!source.isDead && counterEffect.sourceSkillName) {
             const applierSkillBuff = counterApplierSkill;
@@ -5012,7 +5004,7 @@ const handleTradeChakra = () => {
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `⚡ [CONTRA-ATAQUE] ${rc.id === counterCasterDef.id ? `${counterCasterDef.character.name} ganhou` : `${counterCasterDef.character.name} concedeu a ${rc.character.name}`} +${bVal} de dano${bLabel}${bDur < 99999 ? ` por ${bDur} turno(s)` : ''} ao contra-atacar com sucesso!`,
+                  message: `âš¡ [CONTRA-ATAQUE] ${rc.id === counterCasterDef.id ? `${counterCasterDef.character.name} ganhou` : `${counterCasterDef.character.name} concedeu a ${rc.character.name}`} +${bVal} de dano${bLabel}${bDur < 99999 ? ` por ${bDur} turno(s)` : ''} ao contra-atacar com sucesso!`,
                   type: 'buff',
                 });
                 addFloatingText(rc.id, `+${bVal} DANO${bLabel}`, 'effect');
@@ -5020,14 +5012,14 @@ const handleTradeChakra = () => {
             }
           }
         }
-        // 🔥 DANO QUANDO CONTRA-ATACADA (onCounteredDamageRules): quando ESTA skill do atacante
-        // é anulada por um contra-ataque, um inimigo do atacante (o que contra-atacou ou um aleatório) recebe dano
+        // ðŸ”¥ DANO QUANDO CONTRA-ATACADA (onCounteredDamageRules): quando ESTA skill do atacante
+        // Ã© anulada por um contra-ataque, um inimigo do atacante (o que contra-atacou ou um aleatÃ³rio) recebe dano
         {
           const counteredRules = (skill.onCounteredDamageRules || []).filter(r => (r.damage || 0) > 0);
           if (counteredRules.length > 0) {
             const typeLabels: Record<string, string> = {
               damage: 'dano', direct_damage: 'dano direto', true: 'dano direto', piercing: 'dano direto',
-              dot: 'queimadura', bleeding: 'sangramento', affliction: 'aflição',
+              dot: 'queimadura', bleeding: 'sangramento', affliction: 'afliÃ§Ã£o',
             };
             // Inimigos do atacante = time do defensor (targetList)
             const enemyPool = targetList.filter(c => !c.isDead);
@@ -5045,7 +5037,7 @@ const handleTradeChakra = () => {
                 if (hasDamageImmunity(victim, [rType])) consumeFirstHitOnlyImmunity(victim, [rType]);
                 newLogs.push({
                   id: Math.random().toString(), turn,
-                  message: `🛡️ [${skill.name}] foi contra-atacada, mas ${victim.character.name} é IMUNE ao dano de retorno!`,
+                  message: `ðŸ›¡ï¸ [${skill.name}] foi contra-atacada, mas ${victim.character.name} Ã© IMUNE ao dano de retorno!`,
                   type: 'buff',
                 });
                 continue;
@@ -5056,7 +5048,7 @@ const handleTradeChakra = () => {
                 else { actualDmg -= victim.shield; victim.shield = 0; }
               }
               if (actualDmg > 0 && convertDamageToShield(victim, actualDmg, turn, [rType])) {
-                newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${victim.character.name} converteu ${actualDmg} de dano em escudo!`, type: 'buff' });
+                newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${victim.character.name} converteu ${actualDmg} de dano em escudo!`, type: 'buff' });
                 addFloatingText(victim.id, `+${actualDmg} ESCUDO`, 'shield');
                 actualDmg = 0;
               }
@@ -5067,7 +5059,7 @@ const handleTradeChakra = () => {
               const typeLabel = typeLabels[rType] || 'dano direto';
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `🔥 [${skill.name}] de ${source.character.name} foi CONTRA-ATACADA e ${victim.character.name} recebeu ${rDmg} de ${typeLabel}!`,
+                message: `ðŸ”¥ [${skill.name}] de ${source.character.name} foi CONTRA-ATACADA e ${victim.character.name} recebeu ${rDmg} de ${typeLabel}!`,
                 type: 'damage',
               });
               addFloatingText(victim.id, `-${rDmg} ${typeLabel.toUpperCase()}`, 'damage');
@@ -5080,8 +5072,8 @@ const handleTradeChakra = () => {
       let target = defaultTarget;
       let isReflected = false;
 
-      // 🔢 Limite de usos (maxUses): a skill passou pelas checagens de contra-ataque (não foi anulada),
-      // então conta como uso bem-sucedido. Reflexão NÃO impede a contagem (ainda conta).
+      // ðŸ”¢ Limite de usos (maxUses): a skill passou pelas checagens de contra-ataque (nÃ£o foi anulada),
+      // entÃ£o conta como uso bem-sucedido. ReflexÃ£o NÃƒO impede a contagem (ainda conta).
       if ((skill.maxUses || 0) > 0) {
         if (!source.skillUseCounts) source.skillUseCounts = {};
         source.skillUseCounts[skill.name] = (source.skillUseCounts[skill.name] || 0) + 1;
@@ -5090,8 +5082,8 @@ const handleTradeChakra = () => {
           id: Math.random().toString(),
           turn,
           message: remaining > 0
-            ? `🔢 [${skill.name}] usada por ${source.character.name} (${source.skillUseCounts[skill.name]}/${skill.maxUses}). Restam ${remaining} uso(s).`
-            : `🔒 [${skill.name}] atingiu o limite de ${skill.maxUses} uso(s) e ficará BLOQUEADA para ${source.character.name}!`,
+            ? `ðŸ”¢ [${skill.name}] usada por ${source.character.name} (${source.skillUseCounts[skill.name]}/${skill.maxUses}). Restam ${remaining} uso(s).`
+            : `ðŸ”’ [${skill.name}] atingiu o limite de ${skill.maxUses} uso(s) e ficarÃ¡ BLOQUEADA para ${source.character.name}!`,
           type: 'system',
         });
       }
@@ -5100,7 +5092,7 @@ const handleTradeChakra = () => {
       // AND the DEFENDER has the required stack, the attacker's offensive skill is redirected
       // to an ENEMY who has the required stack (preferring the ATTACKER himself when he has
       // the stack; otherwise the attacker's living ALLY who has the stack). Exception: skills
-      // marked "Esta habilidade não pode ser refletida" / cannotBeReflected are NOT reflected.
+      // marked "Esta habilidade nÃ£o pode ser refletida" / cannotBeReflected are NOT reflected.
       const stackReflectMarker = defaultTarget.activeEffects.find((e: ActiveEffect) => e.type === 'redirect_by_stack');
       let requiredStack: string | null = stackReflectMarker && stackReflectMarker.stackType ? stackReflectMarker.stackType : null;
       if (!requiredStack) {
@@ -5139,7 +5131,7 @@ const handleTradeChakra = () => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔁 [REFLEXÃO POR STACK] A habilidade [${skill.name}] de ${source.character.name} em ${defaultTarget.character.name} foi REFLETIDA e atingiu ${stackReceiver.character.name}!`,
+              message: `ðŸ” [REFLEXÃƒO POR STACK] A habilidade [${skill.name}] de ${source.character.name} em ${defaultTarget.character.name} foi REFLETIDA e atingiu ${stackReceiver.character.name}!`,
               type: 'buff',
             });
             addFloatingText(defaultTarget.id, 'REFLETIDO POR STACK!', 'effect');
@@ -5148,7 +5140,7 @@ const handleTradeChakra = () => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔁 [REFLEXÃO POR STACK] ${defaultTarget.character.name} refletiria [${skill.name}] de ${source.character.name}, mas NENHUM inimigo do time do atacante está com a stack [${requiredStack}]!`,
+              message: `ðŸ” [REFLEXÃƒO POR STACK] ${defaultTarget.character.name} refletiria [${skill.name}] de ${source.character.name}, mas NENHUM inimigo do time do atacante estÃ¡ com a stack [${requiredStack}]!`,
               type: 'buff',
             });
           }
@@ -5156,7 +5148,7 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔁 [REFLEXÃO POR STACK] ${defaultTarget.character.name} NÃO refletiu [${skill.name}]: a stack [${requiredStack}] não está mais ativa no portador (defensor).`,
+            message: `ðŸ” [REFLEXÃƒO POR STACK] ${defaultTarget.character.name} NÃƒO refletiu [${skill.name}]: a stack [${requiredStack}] nÃ£o estÃ¡ mais ativa no portador (defensor).`,
             type: 'buff',
           });
         }
@@ -5164,7 +5156,7 @@ const handleTradeChakra = () => {
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `🔁 [REFLEXÃO POR STACK] ${defaultTarget.character.name} NÃO refletiu [${skill.name}]: a skill do atacante é marcada como "não pode ser refletida".`,
+          message: `ðŸ” [REFLEXÃƒO POR STACK] ${defaultTarget.character.name} NÃƒO refletiu [${skill.name}]: a skill do atacante Ã© marcada como "nÃ£o pode ser refletida".`,
           type: 'buff',
         });
       } else if (!requiredStack && isOffensiveSkill && !skill.cannotBeReflected) {
@@ -5173,7 +5165,7 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔁 [REFLEXÃO POR STACK] ${defaultTarget.character.name} tem stack(s) [${defStacks.map(s => s.stackType).join(', ')}] mas NENHUMA delas está configurada para refletir (marcador ausente / regra não encontrada).`,
+            message: `ðŸ” [REFLEXÃƒO POR STACK] ${defaultTarget.character.name} tem stack(s) [${defStacks.map(s => s.stackType).join(', ')}] mas NENHUMA delas estÃ¡ configurada para refletir (marcador ausente / regra nÃ£o encontrada).`,
             type: 'buff',
           });
         }
@@ -5190,7 +5182,7 @@ const handleTradeChakra = () => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️ [GUARDA-COSTAS] A habilidade [${skill.name}] de ${source.character.name} em ${defaultTarget.character.name} foi REDIRECIONADA e atingiu ${redirectCaster.character.name}!`,
+            message: `ðŸ›¡ï¸ [GUARDA-COSTAS] A habilidade [${skill.name}] de ${source.character.name} em ${defaultTarget.character.name} foi REDIRECIONADA e atingiu ${redirectCaster.character.name}!`,
             type: 'buff',
           });
           addFloatingText(defaultTarget.id, 'REDIRECIONADO!', 'effect');
@@ -5213,7 +5205,7 @@ const handleTradeChakra = () => {
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `🔄 [REFLECT] ${target.character.name} REFLETIU a habilidade [${skill.name}] de volta para ${source.character.name}!`,
+          message: `ðŸ”„ [REFLECT] ${target.character.name} REFLETIU a habilidade [${skill.name}] de volta para ${source.character.name}!`,
           type: 'buff',
         });
         addFloatingText(target.id, 'REFLETIDO!', 'effect');
@@ -5223,8 +5215,8 @@ const handleTradeChakra = () => {
       // Skill parameters
 
       let baseDamage = skill.damage || 0;
-      // 💜 Skills com configuração de aflição PRÓPRIA (campos afflictionVal/afflictionInstant
-      // presentes no JSON, mesmo que zerados) não recebem o dano legado hardcodado abaixo —
+      // ðŸ’œ Skills com configuraÃ§Ã£o de afliÃ§Ã£o PRÃ“PRIA (campos afflictionVal/afflictionInstant
+      // presentes no JSON, mesmo que zerados) nÃ£o recebem o dano legado hardcodado abaixo â€”
       // o dano delas vem exclusivamente dos campos configurados no painel.
       const hasOwnAfflictionConfig = skill.afflictionVal !== undefined || skill.afflictionInstant !== undefined;
       if (!hasOwnAfflictionConfig && !skill.damage && !skill.directDamage) {
@@ -5233,12 +5225,12 @@ const handleTradeChakra = () => {
           'Lightning Blade': 40, 'Sand Coffin': 15, 'Sand Burial': 35, 'Shadow Strangle': 40,
           'Mind Destruction': 35, 'Amaterasu': 35, 'Blazing Arrow': 25, 'Curse Mark': 35,
           'Dark Void': 30, 'Dark Genjutsu': 25, 'Rasengan': 45, 'Ninja Hounds': 15,
-          'Golpe Básico': 20, 'Golpe Rápido': 15, 'Golpe Sombrio': 25,
+          'Golpe BÃ¡sico': 20, 'Golpe RÃ¡pido': 15, 'Golpe Sombrio': 25,
           'Golpe Sombrio (S)': 30, 'Ataque Sombrio': 25, 'Ataque Sombrio (S)': 30,
           'Golpe Feroz': 25, 'Golpe Preciso': 20, 'Rajada de Golpes': 30,
-          'Golpe Sombrio Lendário': 40, 'Ataque Sombrio Lendário': 40,
-          'Investida': 20, 'Corte Rápido': 25, 'Lâmina Sombria': 35,
-          'Explosão de Chakra': 30, 'Esfera de Chakra': 35, 'Raio de Chakra': 40,
+          'Golpe Sombrio LendÃ¡rio': 40, 'Ataque Sombrio LendÃ¡rio': 40,
+          'Investida': 20, 'Corte RÃ¡pido': 25, 'LÃ¢mina Sombria': 35,
+          'ExplosÃ£o de Chakra': 30, 'Esfera de Chakra': 35, 'Raio de Chakra': 40,
         };
         if (!baseDamage && skill.name) {
           if (legacyDmg[skill.name]) {
@@ -5298,19 +5290,19 @@ let directDamage = skill.directDamage || 0;
         directDamage = 0;
       }
 
-      // Skill cujo dano é SOMENTE atrasado (delayedDamage/delayedDirectDamage) e sem dano imediato:
-      // nesse caso, o bônus por stack (stackDamageRules) NÃO deve ser aplicado agora — vai junto com o
-      // dano atrasado, pois é quando o dano da skill realmente é efetuado.
+      // Skill cujo dano Ã© SOMENTE atrasado (delayedDamage/delayedDirectDamage) e sem dano imediato:
+      // nesse caso, o bÃ´nus por stack (stackDamageRules) NÃƒO deve ser aplicado agora â€” vai junto com o
+      // dano atrasado, pois Ã© quando o dano da skill realmente Ã© efetuado.
       const hasDelayedDamageOnly = ((skill.delayedDamage || 0) > 0 || (skill.delayedDirectDamage || 0) > 0)
         && !((skill.damage || 0) > 0 || baseDamage > 0 || (skill.directDamage || 0) > 0
           || (skill.damageDuration && skill.damageDuration > 1)
           || (skill.dotVal || 0) > 0 || (skill.bleedingVal || 0) > 0 || (skill.afflictionVal || 0) > 0);
-      // BÔNUS DE DANO: +valor UMA vez por cast, na skill física/chakra do conjurador.
-      // Negação de efeitos amigáveis no conjurador: buffs de dano são ignorados.
+      // BÃ”NUS DE DANO: +valor UMA vez por cast, na skill fÃ­sica/chakra do conjurador.
+      // NegaÃ§Ã£o de efeitos amigÃ¡veis no conjurador: buffs de dano sÃ£o ignorados.
       const damageBuffSum = hasNegateFriendlyEffects(source) ? 0 : source.activeEffects
         .filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill))
         .reduce((a, e) => a + (e.value || 0), 0);
-      // O buff entra APENAS no dano principal da skill: dano normal > dano direto > dano instantâneo
+      // O buff entra APENAS no dano principal da skill: dano normal > dano direto > dano instantÃ¢neo
       const dmgBuffNormal = (baseDamage > 0 || costRuleDamageBoost > 0 || (skill.damageDuration && skill.damageDuration > 1)) ? damageBuffSum : 0;
       const dmgBuffDirect = dmgBuffNormal === 0 && (directDamage > 0 || ruleDirectDamage > 0) ? damageBuffSum : 0;
       const dmgBuffInstant = dmgBuffNormal === 0 && dmgBuffDirect === 0 ? damageBuffSum : 0;
@@ -5405,18 +5397,18 @@ let directDamage = skill.directDamage || 0;
         const removedCount = beforeCount - t.activeEffects.length;
         if (removedCount > 0) {
           const typesName = isAllDebuffs ? 'Todos os Debuffs' : debuffTypes.map(d => {
-            if (d === 'affliction') return 'Aflição';
+            if (d === 'affliction') return 'AfliÃ§Ã£o';
             if (d === 'dot') return 'Dano por Turno';
             if (d === 'bleeding') return 'Sangramento';
             if (d === 'stun') return 'Atordoamento';
             if (d === 'paralyze_cooldown') return 'Paralisar Cooldown';
             if (d === 'cooldown_increase') return 'Aumento de Cooldown';
-            if (d === 'damage_debuff') return 'Redução de Dano';
+            if (d === 'damage_debuff') return 'ReduÃ§Ã£o de Dano';
             if (d === 'damage_vulnerability') return 'Vulnerabilidade';
             if (d === 'cannot_reduce_damage') return 'Incapaz de Reduzir Dano';
             if (d === 'cannot_be_invulnerable') return 'Incapaz de Invulnerabilidade';
-            if (d === 'cannot_receive_friendly') return 'Incapaz de Receber Efeitos Amigáveis';
-            if (d === 'on_skill_use_damage') return 'Punição por Skill';
+            if (d === 'cannot_receive_friendly') return 'Incapaz de Receber Efeitos AmigÃ¡veis';
+            if (d === 'on_skill_use_damage') return 'PuniÃ§Ã£o por Skill';
             if (d === 'chakra_cost_increase') return 'Aumento de Custo de Chakra';
             return d;
           }).join(', ');
@@ -5424,7 +5416,7 @@ let directDamage = skill.directDamage || 0;
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `✨ [PURIFICAÇÃO] ${t.character.name} teve ${removedCount} debuff(s) removido(s) (${typesName}) por [${skill.name}]!`,
+            message: `âœ¨ [PURIFICAÃ‡ÃƒO] ${t.character.name} teve ${removedCount} debuff(s) removido(s) (${typesName}) por [${skill.name}]!`,
             type: 'system',
           });
           addFloatingText(t.id, 'DEBUFFS REMOVIDOS', 'heal');
@@ -5440,7 +5432,7 @@ let directDamage = skill.directDamage || 0;
           if (eff.irremovable) return true;
 
           if (isAllBuffs) {
-            // Remove qualquer efeito que NÃO seja debuff (buff, stack, efeito defensivo etc.)
+            // Remove qualquer efeito que NÃƒO seja debuff (buff, stack, efeito defensivo etc.)
             return isDebuffEffect(eff);
           }
 
@@ -5460,7 +5452,7 @@ let directDamage = skill.directDamage || 0;
           return true;
         });
 
-        // Shield é armazenado em t.shield (número), não como activeEffect
+        // Shield Ã© armazenado em t.shield (nÃºmero), nÃ£o como activeEffect
         let shieldRemoved = false;
         if (isAllBuffs || buffTypes.includes('shield')) {
           if ((t.shield || 0) > 0) {
@@ -5479,15 +5471,15 @@ let directDamage = skill.directDamage || 0;
         if (removedCount > 0) {
           const typesName = isAllBuffs ? 'Todos os Buffs' : buffTypes.map(b => {
             if (b === 'damage_buff') return 'Buff de Dano';
-            if (b === 'damage_reduction') return 'Redução de Dano';
+            if (b === 'damage_reduction') return 'ReduÃ§Ã£o de Dano';
             if (b === 'shield') return 'Escudo';
             if (b === 'invulnerable') return 'Invulnerabilidade';
             if (b === 'invisible') return 'Invisibilidade';
-            if (b === 'chakra_regen') return 'Regeneração Chakra';
+            if (b === 'chakra_regen') return 'RegeneraÃ§Ã£o Chakra';
             if (b === 'heal_over_time') return 'Cura por Turno';
             if (b === 'counter_attack') return 'Contra-ataque';
             if (b === 'reflect') return 'Refletir';
-            if (b === 'retaliate_damage') return 'Retaliação';
+            if (b === 'retaliate_damage') return 'RetaliaÃ§Ã£o';
             if (b === 'stack') return 'Stacks';
             return b;
           }).join(', ');
@@ -5495,7 +5487,7 @@ let directDamage = skill.directDamage || 0;
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🗑️ [REMOÇÃO DE BUFFS] ${t.character.name} teve ${removedCount} buff(s) removido(s) (${typesName}) por [${skill.name}]!`,
+            message: `ðŸ—‘ï¸ [REMOÃ‡ÃƒO DE BUFFS] ${t.character.name} teve ${removedCount} buff(s) removido(s) (${typesName}) por [${skill.name}]!`,
             type: 'system',
           });
           addFloatingText(t.id, 'BUFFS REMOVIDOS', 'damage');
@@ -5523,10 +5515,10 @@ let directDamage = skill.directDamage || 0;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `✨ [${skill.name}] de ${source.character.name} ativou ganho contínuo de +${amt} chakra elemental em ${t.character.name} por ${dur} turnos!`,
+              message: `âœ¨ [${skill.name}] de ${source.character.name} ativou ganho contÃ­nuo de +${amt} chakra elemental em ${t.character.name} por ${dur} turnos!`,
               type: 'chakra',
             });
-            addFloatingText(t.id, '+CHAKRA CONTÍNUO', 'effect');
+            addFloatingText(t.id, '+CHAKRA CONTÃNUO', 'effect');
           } else {
             const isPlayerCombatant = updatedPlayer.some(p => p.id === t.id);
             const targetPool = isPlayerCombatant ? localPlayerChakra : localEnemyChakra;
@@ -5537,7 +5529,7 @@ let directDamage = skill.directDamage || 0;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `✨ [${skill.name}] de ${source.character.name} gerou +${amt} de chakra elemental para ${t.character.name}!`,
+              message: `âœ¨ [${skill.name}] de ${source.character.name} gerou +${amt} de chakra elemental para ${t.character.name}!`,
               type: 'chakra',
             });
             addFloatingText(t.id, `+${amt} CHAKRA`, 'effect');
@@ -5579,7 +5571,7 @@ let directDamage = skill.directDamage || 0;
           if ((e as any).excludeAffliction) {
             const isAffliction = skill.classes?.some((c: string) => {
               const lower = c.toLowerCase();
-              return lower.includes('aflição') || lower.includes('affliction');
+              return lower.includes('afliÃ§Ã£o') || lower.includes('affliction');
             });
             if (isAffliction) return false;
           }
@@ -5592,8 +5584,8 @@ let directDamage = skill.directDamage || 0;
         directTargets.forEach(t => {
           if (t.isDead) return;
           if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} estÃ¡ INVULNERÃVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÃVEL', 'invulnerable');
             return;
           }
 const startingHealth = t.health;
@@ -5604,12 +5596,12 @@ const startingHealth = t.health;
             const targetReductions = targetCannotReduce ? [] : getEffectiveTargetReductions(t, skill, true);
             const reductionSum = targetReductions.reduce((acc: number, curr: ActiveEffect) => acc + (curr.value || 0), 0);
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
-            // 🎯 Regra com ignoreBaseDamage no alvo zera também o dano direto padrão para este alvo
+            // ðŸŽ¯ Regra com ignoreBaseDamage no alvo zera tambÃ©m o dano direto padrÃ£o para este alvo
             const taZeroDd = targetHasActiveSkillRuleMatch(t, skill, true);
             const netDd = hasDamageImmunity(t, ['direct_damage', 'piercing']) ? 0 : Math.max(0, ((taZeroDd ? 0 : dd) + getCaptureArrestBonusDamage(t, skill)) - reductionSum);
             let remainingDd = netDd;
             if (remainingDd > 0 && convertDamageToShield(t, remainingDd, turn, ['direct_damage', 'piercing'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${remainingDd} de dano direto de [${skill.name}] em escudo!`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converteu ${remainingDd} de dano direto de [${skill.name}] em escudo!`, type: 'buff' });
               addFloatingText(t.id, `+${remainingDd} ESCUDO`, 'shield');
               remainingDd = 0;
             }
@@ -5651,7 +5643,7 @@ const startingHealth = t.health;
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🎯 [${skill.name}] de ${source.character.name} causou ${netDd} de DANO DIRETO em ${t.character.name} (perfurando defesas).${missingHpDirect > 0 ? ` (HP Perdido: ${missingHpDirect})` : ''}`,
+                message: `ðŸŽ¯ [${skill.name}] de ${source.character.name} causou ${netDd} de DANO DIRETO em ${t.character.name} (perfurando defesas).${missingHpDirect > 0 ? ` (HP Perdido: ${missingHpDirect})` : ''}`,
                 type: 'damage',
               });
               addFloatingText(t.id, `-${netDd} HP (DIRETO)`, 'damage');
@@ -5660,7 +5652,7 @@ const startingHealth = t.health;
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu Dano Direto de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`,
+                message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE A DANO e nÃ£o sofreu Dano Direto de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1Âº dano usada!)' : ''}`,
                 type: 'buff',
               });
               addFloatingText(t.id, 'IMUNE!', 'invulnerable');
@@ -5683,10 +5675,10 @@ const startingHealth = t.health;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🎯 ${t.character.name} sofrerá ${dd} de DANO DIRETO por turno por mais ${duration === 99999 ? '∞' : (duration - 1)} turno(s)!`,
+              message: `ðŸŽ¯ ${t.character.name} sofrerÃ¡ ${dd} de DANO DIRETO por turno por mais ${duration === 99999 ? 'âˆž' : (duration - 1)} turno(s)!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO DIRETO (${duration === 99999 ? '♾️' : (duration - 1) + 'T'})`, 'damage');
+            addFloatingText(t.id, `DANO DIRETO (${duration === 99999 ? 'â™¾ï¸' : (duration - 1) + 'T'})`, 'damage');
           }
           cleanseTargetEffects(t, skill.directDamageRemoveType);
 
@@ -5707,10 +5699,10 @@ const startingHealth = t.health;
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `⚡ [${skill.name}] de ${source.character.name}: Kakashi ganhou +5 de dano adicional para o seu próximo turno!`,
+                message: `âš¡ [${skill.name}] de ${source.character.name}: Kakashi ganhou +5 de dano adicional para o seu prÃ³ximo turno!`,
                 type: 'buff',
               });
-              addFloatingText(source.id, '+5 DANO (PRÓX TURNO)', 'effect');
+              addFloatingText(source.id, '+5 DANO (PRÃ“X TURNO)', 'effect');
             }
 
             pushActiveEffect(t, {
@@ -5728,10 +5720,10 @@ const startingHealth = t.health;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⚡ [${skill.name}] de ${source.character.name}: Habilidades não-aflição de ${t.character.name} causarão -5 de dano por 1 turno!`,
+              message: `âš¡ [${skill.name}] de ${source.character.name}: Habilidades nÃ£o-afliÃ§Ã£o de ${t.character.name} causarÃ£o -5 de dano por 1 turno!`,
               type: 'buff',
             });
-            addFloatingText(t.id, '-5 DANO (NÃO-AFLIÇÃO)', 'damage');
+            addFloatingText(t.id, '-5 DANO (NÃƒO-AFLIÃ‡ÃƒO)', 'damage');
 
             if (t.health === 0 && startingHealth > 0) {
               pushActiveEffect(source, {
@@ -5748,7 +5740,7 @@ const startingHealth = t.health;
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `⚡ [${skill.name}] de ${source.character.name} ELIMINOU ${t.character.name}! Kakashi ganhou +5 de dano PERMANENTEMENTE!`,
+                message: `âš¡ [${skill.name}] de ${source.character.name} ELIMINOU ${t.character.name}! Kakashi ganhou +5 de dano PERMANENTEMENTE!`,
                 type: 'buff',
               });
               addFloatingText(source.id, '+5 DANO PERM!', 'effect');
@@ -5768,7 +5760,7 @@ const startingHealth = t.health;
 
         if (!raikiriSkill) {
           if (isLightningBladeSkill) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `⚡ [Lightning Blade] não gerou stack de Raikiri porque o personagem não possui a skill Raikiri.`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `âš¡ [Lightning Blade] nÃ£o gerou stack de Raikiri porque o personagem nÃ£o possui a skill Raikiri.`, type: 'buff' });
           }
         } else {
           const raikiriStack = source.activeEffects.find(e => e.stackType === 'Raikiri' && e.type === 'custom' && e.casterId === source.id);
@@ -5813,8 +5805,8 @@ const startingHealth = t.health;
                 comboTargets.forEach(ct => {
                   if (ct.isDead) return;
                   if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(ct, skill)) {
-                    newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${ct.character.name} está INVULNERÁVEL e não sofreu os efeitos de [${comboLabel}]!`, type: 'buff' });
-                    addFloatingText(ct.id, 'INVULNERÁVEL', 'invulnerable');
+                    newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${ct.character.name} estÃ¡ INVULNERÃVEL e nÃ£o sofreu os efeitos de [${comboLabel}]!`, type: 'buff' });
+                    addFloatingText(ct.id, 'INVULNERÃVEL', 'invulnerable');
                     return;
                   }
                   if (rule.stun) {
@@ -5829,13 +5821,13 @@ const startingHealth = t.health;
                       casterId: source.id,
                       casterSide: action.isPlayer ? 'player' : 'enemy',
                     });
-                    newLogs.push({ id: Math.random().toString(), turn, message: `⚡ [${comboLabel}] ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`, type: 'stun' });
+                    newLogs.push({ id: Math.random().toString(), turn, message: `âš¡ [${comboLabel}] ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`, type: 'stun' });
                     addFloatingText(ct.id, `STUN (FINISHER ${count}x)`, 'stun');
                   }
                   if (rule.chakraRemove && rule.chakraRemove > 0) {
                     const ctIsPlayer = updatedPlayer.some(p => p.id === ct.id);
                     performChakraAction(ctIsPlayer, rule.chakraRemove, source.character.name, ct.character.name, skill.name, action.isPlayer, 'remove', source.id, ct.id, newLogs, localPlayerChakra, localEnemyChakra);
-                    newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${comboLabel}] removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`, type: 'chakra' });
+                    newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ”¥ [${comboLabel}] removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`, type: 'chakra' });
                   }
                 });
               }
@@ -5852,7 +5844,7 @@ const startingHealth = t.health;
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `⚡ [Lightning Blade] ativou o finisher de Raikiri.`,
+                  message: `âš¡ [Lightning Blade] ativou o finisher de Raikiri.`,
                   type: 'buff',
                 });
               }
@@ -5865,15 +5857,15 @@ const startingHealth = t.health;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⚡ [${skill.name}] preservou a stack de Raikiri (${raikiriStack.stacks}x) congelando sua expiração por este turno!`,
+              message: `âš¡ [${skill.name}] preservou a stack de Raikiri (${raikiriStack.stacks}x) congelando sua expiraÃ§Ã£o por este turno!`,
               type: 'buff',
             });
           }
         }
       }
 
-      // Regra "Prisão de Madeira" (Wood Spire Prison) — configurável via skill.prisonRule
-      // e compatível com o ANBU Kinoe (regra customizada original)
+      // Regra "PrisÃ£o de Madeira" (Wood Spire Prison) â€” configurÃ¡vel via skill.prisonRule
+      // e compatÃ­vel com o ANBU Kinoe (regra customizada original)
       const prisonCfg = (skill as any).prisonRule as { enabled?: boolean; allyReduction?: number; enemyReduction?: number; punishmentDamage?: number; duration?: number; geyserBoost?: number; cleanseAlly?: boolean; resetCooldownsAlly?: boolean } | undefined;
       const isPrisonSkill = !!prisonCfg?.enabled || ((source.character.folder === 'anbu-kinoe' || source.character.id === 'anbu-kinoe') && skill.name === 'Wood Release: Wooden Spire Prison');
       if (isPrisonSkill) {
@@ -5888,8 +5880,8 @@ const startingHealth = t.health;
         spireTargets.forEach(st => {
           if (st.isDead) return;
           if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(st, skill)) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${st.character.name} está INVULNERÁVEL e não recebeu os efeitos de [${skill.name}]!`, type: 'buff' });
-            addFloatingText(st.id, 'INVULNERÁVEL', 'invulnerable');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${st.character.name} estÃ¡ INVULNERÃVEL e nÃ£o recebeu os efeitos de [${skill.name}]!`, type: 'buff' });
+            addFloatingText(st.id, 'INVULNERÃVEL', 'invulnerable');
             return;
           }
           const stIsPlayer = updatedPlayer.some(p => p.id === st.id);
@@ -5915,14 +5907,14 @@ const startingHealth = t.health;
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🌳 [${skill.name}] de ${source.character.name} ZEROU o cooldown de ${cdResetCount} habilidade(s) de ${st.character.name}!`,
+                message: `ðŸŒ³ [${skill.name}] de ${source.character.name} ZEROU o cooldown de ${cdResetCount} habilidade(s) de ${st.character.name}!`,
                 type: 'buff',
               });
               addFloatingText(st.id, `COOLDOWNS ZERADOS (${cdResetCount})`, 'heal');
             }
-            // 3) Redução de dano recebido de skills que NÃO sejam Aflição
+            // 3) ReduÃ§Ã£o de dano recebido de skills que NÃƒO sejam AfliÃ§Ã£o
             pushActiveEffect(st, {
-              name: `${skill.name} (Redução)`,
+              name: `${skill.name} (ReduÃ§Ã£o)`,
               type: 'damage_reduction',
               value: dmgReduction,
               duration: pDur,
@@ -5936,12 +5928,12 @@ const startingHealth = t.health;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🌳 [${skill.name}] de ${source.character.name}: ${st.character.name} sofrerá -${dmgReduction} de dano de habilidades NÃO-AFLIÇÃO por ${pDur} turno(s)${hasGeyser ? ` (Geyser Spring intensifica para ${pGeyser})` : ''}!`,
+              message: `ðŸŒ³ [${skill.name}] de ${source.character.name}: ${st.character.name} sofrerÃ¡ -${dmgReduction} de dano de habilidades NÃƒO-AFLIÃ‡ÃƒO por ${pDur} turno(s)${hasGeyser ? ` (Geyser Spring intensifica para ${pGeyser})` : ''}!`,
               type: 'buff',
             });
-            addFloatingText(st.id, `-${dmgReduction} DANO (NÃO-AFLIÇÃO)`, 'effect');
+            addFloatingText(st.id, `-${dmgReduction} DANO (NÃƒO-AFLIÃ‡ÃƒO)`, 'effect');
           } else {
-            // 1) Fraqueza: habilidades que NÃO sejam Mental causam menos dano
+            // 1) Fraqueza: habilidades que NÃƒO sejam Mental causam menos dano
             pushActiveEffect(st, {
               name: `${skill.name} (Fraqueza)`,
               type: 'damage_debuff',
@@ -5955,9 +5947,9 @@ const startingHealth = t.health;
               casterSide: action.isPlayer ? 'player' : 'enemy',
               castTurn: turn,
             });
-            // 2) Punição: sofre dano por turno se não usar habilidade ofensiva
+            // 2) PuniÃ§Ã£o: sofre dano por turno se nÃ£o usar habilidade ofensiva
             pushActiveEffect(st, {
-              name: `${skill.name} (Punição)`,
+              name: `${skill.name} (PuniÃ§Ã£o)`,
               type: 'custom',
               value: pPunish,
               duration: pDur,
@@ -5971,10 +5963,10 @@ const startingHealth = t.health;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🌳 [${skill.name}] de ${source.character.name}: habilidades NÃO-MENTAIS de ${st.character.name} causarão -${dmgReduction} de dano e ele sofrerá ${pPunish} de dano por turno se não usar uma habilidade ofensiva, por ${pDur} turno(s)${hasGeyser ? ` (Geyser Spring intensifica a redução para ${pGeyser})` : ''}!`,
+              message: `ðŸŒ³ [${skill.name}] de ${source.character.name}: habilidades NÃƒO-MENTAIS de ${st.character.name} causarÃ£o -${dmgReduction} de dano e ele sofrerÃ¡ ${pPunish} de dano por turno se nÃ£o usar uma habilidade ofensiva, por ${pDur} turno(s)${hasGeyser ? ` (Geyser Spring intensifica a reduÃ§Ã£o para ${pGeyser})` : ''}!`,
               type: 'buff',
             });
-            addFloatingText(st.id, `-${dmgReduction} DANO (NÃO-MENTAL)`, 'damage');
+            addFloatingText(st.id, `-${dmgReduction} DANO (NÃƒO-MENTAL)`, 'damage');
           }
         });
       }
@@ -5983,9 +5975,9 @@ const startingHealth = t.health;
       const instantBuffSum = dmgBuffInstant;
       const totalDotInstant = dotInstant + missingHpDot + instantBuffSum;
       const totalBleedInstant = bleedingInstant + missingHpBleed + instantBuffSum;
-      // 💜 Regra de dano (tipo Aflição + Ignorar Dano Base): se a skill TEM ⚡ Na hora configurado,
-      // a regra SUBSTITUI o valor do instantâneo; sem instant configurado, vale o legado
-      // (a regra substitui o valor POR TURNO no bloco de aflição mais abaixo).
+      // ðŸ’œ Regra de dano (tipo AfliÃ§Ã£o + Ignorar Dano Base): se a skill TEM âš¡ Na hora configurado,
+      // a regra SUBSTITUI o valor do instantÃ¢neo; sem instant configurado, vale o legado
+      // (a regra substitui o valor POR TURNO no bloco de afliÃ§Ã£o mais abaixo).
       const afflRuleReplacesInstant = hasActiveDamageRuleIgnoreBase && ruleAfflictionDamage > 0 && afflictionInstant > 0;
       const totalAfflictionInstant = (afflRuleReplacesInstant ? ruleAfflictionDamage : afflictionInstant) + missingHpAffliction + instantBuffSum;
       const instantDotTargets = totalDotInstant > 0 ? resolveEffectTargets(skill.dotTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList) : [];
@@ -5995,21 +5987,21 @@ const startingHealth = t.health;
         if (!t || t.isDead) return;
         t.health = Math.max(0, t.health - totalDotInstant);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${t.character.name}: -${totalDotInstant} HP (DoT)${missingHpDot > 0 ? ` [HP Perdido: ${missingHpDot}]` : ''}`, type: 'damage' });
+        newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ”¥ [${skill.name}] â†’ ${t.character.name}: -${totalDotInstant} HP (DoT)${missingHpDot > 0 ? ` [HP Perdido: ${missingHpDot}]` : ''}`, type: 'damage' });
         addFloatingText(t.id, `-${totalDotInstant} HP (DoT)`, 'damage');
       });
       instantBleedTargets.forEach(t => {
         if (!t || t.isDead) return;
         t.health = Math.max(0, t.health - totalBleedInstant);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalBleedInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `🩸 [${skill.name}] → ${t.character.name}: -${totalBleedInstant} HP (SANGRAMENTO)${missingHpBleed > 0 ? ` [HP Perdido: ${missingHpBleed}]` : ''}`, type: 'damage' });
+        newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ©¸ [${skill.name}] â†’ ${t.character.name}: -${totalBleedInstant} HP (SANGRAMENTO)${missingHpBleed > 0 ? ` [HP Perdido: ${missingHpBleed}]` : ''}`, type: 'damage' });
         addFloatingText(t.id, `-${totalBleedInstant} HP (SANGRAMENTO)`, 'damage');
       });
       instantAfflictionTargets.forEach(t => {
         if (!t || t.isDead) return;
         t.health = Math.max(0, t.health - totalAfflictionInstant);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalAfflictionInstant;
-        newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${t.character.name}: -${totalAfflictionInstant} HP (AFLICAO)${missingHpAffliction > 0 ? ` [HP Perdido: ${missingHpAffliction}]` : ''}`, type: 'damage' });
+        newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’€ [${skill.name}] â†’ ${t.character.name}: -${totalAfflictionInstant} HP (AFLICAO)${missingHpAffliction > 0 ? ` [HP Perdido: ${missingHpAffliction}]` : ''}`, type: 'damage' });
         addFloatingText(t.id, `-${totalAfflictionInstant} HP (AFLICAO)`, 'damage');
       });
       Array.from(new Set([...instantDotTargets, ...instantBleedTargets, ...instantAfflictionTargets])).forEach(t => {
@@ -6035,7 +6027,7 @@ const startingHealth = t.health;
           const pool = tIsPlayer ? localPlayerChakra : localEnemyChakra;
           const randType = pickChakraGainType(pool, skill.gainChakraTypes, onlineParams?.isOnline ? gameRng : undefined);
           pool[randType] = (pool[randType] || 0) + amt;
-          newLogs.push({ id: Math.random().toString(), turn, message: `✨ [${skill.name}] → ${t.character.name}: +${amt} chakra (${randType})`, type: 'chakra' });
+          newLogs.push({ id: Math.random().toString(), turn, message: `âœ¨ [${skill.name}] â†’ ${t.character.name}: +${amt} chakra (${randType})`, type: 'chakra' });
           addFloatingText(t.id, `+${amt} CHAKRA (${randType.toUpperCase()})`, 'effect');
         });
       }
@@ -6048,9 +6040,9 @@ const startingHealth = t.health;
         drainChakraTargets.forEach(t => {
           if (t.isDead) return;
           const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
-          // 1º tick IMEDIATO ao usar (já conta como o 1º turno)
+          // 1Âº tick IMEDIATO ao usar (jÃ¡ conta como o 1Âº turno)
           performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'drain', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
-          // Ticks restantes ficam como efeito contínuo (duração - 1); castTurn evita drenar de novo neste turno
+          // Ticks restantes ficam como efeito contÃ­nuo (duraÃ§Ã£o - 1); castTurn evita drenar de novo neste turno
           if (dur > 1) {
             pushActiveEffect(t, {
               name: `Dreno de Chakra (${skill.name})`,
@@ -6058,7 +6050,7 @@ const startingHealth = t.health;
               castTurn: turn,
               irremovable: !!skill.drainChakraIrremovable,
             });
-            newLogs.push({ id: Math.random().toString(), turn, message: `🌀 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por mais ${dur - 1}T`, type: 'chakra' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸŒ€ [${skill.name}] â†’ ${t.character.name}: -${amt} chakra/turno por mais ${dur - 1}T`, type: 'chakra' });
             addFloatingText(t.id, 'DRENO CHAKRA CONTINUO', 'effect');
           }
           cleanseTargetEffects(t, skill.drainChakraRemoveType);
@@ -6073,16 +6065,16 @@ const startingHealth = t.health;
         removeChakraTargets.forEach(t => {
           if (t.isDead) return;
           const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
-          // 1º tick IMEDIATO ao usar (já conta como o 1º turno)
+          // 1Âº tick IMEDIATO ao usar (jÃ¡ conta como o 1Âº turno)
           performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'remove', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
           if (dur > 1) {
             pushActiveEffect(t, {
-              name: `Remoção de Chakra (${skill.name})`,
+              name: `RemoÃ§Ã£o de Chakra (${skill.name})`,
               type: 'custom', value: amt, duration: dur - 1, icon: skill.icon,
               castTurn: turn,
               irremovable: !!skill.removeChakraIrremovable,
             });
-            newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por mais ${dur - 1}T`, type: 'chakra' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ”¥ [${skill.name}] â†’ ${t.character.name}: -${amt} chakra/turno por mais ${dur - 1}T`, type: 'chakra' });
             addFloatingText(t.id, 'REMOCAO CHAKRA CONTINUA', 'effect');
           }
           cleanseTargetEffects(t, skill.removeChakraRemoveType);
@@ -6097,7 +6089,7 @@ const startingHealth = t.health;
         stealChakraTargets.forEach(t => {
           if (t.isDead) return;
           const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
-          // 1º tick IMEDIATO ao usar (já conta como o 1º turno)
+          // 1Âº tick IMEDIATO ao usar (jÃ¡ conta como o 1Âº turno)
           performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'steal', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
           if (dur > 1) {
             pushActiveEffect(t, {
@@ -6106,14 +6098,14 @@ const startingHealth = t.health;
               castTurn: turn,
               irremovable: !!skill.stealChakraIrremovable,
             });
-            newLogs.push({ id: Math.random().toString(), turn, message: `💰 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por mais ${dur - 1}T`, type: 'chakra' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’° [${skill.name}] â†’ ${t.character.name}: -${amt} chakra/turno por mais ${dur - 1}T`, type: 'chakra' });
             addFloatingText(t.id, 'ROUBO CHAKRA CONTINUO', 'effect');
           }
           cleanseTargetEffects(t, skill.stealChakraRemoveType);
         });
       }
 
-      // ROUBAR VIDA (Vampirismo) — roubo instantâneo + efeito contínuo por turno
+      // ROUBAR VIDA (Vampirismo) â€” roubo instantÃ¢neo + efeito contÃ­nuo por turno
       if ((skill.stealLifeVal && skill.stealLifeVal > 0) || ruleLifeStealDamage > 0) {
         const effectiveStealVal = hasActiveDamageRuleIgnoreBase
           ? ruleLifeStealDamage
@@ -6125,13 +6117,13 @@ const startingHealth = t.health;
           const isInvul = checkCombatantInvulnerable(t, 'damage');
           const hasInvulDebuff = t.activeEffects.some(e => (e.name || '').toLowerCase().includes('incapaz de ficar invulneravel'));
           if (isInvul && !hasInvulDebuff) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é INVULNERÁVEL e [${skill.name}] não conseguiu roubar vida!`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} Ã© INVULNERÃVEL e [${skill.name}] nÃ£o conseguiu roubar vida!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÃVEL!', 'invulnerable');
             return;
           }
           if (hasDamageImmunity(t, ['life_steal'])) {
             consumeFirstHitOnlyImmunity(t, ['life_steal']);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou o roubo de vida!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE A DANO e ignorou o roubo de vida!`, type: 'buff' });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
             return;
           }
@@ -6153,7 +6145,7 @@ const startingHealth = t.health;
           if (actualDealt > 0) {
             const healAmt = Math.min(actualDealt, (source.maxHealth || source.health) - source.health);
             source.health = Math.min(source.maxHealth || source.health, source.health + actualDealt);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🧛 [${skill.name}] de ${source.character.name} roubou ${actualDealt} de vida de ${t.character.name} e recuperou ${healAmt} HP!`, type: 'damage' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ§› [${skill.name}] de ${source.character.name} roubou ${actualDealt} de vida de ${t.character.name} e recuperou ${healAmt} HP!`, type: 'damage' });
             addFloatingText(t.id, `-${actualDealt} HP`, 'damage');
             addFloatingText(source.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
             // Air Bullets combo stun for life steal damage
@@ -6161,10 +6153,10 @@ const startingHealth = t.health;
           }
           if (t.health <= 0 && !hasImmortalEffect(t)) {
             t.isDead = true;
-            newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${t.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’€ ${t.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
             addFloatingText(t.id, 'DERROTADO', 'damage');
           }
-          // Efeito contínuo: dura (rawDuration - 1) turnos adicionais, ticando no fim do turno do alvo
+          // Efeito contÃ­nuo: dura (rawDuration - 1) turnos adicionais, ticando no fim do turno do alvo
           const remainingDuration = rawDuration === 99999 ? 99999 : (rawDuration - 1);
           if (remainingDuration > 0 && !t.isDead) {
             pushActiveEffect(t, {
@@ -6181,8 +6173,8 @@ const startingHealth = t.health;
               casterId: source.id,
               casterSide: action.isPlayer ? 'player' : 'enemy',
             });
-            newLogs.push({ id: Math.random().toString(), turn, message: `🧛 ${t.character.name} continuará com vida roubada por [${skill.name}] por mais ${remainingDuration === 99999 ? '∞' : remainingDuration} ${remainingDuration === 1 ? 'turno' : 'turnos'}!`, type: 'damage' });
-            addFloatingText(t.id, `ROUBO DE VIDA (+${remainingDuration === 99999 ? '∞' : remainingDuration})`, 'effect');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ§› ${t.character.name} continuarÃ¡ com vida roubada por [${skill.name}] por mais ${remainingDuration === 99999 ? 'âˆž' : remainingDuration} ${remainingDuration === 1 ? 'turno' : 'turnos'}!`, type: 'damage' });
+            addFloatingText(t.id, `ROUBO DE VIDA (+${remainingDuration === 99999 ? 'âˆž' : remainingDuration})`, 'effect');
           }
           cleanseTargetEffects(t, skill.stealLifeRemoveType);
         });
@@ -6212,7 +6204,7 @@ const startingHealth = t.health;
               performChakraAction(tIsPlayer, rule.removeAmount, source.character.name, t.character.name, skill.name, action.isPlayer, 'remove', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `🔥 [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e removeu ${rule.removeAmount} chakra aleatório do estoque inimigo!`,
+                message: `ðŸ”¥ [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e removeu ${rule.removeAmount} chakra aleatÃ³rio do estoque inimigo!`,
                 type: 'chakra',
               });
             }
@@ -6244,7 +6236,7 @@ const startingHealth = t.health;
               performChakraAction(tIsPlayer, rule.chakraAmount, source.character.name, t.character.name, skill.name, action.isPlayer, 'steal', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `💰 [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e roubou ${rule.chakraAmount} chakra aleatório do estoque inimigo!`,
+                message: `ðŸ’° [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e roubou ${rule.chakraAmount} chakra aleatÃ³rio do estoque inimigo!`,
                 type: 'chakra',
               });
             }
@@ -6261,7 +6253,7 @@ const startingHealth = t.health;
           let killedAny = false;
           targetSide.forEach(t => {
             if (t.isDead) return;
-            // Limite de vida (killHpThreshold): só executa se o HP do Oponente estiver menor/igual ao valor
+            // Limite de vida (killHpThreshold): sÃ³ executa se o HP do Oponente estiver menor/igual ao valor
             if (rule.killHpThreshold && rule.killHpThreshold > 0 && t.health > rule.killHpThreshold) return;
             const hasActiveEffect = (t.activeEffects || []).some(e => {
               if (!e.name) return false;
@@ -6274,25 +6266,25 @@ const startingHealth = t.health;
               t.isDead = true;
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `💀 [EXECUÇÃO] ${source.character.name} MATOU INSTANTANEAMENTE ${t.character.name} com [${skill.name}] porque [${rule.activeSkillName}] está ativo nele${rule.killHpThreshold && rule.killHpThreshold > 0 ? ` e a vida dele estava em ${t.health > 0 ? '≤ ' + rule.killHpThreshold : '0'}` : ''}!`,
+                message: `ðŸ’€ [EXECUÃ‡ÃƒO] ${source.character.name} MATOU INSTANTANEAMENTE ${t.character.name} com [${skill.name}] porque [${rule.activeSkillName}] estÃ¡ ativo nele${rule.killHpThreshold && rule.killHpThreshold > 0 ? ` e a vida dele estava em ${t.health > 0 ? 'â‰¤ ' + rule.killHpThreshold : '0'}` : ''}!`,
                 type: 'damage',
               });
-              addFloatingText(t.id, 'MORTE INSTANTÂNEA!', 'damage');
+              addFloatingText(t.id, 'MORTE INSTANTÃ‚NEA!', 'damage');
               if (action.isPlayer) {
                 matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
               }
             }
           });
-          // Opção "Mim e o Oponente": o conjurador também morre (sacrifício)
+          // OpÃ§Ã£o "Mim e o Oponente": o conjurador tambÃ©m morre (sacrifÃ­cio)
           if (rule.killScope === 'self_and_target' && killedAny && !source.isDead) {
             source.health = 0;
             source.isDead = true;
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `💀 [EXECUÇÃO] ${source.character.name} SE SACRIFICOU e morreu junto ao executar [${skill.name}]!`,
+              message: `ðŸ’€ [EXECUÃ‡ÃƒO] ${source.character.name} SE SACRIFICOU e morreu junto ao executar [${skill.name}]!`,
               type: 'damage',
             });
-            addFloatingText(source.id, 'SACRIFÍCIO!', 'damage');
+            addFloatingText(source.id, 'SACRIFÃCIO!', 'damage');
           }
         }
       }
@@ -6317,7 +6309,7 @@ const startingHealth = t.health;
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⏳ Cooldowns de ${t.character.name} foram PARALISADOS por [${skill.name}] por ${duration} turnos!`,
+            message: `â³ Cooldowns de ${t.character.name} foram PARALISADOS por [${skill.name}] por ${duration} turnos!`,
             type: 'system',
           });
           addFloatingText(t.id, 'COOLDOWNS PARALISADOS', 'stun');
@@ -6346,7 +6338,7 @@ const startingHealth = t.health;
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⏱️ ${t.character.name} recebeu RECARGA AUMENTADA (+${cdAmt} de cooldown por habilidade usada) por [${skill.name}] por ${cdDur} ${cdDur === 1 ? 'turno' : 'turnos'}!`,
+            message: `â±ï¸ ${t.character.name} recebeu RECARGA AUMENTADA (+${cdAmt} de cooldown por habilidade usada) por [${skill.name}] por ${cdDur} ${cdDur === 1 ? 'turno' : 'turnos'}!`,
             type: 'system',
           });
           addFloatingText(t.id, `CD +${cdAmt}`, 'stun');
@@ -6364,10 +6356,10 @@ const startingHealth = t.health;
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️❌ [${skill.name}] de ${source.character.name} DESTRUIU todo o escudo de ${t.character.name}!`,
+            message: `ðŸ›¡ï¸âŒ [${skill.name}] de ${source.character.name} DESTRUIU todo o escudo de ${t.character.name}!`,
             type: 'damage',
           });
-          addFloatingText(t.id, 'ESCUDO DESTRUÍDO', 'shield');
+          addFloatingText(t.id, 'ESCUDO DESTRUÃDO', 'shield');
           if (skill.removeShieldDuration && skill.removeShieldDuration > 0) {
             pushActiveEffect(t, {
               name: `Selamento de Escudo (${skill.name})`,
@@ -6378,7 +6370,7 @@ const startingHealth = t.health;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️⛔ ${t.character.name} está IMPEDIDO de ganhar escudo por ${skill.removeShieldDuration} turnos!`,
+              message: `ðŸ›¡ï¸â›” ${t.character.name} estÃ¡ IMPEDIDO de ganhar escudo por ${skill.removeShieldDuration} turnos!`,
               type: 'buff',
             });
             addFloatingText(t.id, 'ESCUDO SELADO', 'shield');
@@ -6397,7 +6389,7 @@ const startingHealth = t.health;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⚔️⛔ [${skill.name}] de ${source.character.name} REMOVEU os Contra-Ataques / Refletir de ${t.character.name}!`,
+              message: `âš”ï¸â›” [${skill.name}] de ${source.character.name} REMOVEU os Contra-Ataques / Refletir de ${t.character.name}!`,
               type: 'damage',
             });
             addFloatingText(t.id, 'CONTRA/REFLETIR REMOVIDO', 'stun');
@@ -6405,8 +6397,8 @@ const startingHealth = t.health;
         });
       }
 
-      // 💉 Regra única (Shizune): [Prepared Needle Shot] renova o Poison Fog do alvo para 2 turnos.
-      // Bloco INDEPENDENTE dos ramos de dano, pois a skill não tem dano próprio configurado.
+      // ðŸ’‰ Regra Ãºnica (Shizune): [Prepared Needle Shot] renova o Poison Fog do alvo para 2 turnos.
+      // Bloco INDEPENDENTE dos ramos de dano, pois a skill nÃ£o tem dano prÃ³prio configurado.
       {
         const needleTarget = target;
         if (
@@ -6417,36 +6409,36 @@ const startingHealth = t.health;
           const poisonFogEff = needleTarget.activeEffects.find(e => e.type === 'affliction' && (e.name || '').toLowerCase().includes('poison fog'));
           if (poisonFogEff && poisonFogEff.duration < 99999 && poisonFogEff.duration < 2) {
             poisonFogEff.duration = 2;
-            newLogs.push({ id: Math.random().toString(), turn, message: `💉 ${source.character.name} renovou o [Poison Fog] em ${needleTarget.character.name}: duração restaurada para 2 turnos!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’‰ ${source.character.name} renovou o [Poison Fog] em ${needleTarget.character.name}: duraÃ§Ã£o restaurada para 2 turnos!`, type: 'buff' });
             addFloatingText(needleTarget.id, 'POISON FOG RENOVADO (2T)', 'effect');
           }
         }
       }
 
-      // ✨ Reviver: skill com reviveDeadAllies traz de volta SOMENTE o alvo escolhido, se ele estiver morto.
-      // Quando usada num MORTO, aplica APENAS o revive (ignora a Cura da skill — cura vale só para vivos).
+      // âœ¨ Reviver: skill com reviveDeadAllies traz de volta SOMENTE o alvo escolhido, se ele estiver morto.
+      // Quando usada num MORTO, aplica APENAS o revive (ignora a Cura da skill â€” cura vale sÃ³ para vivos).
       if (skill.reviveDeadAllies && target && target.isDead && sourceList.some(c => c.id === target.id)) {
         const reviveHp = Math.min(Math.max(1, skill.reviveHealth || 0), target.maxHealth);
         target.isDead = false;
         target.health = reviveHp;
-        // 🚫 Marca o alvo neste turno: a seção 2 de cura NÃO deve curá-lo com esta skill (revive ≠ cura)
+        // ðŸš« Marca o alvo neste turno: a seÃ§Ã£o 2 de cura NÃƒO deve curÃ¡-lo com esta skill (revive â‰  cura)
         (target as any)._revivedNoHealTurn = turn;
         (target as any).hasRevived = true;
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `✨ ${source.character.name} RESSUSCITOU ${target.character.name} com ${reviveHp} de vida!`,
+          message: `âœ¨ ${source.character.name} RESSUSCITOU ${target.character.name} com ${reviveHp} de vida!`,
           type: 'heal',
         });
-        addFloatingText(target.id, '✨ REVIVIDO!', 'heal');
+        addFloatingText(target.id, 'âœ¨ REVIVIDO!', 'heal');
       }
 
       // 1. DAMAGE & SHIELDS
-      // 🔄 Turnos = Stacks em Mim: entra no fluxo de dano contínuo também quando a opção
-      // de duração por stacks está ativa (mesmo sem damageDuration configurado)
+      // ðŸ”„ Turnos = Stacks em Mim: entra no fluxo de dano contÃ­nuo tambÃ©m quando a opÃ§Ã£o
+      // de duraÃ§Ã£o por stacks estÃ¡ ativa (mesmo sem damageDuration configurado)
       const dmgStacksKeyActive = !!(skill.damageStacksAsDuration && (skill.damageStacksAsDurationType || '').trim());
       if ((skill.damageDuration && skill.damageDuration > 1) || dmgStacksKeyActive) {
-        // 🔄 Turnos = Stacks em Mim: duração do dano contínuo = total de stacks
+        // ðŸ”„ Turnos = Stacks em Mim: duraÃ§Ã£o do dano contÃ­nuo = total de stacks
         // do tipo selecionado que o conjurador possuir no momento do uso
         let damageStacksOverride = false;
         const duration = (() => {
@@ -6466,8 +6458,8 @@ const startingHealth = t.health;
         damageTargets.forEach(t => {
           if (t.isDead) return;
           if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} estÃ¡ INVULNERÃVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÃVEL', 'invulnerable');
             return;
           }
           // Deal immediate first tick
@@ -6478,7 +6470,7 @@ const startingHealth = t.health;
             if ((e as any).excludeAffliction) {
               const isAffliction = skill.classes?.some((c: string) => {
                 const lower = c.toLowerCase();
-                return lower.includes('aflição') || lower.includes('affliction');
+                return lower.includes('afliÃ§Ã£o') || lower.includes('affliction');
               });
               if (isAffliction) return false;
             }
@@ -6512,7 +6504,7 @@ const startingHealth = t.health;
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `💥 ${t.character.name} levou +${selfBonusDmg} de dano direto por stack (${selfRule.stackType}) em ${source.character.name}!`,
+                        message: `ðŸ’¥ ${t.character.name} levou +${selfBonusDmg} de dano direto por stack (${selfRule.stackType}) em ${source.character.name}!`,
                         type: 'damage',
                       });
                       addFloatingText(t.id, `-${selfBonusDmg} DANO DIRETO`, 'damage');
@@ -6522,7 +6514,7 @@ const startingHealth = t.health;
                     newLogs.push({
                       id: Math.random().toString(),
                       turn,
-                      message: `💪 [${skill.name}] de ${source.character.name} recebeu +${selfBonusDmg} de dano (${selfStackCount}x stack de ${selfRule.stackType})!`,
+                      message: `ðŸ’ª [${skill.name}] de ${source.character.name} recebeu +${selfBonusDmg} de dano (${selfStackCount}x stack de ${selfRule.stackType})!`,
                       type: 'damage',
                     });
                   }
@@ -6539,19 +6531,19 @@ const startingHealth = t.health;
                   if (stackRule.duration && stackRule.duration > 0) {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
                     const totalDmg = stackCount * stackRule.damagePerStack;
-                    // Dano instantâneo no golpe
+                    // Dano instantÃ¢neo no golpe
                     if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
                     if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `💥 ${t.character.name} levou ${totalDmg} de ${stackRule.stackType} instantâneo!`,
+                        message: `ðŸ’¥ ${t.character.name} levou ${totalDmg} de ${stackRule.stackType} instantÃ¢neo!`,
                         type: 'damage',
                       });
                       addFloatingText(t.id, `-${totalDmg} ${stackRule.stackType}`, 'damage');
                     }
-                    // DOT por mais X turnos (duração 1 = só instantâneo)
+                    // DOT por mais X turnos (duraÃ§Ã£o 1 = sÃ³ instantÃ¢neo)
                     if (stackRule.duration > 1) {
                       pushActiveEffect(t, {
                         name: `${skill.name} (${stackRule.stackType} DOT)`,
@@ -6566,7 +6558,7 @@ const startingHealth = t.health;
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `🔥 ${t.character.name} sofrerá +${totalDmg} de ${dmgType} por turno por mais ${stackRule.duration - 1} turnos (${stackCount}x ${stackRule.stackType})!`,
+                        message: `ðŸ”¥ ${t.character.name} sofrerÃ¡ +${totalDmg} de ${dmgType} por turno por mais ${stackRule.duration - 1} turnos (${stackCount}x ${stackRule.stackType})!`,
                         type: 'damage',
                       });
                       addFloatingText(t.id, `${dmgType.toUpperCase()} +${totalDmg}`, 'damage');
@@ -6591,7 +6583,7 @@ const startingHealth = t.health;
                         newLogs.push({
                           id: Math.random().toString(),
                           turn,
-                          message: `💥 ${t.character.name} levou +${stackDmg} de dano direto por stack (${stackRule.stackType})!`,
+                          message: `ðŸ’¥ ${t.character.name} levou +${stackDmg} de dano direto por stack (${stackRule.stackType})!`,
                           type: 'damage',
                         });
                         addFloatingText(t.id, `-${stackDmg} DANO DIRETO`, 'damage');
@@ -6601,7 +6593,7 @@ const startingHealth = t.health;
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `💪 [${skill.name}] de ${source.character.name} recebeu +${stackDmg} de dano (${stackCount}x stack de ${stackRule.stackType})!`,
+                        message: `ðŸ’ª [${skill.name}] de ${source.character.name} recebeu +${stackDmg} de dano (${stackCount}x stack de ${stackRule.stackType})!`,
                         type: 'damage',
                       });
                     }
@@ -6634,7 +6626,7 @@ const startingHealth = t.health;
           if (hasDamageImmunity(t, ['damage', ...getSkillCombatTypes(skill)])) finalDamage = 0;
           let convertedToShield = false;
           if (finalDamage > 0 && convertDamageToShield(t, finalDamage, turn, ['damage', ...getSkillCombatTypes(skill)])) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
             addFloatingText(t.id, `+${finalDamage} ESCUDO`, 'shield');
             convertedToShield = true;
             finalDamage = 0;
@@ -6642,12 +6634,12 @@ const startingHealth = t.health;
           if (!convertedToShield && t.shield > 0) {
             if (t.shield >= finalDamage) {
               t.shield -= finalDamage;
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`, type: 'buff' });
               addFloatingText(t.id, `-${finalDamage} ESCUDO`, 'shield');
               finalDamage = 0;
             } else {
               finalDamage -= t.shield;
-              newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} quebrou o escudo de ${t.character.name}!`, type: 'damage' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’¥ ${source.character.name} quebrou o escudo de ${t.character.name}!`, type: 'damage' });
               addFloatingText(t.id, 'ESCUDO QUEBRADO', 'shield');
               t.shield = 0;
             }
@@ -6655,13 +6647,13 @@ const startingHealth = t.health;
           if (hasDamageImmunity(t, ['damage', ...getSkillCombatTypes(skill)])) {
             finalDamage = 0;
             const consumedFirstHit = consumeFirstHitOnlyImmunity(t, ['damage', ...getSkillCombatTypes(skill)]);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE A DANO e nÃ£o sofreu dano de HP de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1Âº dano usada!)' : ''}`, type: 'buff' });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           }
           if (finalDamage > 0) {
             const before = t.health;
             t.health = hasImmortalEffect(t) ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
-            newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’¥ ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
             // Air Bullets combo stun (only for targets marked by Air Bullets this turn)
             applyAirBulletsStun(t, source, action.isPlayer, skill);
@@ -6677,7 +6669,7 @@ const startingHealth = t.health;
               matchStatsRef.current.killRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name });
             }
           }
-          // 🎯 Regras de Dano com Skill Ativa no Alvo: dano extra somente em alvos que tiverem a skill X ativa neles
+          // ðŸŽ¯ Regras de Dano com Skill Ativa no Alvo: dano extra somente em alvos que tiverem a skill X ativa neles
           if (!t.isDead && skill.targetActiveSkillDamageRules && skill.targetActiveSkillDamageRules.length > 0) {
             for (const taRule of skill.targetActiveSkillDamageRules) {
               const reqName = (taRule.activeSkillName || '').trim().toLowerCase();
@@ -6691,7 +6683,7 @@ const startingHealth = t.health;
               const taType = taRule.damageType || 'damage';
               if (hasDamageImmunity(t, [taType])) {
                 consumeFirstHitOnlyImmunity(t, [taType]);
-                newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE e não sofreu o dano extra de [${skill.name}].`, type: 'buff' });
+                newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE e nÃ£o sofreu o dano extra de [${skill.name}].`, type: 'buff' });
                 addFloatingText(t.id, 'IMUNE!', 'invulnerable');
                 continue;
               }
@@ -6705,8 +6697,8 @@ const startingHealth = t.health;
               }
               if (remaining > 0) {
                 t.health = hasImmortalEffect(t) ? Math.max(1, t.health - remaining) : Math.max(0, t.health - remaining);
-                const taLabel = taType === 'direct_damage' ? 'DANO DIRETO' : taType === 'affliction' ? 'AFLIÇÃO' : taType === 'bleeding' ? 'SANGRAMENTO' : taType === 'dot' ? 'QUEIMADURA' : taType === 'life_steal' ? 'ROUBO DE VIDA' : taType === 'piercing' ? 'PERFURANTE' : 'DANO';
-                newLogs.push({ id: Math.random().toString(), turn, message: `🎯 ${source.character.name} usou [${skill.name}] e causou +${taRule.damage} de ${taLabel.toLowerCase()} em ${t.character.name} ("${taRule.activeSkillName}" ativa nele)!`, type: 'damage' });
+                const taLabel = taType === 'direct_damage' ? 'DANO DIRETO' : taType === 'affliction' ? 'AFLIÃ‡ÃƒO' : taType === 'bleeding' ? 'SANGRAMENTO' : taType === 'dot' ? 'QUEIMADURA' : taType === 'life_steal' ? 'ROUBO DE VIDA' : taType === 'piercing' ? 'PERFURANTE' : 'DANO';
+                newLogs.push({ id: Math.random().toString(), turn, message: `ðŸŽ¯ ${source.character.name} usou [${skill.name}] e causou +${taRule.damage} de ${taLabel.toLowerCase()} em ${t.character.name} ("${taRule.activeSkillName}" ativa nele)!`, type: 'damage' });
                 addFloatingText(t.id, `-${remaining} ${taLabel}`, 'damage');
                 if (action.isPlayer) {
                   matchStatsRef.current.damageDealt += remaining;
@@ -6718,7 +6710,7 @@ const startingHealth = t.health;
               }
             }
           }
-          // 💉 Regra única (Shizune): [Prepared Needle Shot] renova o Poison Fog do alvo para 2 turnos
+          // ðŸ’‰ Regra Ãºnica (Shizune): [Prepared Needle Shot] renova o Poison Fog do alvo para 2 turnos
           if (
             !t.isDead &&
             source.character.id?.toLowerCase() === 'shizune' &&
@@ -6727,14 +6719,14 @@ const startingHealth = t.health;
             const poisonFogEff = t.activeEffects.find(e => e.type === 'affliction' && (e.name || '').toLowerCase().includes('poison fog'));
             if (poisonFogEff && poisonFogEff.duration < 99999 && poisonFogEff.duration < 2) {
               poisonFogEff.duration = 2;
-              newLogs.push({ id: Math.random().toString(), turn, message: `💉 ${source.character.name} renovou o [Poison Fog] em ${t.character.name}: duração restaurada para 2 turnos!`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’‰ ${source.character.name} renovou o [Poison Fog] em ${t.character.name}: duraÃ§Ã£o restaurada para 2 turnos!`, type: 'buff' });
               addFloatingText(t.id, 'POISON FOG RENOVADO (2T)', 'effect');
             }
           }
             // Apply remaining continuous damage (duration - 1)
           if (duration > 1 && !t.isDead) {
             pushActiveEffect(t, {
-              name: `${skill.name} (Dano Contínuo)`,
+              name: `${skill.name} (Dano ContÃ­nuo)`,
               type: 'damage',
               value: baseDamage + dmgBuffNormal,
               duration: duration === 99999 ? 99999 : (duration - 1),
@@ -6747,10 +6739,10 @@ const startingHealth = t.health;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💥 ${t.character.name} foi afetado por [${skill.name}] sofrendo ${baseDamage} de dano por turno por mais ${duration === 99999 ? '∞' : (duration - 1)} turnos!${damageStacksOverride ? ` (🔄 duração = ${duration}x stack de [${skill.damageStacksAsDurationType}])` : ''}`,
+              message: `ðŸ’¥ ${t.character.name} foi afetado por [${skill.name}] sofrendo ${baseDamage} de dano por turno por mais ${duration === 99999 ? 'âˆž' : (duration - 1)} turnos!${damageStacksOverride ? ` (ðŸ”„ duraÃ§Ã£o = ${duration}x stack de [${skill.damageStacksAsDurationType}])` : ''}`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO CONTÍNUO (${skill?.permanent || duration === 99999 ? '♾️ Permanente' : (duration - 1) + 'T'})`, 'damage');
+            addFloatingText(t.id, `DANO CONTÃNUO (${skill?.permanent || duration === 99999 ? 'â™¾ï¸ Permanente' : (duration - 1) + 'T'})`, 'damage');
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
@@ -6783,8 +6775,8 @@ splashOnlyTargets = splashPool.filter(c =>
         primaryTargets.forEach(t => {
           if (t.isDead) return;
           if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} estÃ¡ INVULNERÃVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÃVEL', 'invulnerable');
             return;
           }
           const startingShield = t.shield;
@@ -6795,7 +6787,7 @@ splashOnlyTargets = splashPool.filter(c =>
             if ((e as any).excludeAffliction) {
               const isAffliction = skill.classes?.some((c: string) => {
                 const lower = c.toLowerCase();
-                return lower.includes('aflição') || lower.includes('affliction');
+                return lower.includes('afliÃ§Ã£o') || lower.includes('affliction');
               });
               if (isAffliction) return false;
             }
@@ -6829,7 +6821,7 @@ splashOnlyTargets = splashPool.filter(c =>
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `💥 ${t.character.name} levou +${selfBonusDmg} de dano direto por stack (${selfRule.stackType}) em ${source.character.name}!`,
+                        message: `ðŸ’¥ ${t.character.name} levou +${selfBonusDmg} de dano direto por stack (${selfRule.stackType}) em ${source.character.name}!`,
                         type: 'damage',
                       });
                       addFloatingText(t.id, `-${selfBonusDmg} DANO DIRETO`, 'damage');
@@ -6839,7 +6831,7 @@ splashOnlyTargets = splashPool.filter(c =>
                     newLogs.push({
                       id: Math.random().toString(),
                       turn,
-                      message: `💪 [${skill.name}] de ${source.character.name} recebeu +${selfBonusDmg} de dano (${selfStackCount}x stack de ${selfRule.stackType})!`,
+                      message: `ðŸ’ª [${skill.name}] de ${source.character.name} recebeu +${selfBonusDmg} de dano (${selfStackCount}x stack de ${selfRule.stackType})!`,
                       type: 'damage',
                     });
                   }
@@ -6856,19 +6848,19 @@ splashOnlyTargets = splashPool.filter(c =>
                   if (stackRule.duration && stackRule.duration > 0) {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
                     const totalDmg = stackCount * stackRule.damagePerStack;
-                    // Dano instantâneo no golpe
+                    // Dano instantÃ¢neo no golpe
                     if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
                     if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `💥 ${t.character.name} levou ${totalDmg} de ${stackRule.stackType} instantâneo!`,
+                        message: `ðŸ’¥ ${t.character.name} levou ${totalDmg} de ${stackRule.stackType} instantÃ¢neo!`,
                         type: 'damage',
                       });
                       addFloatingText(t.id, `-${totalDmg} ${stackRule.stackType}`, 'damage');
                     }
-                    // DOT por mais X turnos (duração 1 = só instantâneo)
+                    // DOT por mais X turnos (duraÃ§Ã£o 1 = sÃ³ instantÃ¢neo)
                     if (stackRule.duration > 1) {
                       pushActiveEffect(t, {
                         name: `${skill.name} (${stackRule.stackType} DOT)`,
@@ -6883,7 +6875,7 @@ splashOnlyTargets = splashPool.filter(c =>
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `🔥 ${t.character.name} sofrerá +${totalDmg} de ${dmgType} por turno por mais ${stackRule.duration - 1} turnos (${stackCount}x ${stackRule.stackType})!`,
+                        message: `ðŸ”¥ ${t.character.name} sofrerÃ¡ +${totalDmg} de ${dmgType} por turno por mais ${stackRule.duration - 1} turnos (${stackCount}x ${stackRule.stackType})!`,
                         type: 'damage',
                       });
                       addFloatingText(t.id, `${dmgType.toUpperCase()} +${totalDmg}`, 'damage');
@@ -6908,7 +6900,7 @@ splashOnlyTargets = splashPool.filter(c =>
                         newLogs.push({
                           id: Math.random().toString(),
                           turn,
-                          message: `💥 ${t.character.name} levou +${stackDmg} de dano direto por stack (${stackRule.stackType})!`,
+                          message: `ðŸ’¥ ${t.character.name} levou +${stackDmg} de dano direto por stack (${stackRule.stackType})!`,
                           type: 'damage',
                         });
                         addFloatingText(t.id, `-${stackDmg} DANO DIRETO`, 'damage');
@@ -6918,7 +6910,7 @@ splashOnlyTargets = splashPool.filter(c =>
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `💪 [${skill.name}] de ${source.character.name} recebeu +${stackDmg} de dano (${stackCount}x stack de ${stackRule.stackType})!`,
+                        message: `ðŸ’ª [${skill.name}] de ${source.character.name} recebeu +${stackDmg} de dano (${stackCount}x stack de ${stackRule.stackType})!`,
                         type: 'damage',
                       });
                     }
@@ -6954,7 +6946,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
           let convertedToShield = false;
           if (finalDamage > 0 && convertDamageToShield(t, finalDamage, turn, ['damage', ...getSkillCombatTypes(skill)])) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
             addFloatingText(t.id, `+${finalDamage} ESCUDO`, 'shield');
             convertedToShield = true;
             finalDamage = 0;
@@ -6965,7 +6957,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`,
+                message: `ðŸ›¡ï¸ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`,
                 type: 'buff',
               });
               addFloatingText(t.id, `-${finalDamage} ESCUDO`, 'shield');
@@ -6975,7 +6967,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `💥 ${source.character.name} quebrou o escudo de ${t.character.name}!`,
+                message: `ðŸ’¥ ${source.character.name} quebrou o escudo de ${t.character.name}!`,
                 type: 'damage',
               });
               addFloatingText(t.id, 'ESCUDO QUEBRADO', 'shield');
@@ -6990,7 +6982,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name}.`,
+              message: `ðŸ’¥ ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name}.`,
               type: 'damage',
             });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
@@ -7005,7 +6997,7 @@ splashOnlyTargets = splashPool.filter(c =>
             }
           }
 
-          // 🎯 Regras de Dano com Skill Ativa no Alvo: dano extra somente em alvos que tiverem a skill X ativa neles
+          // ðŸŽ¯ Regras de Dano com Skill Ativa no Alvo: dano extra somente em alvos que tiverem a skill X ativa neles
           if (!t.isDead && skill.targetActiveSkillDamageRules && skill.targetActiveSkillDamageRules.length > 0) {
             for (const taRule of skill.targetActiveSkillDamageRules) {
               const reqName = (taRule.activeSkillName || '').trim().toLowerCase();
@@ -7019,7 +7011,7 @@ splashOnlyTargets = splashPool.filter(c =>
               const taType = taRule.damageType || 'damage';
               if (hasDamageImmunity(t, [taType])) {
                 consumeFirstHitOnlyImmunity(t, [taType]);
-                newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE e não sofreu o dano extra de [${skill.name}].`, type: 'buff' });
+                newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE e nÃ£o sofreu o dano extra de [${skill.name}].`, type: 'buff' });
                 addFloatingText(t.id, 'IMUNE!', 'invulnerable');
                 continue;
               }
@@ -7033,8 +7025,8 @@ splashOnlyTargets = splashPool.filter(c =>
               }
               if (remaining > 0) {
                 t.health = hasImmortalEffect(t) ? Math.max(1, t.health - remaining) : Math.max(0, t.health - remaining);
-                const taLabel = taType === 'direct_damage' ? 'DANO DIRETO' : taType === 'affliction' ? 'AFLIÇÃO' : taType === 'bleeding' ? 'SANGRAMENTO' : taType === 'dot' ? 'QUEIMADURA' : taType === 'life_steal' ? 'ROUBO DE VIDA' : taType === 'piercing' ? 'PERFURANTE' : 'DANO';
-                newLogs.push({ id: Math.random().toString(), turn, message: `🎯 ${source.character.name} usou [${skill.name}] e causou +${taRule.damage} de ${taLabel.toLowerCase()} em ${t.character.name} ("${taRule.activeSkillName}" ativa nele)!`, type: 'damage' });
+                const taLabel = taType === 'direct_damage' ? 'DANO DIRETO' : taType === 'affliction' ? 'AFLIÃ‡ÃƒO' : taType === 'bleeding' ? 'SANGRAMENTO' : taType === 'dot' ? 'QUEIMADURA' : taType === 'life_steal' ? 'ROUBO DE VIDA' : taType === 'piercing' ? 'PERFURANTE' : 'DANO';
+                newLogs.push({ id: Math.random().toString(), turn, message: `ðŸŽ¯ ${source.character.name} usou [${skill.name}] e causou +${taRule.damage} de ${taLabel.toLowerCase()} em ${t.character.name} ("${taRule.activeSkillName}" ativa nele)!`, type: 'damage' });
                 addFloatingText(t.id, `-${remaining} ${taLabel}`, 'damage');
                 if (action.isPlayer) {
                   matchStatsRef.current.damageDealt += remaining;
@@ -7047,7 +7039,7 @@ splashOnlyTargets = splashPool.filter(c =>
             }
           }
 
-          // 💉 Regra única (Shizune): [Prepared Needle Shot] renova o Poison Fog do alvo para 2 turnos
+          // ðŸ’‰ Regra Ãºnica (Shizune): [Prepared Needle Shot] renova o Poison Fog do alvo para 2 turnos
           if (
             !t.isDead &&
             source.character.id?.toLowerCase() === 'shizune' &&
@@ -7056,7 +7048,7 @@ splashOnlyTargets = splashPool.filter(c =>
             const poisonFogEff = t.activeEffects.find(e => e.type === 'affliction' && (e.name || '').toLowerCase().includes('poison fog'));
             if (poisonFogEff && poisonFogEff.duration < 99999 && poisonFogEff.duration < 2) {
               poisonFogEff.duration = 2;
-              newLogs.push({ id: Math.random().toString(), turn, message: `💉 ${source.character.name} renovou o [Poison Fog] em ${t.character.name}: duração restaurada para 2 turnos!`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’‰ ${source.character.name} renovou o [Poison Fog] em ${t.character.name}: duraÃ§Ã£o restaurada para 2 turnos!`, type: 'buff' });
               addFloatingText(t.id, 'POISON FOG RENOVADO (2T)', 'effect');
             }
           }
@@ -7067,7 +7059,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⚡ ${t.character.name} contra-atacou! Causou 15 de dano de volta em ${source.character.name}.`,
+              message: `âš¡ ${t.character.name} contra-atacou! Causou 15 de dano de volta em ${source.character.name}.`,
               type: 'damage',
             });
             addFloatingText(source.id, '-15 HP (CONTRA-ATAQUE)', 'damage');
@@ -7091,13 +7083,13 @@ splashOnlyTargets = splashPool.filter(c =>
             matchStatsRef.current.killRecords.push({ charName: source.character.name, tags: source.character.tags || [], skillName: skill.name });
           }
 
-          // Dano adicional por marcação (bonusDamageOnStacksRules) — aplicado com o TIPO de dano escolhido
+          // Dano adicional por marcaÃ§Ã£o (bonusDamageOnStacksRules) â€” aplicado com o TIPO de dano escolhido
           const tempBoostEffects = source.activeEffects.filter(e => e.type === 'temporary_damage_boost' && (e.value || 0) > 0);
           if (tempBoostEffects.length > 0 && !t.isDead) {
             const typeLabels: Record<string, string> = {
               damage: 'dano', direct_damage: 'dano direto', true: 'dano direto', piercing: 'dano direto',
-              physical: 'dano físico', chakra: 'dano de chakra', mental: 'dano mental', ranged: 'dano à distância',
-              affliction: 'aflição', dot: 'queimadura', bleeding: 'sangramento',
+              physical: 'dano fÃ­sico', chakra: 'dano de chakra', mental: 'dano mental', ranged: 'dano Ã  distÃ¢ncia',
+              affliction: 'afliÃ§Ã£o', dot: 'queimadura', bleeding: 'sangramento',
             };
             tempBoostEffects.forEach(boost => {
               const boostVal = boost.value || 0;
@@ -7105,18 +7097,18 @@ splashOnlyTargets = splashPool.filter(c =>
               const typeLabel = typeLabels[boostType] || 'dano';
               if (hasDamageImmunity(t, [boostType])) {
                 consumeFirstHitOnlyImmunity(t, [boostType]);
-                newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou o dano adicional de [${skill.name}].`, type: 'buff' });
+                newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE A DANO e ignorou o dano adicional de [${skill.name}].`, type: 'buff' });
                 addFloatingText(t.id, 'IMUNE!', 'invulnerable');
                 return;
               }
               if (checkCombatantInvulnerable(t, boostType) && !skill.ignoreInvulnerable) {
-                newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é INVULNERÁVEL a ${typeLabel} e ignorou o dano adicional de [${skill.name}].`, type: 'buff' });
-                addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
+                newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} Ã© INVULNERÃVEL a ${typeLabel} e ignorou o dano adicional de [${skill.name}].`, type: 'buff' });
+                addFloatingText(t.id, 'INVULNERÃVEL!', 'invulnerable');
                 return;
               }
               let remaining = boostVal;
-              // Dano direto/perfuração só é reduzido pela "Redução de Dano Imune a Perfuração";
-              // dano normal é reduzido pelo Guard e pela redução imune a perfuração.
+              // Dano direto/perfuraÃ§Ã£o sÃ³ Ã© reduzido pela "ReduÃ§Ã£o de Dano Imune a PerfuraÃ§Ã£o";
+              // dano normal Ã© reduzido pelo Guard e pela reduÃ§Ã£o imune a perfuraÃ§Ã£o.
               const isPierceBoost = boostType === 'direct_damage' || boostType === 'true' || boostType === 'piercing';
               const targetCannotReduce = t.activeEffects.some(e => e.type === 'cannot_reduce_damage') || hasNegateFriendlyEffects(t);
               const reductions = targetCannotReduce ? [] : getEffectiveTargetReductions(t, skill, isPierceBoost);
@@ -7133,7 +7125,7 @@ splashOnlyTargets = splashPool.filter(c =>
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `💥 ${source.character.name} causou +${boostVal} de ${typeLabel} em ${t.character.name} (dano adicional de [${skill.name}])!`,
+                  message: `ðŸ’¥ ${source.character.name} causou +${boostVal} de ${typeLabel} em ${t.character.name} (dano adicional de [${skill.name}])!`,
                   type: 'damage',
                 });
                 addFloatingText(t.id, `-${boostVal} ${typeLabel.toUpperCase()}`, 'damage');
@@ -7157,15 +7149,15 @@ splashOnlyTargets = splashPool.filter(c =>
         if (splashVal > 0) {
           splashOnlyTargets.forEach(splashT => {
             if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(splashT, skill)) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${splashT.character.name} está INVULNERÁVEL contra o SPLASH de [${skill.name}]!`, type: 'buff' });
-              addFloatingText(splashT.id, 'INVULNERÁVEL', 'invulnerable');
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${splashT.character.name} estÃ¡ INVULNERÃVEL contra o SPLASH de [${skill.name}]!`, type: 'buff' });
+              addFloatingText(splashT.id, 'INVULNERÃVEL', 'invulnerable');
               return;
             }
             splashT.health = Math.max(0, splashT.health - splashVal);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💥 [SPLASH] ${skill.name} causou ${splashVal} de dano em ${splashT.character.name}!`,
+              message: `ðŸ’¥ [SPLASH] ${skill.name} causou ${splashVal} de dano em ${splashT.character.name}!`,
               type: 'damage',
             });
             addFloatingText(splashT.id, `-${splashVal} HP (SPLASH)`, 'damage');
@@ -7182,21 +7174,21 @@ splashOnlyTargets = splashPool.filter(c =>
         }
       }
 
-      // 💣 Contagem Regressiva (Bomba): aplica o timer no alvo; quando o tempo acabar, ele recebe o dano
+      // ðŸ’£ Contagem Regressiva (Bomba): aplica o timer no alvo; quando o tempo acabar, ele recebe o dano
       if (skill.countdownDamageRules && skill.countdownDamageRules.length > 0) {
         const bombTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         bombTargets.forEach(bt => {
           if (bt.isDead) return;
           if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(bt, skill)) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${bt.character.name} está INVULNERÁVEL e não recebeu a bomba de [${skill.name}]!`, type: 'buff' });
-            addFloatingText(bt.id, 'INVULNERÁVEL', 'invulnerable');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${bt.character.name} estÃ¡ INVULNERÃVEL e nÃ£o recebeu a bomba de [${skill.name}]!`, type: 'buff' });
+            addFloatingText(bt.id, 'INVULNERÃVEL', 'invulnerable');
             return;
           }
           skill.countdownDamageRules!.forEach(rule => {
             if (!rule.damage || rule.damage <= 0) return;
             const dur = Math.max(1, rule.duration || 1);
             pushActiveEffect(bt, {
-              name: `${skill.name} (💣 ${dur}T)`,
+              name: `${skill.name} (ðŸ’£ ${dur}T)`,
               type: 'countdown_bomb',
               value: rule.damage,
               duration: dur,
@@ -7211,7 +7203,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💣 ${bt.character.name} recebeu uma bomba de [${skill.name}] — em ${dur} turno(s) sofrerá ${rule.damage} de dano!`,
+              message: `ðŸ’£ ${bt.character.name} recebeu uma bomba de [${skill.name}] â€” em ${dur} turno(s) sofrerÃ¡ ${rule.damage} de dano!`,
               type: 'buff',
             });
             addFloatingText(bt.id, `(${dur}T)`, 'effect');
@@ -7240,14 +7232,14 @@ splashOnlyTargets = splashPool.filter(c =>
         const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
-          // ✨ Reviver: se este alvo acabou de ser REVIVIDO por esta skill neste turno, a cura NÃO se aplica
+          // âœ¨ Reviver: se este alvo acabou de ser REVIVIDO por esta skill neste turno, a cura NÃƒO se aplica
           if (skill.reviveDeadAllies && (t as any)._revivedNoHealTurn === turn) return;
-          // 🚑 Portador de efeito com bloqueio de curas não pode ser curado
+          // ðŸš‘ Portador de efeito com bloqueio de curas nÃ£o pode ser curado
           if (t.activeEffects.some(e => e.blocksHeals)) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🚑 ${t.character.name} está com um efeito que BLOQUEIA CURAS e não pôde ser curado por [${skill.name}]!`,
+              message: `ðŸš‘ ${t.character.name} estÃ¡ com um efeito que BLOQUEIA CURAS e nÃ£o pÃ´de ser curado por [${skill.name}]!`,
               type: 'stun',
             });
             addFloatingText(t.id, 'CURA BLOQUEADA', 'stun');
@@ -7259,13 +7251,13 @@ splashOnlyTargets = splashPool.filter(c =>
               id: Math.random().toString(),
               turn,
               message: isInvulnToFriendlyEffects(t, skill)
-                ? `🚫 ${t.character.name} está INVULNERÁVEL e não pôde ser curado por [${skill.name}]!`
+                ? `ðŸš« ${t.character.name} estÃ¡ INVULNERÃVEL e nÃ£o pÃ´de ser curado por [${skill.name}]!`
                 : negateFriendly
-                  ? `🚫 ${t.character.name} tem efeitos amigáveis ANULADOS e não pôde ser curado por [${skill.name}]!`
-                  : `🚫 ${t.character.name} não pôde ser curado por [${skill.name}] por estar impossibilitado de receber habilidades amigáveis!`,
+                  ? `ðŸš« ${t.character.name} tem efeitos amigÃ¡veis ANULADOS e nÃ£o pÃ´de ser curado por [${skill.name}]!`
+                  : `ðŸš« ${t.character.name} nÃ£o pÃ´de ser curado por [${skill.name}] por estar impossibilitado de receber habilidades amigÃ¡veis!`,
               type: 'stun',
             });
-            addFloatingText(t.id, isInvulnToFriendlyEffects(t, skill) ? 'CURA BLOQUEADA (INVULNERÁVEL)' : (negateFriendly ? 'CURA ANULADA' : 'CURA BLOQUEADA'), 'stun');
+            addFloatingText(t.id, isInvulnToFriendlyEffects(t, skill) ? 'CURA BLOQUEADA (INVULNERÃVEL)' : (negateFriendly ? 'CURA ANULADA' : 'CURA BLOQUEADA'), 'stun');
             return;
           }
           const startingHealth = t.health;
@@ -7286,7 +7278,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💚 ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}.${healRuleBoost > 0 ? ` (+${healRuleBoost} bônus)` : ''}`,
+            message: `ðŸ’š ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}.${healRuleBoost > 0 ? ` (+${healRuleBoost} bÃ´nus)` : ''}`,
             type: 'heal',
           });
           addFloatingText(t.id, `+${totalHeal} HP`, 'heal');
@@ -7296,7 +7288,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // 3. STUNS
       if (stunApplied) {
-        const stunTypeLabels: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+        const stunTypeLabels: Record<string, string> = { physical: 'FÃ­sico', mental: 'Mental', affliction: 'AfliÃ§Ã£o', chakra: 'Chakra', ranged: 'A distancia', friendly: 'AmigÃ¡vel' };
         const resolvedStunTypes: string[] = finalStunType || [];
 
         const stunTypeName = resolvedStunTypes.length === 0
@@ -7312,10 +7304,10 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🚫 ${t.character.name} está INVULNERÁVEL e não pôde ser atordoado por [${skill.name}]!`,
+              message: `ðŸš« ${t.character.name} estÃ¡ INVULNERÃVEL e nÃ£o pÃ´de ser atordoado por [${skill.name}]!`,
               type: 'stun',
             });
-            addFloatingText(t.id, 'IMUNE A STUN (INVULNERÁVEL)', 'invulnerable');
+            addFloatingText(t.id, 'IMUNE A STUN (INVULNERÃVEL)', 'invulnerable');
             return;
           }
           if (action.isPlayer) matchStatsRef.current.stunsApplied += 1;
@@ -7330,7 +7322,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🌀 ${t.character.name} recebeu [${stunTypeName}] por [${skill.name}] de ${source.character.name} por ${stunDuration} turnos!`,
+            message: `ðŸŒ€ ${t.character.name} recebeu [${stunTypeName}] por [${skill.name}] de ${source.character.name} por ${stunDuration} turnos!`,
             type: 'stun',
           });
           addFloatingText(t.id, `STUN (${stunDuration}T)`, 'stun');
@@ -7369,9 +7361,9 @@ splashOnlyTargets = splashPool.filter(c =>
       if (skill.chakraCostIncreaseDuration && skill.chakraCostIncreaseDuration > 0 && skill.chakraCostIncreaseTypes && skill.chakraCostIncreaseTypes.length > 0) {
         const costIncreaseTargets = resolveEffectTargets(skill.chakraCostIncreaseTarget, target, source, sourceList, targetList, false);
         const costSkillTypes = skill.chakraCostIncreaseSkillTypes || [];
-        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'AleatÃ³rio' };
         const costTypesLabel = (skill.chakraCostIncreaseTypes || []).map(ct => chakraLabels[ct] || ct).join(' + ');
-        const skillTypesLabels: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+        const skillTypesLabels: Record<string, string> = { physical: 'FÃ­sico', mental: 'Mental', affliction: 'AfliÃ§Ã£o', chakra: 'Chakra', ranged: 'A distancia', friendly: 'AmigÃ¡vel' };
         const costSkillLabel = costSkillTypes.map(st => skillTypesLabels[st] || st).join(' + ');
         costIncreaseTargets.forEach(t => {
           if (t.isDead) return;
@@ -7391,7 +7383,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⛓️ ${t.character.name} recebeu AUMENTO DE CUSTO (+1 ${costTypesLabel})${costSkillLabel ? ` em skills de ${costSkillLabel}` : ''} por [${skill.name}] de ${source.character.name} por ${skill.chakraCostIncreaseDuration} ${skill.chakraCostIncreaseDuration === 1 ? 'turno' : 'turnos'}!`,
+            message: `â›“ï¸ ${t.character.name} recebeu AUMENTO DE CUSTO (+1 ${costTypesLabel})${costSkillLabel ? ` em skills de ${costSkillLabel}` : ''} por [${skill.name}] de ${source.character.name} por ${skill.chakraCostIncreaseDuration} ${skill.chakraCostIncreaseDuration === 1 ? 'turno' : 'turnos'}!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'CUSTO +1', 'effect');
@@ -7401,7 +7393,7 @@ splashOnlyTargets = splashPool.filter(c =>
       // REDUZIR CUSTO DE CHAKRA DAS SKILLS DO ALVO (BUFF): as skills do(s) alvo(s) custam menos do tipo escolhido por X turnos
       if (skill.chakraCostReduceRules && skill.chakraCostReduceRules.length > 0) {
         const reduceTargets = resolveEffectTargets('Target', target, source, sourceList, targetList, false);
-        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'AleatÃ³rio' };
         for (const rule of skill.chakraCostReduceRules) {
           if (!rule.chakraTypes || rule.chakraTypes.length === 0 || (rule.amount || 0) <= 0 || (rule.durationTurns || 0) <= 0) continue;
           const dur = Math.max(1, rule.durationTurns || 1);
@@ -7422,7 +7414,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💧 ${t.character.name} teve o CUSTO REDUZIDO (-${rule.amount} ${costTypesLabel}) das skills por [${skill.name}] de ${source.character.name} por ${dur} ${dur === 1 ? 'turno' : 'turnos'}!`,
+              message: `ðŸ’§ ${t.character.name} teve o CUSTO REDUZIDO (-${rule.amount} ${costTypesLabel}) das skills por [${skill.name}] de ${source.character.name} por ${dur} ${dur === 1 ? 'turno' : 'turnos'}!`,
               type: 'buff',
             });
             addFloatingText(t.id, `CUSTO -${rule.amount}`, 'effect');
@@ -7458,7 +7450,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️⚡ ${t.character.name} está imune a stun enquanto tiver escudo de [${skill.name}]!`,
+                message: `ðŸ›¡ï¸âš¡ ${t.character.name} estÃ¡ imune a stun enquanto tiver escudo de [${skill.name}]!`,
                 type: 'buff',
               });
             }
@@ -7475,7 +7467,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️ ${t.character.name} ganhou +${actualAdded} de escudo com [${skill.name}]${skill.shieldDuration && skill.shieldDuration < 99999 ? ` por ${skill.shieldDuration} turnos` : ''}!`,
+            message: `ðŸ›¡ï¸ ${t.character.name} ganhou +${actualAdded} de escudo com [${skill.name}]${skill.shieldDuration && skill.shieldDuration < 99999 ? ` por ${skill.shieldDuration} turnos` : ''}!`,
             type: 'buff',
           });
           addFloatingText(t.id, `+${actualAdded} ESCUDO`, 'shield');
@@ -7497,7 +7489,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔁 ${t.character.name} irá gerar +${skill.shieldVal} de escudo ADICIONAL por turno por ${skill.shieldRegenTurns} ${skill.shieldRegenTurns === 1 ? 'turno' : 'turnos'} com [${skill.name}]!`,
+              message: `ðŸ” ${t.character.name} irÃ¡ gerar +${skill.shieldVal} de escudo ADICIONAL por turno por ${skill.shieldRegenTurns} ${skill.shieldRegenTurns === 1 ? 'turno' : 'turnos'} com [${skill.name}]!`,
               type: 'buff',
             });
             addFloatingText(t.id, `+${skill.shieldVal} ESCUDO/TURNO`, 'shield');
@@ -7505,7 +7497,7 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
-      // 4.1 CONVERSÃO DE DANO EM ESCUDO: enquanto durar, TODO o dano que o alvo receber vira escudo
+      // 4.1 CONVERSÃƒO DE DANO EM ESCUDO: enquanto durar, TODO o dano que o alvo receber vira escudo
       if (skill.damageToShieldDuration && skill.damageToShieldDuration > 0) {
         const conversionTargets = resolveEffectTargets(skill.damageToShieldTarget, target, source, sourceList, targetList, true);
         conversionTargets.forEach(t => {
@@ -7513,7 +7505,7 @@ splashOnlyTargets = splashPool.filter(c =>
           const alreadyActive = t.activeEffects.some(e => e.type === 'damage_to_shield' && (e.sourceSkillName || '') === (skill.name || ''));
           if (alreadyActive) return;
           pushActiveEffect(t, {
-            name: `${skill.name} (Conversão de Dano em Escudo)`,
+            name: `${skill.name} (ConversÃ£o de Dano em Escudo)`,
             type: 'damage_to_shield',
             value: skill.damageToShieldDuration,
             duration: skill.damageToShieldDuration === 99999 ? 99999 : skill.damageToShieldDuration,
@@ -7532,10 +7524,10 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️✨ ${t.character.name} converte TODO o dano recebido em escudo${shieldDurText} por ${skill.damageToShieldDuration === 99999 ? '∞' : skill.damageToShieldDuration + ' turno(s)'} com [${skill.name}]!`,
+            message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converte TODO o dano recebido em escudo${shieldDurText} por ${skill.damageToShieldDuration === 99999 ? 'âˆž' : skill.damageToShieldDuration + ' turno(s)'} com [${skill.name}]!`,
             type: 'buff',
           });
-          addFloatingText(t.id, `DANO → ESCUDO${skill.damageToShieldDuration === 99999 ? ' (♾️)' : ` (${skill.damageToShieldDuration}T)`}`, 'shield');
+          addFloatingText(t.id, `DANO â†’ ESCUDO${skill.damageToShieldDuration === 99999 ? ' (â™¾ï¸)' : ` (${skill.damageToShieldDuration}T)`}`, 'shield');
         });
       }
 
@@ -7545,7 +7537,7 @@ splashOnlyTargets = splashPool.filter(c =>
         if (type === 'shield') {
           const t = isSelfTarget ? source : target;
           if (isInvulnToFriendlyEffects(t, skill)) {
-            addFloatingText(t.id, 'ESCUDO BLOQUEADO (INVULNERÁVEL)', 'invulnerable');
+            addFloatingText(t.id, 'ESCUDO BLOQUEADO (INVULNERÃVEL)', 'invulnerable');
             return;
           }
           const cap = skill.shieldMaxVal && skill.shieldMaxVal > 0 ? skill.shieldMaxVal : Infinity;
@@ -7566,7 +7558,7 @@ splashOnlyTargets = splashPool.filter(c =>
           }
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🛡️ ${t.character.name} ganhou +${actualAdded} de escudo com [${skill.name}]${duration && duration < 99999 ? ` por ${duration} turnos` : ''}!`,
+            message: `ðŸ›¡ï¸ ${t.character.name} ganhou +${actualAdded} de escudo com [${skill.name}]${duration && duration < 99999 ? ` por ${duration} turnos` : ''}!`,
             type: 'buff',
           });
           addFloatingText(t.id, `+${actualAdded} ESCUDO`, 'shield');
@@ -7580,7 +7572,7 @@ splashOnlyTargets = splashPool.filter(c =>
         });
         newLogs.push({
           id: Math.random().toString(), turn,
-          message: `✨ ${t.character.name} recebeu [${name}] por ${duration} turnos.`,
+          message: `âœ¨ ${t.character.name} recebeu [${name}] por ${duration} turnos.`,
           type: 'buff',
         });
         addFloatingText(t.id, name.toUpperCase(), 'effect');
@@ -7594,7 +7586,7 @@ splashOnlyTargets = splashPool.filter(c =>
       // Damage Reduction buff
       if (skill.damageReductionVal && skill.damageReductionVal > 0) {
         const targets = resolveEffectTargets(skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
-        // 🔄 Turnos = Stacks: duração = total de stacks do tipo selecionado que o conjurador possuir
+        // ðŸ”„ Turnos = Stacks: duraÃ§Ã£o = total de stacks do tipo selecionado que o conjurador possuir
         // (sem nenhuma stack em mim, a Guard fica com apenas 1 turno)
         let stackDurOverride: number | null = null;
         const guardStackKey = (skill.damageReductionStacksType || '').trim().toLowerCase();
@@ -7619,21 +7611,21 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `✨ ${t.character.name} recebeu [${skill.name} Guard] por ${reducDuration} turno(s).${stackDurOverride !== null ? ` (🔄 duração = ${stackDurOverride}x stack de [${skill.damageReductionStacksType}])` : ''}`,
+            message: `âœ¨ ${t.character.name} recebeu [${skill.name} Guard] por ${reducDuration} turno(s).${stackDurOverride !== null ? ` (ðŸ”„ duraÃ§Ã£o = ${stackDurOverride}x stack de [${skill.damageReductionStacksType}])` : ''}`,
             type: 'buff',
           });
           addFloatingText(t.id, `${skill.name} Guard`.toUpperCase(), 'effect');
         });
       }
 
-      // Damage Reduction Immune to Piercing buff (reduz dano normal E dano direto/perfuração)
+      // Damage Reduction Immune to Piercing buff (reduz dano normal E dano direto/perfuraÃ§Ã£o)
       if (skill.damageReductionPierceVal && skill.damageReductionPierceVal > 0) {
         const targets = resolveEffectTargets(skill.damageReductionPierceTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, true);
         targets.forEach(t => {
           if (t.isDead) return;
           const reducDuration = skill.permanent ? 99999 : (skill.damageReductionPierceDuration || 3);
           pushActiveEffect(t, {
-            name: `${skill.name} AntiPerfuração`,
+            name: `${skill.name} AntiPerfuraÃ§Ã£o`,
             type: 'damage_reduction_pierce',
             value: skill.damageReductionPierceVal!,
             duration: reducDuration,
@@ -7644,27 +7636,27 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🪡 ${t.character.name} recebeu [${skill.name} AntiPerfuração] por ${skill.damageReductionPierceDuration || 3} turnos (reduz dano normal E perfuração).`,
+            message: `ðŸª¡ ${t.character.name} recebeu [${skill.name} AntiPerfuraÃ§Ã£o] por ${skill.damageReductionPierceDuration || 3} turnos (reduz dano normal E perfuraÃ§Ã£o).`,
             type: 'buff',
           });
-          addFloatingText(t.id, `${skill.name} ANTI-PERFURAÇÃO`.toUpperCase(), 'effect');
+          addFloatingText(t.id, `${skill.name} ANTI-PERFURAÃ‡ÃƒO`.toUpperCase(), 'effect');
         });
       }
 
-      // Redução de Dano por Stack em Mim (buff de redução no conjurador escalando com minhas stacks)
+      // ReduÃ§Ã£o de Dano por Stack em Mim (buff de reduÃ§Ã£o no conjurador escalando com minhas stacks)
       if (skill.selfStackReductionRules && skill.selfStackReductionRules.length > 0) {
         for (const redRule of skill.selfStackReductionRules) {
           if (!redRule.stackType || !redRule.reductionValue) continue;
           const selfStackEffect = source.activeEffects.find(e => e.stackType === redRule.stackType || e.name === redRule.stackType);
           let selfStackCount = selfStackEffect?.stacks || 0;
-          // A stack que ESTA skill está aplicando agora no conjurador também conta (o bloco de stacks roda depois)
+          // A stack que ESTA skill estÃ¡ aplicando agora no conjurador tambÃ©m conta (o bloco de stacks roda depois)
           if (skill.stackable && (skill.stackType || skill.name) === redRule.stackType) {
             const stackTgts = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
             if (stackTgts.some(t => t.id === source.id)) selfStackCount += 1;
           }
           if (selfStackCount <= 0) continue;
           const redType = redRule.reductionType === 'damage_reduction_pierce' ? 'damage_reduction_pierce' : 'damage_reduction';
-          const redName = redType === 'damage_reduction_pierce' ? `${skill.name} AntiPerfuração` : `${skill.name} Guard`;
+          const redName = redType === 'damage_reduction_pierce' ? `${skill.name} AntiPerfuraÃ§Ã£o` : `${skill.name} Guard`;
           const dur = (redRule.duration && redRule.duration > 0) ? redRule.duration : 99999;
           const totalRed = selfStackCount * redRule.reductionValue;
           pushActiveEffect(source, {
@@ -7680,15 +7672,15 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(), turn,
             message: redType === 'damage_reduction_pierce'
-              ? `🪡 ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano normal e perfuração por ${dur === 99999 ? '∞' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`
-              : `🛡️ ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano por ${dur === 99999 ? '∞' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`,
+              ? `ðŸª¡ ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano normal e perfuraÃ§Ã£o por ${dur === 99999 ? 'âˆž' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`
+              : `ðŸ›¡ï¸ ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano por ${dur === 99999 ? 'âˆž' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`,
             type: 'buff',
           });
-          addFloatingText(source.id, redType === 'damage_reduction_pierce' ? `ANTI-PERFURAÇÃO (+${totalRed})` : `DEFESA (+${totalRed})`, 'effect');
+          addFloatingText(source.id, redType === 'damage_reduction_pierce' ? `ANTI-PERFURAÃ‡ÃƒO (+${totalRed})` : `DEFESA (+${totalRed})`, 'effect');
         }
       }
 
-      // Cópia de Habilidades: substitui as skills do conjurador pelas do alvo por X turnos
+      // CÃ³pia de Habilidades: substitui as skills do conjurador pelas do alvo por X turnos
       if (skill.skillCopyDuration && skill.skillCopyDuration > 0) {
         const copyTargets = resolveEffectTargets(skill.skillCopyTarget || 'AnyLiving', target, source, sourceList, targetList, false);
         copyTargets.forEach(t => {
@@ -7697,10 +7689,10 @@ splashOnlyTargets = splashPool.filter(c =>
           if (!existingCopy && source.activeEffects.some(e => e.type === 'cannot_receive_friendly')) {
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🚫 ${source.character.name} está IMPOSSIBILITADO de receber a cópia de habilidades de ${t.character.name}!`,
+              message: `ðŸš« ${source.character.name} estÃ¡ IMPOSSIBILITADO de receber a cÃ³pia de habilidades de ${t.character.name}!`,
               type: 'system',
             });
-            addFloatingText(source.id, 'BLOQUEADO (SKILL AMIGÁVEL)', 'stun');
+            addFloatingText(source.id, 'BLOQUEADO (SKILL AMIGÃVEL)', 'stun');
             return;
           }
           const copyDur = skill.permanent ? 99999 : (Math.max(1, skill.skillCopyDuration || 3));
@@ -7709,12 +7701,12 @@ splashOnlyTargets = splashPool.filter(c =>
             : JSON.parse(JSON.stringify(source.character.skills || []));
           if (existingCopy) {
             existingCopy.duration = copyDur;
-            existingCopy.name = `${skill.name} (Cópia: ${t.character.name})`;
+            existingCopy.name = `${skill.name} (CÃ³pia: ${t.character.name})`;
             existingCopy.icon = skill.icon;
             existingCopy.sourceSkillName = skill.name;
           } else {
             pushActiveEffect(source, {
-              name: `${skill.name} (Cópia: ${t.character.name})`,
+              name: `${skill.name} (CÃ³pia: ${t.character.name})`,
               type: 'skill_copy',
               value: 0,
               duration: copyDur,
@@ -7727,7 +7719,7 @@ splashOnlyTargets = splashPool.filter(c =>
             });
           }
           if (skill.skillCopyRandom) {
-            // Modo aleatório: copia UMA habilidade do alvo e substitui APENAS a própria skill de cópia por ela
+            // Modo aleatÃ³rio: copia UMA habilidade do alvo e substitui APENAS a prÃ³pria skill de cÃ³pia por ela
             const pool = (t.character.skills || []).filter(s => s && s.name);
             if (pool.length > 0) {
               const copiedSkill = JSON.parse(JSON.stringify(pool[Math.floor(gameRng() * pool.length)]));
@@ -7741,7 +7733,7 @@ splashOnlyTargets = splashPool.filter(c =>
               source.character.skills = newSkills;
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `🪞 ${source.character.name} COPIOU a habilidade [${copiedSkill.name}] de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
+                message: `ðŸªž ${source.character.name} COPIOU a habilidade [${copiedSkill.name}] de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
                 type: 'buff',
               });
               addFloatingText(source.id, `COPIADO: ${copiedSkill.name}`, 'effect');
@@ -7750,7 +7742,7 @@ splashOnlyTargets = splashPool.filter(c =>
             source.character.skills = JSON.parse(JSON.stringify(t.character.skills));
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🪞 ${source.character.name} COPIOU as habilidades de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
+              message: `ðŸªž ${source.character.name} COPIOU as habilidades de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
               type: 'buff',
             });
             addFloatingText(source.id, 'HABILIDADES COPIADAS', 'effect');
@@ -7776,7 +7768,7 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🌫️ ${t.character.name} recebeu [${skill.name} Weakness] por ${skill.damageDebuffDuration || 3} turnos reduzindo dano de suas skills.`,
+            message: `ðŸŒ«ï¸ ${t.character.name} recebeu [${skill.name} Weakness] por ${skill.damageDebuffDuration || 3} turnos reduzindo dano de suas skills.`,
             type: 'buff',
           });
           addFloatingText(t.id, `${skill.name} Weakness`.toUpperCase(), 'effect');
@@ -7802,19 +7794,19 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🎯 ${t.character.name} ficou VULNERÁVEL por ${skill.damageVulnerabilityVal} de dano extra${skill.damageVulnerabilityTypes && skill.damageVulnerabilityTypes.length > 0 ? ` (${skill.damageVulnerabilityTypes.join(', ')})` : ''} por ${vulnDuration === 99999 ? 'tempo indeterminado' : `${vulnDuration} turnos`}.`,
+            message: `ðŸŽ¯ ${t.character.name} ficou VULNERÃVEL por ${skill.damageVulnerabilityVal} de dano extra${skill.damageVulnerabilityTypes && skill.damageVulnerabilityTypes.length > 0 ? ` (${skill.damageVulnerabilityTypes.join(', ')})` : ''} por ${vulnDuration === 99999 ? 'tempo indeterminado' : `${vulnDuration} turnos`}.`,
             type: 'buff',
           });
-          addFloatingText(t.id, `VULNERÁVEL (+${skill.damageVulnerabilityVal})`, 'effect');
+          addFloatingText(t.id, `VULNERÃVEL (+${skill.damageVulnerabilityVal})`, 'effect');
           cleanseTargetEffects(t, skill.damageVulnerabilityRemoveType);
         });
       }
 
       // Damage Buff
       if (skill.damageBuffVal && skill.damageBuffVal > 0) {
-        // Se o usuário definiu explicitamente o alvo do buff, respeitar exatamente (sem o redirect
-        // de efeito benéfico que manda para o conjurador quando o alvo é inimigo).
-        // Sem alvo definido, mantém o fallback antigo (shieldTarget / Self).
+        // Se o usuÃ¡rio definiu explicitamente o alvo do buff, respeitar exatamente (sem o redirect
+        // de efeito benÃ©fico que manda para o conjurador quando o alvo Ã© inimigo).
+        // Sem alvo definido, mantÃ©m o fallback antigo (shieldTarget / Self).
         const buffTarget = skill.damageBuffTarget || skill.shieldTarget || 'Self';
         const targets = skill.damageBuffTarget
           ? resolveEffectTargets(skill.damageBuffTarget, target, source, sourceList, targetList, false)
@@ -7834,14 +7826,14 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `✨ ${t.character.name} recebeu [${skill.name} Power]${skill.damageBuffTypes && skill.damageBuffTypes.length > 0 ? ` (classes: ${skill.damageBuffTypes.join(', ')})` : ''} por ${skill.damageBuffDuration || 3} turnos.`,
+            message: `âœ¨ ${t.character.name} recebeu [${skill.name} Power]${skill.damageBuffTypes && skill.damageBuffTypes.length > 0 ? ` (classes: ${skill.damageBuffTypes.join(', ')})` : ''} por ${skill.damageBuffDuration || 3} turnos.`,
             type: 'buff',
           });
           addFloatingText(t.id, `${skill.name} Power`.toUpperCase(), 'effect');
         });
       }
 
-      // Sofrer Dano (Próprio/Equipe): o(s) alvo(s) escolhido(s) sofrem dano por X turnos ao usar a skill
+      // Sofrer Dano (PrÃ³prio/Equipe): o(s) alvo(s) escolhido(s) sofrem dano por X turnos ao usar a skill
       if (skill.friendlyDamageVal && skill.friendlyDamageVal > 0) {
         const friendlyDmgTargets = resolveEffectTargets(skill.friendlyDamageTarget || 'Self', target, source, sourceList, targetList, false);
         friendlyDmgTargets.forEach(t => {
@@ -7851,12 +7843,12 @@ splashOnlyTargets = splashPool.filter(c =>
           const fVal = skill.friendlyDamageVal!;
           const fTickType = fType === 'dot' ? 'dot' as const : fType === 'bleeding' ? 'bleeding' as const : fType === 'affliction' ? 'affliction' as const : fType === 'direct_damage' ? 'direct_damage' as const : 'damage' as const;
 
-          // Dano instantâneo (primeiro tick)
+          // Dano instantÃ¢neo (primeiro tick)
           if (hasDamageImmunity(t, [fTickType])) {
             const consumedFh = consumeFirstHitOnlyImmunity(t, [fTickType]);
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu o dano próprio de [${skill.name}].${consumedFh ? ' (Imunidade de 1º dano usada!)' : ''}`,
+              message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE A DANO e nÃ£o sofreu o dano prÃ³prio de [${skill.name}].${consumedFh ? ' (Imunidade de 1Âº dano usada!)' : ''}`,
               type: 'buff',
             });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
@@ -7865,7 +7857,7 @@ splashOnlyTargets = splashPool.filter(c =>
             if (instantDmg > 0 && convertDamageToShield(t, instantDmg, turn, [fTickType])) {
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `🛡️✨ ${t.character.name} converteu ${instantDmg} de dano próprio de [${skill.name}] em escudo!`,
+                message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converteu ${instantDmg} de dano prÃ³prio de [${skill.name}] em escudo!`,
                 type: 'buff',
               });
               addFloatingText(t.id, `+${instantDmg} ESCUDO`, 'shield');
@@ -7879,19 +7871,19 @@ splashOnlyTargets = splashPool.filter(c =>
             }
             if (instantDmg > 0) {
               const before = t.health;
-              // 🚫☠️ "Não Mata": dano próprio deixa no mínimo 1 de HP (igual à imortalidade)
+              // ðŸš«â˜ ï¸ "NÃ£o Mata": dano prÃ³prio deixa no mÃ­nimo 1 de HP (igual Ã  imortalidade)
               t.health = (hasImmortalEffect(t) || skill.friendlyDamageCantKill) ? Math.max(1, t.health - instantDmg) : Math.max(0, t.health - instantDmg);
               if (skill.friendlyDamageCantKill && before <= instantDmg && t.health === 1) {
                 newLogs.push({
                   id: Math.random().toString(), turn,
-                  message: `🚫☠️ ${t.character.name} resistiu à beira da morte pelo efeito de [${skill.name}] (ficou com 1 HP)!`,
+                  message: `ðŸš«â˜ ï¸ ${t.character.name} resistiu Ã  beira da morte pelo efeito de [${skill.name}] (ficou com 1 HP)!`,
                   type: 'buff',
                 });
                 addFloatingText(t.id, '1 HP!', 'effect');
               } else {
                 newLogs.push({
                   id: Math.random().toString(), turn,
-                  message: `💢 ${t.character.name} sofreu ${instantDmg} de dano próprio por [${skill.name}].`,
+                  message: `ðŸ’¢ ${t.character.name} sofreu ${instantDmg} de dano prÃ³prio por [${skill.name}].`,
                   type: 'damage',
                 });
               }
@@ -7903,7 +7895,7 @@ splashOnlyTargets = splashPool.filter(c =>
           // Ticks restantes (turnos - 1)
           if (fDur > 1) {
             pushActiveEffect(t, {
-              name: `${skill.name} (Dano Próprio)`,
+              name: `${skill.name} (Dano PrÃ³prio)`,
               type: fTickType,
               value: fVal,
               duration: fDur - 1,
@@ -7915,10 +7907,10 @@ splashOnlyTargets = splashPool.filter(c =>
             });
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `💢 ${t.character.name} sofrerá ${fVal} de dano por turno por mais ${fDur - 1} turnos (${skill.name}).`,
+              message: `ðŸ’¢ ${t.character.name} sofrerÃ¡ ${fVal} de dano por turno por mais ${fDur - 1} turnos (${skill.name}).`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO PRÓPRIO (+${fVal})`, 'damage');
+            addFloatingText(t.id, `DANO PRÃ“PRIO (+${fVal})`, 'damage');
           }
         });
       }
@@ -7937,7 +7929,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (hasActiveEffect) {
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `⚡ [${skill.name}] de ${source.character.name} recebeu +${rule.damageBoost} de Dano Extra por [${rule.activeSkillName}] estar ativo!`,
+              message: `âš¡ [${skill.name}] de ${source.character.name} recebeu +${rule.damageBoost} de Dano Extra por [${rule.activeSkillName}] estar ativo!`,
               type: 'buff',
             });
             addFloatingText(source.id, `DANO EXTRA +${rule.damageBoost}`, 'effect');
@@ -7945,8 +7937,8 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
-      // Cleanse / Remove Buffs (Multi-selection) — roda ANTES da invulnerabilidade
-      // para não remover o efeito invulnerable que esta mesma skill aplica logo abaixo
+      // Cleanse / Remove Buffs (Multi-selection) â€” roda ANTES da invulnerabilidade
+      // para nÃ£o remover o efeito invulnerable que esta mesma skill aplica logo abaixo
       if (skill.cleanseBuffs || (skill.cleanseBuffTypes && skill.cleanseBuffTypes.length > 0)) {
         const cleanseTargets = resolveEffectTargets(skill.cleanseBuffTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, false);
         console.log('[CLEANSE-BUFFS]', skill.name, 'alvos:', cleanseTargets.map((ct: any) => ct.character.name), 'tipos:', skill.cleanseBuffTypes, 'buffs:', cleanseTargets.map((ct: any) => ct.activeEffects.map((e: any) => `${e.type}${e.irremovable ? '(irremov)' : ''}`)));
@@ -7956,7 +7948,7 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
-      // Invulnerabilidade TOTAL (campo independente — pode coexistir com o Desvio abaixo)
+      // Invulnerabilidade TOTAL (campo independente â€” pode coexistir com o Desvio abaixo)
       if (skill.totalInvulnerableDuration && skill.totalInvulnerableDuration > 0) {
         const totalInvulTargets = resolveEffectTargets(skill.totalInvulnerableTarget || 'Self', target, source, sourceList, targetList, false);
         totalInvulTargets.forEach(t => {
@@ -7976,7 +7968,7 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🛡️ ${t.character.name} ficou com INVULNERABILIDADE TOTAL com [${skill.name}] por ${skill.totalInvulnerableDuration} turnos!`,
+            message: `ðŸ›¡ï¸ ${t.character.name} ficou com INVULNERABILIDADE TOTAL com [${skill.name}] por ${skill.totalInvulnerableDuration} turnos!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'INVULNERABILIDADE TOTAL', 'invulnerable');
@@ -7984,7 +7976,7 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
-      // Invulnerabilidade (Desvio) — proteção seletiva por tipos/classes
+      // Invulnerabilidade (Desvio) â€” proteÃ§Ã£o seletiva por tipos/classes
       if (skill.invulnerableDuration && skill.invulnerableDuration > 0) {
         const invulTargets = resolveEffectTargets(skill.invulnerableTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, false);
         invulTargets.forEach(t => {
@@ -8003,23 +7995,23 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🌌 ${t.character.name} ficou INVULNERÁVEL (${formatInvulnerableSummary(skill.invulnerableTypes)}) com [${skill.name}] por ${skill.invulnerableDuration} turnos!`,
+            message: `ðŸŒŒ ${t.character.name} ficou INVULNERÃVEL (${formatInvulnerableSummary(skill.invulnerableTypes)}) com [${skill.name}] por ${skill.invulnerableDuration} turnos!`,
             type: 'buff',
           });
-          addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+          addFloatingText(t.id, 'INVULNERÃVEL', 'invulnerable');
           cleanseTargetEffects(t, skill.invulnerableRemoveType);
         });
       }
 
-      // ⏭️ Dano ATRASADO (delayedDamage / delayedDirectDamage): aplica uma "bomba" que
-      // explode em X turnos (não neste). Reaproveita o efeito countdown_bomb.
-      // O bônus de dano por stack (stackDamageRules) é somado AQUI e vai junto com o dano atrasado,
-      // pois é quando o dano da skill realmente é efetuado.
+      // â­ï¸ Dano ATRASADO (delayedDamage / delayedDirectDamage): aplica uma "bomba" que
+      // explode em X turnos (nÃ£o neste). Reaproveita o efeito countdown_bomb.
+      // O bÃ´nus de dano por stack (stackDamageRules) Ã© somado AQUI e vai junto com o dano atrasado,
+      // pois Ã© quando o dano da skill realmente Ã© efetuado.
       if ((skill.delayedDamage && skill.delayedDamage > 0) || (skill.delayedDirectDamage && skill.delayedDirectDamage > 0)) {
         const delayedTargets = resolveEffectTargets(skill.damageTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         delayedTargets.forEach(dt => {
           if (dt.isDead) return;
-          // Bônus por stack (stackDamageRules, dano imediato/não-DOT) somado ao dano atrasado.
+          // BÃ´nus por stack (stackDamageRules, dano imediato/nÃ£o-DOT) somado ao dano atrasado.
           let delayedStackBonus = 0;
           if (skill.stackDamageRules && skill.stackDamageRules.length > 0) {
             for (const stackRule of skill.stackDamageRules) {
@@ -8034,11 +8026,11 @@ splashOnlyTargets = splashPool.filter(c =>
           if (skill.delayedDamage && skill.delayedDamage > 0) specs.push({ dmg: skill.delayedDamage, type: 'damage', label: 'dano', turns: Math.max(1, skill.delayedDamageTurns || 1) });
           if (skill.delayedDirectDamage && skill.delayedDirectDamage > 0) specs.push({ dmg: skill.delayedDirectDamage, type: 'direct_damage', label: 'dano direto', turns: Math.max(1, skill.delayedDirectDamageTurns || 1) });
           specs.forEach((spec, specIdx) => {
-            // O bônus de stack é somado apenas UMA vez (na primeira spec) para não duplicar
+            // O bÃ´nus de stack Ã© somado apenas UMA vez (na primeira spec) para nÃ£o duplicar
             const totalDmg = spec.dmg + (specIdx === 0 ? delayedStackBonus : 0);
-            // duração = turns + 1: decrementa no fim de cada turno, explode ao chegar a 1 no fim do turno alvo
+            // duraÃ§Ã£o = turns + 1: decrementa no fim de cada turno, explode ao chegar a 1 no fim do turno alvo
             pushActiveEffect(dt, {
-              name: `${skill.name} (⏭️ ${spec.turns}T)`,
+              name: `${skill.name} (â­ï¸ ${spec.turns}T)`,
               type: 'countdown_bomb',
               value: totalDmg,
               duration: spec.turns + 1,
@@ -8052,23 +8044,23 @@ splashOnlyTargets = splashPool.filter(c =>
             });
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `⏭️ ${dt.character.name} sofrerá ${totalDmg} de ${spec.label} de [${skill.name}] em ${spec.turns} turno(s)${specIdx === 0 && delayedStackBonus > 0 ? ` (inclui +${delayedStackBonus} por stack)` : ''}!`,
+              message: `â­ï¸ ${dt.character.name} sofrerÃ¡ ${totalDmg} de ${spec.label} de [${skill.name}] em ${spec.turns} turno(s)${specIdx === 0 && delayedStackBonus > 0 ? ` (inclui +${delayedStackBonus} por stack)` : ''}!`,
               type: 'buff',
             });
-            addFloatingText(dt.id, `⏭️ ${totalDmg} (${spec.turns}T)`, 'effect');
+            addFloatingText(dt.id, `â­ï¸ ${totalDmg} (${spec.turns}T)`, 'effect');
           });
         });
       }
 
-      // ⏭️ Invulnerabilidade ATRASADA (delayedInvulnerableDuration): em X turnos o alvo
-      // fica invulnerável (Desvio) por Y turnos, usando os mesmos tipos/classes do Desvio.
+      // â­ï¸ Invulnerabilidade ATRASADA (delayedInvulnerableDuration): em X turnos o alvo
+      // fica invulnerÃ¡vel (Desvio) por Y turnos, usando os mesmos tipos/classes do Desvio.
       if (skill.delayedInvulnerableDuration && skill.delayedInvulnerableDuration > 0) {
         const pendTargets = resolveEffectTargets(skill.invulnerableTarget || skill.shieldTarget || 'Self', target, source, sourceList, targetList, false);
         const triggerTurns = Math.max(1, skill.delayedInvulnerableTurns || 1);
         pendTargets.forEach(t => {
           if (t.isDead) return;
           pushActiveEffect(t, {
-            name: `${skill.name} (⏭️ Invuln. em ${triggerTurns}T)`,
+            name: `${skill.name} (â­ï¸ Invuln. em ${triggerTurns}T)`,
             type: 'pending_invulnerable',
             duration: triggerTurns + 1, // decrementa a cada turno; dispara ao chegar a 1 no fim do turno alvo
             pendingInvulnDuration: skill.delayedInvulnerableDuration,
@@ -8082,18 +8074,18 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `⏭️ ${t.character.name} ficará INVULNERÁVEL por ${skill.delayedInvulnerableDuration} turno(s) daqui a ${triggerTurns} turno(s) (${formatInvulnerableSummary(skill.invulnerableTypes)}) por [${skill.name}]!`,
+            message: `â­ï¸ ${t.character.name} ficarÃ¡ INVULNERÃVEL por ${skill.delayedInvulnerableDuration} turno(s) daqui a ${triggerTurns} turno(s) (${formatInvulnerableSummary(skill.invulnerableTypes)}) por [${skill.name}]!`,
             type: 'buff',
           });
-          addFloatingText(t.id, `⏭️ INVULN. (${triggerTurns}T)`, 'invulnerable');
+          addFloatingText(t.id, `â­ï¸ INVULN. (${triggerTurns}T)`, 'invulnerable');
         });
       }
 
       // DoT (damage over time) - debuff on target
       const totalDotVal = (hasActiveDamageRuleIgnoreBase && ruleDotDamage > 0) ? ruleDotDamage : ((skill.dotVal || 0) + ruleDotDamage);
       if (totalDotVal > 0 && skill.name !== 'Amaterasu Burn') {
-        // Regra única do Mubi: Haze Clones Assault causa 15 de dano contínuo INFINITO,
-        // removido apenas quando o alvo usar uma habilidade amigável/passiva
+        // Regra Ãºnica do Mubi: Haze Clones Assault causa 15 de dano contÃ­nuo INFINITO,
+        // removido apenas quando o alvo usar uma habilidade amigÃ¡vel/passiva
         const isMubiHazeRule = (source.character.name || '').toLowerCase() === 'mubi' && skill.name === 'Haze Clones Assault';
         const dotTargets = resolveEffectTargets(skill.dotTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         dotTargets.forEach(t => {
@@ -8115,10 +8107,10 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔥 ${t.character.name} foi afligido por dano contínuo de [${skill.name}] sofrendo ${totalDotVal} DoT${isMubiHazeRule ? ' INFINITO (só para ao usar skill amigável/passiva)' : ` por ${duration} turnos`}!`,
+            message: `ðŸ”¥ ${t.character.name} foi afligido por dano contÃ­nuo de [${skill.name}] sofrendo ${totalDotVal} DoT${isMubiHazeRule ? ' INFINITO (sÃ³ para ao usar skill amigÃ¡vel/passiva)' : ` por ${duration} turnos`}!`,
             type: 'damage',
           });
-          addFloatingText(t.id, `DANO CONTÍNUO (+${totalDotVal} DoT)`, 'damage');
+          addFloatingText(t.id, `DANO CONTÃNUO (+${totalDotVal} DoT)`, 'damage');
           cleanseTargetEffects(t, skill.dotRemoveType);
         });
       }
@@ -8132,7 +8124,7 @@ splashOnlyTargets = splashPool.filter(c =>
           const duration = skill.bleedingDuration || 3;
           const bleedDelay = Math.max(0, skill.bleedingDelay || 0);
 
-          // Sangramento com ATRASO: o alvo NÃO sofre agora; só começa a sangrar
+          // Sangramento com ATRASO: o alvo NÃƒO sofre agora; sÃ³ comeÃ§a a sangrar
           // depois de `bleedDelay` turnos, causando dano por turno por `duration` turnos.
           if (bleedDelay > 0) {
             pushActiveEffect(t, {
@@ -8151,7 +8143,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⏳ ${t.character.name} começará a sangrar com [${skill.name}] em ${bleedDelay} ${bleedDelay === 1 ? 'turno' : 'turnos'} sofrendo ${totalBleedingVal} de dano por turno por ${duration} turnos!`,
+              message: `â³ ${t.character.name} comeÃ§arÃ¡ a sangrar com [${skill.name}] em ${bleedDelay} ${bleedDelay === 1 ? 'turno' : 'turnos'} sofrendo ${totalBleedingVal} de dano por turno por ${duration} turnos!`,
               type: 'damage',
             });
             addFloatingText(t.id, `SANGRAMENTO EM ${bleedDelay} TURNOS`, 'effect');
@@ -8159,10 +8151,10 @@ splashOnlyTargets = splashPool.filter(c =>
             return;
           }
 
-          // Sangramento de 1 turno acontece INSTANTANEAMENTE (igual aflição).
-          // O sangramento ignora DEFESA, ESCUDO e INVULNERABILIDADE: o dano é
-          // aplicado direto no HP (a invulnerabilidade só impede a aplicação de
-          // um sangramento NOVO; se o alvo já estiver sangrando, mesmo invulnerável
+          // Sangramento de 1 turno acontece INSTANTANEAMENTE (igual afliÃ§Ã£o).
+          // O sangramento ignora DEFESA, ESCUDO e INVULNERABILIDADE: o dano Ã©
+          // aplicado direto no HP (a invulnerabilidade sÃ³ impede a aplicaÃ§Ã£o de
+          // um sangramento NOVO; se o alvo jÃ¡ estiver sangrando, mesmo invulnerÃ¡vel
           // ele sofre o sangramento).
           if (duration === 1) {
             const startingHealth = t.health;
@@ -8195,7 +8187,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `💀 ${t.character.name} CAIU EM BATALHA POR SANGRAMENTO!`,
+                message: `ðŸ’€ ${t.character.name} CAIU EM BATALHA POR SANGRAMENTO!`,
                 type: 'death',
               });
               addFloatingText(t.id, 'DERROTADO', 'damage');
@@ -8205,7 +8197,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️✨ ${t.character.name} converteu ${totalBleedingVal} de sangramento instantâneo de [${skill.name}] em escudo!`,
+                message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converteu ${totalBleedingVal} de sangramento instantÃ¢neo de [${skill.name}] em escudo!`,
                 type: 'buff',
               });
               addFloatingText(t.id, `+${totalBleedingVal} ESCUDO (SANGRAMENTO)`, 'shield');
@@ -8213,7 +8205,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🩸 ${t.character.name} sofreu ${totalBleedingVal} de dano INSTANTÂNEO de sangramento de [${skill.name}] (ignora defesa, escudo e invulnerabilidade)!`,
+                message: `ðŸ©¸ ${t.character.name} sofreu ${totalBleedingVal} de dano INSTANTÃ‚NEO de sangramento de [${skill.name}] (ignora defesa, escudo e invulnerabilidade)!`,
                 type: 'damage',
               });
               addFloatingText(t.id, `SANGRAMENTO (-${totalBleedingVal} HP)`, 'damage');
@@ -8237,7 +8229,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🩸 ${t.character.name} está sangrando com [${skill.name}] sofrendo ${totalBleedingVal} de dano por turno por ${duration} turnos!`,
+            message: `ðŸ©¸ ${t.character.name} estÃ¡ sangrando com [${skill.name}] sofrendo ${totalBleedingVal} de dano por turno por ${duration} turnos!`,
             type: 'damage',
           });
           addFloatingText(t.id, `SANGRAMENTO (-${totalBleedingVal} HP)`, 'damage');
@@ -8246,9 +8238,9 @@ splashOnlyTargets = splashPool.filter(c =>
       }
 
       // Affliction - debuff & immediate damage on target
-      // 💜 Regras condicionais (afflictionConditionalRules) são reavaliadas A CADA TICK em
-      // tickCasterContinuousDamage → ativar/desativar a skill condição muda o valor por turno dinamicamente.
-      // Se a regra de dano foi consumida pelo INSTANTÂNEO (⚡ Na hora), o por-turno fica só com o valor base.
+      // ðŸ’œ Regras condicionais (afflictionConditionalRules) sÃ£o reavaliadas A CADA TICK em
+      // tickCasterContinuousDamage â†’ ativar/desativar a skill condiÃ§Ã£o muda o valor por turno dinamicamente.
+      // Se a regra de dano foi consumida pelo INSTANTÃ‚NEO (âš¡ Na hora), o por-turno fica sÃ³ com o valor base.
       const totalAfflictionVal = afflRuleReplacesInstant ? (skill.afflictionVal || 0) : ((hasActiveDamageRuleIgnoreBase && ruleAfflictionDamage > 0) ? ruleAfflictionDamage : ((skill.afflictionVal || 0) + ruleAfflictionDamage));
       const afflCastBuff = dmgBuffInstant;
       const afflInstantDmg = totalAfflictionVal + afflCastBuff;
@@ -8256,30 +8248,30 @@ splashOnlyTargets = splashPool.filter(c =>
         const afflictionTargets = resolveEffectTargets(skill.afflictionTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         afflictionTargets.forEach(t => {
           if (t.isDead) return;
-          // 🚫 Não Stackar: alvo já possui aflição por turno ativa → não aplica outra
+          // ðŸš« NÃ£o Stackar: alvo jÃ¡ possui afliÃ§Ã£o por turno ativa â†’ nÃ£o aplica outra
           const skipAfflStack = !!skill.afflictionNoStack && t.activeEffects.some(e => e.type === 'affliction');
           if (skipAfflStack) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🚫 ${t.character.name} já possui aflição por turno — [${skill.name}] não stacka outra aflição!`,
+              message: `ðŸš« ${t.character.name} jÃ¡ possui afliÃ§Ã£o por turno â€” [${skill.name}] nÃ£o stacka outra afliÃ§Ã£o!`,
               type: 'buff',
             });
-            addFloatingText(t.id, 'AFLIÇÃO NÃO STACKA', 'effect');
+            addFloatingText(t.id, 'AFLIÃ‡ÃƒO NÃƒO STACKA', 'effect');
           }
-          // 💜 Mim e o Alvo (Both): o conjurador pode receber uma quantidade DIFERENTE de aflição (afflictionSelfVal).
+          // ðŸ’œ Mim e o Alvo (Both): o conjurador pode receber uma quantidade DIFERENTE de afliÃ§Ã£o (afflictionSelfVal).
           const isSelfAffl = skill.afflictionTarget === 'Both' && t.id === source.id;
           const afflVal = isSelfAffl && skill.afflictionSelfVal !== undefined ? skill.afflictionSelfVal : totalAfflictionVal;
           if (afflVal <= 0) return;
           const afflInstant = afflVal + afflCastBuff;
           const rawDuration = skill.afflictionDuration !== undefined && skill.afflictionDuration > 0 ? skill.afflictionDuration : 1;
           const afflDelay = Math.max(0, skill.afflictionDelay || 0);
-          // 💜 Quando a skill tem dano instantâneo próprio (afflictionInstant > 0), o valor
-          // por turno NÃO é aplicado na hora: o instant é o golpe imediato e o afflictionVal
-          // vira dano PURAMENTE por turno (primeiro tick no próximo passe do conjurador).
+          // ðŸ’œ Quando a skill tem dano instantÃ¢neo prÃ³prio (afflictionInstant > 0), o valor
+          // por turno NÃƒO Ã© aplicado na hora: o instant Ã© o golpe imediato e o afflictionVal
+          // vira dano PURAMENTE por turno (primeiro tick no prÃ³ximo passe do conjurador).
           const hasSeparateInstantHit = (skill.afflictionInstant || 0) > 0;
 
-          // Aflição com ATRASO: o alvo NÃO sofre agora; só começa a sofrer depois de
+          // AfliÃ§Ã£o com ATRASO: o alvo NÃƒO sofre agora; sÃ³ comeÃ§a a sofrer depois de
           // `afflDelay` turnos, causando dano por turno por `rawDuration` turnos.
           if (afflDelay > 0) {
             if (!skipAfflStack) {
@@ -8300,10 +8292,10 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `⏳ ${t.character.name} sofrerá ${afflVal} de dano por aflição de [${skill.name}] em ${afflDelay} ${afflDelay === 1 ? 'turno' : 'turnos'}, durante ${rawDuration} ${rawDuration === 1 ? 'turno' : 'turnos'}!`,
+                message: `â³ ${t.character.name} sofrerÃ¡ ${afflVal} de dano por afliÃ§Ã£o de [${skill.name}] em ${afflDelay} ${afflDelay === 1 ? 'turno' : 'turnos'}, durante ${rawDuration} ${rawDuration === 1 ? 'turno' : 'turnos'}!`,
                 type: 'damage',
               });
-              addFloatingText(t.id, `AFLIÇÃO EM ${afflDelay} TURNOS`, 'effect');
+              addFloatingText(t.id, `AFLIÃ‡ÃƒO EM ${afflDelay} TURNOS`, 'effect');
             }
             cleanseTargetEffects(t, skill.afflictionRemoveType);
             return;
@@ -8313,20 +8305,20 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💜 ${t.character.name} será consumido pelas chamas de [${skill.name}]: ${afflVal} de aflição por turno!`,
+              message: `ðŸ’œ ${t.character.name} serÃ¡ consumido pelas chamas de [${skill.name}]: ${afflVal} de afliÃ§Ã£o por turno!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `AFLIÇÃO (-${afflVal}/TURNO)`, 'effect');
+            addFloatingText(t.id, `AFLIÃ‡ÃƒO (-${afflVal}/TURNO)`, 'effect');
           }
 
           // Deduct health immediately upon applying affliction
-          // (pulada quando há afflictionInstant separado — o val vira só tick por turno)
+          // (pulada quando hÃ¡ afflictionInstant separado â€” o val vira sÃ³ tick por turno)
           if (!hasSeparateInstantHit && hasDamageImmunity(t, ['affliction'])) {
             const consumedAfflHit = consumeFirstHitOnlyImmunity(t, ['affliction']);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou a aflição de [${skill.name}].${consumedAfflHit ? ' (Imunidade de 1º dano usada!)' : ''}`,
+              message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE A DANO e ignorou a afliÃ§Ã£o de [${skill.name}].${consumedAfflHit ? ' (Imunidade de 1Âº dano usada!)' : ''}`,
               type: 'buff',
             });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
@@ -8361,7 +8353,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `💀 ${t.character.name} CAIU EM BATALHA POR AFLIÇÃO!`,
+                message: `ðŸ’€ ${t.character.name} CAIU EM BATALHA POR AFLIÃ‡ÃƒO!`,
                 type: 'death',
               });
               addFloatingText(t.id, 'DERROTADO', 'damage');
@@ -8371,23 +8363,23 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️✨ ${t.character.name} converteu ${afflInstant} de aflição instantânea de [${skill.name}] em escudo!`,
+                message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converteu ${afflInstant} de afliÃ§Ã£o instantÃ¢nea de [${skill.name}] em escudo!`,
                 type: 'buff',
               });
-              addFloatingText(t.id, `+${afflInstant} ESCUDO (AFLIÇÃO)`, 'shield');
+              addFloatingText(t.id, `+${afflInstant} ESCUDO (AFLIÃ‡ÃƒO)`, 'shield');
             } else {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `💀 ${t.character.name} sofreu ${afflInstant} de dano por aflição de [${skill.name}]!`,
+                message: `ðŸ’€ ${t.character.name} sofreu ${afflInstant} de dano por afliÃ§Ã£o de [${skill.name}]!`,
                 type: 'damage',
               });
-              addFloatingText(t.id, `AFLIÇÃO (-${afflInstant} HP)`, 'damage');
+              addFloatingText(t.id, `AFLIÃ‡ÃƒO (-${afflInstant} HP)`, 'damage');
             }
           }
 
-          // Se sobrou duração, cria o efeito por turno.
-          // Com afflictionInstant separado, NADA foi aplicado agora -> duração CHEIA (sem -1).
+          // Se sobrou duraÃ§Ã£o, cria o efeito por turno.
+          // Com afflictionInstant separado, NADA foi aplicado agora -> duraÃ§Ã£o CHEIA (sem -1).
           const remainingDuration = hasSeparateInstantHit ? rawDuration : (rawDuration === 99999 ? 99999 : (rawDuration - 1));
           if (remainingDuration > 0 && !skipAfflStack) {
             pushActiveEffect(t, {
@@ -8409,7 +8401,7 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
-      // On Skill Use Damage Rules (Punição por usar Habilidade)
+      // On Skill Use Damage Rules (PuniÃ§Ã£o por usar Habilidade)
       if (skill.onSkillUseDamageRules && skill.onSkillUseDamageRules.length > 0) {
         skill.onSkillUseDamageRules.forEach(rule => {
           if (!rule.damage || rule.damage <= 0) return;
@@ -8419,7 +8411,7 @@ splashOnlyTargets = splashPool.filter(c =>
           ruleTargets.forEach(t => {
             if (t.isDead) return;
             pushActiveEffect(t, {
-              name: `${skill.name} (Punição por Skill)`,
+              name: `${skill.name} (PuniÃ§Ã£o por Skill)`,
               type: 'on_skill_use_damage',
               value: rule.damage,
               duration,
@@ -8434,10 +8426,10 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⚔️ ${t.character.name} sofrerá ${rule.damage} de dano a cada habilidade usada por [${skill.name}] por ${duration} turnos!`,
+              message: `âš”ï¸ ${t.character.name} sofrerÃ¡ ${rule.damage} de dano a cada habilidade usada por [${skill.name}] por ${duration} turnos!`,
               type: 'buff',
             });
-            addFloatingText(t.id, 'PUNIÇÃO POR SKILL', 'effect');
+            addFloatingText(t.id, 'PUNIÃ‡ÃƒO POR SKILL', 'effect');
           });
         });
       }
@@ -8462,10 +8454,10 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🚫 ${t.character.name} ficou incapaz de reduzir dano por [${skill.name}] por ${duration} turnos!`,
+            message: `ðŸš« ${t.character.name} ficou incapaz de reduzir dano por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
-          addFloatingText(t.id, 'SEM REDUÇÃO DE DANO', 'effect');
+          addFloatingText(t.id, 'SEM REDUÃ‡ÃƒO DE DANO', 'effect');
           cleanseTargetEffects(t, skill.cannotReduceDamageRemoveType);
         });
       }
@@ -8477,7 +8469,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (t.isDead) return;
           const duration = skill.cannotBeInvulnerableDuration!;
           pushActiveEffect(t, {
-            name: `${skill.name} (Incapaz de Ficar Invulnerável)`,
+            name: `${skill.name} (Incapaz de Ficar InvulnerÃ¡vel)`,
             type: 'cannot_be_invulnerable',
             duration,
             icon: skill.icon,
@@ -8490,7 +8482,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🚫 ${t.character.name} ficou incapaz de se tornar invulnerável por [${skill.name}] por ${duration} turnos!`,
+            message: `ðŸš« ${t.character.name} ficou incapaz de se tornar invulnerÃ¡vel por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'SEM INVULNERABILIDADE', 'effect');
@@ -8505,7 +8497,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (t.isDead) return;
           const duration = skill.cannotReceiveFriendlyDuration!;
           pushActiveEffect(t, {
-            name: `${skill.name} (Bloqueio Amigável)`,
+            name: `${skill.name} (Bloqueio AmigÃ¡vel)`,
             type: 'cannot_receive_friendly',
             duration,
             icon: skill.icon,
@@ -8518,22 +8510,22 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🚫 ${t.character.name} ficou impossibilitado de receber habilidades amigáveis por [${skill.name}] por ${duration} turnos!`,
+            message: `ðŸš« ${t.character.name} ficou impossibilitado de receber habilidades amigÃ¡veis por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
-          addFloatingText(t.id, 'BLOQUEIO AMIGÁVEL', 'effect');
+          addFloatingText(t.id, 'BLOQUEIO AMIGÃVEL', 'effect');
           cleanseTargetEffects(t, skill.cannotReceiveFriendlyRemoveType);
         });
       }
 
-      // Negate Friendly Effects - debuff on target (ignora TODOS os efeitos amigáveis ativos e futuros)
+      // Negate Friendly Effects - debuff on target (ignora TODOS os efeitos amigÃ¡veis ativos e futuros)
       if (skill.negateFriendlyDuration && skill.negateFriendlyDuration > 0) {
         const negateFriendlyTargets = resolveEffectTargets(skill.negateFriendlyTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         negateFriendlyTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.negateFriendlyDuration!;
           pushActiveEffect(t, {
-            name: `${skill.name} (Anulação Amigável)`,
+            name: `${skill.name} (AnulaÃ§Ã£o AmigÃ¡vel)`,
             type: 'negate_friendly_effects',
             duration,
             icon: skill.icon,
@@ -8546,10 +8538,10 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🚫 ${t.character.name} teve todos os efeitos amigáveis ANULADOS por [${skill.name}] por ${duration} turnos!`,
+            message: `ðŸš« ${t.character.name} teve todos os efeitos amigÃ¡veis ANULADOS por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
-          addFloatingText(t.id, 'ANULAÇÃO AMIGÁVEL', 'effect');
+          addFloatingText(t.id, 'ANULAÃ‡ÃƒO AMIGÃVEL', 'effect');
           cleanseTargetEffects(t, skill.negateFriendlyRemoveType);
         });
       }
@@ -8561,7 +8553,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (t.isDead) return;
           const duration = skill.revealInvisibleDuration!;
           pushActiveEffect(t, {
-            name: `${skill.name} (Revelar Skills Invisíveis)`,
+            name: `${skill.name} (Revelar Skills InvisÃ­veis)`,
             type: 'reveal_invisible',
             duration,
             icon: skill.icon,
@@ -8574,10 +8566,10 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `👁️ ${t.character.name} teve suas habilidades e efeitos invisíveis revelados por [${skill.name}] por ${duration} turnos!`,
+            message: `ðŸ‘ï¸ ${t.character.name} teve suas habilidades e efeitos invisÃ­veis revelados por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
-          addFloatingText(t.id, '👁️ SKILLS REVELADAS', 'effect');
+          addFloatingText(t.id, 'ðŸ‘ï¸ SKILLS REVELADAS', 'effect');
           cleanseTargetEffects(t, skill.revealInvisibleRemoveType);
         });
       }
@@ -8602,7 +8594,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⚡ ${t.character.name} está imune a stuns por [${skill.name}] por ${duration} turnos!`,
+            message: `âš¡ ${t.character.name} estÃ¡ imune a stuns por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'IMUNE A STUN', 'effect');
@@ -8632,7 +8624,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️ ${t.character.name} está imune a dano por [${skill.name}] por ${duration} turnos!`,
+            message: `ðŸ›¡ï¸ ${t.character.name} estÃ¡ imune a dano por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'IMUNE A DANO', 'effect');
@@ -8640,7 +8632,7 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
-      // Immortal effect: Immediate activation upon skill use OR when HP ≤ threshold
+      // Immortal effect: Immediate activation upon skill use OR when HP â‰¤ threshold
       const isImmortalByImmediate = (skill.immortalDuration && skill.immortalDuration > 0) && (skill.immortalImmediate || (!skill.immortalHpThreshold && skill.immortalImmediate !== false));
       const isImmortalByThreshold = skill.immortalHpThreshold && skill.immortalHpThreshold > 0 && source.health <= skill.immortalHpThreshold && source.activeEffects.some(e => e.name.startsWith(skill.name));
       if (isImmortalByImmediate || isImmortalByThreshold) {
@@ -8657,29 +8649,29 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `💪 ${source.character.name} ativou IMORTALIDADE por ${immDuration} turnos!`,
+            message: `ðŸ’ª ${source.character.name} ativou IMORTALIDADE por ${immDuration} turnos!`,
             type: 'buff',
           });
-          addFloatingText(source.id, '💪 IMORTAL', 'effect');
+          addFloatingText(source.id, 'ðŸ’ª IMORTAL', 'effect');
         }
       }
 
-      // Revive on death (Ressurreição): stack passiva infinita — cada uso adiciona +1 stack,
+      // Revive on death (RessurreiÃ§Ã£o): stack passiva infinita â€” cada uso adiciona +1 stack,
       // consumida automaticamente quando o personagem morrer (1 stack por morte).
-      // Ativa quando reviveHp > 0 (o campo HP do card "Reviver ao Morrer" é o próprio gatilho).
+      // Ativa quando reviveHp > 0 (o campo HP do card "Reviver ao Morrer" Ã© o prÃ³prio gatilho).
       if (skill.reviveHp && skill.reviveHp > 0 && skill.reviveOnDeath !== false) {
         const existingRevive = source.activeEffects.find(e => e.type === 'revive_on_death');
         if (existingRevive) {
           existingRevive.stacks = (existingRevive.stacks || 1) + 1;
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `💀✨ ${source.character.name} agora tem ${existingRevive.stacks} RESSURREIÇÃO(ÕES) guardadas!`,
+            message: `ðŸ’€âœ¨ ${source.character.name} agora tem ${existingRevive.stacks} RESSURREIÃ‡ÃƒO(Ã•ES) guardadas!`,
             type: 'buff',
           });
-          addFloatingText(source.id, `+1 RESSURREIÇÃO (${existingRevive.stacks})`, 'effect');
+          addFloatingText(source.id, `+1 RESSURREIÃ‡ÃƒO (${existingRevive.stacks})`, 'effect');
         } else {
           pushActiveEffect(source, {
-            name: `${skill.name} Ressurreição`,
+            name: `${skill.name} RessurreiÃ§Ã£o`,
             sourceSkillName: skill.name,
             type: 'revive_on_death',
             value: skill.reviveHp,
@@ -8691,19 +8683,19 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `💀✨ ${source.character.name} recebeu RESSURREIÇÃO: ao morrer, voltará com ${skill.reviveHp} de vida!`,
+            message: `ðŸ’€âœ¨ ${source.character.name} recebeu RESSURREIÃ‡ÃƒO: ao morrer, voltarÃ¡ com ${skill.reviveHp} de vida!`,
             type: 'buff',
           });
-          addFloatingText(source.id, '💀✨ RESSURREIÇÃO', 'effect');
+          addFloatingText(source.id, 'ðŸ’€âœ¨ RESSURREIÃ‡ÃƒO', 'effect');
         }
       }
 
-      // 💞 Vínculo de Morte (Death Link): por X turnos, se o conjurador OU o alvo morrer, o outro também morre.
+      // ðŸ’ž VÃ­nculo de Morte (Death Link): por X turnos, se o conjurador OU o alvo morrer, o outro tambÃ©m morre.
       // Marca o CONJURADOR e o ALVO com um efeito 'death_link' apontando um para o outro.
       if ((skill.deathLinkDuration || 0) > 0 && target && !target.isDead && target.id !== source.id) {
         const dlDur = skill.deathLinkDuration!;
         pushActiveEffect(source, {
-          name: `${skill.name} (Vínculo de Morte)`,
+          name: `${skill.name} (VÃ­nculo de Morte)`,
           sourceSkillName: skill.name,
           type: 'death_link',
           duration: dlDur,
@@ -8714,7 +8706,7 @@ splashOnlyTargets = splashPool.filter(c =>
           castTurn: turn,
         });
         pushActiveEffect(target, {
-          name: `${skill.name} (Vínculo de Morte)`,
+          name: `${skill.name} (VÃ­nculo de Morte)`,
           sourceSkillName: skill.name,
           type: 'death_link',
           duration: dlDur,
@@ -8727,17 +8719,17 @@ splashOnlyTargets = splashPool.filter(c =>
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `💞 [${skill.name}]: ${source.character.name} e ${target.character.name} estão VINCULADOS por ${dlDur === 99999 ? '∞' : dlDur} turno(s) — se um morrer, o outro morre!`,
+          message: `ðŸ’ž [${skill.name}]: ${source.character.name} e ${target.character.name} estÃ£o VINCULADOS por ${dlDur === 99999 ? 'âˆž' : dlDur} turno(s) â€” se um morrer, o outro morre!`,
           type: 'buff',
         });
-        addFloatingText(source.id, '💞 VÍNCULO DE MORTE', 'effect');
-        addFloatingText(target.id, '💞 VÍNCULO DE MORTE', 'effect');
+        addFloatingText(source.id, 'ðŸ’ž VÃNCULO DE MORTE', 'effect');
+        addFloatingText(target.id, 'ðŸ’ž VÃNCULO DE MORTE', 'effect');
       }
 
       // Counter Attack (applied as debuff on the selected target)
       if (skill.counterAttack) {
-        // No modo "attacker" o contra-ataque é aplicado no INIMIGO (debuff), então NÃO é benéfico
-        // (senão o resolveEffectTargets redireciona o efeito para o próprio conjurador).
+        // No modo "attacker" o contra-ataque Ã© aplicado no INIMIGO (debuff), entÃ£o NÃƒO Ã© benÃ©fico
+        // (senÃ£o o resolveEffectTargets redireciona o efeito para o prÃ³prio conjurador).
         const counterIsBeneficial = (skill.counterAttackType || 'defender') !== 'attacker';
         const cTargets = resolveEffectTargets(skill.counterAttackTarget || 'Target', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, counterIsBeneficial);
         cTargets.forEach(t => {
@@ -8765,8 +8757,8 @@ splashOnlyTargets = splashPool.filter(c =>
             id: Math.random().toString(),
             turn,
             message: untilTriggered
-              ? `⚔️ ${t.character.name} ficou MARCADO por [${skill.name}]: a próxima habilidade dele será contra-atacada (dura até ser acionado)!`
-              : `⚔️ ${t.character.name} ativou CONTRA-ATAQUE com [${skill.name}]${cMode === 'all' ? ' (anula TODAS as skills)' : ' (anula somente a 1ª skill)'} por ${skill.counterAttackDuration || 1} ${skill.counterAttackDuration === 1 ? 'turno' : 'turnos'}!`,
+              ? `âš”ï¸ ${t.character.name} ficou MARCADO por [${skill.name}]: a prÃ³xima habilidade dele serÃ¡ contra-atacada (dura atÃ© ser acionado)!`
+              : `âš”ï¸ ${t.character.name} ativou CONTRA-ATAQUE com [${skill.name}]${cMode === 'all' ? ' (anula TODAS as skills)' : ' (anula somente a 1Âª skill)'} por ${skill.counterAttackDuration || 1} ${skill.counterAttackDuration === 1 ? 'turno' : 'turnos'}!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'CONTRA-ATAQUE', 'effect');
@@ -8774,9 +8766,9 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
-      // 👻 Invisibilidade REAL: skills com `invisible` criam um efeito 'invisible' no alvo
-      // (padrão: o próprio conjurador), tornando-o INALVEJÁVEL ("ALVO INVISÍVEL!" na seleção)
-      // além de ocultar os badges. Sem isso, a flag só escondia os ícones dos efeitos.
+      // ðŸ‘» Invisibilidade REAL: skills com `invisible` criam um efeito 'invisible' no alvo
+      // (padrÃ£o: o prÃ³prio conjurador), tornando-o INALVEJÃVEL ("ALVO INVISÃVEL!" na seleÃ§Ã£o)
+      // alÃ©m de ocultar os badges. Sem isso, a flag sÃ³ escondia os Ã­cones dos efeitos.
       const isSkillInvisible = !!skill.invisible || ((skill.invisibleDuration ?? 0) > 0);
       if (isSkillInvisible && target) {
         const invisTargets = resolveEffectTargets(skill.invisibleTarget || skill.shieldTarget || skill.invulnerableTarget || 'Self', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, true);
@@ -8794,28 +8786,28 @@ splashOnlyTargets = splashPool.filter(c =>
               icon: skill.icon,
               isInvisible: true,
               irremovable: !!skill.invisibleIrremovable,
-              description: 'Efeito invisível ativo',
+              description: 'Efeito invisÃ­vel ativo',
               casterId: source.id,
               casterSide: action.isPlayer ? 'player' : 'enemy',
             });
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `👻 ${t.character.name} ficou INVISÍVEL com [${skill.name}] por ${invisDur} turno(s) — não pode ser alvo de habilidades!`,
+              message: `ðŸ‘» ${t.character.name} ficou INVISÃVEL com [${skill.name}] por ${invisDur} turno(s) â€” nÃ£o pode ser alvo de habilidades!`,
               type: 'buff',
             });
-            addFloatingText(t.id, 'INVISÍVEL', 'effect');
+            addFloatingText(t.id, 'INVISÃVEL', 'effect');
             cleanseTargetEffects(t, skill.invisibleRemoveType);
           }
         });
       }
 
-      // 🔓 Liberação Atrasada de Skills: bloqueia as skills listadas no conjurador enquanto o efeito
+      // ðŸ”“ LiberaÃ§Ã£o Atrasada de Skills: bloqueia as skills listadas no conjurador enquanto o efeito
       // durar; ao terminar, abre uma janela de X turnos onde elas podem ser usadas; depois volta a bloquear.
       if (skill.delayedUnlockSkills && skill.delayedUnlockSkills.length > 0 && (skill.delayedUnlockDuration || 0) > 0) {
         const lockDur = skill.delayedUnlockDuration || 1;
         const windowTurns = skill.delayedUnlockWindowTurns || 1;
-        // Se já existe um efeito desta skill (ex.: o bloqueio inicial do começo da batalha), reinicia o ciclo de bloqueio.
+        // Se jÃ¡ existe um efeito desta skill (ex.: o bloqueio inicial do comeÃ§o da batalha), reinicia o ciclo de bloqueio.
         const existing = source.activeEffects.find(e => e.type === 'custom' && e.sourceSkillName === skill.name && Array.isArray(e.delayedUnlockSkills));
         if (existing) {
           existing.delayedUnlockPhase = 'locked';
@@ -8827,7 +8819,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔒 [${skill.name}] reiniciou o bloqueio de ${skill.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} por ${lockDur} turno(s). Depois, ficarão liberadas por ${windowTurns} turno(s)!`,
+            message: `ðŸ”’ [${skill.name}] reiniciou o bloqueio de ${skill.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} por ${lockDur} turno(s). Depois, ficarÃ£o liberadas por ${windowTurns} turno(s)!`,
             type: 'buff',
           });
           addFloatingText(source.id, 'SKILLS BLOQUEADAS', 'stun');
@@ -8848,7 +8840,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔒 [${skill.name}] bloqueou ${skill.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} por ${lockDur} turno(s). Depois, ficarão liberadas por ${windowTurns} turno(s)!`,
+            message: `ðŸ”’ [${skill.name}] bloqueou ${skill.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} por ${lockDur} turno(s). Depois, ficarÃ£o liberadas por ${windowTurns} turno(s)!`,
             type: 'buff',
           });
           addFloatingText(source.id, 'SKILLS BLOQUEADAS', 'stun');
@@ -8867,7 +8859,7 @@ splashOnlyTargets = splashPool.filter(c =>
         retTargets.forEach(t => {
           if (t.isDead) return;
           pushActiveEffect(t, {
-            name: `${skill.name} Retaliação`,
+            name: `${skill.name} RetaliaÃ§Ã£o`,
             type: 'retaliate_damage',
             duration: retDur,
             value: skill.retaliateDamageVal || 0,
@@ -8885,10 +8877,10 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `⚡ ${t.character.name} ativou RETALIAÇÃO com [${skill.name}]!`,
+            message: `âš¡ ${t.character.name} ativou RETALIAÃ‡ÃƒO com [${skill.name}]!`,
             type: 'buff',
           });
-          addFloatingText(t.id, 'RETALIAÇÃO', 'effect');
+          addFloatingText(t.id, 'RETALIAÃ‡ÃƒO', 'effect');
           cleanseTargetEffects(t, skill.retaliateDamageRemoveType);
         });
       }
@@ -8899,8 +8891,8 @@ splashOnlyTargets = splashPool.filter(c =>
         const isMyGuard = (e: ActiveEffect) =>
           e.type === 'redirect_offensive' && e.sourceSkillName === skill.name && e.casterId === source.id;
 
-        // 🚫👤 Auto-remoção: se configurado e usado em SI MESMO, remove a proteção que está
-        // nos ALIADOS (o efeito Guarda-Costas mora no protegido, não no conjurador)
+        // ðŸš«ðŸ‘¤ Auto-remoÃ§Ã£o: se configurado e usado em SI MESMO, remove a proteÃ§Ã£o que estÃ¡
+        // nos ALIADOS (o efeito Guarda-Costas mora no protegido, nÃ£o no conjurador)
         if (skill.redirectOffensiveRemoveOnSelfCast && target && target.id === source.id) {
           let removedAny = false;
           guardSide.forEach(c => {
@@ -8911,7 +8903,7 @@ splashOnlyTargets = splashPool.filter(c =>
               removedAny = true;
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `🛡️❌ [GUARDA-COSTAS] ${source.character.name} usou [${skill.name}] em si mesmo — a proteção de ${c.character.name} foi REMOVIDA!`,
+                message: `ðŸ›¡ï¸âŒ [GUARDA-COSTAS] ${source.character.name} usou [${skill.name}] em si mesmo â€” a proteÃ§Ã£o de ${c.character.name} foi REMOVIDA!`,
                 type: 'system',
               });
               addFloatingText(c.id, 'GUARDA-COSTAS REMOVIDO', 'effect');
@@ -8920,14 +8912,14 @@ splashOnlyTargets = splashPool.filter(c =>
           if (!removedAny) {
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🛡️❓ [GUARDA-COSTAS] ${source.character.name} usou [${skill.name}] em si mesmo, mas não havia proteção ativa para remover.`,
+              message: `ðŸ›¡ï¸â“ [GUARDA-COSTAS] ${source.character.name} usou [${skill.name}] em si mesmo, mas nÃ£o havia proteÃ§Ã£o ativa para remover.`,
               type: 'system',
             });
           }
         } else {
         const scope = skill.redirectOffensiveScope || 'ally';
-        // 🔒 Proteção única: no escopo "apenas um aliado selecionado", se o conjurador já protege
-        // alguém com esta skill, NÃO pode escolher outro aliado — é preciso remover a proteção antes
+        // ðŸ”’ ProteÃ§Ã£o Ãºnica: no escopo "apenas um aliado selecionado", se o conjurador jÃ¡ protege
+        // alguÃ©m com esta skill, NÃƒO pode escolher outro aliado â€” Ã© preciso remover a proteÃ§Ã£o antes
         let guardBlockedByLock = false;
         if (scope === 'ally') {
           const holder = guardSide.find(c => !c.isDead && c.activeEffects.some(e => isMyGuard(e)));
@@ -8935,7 +8927,7 @@ splashOnlyTargets = splashPool.filter(c =>
             guardBlockedByLock = true;
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🔒 [GUARDA-COSTAS] ${source.character.name} já está protegendo ${holder.character.name} com [${skill.name}]! Remova essa proteção antes de proteger outro aliado.`,
+              message: `ðŸ”’ [GUARDA-COSTAS] ${source.character.name} jÃ¡ estÃ¡ protegendo ${holder.character.name} com [${skill.name}]! Remova essa proteÃ§Ã£o antes de proteger outro aliado.`,
               type: 'system',
             });
             addFloatingText(source.id, `TRAVADO EM ${holder.character.name.toUpperCase()}`, 'effect');
@@ -8960,7 +8952,7 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🛡️ [GUARDA-COSTAS] ${t.character.name} recebeu proteção de [${skill.name}] por ${redirDur} turno(s)! (Skills ofensivas inimigas serão redirecionadas para ${source.character.name})`,
+            message: `ðŸ›¡ï¸ [GUARDA-COSTAS] ${t.character.name} recebeu proteÃ§Ã£o de [${skill.name}] por ${redirDur} turno(s)! (Skills ofensivas inimigas serÃ£o redirecionadas para ${source.character.name})`,
             type: 'buff',
           });
           addFloatingText(t.id, `PROTEGIDO (${redirDur}T)`, 'effect');
@@ -9000,10 +8992,10 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `♾️ [${skill.name}] de ${source.character.name} foi aplicado permanentemente em ${defaultTarget.character.name}!`,
+            message: `â™¾ï¸ [${skill.name}] de ${source.character.name} foi aplicado permanentemente em ${defaultTarget.character.name}!`,
             type: 'buff',
           });
-          addFloatingText(defaultTarget.id, '♾️ PERMANENTE', 'effect');
+          addFloatingText(defaultTarget.id, 'â™¾ï¸ PERMANENTE', 'effect');
         }
       }
 
@@ -9013,7 +9005,7 @@ splashOnlyTargets = splashPool.filter(c =>
          const targets = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
         targets.forEach(t => {
           if (t.isDead) return;
-          // ⏳ Atraso de stack (stackDelayTurns): cria/atualiza um marcador PENDENTE em vez de aplicar na hora
+          // â³ Atraso de stack (stackDelayTurns): cria/atualiza um marcador PENDENTE em vez de aplicar na hora
           if ((skill.stackDelayTurns || 0) > 0) {
             const delayT = Math.max(1, skill.stackDelayTurns || 1);
             const pending = t.activeEffects.find(e => e.type === 'custom' && (e.stackPendingTurns || 0) > 0 && e.stackType === effStackType && e.sourceSkillName === skill.name);
@@ -9022,7 +9014,7 @@ splashOnlyTargets = splashPool.filter(c =>
               pending.stackPendingTurns = delayT;
             } else {
               t.activeEffects.push({
-                name: `${effStackType} (Pendente ⏳${delayT}T)`,
+                name: `${effStackType} (Pendente â³${delayT}T)`,
                 type: 'custom',
                 value: 0,
                 duration: 99999,
@@ -9039,17 +9031,17 @@ splashOnlyTargets = splashPool.filter(c =>
                 stackNonCumulative: skill.stackNonCumulative,
                 stackPendingTurns: delayT,
                 stackPendingStacks: 1,
-                // Guarda a duração final da stack (o alvo pode não ter a skill de origem)
+                // Guarda a duraÃ§Ã£o final da stack (o alvo pode nÃ£o ter a skill de origem)
                 stackPendingDuration: skill.stackDuration ?? 999,
               });
             }
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⏳ ${t.character.name} receberá a stack [${effStackType}] daqui a ${delayT} turno(s) (via [${skill.name}])!`,
+              message: `â³ ${t.character.name} receberÃ¡ a stack [${effStackType}] daqui a ${delayT} turno(s) (via [${skill.name}])!`,
               type: 'system',
             });
-            addFloatingText(t.id, `⏳ +1 ${effStackType.toUpperCase()} (${delayT}T)`, 'effect');
+            addFloatingText(t.id, `â³ +1 ${effStackType.toUpperCase()} (${delayT}T)`, 'effect');
             maybeAttachReflectByStackMarker(t, skill, effStackType, source.id, action.isPlayer ? 'player' : 'enemy');
             return;
           }
@@ -9064,7 +9056,7 @@ splashOnlyTargets = splashPool.filter(c =>
              if (!skill.stackNonCumulative && applyStackCapReset(t, existing)) {
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `🔄 ${t.character.name} atingiu o limite de stacks de [${effStackType}] e resetou para 1!`,
+                message: `ðŸ”„ ${t.character.name} atingiu o limite de stacks de [${effStackType}] e resetou para 1!`,
                 type: 'buff',
               });
             }
@@ -9093,7 +9085,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `📚 ${t.character.name} recebeu stack [${effStackType}] de ${source.character.name} via [${skill.name}]!`,
+              message: `ðŸ“š ${t.character.name} recebeu stack [${effStackType}] de ${source.character.name} via [${skill.name}]!`,
               type: 'buff',
             });
           }
@@ -9101,7 +9093,7 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
-      // ⚡ Escudo por Stack em Mim (shieldPerStackRules): ao usar a skill, o conjurador ganha X de escudo por cada stack do tipo configurado que ele possuir
+      // âš¡ Escudo por Stack em Mim (shieldPerStackRules): ao usar a skill, o conjurador ganha X de escudo por cada stack do tipo configurado que ele possuir
       if (skill.shieldPerStackRules && skill.shieldPerStackRules.length > 0) {
         skill.shieldPerStackRules.forEach(r => {
           const matchKey = (r.stackType || '').trim();
@@ -9115,11 +9107,11 @@ splashOnlyTargets = splashPool.filter(c =>
           source.shield = (source.shield || 0) + gained;
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🛡️⚡ [${skill.name}] ${source.character.name} ganhou ${gained} de escudo (${r.shieldPerStack} × ${stackCount}x stack de [${matchKey}])!`,
+            message: `ðŸ›¡ï¸âš¡ [${skill.name}] ${source.character.name} ganhou ${gained} de escudo (${r.shieldPerStack} Ã— ${stackCount}x stack de [${matchKey}])!`,
             type: 'buff',
           });
           addFloatingText(source.id, `+${gained} ESCUDO`, 'shield');
-          // ♻️ Resetar ao usar: a contagem de stacks volta para o valor configurado
+          // â™»ï¸ Resetar ao usar: a contagem de stacks volta para o valor configurado
           if (r.resetStackOnUse) {
             const targetCount = Math.max(0, r.resetStacksTo ?? 1);
             let changed = false;
@@ -9132,16 +9124,16 @@ splashOnlyTargets = splashPool.filter(c =>
             if (changed) {
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `♻️ [${skill.name}] A contagem de [${matchKey}] de ${source.character.name} voltou para ${targetCount}x!`,
+                message: `â™»ï¸ [${skill.name}] A contagem de [${matchKey}] de ${source.character.name} voltou para ${targetCount}x!`,
                 type: 'system',
               });
-              addFloatingText(source.id, `${matchKey.toUpperCase()} → ${targetCount}x`, 'effect');
+              addFloatingText(source.id, `${matchKey.toUpperCase()} â†’ ${targetCount}x`, 'effect');
             }
           }
         });
       }
 
-      // ⚡ Combo por Stacks (stackUseEffectRules): ao usar a skill com X stacks do conjurador, aplica os efeitos da regra
+      // âš¡ Combo por Stacks (stackUseEffectRules): ao usar a skill com X stacks do conjurador, aplica os efeitos da regra
       if (skill.stackUseEffectRules && skill.stackUseEffectRules.length > 0) {
         const applicable = skill.stackUseEffectRules
           .filter(r => r.requiredStacks > 0)
@@ -9156,8 +9148,8 @@ splashOnlyTargets = splashPool.filter(c =>
           comboTargets.forEach(ct => {
             if (ct.isDead) return;
             if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(ct, skill)) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${ct.character.name} está INVULNERÁVEL e não sofreu os efeitos do combo de [${comboLabel}]!`, type: 'buff' });
-              addFloatingText(ct.id, 'INVULNERÁVEL', 'invulnerable');
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${ct.character.name} estÃ¡ INVULNERÃVEL e nÃ£o sofreu os efeitos do combo de [${comboLabel}]!`, type: 'buff' });
+              addFloatingText(ct.id, 'INVULNERÃVEL', 'invulnerable');
               return;
             }
             if (rule.stun) {
@@ -9174,7 +9166,7 @@ splashOnlyTargets = splashPool.filter(c =>
               });
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `⚡ [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`,
+                message: `âš¡ [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`,
                 type: 'stun',
               });
               addFloatingText(ct.id, `STUN (COMBO ${count}x)`, 'stun');
@@ -9185,7 +9177,7 @@ splashOnlyTargets = splashPool.filter(c =>
               performChakraAction(ctIsPlayer, rule.chakraRemove, source.character.name, ct.character.name, skill.name, action.isPlayer, 'remove', source.id, ct.id, newLogs, localPlayerChakra, localEnemyChakra);
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `🔥 [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`,
+                message: `ðŸ”¥ [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`,
                 type: 'chakra',
               });
               addFloatingText(ct.id, `CHAKRA -${rule.chakraRemove}`, 'effect');
@@ -9195,14 +9187,14 @@ splashOnlyTargets = splashPool.filter(c =>
           if (comboEffects.length > 0) {
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `⚡⚡ [COMBO ${count}x] ${source.character.name} ativou os efeitos de combo de [${skill.name}]: ${comboEffects.join(' + ')}!`,
+              message: `âš¡âš¡ [COMBO ${count}x] ${source.character.name} ativou os efeitos de combo de [${skill.name}]: ${comboEffects.join(' + ')}!`,
               type: 'buff',
             });
           }
         }
       }
 
-      // 🔁 Skill em Mim com Stack (selfCastStackRules): se X stacks OU a skill estiver ativa no conjurador, aplica uma das próprias skills em si mesmo
+      // ðŸ” Skill em Mim com Stack (selfCastStackRules): se X stacks OU a skill estiver ativa no conjurador, aplica uma das prÃ³prias skills em si mesmo
       if (skill.selfCastStackRules && skill.selfCastStackRules.length > 0) {
         const selfApplicable = skill.selfCastStackRules
           .filter(r => r.skillName && (r.requiredStacks || 0) > 0)
@@ -9253,7 +9245,7 @@ splashOnlyTargets = splashPool.filter(c =>
             if ((selfSkill.heal || 0) > 0) {
               const selfHealBlocked = selfTarget.activeEffects.some(e => e.blocksHeals);
               if (selfHealBlocked || isInvulnToFriendlyEffects(selfTarget, selfSkill)) {
-                selfFloating(selfHealBlocked ? 'CURA BLOQUEADA' : 'CURA BLOQUEADA (INVULNERÁVEL)', selfHealBlocked ? 'stun' : 'invulnerable');
+                selfFloating(selfHealBlocked ? 'CURA BLOQUEADA' : 'CURA BLOQUEADA (INVULNERÃVEL)', selfHealBlocked ? 'stun' : 'invulnerable');
               } else {
                 const maxHp = selfTarget.maxHealth || selfTarget.health;
                 const heal = Math.min(selfSkill.heal || 0, Math.max(0, maxHp - selfTarget.health));
@@ -9329,7 +9321,7 @@ splashOnlyTargets = splashPool.filter(c =>
             }
             if ((selfSkill.afflictionVal || 0) > 0) {
               pushActiveEffect(selfTarget, {
-                name: `${selfSkill.name} Aflição (Auto)`,
+                name: `${selfSkill.name} AfliÃ§Ã£o (Auto)`,
                 type: 'affliction',
                 value: selfSkill.afflictionVal,
                 duration: selfSkill.afflictionDuration || 3,
@@ -9338,7 +9330,7 @@ splashOnlyTargets = splashPool.filter(c =>
                 casterSide: action.isPlayer ? 'player' : 'enemy',
                 castTurn: turn,
               });
-              selfFloating(`AFLIÇÃO +${selfSkill.afflictionVal}`, 'damage');
+              selfFloating(`AFLIÃ‡ÃƒO +${selfSkill.afflictionVal}`, 'damage');
             }
             if (selfSkill.cleanseDebuffs || (selfSkill.cleanseDebuffTypes && selfSkill.cleanseDebuffTypes.length > 0)) {
               cleanseSpecificDebuffs(selfTarget, selfSkill.cleanseDebuffTypes || ['all_debuffs']);
@@ -9362,7 +9354,7 @@ splashOnlyTargets = splashPool.filter(c =>
                   casterId: source.id,
                   casterSide: action.isPlayer ? 'player' : 'enemy',
                 });
-                selfFloating('+CHAKRA CONTÍNUO', 'effect');
+                selfFloating('+CHAKRA CONTÃNUO', 'effect');
               } else {
                 const selfIsPlayer = updatedPlayer.some(p => p.id === selfTarget.id);
                 const selfPool = selfIsPlayer ? localPlayerChakra : localEnemyChakra;
@@ -9383,7 +9375,7 @@ splashOnlyTargets = splashPool.filter(c =>
                 casterSide: action.isPlayer ? 'player' : 'enemy',
                 castTurn: turn,
               });
-              selfFloating('INVISÍVEL', 'effect');
+              selfFloating('INVISÃVEL', 'effect');
             }
             if ((selfSkill.stunTurns || 0) > 0) {
               pushActiveEffect(selfTarget, {
@@ -9445,7 +9437,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🔁 [${skill.name}] de ${source.character.name} aplicou [${selfSkill.name}] em si mesmo (${triggerDesc})!`,
+                message: `ðŸ” [${skill.name}] de ${source.character.name} aplicou [${selfSkill.name}] em si mesmo (${triggerDesc})!`,
                 type: 'buff',
               });
             }
@@ -9471,7 +9463,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🥷 ${source.character.name} usou [${skill.name}] em ${t.character.name}! (Armadilha Invisível instalada)`,
+            message: `ðŸ¥· ${source.character.name} usou [${skill.name}] em ${t.character.name}! (Armadilha InvisÃ­vel instalada)`,
             type: 'buff',
           });
         });
@@ -9489,7 +9481,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🪤 [CAPTURE AND ARREST] ${source.character.name} usou [${skill.name}] e ativou a armadilha de Iruka, mas é IMUNE A DANO!`,
+                message: `ðŸª¤ [CAPTURE AND ARREST] ${source.character.name} usou [${skill.name}] e ativou a armadilha de Iruka, mas Ã© IMUNE A DANO!`,
                 type: 'buff',
               });
               addFloatingText(source.id, 'IMUNE!', 'invulnerable');
@@ -9518,7 +9510,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🪤 [CAPTURE AND ARREST] ${source.character.name} usou a habilidade ofensiva [${skill.name}] e ATIVOU a armadilha de Iruka! Sofreu 40 de dano!`,
+                message: `ðŸª¤ [CAPTURE AND ARREST] ${source.character.name} usou a habilidade ofensiva [${skill.name}] e ATIVOU a armadilha de Iruka! Sofreu 40 de dano!`,
                 type: 'damage',
               });
               addFloatingText(source.id, '-40 ARMADILHA!', 'damage');
@@ -9538,10 +9530,10 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⚠️ [CAPTURE AND ARREST] ${source.character.name} receberá +15 de dano adicional de habilidades Físicas e de Chakra por 1 turno!`,
+              message: `âš ï¸ [CAPTURE AND ARREST] ${source.character.name} receberÃ¡ +15 de dano adicional de habilidades FÃ­sicas e de Chakra por 1 turno!`,
               type: 'buff',
             });
-            addFloatingText(source.id, '+15 DANO RECEBIDO (FÍSICO/CHAKRA)', 'effect');
+            addFloatingText(source.id, '+15 DANO RECEBIDO (FÃSICO/CHAKRA)', 'effect');
           }
         }
       }
@@ -9557,7 +9549,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⚔️ [PUNIÇÃO POR SKILL] ${source.character.name} usou uma habilidade, mas é IMUNE A DANO!`,
+              message: `âš”ï¸ [PUNIÃ‡ÃƒO POR SKILL] ${source.character.name} usou uma habilidade, mas Ã© IMUNE A DANO!`,
               type: 'buff',
             });
             addFloatingText(source.id, 'IMUNE!', 'invulnerable');
@@ -9587,23 +9579,23 @@ splashOnlyTargets = splashPool.filter(c =>
             }
 
             const typeText = dmgType === 'direct_damage' || dmgType === 'piercing' ? 'Direto' :
-                             dmgType === 'affliction' ? 'Aflição' :
+                             dmgType === 'affliction' ? 'AfliÃ§Ã£o' :
                              dmgType === 'dot' ? 'Queimadura' :
                              dmgType === 'bleeding' ? 'Sangramento' : 'Normal';
 
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⚔️ [PUNIÇÃO POR SKILL] ${source.character.name} usou [${skill.name}] e sofreu ${dmgVal} de dano ${typeText}!`,
+              message: `âš”ï¸ [PUNIÃ‡ÃƒO POR SKILL] ${source.character.name} usou [${skill.name}] e sofreu ${dmgVal} de dano ${typeText}!`,
               type: 'damage',
             });
-            addFloatingText(source.id, `-${dmgVal} PUNIÇÃO`, 'damage');
+            addFloatingText(source.id, `-${dmgVal} PUNIÃ‡ÃƒO`, 'damage');
           }
         });
       }
 
-      // REGRA: Remover do alvo os efeitos de skills marcadas como removíveis ao usar habilidade
-      // (mesmo que a duração seja infinita, usar uma skill remove o efeito do conjurador)
+      // REGRA: Remover do alvo os efeitos de skills marcadas como removÃ­veis ao usar habilidade
+      // (mesmo que a duraÃ§Ã£o seja infinita, usar uma skill remove o efeito do conjurador)
       const removableFlagSkills = [...updatedPlayer, ...updatedEnemy]
         .flatMap(cb => cb.character.skills)
         .filter(s => s.removedOnTargetSkillUse)
@@ -9620,7 +9612,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🧹 ${source.character.name} usou uma habilidade e os efeitos removíveis foram removidos!`,
+            message: `ðŸ§¹ ${source.character.name} usou uma habilidade e os efeitos removÃ­veis foram removidos!`,
             type: 'buff',
           });
           addFloatingText(source.id, 'EFEITOS REMOVIDOS', 'effect');
@@ -9638,7 +9630,7 @@ splashOnlyTargets = splashPool.filter(c =>
           defender.activeEffects.forEach(eff => {
             if (eff.type !== 'retaliate_damage') return;
 
-            // Filtro por classes: se configurado, só reage a skills com uma das classes permitidas
+            // Filtro por classes: se configurado, sÃ³ reage a skills com uma das classes permitidas
             if (eff.retaliateClasses && eff.retaliateClasses.length > 0) {
               const allowed = eff.retaliateClasses.map(c => c.toLowerCase());
               const attackClasses = (skill.classes || []).map(c => c.toLowerCase());
@@ -9674,7 +9666,7 @@ splashOnlyTargets = splashPool.filter(c =>
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `⚡ [RETALIAÇÃO] ${defender.character.name} contra-atacou, mas ${source.character.name} é IMUNE A DANO!`,
+                  message: `âš¡ [RETALIAÃ‡ÃƒO] ${defender.character.name} contra-atacou, mas ${source.character.name} Ã© IMUNE A DANO!`,
                   type: 'buff',
                 });
                 addFloatingText(source.id, 'IMUNE!', 'invulnerable');
@@ -9703,7 +9695,7 @@ splashOnlyTargets = splashPool.filter(c =>
                 }
 
                 const typeText = rType === 'direct_damage' || rType === 'true' || rType === 'piercing' ? 'Direto' :
-                                 rType === 'affliction' ? 'Aflição' :
+                                 rType === 'affliction' ? 'AfliÃ§Ã£o' :
                                  rType === 'dot' ? 'Queimadura' :
                                  rType === 'bleeding' ? 'Sangramento' : 'Normal';
 
@@ -9712,10 +9704,10 @@ splashOnlyTargets = splashPool.filter(c =>
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `⚡ [RETALIAÇÃO] ${defender.character.name} causou ${rVal} de dano ${typeText}${stackText} em ${source.character.name}!`,
+                  message: `âš¡ [RETALIAÃ‡ÃƒO] ${defender.character.name} causou ${rVal} de dano ${typeText}${stackText} em ${source.character.name}!`,
                   type: 'damage',
                 });
-                addFloatingText(source.id, `-${rVal} RETALIAÇÃO`, 'damage');
+                addFloatingText(source.id, `-${rVal} RETALIAÃ‡ÃƒO`, 'damage');
               }
             }
           });
@@ -9748,10 +9740,10 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `📚 ${source.character.name} foi MARCADO com [${eff.stackType}] ao atacar ${defender.character.name}!`,
+              message: `ðŸ“š ${source.character.name} foi MARCADO com [${eff.stackType}] ao atacar ${defender.character.name}!`,
               type: 'stun',
             });
-            addFloatingText(source.id, `📚 MARCADO (${eff.stackType})`, 'effect');
+            addFloatingText(source.id, `ðŸ“š MARCADO (${eff.stackType})`, 'effect');
           });
         });
       }
@@ -9760,7 +9752,7 @@ splashOnlyTargets = splashPool.filter(c =>
       sourceList.forEach(c => {
         if (c.health <= 0 && !c.isDead && !hasImmortalEffect(c)) {
           c.isDead = true;
-          newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA!`, type: 'death' });
+          newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’€ ${c.character.name} CAIU EM BATALHA!`, type: 'death' });
           playCustomSound('Death');
           addFloatingText(c.id, 'DERROTADO', 'damage');
         }
@@ -9777,24 +9769,24 @@ splashOnlyTargets = splashPool.filter(c =>
             casterId: c.id,
             casterSide: action.isPlayer ? 'player' : 'enemy',
           });
-          newLogs.push({ id: Math.random().toString(), turn, message: `💪 ${c.character.name} ativou IMORTALIDADE por ${immSkill.immortalDuration || 3} turnos (HP ≤ ${immSkill.immortalHpThreshold})!`, type: 'buff' });
-          addFloatingText(c.id, '💪 IMORTAL', 'effect');
+          newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’ª ${c.character.name} ativou IMORTALIDADE por ${immSkill.immortalDuration || 3} turnos (HP â‰¤ ${immSkill.immortalHpThreshold})!`, type: 'buff' });
+          addFloatingText(c.id, 'ðŸ’ª IMORTAL', 'effect');
         }
       });
       targetList.forEach(c => {
         if (c.health <= 0 && !c.isDead && !hasImmortalEffect(c)) {
           c.isDead = true;
-          newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA!`, type: 'death' });
+          newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’€ ${c.character.name} CAIU EM BATALHA!`, type: 'death' });
           playCustomSound('Death');
           addFloatingText(c.id, 'DERROTADO', 'damage');
         }
       });
     });
 
-    // 💜 Sincronização IMEDIATA dos valores de aflição com as regras condicionais:
-    // ao ativar/desativar a skill condição (ex.: Mangekyo Sharingan), os debuffs de
-    // aflição já aplicados nos oponentes mudam de valor NA HORA (badge + próximos ticks),
-    // sem precisar esperar o próximo passe do conjurador.
+    // ðŸ’œ SincronizaÃ§Ã£o IMEDIATA dos valores de afliÃ§Ã£o com as regras condicionais:
+    // ao ativar/desativar a skill condiÃ§Ã£o (ex.: Mangekyo Sharingan), os debuffs de
+    // afliÃ§Ã£o jÃ¡ aplicados nos oponentes mudam de valor NA HORA (badge + prÃ³ximos ticks),
+    // sem precisar esperar o prÃ³ximo passe do conjurador.
     {
       const allAfflChars = [...updatedPlayer, ...updatedEnemy];
       const resolveAfflSkill = (eff: ActiveEffect): Skill | null => {
@@ -9836,7 +9828,7 @@ splashOnlyTargets = splashPool.filter(c =>
     setEnemyCombatants(updatedEnemy);
 
     // Process revivals IMMEDIATELY after deaths during actions:
-    // se um personagem com stack de ressurreição morreu agora, ele revive antes do game over
+    // se um personagem com stack de ressurreiÃ§Ã£o morreu agora, ele revive antes do game over
     processDeathEvents([...updatedPlayer, ...updatedEnemy], newLogs);
     setLogs(prev => [...prev, ...newLogs]);
 
@@ -9854,34 +9846,34 @@ splashOnlyTargets = splashPool.filter(c =>
   };
 
     // Helper to execute end-of-turn effects after BOTH players have completed their action phase
-    // 🛡️ Retorna true se a rodada AVANÇOU (ou o fallback avançou). false = bloqueada
-    // (guard/disjuntor) — o chamador não deve marcar o turno como resolvido.
+    // ðŸ›¡ï¸ Retorna true se a rodada AVANÃ‡OU (ou o fallback avanÃ§ou). false = bloqueada
+    // (guard/disjuntor) â€” o chamador nÃ£o deve marcar o turno como resolvido.
     const executeTurnEndResolution = (): boolean => {
-    if (onlineParams?.isOnline) seedGameRng(onlineParams.seed, turn); // v29: same seed → same random results on both clients
+    if (onlineParams?.isOnline) seedGameRng(onlineParams.seed, turn); // v29: same seed â†’ same random results on both clients
     if (isResolvingTurnEndRef.current) return false;
-    // 🛑 DISJUNTOR ANTI-LOOP: resoluções legítimas NUNCA acontecem a menos de ~1.5s
-    // uma da outra (uma rodada inteira leva vários segundos no mínimo). Chamadas
-    // encadeadas nesse intervalo = loop patológico (tocava o som de início de partida
+    // ðŸ›‘ DISJUNTOR ANTI-LOOP: resoluÃ§Ãµes legÃ­timas NUNCA acontecem a menos de ~1.5s
+    // uma da outra (uma rodada inteira leva vÃ¡rios segundos no mÃ­nimo). Chamadas
+    // encadeadas nesse intervalo = loop patolÃ³gico (tocava o som de inÃ­cio de partida
     // infinitamente e resetava o turno, impedindo o Finalizar de "colar").
     const nowMs = Date.now();
     if (nowMs - lastResolutionAtRef.current < 1500) {
-      console.error(`[TURN] CIRCUIT BREAKER: resolução chamada ${nowMs - lastResolutionAtRef.current}ms após a anterior — bloqueada (anti-loop).`);
+      console.error(`[TURN] CIRCUIT BREAKER: resoluÃ§Ã£o chamada ${nowMs - lastResolutionAtRef.current}ms apÃ³s a anterior â€” bloqueada (anti-loop).`);
       try {
         setLogs(prev => [
           ...prev,
           {
             id: Math.random().toString(),
             turn,
-            message: '🛑 Resolução de rodada duplicada foi bloqueada pela proteção anti-loop.',
+            message: 'ðŸ›‘ ResoluÃ§Ã£o de rodada duplicada foi bloqueada pela proteÃ§Ã£o anti-loop.',
             type: 'system',
           }
         ]);
       } catch {}
-      return false; // 🛡️ avança=false → o chamador NÃO marca o turno como resolvido e tentará de novo
+      return false; // ðŸ›¡ï¸ avanÃ§a=false â†’ o chamador NÃƒO marca o turno como resolvido e tentarÃ¡ de novo
     }
     lastResolutionAtRef.current = nowMs;
     isResolvingTurnEndRef.current = true;
-    console.log(`[TURN] RESOLVER RODADA início: turn=${turn} ref=[${passedPlayersRef.current}]`);
+    console.log(`[TURN] RESOLVER RODADA inÃ­cio: turn=${turn} ref=[${passedPlayersRef.current}]`);
     let advanced = false;
     try {
     const newLogs: CombatLog[] = [];
@@ -9890,9 +9882,9 @@ splashOnlyTargets = splashPool.filter(c =>
     const updatedPlayer = srcPlayer.map(c => ({ ...c }));
     const updatedEnemy = srcEnemy.map(c => ({ ...c }));
 
-    // 🌀 Pools locais de chakra para os efeitos contínuos (ganho/dreno/roubo) do fim da rodada.
+    // ðŸŒ€ Pools locais de chakra para os efeitos contÃ­nuos (ganho/dreno/roubo) do fim da rodada.
     // IMPORTANTE: mutamos ESTES objetos e aplicamos com setState UMA vez no fim, evitando
-    // efeitos colaterais dentro dos updaters de setState (que o StrictMode chama 2x → dobrava o dreno).
+    // efeitos colaterais dentro dos updaters de setState (que o StrictMode chama 2x â†’ dobrava o dreno).
     const endRoundPlayerChakra: ChakraPool = { ...playerChakra };
     const endRoundEnemyChakra: ChakraPool = { ...enemyChakra };
     let endRoundChakraChanged = false;
@@ -9912,7 +9904,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `📚 ${c.character.name} ganhou +${gain} stack(s) de [${eff.stackType}] por turno! (${eff.stacks} total)`,
+            message: `ðŸ“š ${c.character.name} ganhou +${gain} stack(s) de [${eff.stackType}] por turno! (${eff.stacks} total)`,
             type: 'buff',
           });
           addFloatingText(c.id, `+${gain} STACK (${eff.stackType.toUpperCase()})`, 'effect');
@@ -9920,7 +9912,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔄 ${c.character.name} atingiu o limite de stacks de [${eff.stackType}] e resetou para 1!`,
+              message: `ðŸ”„ ${c.character.name} atingiu o limite de stacks de [${eff.stackType}] e resetou para 1!`,
               type: 'buff',
             });
           }
@@ -9931,7 +9923,7 @@ splashOnlyTargets = splashPool.filter(c =>
           const caster = [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === eff.casterId);
           if (!caster) return null;
           const effName = eff.name || '';
-          const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|Aflição|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
+          const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|AfliÃ§Ã£o|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
           return caster.character.skills.find(s => !!s.name && (s.name === baseName || effName.startsWith(s.name))) || null;
         };
         const isBlockedByInvuln = (eff: ActiveEffect, fallbackType: string): boolean => {
@@ -9942,7 +9934,7 @@ splashOnlyTargets = splashPool.filter(c =>
           return checkCombatantInvulnerable(c, fallbackType);
         };
 
-        // ⏳ Stacks pendentes (stackDelayTurns): decrementa o timer no fim da rodada e aplica quando chegar a zero
+        // â³ Stacks pendentes (stackDelayTurns): decrementa o timer no fim da rodada e aplica quando chegar a zero
         const pendingStackEffects = c.activeEffects.filter(e => e.type === 'custom' && (e.stackPendingTurns || 0) > 0);
         pendingStackEffects.forEach(ps => {
           ps.stackPendingTurns = (ps.stackPendingTurns || 1) - 1;
@@ -9950,7 +9942,7 @@ splashOnlyTargets = splashPool.filter(c =>
           const stName = ps.stackType || '';
           const amount = Math.max(1, ps.stackPendingStacks || 1);
           const originSkill = c.character.skills.find(s => s.name === ps.sourceSkillName);
-          // O alvo pode NÃO possuir a skill de origem (ex.: stack aplicada em aliado). Preferir os
+          // O alvo pode NÃƒO possuir a skill de origem (ex.: stack aplicada em aliado). Preferir os
           // valores guardados no marcador pendente, caindo para a skill de origem quando existir.
           const finalDuration = ps.stackPendingDuration ?? originSkill?.stackDuration ?? 999;
           const nonCumulative = ps.stackNonCumulative ?? originSkill?.stackNonCumulative ?? false;
@@ -9965,7 +9957,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🔄 ${c.character.name} atingiu o limite de stacks de [${stName}] e resetou para 1!`,
+                message: `ðŸ”„ ${c.character.name} atingiu o limite de stacks de [${stName}] e resetou para 1!`,
                 type: 'buff',
               });
             }
@@ -9990,17 +9982,17 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⏳📚 ${c.character.name} recebeu ${amount} stack(s) de [${stName}] que estava(m) pendente(s)!`,
+            message: `â³ðŸ“š ${c.character.name} recebeu ${amount} stack(s) de [${stName}] que estava(m) pendente(s)!`,
             type: 'buff',
           });
           addFloatingText(c.id, `+${amount} ${stName.toUpperCase()}`, 'effect');
         });
 
-        // Apply active DoTs (e.g. Amaterasu) — DESATIVADO aqui.
-        // O DOT contínuo agora é aplicado em tickCasterContinuousDamage, quando o
-        // CONJURADOR passa o turno (não no fim da rodada). Ver handleEndTurn.
+        // Apply active DoTs (e.g. Amaterasu) â€” DESATIVADO aqui.
+        // O DOT contÃ­nuo agora Ã© aplicado em tickCasterContinuousDamage, quando o
+        // CONJURADOR passa o turno (nÃ£o no fim da rodada). Ver handleEndTurn.
 
-        // ANBU Kinoe: Wood Spire Prison — punição por não usar habilidade ofensiva no turno
+        // ANBU Kinoe: Wood Spire Prison â€” puniÃ§Ã£o por nÃ£o usar habilidade ofensiva no turno
         const spirePunish = c.activeEffects.find(e => e.type === 'custom' && e.stackType === 'WoodSpirePunish');
         if (spirePunish && (spirePunish.value || 0) > 0) {
           const usedSet = currentTurnUsedSkills.current[c.id] || new Set<string>();
@@ -10011,7 +10003,7 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️ ${c.character.name} é IMUNE A DANO e não sofreu a punição de [Wood Spire Prison].`,
+                message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e nÃ£o sofreu a puniÃ§Ã£o de [Wood Spire Prison].`,
                 type: 'buff',
               });
               addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -10021,7 +10013,7 @@ splashOnlyTargets = splashPool.filter(c =>
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `🛡️✨ ${c.character.name} converteu ${punishVal} de dano da punição de [Wood Spire Prison] em escudo!`,
+                  message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${punishVal} de dano da puniÃ§Ã£o de [Wood Spire Prison] em escudo!`,
                   type: 'buff',
                 });
                 addFloatingText(c.id, `+${punishVal} ESCUDO`, 'shield');
@@ -10030,41 +10022,41 @@ splashOnlyTargets = splashPool.filter(c =>
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `🌳 ${c.character.name} sofreu ${punishVal} de dano de [Wood Spire Prison] por não usar uma habilidade ofensiva!`,
+                  message: `ðŸŒ³ ${c.character.name} sofreu ${punishVal} de dano de [Wood Spire Prison] por nÃ£o usar uma habilidade ofensiva!`,
                   type: 'damage',
                 });
-                addFloatingText(c.id, `-${punishVal} HP (PRISÃO)`, 'damage');
+                addFloatingText(c.id, `-${punishVal} HP (PRISÃƒO)`, 'damage');
               }
             }
           }
         }
 
-        // Apply dynamic Direct Damage over time (direct_damage) — DESATIVADO aqui.
-        // O dano direto contínuo agora é aplicado em tickCasterContinuousDamage, quando o
-        // CONJURADOR passa o turno (não quando o alvo passa). Ver handleEndTurn.
+        // Apply dynamic Direct Damage over time (direct_damage) â€” DESATIVADO aqui.
+        // O dano direto contÃ­nuo agora Ã© aplicado em tickCasterContinuousDamage, quando o
+        // CONJURADOR passa o turno (nÃ£o quando o alvo passa). Ver handleEndTurn.
         void 0;
 
-        // Apply Bleeding (Sangramento) — DESATIVADO aqui.
-        // O sangramento agora é aplicado em tickCasterContinuousDamage, quando o
-        // CONJURADOR passa o turno (não no fim da rodada). Ver handleEndTurn.
+        // Apply Bleeding (Sangramento) â€” DESATIVADO aqui.
+        // O sangramento agora Ã© aplicado em tickCasterContinuousDamage, quando o
+        // CONJURADOR passa o turno (nÃ£o no fim da rodada). Ver handleEndTurn.
 
-        // Apply Affliction (Aflição) — DESATIVADO aqui.
-        // A aflição agora é aplicada em tickCasterContinuousDamage, quando o
-        // CONJURADOR passa o turno (não no fim da rodada). Ver handleEndTurn.
+        // Apply Affliction (AfliÃ§Ã£o) â€” DESATIVADO aqui.
+        // A afliÃ§Ã£o agora Ã© aplicada em tickCasterContinuousDamage, quando o
+        // CONJURADOR passa o turno (nÃ£o no fim da rodada). Ver handleEndTurn.
 
-        // Apply Life Steal (Roubo de Vida) — DESATIVADO aqui.
-        // O roubo de vida agora é aplicado em tickCasterContinuousDamage, quando o
-        // CONJURADOR passa o turno (não no fim da rodada). Ver handleEndTurn.
+        // Apply Life Steal (Roubo de Vida) â€” DESATIVADO aqui.
+        // O roubo de vida agora Ã© aplicado em tickCasterContinuousDamage, quando o
+        // CONJURADOR passa o turno (nÃ£o no fim da rodada). Ver handleEndTurn.
 
         // Apply dynamic Healing over time
         const activeHealEffects = c.activeEffects.filter(e => e.type === 'heal');
         activeHealEffects.forEach(hl => {
-          // 🚑 Portador de efeito com bloqueio de curas não regenera vida
+          // ðŸš‘ Portador de efeito com bloqueio de curas nÃ£o regenera vida
           if (c.activeEffects.some(e => e.blocksHeals)) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🚑 ${c.character.name} está com um efeito que BLOQUEIA CURAS e não recuperou vida por ${hl.name}.`,
+              message: `ðŸš‘ ${c.character.name} estÃ¡ com um efeito que BLOQUEIA CURAS e nÃ£o recuperou vida por ${hl.name}.`,
               type: 'stun',
             });
             addFloatingText(c.id, 'CURA BLOQUEADA', 'stun');
@@ -10074,7 +10066,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🚫 ${c.character.name} tem efeitos amigáveis ANULADOS e não recuperou vida por ${hl.name}.`,
+              message: `ðŸš« ${c.character.name} tem efeitos amigÃ¡veis ANULADOS e nÃ£o recuperou vida por ${hl.name}.`,
               type: 'stun',
             });
             addFloatingText(c.id, 'CURA ANULADA', 'stun');
@@ -10089,7 +10081,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💚 ${c.character.name} recuperou ${(hl.value || 0)} de vida por ${hl.name}.`,
+            message: `ðŸ’š ${c.character.name} recuperou ${(hl.value || 0)} de vida por ${hl.name}.`,
             type: 'heal',
           });
           addFloatingText(c.id, `+${(hl.value || 0)} HP (REGEN)`, 'heal');
@@ -10106,15 +10098,15 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔁 ${c.character.name} gerou +${actualAdded} de escudo ADICIONAL por [${re.sourceSkillName || 'Escudo por Turno'}].`,
+              message: `ðŸ” ${c.character.name} gerou +${actualAdded} de escudo ADICIONAL por [${re.sourceSkillName || 'Escudo por Turno'}].`,
               type: 'buff',
             });
             addFloatingText(c.id, `+${actualAdded} ESCUDO`, 'shield');
           }
         });
 
-        // ✨ Ganho de Chakra contínuo (Fluxo de Chakra) — aplicado no fim da rodada.
-        // Não é bloqueado pela pausa de geração do sandbox: é um ganho ativo de skill.
+        // âœ¨ Ganho de Chakra contÃ­nuo (Fluxo de Chakra) â€” aplicado no fim da rodada.
+        // NÃ£o Ã© bloqueado pela pausa de geraÃ§Ã£o do sandbox: Ã© um ganho ativo de skill.
         const gainChakraEffects = c.activeEffects.filter(e => e.name.startsWith('Fluxo de Chakra'));
         gainChakraEffects.forEach(effect => {
           const amt = effect.value || 0;
@@ -10128,40 +10120,40 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `✨ ${c.character.name} regenerou +${amt} chakra elemental pelo efeito [${effect.name}]!`,
+            message: `âœ¨ ${c.character.name} regenerou +${amt} chakra elemental pelo efeito [${effect.name}]!`,
             type: 'chakra',
           });
           addFloatingText(c.id, `+${amt} CHAKRA (FLUXO)`, 'effect');
         });
 
-        // 🌀 Dreno / Roubo / Remoção de Chakra contínuos (duração 2+) — aplicado no fim da rodada.
-        // Dreno e Roubo REMOVEM do estoque do portador e ADICIONAM ao estoque do lado oposto (ladrão).
-        // Remoção apenas retira, sem repassar. Funciona também no sandbox com geração pausada.
-        // NB: mutamos os pools locais (endRound*) e aplicamos 1x no fim — nada de setState aqui
-        //     (senão o StrictMode roda o updater 2x e o dreno dobra: 1/turno vira 2/turno).
+        // ðŸŒ€ Dreno / Roubo / RemoÃ§Ã£o de Chakra contÃ­nuos (duraÃ§Ã£o 2+) â€” aplicado no fim da rodada.
+        // Dreno e Roubo REMOVEM do estoque do portador e ADICIONAM ao estoque do lado oposto (ladrÃ£o).
+        // RemoÃ§Ã£o apenas retira, sem repassar. Funciona tambÃ©m no sandbox com geraÃ§Ã£o pausada.
+        // NB: mutamos os pools locais (endRound*) e aplicamos 1x no fim â€” nada de setState aqui
+        //     (senÃ£o o StrictMode roda o updater 2x e o dreno dobra: 1/turno vira 2/turno).
         const drainChakraEffects = c.activeEffects.filter(e =>
           (e.name.startsWith('Dreno de Chakra') ||
           e.name.startsWith('Roubo de Chakra') ||
-          e.name.startsWith('Remoção de Chakra')) &&
-          e.castTurn !== turn && // pula a rodada em que foi criado (o 1º tick já ocorreu no uso da skill)
-          (e as any).lastChakraTickTurn !== turn // 🛡️ nunca 2 ticks na MESMA rodada (criação atrasada/catch-up)
+          e.name.startsWith('RemoÃ§Ã£o de Chakra')) &&
+          e.castTurn !== turn && // pula a rodada em que foi criado (o 1Âº tick jÃ¡ ocorreu no uso da skill)
+          (e as any).lastChakraTickTurn !== turn // ðŸ›¡ï¸ nunca 2 ticks na MESMA rodada (criaÃ§Ã£o atrasada/catch-up)
         );
         drainChakraEffects.forEach(effect => {
           (effect as any).lastChakraTickTurn = turn;
           const amt = effect.value || 0;
           if (amt <= 0) return;
-          const isRemov = effect.name.startsWith('Remoção');
-          // 🛡️ Se o portador (vítima) está INVULNERÁVEL neste turno, o dreno/roubo/remoção NÃO acontece,
-          // exceto quando a skill de origem ignora invulnerabilidade OU o alvo está "Incapaz de Ficar
-          // Invulnerável" (cannot_be_invulnerable, tratado dentro de checkCombatantInvulnerable → false).
+          const isRemov = effect.name.startsWith('RemoÃ§Ã£o');
+          // ðŸ›¡ï¸ Se o portador (vÃ­tima) estÃ¡ INVULNERÃVEL neste turno, o dreno/roubo/remoÃ§Ã£o NÃƒO acontece,
+          // exceto quando a skill de origem ignora invulnerabilidade OU o alvo estÃ¡ "Incapaz de Ficar
+          // InvulnerÃ¡vel" (cannot_be_invulnerable, tratado dentro de checkCombatantInvulnerable â†’ false).
           if (isBlockedByInvuln(effect, 'chakra')) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${c.character.name} está INVULNERÁVEL e [${effect.name}] não ${isRemov ? 'removeu' : 'roubou'} chakra neste turno!`,
+              message: `ðŸ›¡ï¸ ${c.character.name} estÃ¡ INVULNERÃVEL e [${effect.name}] nÃ£o ${isRemov ? 'removeu' : 'roubou'} chakra neste turno!`,
               type: 'buff',
             });
-            addFloatingText(c.id, 'INVULNERÁVEL', 'invulnerable');
+            addFloatingText(c.id, 'INVULNERÃVEL', 'invulnerable');
             return;
           }
           const victimPool = name === 'Player' ? endRoundPlayerChakra : endRoundEnemyChakra;
@@ -10177,10 +10169,10 @@ splashOnlyTargets = splashPool.filter(c =>
             }
           }
 
-          // Se o inimigo não tinha chakra para drenar/roubar, NÃO há transferência (nada de "-0" nem chakra fantasma)
+          // Se o inimigo nÃ£o tinha chakra para drenar/roubar, NÃƒO hÃ¡ transferÃªncia (nada de "-0" nem chakra fantasma)
           if (affectedTypes.length === 0) return;
 
-          // Dreno/Roubo transferem para o ladrão SÓ o que foi realmente drenado do inimigo
+          // Dreno/Roubo transferem para o ladrÃ£o SÃ“ o que foi realmente drenado do inimigo
           if (!isRemov) {
             affectedTypes.forEach(k => { thiefPool[k] = (thiefPool[k] || 0) + 1; });
           }
@@ -10193,16 +10185,16 @@ splashOnlyTargets = splashPool.filter(c =>
               id: Math.random().toString(),
               turn,
               message: isRemov
-                ? `🌀 [${effect.name}] no estoque de ${name === 'Player' ? 'seu time' : 'oponente'}: ${affectedTypes.length} chakra (${affectedStr}) ${actionName}!`
-                : `🌀 [${effect.name}] drenou ${affectedTypes.length} chakra (${affectedStr}) do ${name === 'Player' ? 'seu time' : 'oponente'} para o ${name === 'Player' ? 'oponente' : 'seu time'}!`,
+                ? `ðŸŒ€ [${effect.name}] no estoque de ${name === 'Player' ? 'seu time' : 'oponente'}: ${affectedTypes.length} chakra (${affectedStr}) ${actionName}!`
+                : `ðŸŒ€ [${effect.name}] drenou ${affectedTypes.length} chakra (${affectedStr}) do ${name === 'Player' ? 'seu time' : 'oponente'} para o ${name === 'Player' ? 'oponente' : 'seu time'}!`,
               type: 'chakra',
             });
             addFloatingText(c.id, `-${affectedTypes.length} CHAKRA (${isRemov ? 'REMOVIDO' : 'DRENADO'})`, 'effect');
 
             if (name === 'Player') {
-              triggerChakraToast(`⚠️ [${effect.name}] ${isRemov ? 'removeu' : 'drenou'} ${affectedTypes.length} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
+              triggerChakraToast(`âš ï¸ [${effect.name}] ${isRemov ? 'removeu' : 'drenou'} ${affectedTypes.length} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
             } else {
-              triggerChakraToast(`⚡ [${effect.name}] ${isRemov ? 'removeu' : 'roubou'} ${affectedTypes.length} chakra (${affectedStr}) do estoque do oponente!`, 'stolen');
+              triggerChakraToast(`âš¡ [${effect.name}] ${isRemov ? 'removeu' : 'roubou'} ${affectedTypes.length} chakra (${affectedStr}) do estoque do oponente!`, 'stolen');
             }
           }
         });
@@ -10213,21 +10205,21 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💀 ${c.character.name} CAIU EM BATALHA!`,
+            message: `ðŸ’€ ${c.character.name} CAIU EM BATALHA!`,
             type: 'death',
           });
           playCustomSound('Death');
           addFloatingText(c.id, 'DERROTADO', 'damage');
         }
 
-        // Shield expiration (escudo com duração limitada)
+        // Shield expiration (escudo com duraÃ§Ã£o limitada)
         if (c.shieldExpiresTurn && turn >= c.shieldExpiresTurn) {
           if (c.shield > 0) {
             c.shield = 0;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️💨 O escudo de ${c.character.name} expirou!`,
+              message: `ðŸ›¡ï¸ðŸ’¨ O escudo de ${c.character.name} expirou!`,
               type: 'buff',
             });
             addFloatingText(c.id, 'ESCUDO EXPIRADO', 'shield');
@@ -10236,20 +10228,20 @@ splashOnlyTargets = splashPool.filter(c =>
           c.activeEffects = c.activeEffects.filter(e => e.type !== 'shield_stun_immunity');
         }
 
-        // Restaura as habilidades originais quando a cópia de habilidades expira
+        // Restaura as habilidades originais quando a cÃ³pia de habilidades expira
         c.activeEffects.filter((e: ActiveEffect) => e.type === 'skill_copy' && e.duration <= 1 && e.castTurn !== turn).forEach(copyEff => {
           if (Array.isArray(copyEff.storedSkills) && copyEff.storedSkills.length > 0) {
             c.character.skills = JSON.parse(JSON.stringify(copyEff.storedSkills));
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🔄 ${c.character.name} recuperou suas habilidades ORIGINAIS (fim da cópia de [${copyEff.sourceSkillName || copyEff.name}])!`,
+              message: `ðŸ”„ ${c.character.name} recuperou suas habilidades ORIGINAIS (fim da cÃ³pia de [${copyEff.sourceSkillName || copyEff.name}])!`,
               type: 'system',
             });
             addFloatingText(c.id, 'SKILLS ORIGINAIS', 'effect');
           }
         });
 
-        // 💣 Contagem regressiva: quando a bomba (countdown_bomb) expira, o portador recebe o dano configurado
+        // ðŸ’£ Contagem regressiva: quando a bomba (countdown_bomb) expira, o portador recebe o dano configurado
         {
           const expiringBombs = c.activeEffects.filter(eff =>
             eff.type === 'countdown_bomb' && eff.duration === 1 && eff.castTurn !== turn && eff.duration < 99999
@@ -10269,8 +10261,8 @@ splashOnlyTargets = splashPool.filter(c =>
             }
             if (!dmgTarget || dmgTarget.isDead) return;
             if (originSkill && checkCombatantInvulnerable(dmgTarget, originSkill)) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${dmgTarget.character.name} está INVULNERÁVEL e não sofreu o dano da bomba de [${originSkill.name}]!`, type: 'buff' });
-              addFloatingText(dmgTarget.id, 'INVULNERÁVEL', 'invulnerable');
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${dmgTarget.character.name} estÃ¡ INVULNERÃVEL e nÃ£o sofreu o dano da bomba de [${originSkill.name}]!`, type: 'buff' });
+              addFloatingText(dmgTarget.id, 'INVULNERÃVEL', 'invulnerable');
               return;
             }
             const isDirect = dmgType === 'direct_damage' || dmgType === 'true' || dmgType === 'piercing';
@@ -10285,7 +10277,7 @@ splashOnlyTargets = splashPool.filter(c =>
             const typeKey = dmgType === 'damage' ? 'damage' : dmgType;
             if (hasDamageImmunity(dmgTarget, [typeKey, ...(originSkill ? getSkillCombatTypes(originSkill) : [])])) {
               consumeFirstHitOnlyImmunity(dmgTarget, [typeKey, ...(originSkill ? getSkillCombatTypes(originSkill) : [])]);
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${dmgTarget.character.name} é IMUNE a dano e não sofreu a bomba de [${bomb.sourceSkillName}].`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${dmgTarget.character.name} Ã© IMUNE a dano e nÃ£o sofreu a bomba de [${bomb.sourceSkillName}].`, type: 'buff' });
               addFloatingText(dmgTarget.id, 'IMUNE!', 'invulnerable');
               return;
             }
@@ -10298,16 +10290,16 @@ splashOnlyTargets = splashPool.filter(c =>
             if (finalDamage > 0) {
               dmgTarget.health = hasImmortalEffect(dmgTarget) ? Math.max(1, dmgTarget.health - finalDamage) : Math.max(0, dmgTarget.health - finalDamage);
               newLogs.push({ id: Math.random().toString(), turn, message: `[${bomb.sourceSkillName}] em ${c.character.name} e ${dmgTarget.character.name} recebeu ${finalDamage} de dano${dmgType !== 'damage' ? ` (${dmgType})` : ''}!`, type: 'damage' });
-              addFloatingText(dmgTarget.id, `-${finalDamage} 💥`, 'damage');
+              addFloatingText(dmgTarget.id, `-${finalDamage} ðŸ’¥`, 'damage');
               if (dmgTarget.health === 0 && !dmgTarget.isDead) {
                 dmgTarget.isDead = true;
-                newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${dmgTarget.character.name} foi derrotado pela bomba de [${bomb.sourceSkillName}]!`, type: 'system' });
+                newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’€ ${dmgTarget.character.name} foi derrotado pela bomba de [${bomb.sourceSkillName}]!`, type: 'system' });
               }
             }
           });
         }
 
-        // ⏭️ Invulnerabilidade ATRASADA: quando pending_invulnerable expira, vira invulnerabilidade real (Desvio)
+        // â­ï¸ Invulnerabilidade ATRASADA: quando pending_invulnerable expira, vira invulnerabilidade real (Desvio)
         {
           const expiringPending = c.activeEffects.filter(eff =>
             eff.type === 'pending_invulnerable' && eff.duration === 1 && eff.castTurn !== turn
@@ -10328,16 +10320,16 @@ splashOnlyTargets = splashPool.filter(c =>
             });
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🌌 ${c.character.name} ficou INVULNERÁVEL (${formatInvulnerableSummary(pend.invulnerableTypes)}) por ${invDur} turno(s) — efeito atrasado de [${pend.sourceSkillName || pend.name}]!`,
+              message: `ðŸŒŒ ${c.character.name} ficou INVULNERÃVEL (${formatInvulnerableSummary(pend.invulnerableTypes)}) por ${invDur} turno(s) â€” efeito atrasado de [${pend.sourceSkillName || pend.name}]!`,
               type: 'buff',
             });
-            addFloatingText(c.id, 'INVULNERÁVEL', 'invulnerable');
+            addFloatingText(c.id, 'INVULNERÃVEL', 'invulnerable');
           });
         }
 
-        // 🔓 Liberação Atrasada: transições de fase no fim do turno.
-        //  - 'locked' → 'window' quando o bloqueio expira (abre a janela de liberação).
-        //  - 'window' → 'locked' quando a janela expira (skills voltam a ser bloqueadas até a skill ser reusada).
+        // ðŸ”“ LiberaÃ§Ã£o Atrasada: transiÃ§Ãµes de fase no fim do turno.
+        //  - 'locked' â†’ 'window' quando o bloqueio expira (abre a janela de liberaÃ§Ã£o).
+        //  - 'window' â†’ 'locked' quando a janela expira (skills voltam a ser bloqueadas atÃ© a skill ser reusada).
         c.activeEffects.forEach(eff => {
           if (eff.type !== 'custom' || !Array.isArray(eff.delayedUnlockSkills)) return;
           const willExpire = !(eff.castTurn === turn || eff.duration >= 99999) && (eff.duration - 1) <= 0;
@@ -10351,20 +10343,20 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔓 As skills ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} agora estão LIBERADAS por ${eff.duration} turno(s)!`,
+              message: `ðŸ”“ As skills ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} agora estÃ£o LIBERADAS por ${eff.duration} turno(s)!`,
               type: 'buff',
             });
             addFloatingText(c.id, 'SKILLS LIBERADAS', 'effect');
           } else if (eff.delayedUnlockPhase === 'window') {
             eff.delayedUnlockPhase = 'locked';
-            eff.duration = 99999; // fica bloqueada até a skill ser reusada
+            eff.duration = 99999; // fica bloqueada atÃ© a skill ser reusada
             eff.castTurn = turn;
             eff.name = `${eff.sourceSkillName || eff.name} (Bloqueio)`;
             eff.isInvisible = false;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔒 A janela terminou: ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} voltaram a ficar BLOQUEADAS!`,
+              message: `ðŸ”’ A janela terminou: ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} voltaram a ficar BLOQUEADAS!`,
               type: 'buff',
             });
             addFloatingText(c.id, 'SKILLS BLOQUEADAS', 'stun');
@@ -10373,22 +10365,22 @@ splashOnlyTargets = splashPool.filter(c =>
 
         // Decrement effect durations.
         // Regra de contagem de turnos: um efeito de "1 turno" deve durar APENAS a rodada
-        // em que foi aplicado — quando ambos os lados passam, ele já expira (badge some).
+        // em que foi aplicado â€” quando ambos os lados passam, ele jÃ¡ expira (badge some).
         // Por isso, efeitos de CONTROLE/badge decrementam mesmo na rodada em que foram aplicados.
-        // EXCEÇÕES que mantêm o timing antigo (não decrementam na própria rodada de cast):
-        //  - ⚡ STUN: não gasta turno na rodada em que foi aplicado — "Atordoado 2T" aparece com 2T
-        //    após finalizar o turno do conjurador e passa a decrementar só nas rodadas seguintes,
-        //    então 2T = o alvo perde 2 turnos dele de fato.
-        //  - efeitos de dano contínuo (para não perder um tick): dot/bleeding/affliction/damage/direct_damage/life_steal
-        //  - marcadores 'custom' (stacks, stacks pendentes, liberação atrasada, reflexão por stack, etc.)
+        // EXCEÃ‡Ã•ES que mantÃªm o timing antigo (nÃ£o decrementam na prÃ³pria rodada de cast):
+        //  - âš¡ STUN: nÃ£o gasta turno na rodada em que foi aplicado â€” "Atordoado 2T" aparece com 2T
+        //    apÃ³s finalizar o turno do conjurador e passa a decrementar sÃ³ nas rodadas seguintes,
+        //    entÃ£o 2T = o alvo perde 2 turnos dele de fato.
+        //  - efeitos de dano contÃ­nuo (para nÃ£o perder um tick): dot/bleeding/affliction/damage/direct_damage/life_steal
+        //  - marcadores 'custom' (stacks, stacks pendentes, liberaÃ§Ã£o atrasada, reflexÃ£o por stack, etc.)
         //  - efeitos permanentes (duration >= 99999) e stack Raikiri congelada
         const KEEP_CAST_ROUND_SKIP = new Set([
           'stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'custom',
-          // 🛡️ Proteções reativas: "anula a primeira skill por 1 turno" precisa sobreviver à rodada
-          // em que foi lançada — se eu sou RESPONDENTE, a skill inimiga que deve ser anulada vem na
-          // MESMA rodada ou na seguinte. Sem o skip, duração 1 morria na resolução da própria rodada
+          // ðŸ›¡ï¸ ProteÃ§Ãµes reativas: "anula a primeira skill por 1 turno" precisa sobreviver Ã  rodada
+          // em que foi lanÃ§ada â€” se eu sou RESPONDENTE, a skill inimiga que deve ser anulada vem na
+          // MESMA rodada ou na seguinte. Sem o skip, duraÃ§Ã£o 1 morria na resoluÃ§Ã£o da prÃ³pria rodada
           // ("aparece e some em segundos antes do inimigo agir"). O trigger em modo 'first' consome
-          // o efeito ao anular, então nada fica eterno.
+          // o efeito ao anular, entÃ£o nada fica eterno.
           'counter_attack', 'invisible',
         ]);
         c.activeEffects = c.activeEffects
@@ -10400,7 +10392,7 @@ splashOnlyTargets = splashPool.filter(c =>
             if (eff.duration >= 99999 || (eff.stackType === 'Raikiri' && (eff as any).frozenUntilTurn === turn)) {
               return eff;
             }
-            // Tipos que mantêm o skip antigo: não decrementam na MESMA rodada em que foram aplicados.
+            // Tipos que mantÃªm o skip antigo: nÃ£o decrementam na MESMA rodada em que foram aplicados.
             if (eff.castTurn === turn && KEEP_CAST_ROUND_SKIP.has(eff.type)) {
               return eff;
             }
@@ -10414,7 +10406,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⏳ Cooldowns de ${c.character.name} continuam PARALISADOS!`,
+            message: `â³ Cooldowns de ${c.character.name} continuam PARALISADOS!`,
             type: 'system',
           });
           addFloatingText(c.id, 'COOLDOWNS PARALISADOS', 'stun');
@@ -10435,7 +10427,7 @@ splashOnlyTargets = splashPool.filter(c =>
         if (target.isDead) return;
         const continuousEffects = target.activeEffects.filter(e => continuousTypes.has(e.type) && e.casterId);
         continuousEffects.forEach(eff => {
-          const effSkillName = eff.sourceSkillName || eff.name.replace(/\s*\(Dano Contínuo\)$/, '').replace(/\s*\(.*?\)$/, '').trim();
+          const effSkillName = eff.sourceSkillName || eff.name.replace(/\s*\(Dano ContÃ­nuo\)$/, '').replace(/\s*\(.*?\)$/, '').trim();
           const skillKey = `${eff.casterId}_${effSkillName}`;
           if (processedSkills.has(skillKey)) return;
           processedSkills.add(skillKey);
@@ -10479,7 +10471,7 @@ splashOnlyTargets = splashPool.filter(c =>
                     .map(k => k).join(', ');
                   newLogs.push({
                     id: Math.random().toString(), turn,
-                    message: `🔥 [CONTÍNUO] ${caster.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e removeu ${removed} chakra aleatório do estoque inimigo (${affectedStr})!`,
+                    message: `ðŸ”¥ [CONTÃNUO] ${caster.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e removeu ${removed} chakra aleatÃ³rio do estoque inimigo (${affectedStr})!`,
                     type: 'chakra',
                   });
                   addFloatingText(target.id, `-${removed} CHAKRA REMOVIDO`, 'effect');
@@ -10502,7 +10494,7 @@ splashOnlyTargets = splashPool.filter(c =>
         if (target.isDead) return;
         const continuousEffects = target.activeEffects.filter(e => continuousTypes.has(e.type) && e.casterId && (e.castTurn === undefined || e.castTurn !== turn));
         continuousEffects.forEach(eff => {
-          const effSkillName = eff.sourceSkillName || eff.name.replace(/\s*\(Dano Contínuo\)$/, '').replace(/\s*\(.*?\)$/, '').trim();
+          const effSkillName = eff.sourceSkillName || eff.name.replace(/\s*\(Dano ContÃ­nuo\)$/, '').replace(/\s*\(.*?\)$/, '').trim();
           const skillKey = `${eff.casterId}_${effSkillName}`;
           if (processedSkills.has(skillKey)) return;
           processedSkills.add(skillKey);
@@ -10525,7 +10517,7 @@ splashOnlyTargets = splashPool.filter(c =>
               })
             );
             if (!isCondActive) continue;
-            // Não rouba se o alvo estiver invulnerável (exceto com o debuff "incapaz de ficar invulnerável" ou se a regra/skill ignorar)
+            // NÃ£o rouba se o alvo estiver invulnerÃ¡vel (exceto com o debuff "incapaz de ficar invulnerÃ¡vel" ou se a regra/skill ignorar)
             if (checkCombatantInvulnerable(target, skill) && !(skillInvulnIgnored || rule.ignoreInvulnerable)) continue;
             {
               const victimSetter = casterIsPlayer ? setEnemyChakra : setPlayerChakra;
@@ -10557,14 +10549,14 @@ splashOnlyTargets = splashPool.filter(c =>
                   });
                   newLogs.push({
                     id: Math.random().toString(), turn,
-                    message: `💰 [CONTÍNUO] ${caster.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e roubou ${stolen} chakra aleatório do estoque inimigo (${affectedStr})!`,
+                    message: `ðŸ’° [CONTÃNUO] ${caster.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e roubou ${stolen} chakra aleatÃ³rio do estoque inimigo (${affectedStr})!`,
                     type: 'chakra',
                   });
                   addFloatingText(target.id, `+${stolen} CHAKRA ROUBADO`, 'effect');
                   if (casterIsPlayer) {
-                    triggerChakraToast(`💰 [${skill.name}] roubou ${stolen} chakra (${affectedStr}) do estoque do oponente!`, 'stolen');
+                    triggerChakraToast(`ðŸ’° [${skill.name}] roubou ${stolen} chakra (${affectedStr}) do estoque do oponente!`, 'stolen');
                   } else {
-                    triggerChakraToast(`⚠️ [${skill.name}] roubou ${stolen} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
+                    triggerChakraToast(`âš ï¸ [${skill.name}] roubou ${stolen} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
                   }
                 }
                 return pool;
@@ -10578,8 +10570,8 @@ splashOnlyTargets = splashPool.filter(c =>
     applyTurnEndUpdates(updatedPlayer, 'Player');
     applyTurnEndUpdates(updatedEnemy, 'Enemy');
 
-    // 🌀 Aplica de uma vez os ganhos/drenos/roubos de chakra contínuos acumulados nos pools locais.
-    // (Feito fora dos updaters de setState para não dobrar em StrictMode.)
+    // ðŸŒ€ Aplica de uma vez os ganhos/drenos/roubos de chakra contÃ­nuos acumulados nos pools locais.
+    // (Feito fora dos updaters de setState para nÃ£o dobrar em StrictMode.)
     if (endRoundChakraChanged) {
       setPlayerChakra({ ...endRoundPlayerChakra });
       setEnemyChakra({ ...endRoundEnemyChakra });
@@ -10588,7 +10580,7 @@ splashOnlyTargets = splashPool.filter(c =>
     // Process revivals & caster-death effect removals after end-of-turn damage
     processDeathEvents([...updatedPlayer, ...updatedEnemy], newLogs);
 
-    // Check immortal threshold for all combatants (HP ≤ threshold triggers immortality)
+    // Check immortal threshold for all combatants (HP â‰¤ threshold triggers immortality)
     const checkImmortalThreshold = (combatantList: CombatCharacter[], sideChar: CombatCharacter[]) => {
       combatantList.forEach(c => {
         if (c.isDead) return;
@@ -10606,10 +10598,10 @@ splashOnlyTargets = splashPool.filter(c =>
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `💪 ${c.character.name} ativou IMORTALIDADE por ${immortalSkill.immortalDuration || 3} turnos (HP ≤ ${immortalSkill.immortalHpThreshold})!`,
+            message: `ðŸ’ª ${c.character.name} ativou IMORTALIDADE por ${immortalSkill.immortalDuration || 3} turnos (HP â‰¤ ${immortalSkill.immortalHpThreshold})!`,
             type: 'buff',
           });
-          addFloatingText(c.id, '💪 IMORTAL', 'effect');
+          addFloatingText(c.id, 'ðŸ’ª IMORTAL', 'effect');
         }
       });
     };
@@ -10643,18 +10635,18 @@ splashOnlyTargets = splashPool.filter(c =>
     setTurn(nextTurn);
 
     // Roll initiative for new turn.
-    // 🎲 LÍDER FIXO: quem ganhou o sorteio inicial (matchStarterRef, derivado da
+    // ðŸŽ² LÃDER FIXO: quem ganhou o sorteio inicial (matchStarterRef, derivado da
     // seed no online) planeja PRIMEIRO em TODOS os turnos. Assim as fases de
-    // planejamento alternam estritamente (líder → respondente → líder → ...) e
-    // ninguém nunca planeja duas vezes seguidas. O contador só avança depois que
-    // OS DOIS finalizaram: T1=[líder, respondente], volta pro líder = T2.
+    // planejamento alternam estritamente (lÃ­der â†’ respondente â†’ lÃ­der â†’ ...) e
+    // ninguÃ©m nunca planeja duas vezes seguidas. O contador sÃ³ avanÃ§a depois que
+    // OS DOIS finalizaram: T1=[lÃ­der, respondente], volta pro lÃ­der = T2.
     const newFirstPlayer: 'player' | 'enemy' = matchStarterRef.current;
-    console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} (líder fixo da partida) sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
+    console.log(`[TURN] RESOLVER RODADA fim: novo turno=${nextTurn} primeiro=${newFirstPlayer} (lÃ­der fixo da partida) sandbox=${isSandbox} online=${!!onlineParams?.isOnline}`);
     setActivePlanner(newFirstPlayer);
     setPassedPlayersThisTurn([]);
     passedPlayersRef.current = [];
-    // Já define o estado de espera correto para o novo turno (evita a janela em que ambos
-    // os clientes ficam com o botão de finalizar habilitado antes do efeito de iniciativa rodar).
+    // JÃ¡ define o estado de espera correto para o novo turno (evita a janela em que ambos
+    // os clientes ficam com o botÃ£o de finalizar habilitado antes do efeito de iniciativa rodar).
     setIsWaitingForOpponent(onlineParams?.isOnline ? newFirstPlayer !== 'player' : false);
     advanced = true;
 
@@ -10668,21 +10660,21 @@ splashOnlyTargets = splashPool.filter(c =>
       id: Math.random().toString(),
       turn: nextTurn,
       message: newFirstPlayer === 'player'
-        ? `🔄 Turno ${nextTurn} — VOCÊ planeja primeiro!`
-        : `🔄 Turno ${nextTurn} — o OPONENTE planeja primeiro.`,
+        ? `ðŸ”„ Turno ${nextTurn} â€” VOCÃŠ planeja primeiro!`
+        : `ðŸ”„ Turno ${nextTurn} â€” o OPONENTE planeja primeiro.`,
       type: 'system',
     });
 
     setLogs(prev => [...prev, ...newLogs]);
     return true;
     } catch (err) {
-      console.error(`[BattleBoard] Erro na resolução da rodada ${turn}:`, err);
+      console.error(`[BattleBoard] Erro na resoluÃ§Ã£o da rodada ${turn}:`, err);
       try { setLastResolutionError(String((err as any)?.message || err)); } catch {} 
       if (!advanced) {
         try {
           const fbTurn = turn + 1;
           setTurn(fbTurn);
-          // 🎲 Mesmo líder fixo do caminho normal (sorteio único do mount).
+          // ðŸŽ² Mesmo lÃ­der fixo do caminho normal (sorteio Ãºnico do mount).
           const fbFirst: 'player' | 'enemy' = matchStarterRef.current;
           setActivePlanner(fbFirst);
           setPassedPlayersThisTurn([]);
@@ -10691,20 +10683,20 @@ splashOnlyTargets = splashPool.filter(c =>
           try { rollChakraForTurn(true, Math.max(1, playerCombatants.filter(c => !c.isDead).length), fbTurn); } catch (e) { console.error('[BattleBoard] Falha no chakra do jogador no fallback:', e); }
           try { rollChakraForTurn(false, Math.max(1, enemyCombatants.filter(c => !c.isDead).length), fbTurn); } catch (e) { console.error('[BattleBoard] Falha no chakra do oponente no fallback:', e); }
           const fbErrDetail = String((err as any)?.message || err).slice(0, 160);
-          console.error(`[BattleBoard] FALLBACK de resolução acionado na rodada ${turn}:`, fbErrDetail);
+          console.error(`[BattleBoard] FALLBACK de resoluÃ§Ã£o acionado na rodada ${turn}:`, fbErrDetail);
           setLogs(prev => [
             ...prev,
             {
               id: Math.random().toString(),
               turn: fbTurn,
-              message: `⚠️ Erro ao resolver a rodada ${turn} (${fbErrDetail}) — turno avançado automaticamente.`,
+              message: `âš ï¸ Erro ao resolver a rodada ${turn} (${fbErrDetail}) â€” turno avanÃ§ado automaticamente.`,
               type: 'system',
             }
           ]);
-          advanced = true; // 🛡️ o fallback AVANÇOU o turno → reporta true (senão o
-          // chamador acha que falhou e reagenda resoluções → loop).
+          advanced = true; // ðŸ›¡ï¸ o fallback AVANÃ‡OU o turno â†’ reporta true (senÃ£o o
+          // chamador acha que falhou e reagenda resoluÃ§Ãµes â†’ loop).
         } catch (e2) {
-          console.error('[BattleBoard] Falha no fallback de resolução:', e2);
+          console.error('[BattleBoard] Falha no fallback de resoluÃ§Ã£o:', e2);
           return false;
         }
       }
@@ -10714,36 +10706,36 @@ splashOnlyTargets = splashPool.filter(c =>
     }
   };
 
-  // 🌐 ONLINE — resolve a rodada UMA única vez por turno.
-  // 🛡️ ANTI-LOOP (v13): marcamos o turno como resolvido IMEDIATAMENTE e NUNCA
-  // desmarcamos. Se a resolução for bloqueada pelo disjuntor anti-loop (<1.5s da
-  // anterior) ou pelo guard de re-entrância, reagendamos a tentativa AQUI DENTRO
-  // (mantendo a marca) até avançar — o poll de 1s nunca reentra nem re-executa as
-  // ações do oponente/áudio. Era o delete anterior que reabria o poll e causava o
-  // loop de áudio + "oponente executou" sem o turno avançar.
+  // ðŸŒ ONLINE â€” resolve a rodada UMA Ãºnica vez por turno.
+  // ðŸ›¡ï¸ ANTI-LOOP (v13): marcamos o turno como resolvido IMEDIATAMENTE e NUNCA
+  // desmarcamos. Se a resoluÃ§Ã£o for bloqueada pelo disjuntor anti-loop (<1.5s da
+  // anterior) ou pelo guard de re-entrÃ¢ncia, reagendamos a tentativa AQUI DENTRO
+  // (mantendo a marca) atÃ© avanÃ§ar â€” o poll de 1s nunca reentra nem re-executa as
+  // aÃ§Ãµes do oponente/Ã¡udio. Era o delete anterior que reabria o poll e causava o
+  // loop de Ã¡udio + "oponente executou" sem o turno avanÃ§ar.
   const resolveOnlineRoundOnce = (force = false) => {
     const t = turnRef.current;
     if (resolvedTurnRef.current.has(t) && !force) {
-      console.log(`[TURN] resolveOnlineRoundOnce ignorado: turno ${t} já resolvido/em resolução`);
+      console.log(`[TURN] resolveOnlineRoundOnce ignorado: turno ${t} jÃ¡ resolvido/em resoluÃ§Ã£o`);
       return;
     }
     resolvedTurnRef.current.add(t);
     setIsWaitingForOpponent(false);
     let attempts = 0;
     const attempt = () => {
-      // Se o turno já avançou por outro caminho, para (não re-resolve turno antigo).
+      // Se o turno jÃ¡ avanÃ§ou por outro caminho, para (nÃ£o re-resolve turno antigo).
       if (turnRef.current !== t) return;
       isResolvingTurnEndRef.current = false;
       const advancedNow = executeTurnEndResolution();
       if (!advancedNow) {
         attempts++;
         if (attempts <= 8) {
-          // Bloqueada pelo disjuntor/guard → tenta de novo APÓS a janela de 1.5s,
-          // mantendo a marca (o poll não reentra). Bounded para nunca girar infinito.
-          console.warn(`[TURN] resolução do turno ${t} bloqueada (tentativa ${attempts}) — reagendando em 1600ms.`);
+          // Bloqueada pelo disjuntor/guard â†’ tenta de novo APÃ“S a janela de 1.5s,
+          // mantendo a marca (o poll nÃ£o reentra). Bounded para nunca girar infinito.
+          console.warn(`[TURN] resoluÃ§Ã£o do turno ${t} bloqueada (tentativa ${attempts}) â€” reagendando em 1600ms.`);
           setTimeout(attempt, 1600);
         } else {
-          console.error(`[TURN] resolução do turno ${t} falhou após ${attempts} tentativas — desistindo (o poll pode retentar).`);
+          console.error(`[TURN] resoluÃ§Ã£o do turno ${t} falhou apÃ³s ${attempts} tentativas â€” desistindo (o poll pode retentar).`);
           resolvedTurnRef.current.delete(t);
         }
       }
@@ -10751,11 +10743,11 @@ splashOnlyTargets = splashPool.filter(c =>
     setTimeout(attempt, 250);
   };
 
-  // Tick de Dano Contínuo (type 'damage' — dano normal com duração) no fim do turno do CONJURADOR:
-  // quando o jogador passa o turno, os danos contínuos causados por ELE tickam imediatamente
-  // (não aguardam o oponente passar). Retorna true se o jogo terminou.
+  // Tick de Dano ContÃ­nuo (type 'damage' â€” dano normal com duraÃ§Ã£o) no fim do turno do CONJURADOR:
+  // quando o jogador passa o turno, os danos contÃ­nuos causados por ELE tickam imediatamente
+  // (nÃ£o aguardam o oponente passar). Retorna true se o jogo terminou.
   const tickCasterContinuousDamage = (casterIsPlayer: boolean): boolean => {
-    if (onlineParams?.isOnline) seedGameRng(onlineParams.seed, turn); // v29: same seed → same random results on both clients
+    if (onlineParams?.isOnline) seedGameRng(onlineParams.seed, turn); // v29: same seed â†’ same random results on both clients
     const srcPlayer = playerRef.current.length ? playerRef.current : playerCombatants;
     const srcEnemy = enemyRef.current.length ? enemyRef.current : enemyCombatants;
     const updatedPlayer = srcPlayer.map(c => ({ ...c }));
@@ -10766,7 +10758,7 @@ splashOnlyTargets = splashPool.filter(c =>
       const caster = [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === eff.casterId);
       if (!caster) return null;
       const effName = eff.name || '';
-      const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|Aflição|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
+      const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|AfliÃ§Ã£o|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
       return caster.character.skills.find(s => !!s.name && (s.name === baseName || effName.startsWith(s.name))) || null;
     };
     const isBlockedByInvuln = (target: CombatCharacter, eff: ActiveEffect, fallbackType: string): boolean => {
@@ -10774,14 +10766,14 @@ splashOnlyTargets = splashPool.filter(c =>
       if (skill && skill.ignoreInvulnerable) return false;
       const caster = [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === eff.casterId);
       if (skill && hasConditionalInvulnBypass(target, skill, caster)) return false;
-      // ⏭️ Dano JÁ APLICADO continua atravessando a Invulnerabilidade (Desvio) — ela só protege
-      // contra skills usadas no alvo. Apenas a INVULNERABILIDADE TOTAL sela os ticks contínuos.
+      // â­ï¸ Dano JÃ APLICADO continua atravessando a Invulnerabilidade (Desvio) â€” ela sÃ³ protege
+      // contra skills usadas no alvo. Apenas a INVULNERABILIDADE TOTAL sela os ticks contÃ­nuos.
       if (!hasTotalInvulnerability(target)) return false;
       return checkCombatantInvulnerable(target, fallbackType);
     };
-    // 💜 Valor EFETIVO da aflição por turno: reavalia as regras condicionais da skill de origem
-    // a cada rodada — se a skill condição for ativada DEPOIS do cast, o tick passa a usar o valor
-    // alternativo (e volta ao base quando a condição sai). O eff.value é sincronizado para a UI.
+    // ðŸ’œ Valor EFETIVO da afliÃ§Ã£o por turno: reavalia as regras condicionais da skill de origem
+    // a cada rodada â€” se a skill condiÃ§Ã£o for ativada DEPOIS do cast, o tick passa a usar o valor
+    // alternativo (e volta ao base quando a condiÃ§Ã£o sai). O eff.value Ã© sincronizado para a UI.
     const getAfflictionTickValue = (aff: ActiveEffect): number => {
       let val = Math.max(0, aff.afflictionBaseValue ?? aff.value ?? 0);
       const srcSkill = getEffectSkill(aff);
@@ -10816,7 +10808,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️ ${c.character.name} é IMUNE A DANO e não sofreu dano contínuo de ${dmg.name}.`,
+            message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e nÃ£o sofreu dano contÃ­nuo de ${dmg.name}.`,
             type: 'buff',
           });
           addFloatingText(c.id, 'IMUNE!', 'invulnerable');
@@ -10827,14 +10819,14 @@ splashOnlyTargets = splashPool.filter(c =>
           const reductionSum = targetReductions.reduce((acc, curr) => acc + (curr.value || 0), 0);
           const netDmg = Math.max(0, (dmg.value || 0) - reductionSum);
           if (convertDamageToShield(c, netDmg, turn, ['damage'])) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${netDmg} de dano contínuo de ${dmg.name} em escudo!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${netDmg} de dano contÃ­nuo de ${dmg.name} em escudo!`, type: 'buff' });
             addFloatingText(c.id, `+${netDmg} ESCUDO (DANO)`, 'shield');
           } else {
             c.health = (dmg.cantKill || hasImmortalEffect(c)) ? Math.max(1, c.health - netDmg) : Math.max(0, c.health - netDmg);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💥 ${c.character.name} sofreu ${netDmg} de dano contínuo por ${dmg.name}.`,
+              message: `ðŸ’¥ ${c.character.name} sofreu ${netDmg} de dano contÃ­nuo por ${dmg.name}.`,
               type: 'damage',
             });
             addFloatingText(c.id, `-${netDmg} HP (DANO)`, 'damage');
@@ -10842,14 +10834,14 @@ splashOnlyTargets = splashPool.filter(c =>
         }
       });
 
-      // Dano Direto contínuo do MESMO lado (aplicado quando o CONJURADOR passa o turno)
+      // Dano Direto contÃ­nuo do MESMO lado (aplicado quando o CONJURADOR passa o turno)
       const activeDirectDamageEffects = c.activeEffects.filter(e =>
         e.type === 'direct_damage' && e.castTurn !== turn && e.casterSide === (casterIsPlayer ? 'player' : 'enemy')
       );
       activeDirectDamageEffects.forEach(dd => {
         if (isBlockedByInvuln(c, dd, 'direct_damage') || hasDamageImmunity(c, ['direct_damage', 'piercing'])) {
           consumeFirstHitOnlyImmunity(c, ['direct_damage', 'piercing']);
-          newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo por ${dd.name}.`, type: 'buff' });
+          newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e ignorou o dano direto contÃ­nuo por ${dd.name}.`, type: 'buff' });
           addFloatingText(c.id, 'IMUNE!', 'invulnerable');
         } else {
           const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
@@ -10857,7 +10849,7 @@ splashOnlyTargets = splashPool.filter(c =>
           const netDd = Math.max(0, (dd.value || 0) - dr);
           let remainingDd = netDd;
           if (remainingDd > 0 && convertDamageToShield(c, remainingDd, turn, ['direct_damage', 'piercing'])) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${remainingDd} de dano direto contínuo de ${dd.name} em escudo!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${remainingDd} de dano direto contÃ­nuo de ${dd.name} em escudo!`, type: 'buff' });
             addFloatingText(c.id, `+${remainingDd} ESCUDO (DIRETO)`, 'shield');
             remainingDd = 0;
           }
@@ -10871,33 +10863,33 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🎯 ${c.character.name} sofreu ${netDd} de dano direto contínuo por ${dd.name}.`,
+            message: `ðŸŽ¯ ${c.character.name} sofreu ${netDd} de dano direto contÃ­nuo por ${dd.name}.`,
             type: 'damage',
           });
           addFloatingText(c.id, `-${netDd} HP (DIRETO)`, 'damage');
         }
       });
 
-      // 🔥 DOT contínuo do MESMO lado (aplicado quando o CONJURADOR passa o turno)
+      // ðŸ”¥ DOT contÃ­nuo do MESMO lado (aplicado quando o CONJURADOR passa o turno)
       const activeDotEffects = c.activeEffects.filter(e =>
         e.type === 'dot' && e.casterSide === (casterIsPlayer ? 'player' : 'enemy')
       );
       activeDotEffects.forEach(dot => {
         if (isBlockedByInvuln(c, dot, 'dot') || hasDamageImmunity(c, ['dot'])) {
           consumeFirstHitOnlyImmunity(c);
-          newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
+          newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
           addFloatingText(c.id, 'IMUNE!', 'invulnerable');
         } else {
           const dotVal = Math.max(0, dot.value || 0);
           if (convertDamageToShield(c, dotVal, turn, ['dot'])) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${dotVal} de dano de queima em escudo!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${dotVal} de dano de queima em escudo!`, type: 'buff' });
             addFloatingText(c.id, `+${dotVal} ESCUDO (QUEIMA)`, 'shield');
           } else {
             c.health = (dot.cantKill || hasImmortalEffect(c)) ? Math.max(1, c.health - dotVal) : Math.max(0, c.health - dotVal);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔥 ${c.character.name} sofreu ${dotVal} de dano de queima por ${dot.name}.`,
+              message: `ðŸ”¥ ${c.character.name} sofreu ${dotVal} de dano de queima por ${dot.name}.`,
               type: 'damage',
             });
             addFloatingText(c.id, `-${dotVal} HP (QUEIMA)`, 'damage');
@@ -10905,7 +10897,7 @@ splashOnlyTargets = splashPool.filter(c =>
         }
       });
 
-      // 🩸 Sangramento do MESMO lado (aplicado quando o CONJURADOR passa o turno)
+      // ðŸ©¸ Sangramento do MESMO lado (aplicado quando o CONJURADOR passa o turno)
       const activeBleedingEffects = c.activeEffects.filter(e =>
         e.type === 'bleeding' && e.casterSide === (casterIsPlayer ? 'player' : 'enemy')
       );
@@ -10916,19 +10908,19 @@ splashOnlyTargets = splashPool.filter(c =>
         }
         if (isBlockedByInvuln(c, bleed, 'bleeding') || hasDamageImmunity(c, ['bleeding'])) {
           consumeFirstHitOnlyImmunity(c, ['bleeding']);
-          newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
+          newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e ignorou o sangramento (${bleed.name}).`, type: 'buff' });
           addFloatingText(c.id, 'IMUNE!', 'invulnerable');
         } else {
           const bleedVal = Math.max(0, bleed.value || 0);
           if (convertDamageToShield(c, bleedVal, turn, ['bleeding'])) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${bleedVal} de dano de sangramento em escudo!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${bleedVal} de dano de sangramento em escudo!`, type: 'buff' });
             addFloatingText(c.id, `+${bleedVal} ESCUDO (SANGRAMENTO)`, 'shield');
           } else {
             c.health = (bleed.cantKill || hasImmortalEffect(c)) ? Math.max(1, c.health - bleedVal) : Math.max(0, c.health - bleedVal);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🩸 ${c.character.name} sofreu ${bleedVal} de dano por sangramento (${bleed.name}).`,
+              message: `ðŸ©¸ ${c.character.name} sofreu ${bleedVal} de dano por sangramento (${bleed.name}).`,
               type: 'damage',
             });
             addFloatingText(c.id, `-${bleedVal} HP (SANGRAMENTO)`, 'damage');
@@ -10936,13 +10928,13 @@ splashOnlyTargets = splashPool.filter(c =>
         }
       });
 
-      // 💜 Aflição do MESMO lado (aplicada quando o CONJURADOR passa o turno)
+      // ðŸ’œ AfliÃ§Ã£o do MESMO lado (aplicada quando o CONJURADOR passa o turno)
       const activeAfflictionEffects = c.activeEffects.filter(e =>
         e.type === 'affliction' && e.casterSide === (casterIsPlayer ? 'player' : 'enemy')
       );
       activeAfflictionEffects.forEach(aff => {
-        // Não aplicar o tick no MESMO turno em que a aflição foi lançada:
-        // o dano instantâneo do cast já foi aplicado, evitando o dobro (ex.: 40 + 40 = 80).
+        // NÃ£o aplicar o tick no MESMO turno em que a afliÃ§Ã£o foi lanÃ§ada:
+        // o dano instantÃ¢neo do cast jÃ¡ foi aplicado, evitando o dobro (ex.: 40 + 40 = 80).
         if (aff.castTurn === turn) return;
         if ((aff.delayTurns || 0) > 0) {
           aff.delayTurns = (aff.delayTurns || 0) - 1;
@@ -10950,28 +10942,28 @@ splashOnlyTargets = splashPool.filter(c =>
         }
         if (isBlockedByInvuln(c, aff, 'affliction') || hasDamageImmunity(c, ['affliction'])) {
           consumeFirstHitOnlyImmunity(c, ['affliction']);
-          newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a aflição (${aff.name}).`, type: 'buff' });
+          newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e ignorou a afliÃ§Ã£o (${aff.name}).`, type: 'buff' });
           addFloatingText(c.id, 'IMUNE!', 'invulnerable');
         } else {
           const affVal = getAfflictionTickValue(aff);
-          if (aff.value !== affVal) aff.value = affVal; // sincroniza o efeito/badge com o valor dinâmico
+          if (aff.value !== affVal) aff.value = affVal; // sincroniza o efeito/badge com o valor dinÃ¢mico
           if (convertDamageToShield(c, affVal, turn, ['affliction'])) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${affVal} de dano de aflição em escudo!`, type: 'buff' });
-            addFloatingText(c.id, `+${affVal} ESCUDO (AFLIÇÃO)`, 'shield');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${affVal} de dano de afliÃ§Ã£o em escudo!`, type: 'buff' });
+            addFloatingText(c.id, `+${affVal} ESCUDO (AFLIÃ‡ÃƒO)`, 'shield');
           } else {
             c.health = (aff.cantKill || hasImmortalEffect(c)) ? Math.max(1, c.health - affVal) : Math.max(0, c.health - affVal);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💀 ${c.character.name} sofreu ${affVal} de dano por aflição (${aff.name}).`,
+              message: `ðŸ’€ ${c.character.name} sofreu ${affVal} de dano por afliÃ§Ã£o (${aff.name}).`,
               type: 'damage',
             });
-            addFloatingText(c.id, `-${affVal} HP (AFLIÇÃO)`, 'damage');
+            addFloatingText(c.id, `-${affVal} HP (AFLIÃ‡ÃƒO)`, 'damage');
           }
         }
       });
 
-      // 🧛 Roubo de Vida do MESMO lado (aplicado quando o CONJURADOR passa o turno)
+      // ðŸ§› Roubo de Vida do MESMO lado (aplicado quando o CONJURADOR passa o turno)
       const activeLifeStealEffects = c.activeEffects.filter(e =>
         e.type === 'life_steal' && e.castTurn !== turn && e.casterSide === (casterIsPlayer ? 'player' : 'enemy')
       );
@@ -10980,7 +10972,7 @@ splashOnlyTargets = splashPool.filter(c =>
         if (lsCaster && lsCaster.isDead) return;
         if (isBlockedByInvuln(c, ls, 'damage') || hasDamageImmunity(c, ['life_steal'])) {
           consumeFirstHitOnlyImmunity(c);
-          newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o roubo de vida (${ls.name}).`, type: 'buff' });
+          newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e ignorou o roubo de vida (${ls.name}).`, type: 'buff' });
           addFloatingText(c.id, 'IMUNE!', 'invulnerable');
         } else {
           const lsCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
@@ -10988,7 +10980,7 @@ splashOnlyTargets = splashPool.filter(c =>
           const lsReductionSum = lsReductions.reduce((acc, e) => acc + (e.value || 0), 0);
           let netLs = Math.max(0, (ls.value || 0) - lsReductionSum);
           if (netLs > 0 && convertDamageToShield(c, netLs, turn, ['life_steal'])) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${netLs} de dano de roubo de vida em escudo!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${netLs} de dano de roubo de vida em escudo!`, type: 'buff' });
             addFloatingText(c.id, `+${netLs} ESCUDO (ROUBO)`, 'shield');
             netLs = 0;
           }
@@ -11002,13 +10994,13 @@ splashOnlyTargets = splashPool.filter(c =>
           if (netLs > 0 && lsCaster) {
             const healAmt = Math.min(netLs, (lsCaster.maxHealth || lsCaster.health) - lsCaster.health);
             lsCaster.health = Math.min(lsCaster.maxHealth || lsCaster.health, lsCaster.health + netLs);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🧛 ${c.character.name} perdeu ${netLs} de vida por roubo de vida e ${lsCaster.character.name} recuperou ${healAmt} HP!`, type: 'damage' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ§› ${c.character.name} perdeu ${netLs} de vida por roubo de vida e ${lsCaster.character.name} recuperou ${healAmt} HP!`, type: 'damage' });
             addFloatingText(c.id, `-${netLs} HP (ROUBO DE VIDA)`, 'damage');
             addFloatingText(lsCaster.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
           }
           if (c.health <= 0 && !hasImmortalEffect(c)) {
             c.isDead = true;
-            newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’€ ${c.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
             addFloatingText(c.id, 'DERROTADO', 'damage');
           }
         }
@@ -11041,13 +11033,13 @@ splashOnlyTargets = splashPool.filter(c =>
     setIsEndingTurn(false);
   }, [turn, activePlanner]);
 
-  // Watchdog: se os DOIS lados já passaram nesta rodada, a rodada está travada
-  // sem resolver. Isso também precisa funcionar em sandbox, porque o oponente
-  // pode ficar como planner ativo e a partida ainda precisa avançar.
+  // Watchdog: se os DOIS lados jÃ¡ passaram nesta rodada, a rodada estÃ¡ travada
+  // sem resolver. Isso tambÃ©m precisa funcionar em sandbox, porque o oponente
+  // pode ficar como planner ativo e a partida ainda precisa avanÃ§ar.
   useEffect(() => {
     if (gameOver) return;
     if (passedPlayersRef.current.length >= 2 && !isResolvingTurnEndRef.current && !isEndingTurnRef.current && !turnActionLockedRef.current) {
-      console.warn(`[TURN] WATCHDOG: rodada travada com ambos os lados passados (ref=[${passedPlayersRef.current}]) — forçando resolução.`);
+      console.warn(`[TURN] WATCHDOG: rodada travada com ambos os lados passados (ref=[${passedPlayersRef.current}]) â€” forÃ§ando resoluÃ§Ã£o.`);
       executeTurnEndResolution();
     }
   }, [activePlanner, turn, gameOver, isSandbox, playerCombatants, enemyCombatants]);
@@ -11057,10 +11049,10 @@ splashOnlyTargets = splashPool.filter(c =>
     randConfirmLockRef.current = false;
   }, [turn]);
 
-  // 🛡️ Proteção por Stack em Vida Baixa (stackLowHpProtectionRules): avalia continuamente.
+  // ðŸ›¡ï¸ ProteÃ§Ã£o por Stack em Vida Baixa (stackLowHpProtectionRules): avalia continuamente.
   // Qualquer skill (idealmente PASSIVA) que tenha essa regra: para cada aliado do conjurador
   // marcado com a stack indicada e com HP% <= limite, aplica/atualiza um buff 'no_counter_reflect'.
-  // Quando o aliado sobe de vida acima do limite (ou perde a stack), o buff é removido.
+  // Quando o aliado sobe de vida acima do limite (ou perde a stack), o buff Ã© removido.
   useEffect(() => {
     if (gameOver) return;
     const applyProtection = (allies: CombatCharacter[]) => {
@@ -11078,7 +11070,7 @@ splashOnlyTargets = splashPool.filter(c =>
             const hpThreshold = rule.hpPercentThreshold ?? 50;
             const noCounter = rule.noCounter !== false;
             const noReflect = rule.noReflect !== false;
-            const markerName = `${skill.name} (Proteção Vida Baixa)`;
+            const markerName = `${skill.name} (ProteÃ§Ã£o Vida Baixa)`;
             allies.forEach(ally => {
               if (ally.isDead) return;
               const stackEff = ally.activeEffects.find(e => e.type === 'custom' && e.stackable && e.stackType === stackType);
@@ -11128,7 +11120,7 @@ splashOnlyTargets = splashPool.filter(c =>
         setShowNoInternetModal(true);
         return;
       }
-      // ⏱️ COOLDOWN DE 5s: proteção também aqui para todos os caminhos que chegam
+      // â±ï¸ COOLDOWN DE 5s: proteÃ§Ã£o tambÃ©m aqui para todos os caminhos que chegam
       // direto no handleEndTurn (rand chakra modal, watchdog, etc.). skipActions=true
       // (auto-pass) continua liberado para garantir que o turno sempre avance.
       if (!skipActions && Date.now() < turnCooldownUntilRef.current) {
@@ -11136,10 +11128,10 @@ splashOnlyTargets = splashPool.filter(c =>
         return;
       }
 
-      // 🌐 ONLINE: se já estou aguardando o oponente, NUNCA reprocessar meu turno
+      // ðŸŒ ONLINE: se jÃ¡ estou aguardando o oponente, NUNCA reprocessar meu turno
       // (fecha de vez o "cliquei de novo e jogou 2x / voltou pra mim").
       if (onlineParams?.isOnline && (isWaitingForOpponent || submittedTurnRef.current.has(turn))) {
-        console.log(`[TURN] handleEndTurn bloqueado: online já submeteu/aguardando (turn=${turn})`);
+        console.log(`[TURN] handleEndTurn bloqueado: online jÃ¡ submeteu/aguardando (turn=${turn})`);
         return;
       }
 
@@ -11148,18 +11140,18 @@ splashOnlyTargets = splashPool.filter(c =>
         return;
       }
 
-      // 🔒 GARANTIA GLOBAL: este lado já finalizou ESTE número de turno? Então ignora
-      // (proteção definitiva contra o duplo-clique que fazia "jogar 2x / não passar").
+      // ðŸ”’ GARANTIA GLOBAL: este lado jÃ¡ finalizou ESTE nÃºmero de turno? EntÃ£o ignora
+      // (proteÃ§Ã£o definitiva contra o duplo-clique que fazia "jogar 2x / nÃ£o passar").
       const finalizeKey = `${turn}:${activePlanner}`;
       if (finalizedKeysRef.current.has(finalizeKey)) {
-        console.log(`[TURN] handleEndTurn bloqueado: já finalizado key=${finalizeKey}`);
+        console.log(`[TURN] handleEndTurn bloqueado: jÃ¡ finalizado key=${finalizeKey}`);
         return;
       }
       finalizedKeysRef.current.add(finalizeKey);
       if (onlineParams?.isOnline) submittedTurnRef.current.add(turn); // otimista - evita 'skill usada mas turno ainda meu' por corrida poll vs submit
 
       // In online/offline (non-sandbox) matches, the enemy side only passes
-      // through the AI effect or the matchmaking poll — never via this handler.
+      // through the AI effect or the matchmaking poll â€” never via this handler.
       // This closes the rapid double-click hole where a second click, after the
       // planner already switched to 'enemy', would pass the enemy side and end
       // the turn prematurely. Auto-pass via the 60s timer (skipActions=true)
@@ -11186,14 +11178,14 @@ splashOnlyTargets = splashPool.filter(c =>
       try {
         isGameOver = executeSideActions(currentActions, isCurrentPlayer, customRandAllocation);
       } catch (err) {
-        console.error('[BattleBoard] Erro ao executar as ações do turno (a passagem de turno continuará):', err);
+        console.error('[BattleBoard] Erro ao executar as aÃ§Ãµes do turno (a passagem de turno continuarÃ¡):', err);
       }
       if (isGameOver) {
         return;
       }
 
-      // Tick de Dano Contínuo do lado que acabou de passar o turno:
-      // o dano é aplicado AGORA (quando o conjurador passa), sem esperar o oponente passar
+      // Tick de Dano ContÃ­nuo do lado que acabou de passar o turno:
+      // o dano Ã© aplicado AGORA (quando o conjurador passa), sem esperar o oponente passar
       const dotGameOver = tickCasterContinuousDamage(isCurrentPlayer);
       if (dotGameOver) {
         return;
@@ -11201,9 +11193,9 @@ splashOnlyTargets = splashPool.filter(c =>
 
       if (onlineParams?.isOnline) {
         // Submit com retry embutido: 3 tentativas com backoff; se todas falharem,
-        // fica como pendência e o polling reenvia a cada 5s até o servidor aceitar.
+        // fica como pendÃªncia e o polling reenvia a cada 5s atÃ© o servidor aceitar.
         // (Antes era fire-and-forget: falha silenciosa = oponente nunca recebia as
-        // ações e a partida travava esperando para sempre.)
+        // aÃ§Ãµes e a partida travava esperando para sempre.)
         const submitWithRetry = async () => {
           for (let attempt = 0; attempt < 3; attempt++) {
             try {
@@ -11218,11 +11210,11 @@ splashOnlyTargets = splashPool.filter(c =>
                 })
               });
               if (r.ok) {
-                // 🛡️ CONFIRMAÇÃO: só considero o turno submetido quando o SERVIDOR
-                // aceita. Antes, marcávamos localmente mesmo com falha — o watchdog
-                // de 20s então resolvia a rodada SEM o oponente (chakra rolava e o
-                // turno "não passava"). Com a confirmação, quem cuida do reenvio é
-                // o pendingSubmit via poll até o servidor aceitar.
+                // ðŸ›¡ï¸ CONFIRMAÃ‡ÃƒO: sÃ³ considero o turno submetido quando o SERVIDOR
+                // aceita. Antes, marcÃ¡vamos localmente mesmo com falha â€” o watchdog
+                // de 20s entÃ£o resolvia a rodada SEM o oponente (chakra rolava e o
+                // turno "nÃ£o passava"). Com a confirmaÃ§Ã£o, quem cuida do reenvio Ã©
+                // o pendingSubmit via poll atÃ© o servidor aceitar.
                 submittedTurnRef.current.add(turn);
                 if (pendingSubmitRef.current?.turn === turn) pendingSubmitRef.current = null;
                 // v26: a resposta ja traz o room leve - alimenta o MESMO processData
@@ -11239,7 +11231,7 @@ splashOnlyTargets = splashPool.filter(c =>
             {
               id: Math.random().toString(),
               turn,
-              message: '⚠️ Falha de conexão ao enviar seu turno. Tentando reenviar automaticamente...',
+              message: 'âš ï¸ Falha de conexÃ£o ao enviar seu turno. Tentando reenviar automaticamente...',
               type: 'system',
             }
           ]);
@@ -11257,14 +11249,14 @@ splashOnlyTargets = splashPool.filter(c =>
       console.log(`[TURN] pass gravado: newPassed=[${newPassed}] online=${!!onlineParams?.isOnline} -> ${newPassed.length < 2 ? 'aguardar/trocar' : 'RESOLVER RODADA'}`);
 
       if (onlineParams?.isOnline) {
-        // 🌐 ONLINE — FLUXO ÚNICO E DETERMINÍSTICO:
-        // Finalizar SÓ submete e entra em espera. NUNCA resolve aqui dentro (nem via
-        // cache local, nem via confirmação extra). O POLL de 1s é o ÚNICO resolvedor:
+        // ðŸŒ ONLINE â€” FLUXO ÃšNICO E DETERMINÃSTICO:
+        // Finalizar SÃ“ submete e entra em espera. NUNCA resolve aqui dentro (nem via
+        // cache local, nem via confirmaÃ§Ã£o extra). O POLL de 1s Ã© o ÃšNICO resolvedor:
         // quando ele vir os DOIS slots preenchidos no servidor para este turno,
-        // executa as ações do oponente e resolve a rodada — uma única vez.
+        // executa as aÃ§Ãµes do oponente e resolve a rodada â€” uma Ãºnica vez.
         // Isso elimina toda corrida entre clique/submit/confirmation/poll que fazia
-        // "skill usada mas turno não passa" ou "cada jogador joga duas vezes".
-        // 🛡️ submittedTurnRef é marcado SÓ quando o servidor confirma (submitWithRetry).
+        // "skill usada mas turno nÃ£o passa" ou "cada jogador joga duas vezes".
+        // ðŸ›¡ï¸ submittedTurnRef Ã© marcado SÃ“ quando o servidor confirma (submitWithRetry).
         setActivePlanner('enemy');
         setIsWaitingForOpponent(true);
         setLogs(prev => [
@@ -11272,13 +11264,13 @@ splashOnlyTargets = splashPool.filter(c =>
           {
             id: Math.random().toString(),
             turn,
-            message: `⚔️ VOCÊ finalizou a fase de planejamento. Aguardando o OPONENTE...`,
+            message: `âš”ï¸ VOCÃŠ finalizou a fase de planejamento. Aguardando o OPONENTE...`,
             type: 'system',
           }
         ]);
       } else if (newPassed.length < 2) {
-        // OFFLINE/SANDBOX: troca imperativa (não há sync remoto nesses modos).
-        const passedName = activePlanner === 'player' ? 'VOCÊ' : 'OPONENTE';
+        // OFFLINE/SANDBOX: troca imperativa (nÃ£o hÃ¡ sync remoto nesses modos).
+        const passedName = activePlanner === 'player' ? 'VOCÃŠ' : 'OPONENTE';
         const nextPlanner = activePlanner === 'player' ? 'enemy' : 'player';
         setActivePlanner(nextPlanner);
         setLogs(prev => [
@@ -11286,7 +11278,7 @@ splashOnlyTargets = splashPool.filter(c =>
           {
             id: Math.random().toString(),
             turn,
-            message: `⚔️ ${passedName} finalizou a fase de planejamento. Vez de ${nextPlanner === 'player' ? 'VOCÊ' : 'OPONENTE'} planejar.`,
+            message: `âš”ï¸ ${passedName} finalizou a fase de planejamento. Vez de ${nextPlanner === 'player' ? 'VOCÃŠ' : 'OPONENTE'} planejar.`,
             type: 'system',
           }
         ]);
@@ -11364,7 +11356,7 @@ splashOnlyTargets = splashPool.filter(c =>
             const usableSkills = aiChar.character.skills
               .map((skill, idx) => ({ skill, idx }))
               .filter(({ skill, idx }) => {
-                if (skill.isPassive) return false; // 🌀 passivas nunca são usadas pela IA
+                if (skill.isPassive) return false; // ðŸŒ€ passivas nunca sÃ£o usadas pela IA
                 if (skill.currentCooldown > 0) return false;
                 if (isSkillBlockedByStun(skill, aiChar.activeEffects)) return false;
                 if (!canAffordSkill(skill, tempAiChakra, aiChar, [...playerCombatants, ...enemyCombatants])) return false;
@@ -11593,7 +11585,7 @@ splashOnlyTargets = splashPool.filter(c =>
         }
 
         } catch (aiErr) {
-          console.error('[BattleBoard] Erro ao montar as ações da IA:', aiErr);
+          console.error('[BattleBoard] Erro ao montar as aÃ§Ãµes da IA:', aiErr);
           try { setLastAIError(String((aiErr as any)?.message || aiErr)); } catch {}
         }
 
@@ -11605,7 +11597,7 @@ splashOnlyTargets = splashPool.filter(c =>
             {
               id: Math.random().toString(),
               turn,
-              message: `🤖 Oponente não tinha habilidades utilizáveis (sem chakra, em recarga ou atordoado) e pulou a fase.`,
+              message: `ðŸ¤– Oponente nÃ£o tinha habilidades utilizÃ¡veis (sem chakra, em recarga ou atordoado) e pulou a fase.`,
               type: 'system',
             }
           ]);
@@ -11615,7 +11607,7 @@ splashOnlyTargets = splashPool.filter(c =>
             {
               id: Math.random().toString(),
               turn,
-              message: `🤖 Oponente executou ${aiActions.length} habilidade(s).`,
+              message: `ðŸ¤– Oponente executou ${aiActions.length} habilidade(s).`,
               type: 'system',
             }
           ]);
@@ -11624,7 +11616,7 @@ splashOnlyTargets = splashPool.filter(c =>
         try {
           isGameOver = executeSideActions(aiActions, false);
         } catch (err) {
-          console.error('[BattleBoard] Erro ao executar as ações do oponente (IA), a passagem de turno continuará:', err);
+          console.error('[BattleBoard] Erro ao executar as aÃ§Ãµes do oponente (IA), a passagem de turno continuarÃ¡:', err);
         }
         if (isGameOver) return;
 
@@ -11639,7 +11631,7 @@ splashOnlyTargets = splashPool.filter(c =>
             {
               id: Math.random().toString(),
               turn,
-              message: `⚔️ OPONENTE EXECUTOU AS HABILIDADES! Sua vez de jogar em resposta.`,
+              message: `âš”ï¸ OPONENTE EXECUTOU AS HABILIDADES! Sua vez de jogar em resposta.`,
               type: 'system',
             }
           ]);
@@ -11712,7 +11704,7 @@ splashOnlyTargets = splashPool.filter(c =>
       console.warn(`[TURN] checkAndProceedWithEndTurn bloqueado por lock: active=${activePlanner} lock=${turnActionLockedRef.current} ending=${isEndingTurnRef.current} randLock=${randConfirmLockRef.current}`);
       return;
     }
-    // ⏱️ COOLDOWN DE 5s: bloco também neste caminho (confirm modal → handleEndTurn)
+    // â±ï¸ COOLDOWN DE 5s: bloco tambÃ©m neste caminho (confirm modal â†’ handleEndTurn)
     if (Date.now() < turnCooldownUntilRef.current) {
       console.log(`[TURN] checkAndProceedWithEndTurn bloqueado por cooldown: ${Math.ceil((turnCooldownUntilRef.current - Date.now()) / 1000)}s restantes`);
       return;
@@ -11845,18 +11837,18 @@ splashOnlyTargets = splashPool.filter(c =>
       console.log(`[TURN] click bloqueado por lock: active=${activePlanner} sandbox=${isSandbox} ending=${isEndingTurnRef.current || isEndingTurn} lock=${turnActionLockedRef.current}`);
       return;
     }
-    // ⏱️ COOLDOWN DE 5s: o jogador precisa aguardar antes de finalizar o turno novamente
+    // â±ï¸ COOLDOWN DE 5s: o jogador precisa aguardar antes de finalizar o turno novamente
     if (Date.now() < turnCooldownUntilRef.current) {
       console.log(`[TURN] click bloqueado por cooldown: ${Math.ceil((turnCooldownUntilRef.current - Date.now()) / 1000)}s restantes`);
       return;
     }
-    // 🌐 ONLINE: já finalizei este turno / estou aguardando → clique não faz nada.
+    // ðŸŒ ONLINE: jÃ¡ finalizei este turno / estou aguardando â†’ clique nÃ£o faz nada.
     if (onlineParams?.isOnline && (isWaitingForOpponent || submittedTurnRef.current.has(turn))) {
-      console.log(`[TURN] click ignorado: online aguardando/já submetido (turn=${turn})`);
+      console.log(`[TURN] click ignorado: online aguardando/jÃ¡ submetido (turn=${turn})`);
       return;
     }
     if (finalizedKeysRef.current.has(`${turn}:${activePlanner}`)) {
-      console.log(`[TURN] click ignorado: já finalizado key=${turn}:${activePlanner}`);
+      console.log(`[TURN] click ignorado: jÃ¡ finalizado key=${turn}:${activePlanner}`);
       return;
     }
     if (passedPlayersRef.current.includes(activePlanner)) {
@@ -11895,8 +11887,8 @@ splashOnlyTargets = splashPool.filter(c =>
     setGameOver('defeat');
 
     if (onlineParams?.isOnline) {
-      // 🔁 Retry: Render free pode estar em cold start — sem retry, a rendição se
-      // perdia e o OPONENTE nunca ficava sabendo ("a partida não rendeu").
+      // ðŸ” Retry: Render free pode estar em cold start â€” sem retry, a rendiÃ§Ã£o se
+      // perdia e o OPONENTE nunca ficava sabendo ("a partida nÃ£o rendeu").
       const surrenderBody = JSON.stringify({
         roomId: onlineParams.roomId,
         username: user.username
@@ -11926,8 +11918,8 @@ splashOnlyTargets = splashPool.filter(c =>
   const confirmReloadBattle = () => {
     playClickSound();
     setShowReloadModal(false);
-    // F5 da batalha: recarrega a página. O App restaura o progresso automaticamente
-    // via 'active_match_save' (localStorage), sem voltar à página inicial.
+    // F5 da batalha: recarrega a pÃ¡gina. O App restaura o progresso automaticamente
+    // via 'active_match_save' (localStorage), sem voltar Ã  pÃ¡gina inicial.
     window.location.reload();
   };
 
@@ -11942,13 +11934,13 @@ splashOnlyTargets = splashPool.filter(c =>
 
   // Online Match Turn Initiative
   // NOTE: whose-turn-it-is for ONLINE is NO LONGER derived by a separate effect
-  // (that raced with the poll and caused "turno não passa" / "volta pra mim").
+  // (that raced with the poll and caused "turno nÃ£o passa" / "volta pra mim").
   // Turn-start planner is set by executeTurnEndResolution + the mount effect,
   // and the mid-turn handoff is done by handleEndTurn (my finalize) and the
-  // room-state poll (opponent finalize) — a single, linear ownership per event.
+  // room-state poll (opponent finalize) â€” a single, linear ownership per event.
 
-  // Online: pendência de reenvio do submit-turn, resync ao voltar pra aba e
-  // detecção de sala perdida (servidor reiniciou / sala expirou)
+  // Online: pendÃªncia de reenvio do submit-turn, resync ao voltar pra aba e
+  // detecÃ§Ã£o de sala perdida (servidor reiniciou / sala expirou)
   const pendingSubmitRef = useRef<{ turn: number; actions: CuedAction[]; nextRetryAt: number } | null>(null);
   const syncFnRef = useRef<(() => void) | null>(null);
   const [showRoomLostModal, setShowRoomLostModal] = useState(false);
@@ -11961,7 +11953,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
     // Reenvio do submit-turn caso a rede falhe no momento de passar o turno.
     // Sem isso, uma falha silenciosa travava a partida: o oponente nunca recebia
-    // as ações e ambos ficavam esperando para sempre ("turno não passa").
+    // as aÃ§Ãµes e ambos ficavam esperando para sempre ("turno nÃ£o passa").
     const trySubmitPending = () => {
       const pending = pendingSubmitRef.current;
       if (!pending || Date.now() < pending.nextRetryAt) return;
@@ -11984,9 +11976,9 @@ splashOnlyTargets = splashPool.filter(c =>
       }).catch(() => {});
     };
 
-    // Sala morta (servidor reiniciou, GC da sala, rede fora): após ~20 falhas
-    // seguidas abre um aviso com opção de continuar tentando ou encerrar,
-    // em vez de deixar a partida congelada sem feedback. 20 falhas dão folga
+    // Sala morta (servidor reiniciou, GC da sala, rede fora): apÃ³s ~20 falhas
+    // seguidas abre um aviso com opÃ§Ã£o de continuar tentando ou encerrar,
+    // em vez de deixar a partida congelada sem feedback. 20 falhas dÃ£o folga
     // para cold start do backend hospedado (Render free pode demorar ~30s+).
     const handlePollFailure = () => {
       pollFailureStreakRef.current++;
@@ -11998,13 +11990,13 @@ splashOnlyTargets = splashPool.filter(c =>
     };
     const runSync = (wsData?: any) => {
       trySubmitPending();
-      // 🔄 SINCRONIA (converge-para-menor): aplica o relato do OPONENTE ao esquadrão
+      // ðŸ”„ SINCRONIA (converge-para-menor): aplica o relato do OPONENTE ao esquadrÃ£o
       // DELE na minha tela (fonte da verdade = dono do time). Compartilhado entre
-      // room-state (poll/push/submit-response) e o evento minúsculo {type:'report'} do WS.
+      // room-state (poll/push/submit-response) e o evento minÃºsculo {type:'report'} do WS.
       const applyOppReport = (rp: any, opts?: { anyTurn?: boolean }) => {
         if (!rp) return;
         if (opts?.anyTurn) {
-          // fast-forward: adota o relato mais recente disponível, de QUALQUER turno
+          // fast-forward: adota o relato mais recente disponÃ­vel, de QUALQUER turno
           if (lastAppliedOppReportTurnRef.current === rp.turn) return;
           lastAppliedOppReportTurnRef.current = typeof rp.turn === 'number' ? rp.turn : -1;
         } else {
@@ -12015,10 +12007,10 @@ splashOnlyTargets = splashPool.filter(c =>
           ? id.replace('player', 'enemy')
           : id.replace('enemy', 'player');
         const rpUnits = rp.units || {};
-        // ⚖️ CONVERGE PARA O MENOR: se o cliente dele falhou em executar minha
-        // ação (RNG local divergente), o relato viria com vida cheia e "revogaria"
-        // meu dano. Ficando com o MENOR valor entre as duas visões, o dano que EU
-        // apliquei nunca é desfeito — e o que ELE aplicou e eu não vi também baixa.
+        // âš–ï¸ CONVERGE PARA O MENOR: se o cliente dele falhou em executar minha
+        // aÃ§Ã£o (RNG local divergente), o relato viria com vida cheia e "revogaria"
+        // meu dano. Ficando com o MENOR valor entre as duas visÃµes, o dano que EU
+        // apliquei nunca Ã© desfeito â€” e o que ELE aplicou e eu nÃ£o vi tambÃ©m baixa.
         setEnemyCombatants(prev => prev.map(c => {
           const u = rpUnits[flipId(c.id)];
           if (!u) return c;
@@ -12029,11 +12021,11 @@ splashOnlyTargets = splashPool.filter(c =>
             isDead: !!u.isDead || !!c.isDead,
           };
         }));
-        // ⚠️ v30: NÃO sobrescrever chakra via applyOppReport — o chakra já é
+        // âš ï¸ v30: NÃƒO sobrescrever chakra via applyOppReport â€” o chakra jÃ¡ Ã©
         // sincronizado deterministicamente pelo seed em rollChakraForTurn (ambos os
-        // clientes geram idênticos para cada slot). Sobrescrever causava DUPLICAÇÃO
-        // quando o preview já tinha executado as ações do oponente (executeSideActions
-        // pulado na resolução → applyOppReport seta chakra pós-roll do oponente →
+        // clientes geram idÃªnticos para cada slot). Sobrescrever causava DUPLICAÃ‡ÃƒO
+        // quando o preview jÃ¡ tinha executado as aÃ§Ãµes do oponente (executeSideActions
+        // pulado na resoluÃ§Ã£o â†’ applyOppReport seta chakra pÃ³s-roll do oponente â†’
         // rollChakraForTurn adiciona mais uma camada em cima).
         console.log(`[SYNC] Estado do oponente aplicado (turno ${turn}, converge-para-menor, chakra preservado).`);
       };
@@ -12060,16 +12052,16 @@ splashOnlyTargets = splashPool.filter(c =>
             let reason = '';
             let logMsg = '';
             if (sReason === 'timeout') {
-              reason = isSelf ? 'Você perdeu por falta de conexão (2 turnos sem jogar).' : `Oponente ${data.room.surrenderedBy} perdeu por falta de conexão (2 turnos offline)!`;
-              logMsg = isSelf ? '🏳️ Você perdeu por inatividade (2 turnos offline). Derrota.' : `🏳️ ${data.room.surrenderedBy} perdeu por inatividade! Vitória!`;
+              reason = isSelf ? 'VocÃª perdeu por falta de conexÃ£o (2 turnos sem jogar).' : `Oponente ${data.room.surrenderedBy} perdeu por falta de conexÃ£o (2 turnos offline)!`;
+              logMsg = isSelf ? 'ðŸ³ï¸ VocÃª perdeu por inatividade (2 turnos offline). Derrota.' : `ðŸ³ï¸ ${data.room.surrenderedBy} perdeu por inatividade! VitÃ³ria!`;
             } else if (sReason === 'disconnect') {
-              reason = isSelf ? 'Você perdeu por desconexão.' : `Oponente ${data.room.surrenderedBy} desconectou!`;
-              logMsg = isSelf ? '🏳️ Você desconectou. Derrota.' : `🏳️ ${data.room.surrenderedBy} desconectou! Vitória!`;
+              reason = isSelf ? 'VocÃª perdeu por desconexÃ£o.' : `Oponente ${data.room.surrenderedBy} desconectou!`;
+              logMsg = isSelf ? 'ðŸ³ï¸ VocÃª desconectou. Derrota.' : `ðŸ³ï¸ ${data.room.surrenderedBy} desconectou! VitÃ³ria!`;
             } else {
-              reason = isSelf ? 'Você se rendeu.' : `Oponente ${data.room.surrenderedBy} se rendeu!`;
-              logMsg = isSelf ? '🏳️ Você se rendeu. Derrota.' : `🏳️ ${data.room.surrenderedBy} se rendeu! Vitória!`;
+              reason = isSelf ? 'VocÃª se rendeu.' : `Oponente ${data.room.surrenderedBy} se rendeu!`;
+              logMsg = isSelf ? 'ðŸ³ï¸ VocÃª se rendeu. Derrota.' : `ðŸ³ï¸ ${data.room.surrenderedBy} se rendeu! VitÃ³ria!`;
             }
-            // Notifica na hora mesmo com aba em segundo plano: log + razão para o overlay
+            // Notifica na hora mesmo com aba em segundo plano: log + razÃ£o para o overlay
             setSurrenderReason(reason);
             setLogs(l => [...l, { id: Math.random().toString(), turn, message: logMsg, type: 'system' }]);
             try {
@@ -12094,17 +12086,17 @@ splashOnlyTargets = splashPool.filter(c =>
           const mine = onlineParams.playerIndex === 1 ? 1 : 0;
           const oppOnlineIndex = mine === 0 ? 1 : 0;
           const currentTurnActions = data.room.turnActions?.[turn];
-          // 🌐 AUTORIDADE DE TURNO (v13): o servidor diz qual foi o último turno com
-          // OS DOIS lados submetidos. Só resolvemos um turno quando o servidor
+          // ðŸŒ AUTORIDADE DE TURNO (v13): o servidor diz qual foi o Ãºltimo turno com
+          // OS DOIS lados submetidos. SÃ³ resolvemos um turno quando o servidor
           // confirma que ele foi resolvido (serverResolvedTurn >= turn). Isso torna
-          // o contador de turno IDÊNTICO nos dois clientes — impossível divergir.
+          // o contador de turno IDÃŠNTICO nos dois clientes â€” impossÃ­vel divergir.
           const serverResolvedTurn: number = typeof data.room.resolvedTurn === 'number' ? data.room.resolvedTurn : 0;
           if (typeof (data.room as any).phaseDeadline === 'number') setServerPhaseDeadline((data.room as any).phaseDeadline);
-          // ⏩ FAST-FORWARD (v28): servidor 2+ turnos à frente (reconexão/apagão/
-          // auto-pass antigo). NÃO executa o histórico em cadeia — cada turno repetia
-          // som StartTurn + geração de chakra + "🔄 Turno X" (o "loop de início").
+          // â© FAST-FORWARD (v28): servidor 2+ turnos Ã  frente (reconexÃ£o/apagÃ£o/
+          // auto-pass antigo). NÃƒO executa o histÃ³rico em cadeia â€” cada turno repetia
+          // som StartTurn + geraÃ§Ã£o de chakra + "ðŸ”„ Turno X" (o "loop de inÃ­cio").
           // Salta direto para o turno corrente, adota o relato mais recente do
-          // oponente que veio no payload e segue a partida de onde ela está.
+          // oponente que veio no payload e segue a partida de onde ela estÃ¡.
           if (serverResolvedTurn > turn + 1 && onlineParams?.isOnline) {
             const targetTurn = serverResolvedTurn + 1;
             console.warn(`[TURN] FAST-FORWARD: local=${turn} servidor=${serverResolvedTurn} -> ${targetTurn}`);
@@ -12123,23 +12115,23 @@ splashOnlyTargets = splashPool.filter(c =>
             const ffSrcE = enemyRef.current.length ? enemyRef.current : enemyCombatants;
             try { rollChakraForTurn(true, Math.max(1, ffSrcP.filter(c => !c.isDead).length), targetTurn); } catch {}
             try { rollChakraForTurn(false, Math.max(1, ffSrcE.filter(c => !c.isDead).length), targetTurn); } catch {}
-            setLogs(prev => [...prev, { id: Math.random().toString(), turn: targetTurn, message: `⏩ Partida sincronizada com o servidor — Turno ${targetTurn}.`, type: 'system' }]);
+            setLogs(prev => [...prev, { id: Math.random().toString(), turn: targetTurn, message: `â© Partida sincronizada com o servidor â€” Turno ${targetTurn}.`, type: 'system' }]);
             setTurn(targetTurn);
             return;
           }
-          // 🛡️ Servidor confirmou que MEU slot deste turno está registrado →
-          // libera o force-resolve do watchdog (só roubo a rodada com essa prova).
+          // ðŸ›¡ï¸ Servidor confirmou que MEU slot deste turno estÃ¡ registrado â†’
+          // libera o force-resolve do watchdog (sÃ³ roubo a rodada com essa prova).
           if (Array.isArray(currentTurnActions) && currentTurnActions[mine] != null) {
             lastServerConfirmRef.current = { turn, at: Date.now() };
           }
 
-          // Marca turnos ANTERIORES ao turno local como já processados: o servidor
-          // mantém histórico completo (nunca limpo) — após uma reconexão, sem isso,
-          // o polling re-executaria as ações antigas do oponente (2x).
-          // 🔁 CATCH-UP: se um turno antigo tinha ações do oponente que NUNCA foram
-          // executadas aqui (ex.: resolvi a rodada pelo watchdog e as ações dele
-          // chegaram DEPOIS), executa-as agora em vez de descartar — sem isso o
-          // dano "sumia" e a sincronia revogava a ação do atacante.
+          // Marca turnos ANTERIORES ao turno local como jÃ¡ processados: o servidor
+          // mantÃ©m histÃ³rico completo (nunca limpo) â€” apÃ³s uma reconexÃ£o, sem isso,
+          // o polling re-executaria as aÃ§Ãµes antigas do oponente (2x).
+          // ðŸ” CATCH-UP: se um turno antigo tinha aÃ§Ãµes do oponente que NUNCA foram
+          // executadas aqui (ex.: resolvi a rodada pelo watchdog e as aÃ§Ãµes dele
+          // chegaram DEPOIS), executa-as agora em vez de descartar â€” sem isso o
+          // dano "sumia" e a sincronia revogava a aÃ§Ã£o do atacante.
           const serverTurns = data.room.turnActions || {};
           const lateTurns: number[] = [];
           Object.keys(serverTurns).forEach(tStr => {
@@ -12162,30 +12154,30 @@ splashOnlyTargets = splashPool.filter(c =>
                   ? act.targetId.replace('player', 'enemy')
                   : act.targetId.replace('enemy', 'player'),
               }));
-              console.log(`[SYNC] CATCH-UP: executando ${mappedLate.length} ação(ões) atrasada(s) do oponente (turno ${tNum}).`);
+              console.log(`[SYNC] CATCH-UP: executando ${mappedLate.length} aÃ§Ã£o(Ãµes) atrasada(s) do oponente (turno ${tNum}).`);
               setLogs(l => [
                 ...l,
                 {
                   id: Math.random().toString(),
                   turn,
                   message: mappedLate.length === 0
-                    ? `🔄 Ações atrasadas do oponente aplicadas (Turno ${tNum}).`
-                    : `🔄 Ações atrasadas do oponente aplicadas (Turno ${tNum}): ${mappedLate.length} habilidade(s).`,
+                    ? `ðŸ”„ AÃ§Ãµes atrasadas do oponente aplicadas (Turno ${tNum}).`
+                    : `ðŸ”„ AÃ§Ãµes atrasadas do oponente aplicadas (Turno ${tNum}): ${mappedLate.length} habilidade(s).`,
                   type: 'system',
                 }
               ]);
               try {
                 executeSideActions(mappedLate, false);
               } catch (err) {
-                console.error('[BattleBoard] Erro no catch-up de ações atrasadas:', err);
+                console.error('[BattleBoard] Erro no catch-up de aÃ§Ãµes atrasadas:', err);
               }
             }
           });
 
-          // 🎯 AUTORIDADE DE TURNO (v13): o servidor é o dono do progresso.
-          // Só resolvemos o turno atual quando o servidor confirma que os DOIS
+          // ðŸŽ¯ AUTORIDADE DE TURNO (v13): o servidor Ã© o dono do progresso.
+          // SÃ³ resolvemos o turno atual quando o servidor confirma que os DOIS
           // lados o submeteram (serverResolvedTurn >= turn). Assim os dois clientes
-          // avançam na MESMA cadência — nunca mais divergem o contador, e as skills
+          // avanÃ§am na MESMA cadÃªncia â€” nunca mais divergem o contador, e as skills
           // de cada lado sempre aparecem no outro (lidas do mesmo turno no servidor).
           const serverSaysResolved = serverResolvedTurn >= turn;
 
@@ -12198,7 +12190,7 @@ splashOnlyTargets = splashPool.filter(c =>
           }
 
           if (serverSaysResolved && !resolvedTurnRef.current.has(turn)) {
-            // Executa as ações do oponente para ESTE turno (uma única vez) e resolve.
+            // Executa as aÃ§Ãµes do oponente para ESTE turno (uma Ãºnica vez) e resolve.
             if (!processedOpponentTurnsRef.current.has(turn)) {
               processedOpponentTurnsRef.current.add(turn);
               const oppActsRaw = Array.isArray(currentTurnActions) ? currentTurnActions[oppOnlineIndex] : null;
@@ -12217,18 +12209,18 @@ splashOnlyTargets = splashPool.filter(c =>
                   id: Math.random().toString(),
                   turn,
                   message: mappedOppActions.length === 0
-                    ? `🤖 Oponente finalizou a fase sem ações e pulou a vez.`
-                    : `🤖 Oponente executou ${mappedOppActions.length} habilidade(s).`,
+                    ? `ðŸ¤– Oponente finalizou a fase sem aÃ§Ãµes e pulou a vez.`
+                    : `ðŸ¤– Oponente executou ${mappedOppActions.length} habilidade(s).`,
                   type: 'system',
                 }
               ]);
               try {
                 executeSideActions(mappedOppActions, false);
               } catch (err) {
-                console.error('[BattleBoard] Erro ao executar as ações do oponente (online), a passagem de turno continuará:', err);
+                console.error('[BattleBoard] Erro ao executar as aÃ§Ãµes do oponente (online), a passagem de turno continuarÃ¡:', err);
               }
             }
-            console.log(`[TURN] servidor confirmou turno ${turn} resolvido (serverResolvedTurn=${serverResolvedTurn}) → resolvendo.`);
+            console.log(`[TURN] servidor confirmou turno ${turn} resolvido (serverResolvedTurn=${serverResolvedTurn}) â†’ resolvendo.`);
             setIsWaitingForOpponent(false);
             resolveOnlineRoundOnce();
             return;
@@ -12249,13 +12241,13 @@ splashOnlyTargets = splashPool.filter(c =>
             try { executeSideActions(mappedPreview, false); } catch (err) { console.error('[BattleBoard] preview tempo real falhou:', err); }
           }
 
-          // Ainda não resolvido pelo servidor: se EU sou o RESPONDENTE, ainda não
-          // submeti este turno e o LÍDER já submeteu (slot dele preenchido), recebo
-          // a fase de planejamento — sem resolver nada (a resolução só ocorre quando
+          // Ainda nÃ£o resolvido pelo servidor: se EU sou o RESPONDENTE, ainda nÃ£o
+          // submeti este turno e o LÃDER jÃ¡ submeteu (slot dele preenchido), recebo
+          // a fase de planejamento â€” sem resolver nada (a resoluÃ§Ã£o sÃ³ ocorre quando
           // o servidor confirmar serverResolvedTurn >= turn).
           if (
             matchStarterRef.current !== 'player' &&        // sou o respondente
-            !submittedTurnRef.current.has(turn) &&           // ainda não joguei este turno
+            !submittedTurnRef.current.has(turn) &&           // ainda nÃ£o joguei este turno
             !serverSaysResolved                              // turno ainda aberto no servidor
           ) {
             const leaderFilled = Array.isArray(currentTurnActions) && currentTurnActions[oppOnlineIndex] != null;
@@ -12268,7 +12260,7 @@ splashOnlyTargets = splashPool.filter(c =>
                 {
                   id: Math.random().toString(),
                   turn,
-                  message: `⚔️ OPONENTE finalizou a fase de planejamento. Vez de VOCÊ planejar.`,
+                  message: `âš”ï¸ OPONENTE finalizou a fase de planejamento. Vez de VOCÃŠ planejar.`,
                   type: 'system',
                 }
               ]);
@@ -12288,16 +12280,16 @@ splashOnlyTargets = splashPool.filter(c =>
         });
     };
 
-    // Expõe o sync para o listener de visibilitychange (aba volta a ficar visível)
+    // ExpÃµe o sync para o listener de visibilitychange (aba volta a ficar visÃ­vel)
     syncFnRef.current = runSync;
     wsPushRef.current = (data: any) => runSync(data);
-    // 🔌 v25: com WebSocket conectado o push entrega tudo na hora;
-    // o poll HTTP vira só fallback lento (6s). Sem ws, mantém 1500ms.
+    // ðŸ”Œ v25: com WebSocket conectado o push entrega tudo na hora;
+    // o poll HTTP vira sÃ³ fallback lento (6s). Sem ws, mantÃ©m 1500ms.
     let syncTimer: ReturnType<typeof setTimeout> | null = null;
     let syncCancelled = false;
     const syncLoop = () => {
       if (syncCancelled) return;
-      // v26: WS saudável entrega TUDO por push — zero HTTP. Fallback só se o canal
+      // v26: WS saudÃ¡vel entrega TUDO por push â€” zero HTTP. Fallback sÃ³ se o canal
       // cair/mostrar-se mudo (>45s sem mensagem nenhuma, ping a cada 25s).
       const wsHealthy = wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000;
       if (!wsHealthy) runSync();
@@ -12312,9 +12304,9 @@ splashOnlyTargets = splashPool.filter(c =>
     };
   }, [onlineParams, gameOver, user, turn]);
 
-  // 🔌 WEBSOCKET PUSH (v25): o servidor empurra room-state em submit/surrender/
-  // timeout/report — skills do oponente, resolução e rendição chegam SEM polling.
-  // Reconexão automática a cada 3s; ping keepalive a cada 25s (evita idle-timeout).
+  // ðŸ”Œ WEBSOCKET PUSH (v25): o servidor empurra room-state em submit/surrender/
+  // timeout/report â€” skills do oponente, resoluÃ§Ã£o e rendiÃ§Ã£o chegam SEM polling.
+  // ReconexÃ£o automÃ¡tica a cada 3s; ping keepalive a cada 25s (evita idle-timeout).
   // O poll HTTP continua como fallback lento (syncLoop acima).
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver) return;
@@ -12326,8 +12318,8 @@ splashOnlyTargets = splashPool.filter(c =>
     const envUrl = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_WS_URL;
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    // Produção (Vercel): rewrite não repassa upgrade de WebSocket — aponta direto
-    // para o Render. Ao migrar de conta/serviço, ajuste aqui ou defina VITE_WS_URL.
+    // ProduÃ§Ã£o (Vercel): rewrite nÃ£o repassa upgrade de WebSocket â€” aponta direto
+    // para o Render. Ao migrar de conta/serviÃ§o, ajuste aqui ou defina VITE_WS_URL.
     const wsUrl = envUrl || (isLocal ? `${proto}//${window.location.host}/ws` : 'wss://narutoarena.onrender.com/ws');
 
     const scheduleReconnect = () => {
@@ -12364,7 +12356,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (msg && msg.type === 'room-state' && msg.room) {
             wsPushRef.current?.({ success: true, room: msg.room });
           } else if (msg && msg.type === 'pong') {
-            // keepalive OK — nada a fazer além da freshness acima
+            // keepalive OK â€” nada a fazer alÃ©m da freshness acima
           } else if (msg && msg.type === 'chat' && msg.message) {
             const m = msg.message;
             setChatMessages(prev => {
@@ -12380,7 +12372,7 @@ splashOnlyTargets = splashPool.filter(c =>
             }
             if (e.timestamp > lastPolledEmojiTimestamp.current) lastPolledEmojiTimestamp.current = e.timestamp;
           } else if (msg && msg.type === 'report' && msg.username) {
-            // relato minúsculo do oponente (v27): mesma converge, sem room-state completo
+            // relato minÃºsculo do oponente (v27): mesma converge, sem room-state completo
             wsApplyReportRef.current?.(String(msg.username), { turn: msg.turn, units: msg.units, chakra: msg.chakra });
           }
         } catch {}
@@ -12407,13 +12399,13 @@ splashOnlyTargets = splashPool.filter(c =>
     };
   }, [onlineParams?.isOnline, onlineParams?.roomId, gameOver]);
 
-  // ⏱️ WATCHDOG ANTI-TRAVAMENTO (online): se finalizei meu turno e estou aguardando
-  // o oponente há mais de ~20s sem nenhum progresso, resolvo a rodada LOCALMENTE
-  // uma única vez por turno. Cenários cobertos: submit falhou dos dois lados, sala
-  // perdida com o aviso dispensado, oponente fechou o app — a partida NUNCA fica
-  // eternamente em "Aguardando oponente". Só age se EU já submeti (na abertura da
-  // partida, quando o oponente começa, quem espera sou eu sem ter jogado — aí quem
-  // deve resolver é o ping de desconexão/abandono do servidor, não este watchdog).
+  // â±ï¸ WATCHDOG ANTI-TRAVAMENTO (online): se finalizei meu turno e estou aguardando
+  // o oponente hÃ¡ mais de ~20s sem nenhum progresso, resolvo a rodada LOCALMENTE
+  // uma Ãºnica vez por turno. CenÃ¡rios cobertos: submit falhou dos dois lados, sala
+  // perdida com o aviso dispensado, oponente fechou o app â€” a partida NUNCA fica
+  // eternamente em "Aguardando oponente". SÃ³ age se EU jÃ¡ submeti (na abertura da
+  // partida, quando o oponente comeÃ§a, quem espera sou eu sem ter jogado â€” aÃ­ quem
+  // deve resolver Ã© o ping de desconexÃ£o/abandono do servidor, nÃ£o este watchdog).
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver || !isWaitingForOpponent) {
       waitingSinceRef.current = 0;
@@ -12428,12 +12420,12 @@ splashOnlyTargets = splashPool.filter(c =>
       if (gameOver || !isWaitingForOpponent) return;
       const waitedMs = Date.now() - waitingSinceRef.current;
 
-      // 💓 HEARTBEAT DE DIAGNÓSTICO (a cada ~10s, visível no log de combate):
-      // pergunta ao servidor quem já submetiu o turno atual. Com isso a gente VÊ
-      // exatamente onde a corrente quebra: meu submit falhou? o oponente não
-      // enviou? rendição por ping? servidor inacessível?
+      // ðŸ’“ HEARTBEAT DE DIAGNÃ“STICO (a cada ~10s, visÃ­vel no log de combate):
+      // pergunta ao servidor quem jÃ¡ submetiu o turno atual. Com isso a gente VÃŠ
+      // exatamente onde a corrente quebra: meu submit falhou? o oponente nÃ£o
+      // enviou? rendiÃ§Ã£o por ping? servidor inacessÃ­vel?
       if (Date.now() - lastWaitBeatRef.current >= 10000 && !(wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000)) {
-        // v26: heartbeat HTTP sù quando o canal WS Não está saudável (diagnóstico de fallback).
+        // v26: heartbeat HTTP sÃ¹ quando o canal WS NÃ£o estÃ¡ saudÃ¡vel (diagnÃ³stico de fallback).
         lastWaitBeatRef.current = Date.now();
         const mineIdxB = onlineParams.playerIndex === 1 ? 1 : 0;
         const oppIdxB = mineIdxB === 0 ? 1 : 0;
@@ -12458,7 +12450,7 @@ splashOnlyTargets = splashPool.filter(c =>
               {
                 id: Math.random().toString(),
                 turn,
-                message: `⏳ Aguardando há ${Math.round(waitedMs / 1000)}s — servidor diz: meu turno ${meOk ? '✔ enviado' : '✖ NÃO registrado'} | oponente ${oppOk ? '✔ enviado' : '✖ ainda não enviou'}${data.room.surrenderedBy ? ` | ⚠️ rendição no servidor: ${data.room.surrenderedBy}` : ''}`,
+                message: `â³ Aguardando hÃ¡ ${Math.round(waitedMs / 1000)}s â€” servidor diz: meu turno ${meOk ? 'âœ” enviado' : 'âœ– NÃƒO registrado'} | oponente ${oppOk ? 'âœ” enviado' : 'âœ– ainda nÃ£o enviou'}${data.room.surrenderedBy ? ` | âš ï¸ rendiÃ§Ã£o no servidor: ${data.room.surrenderedBy}` : ''}`,
                 type: 'system',
               }
             ]);
@@ -12466,29 +12458,29 @@ splashOnlyTargets = splashPool.filter(c =>
           .catch(() => {});
       }
 
-      // 🌐 AUTORIDADE DE TURNO (v13): o watchdog NÃO resolve mais a rodada
-      // localmente. Só o servidor declara um turno resolvido (serverResolvedTurn),
-      // e o poll de 1s aplica isso. Resolver por conta própria aqui era a MAIOR
-      // fonte de divergência: um cliente avançava o contador sem o outro e a
-      // partida dessincronizava para sempre. Aqui só mantemos o diagnóstico e,
+      // ðŸŒ AUTORIDADE DE TURNO (v13): o watchdog NÃƒO resolve mais a rodada
+      // localmente. SÃ³ o servidor declara um turno resolvido (serverResolvedTurn),
+      // e o poll de 1s aplica isso. Resolver por conta prÃ³pria aqui era a MAIOR
+      // fonte de divergÃªncia: um cliente avanÃ§ava o contador sem o outro e a
+      // partida dessincronizava para sempre. Aqui sÃ³ mantemos o diagnÃ³stico e,
       // em falha TOTAL de servidor, o aviso de sala perdida (via handlePollFailure).
       if (submittedTurnRef.current.has(turn)) {
-        // Eu já submeti e aguardo o servidor confirmar a resolução — nada a fazer
-        // além de esperar o poll ver serverResolvedTurn >= turn. Sem force-resolve.
+        // Eu jÃ¡ submeti e aguardo o servidor confirmar a resoluÃ§Ã£o â€” nada a fazer
+        // alÃ©m de esperar o poll ver serverResolvedTurn >= turn. Sem force-resolve.
         return;
       }
 
-      // Caso 2: eu NEM JOGUEI ainda (oponente começou a rodada) e o servidor está
-      // inacessível há muito tempo → destravo MINHA fase de planejamento, senão a
-      // partida congelava para sempre sem eu poder fazer nada ("turno não passa").
+      // Caso 2: eu NEM JOGUEI ainda (oponente comeÃ§ou a rodada) e o servidor estÃ¡
+      // inacessÃ­vel hÃ¡ muito tempo â†’ destravo MINHA fase de planejamento, senÃ£o a
+      // partida congelava para sempre sem eu poder fazer nada ("turno nÃ£o passa").
       if (waitedMs > 30000 && pollFailureStreakRef.current >= 15) {
-        console.warn(`[TURN] WATCHDOG ONLINE: servidor inacessível (${pollFailureStreakRef.current} falhas) e aguardando há ${Math.round(waitedMs / 1000)}s — liberando fase local.`);
+        console.warn(`[TURN] WATCHDOG ONLINE: servidor inacessÃ­vel (${pollFailureStreakRef.current} falhas) e aguardando hÃ¡ ${Math.round(waitedMs / 1000)}s â€” liberando fase local.`);
         setLogs(l => [
           ...l,
           {
             id: Math.random().toString(),
             turn,
-            message: '📡 Servidor da partida inacessível. Sua vez foi liberada para você continuar jogando — a sincronização volta quando a conexão retornar.',
+            message: 'ðŸ“¡ Servidor da partida inacessÃ­vel. Sua vez foi liberada para vocÃª continuar jogando â€” a sincronizaÃ§Ã£o volta quando a conexÃ£o retornar.',
             type: 'system',
           }
         ]);
@@ -12500,9 +12492,9 @@ splashOnlyTargets = splashPool.filter(c =>
     return () => clearInterval(watchdog);
   }, [onlineParams, gameOver, isWaitingForOpponent, turn]);
 
-  // Resync imediato quando o usuário volta para a aba (mobile/segundo plano pausa
-  // os timers e o servidor pode ficar até 60s sem ping — o ping imediato evita
-  // que a partida "caia" por desconexão fantasma logo ao retornar).
+  // Resync imediato quando o usuÃ¡rio volta para a aba (mobile/segundo plano pausa
+  // os timers e o servidor pode ficar atÃ© 60s sem ping â€” o ping imediato evita
+  // que a partida "caia" por desconexÃ£o fantasma logo ao retornar).
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver) return;
     const onVisibilityChange = () => {
@@ -12514,10 +12506,10 @@ splashOnlyTargets = splashPool.filter(c =>
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [onlineParams, gameOver]);
 
-  // 🔄 SINCRONIA PÓS-RESOLUÇÃO (online): após a rodada avançar, envia ao servidor
+  // ðŸ”„ SINCRONIA PÃ“S-RESOLUÃ‡ÃƒO (online): apÃ³s a rodada avanÃ§ar, envia ao servidor
   // um relato com HP/escudo/morte dos MEUS personagens + meu chakra. O oponente
-  // adota esses valores para o MEU esquadrão na tela dele (e vice-versa) — corrige
-  // divergências de simulação entre clientes ("na tela dele ainda tá vida cheia").
+  // adota esses valores para o MEU esquadrÃ£o na tela dele (e vice-versa) â€” corrige
+  // divergÃªncias de simulaÃ§Ã£o entre clientes ("na tela dele ainda tÃ¡ vida cheia").
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver || turn <= 1) return;
     if (stateReportSentTurnRef.current >= turn) return;
@@ -12752,7 +12744,7 @@ splashOnlyTargets = splashPool.filter(c =>
     newLogs.push({
       id: Math.random().toString(),
       turn,
-      message: `⚡ RESOLUÇÃO DO TURNO ${turn}:`,
+      message: `âš¡ RESOLUÃ‡ÃƒO DO TURNO ${turn}:`,
       type: 'system',
     });
 
@@ -12769,7 +12761,7 @@ splashOnlyTargets = splashPool.filter(c =>
       (source as any)._executingSkill = skill;
       currentSkillRef.current = skill;
 
-      // Regra de alvo "uma vez por ativação": marca o consumo na 1ª skill usada enquanto a condição está ativa.
+      // Regra de alvo "uma vez por ativaÃ§Ã£o": marca o consumo na 1Âª skill usada enquanto a condiÃ§Ã£o estÃ¡ ativa.
       if (skill.targetRules && skill.targetRules.length > 0) {
         const allEffects = [
           ...source.activeEffects,
@@ -12788,14 +12780,14 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🎯 ${source.character.name} usou [${skill.name}] com alvo alterado (${rule.activeSkillName} ativo) — SÓ NESTA VEZ; o alvo volta ao normal até reativar ${rule.activeSkillName}!`,
+              message: `ðŸŽ¯ ${source.character.name} usou [${skill.name}] com alvo alterado (${rule.activeSkillName} ativo) â€” SÃ“ NESTA VEZ; o alvo volta ao normal atÃ© reativar ${rule.activeSkillName}!`,
               type: 'buff',
             });
           }
         }
       }
 
-      // Regra única do Mubi: usar skill amigável/passiva remove DoTs infinitos marcados com removedOnFriendlySkillUse
+      // Regra Ãºnica do Mubi: usar skill amigÃ¡vel/passiva remove DoTs infinitos marcados com removedOnFriendlySkillUse
       if (isFriendlyOrPassiveSkill(skill)) {
         const friendlyDots = source.activeEffects.filter(e => e.type === 'dot' && e.removedOnFriendlySkillUse);
         if (friendlyDots.length > 0) {
@@ -12804,7 +12796,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💨 ${source.character.name} usou uma habilidade amigável/passiva e o dano contínuo infinito de [${dot.name}] foi removido!`,
+              message: `ðŸ’¨ ${source.character.name} usou uma habilidade amigÃ¡vel/passiva e o dano contÃ­nuo infinito de [${dot.name}] foi removido!`,
               type: 'heal',
             });
             addFloatingText(source.id, 'DOT REMOVIDO', 'heal');
@@ -12817,7 +12809,7 @@ splashOnlyTargets = splashPool.filter(c =>
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `🌀 [${skill.name}] de ${source.character.name} foi IMPEDIDO porque ele está ATORDOADO!`,
+          message: `ðŸŒ€ [${skill.name}] de ${source.character.name} foi IMPEDIDO porque ele estÃ¡ ATORDOADO!`,
           type: 'system',
         });
         addFloatingText(source.id, 'ATORDOADO!', 'stun');
@@ -12838,7 +12830,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⏱️ ${source.character.name} usou [${skill.name}], mas seu cooldown foi AUMENTADO em +${cdBoost} (agora ${skill.currentCooldown}) pela maldição de recarga!`,
+            message: `â±ï¸ ${source.character.name} usou [${skill.name}], mas seu cooldown foi AUMENTADO em +${cdBoost} (agora ${skill.currentCooldown}) pela maldiÃ§Ã£o de recarga!`,
             type: 'stun',
           });
           addFloatingText(source.id, `CD +${cdBoost}`, 'stun');
@@ -12861,7 +12853,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🚫 [${skill.name}] de ${source.character.name} foi ANULADO devido ao Contra-Ataque ativo nele!`,
+            message: `ðŸš« [${skill.name}] de ${source.character.name} foi ANULADO devido ao Contra-Ataque ativo nele!`,
             type: 'system',
           });
           addFloatingText(source.id, 'ANULADO', 'effect');
@@ -12882,10 +12874,10 @@ splashOnlyTargets = splashPool.filter(c =>
         newLogs.push({
           id: Math.random().toString(),
           turn,
-          message: `⚠️ [${skill.name}] de ${source.character.name} não foi aplicada em ${target.character.name} pois a habilidade já está ativa no alvo.`,
+          message: `âš ï¸ [${skill.name}] de ${source.character.name} nÃ£o foi aplicada em ${target.character.name} pois a habilidade jÃ¡ estÃ¡ ativa no alvo.`,
           type: 'buff',
         });
-        addFloatingText(target.id, 'JÁ ATIVA NO ALVO!', 'effect');
+        addFloatingText(target.id, 'JÃ ATIVA NO ALVO!', 'effect');
         return;
       }
 
@@ -12897,10 +12889,10 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️ ${source.character.name} usou [${skill.name}], mas TODOS os inimigos estão INVULNERÁVEIS!`,
+            message: `ðŸ›¡ï¸ ${source.character.name} usou [${skill.name}], mas TODOS os inimigos estÃ£o INVULNERÃVEIS!`,
             type: 'buff',
           });
-          addFloatingText(target.id, 'TODOS INVULNERÁVEIS', 'invulnerable');
+          addFloatingText(target.id, 'TODOS INVULNERÃVEIS', 'invulnerable');
         }
       } else {
         const isInvulnerable = checkCombatantInvulnerable(target, skill);
@@ -12908,10 +12900,10 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️ ${source.character.name} usou [${skill.name}] em ${target.character.name}, mas o alvo está INVULNERÁVEL!`,
+            message: `ðŸ›¡ï¸ ${source.character.name} usou [${skill.name}] em ${target.character.name}, mas o alvo estÃ¡ INVULNERÃVEL!`,
             type: 'buff',
           });
-          addFloatingText(target.id, 'INVULNERÁVEL', 'invulnerable');
+          addFloatingText(target.id, 'INVULNERÃVEL', 'invulnerable');
         }
       }
 
@@ -12958,7 +12950,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔄 ${foundReflect.def.character.name} REFLETIU [${skill.name}] de volta para ${newTarget.character.name}!`,
+            message: `ðŸ”„ ${foundReflect.def.character.name} REFLETIU [${skill.name}] de volta para ${newTarget.character.name}!`,
             type: 'system',
           });
           addFloatingText(foundReflect.def.id, 'REFLETIDO', 'effect');
@@ -12975,14 +12967,14 @@ splashOnlyTargets = splashPool.filter(c =>
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️ O efeito passivo de Reflexão de ${foundReflect.def.character.name} foi totalmente consumido!`,
+                message: `ðŸ›¡ï¸ O efeito passivo de ReflexÃ£o de ${foundReflect.def.character.name} foi totalmente consumido!`,
                 type: 'system',
               });
             } else {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️ O efeito passivo de Reflexão de ${foundReflect.def.character.name} agora possui ${newCharges} carga(s) restante(s).`,
+                message: `ðŸ›¡ï¸ O efeito passivo de ReflexÃ£o de ${foundReflect.def.character.name} agora possui ${newCharges} carga(s) restante(s).`,
                 type: 'system',
               });
             }
@@ -13004,7 +12996,7 @@ splashOnlyTargets = splashPool.filter(c =>
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🚫 ${target.character.name} CONTRA-ATACOU e anulou [${skill.name}] de ${source.character.name}!`,
+              message: `ðŸš« ${target.character.name} CONTRA-ATACOU e anulou [${skill.name}] de ${source.character.name}!`,
               type: 'system',
             });
             addFloatingText(target.id, 'ANULADO', 'effect');
@@ -13016,7 +13008,7 @@ splashOnlyTargets = splashPool.filter(c =>
             if (counterEffect.duration <= 0) {
               target.activeEffects = target.activeEffects.filter(e => e !== counterEffect);
             }
-            // ⛓️ STUN NO CONTRA-ATAQUE (counterSuccessStunRules): quando o contra-ataque desta skill funciona,
+            // â›“ï¸ STUN NO CONTRA-ATAQUE (counterSuccessStunRules): quando o contra-ataque desta skill funciona,
             // o inimigo que atacou fica stunado por X turnos e recebe dano adicional de skills das classes escolhidas
             if (!source.isDead && counterEffect.sourceSkillName) {
               const applierSkill = (target.character.skills || []).find(s => s.name === counterEffect.sourceSkillName);
@@ -13031,7 +13023,7 @@ splashOnlyTargets = splashPool.filter(c =>
                     newLogs.push({
                       id: Math.random().toString(),
                       turn,
-                      message: `🛡️ ${target.character.name} tentou stunnar ${source.character.name} no contra-ataque, mas ele é IMUNE a stun!`,
+                      message: `ðŸ›¡ï¸ ${target.character.name} tentou stunnar ${source.character.name} no contra-ataque, mas ele Ã© IMUNE a stun!`,
                       type: 'buff',
                     });
                     continue;
@@ -13064,7 +13056,7 @@ splashOnlyTargets = splashPool.filter(c =>
                   newLogs.push({
                     id: Math.random().toString(),
                     turn,
-                    message: `⛓️ [CONTRA-ATAQUE] ${target.character.name} STUNNOU ${source.character.name} por ${stunDur} turno(s) (${stunLabel})${(r.bonusDamage || 0) > 0 ? ` e ele receberá +${r.bonusDamage} de dano de ${stunClasses.length > 0 ? stunClasses.join('/') : 'qualquer'} classe(s)` : ''}!`,
+                    message: `â›“ï¸ [CONTRA-ATAQUE] ${target.character.name} STUNNOU ${source.character.name} por ${stunDur} turno(s) (${stunLabel})${(r.bonusDamage || 0) > 0 ? ` e ele receberÃ¡ +${r.bonusDamage} de dano de ${stunClasses.length > 0 ? stunClasses.join('/') : 'qualquer'} classe(s)` : ''}!`,
                     type: 'stun',
                   });
                   addFloatingText(source.id, `STUN (${stunLabel})`, 'stun');
@@ -13126,7 +13118,7 @@ splashOnlyTargets = splashPool.filter(c =>
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `⚡ [RETALIAÇÃO] ${defender.character.name} contra-atacou, mas ${source.character.name} é IMUNE A DANO!`,
+                  message: `âš¡ [RETALIAÃ‡ÃƒO] ${defender.character.name} contra-atacou, mas ${source.character.name} Ã© IMUNE A DANO!`,
                   type: 'buff',
                 });
                 addFloatingText(source.id, 'IMUNE!', 'invulnerable');
@@ -13155,7 +13147,7 @@ splashOnlyTargets = splashPool.filter(c =>
                 }
 
                 const typeText = rType === 'direct_damage' || rType === 'true' ? 'Direto' :
-                                 rType === 'affliction' ? 'Aflição' :
+                                 rType === 'affliction' ? 'AfliÃ§Ã£o' :
                                  rType === 'dot' ? 'Queimadura' :
                                  rType === 'bleeding' ? 'Sangramento' : 'Normal';
 
@@ -13164,10 +13156,10 @@ splashOnlyTargets = splashPool.filter(c =>
                 newLogs.push({
                   id: Math.random().toString(),
                   turn,
-                  message: `⚡ [RETALIAÇÃO] ${defender.character.name} contra-atacou! ${source.character.name} recebeu ${rVal} de dano ${typeText}${stackText} por usar [${skill.name}] em ${target.character.name}!`,
+                  message: `âš¡ [RETALIAÃ‡ÃƒO] ${defender.character.name} contra-atacou! ${source.character.name} recebeu ${rVal} de dano ${typeText}${stackText} por usar [${skill.name}] em ${target.character.name}!`,
                   type: 'damage',
                 });
-                addFloatingText(source.id, `-${rVal} RETALIAÇÃO`, 'damage');
+                addFloatingText(source.id, `-${rVal} RETALIAÃ‡ÃƒO`, 'damage');
               }
             }
           });
@@ -13224,7 +13216,7 @@ splashOnlyTargets = splashPool.filter(c =>
         baseDamage = 0;
         directDamage = 0;
       }
-      // BÔNUS DE DANO: +valor UMA vez por cast, na skill física/chakra do conjurador.
+      // BÃ”NUS DE DANO: +valor UMA vez por cast, na skill fÃ­sica/chakra do conjurador.
       const damageBuffSum = source.activeEffects
         .filter(e => e.type === 'damage_buff' && damageBuffAppliesToSkill(e, skill))
         .reduce((a, e) => a + (e.value || 0), 0);
@@ -13283,12 +13275,12 @@ splashOnlyTargets = splashPool.filter(c =>
         effectDuration = skill.damageReductionDuration || 3;
         effectVal = skill.damageReductionVal;
       } else if (skill.damageReductionPierceVal) {
-        effectName = `${skill.name} AntiPerfuração`;
+        effectName = `${skill.name} AntiPerfuraÃ§Ã£o`;
         effectType = 'damage_reduction_pierce';
         effectDuration = skill.damageReductionPierceDuration || 3;
         effectVal = skill.damageReductionPierceVal;
       } else if (skill.skillCopyDuration) {
-        effectName = `${skill.name} (Cópia de Habilidades)`;
+        effectName = `${skill.name} (CÃ³pia de Habilidades)`;
         effectType = 'skill_copy';
         effectDuration = skill.skillCopyDuration;
         effectVal = 0;
@@ -13333,10 +13325,10 @@ splashOnlyTargets = splashPool.filter(c =>
           effectVal = 0;
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `♾️ [${skill.name}] de ${source.character.name} foi aplicado permanentemente em ${target.character.name}!`,
+            message: `â™¾ï¸ [${skill.name}] de ${source.character.name} foi aplicado permanentemente em ${target.character.name}!`,
             type: 'buff',
           });
-          addFloatingText(target.id, '♾️ PERMANENTE', 'effect');
+          addFloatingText(target.id, 'â™¾ï¸ PERMANENTE', 'effect');
         }
       }
 
@@ -13367,7 +13359,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `✨ Purificação: Removidos ${removedCount} efeitos de ${t.character.name} (${removeType}).`,
+            message: `âœ¨ PurificaÃ§Ã£o: Removidos ${removedCount} efeitos de ${t.character.name} (${removeType}).`,
             type: 'system',
           });
         }
@@ -13406,18 +13398,18 @@ splashOnlyTargets = splashPool.filter(c =>
         const removedCount = beforeCount - t.activeEffects.length;
         if (removedCount > 0) {
           const typesName = isAllDebuffs ? 'Todos os Debuffs' : debuffTypes.map(d => {
-            if (d === 'affliction') return 'Aflição';
+            if (d === 'affliction') return 'AfliÃ§Ã£o';
             if (d === 'dot') return 'Dano por Turno';
             if (d === 'bleeding') return 'Sangramento';
             if (d === 'stun') return 'Atordoamento';
             if (d === 'paralyze_cooldown') return 'Paralisar Cooldown';
             if (d === 'cooldown_increase') return 'Aumento de Cooldown';
-            if (d === 'damage_debuff') return 'Redução de Dano';
+            if (d === 'damage_debuff') return 'ReduÃ§Ã£o de Dano';
             if (d === 'damage_vulnerability') return 'Vulnerabilidade';
             if (d === 'cannot_reduce_damage') return 'Incapaz de Reduzir Dano';
             if (d === 'cannot_be_invulnerable') return 'Incapaz de Invulnerabilidade';
-            if (d === 'cannot_receive_friendly') return 'Incapaz de Receber Efeitos Amigáveis';
-            if (d === 'on_skill_use_damage') return 'Punição por Skill';
+            if (d === 'cannot_receive_friendly') return 'Incapaz de Receber Efeitos AmigÃ¡veis';
+            if (d === 'on_skill_use_damage') return 'PuniÃ§Ã£o por Skill';
             if (d === 'chakra_cost_increase') return 'Aumento de Custo de Chakra';
             return d;
           }).join(', ');
@@ -13425,7 +13417,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `✨ [PURIFICAÇÃO] ${t.character.name} teve ${removedCount} debuff(s) removido(s) (${typesName}) por [${skill.name}]!`,
+            message: `âœ¨ [PURIFICAÃ‡ÃƒO] ${t.character.name} teve ${removedCount} debuff(s) removido(s) (${typesName}) por [${skill.name}]!`,
             type: 'system',
           });
           addFloatingText(t.id, 'DEBUFFS REMOVIDOS', 'heal');
@@ -13441,7 +13433,7 @@ splashOnlyTargets = splashPool.filter(c =>
           if (eff.irremovable) return true;
 
           if (isAllBuffs) {
-            // Remove qualquer efeito que NÃO seja debuff (buff, stack, efeito defensivo etc.)
+            // Remove qualquer efeito que NÃƒO seja debuff (buff, stack, efeito defensivo etc.)
             return isDebuffEffect(eff);
           }
 
@@ -13461,7 +13453,7 @@ splashOnlyTargets = splashPool.filter(c =>
           return true;
         });
 
-        // Shield é armazenado em t.shield (número), não como activeEffect
+        // Shield Ã© armazenado em t.shield (nÃºmero), nÃ£o como activeEffect
         let shieldRemoved = false;
         if (isAllBuffs || buffTypes.includes('shield')) {
           if ((t.shield || 0) > 0) {
@@ -13480,15 +13472,15 @@ splashOnlyTargets = splashPool.filter(c =>
         if (removedCount > 0) {
           const typesName = isAllBuffs ? 'Todos os Buffs' : buffTypes.map(b => {
             if (b === 'damage_buff') return 'Buff de Dano';
-            if (b === 'damage_reduction') return 'Redução de Dano';
+            if (b === 'damage_reduction') return 'ReduÃ§Ã£o de Dano';
             if (b === 'shield') return 'Escudo';
             if (b === 'invulnerable') return 'Invulnerabilidade';
             if (b === 'invisible') return 'Invisibilidade';
-            if (b === 'chakra_regen') return 'Regeneração Chakra';
+            if (b === 'chakra_regen') return 'RegeneraÃ§Ã£o Chakra';
             if (b === 'heal_over_time') return 'Cura por Turno';
             if (b === 'counter_attack') return 'Contra-ataque';
             if (b === 'reflect') return 'Refletir';
-            if (b === 'retaliate_damage') return 'Retaliação';
+            if (b === 'retaliate_damage') return 'RetaliaÃ§Ã£o';
             if (b === 'stack') return 'Stacks';
             return b;
           }).join(', ');
@@ -13496,7 +13488,7 @@ splashOnlyTargets = splashPool.filter(c =>
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🗑️ [REMOÇÃO DE BUFFS] ${t.character.name} teve ${removedCount} buff(s) removido(s) (${typesName}) por [${skill.name}]!`,
+            message: `ðŸ—‘ï¸ [REMOÃ‡ÃƒO DE BUFFS] ${t.character.name} teve ${removedCount} buff(s) removido(s) (${typesName}) por [${skill.name}]!`,
             type: 'system',
           });
           addFloatingText(t.id, 'BUFFS REMOVIDOS', 'damage');
@@ -13508,15 +13500,15 @@ splashOnlyTargets = splashPool.filter(c =>
 
 const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
   if (targetChar.activeEffects.some(e => e.type === 'cannot_receive_friendly') && !isDebuffEffect(eff)) {
-    addFloatingText(targetChar.id, 'BLOQUEADO (SKILL AMIGÁVEL)', 'stun');
+    addFloatingText(targetChar.id, 'BLOQUEADO (SKILL AMIGÃVEL)', 'stun');
     return;
   }
 
-  // Invulnerabilidade Total: bloqueia buffs/skills amigáveis no alvo imune (exceto
-  // re-aplicação de invulnerabilidade e efeitos defensivos de resposta)
+  // Invulnerabilidade Total: bloqueia buffs/skills amigÃ¡veis no alvo imune (exceto
+  // re-aplicaÃ§Ã£o de invulnerabilidade e efeitos defensivos de resposta)
   if (!isDebuffEffect(eff) && !['invulnerable', 'counter', 'reflect', 'retaliate_damage'].includes(eff.type)) {
     if (isInvulnToFriendlyEffects(targetChar, skill)) {
-      addFloatingText(targetChar.id, 'BLOQUEADO (INVULNERÁVEL)', 'invulnerable');
+      addFloatingText(targetChar.id, 'BLOQUEADO (INVULNERÃVEL)', 'invulnerable');
       return;
     }
   }
@@ -13592,7 +13584,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️❌ [${skill.name}] de ${source.character.name} DESTRUIU o escudo de ${target.character.name}!`,
+            message: `ðŸ›¡ï¸âŒ [${skill.name}] de ${source.character.name} DESTRUIU o escudo de ${target.character.name}!`,
             type: 'buff',
           });
           addFloatingText(target.id, 'ESCUDO QUEBRADO', 'shield');
@@ -13608,7 +13600,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🚫 [${skill.name}] de ${source.character.name} impede que ${target.character.name} ganhe escudos por ${skill.removeShieldDuration} turnos!`,
+            message: `ðŸš« [${skill.name}] de ${source.character.name} impede que ${target.character.name} ganhe escudos por ${skill.removeShieldDuration} turnos!`,
             type: 'buff',
           });
           addFloatingText(target.id, 'ESCUDO SELADO', 'shield');
@@ -13627,7 +13619,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⚔️⛔ [${skill.name}] de ${source.character.name} REMOVEU os Contra-Ataques / Refletir de ${t.character.name}!`,
+              message: `âš”ï¸â›” [${skill.name}] de ${source.character.name} REMOVEU os Contra-Ataques / Refletir de ${t.character.name}!`,
               type: 'damage',
             });
             addFloatingText(t.id, 'CONTRA/REFLETIR REMOVIDO', 'stun');
@@ -13671,14 +13663,14 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         directTargets.forEach(t => {
           if (t.isDead) return;
           if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} estÃ¡ INVULNERÃVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÃVEL', 'invulnerable');
             return;
           }
           if (skill.directDamageDuration && skill.directDamageDuration > 1) {
             const duration = skill.directDamageDuration;
             pushActiveEffect(t, {
-              name: `${skill.name} (Dano Direto Contínuo)`,
+              name: `${skill.name} (Dano Direto ContÃ­nuo)`,
               type: 'direct_damage',
               value: ddTotal,
               buffAtCast: dmgBuffDirect,
@@ -13689,7 +13681,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🎯 ${t.character.name} recebeu [${skill.name}] de DANO DIRETO de ${ddTotal} por turno por ${duration} turnos!`,
+              message: `ðŸŽ¯ ${t.character.name} recebeu [${skill.name}] de DANO DIRETO de ${ddTotal} por turno por ${duration} turnos!`,
               type: 'damage',
             });
             addFloatingText(t.id, `DANO DIRETO (${duration}T)`, 'damage');
@@ -13701,7 +13693,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             // Direct damage ignores damage reduction but NOT shields (shield absorbs first)
             let remainingDdTotal = netDdTotal;
             if (remainingDdTotal > 0 && convertDamageToShield(t, remainingDdTotal, turn, ['direct_damage', 'piercing'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${remainingDdTotal} de dano direto de [${skill.name}] em escudo!`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converteu ${remainingDdTotal} de dano direto de [${skill.name}] em escudo!`, type: 'buff' });
               addFloatingText(t.id, `+${remainingDdTotal} ESCUDO`, 'shield');
               remainingDdTotal = 0;
             }
@@ -13729,7 +13721,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🎯 [${skill.name}] de ${source.character.name} causou ${netDdTotal} de DANO DIRETO em ${t.character.name} (perfurando defesas).`,
+                message: `ðŸŽ¯ [${skill.name}] de ${source.character.name} causou ${netDdTotal} de DANO DIRETO em ${t.character.name} (perfurando defesas).`,
                 type: 'damage',
               });
               addFloatingText(t.id, `-${netDdTotal} HP (DIRETO)`, 'damage');
@@ -13738,7 +13730,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu Dano Direto de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`,
+                message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE A DANO e nÃ£o sofreu Dano Direto de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1Âº dano usada!)' : ''}`,
                 type: 'buff',
               });
               addFloatingText(t.id, 'IMUNE!', 'invulnerable');
@@ -13761,7 +13753,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets] após sofrer dano!`,
+              message: `âš¡ ${t.character.name} foi ATORDOADO por [Air Bullets] apÃ³s sofrer dano!`,
               type: 'stun',
             });
             addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
@@ -13779,19 +13771,19 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
       if (totalDotInstant2 > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalDotInstant2);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalDotInstant2;
-        newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${target.character.name}: -${totalDotInstant2} HP (QUEIMA)${missDot2 > 0 ? ` [HP Perdido: ${missDot2}]` : ''}`, type: 'damage' });
+        newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ”¥ [${skill.name}] â†’ ${target.character.name}: -${totalDotInstant2} HP (QUEIMA)${missDot2 > 0 ? ` [HP Perdido: ${missDot2}]` : ''}`, type: 'damage' });
         addFloatingText(target.id, `-${totalDotInstant2} HP (QUEIMA)`, 'damage');
       }
       if (totalBleedInstant2 > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalBleedInstant2);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalBleedInstant2;
-        newLogs.push({ id: Math.random().toString(), turn, message: `🩸 [${skill.name}] → ${target.character.name}: -${totalBleedInstant2} HP (SANGRAMENTO)${missBleed2 > 0 ? ` [HP Perdido: ${missBleed2}]` : ''}`, type: 'damage' });
+        newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ©¸ [${skill.name}] â†’ ${target.character.name}: -${totalBleedInstant2} HP (SANGRAMENTO)${missBleed2 > 0 ? ` [HP Perdido: ${missBleed2}]` : ''}`, type: 'damage' });
         addFloatingText(target.id, `-${totalBleedInstant2} HP (SANGRAMENTO)`, 'damage');
       }
       if (totalAfflictionInstant2 > 0 && target && !target.isDead) {
         target.health = Math.max(0, target.health - totalAfflictionInstant2);
         if (action.isPlayer) matchStatsRef.current.damageDealt += totalAfflictionInstant2;
-        newLogs.push({ id: Math.random().toString(), turn, message: `💀 [${skill.name}] → ${target.character.name}: -${totalAfflictionInstant2} HP (AFLICAO)${missAffl2 > 0 ? ` [HP Perdido: ${missAffl2}]` : ''}`, type: 'damage' });
+        newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’€ [${skill.name}] â†’ ${target.character.name}: -${totalAfflictionInstant2} HP (AFLICAO)${missAffl2 > 0 ? ` [HP Perdido: ${missAffl2}]` : ''}`, type: 'damage' });
         addFloatingText(target.id, `-${totalAfflictionInstant2} HP (AFLICAO)`, 'damage');
       }
       if ((totalDotInstant2 > 0 || totalBleedInstant2 > 0 || totalAfflictionInstant2 > 0) && hasDamageImmunity(target, ['dot', 'bleeding', 'affliction'])) {
@@ -13819,10 +13811,10 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `✨ [${skill.name}] de ${source.character.name} ativou ganho contínuo de +${amt} chakra elemental em ${t.character.name} por ${dur} turnos!`,
+              message: `âœ¨ [${skill.name}] de ${source.character.name} ativou ganho contÃ­nuo de +${amt} chakra elemental em ${t.character.name} por ${dur} turnos!`,
               type: 'chakra',
             });
-            addFloatingText(t.id, '+CHAKRA CONTÍNUO', 'effect');
+            addFloatingText(t.id, '+CHAKRA CONTÃNUO', 'effect');
           } else {
             const isPlayerCombatant = updatedPlayer.some(p => p.id === t.id);
             const targetSetter = isPlayerCombatant ? setPlayerChakra : setEnemyChakra;
@@ -13837,7 +13829,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `✨ [${skill.name}] de ${source.character.name} gerou +${amt} de chakra elemental para ${t.character.name}!`,
+              message: `âœ¨ [${skill.name}] de ${source.character.name} gerou +${amt} de chakra elemental para ${t.character.name}!`,
               type: 'chakra',
             });
             addFloatingText(t.id, `+${amt} CHAKRA`, 'effect');
@@ -13865,10 +13857,10 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🌀 [${skill.name}] de ${source.character.name} ativou dreno contínuo de ${amt} chakra de ${t.character.name} por ${dur} turnos!`,
+              message: `ðŸŒ€ [${skill.name}] de ${source.character.name} ativou dreno contÃ­nuo de ${amt} chakra de ${t.character.name} por ${dur} turnos!`,
               type: 'chakra',
             });
-            addFloatingText(t.id, 'DRENO DE CHAKRA CONTÍNUO', 'effect');
+            addFloatingText(t.id, 'DRENO DE CHAKRA CONTÃNUO', 'effect');
           } else {
             const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
             performChakraAction(tIsPlayer, amt, source.character.name, t.character.name, skill.name, action.isPlayer, 'drain', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
@@ -13886,11 +13878,11 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           if (t.isDead) return;
           if (dur > 1) {
             pushActiveEffect(t, {
-              name: `Remoção de Chakra (${skill.name})`,
+              name: `RemoÃ§Ã£o de Chakra (${skill.name})`,
               type: 'custom', value: amt, duration: dur, icon: skill.icon,
               irremovable: !!skill.removeChakraIrremovable,
             });
-            newLogs.push({ id: Math.random().toString(), turn, message: `🔥 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por ${dur}T`, type: 'chakra' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ”¥ [${skill.name}] â†’ ${t.character.name}: -${amt} chakra/turno por ${dur}T`, type: 'chakra' });
             addFloatingText(t.id, 'REMOCAO CHAKRA CONTINUA', 'effect');
           } else {
             const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
@@ -13913,7 +13905,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               type: 'custom', value: amt, duration: dur, icon: skill.icon,
               irremovable: !!skill.stealChakraIrremovable,
             });
-            newLogs.push({ id: Math.random().toString(), turn, message: `💰 [${skill.name}] → ${t.character.name}: -${amt} chakra/turno por ${dur}T`, type: 'chakra' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’° [${skill.name}] â†’ ${t.character.name}: -${amt} chakra/turno por ${dur}T`, type: 'chakra' });
             addFloatingText(t.id, 'ROUBO CHAKRA CONTINUO', 'effect');
           } else {
             const tIsPlayer = updatedPlayer.some(p => p.id === t.id);
@@ -13923,7 +13915,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         });
       }
 
-      // ROUBAR VIDA (Vampirismo) — roubo instantâneo + efeito contínuo por turno
+      // ROUBAR VIDA (Vampirismo) â€” roubo instantÃ¢neo + efeito contÃ­nuo por turno
       if ((skill.stealLifeVal && skill.stealLifeVal > 0) || ruleLifeStealDamage2 > 0) {
         const effectiveStealVal = hasActiveDamageRuleIgnoreBase2
           ? ruleLifeStealDamage2
@@ -13935,13 +13927,13 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           const isInvul = checkCombatantInvulnerable(t, 'damage');
           const hasInvulDebuff = t.activeEffects.some(e => (e.name || '').toLowerCase().includes('incapaz de ficar invulneravel'));
           if (isInvul && !hasInvulDebuff) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é INVULNERÁVEL e [${skill.name}] não conseguiu roubar vida!`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL!', 'invulnerable');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} Ã© INVULNERÃVEL e [${skill.name}] nÃ£o conseguiu roubar vida!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÃVEL!', 'invulnerable');
             return;
           }
           if (hasDamageImmunity(t, ['life_steal'])) {
             consumeFirstHitOnlyImmunity(t, ['life_steal']);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou o roubo de vida!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE A DANO e ignorou o roubo de vida!`, type: 'buff' });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
             return;
           }
@@ -13963,16 +13955,16 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           if (actualDealt > 0) {
             const healAmt = Math.min(actualDealt, (source.maxHealth || source.health) - source.health);
             source.health = Math.min(source.maxHealth || source.health, source.health + actualDealt);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🧛 [${skill.name}] de ${source.character.name} roubou ${actualDealt} de vida de ${t.character.name} e recuperou ${healAmt} HP!`, type: 'damage' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ§› [${skill.name}] de ${source.character.name} roubou ${actualDealt} de vida de ${t.character.name} e recuperou ${healAmt} HP!`, type: 'damage' });
             addFloatingText(t.id, `-${actualDealt} HP`, 'damage');
             addFloatingText(source.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
           }
           if (t.health <= 0 && !hasImmortalEffect(t)) {
             t.isDead = true;
-            newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${t.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’€ ${t.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
             addFloatingText(t.id, 'DERROTADO', 'damage');
           }
-          // Efeito contínuo: dura (rawDuration - 1) turnos adicionais, ticando no fim do turno do alvo
+          // Efeito contÃ­nuo: dura (rawDuration - 1) turnos adicionais, ticando no fim do turno do alvo
           const remainingDuration = rawDuration === 99999 ? 99999 : (rawDuration - 1);
           if (remainingDuration > 0 && !t.isDead) {
             pushActiveEffect(t, {
@@ -13989,8 +13981,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               casterId: source.id,
               casterSide: action.isPlayer ? 'player' : 'enemy',
             });
-            newLogs.push({ id: Math.random().toString(), turn, message: `🧛 ${t.character.name} continuará com vida roubada por [${skill.name}] por mais ${remainingDuration === 99999 ? '∞' : remainingDuration} ${remainingDuration === 1 ? 'turno' : 'turnos'}!`, type: 'damage' });
-            addFloatingText(t.id, `ROUBO DE VIDA (+${remainingDuration === 99999 ? '∞' : remainingDuration})`, 'effect');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ§› ${t.character.name} continuarÃ¡ com vida roubada por [${skill.name}] por mais ${remainingDuration === 99999 ? 'âˆž' : remainingDuration} ${remainingDuration === 1 ? 'turno' : 'turnos'}!`, type: 'damage' });
+            addFloatingText(t.id, `ROUBO DE VIDA (+${remainingDuration === 99999 ? 'âˆž' : remainingDuration})`, 'effect');
           }
           cleanseTargetEffects(t, skill.stealLifeRemoveType);
         });
@@ -14020,7 +14012,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               performChakraAction(tIsPlayer, rule.removeAmount, source.character.name, t.character.name, skill.name, action.isPlayer, 'remove', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `🔥 [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e removeu ${rule.removeAmount} chakra aleatório do estoque inimigo!`,
+                message: `ðŸ”¥ [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e removeu ${rule.removeAmount} chakra aleatÃ³rio do estoque inimigo!`,
                 type: 'chakra',
               });
             }
@@ -14052,7 +14044,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               performChakraAction(tIsPlayer, rule.chakraAmount, source.character.name, t.character.name, skill.name, action.isPlayer, 'steal', source.id, t.id, newLogs, localPlayerChakra, localEnemyChakra);
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `💰 [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e roubou ${rule.chakraAmount} chakra aleatório do estoque inimigo!`,
+                message: `ðŸ’° [REGRA] ${source.character.name} usou [${skill.name}] com [${rule.activeSkillName}] ativo e roubou ${rule.chakraAmount} chakra aleatÃ³rio do estoque inimigo!`,
                 type: 'chakra',
               });
             }
@@ -14080,25 +14072,25 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               t.isDead = true;
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `💀 [EXECUÇÃO] ${source.character.name} MATOU INSTANTANEAMENTE ${t.character.name} com [${skill.name}] porque [${rule.activeSkillName}] está ativo nele!`,
+                message: `ðŸ’€ [EXECUÃ‡ÃƒO] ${source.character.name} MATOU INSTANTANEAMENTE ${t.character.name} com [${skill.name}] porque [${rule.activeSkillName}] estÃ¡ ativo nele!`,
                 type: 'damage',
               });
-              addFloatingText(t.id, 'MORTE INSTANTÂNEA!', 'damage');
+              addFloatingText(t.id, 'MORTE INSTANTÃ‚NEA!', 'damage');
               if (action.isPlayer) {
                 matchStatsRef.current.killsWithSkill[skill.name] = (matchStatsRef.current.killsWithSkill[skill.name] || 0) + 1;
               }
             }
           });
-          // Opção "Mim e o Oponente": o conjurador também morre (sacrifício)
+          // OpÃ§Ã£o "Mim e o Oponente": o conjurador tambÃ©m morre (sacrifÃ­cio)
           if (rule.killScope === 'self_and_target' && killedAny && !source.isDead) {
             source.health = 0;
             source.isDead = true;
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `💀 [EXECUÇÃO] ${source.character.name} SE SACRIFICOU e morreu junto ao executar [${skill.name}]!`,
+              message: `ðŸ’€ [EXECUÃ‡ÃƒO] ${source.character.name} SE SACRIFICOU e morreu junto ao executar [${skill.name}]!`,
               type: 'damage',
             });
-            addFloatingText(source.id, 'SACRIFÍCIO!', 'damage');
+            addFloatingText(source.id, 'SACRIFÃCIO!', 'damage');
           }
         }
       }
@@ -14112,8 +14104,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         damageTargets.forEach(t => {
           if (t.isDead) return;
           if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} estÃ¡ INVULNERÃVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÃVEL', 'invulnerable');
             return;
           }
           // Deal immediate first tick
@@ -14124,7 +14116,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             if ((e as any).excludeAffliction) {
               const isAffliction = skill.classes?.some((c: string) => {
                 const lower = c.toLowerCase();
-                return lower.includes('aflição') || lower.includes('affliction');
+                return lower.includes('afliÃ§Ã£o') || lower.includes('affliction');
               });
               if (isAffliction) return false;
             }
@@ -14153,7 +14145,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           if (hasDamageImmunity(t, ['damage', ...getSkillCombatTypes(skill)])) finalDamage = 0;
           let convertedToShield = false;
           if (finalDamage > 0 && convertDamageToShield(t, finalDamage, turn, ['damage', ...getSkillCombatTypes(skill)])) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
             addFloatingText(t.id, `+${finalDamage} ESCUDO`, 'shield');
             convertedToShield = true;
             finalDamage = 0;
@@ -14161,12 +14153,12 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           if (!convertedToShield && t.shield > 0) {
             if (t.shield >= finalDamage) {
               t.shield -= finalDamage;
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`, type: 'buff' });
               addFloatingText(t.id, `-${finalDamage} ESCUDO`, 'shield');
               finalDamage = 0;
             } else {
               finalDamage -= t.shield;
-              newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} quebrou o escudo de ${t.character.name}!`, type: 'damage' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’¥ ${source.character.name} quebrou o escudo de ${t.character.name}!`, type: 'damage' });
               addFloatingText(t.id, 'ESCUDO QUEBRADO', 'shield');
               t.shield = 0;
             }
@@ -14174,13 +14166,13 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           if (hasDamageImmunity(t, ['damage', ...getSkillCombatTypes(skill)])) {
             finalDamage = 0;
             const consumedFirstHit = consumeFirstHitOnlyImmunity(t, ['damage', ...getSkillCombatTypes(skill)]);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu dano de HP de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1º dano usada!)' : ''}`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE A DANO e nÃ£o sofreu dano de HP de [${skill.name}].${consumedFirstHit ? ' (Imunidade de 1Âº dano usada!)' : ''}`, type: 'buff' });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
           }
           if (finalDamage > 0) {
             const before = t.health;
             t.health = hasImmortalEffect(t) ? Math.max(1, t.health - finalDamage) : Math.max(0, t.health - finalDamage);
-            newLogs.push({ id: Math.random().toString(), turn, message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’¥ ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name} (primeiro tick).`, type: 'damage' });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
             // Air Bullets stun check for normal damage
             if ((airBulletsHitTargets.current.has(t.id) || skill.name === 'Air Bullets' || skill.name.toLowerCase().includes('air bullets'))
@@ -14195,7 +14187,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                 casterSide: action.isPlayer ? 'player' : 'enemy',
                 castTurn: turn,
               });
-              newLogs.push({ id: Math.random().toString(), turn, message: `⚡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`, type: 'stun' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `âš¡ ${t.character.name} foi ATORDOADO por [Air Bullets]!`, type: 'stun' });
               addFloatingText(t.id, 'ATORDOADO (Air Bullets)', 'stun');
             }
             if (action.isPlayer) {
@@ -14210,7 +14202,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           // Apply remaining continuous damage (duration - 1)
           if (duration > 1 && !t.isDead) {
             pushActiveEffect(t, {
-              name: `${skill.name} (Dano Contínuo)`,
+              name: `${skill.name} (Dano ContÃ­nuo)`,
               type: 'damage',
               value: dmgVal + dmgBuffNormal,
               duration: duration - 1,
@@ -14223,10 +14215,10 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💥 ${t.character.name} está sob efeito de [${skill.name}] sofrendo ${dmgVal} de dano por turno por mais ${duration - 1} turnos!`,
+              message: `ðŸ’¥ ${t.character.name} estÃ¡ sob efeito de [${skill.name}] sofrendo ${dmgVal} de dano por turno por mais ${duration - 1} turnos!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO CONTÍNUO (${skill?.permanent ? '♾️ Permanente' : (duration - 1) + 'T'})`, 'damage');
+            addFloatingText(t.id, `DANO CONTÃNUO (${skill?.permanent ? 'â™¾ï¸ Permanente' : (duration - 1) + 'T'})`, 'damage');
           }
           cleanseTargetEffects(t, skill.damageRemoveType);
         });
@@ -14237,8 +14229,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         damageTargets.forEach(t => {
           if (t.isDead) return;
           if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(t, skill)) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${t.character.name} está INVULNERÁVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
-            addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${t.character.name} estÃ¡ INVULNERÃVEL contra [${skill.name}] de ${source.character.name}!`, type: 'buff' });
+            addFloatingText(t.id, 'INVULNERÃVEL', 'invulnerable');
             return;
           }
           const startingShield = t.shield;
@@ -14248,7 +14240,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             if ((e as any).excludeAffliction) {
               const isAffliction = skill.classes?.some((c: string) => {
                 const lower = c.toLowerCase();
-                return lower.includes('aflição') || lower.includes('affliction');
+                return lower.includes('afliÃ§Ã£o') || lower.includes('affliction');
               });
               if (isAffliction) return false;
             }
@@ -14287,7 +14279,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `💥 ${t.character.name} levou +${selfBonusDmg} de dano direto por stack (${selfRule.stackType}) em ${source.character.name}!`,
+                        message: `ðŸ’¥ ${t.character.name} levou +${selfBonusDmg} de dano direto por stack (${selfRule.stackType}) em ${source.character.name}!`,
                         type: 'damage',
                       });
                       addFloatingText(t.id, `-${selfBonusDmg} DANO DIRETO`, 'damage');
@@ -14297,7 +14289,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                     newLogs.push({
                       id: Math.random().toString(),
                       turn,
-                      message: `💪 [${skill.name}] de ${source.character.name} recebeu +${selfBonusDmg} de dano (${selfStackCount}x stack de ${selfRule.stackType})!`,
+                      message: `ðŸ’ª [${skill.name}] de ${source.character.name} recebeu +${selfBonusDmg} de dano (${selfStackCount}x stack de ${selfRule.stackType})!`,
                       type: 'damage',
                     });
                   }
@@ -14314,19 +14306,19 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                   if (stackRule.duration && stackRule.duration > 0) {
                     const dmgType = (stackRule.damageType || 'dot') as ActiveEffect['type'];
                     const totalDmg = stackCount * stackRule.damagePerStack;
-                    // Dano instantâneo no golpe
+                    // Dano instantÃ¢neo no golpe
                     if (hasDamageImmunity(t, [dmgType])) consumeFirstHitOnlyImmunity(t, [dmgType]);
                     if ((!checkCombatantInvulnerable(t, skill) || skill.ignoreInvulnerable) && !hasDamageImmunity(t, [dmgType])) {
                       t.health = Math.max(0, t.health - totalDmg);
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `💥 ${t.character.name} levou ${totalDmg} de ${stackRule.stackType} instantâneo!`,
+                        message: `ðŸ’¥ ${t.character.name} levou ${totalDmg} de ${stackRule.stackType} instantÃ¢neo!`,
                         type: 'damage',
                       });
                       addFloatingText(t.id, `-${totalDmg} ${stackRule.stackType}`, 'damage');
                     }
-                    // DOT por mais X turnos (duração 1 = só instantâneo)
+                    // DOT por mais X turnos (duraÃ§Ã£o 1 = sÃ³ instantÃ¢neo)
                     if (stackRule.duration > 1) {
                       pushActiveEffect(t, {
                         name: `${skill.name} (${stackRule.stackType} DOT)`,
@@ -14341,7 +14333,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `🔥 ${t.character.name} sofrerá +${totalDmg} de ${dmgType} por turno por mais ${stackRule.duration - 1} turnos (${stackCount}x ${stackRule.stackType})!`,
+                        message: `ðŸ”¥ ${t.character.name} sofrerÃ¡ +${totalDmg} de ${dmgType} por turno por mais ${stackRule.duration - 1} turnos (${stackCount}x ${stackRule.stackType})!`,
                         type: 'damage',
                       });
                       addFloatingText(t.id, `${dmgType.toUpperCase()} +${totalDmg}`, 'damage');
@@ -14366,7 +14358,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                         newLogs.push({
                           id: Math.random().toString(),
                           turn,
-                          message: `💥 ${t.character.name} levou +${stackDmg} de dano direto por stack (${stackRule.stackType})!`,
+                          message: `ðŸ’¥ ${t.character.name} levou +${stackDmg} de dano direto por stack (${stackRule.stackType})!`,
                           type: 'damage',
                         });
                         addFloatingText(t.id, `-${stackDmg} DANO DIRETO`, 'damage');
@@ -14376,7 +14368,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
                       newLogs.push({
                         id: Math.random().toString(),
                         turn,
-                        message: `💪 [${skill.name}] de ${source.character.name} recebeu +${stackDmg} de dano (${stackCount}x stack de ${stackRule.stackType})!`,
+                        message: `ðŸ’ª [${skill.name}] de ${source.character.name} recebeu +${stackDmg} de dano (${stackCount}x stack de ${stackRule.stackType})!`,
                         type: 'damage',
                       });
                     }
@@ -14406,7 +14398,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           // Apply to shields first
           let convertedToShield = false;
           if (finalDamage > 0 && convertDamageToShield(t, finalDamage, turn, ['damage', ...getSkillCombatTypes(skill)])) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converteu ${finalDamage} de dano de [${skill.name}] em escudo!`, type: 'buff' });
             addFloatingText(t.id, `+${finalDamage} ESCUDO`, 'shield');
             convertedToShield = true;
             finalDamage = 0;
@@ -14417,7 +14409,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`,
+                message: `ðŸ›¡ï¸ ${source.character.name} atingiu o escudo de ${t.character.name} com [${skill.name}] causando ${finalDamage} de dano ao escudo.`,
                 type: 'buff',
               });
               addFloatingText(t.id, `-${finalDamage} ESCUDO`, 'shield');
@@ -14427,7 +14419,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `💥 ${source.character.name} quebrou o escudo de ${t.character.name}!`,
+                message: `ðŸ’¥ ${source.character.name} quebrou o escudo de ${t.character.name}!`,
                 type: 'damage',
               });
               addFloatingText(t.id, 'ESCUDO QUEBRADO', 'shield');
@@ -14441,7 +14433,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💥 ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name}.`,
+              message: `ðŸ’¥ ${source.character.name} usou [${skill.name}] causando ${finalDamage} de dano em ${t.character.name}.`,
               type: 'damage',
             });
             addFloatingText(t.id, `-${finalDamage} HP`, 'damage');
@@ -14454,7 +14446,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⚡ ${t.character.name} contra-atacou! Causou 15 de dano de volta em ${source.character.name}.`,
+              message: `âš¡ ${t.character.name} contra-atacou! Causou 15 de dano de volta em ${source.character.name}.`,
               type: 'damage',
             });
             addFloatingText(source.id, '-15 HP (CONTRA-ATAQUE)', 'damage');
@@ -14485,7 +14477,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         healTargets.forEach(t => {
           if (t.isDead) return;
           pushActiveEffect(t, {
-            name: `Cura Contínua (${skill.name})`,
+            name: `Cura ContÃ­nua (${skill.name})`,
             type: 'heal',
             value: skill.heal,
             duration,
@@ -14495,10 +14487,10 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💚 ${t.character.name} recebeu regeneração de [${skill.name}] restaurando ${skill.heal} de vida por turno por ${duration} turnos.`,
+            message: `ðŸ’š ${t.character.name} recebeu regeneraÃ§Ã£o de [${skill.name}] restaurando ${skill.heal} de vida por turno por ${duration} turnos.`,
             type: 'heal',
           });
-          addFloatingText(t.id, `REGEN CONTÍNUA (+${skill.heal} HP)`, 'heal');
+          addFloatingText(t.id, `REGEN CONTÃNUA (+${skill.heal} HP)`, 'heal');
           cleanseTargetEffects(t, skill.healRemoveType);
         });
       } else if (healAmt > 0) {
@@ -14525,7 +14517,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🚫 ${t.character.name} não pôde ser curado por [${skill.name}] por estar impossibilitado de receber habilidades amigáveis!`,
+              message: `ðŸš« ${t.character.name} nÃ£o pÃ´de ser curado por [${skill.name}] por estar impossibilitado de receber habilidades amigÃ¡veis!`,
               type: 'stun',
             });
             addFloatingText(t.id, 'CURA BLOQUEADA', 'stun');
@@ -14543,7 +14535,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💚 ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}.${healRuleBoost > 0 ? ` (+${healRuleBoost} bônus)` : ''}`,
+            message: `ðŸ’š ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}.${healRuleBoost > 0 ? ` (+${healRuleBoost} bÃ´nus)` : ''}`,
             type: 'heal',
           });
           addFloatingText(t.id, `+${totalHeal} HP`, 'heal');
@@ -14551,21 +14543,21 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         });
 }
 
-      // 💣 Contagem Regressiva (Bomba): aplica o timer no alvo; quando o tempo acabar, ele recebe o dano
+      // ðŸ’£ Contagem Regressiva (Bomba): aplica o timer no alvo; quando o tempo acabar, ele recebe o dano
       if (skill.countdownDamageRules && skill.countdownDamageRules.length > 0) {
         const bombTargets = resolveEffectTargets(skill.damageTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         bombTargets.forEach(bt => {
           if (bt.isDead) return;
           if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(bt, skill)) {
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${bt.character.name} está INVULNERÁVEL e não recebeu a bomba de [${skill.name}]!`, type: 'buff' });
-            addFloatingText(bt.id, 'INVULNERÁVEL', 'invulnerable');
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${bt.character.name} estÃ¡ INVULNERÃVEL e nÃ£o recebeu a bomba de [${skill.name}]!`, type: 'buff' });
+            addFloatingText(bt.id, 'INVULNERÃVEL', 'invulnerable');
             return;
           }
           skill.countdownDamageRules!.forEach(rule => {
             if (!rule.damage || rule.damage <= 0) return;
             const dur = Math.max(1, rule.duration || 1);
             pushActiveEffect(bt, {
-              name: `${skill.name} (💣 ${dur}T)`,
+              name: `${skill.name} (ðŸ’£ ${dur}T)`,
               type: 'countdown_bomb',
               value: rule.damage,
               duration: dur,
@@ -14580,7 +14572,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💣 ${bt.character.name} recebeu uma bomba de [${skill.name}] — em ${dur} turno(s) sofrerá ${rule.damage} de dano!`,
+              message: `ðŸ’£ ${bt.character.name} recebeu uma bomba de [${skill.name}] â€” em ${dur} turno(s) sofrerÃ¡ ${rule.damage} de dano!`,
               type: 'buff',
             });
             addFloatingText(bt.id, `(${dur}T)`, 'effect');
@@ -14588,7 +14580,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         });
       }
 
-      // ⚡ Combo por Stacks (stackUseEffectRules): ao usar a skill com X stacks do conjurador, aplica os efeitos da regra
+      // âš¡ Combo por Stacks (stackUseEffectRules): ao usar a skill com X stacks do conjurador, aplica os efeitos da regra
       if (skill.stackUseEffectRules && skill.stackUseEffectRules.length > 0) {
         const applicable = skill.stackUseEffectRules
           .filter(r => r.requiredStacks > 0)
@@ -14603,8 +14595,8 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           comboTargets.forEach(ct => {
             if (ct.isDead) return;
             if (!skill.ignoreInvulnerable && checkCombatantInvulnerable(ct, skill)) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${ct.character.name} está INVULNERÁVEL e não sofreu os efeitos do combo de [${comboLabel}]!`, type: 'buff' });
-              addFloatingText(ct.id, 'INVULNERÁVEL', 'invulnerable');
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${ct.character.name} estÃ¡ INVULNERÃVEL e nÃ£o sofreu os efeitos do combo de [${comboLabel}]!`, type: 'buff' });
+              addFloatingText(ct.id, 'INVULNERÃVEL', 'invulnerable');
               return;
             }
             if (rule.stun) {
@@ -14621,7 +14613,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               });
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `⚡ [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`,
+                message: `âš¡ [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e ${ct.character.name} foi STUNADO por ${stunDur} turno(s)!`,
                 type: 'stun',
               });
               addFloatingText(ct.id, `STUN (COMBO ${count}x)`, 'stun');
@@ -14632,7 +14624,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               performChakraAction(ctIsPlayer, rule.chakraRemove, source.character.name, ct.character.name, skill.name, action.isPlayer, 'remove', source.id, ct.id, newLogs, localPlayerChakra, localEnemyChakra);
               newLogs.push({
                 id: Math.random().toString(), turn,
-                message: `🔥 [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`,
+                message: `ðŸ”¥ [COMBO ${count}x] ${source.character.name} usou [${skill.name}] e removeu ${rule.chakraRemove} chakra(s) de ${ct.character.name}!`,
                 type: 'chakra',
               });
               addFloatingText(ct.id, `CHAKRA -${rule.chakraRemove}`, 'effect');
@@ -14642,7 +14634,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           if (comboEffects.length > 0) {
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `⚡⚡ [COMBO ${count}x] ${source.character.name} ativou os efeitos de combo de [${skill.name}]: ${comboEffects.join(' + ')}!`,
+              message: `âš¡âš¡ [COMBO ${count}x] ${source.character.name} ativou os efeitos de combo de [${skill.name}]: ${comboEffects.join(' + ')}!`,
               type: 'buff',
             });
           }
@@ -14652,7 +14644,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
       // 3. APPLY STUNS
       if (stunApplied) {
         const stunTypeLabels: Record<string, string> = {
-          physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável',
+          physical: 'FÃ­sico', mental: 'Mental', affliction: 'AfliÃ§Ã£o', chakra: 'Chakra', ranged: 'A distancia', friendly: 'AmigÃ¡vel',
         };
         const resolvedStunTypes: string[] = finalStunType || [];
         const isAllTypes = resolvedStunTypes.length >= 4;
@@ -14681,7 +14673,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🌀 ${t.character.name} recebeu [${stunTypeName}] por [${skill.name}] de ${source.character.name} por ${stunDuration} ${stunDuration === 1 ? 'turno' : 'turnos'}!`,
+            message: `ðŸŒ€ ${t.character.name} recebeu [${stunTypeName}] por [${skill.name}] de ${source.character.name} por ${stunDuration} ${stunDuration === 1 ? 'turno' : 'turnos'}!`,
             type: 'stun',
           });
           const floatingTextStr = isAllTypes || resolvedStunTypes.length === 0
@@ -14722,9 +14714,9 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
       if (skill.chakraCostIncreaseDuration && skill.chakraCostIncreaseDuration > 0 && skill.chakraCostIncreaseTypes && skill.chakraCostIncreaseTypes.length > 0) {
         const costIncreaseTargets = resolveEffectTargets(skill.chakraCostIncreaseTarget, target, source, sourceList, targetList, false);
         const costSkillTypes = skill.chakraCostIncreaseSkillTypes || [];
-        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'AleatÃ³rio' };
         const costTypesLabel = (skill.chakraCostIncreaseTypes || []).map(ct => chakraLabels[ct] || ct).join(' + ');
-        const skillTypesLabels: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+        const skillTypesLabels: Record<string, string> = { physical: 'FÃ­sico', mental: 'Mental', affliction: 'AfliÃ§Ã£o', chakra: 'Chakra', ranged: 'A distancia', friendly: 'AmigÃ¡vel' };
         const costSkillLabel = costSkillTypes.map(st => skillTypesLabels[st] || st).join(' + ');
         costIncreaseTargets.forEach(t => {
           if (t.isDead) return;
@@ -14744,7 +14736,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⛓️ ${t.character.name} recebeu AUMENTO DE CUSTO (+1 ${costTypesLabel})${costSkillLabel ? ` em skills de ${costSkillLabel}` : ''} por [${skill.name}] de ${source.character.name} por ${skill.chakraCostIncreaseDuration} ${skill.chakraCostIncreaseDuration === 1 ? 'turno' : 'turnos'}!`,
+            message: `â›“ï¸ ${t.character.name} recebeu AUMENTO DE CUSTO (+1 ${costTypesLabel})${costSkillLabel ? ` em skills de ${costSkillLabel}` : ''} por [${skill.name}] de ${source.character.name} por ${skill.chakraCostIncreaseDuration} ${skill.chakraCostIncreaseDuration === 1 ? 'turno' : 'turnos'}!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'CUSTO +1', 'effect');
@@ -14754,7 +14746,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
       // REDUZIR CUSTO DE CHAKRA DAS SKILLS DO ALVO (BUFF): as skills do(s) alvo(s) custam menos do tipo escolhido por X turnos
       if (skill.chakraCostReduceRules && skill.chakraCostReduceRules.length > 0) {
         const reduceTargets = resolveEffectTargets('Target', target, source, sourceList, targetList, false);
-        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+        const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'AleatÃ³rio' };
         for (const rule of skill.chakraCostReduceRules) {
           if (!rule.chakraTypes || rule.chakraTypes.length === 0 || (rule.amount || 0) <= 0 || (rule.durationTurns || 0) <= 0) continue;
           const dur = Math.max(1, rule.durationTurns || 1);
@@ -14775,7 +14767,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💧 ${t.character.name} teve o CUSTO REDUZIDO (-${rule.amount} ${costTypesLabel}) das skills por [${skill.name}] de ${source.character.name} por ${dur} ${dur === 1 ? 'turno' : 'turnos'}!`,
+              message: `ðŸ’§ ${t.character.name} teve o CUSTO REDUZIDO (-${rule.amount} ${costTypesLabel}) das skills por [${skill.name}] de ${source.character.name} por ${dur} ${dur === 1 ? 'turno' : 'turnos'}!`,
               type: 'buff',
             });
             addFloatingText(t.id, `CUSTO -${rule.amount}`, 'effect');
@@ -14793,7 +14785,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️❌ ${t.character.name} tentou ganhar escudo, mas está sob efeito de Selamento de Escudo!`,
+              message: `ðŸ›¡ï¸âŒ ${t.character.name} tentou ganhar escudo, mas estÃ¡ sob efeito de Selamento de Escudo!`,
               type: 'buff',
             });
             addFloatingText(t.id, 'ESCUDO BLOQUEADO', 'shield');
@@ -14811,7 +14803,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${t.character.name} ganhou +${actualAdded} de escudo com [${skill.name}] por ${skill.shieldDuration || 99} turnos!`,
+              message: `ðŸ›¡ï¸ ${t.character.name} ganhou +${actualAdded} de escudo com [${skill.name}] por ${skill.shieldDuration || 99} turnos!`,
               type: 'buff',
             });
             addFloatingText(t.id, `+${actualAdded} ESCUDO`, 'shield');
@@ -14833,7 +14825,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🔁 ${t.character.name} irá gerar +${skill.shieldVal} de escudo ADICIONAL por turno por ${skill.shieldRegenTurns} ${skill.shieldRegenTurns === 1 ? 'turno' : 'turnos'} com [${skill.name}]!`,
+                message: `ðŸ” ${t.character.name} irÃ¡ gerar +${skill.shieldVal} de escudo ADICIONAL por turno por ${skill.shieldRegenTurns} ${skill.shieldRegenTurns === 1 ? 'turno' : 'turnos'} com [${skill.name}]!`,
                 type: 'buff',
               });
               addFloatingText(t.id, `+${skill.shieldVal} ESCUDO/TURNO`, 'shield');
@@ -14854,7 +14846,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
         });
       }
 
-      // 4.1b CONVERSÃO DE DANO EM ESCUDO (espelho do caminho morto)
+      // 4.1b CONVERSÃƒO DE DANO EM ESCUDO (espelho do caminho morto)
       if (skill.damageToShieldDuration && skill.damageToShieldDuration > 0) {
         const conversionTargets = resolveEffectTargets(skill.damageToShieldTarget, target, source, sourceList, targetList, true);
         conversionTargets.forEach(t => {
@@ -14862,7 +14854,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           const alreadyActive = t.activeEffects.some(e => e.type === 'damage_to_shield' && (e.sourceSkillName || '') === (skill.name || ''));
           if (alreadyActive) return;
           pushActiveEffect(t, {
-            name: `${skill.name} (Conversão de Dano em Escudo)`,
+            name: `${skill.name} (ConversÃ£o de Dano em Escudo)`,
             type: 'damage_to_shield',
             value: skill.damageToShieldDuration,
             duration: skill.damageToShieldDuration === 99999 ? 99999 : skill.damageToShieldDuration,
@@ -14881,10 +14873,10 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️✨ ${t.character.name} converte TODO o dano recebido em escudo${shieldDurText} por ${skill.damageToShieldDuration === 99999 ? '∞' : skill.damageToShieldDuration + ' turno(s)'} com [${skill.name}]!`,
+            message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converte TODO o dano recebido em escudo${shieldDurText} por ${skill.damageToShieldDuration === 99999 ? 'âˆž' : skill.damageToShieldDuration + ' turno(s)'} com [${skill.name}]!`,
             type: 'buff',
           });
-          addFloatingText(t.id, `DANO → ESCUDO${skill.damageToShieldDuration === 99999 ? ' (♾️)' : ` (${skill.damageToShieldDuration}T)`}`, 'shield');
+          addFloatingText(t.id, `DANO â†’ ESCUDO${skill.damageToShieldDuration === 99999 ? ' (â™¾ï¸)' : ` (${skill.damageToShieldDuration}T)`}`, 'shield');
         });
       }
 
@@ -14905,7 +14897,7 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `⚔️ ${t.character.name} ativou CONTRA-ATAQUE com [${skill.name}]!`,
+            message: `âš”ï¸ ${t.character.name} ativou CONTRA-ATAQUE com [${skill.name}]!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'CONTRA-ATAQUE', 'effect');
@@ -14935,8 +14927,8 @@ if (skill.reflect) {
     newLogs.push({
       id: Math.random().toString(), turn,
       message: isPassive 
-        ? `🔄 ${t.character.name} ativou REFLECT (PASSIVO - ${charges} cargas) com [${skill.name}]!`
-        : `🔄 ${t.character.name} ativou REFLECT (ATIVO) com [${skill.name}]!`,
+        ? `ðŸ”„ ${t.character.name} ativou REFLECT (PASSIVO - ${charges} cargas) com [${skill.name}]!`
+        : `ðŸ”„ ${t.character.name} ativou REFLECT (ATIVO) com [${skill.name}]!`,
       type: 'buff',
     });
     addFloatingText(t.id, isPassive ? 'REFLECT PASSIVO' : 'REFLECT ATIVO', 'effect');
@@ -14951,7 +14943,7 @@ if (skill.retaliateDamage) {
   retTargets.forEach(t => {
     if (t.isDead) return;
     pushActiveEffect(t, {
-      name: `${skill.name} Retaliação`,
+      name: `${skill.name} RetaliaÃ§Ã£o`,
       type: 'retaliate_damage',
       duration: retDur,
       value: skill.retaliateDamageVal || 0,
@@ -14967,10 +14959,10 @@ if (skill.retaliateDamage) {
     });
     newLogs.push({
       id: Math.random().toString(), turn,
-      message: `⚡ ${t.character.name} ativou RETALIAÇÃO com [${skill.name}]!`,
+      message: `âš¡ ${t.character.name} ativou RETALIAÃ‡ÃƒO com [${skill.name}]!`,
       type: 'buff',
     });
-    addFloatingText(t.id, 'RETALIAÇÃO', 'effect');
+    addFloatingText(t.id, 'RETALIAÃ‡ÃƒO', 'effect');
     cleanseTargetEffects(t, skill.retaliateDamageRemoveType);
   });
 }
@@ -14996,7 +14988,7 @@ if (skill.redirectOffensiveToCaster) {
     });
     newLogs.push({
       id: Math.random().toString(), turn,
-      message: `🛡️ [GUARDA-COSTAS] ${t.character.name} recebeu proteção de [${skill.name}] por ${redirDur} turno(s)! (Skills ofensivas inimigas serão redirecionadas para ${source.character.name})`,
+      message: `ðŸ›¡ï¸ [GUARDA-COSTAS] ${t.character.name} recebeu proteÃ§Ã£o de [${skill.name}] por ${redirDur} turno(s)! (Skills ofensivas inimigas serÃ£o redirecionadas para ${source.character.name})`,
       type: 'buff',
     });
     addFloatingText(t.id, `PROTEGIDO (${redirDur}T)`, 'effect');
@@ -15024,7 +15016,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️ ${t.character.name} ativou redução de dano de [${skill.name}] reduzindo ${skill.damageReductionVal} de dano sofrido por ${duration} turnos!`,
+            message: `ðŸ›¡ï¸ ${t.character.name} ativou reduÃ§Ã£o de dano de [${skill.name}] reduzindo ${skill.damageReductionVal} de dano sofrido por ${duration} turnos!`,
             type: 'buff',
           });
           addFloatingText(t.id, `DEFESA (+${skill.damageReductionVal})`, 'effect');
@@ -15039,7 +15031,7 @@ if (skill.redirectOffensiveToCaster) {
           if (t.isDead) return;
           const duration = skill.damageReductionPierceDuration || 3;
           pushActiveEffect(t, {
-            name: `${skill.name} AntiPerfuração`,
+            name: `${skill.name} AntiPerfuraÃ§Ã£o`,
             type: 'damage_reduction_pierce',
             value: skill.damageReductionPierceVal,
             duration,
@@ -15052,28 +15044,28 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🪡 ${t.character.name} ativou redução de dano imune a perfuração de [${skill.name}] reduzindo ${skill.damageReductionPierceVal} de dano normal e perfuração por ${duration} turnos!`,
+            message: `ðŸª¡ ${t.character.name} ativou reduÃ§Ã£o de dano imune a perfuraÃ§Ã£o de [${skill.name}] reduzindo ${skill.damageReductionPierceVal} de dano normal e perfuraÃ§Ã£o por ${duration} turnos!`,
             type: 'buff',
           });
-          addFloatingText(t.id, `ANTI-PERFURAÇÃO (+${skill.damageReductionPierceVal})`, 'effect');
+          addFloatingText(t.id, `ANTI-PERFURAÃ‡ÃƒO (+${skill.damageReductionPierceVal})`, 'effect');
           cleanseTargetEffects(t, skill.damageReductionPierceRemoveType);
         });
       }
 
-      // 4.2.1.1 REDUÇÃO DE DANO POR STACK EM MIM (buff de redução no conjurador escalando com minhas stacks)
+      // 4.2.1.1 REDUÃ‡ÃƒO DE DANO POR STACK EM MIM (buff de reduÃ§Ã£o no conjurador escalando com minhas stacks)
       if (skill.selfStackReductionRules && skill.selfStackReductionRules.length > 0) {
         for (const redRule of skill.selfStackReductionRules) {
           if (!redRule.stackType || !redRule.reductionValue) continue;
           const selfStackEffect = source.activeEffects.find(e => e.stackType === redRule.stackType || e.name === redRule.stackType);
           let selfStackCount = selfStackEffect?.stacks || 0;
-          // A stack que ESTA skill está aplicando agora no conjurador também conta (o bloco de stacks roda depois)
+          // A stack que ESTA skill estÃ¡ aplicando agora no conjurador tambÃ©m conta (o bloco de stacks roda depois)
           if (skill.stackable && (skill.stackType || skill.name) === redRule.stackType) {
             const stackTgts = resolveEffectTargets(skill.stackTarget, target, source, sourceList, targetList, false);
             if (stackTgts.some(t => t.id === source.id)) selfStackCount += 1;
           }
           if (selfStackCount <= 0) continue;
           const redType = redRule.reductionType === 'damage_reduction_pierce' ? 'damage_reduction_pierce' : 'damage_reduction';
-          const redName = redType === 'damage_reduction_pierce' ? `${skill.name} AntiPerfuração` : `${skill.name} Guard`;
+          const redName = redType === 'damage_reduction_pierce' ? `${skill.name} AntiPerfuraÃ§Ã£o` : `${skill.name} Guard`;
           const dur = (redRule.duration && redRule.duration > 0) ? redRule.duration : 99999;
           const totalRed = selfStackCount * redRule.reductionValue;
           pushActiveEffect(source, {
@@ -15090,11 +15082,11 @@ if (skill.redirectOffensiveToCaster) {
             id: Math.random().toString(),
             turn,
             message: redType === 'damage_reduction_pierce'
-              ? `🪡 ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano normal e perfuração por ${dur === 99999 ? '∞' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`
-              : `🛡️ ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano por ${dur === 99999 ? '∞' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`,
+              ? `ðŸª¡ ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano normal e perfuraÃ§Ã£o por ${dur === 99999 ? 'âˆž' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`
+              : `ðŸ›¡ï¸ ${source.character.name} recebeu [${redName}] reduzindo ${totalRed} de dano por ${dur === 99999 ? 'âˆž' : dur} turnos (${selfStackCount}x stack de ${redRule.stackType})!`,
             type: 'buff',
           });
-          addFloatingText(source.id, redType === 'damage_reduction_pierce' ? `ANTI-PERFURAÇÃO (+${totalRed})` : `DEFESA (+${totalRed})`, 'effect');
+          addFloatingText(source.id, redType === 'damage_reduction_pierce' ? `ANTI-PERFURAÃ‡ÃƒO (+${totalRed})` : `DEFESA (+${totalRed})`, 'effect');
         }
       }
 
@@ -15107,10 +15099,10 @@ if (skill.redirectOffensiveToCaster) {
           if (!existingCopy && source.activeEffects.some(e => e.type === 'cannot_receive_friendly')) {
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🚫 ${source.character.name} está IMPOSSIBILITADO de receber a cópia de habilidades de ${t.character.name}!`,
+              message: `ðŸš« ${source.character.name} estÃ¡ IMPOSSIBILITADO de receber a cÃ³pia de habilidades de ${t.character.name}!`,
               type: 'system',
             });
-            addFloatingText(source.id, 'BLOQUEADO (SKILL AMIGÁVEL)', 'stun');
+            addFloatingText(source.id, 'BLOQUEADO (SKILL AMIGÃVEL)', 'stun');
             return;
           }
           const copyDur = skill.permanent ? 99999 : (Math.max(1, skill.skillCopyDuration || 3));
@@ -15119,12 +15111,12 @@ if (skill.redirectOffensiveToCaster) {
             : JSON.parse(JSON.stringify(source.character.skills || []));
           if (existingCopy) {
             existingCopy.duration = copyDur;
-            existingCopy.name = `${skill.name} (Cópia: ${t.character.name})`;
+            existingCopy.name = `${skill.name} (CÃ³pia: ${t.character.name})`;
             existingCopy.icon = skill.icon;
             existingCopy.sourceSkillName = skill.name;
           } else {
             pushActiveEffect(source, {
-              name: `${skill.name} (Cópia: ${t.character.name})`,
+              name: `${skill.name} (CÃ³pia: ${t.character.name})`,
               type: 'skill_copy',
               value: 0,
               duration: copyDur,
@@ -15139,7 +15131,7 @@ if (skill.redirectOffensiveToCaster) {
           source.character.skills = JSON.parse(JSON.stringify(t.character.skills));
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🪞 ${source.character.name} COPIOU as habilidades de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
+            message: `ðŸªž ${source.character.name} COPIOU as habilidades de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
             type: 'buff',
           });
           addFloatingText(source.id, 'HABILIDADES COPIADAS', 'effect');
@@ -15163,7 +15155,7 @@ if (skill.redirectOffensiveToCaster) {
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🌫️ ${t.character.name} ativou fraqueza de [${skill.name}] reduzindo ${skill.damageDebuffVal} de dano causado por ${duration} turnos!`,
+            message: `ðŸŒ«ï¸ ${t.character.name} ativou fraqueza de [${skill.name}] reduzindo ${skill.damageDebuffVal} de dano causado por ${duration} turnos!`,
             type: 'buff',
           });
           addFloatingText(t.id, `FRAQUEZA (-${skill.damageDebuffVal})`, 'effect');
@@ -15189,18 +15181,18 @@ if (skill.redirectOffensiveToCaster) {
           });
           newLogs.push({
             id: Math.random().toString(), turn,
-            message: `🎯 ${t.character.name} ativou VULNERABILIDADE de [${skill.name}] recebendo +${skill.damageVulnerabilityVal} de dano extra${skill.damageVulnerabilityTypes && skill.damageVulnerabilityTypes.length > 0 ? ` (${skill.damageVulnerabilityTypes.join(', ')})` : ''} por ${vulnDuration === 99999 ? 'tempo indeterminado' : `${vulnDuration} turnos`}!`,
+            message: `ðŸŽ¯ ${t.character.name} ativou VULNERABILIDADE de [${skill.name}] recebendo +${skill.damageVulnerabilityVal} de dano extra${skill.damageVulnerabilityTypes && skill.damageVulnerabilityTypes.length > 0 ? ` (${skill.damageVulnerabilityTypes.join(', ')})` : ''} por ${vulnDuration === 99999 ? 'tempo indeterminado' : `${vulnDuration} turnos`}!`,
             type: 'buff',
           });
-          addFloatingText(t.id, `VULNERÁVEL (+${skill.damageVulnerabilityVal})`, 'effect');
+          addFloatingText(t.id, `VULNERÃVEL (+${skill.damageVulnerabilityVal})`, 'effect');
           cleanseTargetEffects(t, skill.damageVulnerabilityRemoveType);
         });
       }
 
       // 4.4 APPLY DAMAGE BUFF
       if (skill.damageBuffVal && skill.damageBuffVal > 0) {
-        // Se o usuário definiu explicitamente o alvo do buff, respeitar exatamente (sem o redirect
-        // de efeito benéfico que manda para o conjurador quando o alvo é inimigo).
+        // Se o usuÃ¡rio definiu explicitamente o alvo do buff, respeitar exatamente (sem o redirect
+        // de efeito benÃ©fico que manda para o conjurador quando o alvo Ã© inimigo).
         const buffTarget = skill.damageBuffTarget || skill.shieldTarget || 'Self';
         const buffTargets = skill.damageBuffTarget
           ? resolveEffectTargets(skill.damageBuffTarget, target, source, sourceList, targetList, false)
@@ -15220,7 +15212,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⚡ ${t.character.name} ativou bônus de dano de [${skill.name}] aumentando dano causado em +${skill.damageBuffVal} por ${duration} turnos!`,
+            message: `âš¡ ${t.character.name} ativou bÃ´nus de dano de [${skill.name}] aumentando dano causado em +${skill.damageBuffVal} por ${duration} turnos!`,
             type: 'buff',
           });
           addFloatingText(t.id, `PODER (+${skill.damageBuffVal})`, 'effect');
@@ -15228,7 +15220,7 @@ if (skill.redirectOffensiveToCaster) {
         });
       }
 
-      // 4.3b SOFRER DANO (PRÓPRIO/EQUIPE): o(s) alvo(s) escolhido(s) sofrem dano por X turnos ao usar a skill
+      // 4.3b SOFRER DANO (PRÃ“PRIO/EQUIPE): o(s) alvo(s) escolhido(s) sofrem dano por X turnos ao usar a skill
       if (skill.friendlyDamageVal && skill.friendlyDamageVal > 0) {
         const friendlyDmgTargets = resolveEffectTargets(skill.friendlyDamageTarget || 'Self', target, source, sourceList, targetList, false);
         friendlyDmgTargets.forEach(t => {
@@ -15238,13 +15230,13 @@ if (skill.redirectOffensiveToCaster) {
           const fVal = skill.friendlyDamageVal!;
           const fTickType = fType === 'dot' ? 'dot' as const : fType === 'bleeding' ? 'bleeding' as const : fType === 'affliction' ? 'affliction' as const : fType === 'direct_damage' ? 'direct_damage' as const : 'damage' as const;
 
-          // Dano instantâneo (primeiro tick)
+          // Dano instantÃ¢neo (primeiro tick)
           if (hasDamageImmunity(t, [fTickType])) {
             const consumedFh = consumeFirstHitOnlyImmunity(t, [fTickType]);
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${t.character.name} é IMUNE A DANO e não sofreu o dano próprio de [${skill.name}].${consumedFh ? ' (Imunidade de 1º dano usada!)' : ''}`,
+              message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE A DANO e nÃ£o sofreu o dano prÃ³prio de [${skill.name}].${consumedFh ? ' (Imunidade de 1Âº dano usada!)' : ''}`,
               type: 'buff',
             });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
@@ -15254,7 +15246,7 @@ if (skill.redirectOffensiveToCaster) {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️✨ ${t.character.name} converteu ${instantDmg} de dano próprio de [${skill.name}] em escudo!`,
+                message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converteu ${instantDmg} de dano prÃ³prio de [${skill.name}] em escudo!`,
                 type: 'buff',
               });
               addFloatingText(t.id, `+${instantDmg} ESCUDO`, 'shield');
@@ -15272,7 +15264,7 @@ if (skill.redirectOffensiveToCaster) {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `💢 ${t.character.name} sofreu ${instantDmg} de dano próprio por [${skill.name}].`,
+                message: `ðŸ’¢ ${t.character.name} sofreu ${instantDmg} de dano prÃ³prio por [${skill.name}].`,
                 type: 'damage',
               });
               addFloatingText(t.id, `-${instantDmg} HP`, 'damage');
@@ -15282,7 +15274,7 @@ if (skill.redirectOffensiveToCaster) {
           // Ticks restantes (turnos - 1)
           if (fDur > 1) {
             pushActiveEffect(t, {
-              name: `${skill.name} (Dano Próprio)`,
+              name: `${skill.name} (Dano PrÃ³prio)`,
               type: fTickType,
               value: fVal,
               duration: fDur - 1,
@@ -15294,10 +15286,10 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `💢 ${t.character.name} sofrerá ${fVal} de dano por turno por mais ${fDur - 1} turnos (${skill.name}).`,
+              message: `ðŸ’¢ ${t.character.name} sofrerÃ¡ ${fVal} de dano por turno por mais ${fDur - 1} turnos (${skill.name}).`,
               type: 'damage',
             });
-            addFloatingText(t.id, `DANO PRÓPRIO (+${fVal})`, 'damage');
+            addFloatingText(t.id, `DANO PRÃ“PRIO (+${fVal})`, 'damage');
           }
         });
       }
@@ -15319,10 +15311,10 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🌌 ${t.character.name} ficou INVULNERÁVEL com [${skill.name}] por ${skill.invulnerableDuration} turnos!`,
+            message: `ðŸŒŒ ${t.character.name} ficou INVULNERÃVEL com [${skill.name}] por ${skill.invulnerableDuration} turnos!`,
             type: 'buff',
           });
-          addFloatingText(t.id, 'INVULNERÁVEL', 'invulnerable');
+          addFloatingText(t.id, 'INVULNERÃVEL', 'invulnerable');
           cleanseTargetEffects(t, skill.invulnerableRemoveType);
         });
       }
@@ -15347,7 +15339,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🔥 ${t.character.name} foi afligido por queima contínua de [${skill.name}] sofrendo ${totalDotVal2} DoT${isMubiHazeRule ? ' INFINITO (só para ao usar skill amigável/passiva)' : ` por ${duration} turnos`}!`,
+            message: `ðŸ”¥ ${t.character.name} foi afligido por queima contÃ­nua de [${skill.name}] sofrendo ${totalDotVal2} DoT${isMubiHazeRule ? ' INFINITO (sÃ³ para ao usar skill amigÃ¡vel/passiva)' : ` por ${duration} turnos`}!`,
             type: 'damage',
           });
           addFloatingText(t.id, `QUEIMA (+${totalDotVal2} DoT)`, 'damage');
@@ -15376,7 +15368,7 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⏳ ${t.character.name} começará a sangrar com [${skill.name}] em ${bleedDelay2} ${bleedDelay2 === 1 ? 'turno' : 'turnos'} sofrendo ${totalBleedingVal2} de dano por turno por ${duration} turnos!`,
+              message: `â³ ${t.character.name} comeÃ§arÃ¡ a sangrar com [${skill.name}] em ${bleedDelay2} ${bleedDelay2 === 1 ? 'turno' : 'turnos'} sofrendo ${totalBleedingVal2} de dano por turno por ${duration} turnos!`,
               type: 'damage',
             });
             addFloatingText(t.id, `SANGRAMENTO EM ${bleedDelay2} TURNOS`, 'effect');
@@ -15394,7 +15386,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🩸 ${t.character.name} está sangrando com [${skill.name}] sofrendo ${totalBleedingVal2} de dano por turno por ${duration} turnos!`,
+            message: `ðŸ©¸ ${t.character.name} estÃ¡ sangrando com [${skill.name}] sofrendo ${totalBleedingVal2} de dano por turno por ${duration} turnos!`,
             type: 'damage',
           });
           addFloatingText(t.id, `SANGRAMENTO (-${totalBleedingVal2} HP)`, 'damage');
@@ -15402,7 +15394,7 @@ if (skill.redirectOffensiveToCaster) {
         });
       }
 
-      // 4.7 APPLY AFFLICTION (AFLIÇÃO)
+      // 4.7 APPLY AFFLICTION (AFLIÃ‡ÃƒO)
       const totalAfflictionVal2 = (hasActiveDamageRuleIgnoreBase2 && ruleAfflictionDamage2 > 0) ? ruleAfflictionDamage2 : ((skill.afflictionVal || 0) + ruleAfflictionDamage2);
       const afflCastDmg2 = totalAfflictionVal2 + dmgBuffInstant;
       if (totalAfflictionVal2 > 0) {
@@ -15414,7 +15406,7 @@ if (skill.redirectOffensiveToCaster) {
 
           if (afflDelay2 > 0) {
             pushActiveEffect(t, {
-              name: `${skill.name} Aflição`,
+              name: `${skill.name} AfliÃ§Ã£o`,
               type: 'affliction',
               value: totalAfflictionVal2,
               duration: rawDuration,
@@ -15425,10 +15417,10 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `⏳ ${t.character.name} sofrerá ${totalAfflictionVal2} de dano por aflição de [${skill.name}] em ${afflDelay2} ${afflDelay2 === 1 ? 'turno' : 'turnos'}, durante ${rawDuration} ${rawDuration === 1 ? 'turno' : 'turnos'}!`,
+              message: `â³ ${t.character.name} sofrerÃ¡ ${totalAfflictionVal2} de dano por afliÃ§Ã£o de [${skill.name}] em ${afflDelay2} ${afflDelay2 === 1 ? 'turno' : 'turnos'}, durante ${rawDuration} ${rawDuration === 1 ? 'turno' : 'turnos'}!`,
               type: 'damage',
             });
-            addFloatingText(t.id, `AFLIÇÃO EM ${afflDelay2} TURNOS`, 'effect');
+            addFloatingText(t.id, `AFLIÃ‡ÃƒO EM ${afflDelay2} TURNOS`, 'effect');
             cleanseTargetEffects(t, skill.afflictionRemoveType);
             return;
           }
@@ -15439,7 +15431,7 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${t.character.name} é IMUNE A DANO e ignorou a aflição de [${skill.name}].${consumedAfflHit ? ' (Imunidade de 1º dano usada!)' : ''}`,
+              message: `ðŸ›¡ï¸ ${t.character.name} Ã© IMUNE A DANO e ignorou a afliÃ§Ã£o de [${skill.name}].${consumedAfflHit ? ' (Imunidade de 1Âº dano usada!)' : ''}`,
               type: 'buff',
             });
             addFloatingText(t.id, 'IMUNE!', 'invulnerable');
@@ -15474,7 +15466,7 @@ if (skill.redirectOffensiveToCaster) {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `💀 ${t.character.name} CAIU EM BATALHA POR AFLIÇÃO!`,
+                message: `ðŸ’€ ${t.character.name} CAIU EM BATALHA POR AFLIÃ‡ÃƒO!`,
                 type: 'death',
               });
               addFloatingText(t.id, 'DERROTADO', 'damage');
@@ -15484,18 +15476,18 @@ if (skill.redirectOffensiveToCaster) {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🛡️✨ ${t.character.name} converteu ${afflCastDmg2} de aflição instantânea de [${skill.name}] em escudo!`,
+                message: `ðŸ›¡ï¸âœ¨ ${t.character.name} converteu ${afflCastDmg2} de afliÃ§Ã£o instantÃ¢nea de [${skill.name}] em escudo!`,
                 type: 'buff',
               });
-              addFloatingText(t.id, `+${afflCastDmg2} ESCUDO (AFLIÇÃO)`, 'shield');
+              addFloatingText(t.id, `+${afflCastDmg2} ESCUDO (AFLIÃ‡ÃƒO)`, 'shield');
             } else {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `💜 ${t.character.name} sofreu ${totalAfflictionVal2} de dano por aflição de [${skill.name}]!`,
+                message: `ðŸ’œ ${t.character.name} sofreu ${totalAfflictionVal2} de dano por afliÃ§Ã£o de [${skill.name}]!`,
                 type: 'damage',
               });
-              addFloatingText(t.id, `AFLIÇÃO (-${totalAfflictionVal2} HP)`, 'damage');
+              addFloatingText(t.id, `AFLIÃ‡ÃƒO (-${totalAfflictionVal2} HP)`, 'damage');
             }
           }
 
@@ -15503,7 +15495,7 @@ if (skill.redirectOffensiveToCaster) {
           const remainingDuration = rawDuration - 1;
           if (remainingDuration > 0) {
             pushActiveEffect(t, {
-              name: `${skill.name} Aflição`,
+              name: `${skill.name} AfliÃ§Ã£o`,
               type: 'affliction',
               value: totalAfflictionVal2,
               duration: remainingDuration,
@@ -15532,7 +15524,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⏳ Cooldowns de ${t.character.name} foram PARALISADOS por [${skill.name}] por ${duration} turnos!`,
+            message: `â³ Cooldowns de ${t.character.name} foram PARALISADOS por [${skill.name}] por ${duration} turnos!`,
             type: 'system',
           });
           addFloatingText(t.id, 'COOLDOWNS PARALISADOS', 'stun');
@@ -15561,7 +15553,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⏱️ ${t.character.name} recebeu RECARGA AUMENTADA (+${cdAmt} de cooldown por habilidade usada) por [${skill.name}] por ${cdDur} ${cdDur === 1 ? 'turno' : 'turnos'}!`,
+            message: `â±ï¸ ${t.character.name} recebeu RECARGA AUMENTADA (+${cdAmt} de cooldown por habilidade usada) por [${skill.name}] por ${cdDur} ${cdDur === 1 ? 'turno' : 'turnos'}!`,
             type: 'system',
           });
           addFloatingText(t.id, `CD +${cdAmt}`, 'stun');
@@ -15589,22 +15581,22 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🚫 ${t.character.name} ficou incapaz de reduzir dano por [${skill.name}] por ${duration} turnos!`,
+            message: `ðŸš« ${t.character.name} ficou incapaz de reduzir dano por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
-          addFloatingText(t.id, 'SEM REDUÇÃO DE DANO', 'effect');
+          addFloatingText(t.id, 'SEM REDUÃ‡ÃƒO DE DANO', 'effect');
           cleanseTargetEffects(t, skill.cannotReduceDamageRemoveType);
         });
       }
 
-      // 4.10 APPLY CANNOT BE INVULNERABLE (INCAPAZ DE FICAR INVULNERÁVEL)
+      // 4.10 APPLY CANNOT BE INVULNERABLE (INCAPAZ DE FICAR INVULNERÃVEL)
       if (skill.cannotBeInvulnerableDuration && skill.cannotBeInvulnerableDuration > 0) {
         const cannotInvulTargets = resolveEffectTargets(skill.cannotBeInvulnerableTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         cannotInvulTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.cannotBeInvulnerableDuration!;
           pushActiveEffect(t, {
-            name: `${skill.name} (Incapaz de Ficar Invulnerável)`,
+            name: `${skill.name} (Incapaz de Ficar InvulnerÃ¡vel)`,
             type: 'cannot_be_invulnerable',
             duration,
             icon: skill.icon,
@@ -15617,7 +15609,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🚫 ${t.character.name} ficou incapaz de se tornar invulnerável por [${skill.name}] por ${duration} turnos!`,
+            message: `ðŸš« ${t.character.name} ficou incapaz de se tornar invulnerÃ¡vel por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'SEM INVULNERABILIDADE', 'effect');
@@ -15632,7 +15624,7 @@ if (skill.redirectOffensiveToCaster) {
           if (t.isDead) return;
           const duration = skill.cannotReceiveFriendlyDuration!;
           pushActiveEffect(t, {
-            name: `${skill.name} (Bloqueio Amigável)`,
+            name: `${skill.name} (Bloqueio AmigÃ¡vel)`,
             type: 'cannot_receive_friendly',
             duration,
             icon: skill.icon,
@@ -15645,22 +15637,22 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🚫 ${t.character.name} ficou impossibilitado de receber habilidades amigáveis por [${skill.name}] por ${duration} turnos!`,
+            message: `ðŸš« ${t.character.name} ficou impossibilitado de receber habilidades amigÃ¡veis por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
-          addFloatingText(t.id, 'BLOQUEIO AMIGÁVEL', 'effect');
+          addFloatingText(t.id, 'BLOQUEIO AMIGÃVEL', 'effect');
           cleanseTargetEffects(t, skill.cannotReceiveFriendlyRemoveType);
         });
       }
 
-      // 4.10.5 APPLY REVEAL INVISIBLE (REVELAR SKILLS INVISÍVEIS)
+      // 4.10.5 APPLY REVEAL INVISIBLE (REVELAR SKILLS INVISÃVEIS)
       if (skill.revealInvisibleDuration && skill.revealInvisibleDuration > 0) {
         const revealTargets = resolveEffectTargets(skill.revealInvisibleTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
         revealTargets.forEach(t => {
           if (t.isDead) return;
           const duration = skill.revealInvisibleDuration!;
           pushActiveEffect(t, {
-            name: `${skill.name} (Revelar Skills Invisíveis)`,
+            name: `${skill.name} (Revelar Skills InvisÃ­veis)`,
             type: 'reveal_invisible',
             duration,
             icon: skill.icon,
@@ -15673,10 +15665,10 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `👁️ ${t.character.name} teve suas habilidades e efeitos invisíveis revelados por [${skill.name}] por ${duration} turnos!`,
+            message: `ðŸ‘ï¸ ${t.character.name} teve suas habilidades e efeitos invisÃ­veis revelados por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
-          addFloatingText(t.id, '👁️ SKILLS REVELADAS', 'effect');
+          addFloatingText(t.id, 'ðŸ‘ï¸ SKILLS REVELADAS', 'effect');
           cleanseTargetEffects(t, skill.revealInvisibleRemoveType);
         });
       }
@@ -15704,7 +15696,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `🛡️ ${t.character.name} está imune a dano por [${skill.name}] por ${duration} turnos!`,
+            message: `ðŸ›¡ï¸ ${t.character.name} estÃ¡ imune a dano por [${skill.name}] por ${duration} turnos!`,
             type: 'buff',
           });
           addFloatingText(t.id, 'IMUNE A DANO', 'effect');
@@ -15738,7 +15730,7 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️❌ ${target.character.name} tentou ganhar escudo, mas está sob efeito de Selamento de Escudo!`,
+              message: `ðŸ›¡ï¸âŒ ${target.character.name} tentou ganhar escudo, mas estÃ¡ sob efeito de Selamento de Escudo!`,
               type: 'buff',
             });
             addFloatingText(target.id, 'ESCUDO BLOQUEADO', 'shield');
@@ -15753,7 +15745,7 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${target.character.name} ativou [${skill.name}] ganhando um escudo de ${actualAdded}.`,
+              message: `ðŸ›¡ï¸ ${target.character.name} ativou [${skill.name}] ganhando um escudo de ${actualAdded}.`,
               type: 'buff',
             });
             addFloatingText(target.id, `+${actualAdded} ESCUDO`, 'shield');
@@ -15769,7 +15761,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `✨ ${target.character.name} ativou [${skill.name}] por ${effectDuration} turnos.`,
+            message: `âœ¨ ${target.character.name} ativou [${skill.name}] por ${effectDuration} turnos.`,
             type: 'buff',
           });
           addFloatingText(target.id, effectName.toUpperCase(), 'effect');
@@ -15811,7 +15803,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `📚 ${t.character.name} recebeu stack [${skill.stackType}] de ${source.character.name} via [${skill.name}]!`,
+            message: `ðŸ“š ${t.character.name} recebeu stack [${skill.stackType}] de ${source.character.name} via [${skill.name}]!`,
             type: 'buff',
           });
           addFloatingText(t.id, `+1 ${skill.stackType.toUpperCase()}`, 'effect');
@@ -15836,7 +15828,7 @@ if (skill.redirectOffensiveToCaster) {
               icon: skill.icon,
               isInvisible: true,
               irremovable: !!skill.invisibleIrremovable,
-              description: 'Efeito invisível ativo',
+              description: 'Efeito invisÃ­vel ativo',
               casterId: source.id,
               casterSide,
               castTurn: turn,
@@ -15860,7 +15852,7 @@ if (skill.redirectOffensiveToCaster) {
           const caster = [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === eff.casterId);
           if (!caster) return null;
           const effName = eff.name || '';
-          const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|Aflição|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
+          const baseName = (eff.sourceSkillName || effName).replace(/ \((Dano Direto|DOT|Queima|Sangramento|AfliÃ§Ã£o|AFLICAO|Escudo por Turno)[^)]*\)$/, '');
           return caster.character.skills.find(s => !!s.name && (s.name === baseName || effName.startsWith(s.name))) || null;
         };
         const isBlockedByInvuln = (eff: ActiveEffect, fallbackType: string): boolean => {
@@ -15874,19 +15866,19 @@ if (skill.redirectOffensiveToCaster) {
         dotEffects.forEach(dot => {
           if (isBlockedByInvuln(dot, 'dot') || hasDamageImmunity(c, ['dot'])) {
             consumeFirstHitOnlyImmunity(c);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e ignorou o dano de queima por ${dot.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const dotValDead = Math.max(0, dot.value || 0);
             if (convertDamageToShield(c, dotValDead, turn, ['dot'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${dotValDead} de dano de queima em escudo!`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${dotValDead} de dano de queima em escudo!`, type: 'buff' });
               addFloatingText(c.id, `+${dotValDead} ESCUDO (QUEIMA)`, 'shield');
             } else {
               c.health = Math.max(0, c.health - dotValDead);
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🔥 ${c.character.name} sofreu ${dotValDead} de dano de queima por ${dot.name}.`,
+                message: `ðŸ”¥ ${c.character.name} sofreu ${dotValDead} de dano de queima por ${dot.name}.`,
                 type: 'damage',
               });
               addFloatingText(c.id, `-${dotValDead} HP (QUEIMA)`, 'damage');
@@ -15903,21 +15895,21 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️ ${c.character.name} está INVULNERÁVEL e não sofreu dano contínuo de ${dmg.name}.`,
+              message: `ðŸ›¡ï¸ ${c.character.name} estÃ¡ INVULNERÃVEL e nÃ£o sofreu dano contÃ­nuo de ${dmg.name}.`,
               type: 'buff',
             });
-            addFloatingText(c.id, 'INVULNERÁVEL', 'invulnerable');
+            addFloatingText(c.id, 'INVULNERÃVEL', 'invulnerable');
           } else {
             const dmgValDead = Math.max(0, dmg.value || 0);
             if (convertDamageToShield(c, dmgValDead, turn, ['damage'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${dmgValDead} de dano contínuo de ${dmg.name} em escudo!`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${dmgValDead} de dano contÃ­nuo de ${dmg.name} em escudo!`, type: 'buff' });
               addFloatingText(c.id, `+${dmgValDead} ESCUDO (DANO)`, 'shield');
             } else {
               c.health = Math.max(0, c.health - dmgValDead);
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `💥 ${c.character.name} sofreu ${dmgValDead} de dano contínuo de ${dmg.name}.`,
+                message: `ðŸ’¥ ${c.character.name} sofreu ${dmgValDead} de dano contÃ­nuo de ${dmg.name}.`,
                 type: 'damage',
               });
               addFloatingText(c.id, `-${dmgValDead} HP (DANO)`, 'damage');
@@ -15930,7 +15922,7 @@ if (skill.redirectOffensiveToCaster) {
         activeDirectDamageEffects.forEach(dd => {
           if (hasDamageImmunity(c, ['direct_damage', 'piercing'])) {
             consumeFirstHitOnlyImmunity(c, ['direct_damage', 'piercing']);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o dano direto contínuo de ${dd.name}.`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e ignorou o dano direto contÃ­nuo de ${dd.name}.`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const dr = c.activeEffects.some((e: ActiveEffect) => e.type === 'cannot_reduce_damage') ? 0
@@ -15939,7 +15931,7 @@ if (skill.redirectOffensiveToCaster) {
             const netDd = Math.max(0, (dd.value || 0) - dr);
             let remainingDd = netDd;
             if (remainingDd > 0 && convertDamageToShield(c, remainingDd, turn, ['direct_damage', 'piercing'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${remainingDd} de dano direto contínuo de ${dd.name} em escudo!`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${remainingDd} de dano direto contÃ­nuo de ${dd.name} em escudo!`, type: 'buff' });
               addFloatingText(c.id, `+${remainingDd} ESCUDO (DIRETO)`, 'shield');
               remainingDd = 0;
             }
@@ -15953,7 +15945,7 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🎯 ${c.character.name} sofreu ${netDd} de dano direto contínuo de ${dd.name}.`,
+              message: `ðŸŽ¯ ${c.character.name} sofreu ${netDd} de dano direto contÃ­nuo de ${dd.name}.`,
               type: 'damage',
             });
             addFloatingText(c.id, `-${netDd} HP (DIRETO)`, 'damage');
@@ -15972,7 +15964,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💚 ${c.character.name} recuperou ${(hl.value || 0)} de vida por ${hl.name}.`,
+            message: `ðŸ’š ${c.character.name} recuperou ${(hl.value || 0)} de vida por ${hl.name}.`,
             type: 'heal',
           });
           addFloatingText(c.id, `+${(hl.value || 0)} HP (REGEN)`, 'heal');
@@ -15989,7 +15981,7 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔁 ${c.character.name} gerou +${actualAdded} de escudo ADICIONAL por [${re.sourceSkillName || 'Escudo por Turno'}].`,
+              message: `ðŸ” ${c.character.name} gerou +${actualAdded} de escudo ADICIONAL por [${re.sourceSkillName || 'Escudo por Turno'}].`,
               type: 'buff',
             });
             addFloatingText(c.id, `+${actualAdded} ESCUDO`, 'shield');
@@ -16005,19 +15997,19 @@ if (skill.redirectOffensiveToCaster) {
           }
           if (hasDamageImmunity(c, ['bleeding'])) {
             consumeFirstHitOnlyImmunity(c, ['bleeding']);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o Sangramento (${bleed.name}).`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e ignorou o Sangramento (${bleed.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const bleedValDead = Math.max(0, bleed.value || 0);
             if (convertDamageToShield(c, bleedValDead, turn, ['bleeding'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${bleedValDead} de dano de Sangramento em escudo!`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${bleedValDead} de dano de Sangramento em escudo!`, type: 'buff' });
               addFloatingText(c.id, `+${bleedValDead} ESCUDO (SANGRAMENTO)`, 'shield');
             } else {
               c.health = Math.max(0, c.health - bleedValDead);
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🩸 ${c.character.name} sofreu ${bleedValDead} de dano por Sangramento (${bleed.name}).`,
+                message: `ðŸ©¸ ${c.character.name} sofreu ${bleedValDead} de dano por Sangramento (${bleed.name}).`,
                 type: 'damage',
               });
               addFloatingText(c.id, `-${bleedValDead} HP (SANGRAMENTO)`, 'damage');
@@ -16025,7 +16017,7 @@ if (skill.redirectOffensiveToCaster) {
           }
         });
 
-        // Apply Affliction (Aflição)
+        // Apply Affliction (AfliÃ§Ã£o)
         const afflictionEffects = c.activeEffects.filter(e => e.type === 'affliction');
         afflictionEffects.forEach(aff => {
           if ((aff.delayTurns || 0) > 0) {
@@ -16034,34 +16026,34 @@ if (skill.redirectOffensiveToCaster) {
           }
           if (hasDamageImmunity(c, ['affliction'])) {
             consumeFirstHitOnlyImmunity(c, ['affliction']);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou a Aflição (${aff.name}).`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e ignorou a AfliÃ§Ã£o (${aff.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const affValDead = Math.max(0, aff.value || 0);
             if (convertDamageToShield(c, affValDead, turn, ['affliction'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${affValDead} de dano de Aflição em escudo!`, type: 'buff' });
-              addFloatingText(c.id, `+${affValDead} ESCUDO (AFLIÇÃO)`, 'shield');
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${affValDead} de dano de AfliÃ§Ã£o em escudo!`, type: 'buff' });
+              addFloatingText(c.id, `+${affValDead} ESCUDO (AFLIÃ‡ÃƒO)`, 'shield');
             } else {
               c.health = Math.max(0, c.health - affValDead);
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `💜 ${c.character.name} sofreu ${affValDead} de dano por Aflição (${aff.name}).`,
+                message: `ðŸ’œ ${c.character.name} sofreu ${affValDead} de dano por AfliÃ§Ã£o (${aff.name}).`,
                 type: 'damage',
               });
-              addFloatingText(c.id, `-${affValDead} HP (AFLIÇÃO)`, 'damage');
+              addFloatingText(c.id, `-${affValDead} HP (AFLIÃ‡ÃƒO)`, 'damage');
             }
           }
         });
 
-        // Apply Life Steal (Roubo de Vida) — causa dano ao alvo e cura o conjurador
+        // Apply Life Steal (Roubo de Vida) â€” causa dano ao alvo e cura o conjurador
         const lifeStealEffects = c.activeEffects.filter(e => e.type === 'life_steal' && e.castTurn !== turn);
         lifeStealEffects.forEach(ls => {
           const lsCaster = ls.casterId ? [...updatedPlayer, ...updatedEnemy].find(cb => cb.id === ls.casterId) : null;
           if (lsCaster && lsCaster.isDead) return;
           if (isBlockedByInvuln(ls, 'damage') || hasDamageImmunity(c, ['life_steal'])) {
             consumeFirstHitOnlyImmunity(c);
-            newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${c.character.name} é IMUNE A DANO e ignorou o roubo de vida (${ls.name}).`, type: 'buff' });
+            newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${c.character.name} Ã© IMUNE A DANO e ignorou o roubo de vida (${ls.name}).`, type: 'buff' });
             addFloatingText(c.id, 'IMUNE!', 'invulnerable');
           } else {
             const lsCannotReduce = c.activeEffects.some(e => e.type === 'cannot_reduce_damage');
@@ -16069,7 +16061,7 @@ if (skill.redirectOffensiveToCaster) {
             const lsReductionSum = lsReductions.reduce((acc, e) => acc + (e.value || 0), 0);
             let netLs = Math.max(0, (ls.value || 0) - lsReductionSum);
             if (netLs > 0 && convertDamageToShield(c, netLs, turn, ['life_steal'])) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️✨ ${c.character.name} converteu ${netLs} de dano de roubo de vida em escudo!`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸âœ¨ ${c.character.name} converteu ${netLs} de dano de roubo de vida em escudo!`, type: 'buff' });
               addFloatingText(c.id, `+${netLs} ESCUDO (ROUBO)`, 'shield');
               netLs = 0;
             }
@@ -16083,13 +16075,13 @@ if (skill.redirectOffensiveToCaster) {
             if (netLs > 0 && lsCaster) {
               const healAmt = Math.min(netLs, (lsCaster.maxHealth || lsCaster.health) - lsCaster.health);
               lsCaster.health = Math.min(lsCaster.maxHealth || lsCaster.health, lsCaster.health + netLs);
-              newLogs.push({ id: Math.random().toString(), turn, message: `🧛 ${c.character.name} perdeu ${netLs} de vida por roubo de vida e ${lsCaster.character.name} recuperou ${healAmt} HP!`, type: 'damage' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ§› ${c.character.name} perdeu ${netLs} de vida por roubo de vida e ${lsCaster.character.name} recuperou ${healAmt} HP!`, type: 'damage' });
               addFloatingText(c.id, `-${netLs} HP (ROUBO DE VIDA)`, 'damage');
               addFloatingText(lsCaster.id, `+${healAmt} HP (ROUBO DE VIDA)`, 'effect');
             }
             if (c.health <= 0 && !hasImmortalEffect(c)) {
               c.isDead = true;
-              newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${c.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’€ ${c.character.name} CAIU EM BATALHA POR ROUBO DE VIDA!`, type: 'death' });
               addFloatingText(c.id, 'DERROTADO', 'damage');
             }
           }
@@ -16111,22 +16103,22 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `✨ ${c.character.name} regenerou +${amt} chakra elemental pelo efeito [${effect.name}]!`,
+            message: `âœ¨ ${c.character.name} regenerou +${amt} chakra elemental pelo efeito [${effect.name}]!`,
             type: 'chakra',
           });
           addFloatingText(c.id, `+${amt} CHAKRA (FLUXO)`, 'effect');
         });
 
-        // Apply continuous Chakra Drain effects (Dreno, Roubo, Remoção)
+        // Apply continuous Chakra Drain effects (Dreno, Roubo, RemoÃ§Ã£o)
         const drainChakraEffects = c.activeEffects.filter(e =>
           e.name.startsWith('Dreno de Chakra') ||
           e.name.startsWith('Roubo de Chakra') ||
-          e.name.startsWith('Remoção de Chakra')
+          e.name.startsWith('RemoÃ§Ã£o de Chakra')
         );
 
         drainChakraEffects.forEach(effect => {
           const amt = effect.value || 0;
-          const isRemov = effect.name.startsWith('Remoção');
+          const isRemov = effect.name.startsWith('RemoÃ§Ã£o');
           const victimSetter = name === 'Player' ? setPlayerChakra : setEnemyChakra;
           const thiefSetter = name === 'Player' ? setEnemyChakra : setPlayerChakra;
 
@@ -16156,15 +16148,15 @@ if (skill.redirectOffensiveToCaster) {
               newLogs.push({
                 id: Math.random().toString(),
                 turn,
-                message: `🌀 [${effect.name}] no estoque de ${name === 'Player' ? 'seu time' : 'oponente'}: ${affectedTypes.length} chakra (${affectedStr}) ${actionName}!`,
+                message: `ðŸŒ€ [${effect.name}] no estoque de ${name === 'Player' ? 'seu time' : 'oponente'}: ${affectedTypes.length} chakra (${affectedStr}) ${actionName}!`,
                 type: 'chakra',
               });
               addFloatingText(c.id, `-${affectedTypes.length} CHAKRA (${isRemov ? 'REMOVIDO' : 'DRENADO'})`, 'effect');
 
               if (name === 'Player') {
-                triggerChakraToast(`⚠️ [${effect.name}] drenou ${affectedTypes.length} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
+                triggerChakraToast(`âš ï¸ [${effect.name}] drenou ${affectedTypes.length} chakra (${affectedStr}) do estoque do seu time!`, 'lost');
               } else {
-                triggerChakraToast(`⚡ [${effect.name}] roubou ${affectedTypes.length} chakra (${affectedStr}) do estoque do oponente!`, 'stolen');
+                triggerChakraToast(`âš¡ [${effect.name}] roubou ${affectedTypes.length} chakra (${affectedStr}) do estoque do oponente!`, 'stolen');
               }
             }
             return uVictim;
@@ -16191,7 +16183,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💀 ${c.character.name} CAIU EM BATALHA!`,
+            message: `ðŸ’€ ${c.character.name} CAIU EM BATALHA!`,
             type: 'death',
           });
           playCustomSound('Death');
@@ -16247,21 +16239,21 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `👁️ [${skillName}] de ${casterCombatant.character.name} expirou e foi revelada para todos: Habilidade [${skillName}] foi usada.`,
+              message: `ðŸ‘ï¸ [${skillName}] de ${casterCombatant.character.name} expirou e foi revelada para todos: Habilidade [${skillName}] foi usada.`,
               type: 'buff',
             });
             addFloatingText(c.id, 'SKILL REVELADA', 'effect');
           });
         }
 
-        // Shield expiration (escudo com duração limitada)
+        // Shield expiration (escudo com duraÃ§Ã£o limitada)
         if (c.shieldExpiresTurn && turn >= c.shieldExpiresTurn) {
           if (c.shield > 0) {
             c.shield = 0;
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🛡️💨 O escudo de ${c.character.name} expirou!`,
+              message: `ðŸ›¡ï¸ðŸ’¨ O escudo de ${c.character.name} expirou!`,
               type: 'buff',
             });
             addFloatingText(c.id, 'ESCUDO EXPIRADO', 'shield');
@@ -16269,20 +16261,20 @@ if (skill.redirectOffensiveToCaster) {
           c.shieldExpiresTurn = undefined;
         }
 
-        // Restaura as habilidades originais quando a cópia de habilidades expira
+        // Restaura as habilidades originais quando a cÃ³pia de habilidades expira
         c.activeEffects.filter((e: ActiveEffect) => e.type === 'skill_copy' && e.duration <= 1).forEach(copyEff => {
           if (Array.isArray(copyEff.storedSkills) && copyEff.storedSkills.length > 0) {
             c.character.skills = JSON.parse(JSON.stringify(copyEff.storedSkills));
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🔄 ${c.character.name} recuperou suas habilidades ORIGINAIS (fim da cópia de [${copyEff.sourceSkillName || copyEff.name}])!`,
+              message: `ðŸ”„ ${c.character.name} recuperou suas habilidades ORIGINAIS (fim da cÃ³pia de [${copyEff.sourceSkillName || copyEff.name}])!`,
               type: 'system',
             });
             addFloatingText(c.id, 'SKILLS ORIGINAIS', 'effect');
           }
         });
 
-        // 💣 Contagem regressiva: quando a bomba (countdown_bomb) expira, o portador recebe o dano configurado
+        // ðŸ’£ Contagem regressiva: quando a bomba (countdown_bomb) expira, o portador recebe o dano configurado
         {
           const expiringBombs = c.activeEffects.filter(eff =>
             eff.type === 'countdown_bomb' && eff.duration === 1 && eff.duration < 99999
@@ -16302,8 +16294,8 @@ if (skill.redirectOffensiveToCaster) {
             }
             if (!dmgTarget || dmgTarget.isDead) return;
             if (originSkill && checkCombatantInvulnerable(dmgTarget, originSkill)) {
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${dmgTarget.character.name} está INVULNERÁVEL e não sofreu o dano da bomba de [${originSkill.name}]!`, type: 'buff' });
-              addFloatingText(dmgTarget.id, 'INVULNERÁVEL', 'invulnerable');
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${dmgTarget.character.name} estÃ¡ INVULNERÃVEL e nÃ£o sofreu o dano da bomba de [${originSkill.name}]!`, type: 'buff' });
+              addFloatingText(dmgTarget.id, 'INVULNERÃVEL', 'invulnerable');
               return;
             }
             const isDirect = dmgType === 'direct_damage' || dmgType === 'true' || dmgType === 'piercing';
@@ -16318,7 +16310,7 @@ if (skill.redirectOffensiveToCaster) {
             const typeKey = dmgType === 'damage' ? 'damage' : dmgType;
             if (hasDamageImmunity(dmgTarget, [typeKey, ...(originSkill ? getSkillCombatTypes(originSkill) : [])])) {
               consumeFirstHitOnlyImmunity(dmgTarget, [typeKey, ...(originSkill ? getSkillCombatTypes(originSkill) : [])]);
-              newLogs.push({ id: Math.random().toString(), turn, message: `🛡️ ${dmgTarget.character.name} é IMUNE a dano e não sofreu a bomba de [${bomb.sourceSkillName}].`, type: 'buff' });
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ›¡ï¸ ${dmgTarget.character.name} Ã© IMUNE a dano e nÃ£o sofreu a bomba de [${bomb.sourceSkillName}].`, type: 'buff' });
               addFloatingText(dmgTarget.id, 'IMUNE!', 'invulnerable');
               return;
             }
@@ -16330,17 +16322,17 @@ if (skill.redirectOffensiveToCaster) {
             }
             if (finalDamage > 0) {
               dmgTarget.health = hasImmortalEffect(dmgTarget) ? Math.max(1, dmgTarget.health - finalDamage) : Math.max(0, dmgTarget.health - finalDamage);
-              newLogs.push({ id: Math.random().toString(), turn, message: `💣 [EXPLODIU] A bomba de [${bomb.sourceSkillName}] explodiu em ${c.character.name} e ${dmgTarget.character.name} recebeu ${finalDamage} de dano${dmgType !== 'damage' ? ` (${dmgType})` : ''}!`, type: 'damage' });
-              addFloatingText(dmgTarget.id, `-${finalDamage} 💥`, 'damage');
+              newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’£ [EXPLODIU] A bomba de [${bomb.sourceSkillName}] explodiu em ${c.character.name} e ${dmgTarget.character.name} recebeu ${finalDamage} de dano${dmgType !== 'damage' ? ` (${dmgType})` : ''}!`, type: 'damage' });
+              addFloatingText(dmgTarget.id, `-${finalDamage} ðŸ’¥`, 'damage');
               if (dmgTarget.health === 0 && !dmgTarget.isDead) {
                 dmgTarget.isDead = true;
-                newLogs.push({ id: Math.random().toString(), turn, message: `💀 ${dmgTarget.character.name} foi derrotado pela bomba de [${bomb.sourceSkillName}]!`, type: 'system' });
+                newLogs.push({ id: Math.random().toString(), turn, message: `ðŸ’€ ${dmgTarget.character.name} foi derrotado pela bomba de [${bomb.sourceSkillName}]!`, type: 'system' });
               }
             }
           });
         }
 
-        // ⏭️ Invulnerabilidade ATRASADA: quando pending_invulnerable expira, vira invulnerabilidade real (Desvio)
+        // â­ï¸ Invulnerabilidade ATRASADA: quando pending_invulnerable expira, vira invulnerabilidade real (Desvio)
         {
           const expiringPending = c.activeEffects.filter(eff =>
             eff.type === 'pending_invulnerable' && eff.duration === 1 && eff.castTurn !== turn
@@ -16361,16 +16353,16 @@ if (skill.redirectOffensiveToCaster) {
             });
             newLogs.push({
               id: Math.random().toString(), turn,
-              message: `🌌 ${c.character.name} ficou INVULNERÁVEL (${formatInvulnerableSummary(pend.invulnerableTypes)}) por ${invDur} turno(s) — efeito atrasado de [${pend.sourceSkillName || pend.name}]!`,
+              message: `ðŸŒŒ ${c.character.name} ficou INVULNERÃVEL (${formatInvulnerableSummary(pend.invulnerableTypes)}) por ${invDur} turno(s) â€” efeito atrasado de [${pend.sourceSkillName || pend.name}]!`,
               type: 'buff',
             });
-            addFloatingText(c.id, 'INVULNERÁVEL', 'invulnerable');
+            addFloatingText(c.id, 'INVULNERÃVEL', 'invulnerable');
           });
         }
 
-        // 🔓 Liberação Atrasada: transições de fase no fim do turno.
-        //  - 'locked' → 'window' quando o bloqueio expira (abre a janela de liberação).
-        //  - 'window' → 'locked' quando a janela expira (skills voltam a ser bloqueadas até a skill ser reusada).
+        // ðŸ”“ LiberaÃ§Ã£o Atrasada: transiÃ§Ãµes de fase no fim do turno.
+        //  - 'locked' â†’ 'window' quando o bloqueio expira (abre a janela de liberaÃ§Ã£o).
+        //  - 'window' â†’ 'locked' quando a janela expira (skills voltam a ser bloqueadas atÃ© a skill ser reusada).
         c.activeEffects.forEach(eff => {
           if (eff.type !== 'custom' || !Array.isArray(eff.delayedUnlockSkills)) return;
           const willExpire = !(eff.castTurn === turn || eff.duration >= 99999) && (eff.duration - 1) <= 0;
@@ -16384,7 +16376,7 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔓 As skills ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} agora estão LIBERADAS por ${eff.duration} turno(s)!`,
+              message: `ðŸ”“ As skills ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} agora estÃ£o LIBERADAS por ${eff.duration} turno(s)!`,
               type: 'buff',
             });
             addFloatingText(c.id, 'SKILLS LIBERADAS', 'effect');
@@ -16397,7 +16389,7 @@ if (skill.redirectOffensiveToCaster) {
             newLogs.push({
               id: Math.random().toString(),
               turn,
-              message: `🔒 A janela terminou: ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} voltaram a ficar BLOQUEADAS!`,
+              message: `ðŸ”’ A janela terminou: ${eff.delayedUnlockSkills.map(s => `[${s}]`).join(', ')} de ${c.character.name} voltaram a ficar BLOQUEADAS!`,
               type: 'buff',
             });
             addFloatingText(c.id, 'SKILLS BLOQUEADAS', 'stun');
@@ -16414,7 +16406,7 @@ if (skill.redirectOffensiveToCaster) {
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `⏳ Cooldowns de ${c.character.name} continuam PARALISADOS por um efeito de paralisia!`,
+            message: `â³ Cooldowns de ${c.character.name} continuam PARALISADOS por um efeito de paralisia!`,
             type: 'system',
           });
           addFloatingText(c.id, 'COOLDOWNS PARALISADOS', 'stun');
@@ -16530,15 +16522,15 @@ if (skill.redirectOffensiveToCaster) {
     Target: 'Alvo Principal',
     Self: 'Conjurador (Mim)',
     Both: 'Ambos (Mim e Alvo)',
-    SelfAndAlly: 'Mim e um Aliado (à escolha)',
+    SelfAndAlly: 'Mim e um Aliado (Ã  escolha)',
     Ally: 'Aliado (Outra Pessoa)',
     AllAllies: 'Toda Minha Equipe',
     AllEnemies: 'Todos os Inimigos',
     AllLiving: 'Todos os Personagens Vivos',
-    AllNonInvulnerable: 'Todos os Não Invulneráveis',
-    AllInvulnerable: 'Todos os Invulneráveis',
-    OneInvulnerable: 'Um Personagem Invulnerável',
-    OneInvulnerableAlly: 'Um Aliado Invulnerável',
+    AllNonInvulnerable: 'Todos os NÃ£o InvulnerÃ¡veis',
+    AllInvulnerable: 'Todos os InvulnerÃ¡veis',
+    OneInvulnerable: 'Um Personagem InvulnerÃ¡vel',
+    OneInvulnerableAlly: 'Um Aliado InvulnerÃ¡vel',
     SelfAndAllEnemies: 'Mim e Todos os Inimigos',
   };
 
@@ -16555,7 +16547,7 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.blocksHealsWhileActive) {
       effects.push({
         label: 'Bloqueio de Cura',
-        value: '🚑 Enquanto este efeito estiver ativo, o portador NÃO pode ser curado',
+        value: 'ðŸš‘ Enquanto este efeito estiver ativo, o portador NÃƒO pode ser curado',
         color: 'text-rose-950 font-extrabold',
         targetLabel: 'Portador do Efeito'
       });
@@ -16564,7 +16556,7 @@ if (skill.redirectOffensiveToCaster) {
       const dmgStacksActive = !!(skill.damageStacksAsDuration && skill.damageStacksAsDurationType);
       const hasDmgDuration = (skill.damageDuration && skill.damageDuration > 1) || dmgStacksActive;
       const dmgDurInfo = hasDmgDuration
-        ? ` por ${dmgStacksActive ? `🔄 turnos = stacks de [${skill.damageStacksAsDurationType}] em mim` : fmtDur(skill.damageDuration)}`
+        ? ` por ${dmgStacksActive ? `ðŸ”„ turnos = stacks de [${skill.damageStacksAsDurationType}] em mim` : fmtDur(skill.damageDuration)}`
         : '';
       effects.push({
         label: 'Dano Normal',
@@ -16611,7 +16603,7 @@ if (skill.redirectOffensiveToCaster) {
       const blockDur = skill.stunTurns || 1;
       effects.push({
         label: 'Stun Ofensivo (Impedimento Ofensivo)',
-        value: `Bloqueia APENAS habilidades OFENSIVAS do alvo por ${fmtDur(blockDur)} (Habilidades amigáveis ou em si mesmo continuam liberadas)`,
+        value: `Bloqueia APENAS habilidades OFENSIVAS do alvo por ${fmtDur(blockDur)} (Habilidades amigÃ¡veis ou em si mesmo continuam liberadas)`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.stunTarget || skill.targetType, 'Alvo Principal')
       });
@@ -16619,16 +16611,16 @@ if (skill.redirectOffensiveToCaster) {
     if (skill.ignoreInvulnerable) {
       effects.push({
         label: 'Ignorar Invulnerabilidade',
-        value: 'Pode mirar e atingir inimigos invulneráveis mesmo com a invulnerabilidade ativa',
+        value: 'Pode mirar e atingir inimigos invulnerÃ¡veis mesmo com a invulnerabilidade ativa',
         color: 'text-cyan-950 font-extrabold',
         targetLabel: getTargetLabel(skill.targetType, 'Alvo Principal')
       });
     }
     if (skill.stunTurns && skill.stunTurns > 0) {
       const typesMap: Record<string, string> = {
-        physical: 'Físico',
+        physical: 'FÃ­sico',
         mental: 'Mental',
-        affliction: 'Aflição',
+        affliction: 'AfliÃ§Ã£o',
         chakra: 'Chakra'
       };
       const stunText = (skill.stunType && skill.stunType.length > 0)
@@ -16646,7 +16638,7 @@ if (skill.shieldVal && skill.shieldVal > 0) {
 const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       effects.push({
         label: 'Escudo (Shield)',
-        value: `+${skill.shieldVal} Escudo por ${shieldDurText}${skill.shieldStunImmunity ? ' (Imune a Stun enquanto durar)' : ''}${skill.shieldMaxVal && skill.shieldMaxVal > 0 ? ` (Limite Máx: ${skill.shieldMaxVal})` : ''}`,
+        value: `+${skill.shieldVal} Escudo por ${shieldDurText}${skill.shieldStunImmunity ? ' (Imune a Stun enquanto durar)' : ''}${skill.shieldMaxVal && skill.shieldMaxVal > 0 ? ` (Limite MÃ¡x: ${skill.shieldMaxVal})` : ''}`,
         color: 'text-blue-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -16661,8 +16653,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     }
     if (skill.damageReductionVal && skill.damageReductionVal > 0) {
       effects.push({
-        label: 'Redução de Dano',
-        value: `-${skill.damageReductionVal} de Dano Recebido por ${skill.damageReductionStacksAsDuration && skill.damageReductionStacksType ? `🔄 turnos = stacks de [${skill.damageReductionStacksType}] em mim (mín. 1T)` : fmtDur(skill.damageReductionDuration)}`,
+        label: 'ReduÃ§Ã£o de Dano',
+        value: `-${skill.damageReductionVal} de Dano Recebido por ${skill.damageReductionStacksAsDuration && skill.damageReductionStacksType ? `ðŸ”„ turnos = stacks de [${skill.damageReductionStacksType}] em mim (mÃ­n. 1T)` : fmtDur(skill.damageReductionDuration)}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -16678,7 +16670,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (skill.friendlyDamageVal && skill.friendlyDamageVal > 0) {
       effects.push({
         label: 'Sofrer Dano',
-        value: `-${skill.friendlyDamageVal} de ${skill.friendlyDamageType === 'direct_damage' ? 'Dano Direto' : skill.friendlyDamageType === 'dot' ? 'Queimadura' : skill.friendlyDamageType === 'bleeding' ? 'Sangramento' : skill.friendlyDamageType === 'affliction' ? 'Aflição' : 'Dano'} por ${fmtDur(skill.friendlyDamageDuration)}${skill.friendlyDamageCantKill ? ' (🚫☠️ não pode matar)' : ''}`,
+        value: `-${skill.friendlyDamageVal} de ${skill.friendlyDamageType === 'direct_damage' ? 'Dano Direto' : skill.friendlyDamageType === 'dot' ? 'Queimadura' : skill.friendlyDamageType === 'bleeding' ? 'Sangramento' : skill.friendlyDamageType === 'affliction' ? 'AfliÃ§Ã£o' : 'Dano'} por ${fmtDur(skill.friendlyDamageDuration)}${skill.friendlyDamageCantKill ? ' (ðŸš«â˜ ï¸ nÃ£o pode matar)' : ''}`,
         color: 'text-violet-950 font-extrabold',
         targetLabel: getTargetLabel(skill.friendlyDamageTarget, 'Conjurador (Mim)')
       });
@@ -16688,7 +16680,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         if (!rule.stackType || !(rule.shieldPerStack > 0)) return;
         effects.push({
           label: 'Escudo por Stack',
-          value: `+${rule.shieldPerStack} de escudo por cada stack de [${rule.stackType}] que eu possuir${rule.resetStackOnUse ? ` (♻️ contagem volta para ${rule.resetStacksTo ?? 1}x ao usar)` : ''}`,
+          value: `+${rule.shieldPerStack} de escudo por cada stack de [${rule.stackType}] que eu possuir${rule.resetStackOnUse ? ` (â™»ï¸ contagem volta para ${rule.resetStacksTo ?? 1}x ao usar)` : ''}`,
           color: 'text-cyan-950 font-extrabold',
           targetLabel: 'Conjurador (Mim)'
         });
@@ -16699,7 +16691,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         if (!rule.activeSkillName || rule.damageBoost <= 0) return;
         const typeLabel = rule.damageType === 'direct_damage' ? 'Dano Direto'
           : rule.damageType === 'piercing' ? 'Dano Perfurante'
-          : rule.damageType === 'affliction' ? 'Dano de Aflição'
+          : rule.damageType === 'affliction' ? 'Dano de AfliÃ§Ã£o'
           : rule.damageType === 'bleeding' ? 'Dano de Sangramento'
           : rule.damageType === 'dot' ? 'DoT'
           : 'Dano';
@@ -16718,10 +16710,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       const bType = skill.missingHpBonusType === 'direct' ? 'Dano Direto'
         : skill.missingHpBonusType === 'dot' ? 'DoT (Queima)'
         : skill.missingHpBonusType === 'bleeding' ? 'Sangramento'
-        : skill.missingHpBonusType === 'affliction' ? 'Aflição'
+        : skill.missingHpBonusType === 'affliction' ? 'AfliÃ§Ã£o'
         : 'Dano';
       effects.push({
-        label: 'Dano Bônus p/ HP Perdido',
+        label: 'Dano BÃ´nus p/ HP Perdido',
         value: `Dano Base (${skill.damage || 0}) + ${skill.bonusDamagePerMissingHp} de ${bType} a cada ${step} de HP perdido (${srcLabel})`,
         color: 'text-rose-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageTarget, 'Alvo Principal')
@@ -16731,7 +16723,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       const typeLabel = skill.missingHpDamageType === 'direct' ? 'Dano Direto'
         : skill.missingHpDamageType === 'dot' ? 'DoT (Queima)'
         : skill.missingHpDamageType === 'bleeding' ? 'Sangramento'
-        : skill.missingHpDamageType === 'affliction' ? 'Aflição'
+        : skill.missingHpDamageType === 'affliction' ? 'AfliÃ§Ã£o'
         : 'Dano Normal';
       effects.push({
         label: 'Dano = HP Perdido',
@@ -16745,12 +16737,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         if (!rule.damage || rule.damage <= 0) return;
         const typeLabel = rule.damageType === 'direct_damage' ? 'Dano Direto'
           : rule.damageType === 'piercing' ? 'Dano Perfurante'
-          : rule.damageType === 'affliction' ? 'Dano de Aflição'
+          : rule.damageType === 'affliction' ? 'Dano de AfliÃ§Ã£o'
           : rule.damageType === 'bleeding' ? 'Sangramento'
           : rule.damageType === 'dot' ? 'DoT'
           : 'Dano';
         effects.push({
-          label: 'Punição por Habilidade',
+          label: 'PuniÃ§Ã£o por Habilidade',
           value: `Sofre ${rule.damage} de ${typeLabel} a cada skill usada por ${fmtDur(rule.duration)}`,
           color: 'text-amber-950 font-extrabold',
           targetLabel: getTargetLabel(rule.target, 'Inimigo (Alvo)')
@@ -16759,7 +16751,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     }
     if (skill.dotVal && skill.dotVal > 0) {
       effects.push({
-        label: 'Dano Contínuo (DoT)',
+        label: 'Dano ContÃ­nuo (DoT)',
         value: `${skill.dotVal} de dano por turno por ${fmtDur(skill.dotDuration)}`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.dotTarget, 'Alvo Principal')
@@ -16768,31 +16760,31 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (skill.bleedingVal && skill.bleedingVal > 0) {
       effects.push({
         label: 'Sangramento (Bleeding)',
-        value: `${skill.bleedingVal} de dano por turno por ${fmtDur(skill.bleedingDuration)}${(skill.bleedingDelay || 0) > 0 ? ` (só a partir de ${fmtDur(skill.bleedingDelay)})` : ''}`,
+        value: `${skill.bleedingVal} de dano por turno por ${fmtDur(skill.bleedingDuration)}${(skill.bleedingDelay || 0) > 0 ? ` (sÃ³ a partir de ${fmtDur(skill.bleedingDelay)})` : ''}`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.bleedingTarget, 'Alvo Principal')
       });
     }
     if (skill.afflictionVal && skill.afflictionVal > 0) {
       effects.push({
-        label: 'Aflição (Aflicção)',
-        value: `${skill.afflictionVal} de dano por turno por ${fmtDur(skill.afflictionDuration)}${(skill.afflictionDelay || 0) > 0 ? ` (só a partir de ${fmtDur(skill.afflictionDelay)})` : ''}`,
+        label: 'AfliÃ§Ã£o (AflicÃ§Ã£o)',
+        value: `${skill.afflictionVal} de dano por turno por ${fmtDur(skill.afflictionDuration)}${(skill.afflictionDelay || 0) > 0 ? ` (sÃ³ a partir de ${fmtDur(skill.afflictionDelay)})` : ''}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.afflictionTarget, 'Alvo Principal')
       });
     }
 
-    // Informação: Vínculo de Morte (Death Link)
+    // InformaÃ§Ã£o: VÃ­nculo de Morte (Death Link)
     if ((skill.deathLinkDuration || 0) > 0) {
       effects.push({
-        label: '💞 Vínculo de Morte',
-        value: `Por ${skill.deathLinkDuration === 99999 ? '∞' : fmtDur(skill.deathLinkDuration)}, se o conjurador OU o alvo morrer, o outro também morre.`,
+        label: 'ðŸ’ž VÃ­nculo de Morte',
+        value: `Por ${skill.deathLinkDuration === 99999 ? 'âˆž' : fmtDur(skill.deathLinkDuration)}, se o conjurador OU o alvo morrer, o outro tambÃ©m morre.`,
         color: 'text-rose-950 font-extrabold',
         targetLabel: 'Conjurador + Alvo',
       });
     }
 
-    // Informação: Skill reduz dano do inimigo (damageDebuff) - Ex: Parasite do Shino
+    // InformaÃ§Ã£o: Skill reduz dano do inimigo (damageDebuff) - Ex: Parasite do Shino
     if (skill.damageDebuffVal && skill.damageDebuffVal > 0) {
       effects.push({
         label: 'Reduz Dano do Inimigo',
@@ -16802,7 +16794,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação: Skill torna o inimigo vulnerável (damage_vulnerability)
+    // InformaÃ§Ã£o: Skill torna o inimigo vulnerÃ¡vel (damage_vulnerability)
     if (skill.damageVulnerabilityVal && skill.damageVulnerabilityVal > 0) {
       effects.push({
         label: 'Vulnerabilidade de Classe',
@@ -16835,9 +16827,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       const d2sTypesText = skill.damageToShieldTypes && skill.damageToShieldTypes.length > 0
         ? skill.damageToShieldTypes.join(', ')
         : 'Todos os tipos';
-      const d2sFirstHitText = skill.damageToShieldFirstHitOnly ? ' (só o 1º dano)' : '';
+      const d2sFirstHitText = skill.damageToShieldFirstHitOnly ? ' (sÃ³ o 1Âº dano)' : '';
       effects.push({
-        label: 'Conversão de Dano em Escudo',
+        label: 'ConversÃ£o de Dano em Escudo',
         value: `O dano recebido (${d2sTypesText})${d2sFirstHitText} vira escudo${d2sShieldText} durante ${fmtDur(skill.damageToShieldDuration)}`,
         color: 'text-emerald-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageToShieldTarget, 'Alvo Principal')
@@ -16847,7 +16839,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       const immTypesText = skill.damageImmunityTypes && skill.damageImmunityTypes.length > 0
         ? skill.damageImmunityTypes.join(', ')
         : 'Todos os tipos';
-      const immFirstHitText = skill.damageImmunityFirstHitOnly ? ' (só o 1º dano)' : '';
+      const immFirstHitText = skill.damageImmunityFirstHitOnly ? ' (sÃ³ o 1Âº dano)' : '';
       effects.push({
         label: 'Imunidade a Dano',
         value: `Imune ao dano (${immTypesText})${immFirstHitText} por ${fmtDur(skill.damageImmunityDuration)}`,
@@ -16865,31 +16857,31 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     }
     if (skill.cannotBeInvulnerableDuration && skill.cannotBeInvulnerableDuration > 0) {
       effects.push({
-        label: 'Incapaz de Ficar Invulnerável',
-        value: `Incapaz de ficar invulnerável por ${fmtDur(skill.cannotBeInvulnerableDuration)}`,
+        label: 'Incapaz de Ficar InvulnerÃ¡vel',
+        value: `Incapaz de ficar invulnerÃ¡vel por ${fmtDur(skill.cannotBeInvulnerableDuration)}`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cannotBeInvulnerableTarget, 'Alvo Principal')
       });
     }
     if (skill.cannotReceiveFriendlyDuration && skill.cannotReceiveFriendlyDuration > 0) {
       effects.push({
-        label: 'Incapaz de Receber Skills Amigáveis',
-        value: `Incapaz de receber habilidades amigáveis por ${fmtDur(skill.cannotReceiveFriendlyDuration)}`,
+        label: 'Incapaz de Receber Skills AmigÃ¡veis',
+        value: `Incapaz de receber habilidades amigÃ¡veis por ${fmtDur(skill.cannotReceiveFriendlyDuration)}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.cannotReceiveFriendlyTarget, 'Alvo Principal')
       });
     }
     if (skill.negateFriendlyDuration && skill.negateFriendlyDuration > 0) {
       effects.push({
-        label: 'Anulação de Efeitos Amigáveis',
-        value: `TODOS os efeitos amigáveis (buffs, invulnerabilidade, redução de dano, curas) são ignorados por ${fmtDur(skill.negateFriendlyDuration)}`,
+        label: 'AnulaÃ§Ã£o de Efeitos AmigÃ¡veis',
+        value: `TODOS os efeitos amigÃ¡veis (buffs, invulnerabilidade, reduÃ§Ã£o de dano, curas) sÃ£o ignorados por ${fmtDur(skill.negateFriendlyDuration)}`,
         color: 'text-rose-900 font-extrabold',
         targetLabel: getTargetLabel(skill.negateFriendlyTarget, 'Alvo Principal')
       });
     }
     if (skill.chakraCostIncreaseDuration && skill.chakraCostIncreaseDuration > 0 && skill.chakraCostIncreaseTypes && skill.chakraCostIncreaseTypes.length > 0) {
-      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
-      const skillLbl: Record<string, string> = { physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra', ranged: 'A distancia', friendly: 'Amigável' };
+      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'AleatÃ³rio' };
+      const skillLbl: Record<string, string> = { physical: 'FÃ­sico', mental: 'Mental', affliction: 'AfliÃ§Ã£o', chakra: 'Chakra', ranged: 'A distancia', friendly: 'AmigÃ¡vel' };
       const ctLabel = (skill.chakraCostIncreaseTypes || []).map(ct => chakraLbl[ct] || ct).join(' + ');
       const stLabel = (skill.chakraCostIncreaseSkillTypes || []).map(st => skillLbl[st] || st).join(' + ');
       effects.push({
@@ -16900,7 +16892,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
     if (skill.chakraCostReduceRules && skill.chakraCostReduceRules.length > 0) {
-      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Aleatório' };
+      const chakraLbl: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'AleatÃ³rio' };
       skill.chakraCostReduceRules.forEach(rule => {
         if (!rule.chakraTypes || rule.chakraTypes.length === 0 || (rule.amount || 0) <= 0 || (rule.durationTurns || 0) <= 0) return;
         const ctLabel = rule.chakraTypes.map(ct => chakraLbl[ct] || ct).join(' + ');
@@ -16914,8 +16906,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     }
     if (skill.revealInvisibleDuration && skill.revealInvisibleDuration > 0) {
       effects.push({
-        label: 'Revelar Skills Invisíveis',
-        value: `Revela habilidades e efeitos invisíveis por ${fmtDur(skill.revealInvisibleDuration)}`,
+        label: 'Revelar Skills InvisÃ­veis',
+        value: `Revela habilidades e efeitos invisÃ­veis por ${fmtDur(skill.revealInvisibleDuration)}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.revealInvisibleTarget, 'Alvo Principal')
       });
@@ -16930,9 +16922,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     }
     if (skill.damageImmunityDuration && skill.damageImmunityDuration > 0) {
       effects.push({
-        label: skill.damageImmunityFirstHitOnly ? 'Imunidade a Dano (1º Dano)' : 'Imunidade a Dano',
+        label: skill.damageImmunityFirstHitOnly ? 'Imunidade a Dano (1Âº Dano)' : 'Imunidade a Dano',
         value: skill.damageImmunityFirstHitOnly
-          ? `Imune apenas ao PRIMEIRO dano recebido (a imunidade é consumida após bloquear)`
+          ? `Imune apenas ao PRIMEIRO dano recebido (a imunidade Ã© consumida apÃ³s bloquear)`
           : `Imune a todo dano por ${fmtDur(skill.damageImmunityDuration)}`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.damageImmunityTarget, 'Alvo Principal')
@@ -16941,7 +16933,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (skill.gainChakra && skill.gainChakra > 0) {
       const gcTypes = skill.gainChakraTypes || [];
       const gcLabel = gcTypes.includes('Existing') ? ' (dos tipos existentes)' :
-        gcTypes.includes('Rand') || gcTypes.length === 0 ? ' (aleatório)' :
+        gcTypes.includes('Rand') || gcTypes.length === 0 ? ' (aleatÃ³rio)' :
         gcTypes.filter(t => ['Tai', 'Nin', 'Gen', 'Blood'].includes(t)).join('+');
       effects.push({
         label: 'Gerar Chakra',
@@ -16961,7 +16953,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (skill.removeChakra && skill.removeChakra > 0) {
       effects.push({
         label: 'Remover Chakra',
-        value: `Remove ${skill.removeChakra} chakra${skill.removeChakraMode === 'choice' ? ' (Escolha)' : ' (Aleatório)'} por ${fmtDur(skill.removeChakraDuration)}`,
+        value: `Remove ${skill.removeChakra} chakra${skill.removeChakraMode === 'choice' ? ' (Escolha)' : ' (AleatÃ³rio)'} por ${fmtDur(skill.removeChakraDuration)}`,
         color: 'text-amber-950 font-extrabold',
         targetLabel: getTargetLabel(skill.removeChakraTarget, 'Alvo Principal')
       });
@@ -16969,7 +16961,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (skill.stealChakra && skill.stealChakra > 0) {
       effects.push({
         label: 'Roubar Chakra',
-        value: `Rouba ${skill.stealChakra} chakra aleatório por ${fmtDur(skill.stealChakraDuration)}`,
+        value: `Rouba ${skill.stealChakra} chakra aleatÃ³rio por ${fmtDur(skill.stealChakraDuration)}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.stealChakraTarget, 'Alvo Principal')
       });
@@ -17003,7 +16995,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       const invulSummary = formatInvulnerableSummary(skill.invulnerableTypes);
       effects.push({
         label: 'Invulnerabilidade (Desvio)',
-        value: `Fica invulnerável ${invulSummary}${skill.invulnerableClasses && skill.invulnerableClasses.length > 0 ? ` (classes: ${skill.invulnerableClasses.join(', ')})` : ''} por ${fmtDur(skill.invulnerableDuration)}`,
+        value: `Fica invulnerÃ¡vel ${invulSummary}${skill.invulnerableClasses && skill.invulnerableClasses.length > 0 ? ` (classes: ${skill.invulnerableClasses.join(', ')})` : ''} por ${fmtDur(skill.invulnerableDuration)}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.invulnerableTarget, 'Conjurador (Mim)')
       });
@@ -17013,7 +17005,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       const it = Math.max(1, skill.delayedInvulnerableTurns || 1);
       effects.push({
         label: 'Invulnerabilidade Atrasada',
-        value: `Daqui a ${it} turno(s), fica invulnerável ${invulSummary}${skill.invulnerableClasses && skill.invulnerableClasses.length > 0 ? ` (classes: ${skill.invulnerableClasses.join(', ')})` : ''} por ${fmtDur(skill.delayedInvulnerableDuration)}`,
+        value: `Daqui a ${it} turno(s), fica invulnerÃ¡vel ${invulSummary}${skill.invulnerableClasses && skill.invulnerableClasses.length > 0 ? ` (classes: ${skill.invulnerableClasses.join(', ')})` : ''} por ${fmtDur(skill.delayedInvulnerableDuration)}`,
         color: 'text-indigo-950 font-extrabold',
         targetLabel: getTargetLabel(skill.invulnerableTarget, 'Conjurador (Mim)')
       });
@@ -17021,7 +17013,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
     if ((skill.immortalDuration && skill.immortalDuration > 0) || (skill.immortalHpThreshold && skill.immortalHpThreshold > 0)) {
       const conditionStr = skill.immortalHpThreshold && skill.immortalHpThreshold > 0
-        ? (skill.immortalImmediate ? `Ao usar ou se HP ≤ ${skill.immortalHpThreshold}` : `Se HP ≤ ${skill.immortalHpThreshold}`)
+        ? (skill.immortalImmediate ? `Ao usar ou se HP â‰¤ ${skill.immortalHpThreshold}` : `Se HP â‰¤ ${skill.immortalHpThreshold}`)
         : 'Ao usar a habilidade';
       effects.push({
         label: 'Imortalidade',
@@ -17033,8 +17025,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
     if (skill.reviveHp && skill.reviveHp > 0) {
       effects.push({
-        label: 'Ressurreição',
-        value: `Stack passiva: cada uso adiciona +1 ressurreição; ao morrer, 1 é consumida e ressuscita com ${skill.reviveHp} de vida`,
+        label: 'RessurreiÃ§Ã£o',
+        value: `Stack passiva: cada uso adiciona +1 ressurreiÃ§Ã£o; ao morrer, 1 Ã© consumida e ressuscita com ${skill.reviveHp} de vida`,
         color: 'text-violet-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -17042,7 +17034,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
     if (skill.invisible && skill.invisibleDuration && skill.invisibleDuration > 0) {
       effects.push({
-        label: 'Efeitos Invisíveis',
+        label: 'Efeitos InvisÃ­veis',
         value: `Efeitos ocultos do oponente por ${fmtDur(skill.invisibleDuration)}`,
         color: 'text-purple-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
@@ -17053,8 +17045,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       effects.push({
         label: 'Contra-Ataque (Anular)',
         value: skill.counterAttackUntilTriggered
-          ? `Marca o alvo até de fato contra-atacar (∞ turnos, sai ao acionar) ${skill.counterAttackType === 'attacker' ? 'nas skills ofensivas usadas por ele' : 'nas skills recebidas por ele'}${skill.counterAttackClasses && skill.counterAttackClasses.length > 0 ? ` (apenas classes: ${skill.counterAttackClasses.join(', ')})` : ''}`
-          : `${skill.counterAttackMode === 'all' ? 'Anula TODAS as habilidades' : 'Anula somente a 1ª habilidade'} ${skill.counterAttackType === 'attacker' ? 'ofensivas usadas pelo alvo' : 'recebidas pelo alvo'} por ${fmtDur(skill.counterAttackDuration)}${skill.counterAttackClasses && skill.counterAttackClasses.length > 0 ? ` (apenas classes: ${skill.counterAttackClasses.join(', ')})` : ''}`,
+          ? `Marca o alvo atÃ© de fato contra-atacar (âˆž turnos, sai ao acionar) ${skill.counterAttackType === 'attacker' ? 'nas skills ofensivas usadas por ele' : 'nas skills recebidas por ele'}${skill.counterAttackClasses && skill.counterAttackClasses.length > 0 ? ` (apenas classes: ${skill.counterAttackClasses.join(', ')})` : ''}`
+          : `${skill.counterAttackMode === 'all' ? 'Anula TODAS as habilidades' : 'Anula somente a 1Âª habilidade'} ${skill.counterAttackType === 'attacker' ? 'ofensivas usadas pelo alvo' : 'recebidas pelo alvo'} por ${fmtDur(skill.counterAttackDuration)}${skill.counterAttackClasses && skill.counterAttackClasses.length > 0 ? ` (apenas classes: ${skill.counterAttackClasses.join(', ')})` : ''}`,
         color: 'text-red-950 font-extrabold',
         targetLabel: getTargetLabel(skill.counterAttackTarget, 'Conjurador (Mim)')
       });
@@ -17062,18 +17054,18 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (skill.reflect) {
       effects.push({
         label: 'Reflect',
-        value: `Reflete a próxima habilidade recebida (${skill.reflectMode === 'RandomAlly' ? 'para um aliado aleatório' : 'de volta pro atacante'}) por ${fmtDur(skill.reflectDuration)}`,
+        value: `Reflete a prÃ³xima habilidade recebida (${skill.reflectMode === 'RandomAlly' ? 'para um aliado aleatÃ³rio' : 'de volta pro atacante'}) por ${fmtDur(skill.reflectDuration)}`,
         color: 'text-teal-950 font-extrabold',
         targetLabel: getTargetLabel(skill.reflectTarget, 'Conjurador (Mim)')
       });
     }
 
-    // Informação de redução de custo quando Parasite estiver ativo (costRules)
+    // InformaÃ§Ã£o de reduÃ§Ã£o de custo quando Parasite estiver ativo (costRules)
     if (skill.costRules && skill.costRules.length > 0) {
       skill.costRules.forEach(rule => {
         if (!rule.activeSkillName) return;
         if (rule.overrideCost !== undefined) {
-          const costStr = rule.overrideCost.length > 0 ? rule.overrideCost.join(', ') : 'GRÁTIS (0 Custo)';
+          const costStr = rule.overrideCost.length > 0 ? rule.overrideCost.join(', ') : 'GRÃTIS (0 Custo)';
           effects.push({
             label: `Novo Custo (${rule.activeSkillName})`,
             value: `Custo alterado para [${costStr}] quando ${rule.activeSkillName} estiver ativo`,
@@ -17084,7 +17076,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           const chakraType = rule.reduceType || rule.reduceSpecificType || 'Rand';
           effects.push({
             label: `Custo Reduzido (${rule.activeSkillName})`,
-            value: `Custa ${rule.reduceAmount} ${chakraType === 'Rand' ? 'Chakra Aleatório' : chakraType} a menos enquanto ${rule.activeSkillName} estiver ativo`,
+            value: `Custa ${rule.reduceAmount} ${chakraType === 'Rand' ? 'Chakra AleatÃ³rio' : chakraType} a menos enquanto ${rule.activeSkillName} estiver ativo`,
             color: 'text-emerald-950 font-extrabold',
             targetLabel: 'Condicional'
           });
@@ -17092,14 +17084,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de remoção de chakra do estoque inimigo (chakraRemoveRules)
+    // InformaÃ§Ã£o de remoÃ§Ã£o de chakra do estoque inimigo (chakraRemoveRules)
     if (skill.chakraRemoveRules && skill.chakraRemoveRules.length > 0) {
       skill.chakraRemoveRules.forEach(rule => {
         if (!rule.activeSkillName) return;
         if (rule.removeAmount && rule.removeAmount > 0) {
           effects.push({
             label: `Remover Chakra (${rule.activeSkillName})`,
-            value: `Remove ${rule.removeAmount} chakra aleatório do estoque inimigo quando ${rule.activeSkillName} estiver ativo`,
+            value: `Remove ${rule.removeAmount} chakra aleatÃ³rio do estoque inimigo quando ${rule.activeSkillName} estiver ativo`,
             color: 'text-purple-950 font-extrabold',
             targetLabel: 'Condicional'
           });
@@ -17107,14 +17099,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de roubo de chakra do estoque inimigo (chakraStealRules)
+    // InformaÃ§Ã£o de roubo de chakra do estoque inimigo (chakraStealRules)
     if (skill.chakraStealRules && skill.chakraStealRules.length > 0) {
       skill.chakraStealRules.forEach(rule => {
         if (!rule.activeSkillName) return;
         if (rule.chakraAmount && rule.chakraAmount > 0) {
           effects.push({
             label: `Roubar Chakra (${rule.activeSkillName})`,
-            value: `Rouba ${rule.chakraAmount} chakra aleatório do estoque inimigo quando ${rule.activeSkillName} estiver ativo${rule.ignoreInvulnerable ? ' (ignora invulnerabilidade)' : ''}`,
+            value: `Rouba ${rule.chakraAmount} chakra aleatÃ³rio do estoque inimigo quando ${rule.activeSkillName} estiver ativo${rule.ignoreInvulnerable ? ' (ignora invulnerabilidade)' : ''}`,
             color: 'text-cyan-950 font-extrabold',
             targetLabel: 'Condicional'
           });
@@ -17122,20 +17114,20 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de execução instantânea (killWhenActiveRules)
+    // InformaÃ§Ã£o de execuÃ§Ã£o instantÃ¢nea (killWhenActiveRules)
     if (skill.killWhenActiveRules && skill.killWhenActiveRules.length > 0) {
       skill.killWhenActiveRules.forEach(rule => {
         if (!rule.activeSkillName) return;
         effects.push({
-          label: `Execução Instantânea (${rule.activeSkillName})`,
-          value: `MATA instantaneamente o Oponente que estiver com ${rule.activeSkillName} ativo nele${rule.killHpThreshold && rule.killHpThreshold > 0 ? ` e a vida dele estiver com HP ≤ ${rule.killHpThreshold}` : ''}${rule.killScope === 'self_and_target' ? ' — e VOCÊ também morre (sacrifício)' : ''}`,
+          label: `ExecuÃ§Ã£o InstantÃ¢nea (${rule.activeSkillName})`,
+          value: `MATA instantaneamente o Oponente que estiver com ${rule.activeSkillName} ativo nele${rule.killHpThreshold && rule.killHpThreshold > 0 ? ` e a vida dele estiver com HP â‰¤ ${rule.killHpThreshold}` : ''}${rule.killScope === 'self_and_target' ? ' â€” e VOCÃŠ tambÃ©m morre (sacrifÃ­cio)' : ''}`,
           color: 'text-red-950 font-extrabold',
           targetLabel: 'Condicional'
         });
       });
     }
 
-    // Informação de ignorar invulnerabilidade condicional (ignoreInvulnWhenActiveRules)
+    // InformaÃ§Ã£o de ignorar invulnerabilidade condicional (ignoreInvulnWhenActiveRules)
     if (skill.ignoreInvulnWhenActiveRules && skill.ignoreInvulnWhenActiveRules.length > 0) {
       skill.ignoreInvulnWhenActiveRules.forEach(rule => {
         if (!rule.activeSkillName) return;
@@ -17149,7 +17141,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de stun condicional (stunWhenActiveRules)
+    // InformaÃ§Ã£o de stun condicional (stunWhenActiveRules)
     if (skill.stunWhenActiveRules && skill.stunWhenActiveRules.length > 0) {
       skill.stunWhenActiveRules.forEach(rule => {
         if (!rule.activeSkillName) return;
@@ -17167,7 +17159,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de escudo condicional (shieldWhenActiveRules)
+    // InformaÃ§Ã£o de escudo condicional (shieldWhenActiveRules)
     if (skill.shieldWhenActiveRules && skill.shieldWhenActiveRules.length > 0) {
       skill.shieldWhenActiveRules.forEach(rule => {
         if (!rule.activeSkillName) return;
@@ -17183,16 +17175,16 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de contra-ataque/reflexo condicional (noCounterReflectWhenActiveRules)
+    // InformaÃ§Ã£o de contra-ataque/reflexo condicional (noCounterReflectWhenActiveRules)
     if (skill.noCounterReflectWhenActiveRules && skill.noCounterReflectWhenActiveRules.length > 0) {
       skill.noCounterReflectWhenActiveRules.forEach(rule => {
         if (!rule.activeSkillName) return;
         const where = rule.activeOn === 'self' ? 'em MIM' : 'no Oponente';
         const blockText = rule.noCounter && rule.noReflect
-          ? 'não pode ser CONTRA-ATACADA nem REFLETIDA'
+          ? 'nÃ£o pode ser CONTRA-ATACADA nem REFLETIDA'
           : rule.noCounter
-            ? 'não pode ser CONTRA-ATACADA'
-            : 'não pode ser REFLETIDA';
+            ? 'nÃ£o pode ser CONTRA-ATACADA'
+            : 'nÃ£o pode ser REFLETIDA';
         effects.push({
           label: `Sem Contra-Ataque/Reflexo Condicional (${rule.activeSkillName})`,
           value: `[${skill.name}] ${blockText} enquanto [${rule.activeSkillName}] estiver ativo ${where}`,
@@ -17202,7 +17194,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de dano bônus no contra-ataque (counterSuccessDamageRules)
+    // InformaÃ§Ã£o de dano bÃ´nus no contra-ataque (counterSuccessDamageRules)
     if (skill.counterSuccessDamageRules && skill.counterSuccessDamageRules.length > 0) {
       const typeLabels: Record<string, string> = {
         damage: 'Dano',
@@ -17211,13 +17203,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         piercing: 'Dano Direto',
         dot: 'Queimadura',
         bleeding: 'Sangramento',
-        affliction: 'Aflição',
+        affliction: 'AfliÃ§Ã£o',
       };
       skill.counterSuccessDamageRules.forEach(r => {
         if (!(r.damage || 0) || (r.damage || 0) <= 0) return;
         const tLabel = typeLabels[r.damageType || 'direct_damage'] || 'Dano Direto';
         effects.push({
-          label: 'Dano Bônus no Contra-Ataque',
+          label: 'Dano BÃ´nus no Contra-Ataque',
           value: `Quando o CONTRA-ATAQUE desta skill funciona, o inimigo que atacou recebe +${r.damage} de ${tLabel}`,
           color: 'text-cyan-950 font-extrabold',
           targetLabel: 'Contra-Ataque'
@@ -17225,13 +17217,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de buff de dano no contra-ataque (counterSuccessBuffRules)
+    // InformaÃ§Ã£o de buff de dano no contra-ataque (counterSuccessBuffRules)
     if (skill.counterSuccessBuffRules && skill.counterSuccessBuffRules.length > 0) {
       const buffClassLabels: Record<string, string> = {
-        physical: 'Físico',
+        physical: 'FÃ­sico',
         chakra: 'Chakra',
         mental: 'Mental',
-        affliction: 'Aflição',
+        affliction: 'AfliÃ§Ã£o',
       };
       skill.counterSuccessBuffRules.forEach(r => {
         if (!(r.buffValue || 0) || (r.buffValue || 0) <= 0) return;
@@ -17248,13 +17240,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de stun no contra-ataque (counterSuccessStunRules)
+    // InformaÃ§Ã£o de stun no contra-ataque (counterSuccessStunRules)
     if (skill.counterSuccessStunRules && skill.counterSuccessStunRules.length > 0) {
       const classLabels: Record<string, string> = {
-        physical: 'Físico',
+        physical: 'FÃ­sico',
         chakra: 'Chakra',
         mental: 'Mental',
-        affliction: 'Aflição',
+        affliction: 'AfliÃ§Ã£o',
       };
       skill.counterSuccessStunRules.forEach(r => {
         if (!(r.stunTurns || 0) || (r.stunTurns || 0) <= 0) return;
@@ -17269,7 +17261,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de stack no contra-ataque (counterSuccessStackRules)
+    // InformaÃ§Ã£o de stack no contra-ataque (counterSuccessStackRules)
     if (skill.counterSuccessStackRules && skill.counterSuccessStackRules.length > 0) {
       skill.counterSuccessStackRules.forEach(r => {
         if (!(r.stackName || '').trim()) return;
@@ -17283,16 +17275,16 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de dano quando esta skill for contra-atacada (onCounteredDamageRules)
+    // InformaÃ§Ã£o de dano quando esta skill for contra-atacada (onCounteredDamageRules)
     if (skill.onCounteredDamageRules && skill.onCounteredDamageRules.length > 0) {
       const typeLabels: Record<string, string> = {
         damage: 'Dano', direct_damage: 'Dano Direto', true: 'Dano Direto', piercing: 'Dano Direto',
-        dot: 'Queimadura', bleeding: 'Sangramento', affliction: 'Aflição',
+        dot: 'Queimadura', bleeding: 'Sangramento', affliction: 'AfliÃ§Ã£o',
       };
       skill.onCounteredDamageRules.forEach(r => {
         if (!(r.damage || 0) || (r.damage || 0) <= 0) return;
         const tLabel = typeLabels[r.damageType || 'direct_damage'] || 'Dano Direto';
-        const victimLabel = r.target === 'random_enemy' ? 'um inimigo aleatório' : 'o inimigo que contra-atacou';
+        const victimLabel = r.target === 'random_enemy' ? 'um inimigo aleatÃ³rio' : 'o inimigo que contra-atacou';
         effects.push({
           label: 'Dano ao ser Contra-Atacada',
           value: `Se ESTA skill for CONTRA-ATACADA, ${victimLabel} recebe ${r.damage} de ${tLabel}`,
@@ -17302,7 +17294,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de mudança de alvo por marcação (targetChangeOnStacksRules)
+    // InformaÃ§Ã£o de mudanÃ§a de alvo por marcaÃ§Ã£o (targetChangeOnStacksRules)
     if (skill.targetChangeOnStacksRules && skill.targetChangeOnStacksRules.length > 0) {
       skill.targetChangeOnStacksRules.forEach(rule => {
         if (!rule.markingSkillName) return;
@@ -17316,7 +17308,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           'AnyLiving': 'Qualquer Personagem Vivo',
         };
         effects.push({
-          label: `Mudança de Alvo (${rule.markingSkillName})`,
+          label: `MudanÃ§a de Alvo (${rule.markingSkillName})`,
           value: `Quando ${rule.markingSkillName} tiver ${Math.max(1, rule.requiredStacks || 1)} stacks, o alvo vira ${targetMap[rule.overrideTarget || 'AllEnemies'] || rule.overrideTarget} por ${fmtDur(rule.durationTurns || 1)}`,
           color: 'text-rose-950 font-extrabold',
           targetLabel: 'Stack'
@@ -17324,18 +17316,18 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
-    // Informação de dano adicional por marcação (bonusDamageOnStacksRules)
+    // InformaÃ§Ã£o de dano adicional por marcaÃ§Ã£o (bonusDamageOnStacksRules)
     if (skill.bonusDamageOnStacksRules && skill.bonusDamageOnStacksRules.length > 0) {
       skill.bonusDamageOnStacksRules.forEach(rule => {
         if (!rule.markingSkillName) return;
         const typeLabels: Record<string, string> = {
           damage: 'Dano', direct_damage: 'Dano Direto', true: 'Dano Direto', piercing: 'Dano Direto',
-          physical: 'Dano Físico', chakra: 'Dano de Chakra', mental: 'Dano Mental', ranged: 'Dano à Distância',
-          affliction: 'Aflição', dot: 'Queimadura', bleeding: 'Sangramento',
+          physical: 'Dano FÃ­sico', chakra: 'Dano de Chakra', mental: 'Dano Mental', ranged: 'Dano Ã  DistÃ¢ncia',
+          affliction: 'AfliÃ§Ã£o', dot: 'Queimadura', bleeding: 'Sangramento',
         };
         effects.push({
           label: `Dano Adicional (${rule.markingSkillName})`,
-          value: `Quando ${rule.markingSkillName} tiver ${Math.max(1, rule.requiredStacks || 1)} stacks, dá +${rule.bonusDamage || 0} de ${typeLabels[rule.damageType || 'damage'] || 'Dano'} por ${fmtDur(rule.durationTurns || 1)}`,
+          value: `Quando ${rule.markingSkillName} tiver ${Math.max(1, rule.requiredStacks || 1)} stacks, dÃ¡ +${rule.bonusDamage || 0} de ${typeLabels[rule.damageType || 'damage'] || 'Dano'} por ${fmtDur(rule.durationTurns || 1)}`,
           color: 'text-orange-950 font-extrabold',
           targetLabel: 'Stack'
         });
@@ -17357,7 +17349,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         const targetLabel = targetMap[rule.overrideTarget] || rule.overrideTarget;
         effects.push({
           label: `Novo Alvo (${rule.activeSkillName})`,
-          value: `Altera o alvo para [${targetLabel}] quando ${rule.activeSkillName} estiver ativo${rule.oncePerActivation ? ' — SÓ NA 1ª VEZ POR ATIVAÇÃO (depois volta ao normal; reativar a condição reseta)' : ''}`,
+          value: `Altera o alvo para [${targetLabel}] quando ${rule.activeSkillName} estiver ativo${rule.oncePerActivation ? ' â€” SÃ“ NA 1Âª VEZ POR ATIVAÃ‡ÃƒO (depois volta ao normal; reativar a condiÃ§Ã£o reseta)' : ''}`,
           color: 'text-indigo-950 font-extrabold',
           targetLabel: 'Condicional'
         });
@@ -17396,12 +17388,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           'direct_damage': 'Dano Direto',
           'piercing': 'Dano Perfurante',
           'true': 'Dano Verdadeiro',
-          'affliction': 'Dano de Aflição',
+          'affliction': 'Dano de AfliÃ§Ã£o',
           'bleeding': 'Dano de Sangramento',
           'dot': 'Dano de Queimadura',
         };
         effects.push({
-          label: `💣 Contagem Regressiva`,
+          label: `ðŸ’£ Contagem Regressiva`,
           value: `Ao usar a skill no alvo, ele recebe um timer de ${Math.max(1, rule.duration || 1)} turno(s); quando o tempo acabar, ${rule.target === 'enemy' ? 'um inimigo do portador' : 'quem tem a bomba'} recebe ${rule.damage} de ${dmgMap[rule.damageType || 'damage'] || 'Dano'}`,
           color: 'text-amber-900 font-extrabold',
           targetLabel: 'Timer'
@@ -17417,7 +17409,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         if (rule.chakraRemove && rule.chakraRemove > 0) parts.push(`Remove ${rule.chakraRemove} chakra(s)`);
         if (parts.length === 0) return;
         effects.push({
-          label: `⚡ Combo ${rule.requiredStacks}x`,
+          label: `âš¡ Combo ${rule.requiredStacks}x`,
           value: `Ao usar a skill com ${rule.requiredStacks} stack(s) (${rule.stackType || skill.stackType || skill.name}): ${parts.join(' + ')}. Se a stack sumir, o combo reinicia`,
           color: 'text-purple-900 font-extrabold',
           targetLabel: 'Combo'
@@ -17443,11 +17435,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         const typeLabel = rule.damageType === 'direct_damage' ? 'Dano Direto'
           : rule.damageType === 'dot' ? 'DoT'
           : rule.damageType === 'bleeding' ? 'Sangramento'
-          : rule.damageType === 'affliction' ? 'Aflição'
+          : rule.damageType === 'affliction' ? 'AfliÃ§Ã£o'
           : 'Dano Adicional';
         effects.push({
           label: `Dano por Stack em Mim (${rule.stackType})`,
-          value: `Ganha +${rule.damagePerStack} de ${typeLabel} para esta habilidade a cada acúmulo (stack) de "${rule.stackType}" no Conjurador (Mim)`,
+          value: `Ganha +${rule.damagePerStack} de ${typeLabel} para esta habilidade a cada acÃºmulo (stack) de "${rule.stackType}" no Conjurador (Mim)`,
           color: 'text-amber-950 font-extrabold',
           targetLabel: 'Conjurador (Mim)'
         });
@@ -17465,13 +17457,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         const typeLabel = rule.damageType === 'direct_damage' ? 'Dano Direto'
           : rule.damageType === 'dot' ? 'DoT'
           : rule.damageType === 'bleeding' ? 'Sangramento'
-          : rule.damageType === 'affliction' ? 'Aflição'
+          : rule.damageType === 'affliction' ? 'AfliÃ§Ã£o'
           : 'Dano Adicional';
         const durStr = rule.duration && rule.duration >= 99999 ? ' por tempo indeterminado' : rule.duration && rule.duration > 1 ? ` por ${rule.duration} turnos` : '';
         const remStr = rule.removeStacks && rule.removeStacks > 0 ? ` (consome ${rule.removeStacks} stack(s))` : '';
         effects.push({
           label: `Dano por Stack no Alvo (${rule.stackType})`,
-          value: `Ganha +${rule.damagePerStack} de ${typeLabel} para esta habilidade a cada acúmulo de "${rule.stackType}" ${srcLabel}${durStr}${remStr}`,
+          value: `Ganha +${rule.damagePerStack} de ${typeLabel} para esta habilidade a cada acÃºmulo de "${rule.stackType}" ${srcLabel}${durStr}${remStr}`,
           color: 'text-rose-950 font-extrabold',
           targetLabel: rule.stackSource === 'self' ? 'Conjurador (Mim)' : 'Inimigo / Alvo'
         });
@@ -17480,15 +17472,15 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
     if (skill.cannotBeCountered) {
       effects.push({
-        label: 'Incontra-atacável',
-        value: 'Esta habilidade NÃO pode ser contra-atacada ou anulada.',
+        label: 'Incontra-atacÃ¡vel',
+        value: 'Esta habilidade NÃƒO pode ser contra-atacada ou anulada.',
         color: 'text-red-950 font-extrabold',
       });
     }
     if (skill.cannotBeReflected) {
       effects.push({
-        label: 'Irrefletível',
-        value: 'Esta habilidade NÃO pode ser refletida.',
+        label: 'IrrefletÃ­vel',
+        value: 'Esta habilidade NÃƒO pode ser refletida.',
         color: 'text-teal-950 font-extrabold',
       });
     }
@@ -17516,7 +17508,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               {eff.targetLabel && (
                 <div className="pt-1 border-t border-amber-900/15 flex items-center justify-end">
                   <span className="text-[8px] text-amber-900/80 font-extrabold bg-amber-900/10 px-1.5 py-0.5 rounded border border-amber-900/20 whitespace-nowrap">
-                    🎯 <span className="text-amber-950 font-black">{eff.targetLabel}</span>
+                    ðŸŽ¯ <span className="text-amber-950 font-black">{eff.targetLabel}</span>
                   </span>
                 </div>
               )}
@@ -17538,12 +17530,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
   }}
 />
 
-      {/* ⚠️ TEMPORÁRIO: atalho para o painel de controle (admin) — REMOVER no lançamento */}
+      {/* âš ï¸ TEMPORÃRIO: atalho para o painel de controle (admin) â€” REMOVER no lanÃ§amento */}
       {onOpenAdmin && (
         <button
           type="button"
           onClick={() => { playClickSound(); onOpenAdmin(); }}
-          title="Painel de Controle (atalho temporário)"
+          title="Painel de Controle (atalho temporÃ¡rio)"
           className="fixed bottom-2 left-2 z-40 flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900/70 hover:bg-slate-800/90 text-slate-400 hover:text-orange-300 border border-slate-700/60 hover:border-orange-500/50 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider transition-all opacity-40 hover:opacity-100 cursor-pointer"
         >
           <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -17675,7 +17667,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     ? 'bg-orange-600 border-orange-500 text-white shadow-orange-500/30'
                     : 'bg-slate-800/90 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-orange-400 hover:border-orange-500/50 shadow-slate-950/40'
                 }`}
-                title="Configurações da Batalha"
+                title="ConfiguraÃ§Ãµes da Batalha"
               >
                 <Settings className="w-4 h-4" />
               </button>
@@ -17701,7 +17693,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       {([
                         ['master', 'Volume geral'],
                         ['effects', 'Efeitos'],
-                        ['music', 'Música'],
+                        ['music', 'MÃºsica'],
                       ] as const).map(([key, label]) => (
                         <label key={key} className="block space-y-1">
                           <span className="flex items-center justify-between gap-3 text-[10px] font-bold text-slate-300">
@@ -17788,7 +17780,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     </button>
                   )}
 
-                  {/* Missões */}
+                  {/* MissÃµes */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -17800,7 +17792,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
                   >
                     <Scroll className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Missões</span>
+                    <span>MissÃµes</span>
                   </button>
                 </div>
               )}
@@ -17906,7 +17898,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 })()}
                 <span className="w-1 h-1 bg-slate-500 rounded-full" />
                 <span className="text-[10px] font-mono font-bold text-amber-300 bg-amber-950/90 border border-amber-500/60 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
-                  ⚡ Chakra: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
+                  âš¡ Chakra: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
                 </span>
               </div>
             </div>
@@ -17982,7 +17974,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       <AnimatePresence>
                       {floatingTexts
                         .filter(f => f.targetId === combatant.id)
-                        .map((f, fIdx) => {
+                        .map(f => {
                           let textClass = 'text-red-500 shadow-red-500/5';
                           if (f.type === 'heal') textClass = 'text-emerald-400 shadow-emerald-500/5';
                           if (f.type === 'shield') textClass = 'text-blue-400 shadow-blue-500/5';
@@ -17991,7 +17983,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                         return (
                           <motion.span
-                            key={`${f.id}-${fIdx}`}
+                            key={f.id}
                             initial={{ opacity: 0, y: 10, scale: 0.8 }}
                             animate={{ opacity: 1, y: -20, scale: 1.1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
@@ -18020,8 +18012,8 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                         return (
                           <div key={`${cue.sourceId}-${cue.skillIndex}-${cIdx}`} className="group relative">
                             {isHiddenCue ? (
-                              <div className="w-5 h-5 rounded border border-pink-600/80 bg-pink-950/90 text-pink-300 flex items-center justify-center text-[10px] font-bold cursor-help" title="Ação Oculta (Invisível)">
-                                👁️
+                              <div className="w-5 h-5 rounded border border-pink-600/80 bg-pink-950/90 text-pink-300 flex items-center justify-center text-[10px] font-bold cursor-help" title="AÃ§Ã£o Oculta (InvisÃ­vel)">
+                                ðŸ‘ï¸
                               </div>
                             ) : (
                               <img
@@ -18035,7 +18027,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                             )}
                             {/* Skill Tooltip */}
                             <div className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[9px] text-slate-200 z-50 whitespace-nowrap shadow-2xl pointer-events-none">
-                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{isHiddenCue ? 'Ação Oculta' : skill?.name}]
+                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{isHiddenCue ? 'AÃ§Ã£o Oculta' : skill?.name}]
                             </div>
                           </div>
                         );
@@ -18063,7 +18055,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                           <MangekyoLoader
                             src={displayPortrait}
                             alt={combatant.character.name}
-                            title={isInvul ? `Invulnerável por ${invulnEff?.name || 'Skill'}` : combatant.character.name}
+                            title={isInvul ? `InvulnerÃ¡vel por ${invulnEff?.name || 'Skill'}` : combatant.character.name}
                             className="w-full h-full"
                             iconScale={0.55}
                           />
@@ -18074,7 +18066,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                               <div className="absolute inset-0 bg-red-950/85 border border-red-500/80 flex flex-col items-center justify-center p-0.5 font-mono text-[8px] font-black text-red-300 tracking-tighter text-center leading-none uppercase animate-pulse">
                                 {hasOffensiveBlockOnly && !hasNormalStun ? (
                                   <>
-                                    <span>🛑 OFENSIVAS</span>
+                                    <span>ðŸ›‘ OFENSIVAS</span>
                                     <span className="text-[7px] text-red-400">BLOQUEADAS</span>
                                   </>
                                 ) : (
@@ -18096,7 +18088,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                           {combatant.character.name}
                           {checkCombatantInvulnerable(combatant) && (
                             <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
-                              🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
+                              ðŸ›¡ï¸ {hasTotalInvulnerability(combatant) ? 'InvulnerÃ¡vel Total' : 'InvulnerÃ¡vel'}
                             </span>
                           )}
                         </h4>
@@ -18110,7 +18102,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                               {combatant.shield}
                               {shieldRemaining !== null && (
                                 <span className="text-white/90 font-black">
-                                  · {shieldRemaining > 0 ? shieldRemaining : 0}T
+                                  Â· {shieldRemaining > 0 ? shieldRemaining : 0}T
                                 </span>
                               )}
                             </span>
@@ -18142,14 +18134,14 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                           return (
                             <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
                               <p className="text-[9px] text-red-300/90 font-sans leading-tight">
-                                🚫 <strong>Impedido:</strong> Apenas habilidades ofensivas no oponente estão bloqueadas. Habilidades em si mesmo ou amigáveis continuam ativas.
+                                ðŸš« <strong>Impedido:</strong> Apenas habilidades ofensivas no oponente estÃ£o bloqueadas. Habilidades em si mesmo ou amigÃ¡veis continuam ativas.
                               </p>
                             </div>
                           );
                         }
 
                         const stunTypeLabels: Record<any, string> = {
-                          physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra',
+                          physical: 'FÃ­sico', mental: 'Mental', affliction: 'AfliÃ§Ã£o', chakra: 'Chakra',
                         };
                         const normalStunEffs = stunEffs.filter(e => !e.blocksOffensiveSkills && (e as any).type !== 'blocks_offensive_skills');
                         const hasGenericStun = normalStunEffs.some(e => !e.stunType || e.stunType.length === 0);
@@ -18163,7 +18155,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                         return (
                           <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
                             <p className="text-[9px] text-red-300/90 font-sans leading-tight">
-                              🚫 <strong>Impedido:</strong> {stunTypesStr}
+                              ðŸš« <strong>Impedido:</strong> {stunTypesStr}
                             </p>
                           </div>
                         );
@@ -18177,9 +18169,9 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                             ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400'
                             : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
                         }`}>
-                          {combatant.lastTurnStatus === 'ANULADO' && '🚫 Anulado'}
-                          {combatant.lastTurnStatus === 'REFLETIDO' && '🔄 Refletido'}
-                          {combatant.lastTurnStatus === 'CONTRA-ATAQUE' && '🛡️ Contra-Atacou'}
+                          {combatant.lastTurnStatus === 'ANULADO' && 'ðŸš« Anulado'}
+                          {combatant.lastTurnStatus === 'REFLETIDO' && 'ðŸ”„ Refletido'}
+                          {combatant.lastTurnStatus === 'CONTRA-ATAQUE' && 'ðŸ›¡ï¸ Contra-Atacou'}
                         </div>
                       )}
 
@@ -18218,10 +18210,10 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                         <span className={`w-3.5 h-3.5 rounded-full ${isDebuff ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`} />
                                       )}
                                       {eff.irremovable && (
-                                        <span className="absolute top-0 right-0 bg-slate-950/80 rounded text-[8px] p-0.5">🔒</span>
+                                        <span className="absolute top-0 right-0 bg-slate-950/80 rounded text-[8px] p-0.5">ðŸ”’</span>
                                       )}
                                       {(eff.isInvisible || eff.type === 'invisible') && (
-                                        <span className="absolute top-0 left-0 bg-pink-950/90 text-pink-300 rounded text-[8px] p-0.5 border border-pink-700/80" title="Invisível para o oponente">👁️</span>
+                                        <span className="absolute top-0 left-0 bg-pink-950/90 text-pink-300 rounded text-[8px] p-0.5 border border-pink-700/80" title="InvisÃ­vel para o oponente">ðŸ‘ï¸</span>
                                       )}
                                     </div>
 
@@ -18256,7 +18248,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                                     {sub.effect.name}
                                                   </span>
                                                   <span className="text-[9px] font-sans text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
-                                                    {sub.effect.duration >= 99999 ? '♾️ Permanente' : sub.effect.duration + 'T'}
+                                                    {sub.effect.duration >= 99999 ? 'â™¾ï¸ Permanente' : sub.effect.duration + 'T'}
                                                   </span>
                                                 </div>
                                                 <p className="text-[11px] text-slate-300 leading-tight">
@@ -18272,9 +18264,9 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                         )}
 
                                         <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-sans text-slate-400 mt-1">
-                                          <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️ Permanente' : eff.duration + 'T'}</strong></span>
+                                          <span>DuraÃ§Ã£o: <strong className="text-amber-400">{eff.duration >= 99999 ? 'â™¾ï¸ Permanente' : eff.duration + 'T'}</strong></span>
                                           {item.stacks > 1 && (
-                                            <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
+                                            <span>â€¢ AcÃºmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
                                           )}
                                         </div>
                                       </div>
@@ -18346,7 +18338,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                   e.stopPropagation();
                                   playScrollSound();
                                   // Sempre chama handleSelectSkill: ele ABRE o inspector (para ler as
-                                  // características da skill) e depois bloqueia a seleção com floating
+                                  // caracterÃ­sticas da skill) e depois bloqueia a seleÃ§Ã£o com floating
                                   // text se a skill estiver atordoada/bloqueada/render usos etc.
                                   handleSelectSkill(combatant.id, sIdx);
                                 }}
@@ -18390,7 +18382,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                   {/* Stun Blocked Overlay */}
                                   {isStunBlocked && !isCooldown && (
                                     <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10 pointer-events-none">
-                                      <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">⚡</span>
+                                      <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">âš¡</span>
                                       <span className="text-[8px] font-mono font-black text-red-200 uppercase tracking-wider drop-shadow-md">STUN</span>
                                     </div>
                                   )}
@@ -18442,14 +18434,14 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                    {/* HP Threshold Locked Overlay */}
                                   {skill.requireHpBelow && skill.requireHpBelow > 0 && combatant.health > skill.requireHpBelow && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
                                     <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                      <span className="text-red-500 font-bold drop-shadow-md text-xs">❤️‍acyl</span>
+                                      <span className="text-red-500 font-bold drop-shadow-md text-xs">â¤ï¸â€acyl</span>
                                     </div>
                                   )}
 
                                   {/* Resurrection Requirement Overlay */}
                                   {((skill.requireRevived && !combatant.hasRevived) || (skill.blockIfRevived && combatant.hasRevived)) && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
                                     <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                      <span className="text-violet-400 font-bold drop-shadow-md text-xs">💀</span>
+                                      <span className="text-violet-400 font-bold drop-shadow-md text-xs">ðŸ’€</span>
                                     </div>
                                   )}
 
@@ -18459,9 +18451,9 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                   {isSelected && !isCued && (
                                     <div className="absolute inset-0 bg-amber-950/90 flex flex-col items-center justify-center p-1 text-center z-20 animate-pulse">
                                       <span className="text-amber-300 text-[9px] sm:text-[11px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md flex items-center gap-1.5">
-                                        <span>🎯</span>
+                                        <span>ðŸŽ¯</span>
                                         SELECIONE O ALVO
-                                        <span>🎯</span>
+                                        <span>ðŸŽ¯</span>
                                       </span>
                                     </div>
                                   )}
@@ -18475,50 +18467,50 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                   {(skill.cannotBeCountered || skill.cannotBeReflected) && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
                                       {skill.cannotBeCountered && (
-                                        <span className="text-red-400 font-bold">🚫 Incontra-atacável</span>
+                                        <span className="text-red-400 font-bold">ðŸš« Incontra-atacÃ¡vel</span>
                                       )}
                                       {skill.cannotBeReflected && (
-                                        <span className="text-cyan-400 font-bold">🚫 Irrefletível</span>
+                                        <span className="text-cyan-400 font-bold">ðŸš« IrrefletÃ­vel</span>
                                       )}
                                     </div>
                                   )}
                                   
                                   {isStunBlocked && (
                                     <p className="text-[9px] font-bold mt-1.5 font-mono text-red-400 bg-red-950/90 p-1 rounded border border-red-800">
-                                      ⚡ BLOQUEADA POR ATORDOAMENTO (STUN)!
+                                      âš¡ BLOQUEADA POR ATORDOAMENTO (STUN)!
                                     </p>
                                   )}
 
                                   {skill.requireEffect && (
                                     <p className={`text-[9px] font-bold mt-1.5 font-mono ${isRequiredEffectLocked ? 'text-red-500' : 'text-emerald-500'}`}>
-                                      {isRequiredEffectLocked ? '🔒 Requer: ' : '🔓 Ativo: '} {skill.requireEffect}
+                                      {isRequiredEffectLocked ? 'ðŸ”’ Requer: ' : 'ðŸ”“ Ativo: '} {skill.requireEffect}
                                     </p>
                                   )}
                                   {skill.requirePreviousSkill && (
                                     <p className={`text-[9px] font-bold mt-1 font-mono ${isPrevSkillLocked ? 'text-cyan-500' : 'text-emerald-500'}`}>
-                                      {isPrevSkillLocked ? '🔒 Anterior: ' : '🔓 Anterior: '} {skill.requirePreviousSkill}
+                                      {isPrevSkillLocked ? 'ðŸ”’ Anterior: ' : 'ðŸ”“ Anterior: '} {skill.requirePreviousSkill}
                                     </p>
                                   )}
                                   {skill.requireHpBelow && skill.requireHpBelow > 0 && (
                                     <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.health > skill.requireHpBelow ? 'text-red-500' : 'text-emerald-500'}`}>
-                                      {combatant.health > skill.requireHpBelow ? `🔒 HP ≤ ${skill.requireHpBelow}` : `🔓 HP ≤ ${skill.requireHpBelow}`}
+                                      {combatant.health > skill.requireHpBelow ? `ðŸ”’ HP â‰¤ ${skill.requireHpBelow}` : `ðŸ”“ HP â‰¤ ${skill.requireHpBelow}`}
                                     </p>
                                   )}
                                   {skill.requireRevived && (
                                     <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-emerald-500' : 'text-red-500'}`}>
-                                      {combatant.hasRevived ? '🔓 Ressurreição: Sim' : '🔒 Requer ter ressuscitado'}
+                                      {combatant.hasRevived ? 'ðŸ”“ RessurreiÃ§Ã£o: Sim' : 'ðŸ”’ Requer ter ressuscitado'}
                                     </p>
                                   )}
                                   {skill.blockIfRevived && (
                                     <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-red-500' : 'text-emerald-500'}`}>
-                                      {combatant.hasRevived ? '🔒 Bloqueada após ressuscitar' : '🔓 Bloqueada após ressuscitar'}
+                                      {combatant.hasRevived ? 'ðŸ”’ Bloqueada apÃ³s ressuscitar' : 'ðŸ”“ Bloqueada apÃ³s ressuscitar'}
                                     </p>
                                   )}
 
                                   {skill.blocksOffensiveSkills && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-red-300 bg-red-950/90 p-1 rounded border border-red-800/80">
                                       <span className="font-bold flex items-center gap-1">
-                                        🛑 STUN OFENSIVO ({skill.stunTurns || 1}T)
+                                        ðŸ›‘ STUN OFENSIVO ({skill.stunTurns || 1}T)
                                       </span>
                                       <span className="text-[7.5px] text-red-200/90 leading-tight">
                                         Bloqueia apenas habilidades ofensivas contra o oponente.
@@ -18530,7 +18522,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-amber-300 bg-amber-950/80 p-1 rounded border border-amber-800/80">
                                       {skill.selfStackDamageRules.map((rule, idx) => (
                                         <span key={idx} className="font-bold">
-                                          ⚡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Mim
+                                          âš¡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Mim
                                         </span>
                                       ))}
                                     </div>
@@ -18539,7 +18531,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-emerald-300 bg-emerald-950/80 p-1 rounded border border-emerald-800/80">
                                       {skill.selfStackReductionRules.map((rule, idx) => (
                                         <span key={idx} className="font-bold">
-                                          🛡️ -{rule.reductionValue} Redução/stack ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? 'AntiPerfuração' : 'Guard'} em Mim
+                                          ðŸ›¡ï¸ -{rule.reductionValue} ReduÃ§Ã£o/stack ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? 'AntiPerfuraÃ§Ã£o' : 'Guard'} em Mim
                                         </span>
                                       ))}
                                     </div>
@@ -18548,20 +18540,20 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-rose-300 bg-rose-950/80 p-1 rounded border border-rose-800/80">
                                       {skill.stackDamageRules.map((rule, idx) => (
                                         <span key={idx} className="font-bold">
-                                          💥 +{rule.damagePerStack} Dano/stack ({rule.stackType}) {rule.stackSource === 'self' ? 'em Mim' : 'no Alvo'}
+                                          ðŸ’¥ +{rule.damagePerStack} Dano/stack ({rule.stackType}) {rule.stackSource === 'self' ? 'em Mim' : 'no Alvo'}
                                         </span>
                                       ))}
                                     </div>
                                   )}
 
                                     <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-2">
-                                      <span>Cooldown: {skill.permanent ? '♾️ Permanente' : skill.cooldown}</span>
+                                      <span>Cooldown: {skill.permanent ? 'â™¾ï¸ Permanente' : skill.cooldown}</span>
                                       <div className="flex gap-0.5 items-center">
                                         {effectiveCost.map((c, costIdx) => (
                                           <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
                                         ))}
                                         {effectiveCost.length < skill.cost.length && (
-                                          <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title="Custo de Chakra Reduzido por Regra">⚡</span>
+                                          <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title="Custo de Chakra Reduzido por Regra">âš¡</span>
                                         )}
                                       </div>
                                     </div>
@@ -18586,7 +18578,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                             className={`absolute -right-2 top-1/2 -translate-y-1/2 z-40 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
                               skillsPage === totalSkillPages - 1 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
                             }`}
-                            title="Próximo"
+                            title="PrÃ³ximo"
                           >
                             <ChevronRight className="w-3.5 h-3.5" />
                           </button>
@@ -18669,7 +18661,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                     className="bg-[#cb6a22] border border-[#cb6a22] text-[#fef3c7] text-[10px] sm:text-[11px] uppercase tracking-wider cursor-pointer rounded-md px-1.5 py-0.5 shadow transition-all hover:scale-110 active:scale-95 will-change-transform"
                   >
                     <span className="relative z-10 font-brush drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
-                      Trocar 4→1
+                      Trocar 4â†’1
                     </span>
                   </button>
                   <span className="bg-[#cb6a22] border border-[#cb6a22] text-[#fef3c7] text-[10px] sm:text-[11px] uppercase tracking-wider rounded-md px-2 py-0.5 shadow">
@@ -18805,9 +18797,9 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                   <div className="ml-[-4px] flex flex-col justify-center items-center text-center p-0.5 min-w-0">
  
                     <p className="font-extrabold text-amber-950 text-[10.5px] leading-[1.1] mt-0.5 whitespace-normal break-words text-center max-w-full px-0.5 uppercase">
-                      {inspectedSkill.skill.targetType === 'Enemy' && <span>Inimigo<br />Único</span>}
-                      {inspectedSkill.skill.targetType === 'Self' && 'Próprio'}
-                      {inspectedSkill.skill.targetType === 'Ally' && <span>Aliado<br />Único</span>}
+                      {inspectedSkill.skill.targetType === 'Enemy' && <span>Inimigo<br />Ãšnico</span>}
+                      {inspectedSkill.skill.targetType === 'Self' && 'PrÃ³prio'}
+                      {inspectedSkill.skill.targetType === 'Ally' && <span>Aliado<br />Ãšnico</span>}
                       {inspectedSkill.skill.targetType === 'AllEnemies' && <span>Todos<br />Inimigos</span>}
                       {inspectedSkill.skill.targetType === 'AllAllies' && <span>Todos<br />Aliados</span>}
                       {inspectedSkill.skill.targetType === 'AnyLiving' && <span>Qualquer<br />Vivo</span>}
@@ -18833,17 +18825,17 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                     <div className="flex flex-wrap gap-1">
                       {inspectedSkill.skill.cannotBeCountered && (
                         <span className="text-[9px] font-mono bg-red-900/20 text-red-950 px-2 py-0.5 rounded border border-red-900/30 font-bold uppercase">
-                          🚫 Incontra-atacável
+                          ðŸš« Incontra-atacÃ¡vel
                         </span>
                       )}
                       {inspectedSkill.skill.cannotBeReflected && (
                         <span className="text-[9px] font-mono bg-cyan-900/20 text-cyan-950 px-2 py-0.5 rounded border border-cyan-900/30 font-bold uppercase">
-                          🚫 Irrefletível
+                          ðŸš« IrrefletÃ­vel
                         </span>
                       )}
                       {inspectedSkill.skill.doNotApplyIfActive && (
                         <span className="text-[9px] font-mono bg-amber-900/20 text-amber-950 px-2 py-0.5 rounded border border-amber-900/30 font-bold uppercase">
-                          🚫 Não Re-aplicável
+                          ðŸš« NÃ£o Re-aplicÃ¡vel
                         </span>
                       )}
                     </div>
@@ -18852,25 +18844,25 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                   {/* Requirements Warnings */}
                   {inspectedSkill.skill.requireEffect && (
                     <div className="bg-amber-500/20 border border-amber-700/30 p-1.5 rounded text-[9px] font-mono text-amber-950 font-bold flex items-center gap-1">
-                      <span>⚠️ Requer efeito ativo:</span>
+                      <span>âš ï¸ Requer efeito ativo:</span>
                       <span className="underline">{inspectedSkill.skill.requireEffect}</span>
                     </div>
                   )}
                   {inspectedSkill.skill.requirePreviousSkill && (
                     <div className="bg-cyan-500/20 border border-cyan-700/30 p-1.5 rounded text-[9px] font-mono text-cyan-950 font-bold flex items-center gap-1">
-                      <span>⚠️ Requer no turno anterior:</span>
+                      <span>âš ï¸ Requer no turno anterior:</span>
                       <span className="underline">{inspectedSkill.skill.requirePreviousSkill}</span>
                     </div>
                   )}
                   {inspectedSkill.skill.requireTargetEffect && (
                     <div className="bg-amber-500/20 border border-amber-700/30 p-1.5 rounded text-[9px] font-mono text-amber-950 font-bold flex items-center gap-1">
-                      <span>⚠️ Requer efeito no alvo:</span>
+                      <span>âš ï¸ Requer efeito no alvo:</span>
                       <span className="underline">{inspectedSkill.skill.requireTargetEffect}</span>
                     </div>
                   )}
                   {inspectedSkill.skill.requireHpBelow && inspectedSkill.skill.requireHpBelow > 0 && (
                     <div className="bg-red-500/20 border border-red-700/30 p-1.5 rounded text-[9px] font-mono text-red-950 font-bold flex items-center gap-1">
-                      <span>⚠️ Requer HP ≤</span>
+                      <span>âš ï¸ Requer HP â‰¤</span>
                       <span className="underline">{inspectedSkill.skill.requireHpBelow}</span>
                     </div>
                   )}
@@ -18887,17 +18879,17 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 <Info className="w-8 h-8 text-amber-950/70 animate-pulse" />
                 <p className="text-xs font-mono text-amber-950 font-extrabold">Inspecione uma Habilidade</p>
                 <p className="text-[10px] text-amber-900 font-semibold max-w-xs">
-                  Clique em qualquer ícone de habilidade dos seus aliados ou dos oponentes para ver as estatísticas, custos e descrições aqui.
+                  Clique em qualquer Ã­cone de habilidade dos seus aliados ou dos oponentes para ver as estatÃ­sticas, custos e descriÃ§Ãµes aqui.
                 </p>
               </div>
             )}
           </div>
 
-          {/* Suas Ações Preparadas (ações.webp) */}
+          {/* Suas AÃ§Ãµes Preparadas (aÃ§Ãµes.webp) */}
           <div
             className="relative w-full overflow-hidden p-3.5 sm:p-4 flex flex-col "
             style={{
-              backgroundImage: "url('/static/img/ações.webp')",
+              backgroundImage: "url('/static/img/aÃ§Ãµes.webp')",
               backgroundSize: "100% 100%",
               backgroundRepeat: "no-repeat",
               backgroundPosition: "center",
@@ -18905,13 +18897,13 @@ onClick={() => handleSelectTarget(combatant.id, false)}
             }}
           >
             <h3 className="text-xs font-mono uppercase tracking-wider text-slate-900 font-extrabold pb-1.5 border-b border-black/20 flex items-center justify-between">
-              <span>Suas Ações Preparadas</span>
+              <span>Suas AÃ§Ãµes Preparadas</span>
               <span className="bg-amber-900/30 text-amber-950 px-2 py-0.5 rounded-full text-[10px] font-extrabold">{cuedActions.length}</span>
             </h3>
 
             {cuedActions.length === 0 ? (
               <p className="text-xs text-slate-800 text-center py-3 italic font-mono font-bold">
-                Nenhuma ação preparada. Selecione habilidades e alvos.
+                Nenhuma aÃ§Ã£o preparada. Selecione habilidades e alvos.
               </p>
             ) : (
               <div className="space-y-1.5 max-h-32 overflow-y-auto mt-2 pr-1 scrollbar-thin scrollbar-thumb-amber-800/40">
@@ -19061,7 +19053,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 })()}
                 <span className="w-1 h-1 bg-slate-500 rounded-full" />
                 <span className="text-[10px] font-mono font-bold text-red-300 bg-red-950/90 border border-red-500/60 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
-                  ⚡ Chakra: {Object.values(enemyChakra).reduce((a, b) => a + b, 0)}
+                  âš¡ Chakra: {Object.values(enemyChakra).reduce((a, b) => a + b, 0)}
                 </span>
               </div>
             </div>
@@ -19100,7 +19092,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                       <AnimatePresence>
                       {floatingTexts
                         .filter(f => f.targetId === combatant.id)
-                        .map((f, fIdx) => {
+                        .map(f => {
                           let textClass = 'text-red-500 shadow-red-500/5';
                           if (f.type === 'heal') textClass = 'text-emerald-400 shadow-emerald-500/5';
                           if (f.type === 'shield') textClass = 'text-blue-400 shadow-blue-500/5';
@@ -19109,7 +19101,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                         return (
                           <motion.span
-                            key={`${f.id}-${fIdx}`}
+                            key={f.id}
                             initial={{ opacity: 0, y: 10, scale: 0.8 }}
                             animate={{ opacity: 1, y: -20, scale: 1.1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
@@ -19138,8 +19130,8 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                         return (
                           <div key={`${cue.sourceId}-${cue.skillIndex}-${cIdx}`} className="group relative">
                             {isHiddenCue ? (
-                              <div className="w-5 h-5 rounded border border-pink-600/80 bg-pink-950/90 text-pink-300 flex items-center justify-center text-[10px] font-bold cursor-help" title="Ação Oculta (Invisível)">
-                                👁️
+                              <div className="w-5 h-5 rounded border border-pink-600/80 bg-pink-950/90 text-pink-300 flex items-center justify-center text-[10px] font-bold cursor-help" title="AÃ§Ã£o Oculta (InvisÃ­vel)">
+                                ðŸ‘ï¸
                               </div>
                             ) : (
                               <img
@@ -19153,7 +19145,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                             )}
                             {/* Skill Tooltip */}
                             <div className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[9px] text-slate-200 z-50 whitespace-nowrap shadow-2xl pointer-events-none">
-                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{isHiddenCue ? 'Ação Oculta' : skill?.name}]
+                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{isHiddenCue ? 'AÃ§Ã£o Oculta' : skill?.name}]
                             </div>
                           </div>
                         );
@@ -19181,7 +19173,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                           <MangekyoLoader
                             src={displayPortrait}
                             alt={combatant.character.name}
-                            title={isInvul ? `Invulnerável por ${invulnEff?.name || 'Skill'}` : combatant.character.name}
+                            title={isInvul ? `InvulnerÃ¡vel por ${invulnEff?.name || 'Skill'}` : combatant.character.name}
                             className="w-full h-full"
                             imgClassName={isInvul ? '' : 'scale-x-[-1]'}
                             iconScale={0.55}
@@ -19193,7 +19185,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                               <div className="absolute inset-0 bg-red-950/85 border border-red-500/80 flex flex-col items-center justify-center p-0.5 font-mono text-[8px] font-black text-red-300 tracking-tighter text-center leading-none uppercase animate-pulse">
                                 {hasOffensiveBlockOnly && !hasNormalStun ? (
                                   <>
-                                    <span>🛑 OFENSIVAS</span>
+                                    <span>ðŸ›‘ OFENSIVAS</span>
                                     <span className="text-[7px] text-red-400">BLOQUEADAS</span>
                                   </>
                                 ) : (
@@ -19215,7 +19207,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                           {combatant.character.name}
                           {checkCombatantInvulnerable(combatant) && (
                             <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
-                              🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
+                              ðŸ›¡ï¸ {hasTotalInvulnerability(combatant) ? 'InvulnerÃ¡vel Total' : 'InvulnerÃ¡vel'}
                             </span>
                           )}
                         </h4>
@@ -19229,7 +19221,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                               {combatant.shield}
                               {shieldRemaining !== null && (
                                 <span className="text-white/90 font-black">
-                                  · {shieldRemaining > 0 ? shieldRemaining : 0}T
+                                  Â· {shieldRemaining > 0 ? shieldRemaining : 0}T
                                 </span>
                               )}
                             </span>
@@ -19261,14 +19253,14 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                           return (
                             <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
                               <p className="text-[9px] text-red-300/90 font-sans leading-tight">
-                                🚫 <strong>Impedido:</strong> Apenas habilidades ofensivas no oponente estão bloqueadas.
+                                ðŸš« <strong>Impedido:</strong> Apenas habilidades ofensivas no oponente estÃ£o bloqueadas.
                               </p>
                             </div>
                           );
                         }
 
                         const stunTypeLabels: Record<any, string> = {
-                          physical: 'Físico', mental: 'Mental', affliction: 'Aflição', chakra: 'Chakra',
+                          physical: 'FÃ­sico', mental: 'Mental', affliction: 'AfliÃ§Ã£o', chakra: 'Chakra',
                         };
                         const normalStunEffs = stunEffs.filter(e => !e.blocksOffensiveSkills && (e as any).type !== 'blocks_offensive_skills');
                         const hasGenericStun = normalStunEffs.some(e => !e.stunType || e.stunType.length === 0);
@@ -19282,7 +19274,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                         return (
                           <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
                             <p className="text-[9px] text-red-300/90 font-sans leading-tight">
-                              🚫 <strong>Impedido:</strong> {stunTypesStr}
+                              ðŸš« <strong>Impedido:</strong> {stunTypesStr}
                             </p>
                           </div>
                         );
@@ -19296,9 +19288,9 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                             ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-400'
                             : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
                         }`}>
-                          {combatant.lastTurnStatus === 'ANULADO' && '🚫 Anulado'}
-                          {combatant.lastTurnStatus === 'REFLETIDO' && '🔄 Refletido'}
-                          {combatant.lastTurnStatus === 'CONTRA-ATAQUE' && '🛡️ Contra-Atacou'}
+                          {combatant.lastTurnStatus === 'ANULADO' && 'ðŸš« Anulado'}
+                          {combatant.lastTurnStatus === 'REFLETIDO' && 'ðŸ”„ Refletido'}
+                          {combatant.lastTurnStatus === 'CONTRA-ATAQUE' && 'ðŸ›¡ï¸ Contra-Atacou'}
                         </div>
                       )}
 
@@ -19337,10 +19329,10 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                         <span className={`w-3.5 h-3.5 rounded-full ${isDebuff ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`} />
                                       )}
                                       {eff.irremovable && (
-                                        <span className="absolute top-0 right-0 bg-slate-950/80 rounded text-[8px] p-0.5">🔒</span>
+                                        <span className="absolute top-0 right-0 bg-slate-950/80 rounded text-[8px] p-0.5">ðŸ”’</span>
                                       )}
                                       {(eff.isInvisible || eff.type === 'invisible') && (
-                                        <span className="absolute top-0 left-0 bg-pink-950/90 text-pink-300 rounded text-[8px] p-0.5 border border-pink-700/80" title="Invisível para o oponente">👁️</span>
+                                        <span className="absolute top-0 left-0 bg-pink-950/90 text-pink-300 rounded text-[8px] p-0.5 border border-pink-700/80" title="InvisÃ­vel para o oponente">ðŸ‘ï¸</span>
                                       )}
                                     </div>
 
@@ -19365,7 +19357,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                                         {(eff.isInvisible || eff.type === 'invisible') && (
                                           <p className="text-[9px] font-sans font-bold text-pink-400 bg-pink-950/80 px-1.5 py-0.5 rounded border border-pink-800/80 my-1">
-                                            👁️‍🗨️ INVISÍVEL PARA O OPONENTE
+                                            ðŸ‘ï¸â€ðŸ—¨ï¸ INVISÃVEL PARA O OPONENTE
                                           </p>
                                         )}
 
@@ -19381,7 +19373,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                                     {sub.effect.name}
                                                   </span>
                                                   <span className="text-[9px] font-sans text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
-                                                    {sub.effect.duration >= 99999 ? '♾️ Permanente' : sub.effect.duration + 'T'}
+                                                    {sub.effect.duration >= 99999 ? 'â™¾ï¸ Permanente' : sub.effect.duration + 'T'}
                                                   </span>
                                                 </div>
                                                 <p className="text-[11px] text-slate-300 leading-tight">
@@ -19397,9 +19389,9 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                         )}
 
                                         <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-sans text-slate-400 mt-1">
-                                          <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️ Permanente' : eff.duration + 'T'}</strong></span>
+                                          <span>DuraÃ§Ã£o: <strong className="text-amber-400">{eff.duration >= 99999 ? 'â™¾ï¸ Permanente' : eff.duration + 'T'}</strong></span>
                                           {item.stacks > 1 && (
-                                            <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
+                                            <span>â€¢ AcÃºmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
                                           )}
                                         </div>
                                       </div>
@@ -19465,7 +19457,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                   {/* Hover Details tooltip card */}
                                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-850 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
                                     <p className="font-bold text-xs text-pink-400 pb-1 border-b border-slate-800">Habilidade Oculta</p>
-                                    <p className="text-[10px] text-slate-400 leading-normal pt-1">Esta é uma habilidade secreta configurada para ser invisível ao oponente.</p>
+                                    <p className="text-[10px] text-slate-400 leading-normal pt-1">Esta Ã© uma habilidade secreta configurada para ser invisÃ­vel ao oponente.</p>
                                   </div>
                                 </div>
                               );
@@ -19491,7 +19483,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     e.stopPropagation();
                                     playScrollSound();
                                     // Sempre chama handleSelectSkill: ele ABRE o inspector (para ler as
-                                    // características da skill) e depois bloqueia a seleção com floating
+                                    // caracterÃ­sticas da skill) e depois bloqueia a seleÃ§Ã£o com floating
                                     // text se a skill estiver bloqueada.
                                     handleSelectSkill(combatant.id, sIdx);
                                   }}
@@ -19535,7 +19527,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     {/* Stun Blocked Overlay */}
                                     {isStunBlocked && !isCooldown && (
                                       <div className="absolute inset-0 bg-red-950/90 border-2 border-red-500 flex flex-col items-center justify-center p-0.5 text-center z-10 pointer-events-none">
-                                        <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">⚡</span>
+                                        <span className="text-red-300 text-sm font-black animate-pulse drop-shadow-lg">âš¡</span>
                                         <span className="text-[8px] font-mono font-black text-red-200 uppercase tracking-wider drop-shadow-md">STUN</span>
                                       </div>
                                     )}
@@ -19587,21 +19579,21 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     {/* HP Threshold Locked Overlay */}
                                     {skill.requireHpBelow && skill.requireHpBelow > 0 && combatant.health > skill.requireHpBelow && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
                                       <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                        <span className="text-red-500 font-bold drop-shadow-md text-xs">❤️‍acyl</span>
+                                        <span className="text-red-500 font-bold drop-shadow-md text-xs">â¤ï¸â€acyl</span>
                                       </div>
                                     )}
 
                                     {/* Resurrection Requirement Overlay */}
                                     {((skill.requireRevived && !combatant.hasRevived) || (skill.blockIfRevived && combatant.hasRevived)) && !isCooldown && !isStunBlocked && !isRequiredEffectLocked && !isPrevSkillLocked && (
                                       <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
-                                        <span className="text-violet-400 font-bold drop-shadow-md text-xs">💀</span>
+                                        <span className="text-violet-400 font-bold drop-shadow-md text-xs">ðŸ’€</span>
                                       </div>
                                     )}
 
-                                    {/* 🌀 Habilidade Passiva badge */}
+                                    {/* ðŸŒ€ Habilidade Passiva badge */}
                                     {skill.isPassive && (
                                       <div className="absolute bottom-0 inset-x-0 bg-violet-950/85 border-t border-violet-500/60 flex items-center justify-center z-10">
-                                        <span className="text-[7px] font-mono font-black uppercase text-violet-300 tracking-wider">🌀 Passiva</span>
+                                        <span className="text-[7px] font-mono font-black uppercase text-violet-300 tracking-wider">ðŸŒ€ Passiva</span>
                                       </div>
                                     )}
 
@@ -19609,9 +19601,9 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     {isSelected && !isCued && (
                                     <div className="absolute inset-0 bg-amber-950/90 flex flex-col items-center justify-center p-1 text-center z-20 animate-pulse">
                                         <span className="text-amber-300 text-[9px] sm:text-[11px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md flex items-center gap-1.5">
-                                          <span>🎯</span>
+                                          <span>ðŸŽ¯</span>
                                           SELECIONE O ALVO
-                                          <span>🎯</span>
+                                          <span>ðŸŽ¯</span>
                                         </span>
                                       </div>
                                     )}
@@ -19625,50 +19617,50 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     {(skill.cannotBeCountered || skill.cannotBeReflected) && (
                                       <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
                                         {skill.cannotBeCountered && (
-                                          <span className="text-red-400 font-bold">{t("🚫 Incontra-atacável", "🚫 Uncounterable")}</span>
+                                          <span className="text-red-400 font-bold">{t("ðŸš« Incontra-atacÃ¡vel", "ðŸš« Uncounterable")}</span>
                                         )}
                                         {skill.cannotBeReflected && (
-                                          <span className="text-cyan-400 font-bold">{t("🚫 Irrefletível", "🚫 Unreflectable")}</span>
+                                          <span className="text-cyan-400 font-bold">{t("ðŸš« IrrefletÃ­vel", "ðŸš« Unreflectable")}</span>
                                         )}
                                       </div>
                                     )}
                                     
                                     {isStunBlocked && (
                                       <p className="text-[9px] font-bold mt-1.5 font-mono text-red-400 bg-red-950/90 p-1 rounded border border-red-800">
-                                        ⚡ BLOQUEADA POR ATORDOAMENTO (STUN)!
+                                        âš¡ BLOQUEADA POR ATORDOAMENTO (STUN)!
                                       </p>
                                     )}
 
                                     {skill.requireEffect && (
                                       <p className={`text-[9px] font-bold mt-1.5 font-mono ${isRequiredEffectLocked ? 'text-red-500' : 'text-emerald-500'}`}>
-                                        {isRequiredEffectLocked ? '🔒 Requer: ' : '🔓 Ativo: '} {skill.requireEffect}
+                                        {isRequiredEffectLocked ? 'ðŸ”’ Requer: ' : 'ðŸ”“ Ativo: '} {skill.requireEffect}
                                       </p>
                                     )}
                                     {skill.requirePreviousSkill && (
                                       <p className={`text-[9px] font-bold mt-1 font-mono ${isPrevSkillLocked ? 'text-cyan-500' : 'text-emerald-500'}`}>
-                                        {isPrevSkillLocked ? '🔒 Anterior: ' : '🔓 Anterior: '} {skill.requirePreviousSkill}
+                                        {isPrevSkillLocked ? 'ðŸ”’ Anterior: ' : 'ðŸ”“ Anterior: '} {skill.requirePreviousSkill}
                                       </p>
                                     )}
                                     {skill.requireHpBelow && skill.requireHpBelow > 0 && (
                                       <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.health > skill.requireHpBelow ? 'text-red-500' : 'text-emerald-500'}`}>
-                                        {combatant.health > skill.requireHpBelow ? `🔒 HP ≤ ${skill.requireHpBelow}` : `🔓 HP ≤ ${skill.requireHpBelow}`}
+                                        {combatant.health > skill.requireHpBelow ? `ðŸ”’ HP â‰¤ ${skill.requireHpBelow}` : `ðŸ”“ HP â‰¤ ${skill.requireHpBelow}`}
                                       </p>
                                     )}
                                     {skill.requireRevived && (
                                       <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-emerald-500' : 'text-red-500'}`}>
-                                        {combatant.hasRevived ? '🔓 Ressurreição: Sim' : '🔒 Requer ter ressuscitado'}
+                                        {combatant.hasRevived ? 'ðŸ”“ RessurreiÃ§Ã£o: Sim' : 'ðŸ”’ Requer ter ressuscitado'}
                                       </p>
                                     )}
                                     {skill.blockIfRevived && (
                                       <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-red-500' : 'text-emerald-500'}`}>
-                                        {combatant.hasRevived ? '🔒 Bloqueada após ressuscitar' : '🔓 Bloqueada após ressuscitar'}
+                                        {combatant.hasRevived ? 'ðŸ”’ Bloqueada apÃ³s ressuscitar' : 'ðŸ”“ Bloqueada apÃ³s ressuscitar'}
                                       </p>
                                     )}
 
                                     {skill.blocksOffensiveSkills && (
                                      <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-red-300 bg-red-950/90 p-1 rounded border border-red-800/80">
                                        <span className="font-bold flex items-center gap-1">
-                                         🛑 STUN OFENSIVO ({skill.stunTurns || 1}T)
+                                         ðŸ›‘ STUN OFENSIVO ({skill.stunTurns || 1}T)
                                        </span>
                                        <span className="text-[7.5px] text-red-200/90 leading-tight">
                                          Bloqueia apenas habilidades ofensivas contra o oponente.
@@ -19680,7 +19672,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                        <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-amber-300 bg-amber-950/80 p-1 rounded border border-amber-800/80">
                                          {skill.selfStackDamageRules.map((rule, idx) => (
                                            <span key={idx} className="font-bold">
-                                             ⚡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Si
+                                             âš¡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Si
                                            </span>
                                          ))}
                                        </div>
@@ -19689,7 +19681,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                        <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-emerald-300 bg-emerald-950/80 p-1 rounded border border-emerald-800/80">
                                          {skill.selfStackReductionRules.map((rule, idx) => (
                                            <span key={idx} className="font-bold">
-                                             🛡️ -{rule.reductionValue} Redução/stack ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? 'AntiPerfuração' : 'Guard'} em Si
+                                             ðŸ›¡ï¸ -{rule.reductionValue} ReduÃ§Ã£o/stack ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? 'AntiPerfuraÃ§Ã£o' : 'Guard'} em Si
                                            </span>
                                          ))}
                                        </div>
@@ -19698,20 +19690,20 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                       <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-rose-300 bg-rose-950/80 p-1 rounded border border-rose-800/80">
                                         {skill.stackDamageRules.map((rule, idx) => (
                                           <span key={idx} className="font-bold">
-                                            💥 +{rule.damagePerStack} Dano/stack ({rule.stackType}) {rule.stackSource === 'self' ? 'em Si' : 'no Alvo'}
+                                            ðŸ’¥ +{rule.damagePerStack} Dano/stack ({rule.stackType}) {rule.stackSource === 'self' ? 'em Si' : 'no Alvo'}
                                           </span>
                                         ))}
                                       </div>
                                     )}
 
                                     <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-2">
-                                      <span>Recarga: {skill.permanent ? '♾️ Permanente' : skill.cooldown}</span>
+                                      <span>Recarga: {skill.permanent ? 'â™¾ï¸ Permanente' : skill.cooldown}</span>
                                       <div className="flex gap-0.5 items-center">
                                         {effectiveCost.map((c, costIdx) => (
                                           <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
                                         ))}
                                         {effectiveCost.length < skill.cost.length && (
-                                          <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title="Custo de Chakra Reduzido por Regra">⚡</span>
+                                          <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title="Custo de Chakra Reduzido por Regra">âš¡</span>
                                         )}
                                       </div>
                                     </div>
@@ -19760,7 +19752,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                   {skill.blocksOffensiveSkills && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-red-300 bg-red-950/90 p-1 rounded border border-red-800/80">
                                       <span className="font-bold flex items-center gap-1">
-                                        🛑 STUN OFENSIVO ({skill.stunTurns || 1}T)
+                                        ðŸ›‘ STUN OFENSIVO ({skill.stunTurns || 1}T)
                                       </span>
                                       <span className="text-[7.5px] text-red-200/90 leading-tight">
                                         Bloqueia apenas habilidades ofensivas contra o oponente.
@@ -19771,10 +19763,10 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                   {(skill.cannotBeCountered || skill.cannotBeReflected) && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
                                       {skill.cannotBeCountered && (
-                                        <span className="text-red-400 font-bold">{t("🚫 Incontra-atacável", "🚫 Uncounterable")}</span>
+                                        <span className="text-red-400 font-bold">{t("ðŸš« Incontra-atacÃ¡vel", "ðŸš« Uncounterable")}</span>
                                       )}
                                       {skill.cannotBeReflected && (
-                                        <span className="text-cyan-400 font-bold">{t("🚫 Irrefletível", "🚫 Unreflectable")}</span>
+                                        <span className="text-cyan-400 font-bold">{t("ðŸš« IrrefletÃ­vel", "ðŸš« Unreflectable")}</span>
                                       )}
                                     </div>
                                   )}
@@ -19782,7 +19774,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-amber-300 bg-amber-950/80 p-1 rounded border border-amber-800/80">
                                       {skill.selfStackDamageRules.map((rule, idx) => (
                                         <span key={idx} className="font-bold">
-                                          ⚡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Si
+                                          âš¡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Si
                                         </span>
                                       ))}
                                     </div>
@@ -19791,7 +19783,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-emerald-300 bg-emerald-950/80 p-1 rounded border border-emerald-800/80">
                                       {skill.selfStackReductionRules.map((rule, idx) => (
                                         <span key={idx} className="font-bold">
-                                          🛡️ -{rule.reductionValue} Redução/stack ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? 'AntiPerfuração' : 'Guard'} em Si
+                                          ðŸ›¡ï¸ -{rule.reductionValue} ReduÃ§Ã£o/stack ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? 'AntiPerfuraÃ§Ã£o' : 'Guard'} em Si
                                         </span>
                                       ))}
                                     </div>
@@ -19800,20 +19792,20 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-rose-300 bg-rose-950/80 p-1 rounded border border-rose-800/80">
                                       {skill.stackDamageRules.map((rule, idx) => (
                                         <span key={idx} className="font-bold">
-                                          💥 +{rule.damagePerStack} Dano/stack ({rule.stackType}) {rule.stackSource === 'self' ? 'em Si' : 'no Alvo'}
+                                          ðŸ’¥ +{rule.damagePerStack} Dano/stack ({rule.stackType}) {rule.stackSource === 'self' ? 'em Si' : 'no Alvo'}
                                         </span>
                                       ))}
                                     </div>
                                   )}
 
                                   <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-1">
-                                      <span>{t("Recarga", "Cooldown")}: {skill.permanent ? t("♾️ Permanente", "♾️ Permanent") : skill.cooldown}</span>
+                                      <span>{t("Recarga", "Cooldown")}: {skill.permanent ? t("â™¾ï¸ Permanente", "â™¾ï¸ Permanent") : skill.cooldown}</span>
                                       <div className="flex gap-0.5 items-center">
                                         {effectiveCost.map((c, costIdx) => (
                                         <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
                                       ))}
                                       {effectiveCost.length < skill.cost.length && (
-                                        <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title="Custo de Chakra Reduzido por Regra">⚡</span>
+                                        <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title="Custo de Chakra Reduzido por Regra">âš¡</span>
                                       )}
                                     </div>
                                   </div>
@@ -19838,7 +19830,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                             className={`absolute -right-2 top-1/2 -translate-y-1/2 z-40 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
                               skillsPage === totalSkillPages - 1 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
                             }`}
-                            title="Próximo"
+                            title="PrÃ³ximo"
                           >
                             <ChevronRight className="w-3.5 h-3.5" />
                           </button>
@@ -19883,7 +19875,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
         </main>
       </div>
 
-      {/* FIXED INTERACTIVE EMOJI COCKPIT — oculto temporariamente */}
+      {/* FIXED INTERACTIVE EMOJI COCKPIT â€” oculto temporariamente */}
       {false && (
       <div className="fixed bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 backdrop-blur-md border border-slate-800/80 px-4 py-2.5 rounded-full flex items-center gap-3.5 shadow-[0_12px_40px_-8px_rgba(0,0,0,0.8)] select-none">
         <div className="flex items-center gap-1.5 border-r border-slate-800/80 pr-3.5 text-[9px] font-mono font-black text-slate-400 tracking-wider">
@@ -20120,7 +20112,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     </h3>
                   </div>
                   <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                    Você realmente deseja se render e declarar derrota nesta partida?
+                    VocÃª realmente deseja se render e declarar derrota nesta partida?
                   </p>
                 </div>
 
@@ -20176,7 +20168,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     </h3>
                   </div>
                   <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                    Recarregue a página para corrigir travamentos ou bugs. Seu progresso nesta batalha será mantido automaticamente.
+                    Recarregue a pÃ¡gina para corrigir travamentos ou bugs. Seu progresso nesta batalha serÃ¡ mantido automaticamente.
                   </p>
                 </div>
 
@@ -20246,7 +20238,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
               <div className="space-y-3">
                 <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                  Você está prestes a finalizar o turno do{' '}
+                  VocÃª estÃ¡ prestes a finalizar o turno do{' '}
                   <span className={`font-bold uppercase ${
                     activePlanner === 'player' ? 'text-amber-400' : 'text-red-400'
                   }`}>
@@ -20262,8 +20254,8 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                   <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
                   <span>
                     {cuedActions.length > 0
-                      ? `${cuedActions.length} habilidade(s) enfileirada(s) será(ão) executada(s).`
-                      : 'Nenhuma habilidade selecionada. O turno será passado sem ações.'}
+                      ? `${cuedActions.length} habilidade(s) enfileirada(s) serÃ¡(Ã£o) executada(s).`
+                      : 'Nenhuma habilidade selecionada. O turno serÃ¡ passado sem aÃ§Ãµes.'}
                   </span>
                 </div>
 
@@ -20274,7 +20266,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     onChange={(e) => setDontShowSandboxConfirmAgain(e.target.checked)}
                     className="rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-500/50 w-3.5 h-3.5 cursor-pointer"
                   />
-                  <span>Não perguntar novamente nesta sessão</span>
+                  <span>NÃ£o perguntar novamente nesta sessÃ£o</span>
                 </label>
               </div>
 
@@ -20323,13 +20315,13 @@ onClick={() => handleSelectTarget(combatant.id, true)}
               className="bg-slate-900 border-2 border-red-500/60 rounded-2xl p-6 max-w-md w-full shadow-2xl relative text-center"
             >
               <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-red-500/20 border border-red-500/50 flex items-center justify-center text-red-400 text-2xl font-black">
-                📡
+                ðŸ“¡
               </div>
               <h3 className="text-lg font-black text-white uppercase tracking-wider mb-2">
-                Conexão com a Internet Necessária
+                ConexÃ£o com a Internet NecessÃ¡ria
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed mb-5">
-                Para passar o turno e garantir o cálculo correto da partida sem erros ou manipulação de jogadas, é necessário estar conectado à internet. Por favor, conecte-se à internet e tente novamente.
+                Para passar o turno e garantir o cÃ¡lculo correto da partida sem erros ou manipulaÃ§Ã£o de jogadas, Ã© necessÃ¡rio estar conectado Ã  internet. Por favor, conecte-se Ã  internet e tente novamente.
               </p>
               <button
                 onClick={() => {
@@ -20339,7 +20331,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                 data-sound="uah"
                 className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white font-extrabold text-xs uppercase tracking-wider border border-red-500/50 shadow-md transition active:scale-95 cursor-pointer"
               >
-                Conectar-se à Internet
+                Conectar-se Ã  Internet
               </button>
             </motion.div>
           </div>
@@ -20354,13 +20346,13 @@ onClick={() => handleSelectTarget(combatant.id, true)}
               className="bg-slate-900 border-2 border-orange-500/60 rounded-2xl p-6 max-w-md w-full shadow-2xl relative text-center"
             >
               <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-orange-500/20 border border-orange-500/50 flex items-center justify-center text-orange-400 text-2xl font-black">
-                ⚠️
+                âš ï¸
               </div>
               <h3 className="text-lg font-black text-white uppercase tracking-wider mb-2">
-                Conexão com a Sala Perdida
+                ConexÃ£o com a Sala Perdida
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed mb-5">
-                Não estamos conseguindo falar com o servidor da partida. A conexão pode ter oscilado ou a sala pode ter caído. Você pode continuar tentando ou encerrar a partida (contará como derrota).
+                NÃ£o estamos conseguindo falar com o servidor da partida. A conexÃ£o pode ter oscilado ou a sala pode ter caÃ­do. VocÃª pode continuar tentando ou encerrar a partida (contarÃ¡ como derrota).
               </p>
               <div className="flex flex-col gap-2">
                 <button
@@ -20413,10 +20405,10 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                   </div>
                   <div>
                     <h3 className="font-extrabold text-sm sm:text-base text-amber-100 uppercase tracking-wide">
-                      Substituir Chakra Aleatório
+                      Substituir Chakra AleatÃ³rio
                     </h3>
                     <p className="text-[11px] font-semibold text-slate-400">
-                      Escolha quais chakras usar para o custo genérico (Rand)
+                      Escolha quais chakras usar para o custo genÃ©rico (Rand)
                     </p>
                   </div>
                 </div>
@@ -20435,7 +20427,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
               {/* Queued Skills requiring Rand */}
               <div className="space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
                 <p className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Swords className="w-3.5 h-3.5" /> Habilidades com Custo Aleatório:
+                  <Swords className="w-3.5 h-3.5" /> Habilidades com Custo AleatÃ³rio:
                 </p>
                 <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
                   {randModalData.queuedSkillsWithRand.map((item, idx) => (
@@ -20465,7 +20457,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                 return (
                   <div className="space-y-3">
                     <div className="flex justify-between items-center bg-amber-950/30 border border-amber-600/30 p-2.5 rounded-xl">
-                      <span className="text-xs font-bold text-amber-200">Total de Chakras Aleatórios Necessários:</span>
+                      <span className="text-xs font-bold text-amber-200">Total de Chakras AleatÃ³rios NecessÃ¡rios:</span>
                       <span className={`text-xs font-black font-mono px-2 py-0.5 rounded ${
                         isComplete ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-orange-500/20 text-orange-400 border border-orange-500/40'
                       }`}>
@@ -20497,7 +20489,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                 {renderChakraIcon(key)}
                                 <span className="text-xs font-bold text-slate-200">{elemLabel}</span>
                               </div>
-                              <span className="text-[10px] text-slate-400 font-mono" title="Disponível após custos fixos">
+                              <span className="text-[10px] text-slate-400 font-mono" title="DisponÃ­vel apÃ³s custos fixos">
                                 Disp: {available}
                               </span>
                             </div>
@@ -20805,10 +20797,10 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                   </div>
                   <div>
                     <h3 className="text-base sm:text-lg font-black tracking-wide text-amber-200 uppercase font-mono flex items-center gap-2">
-                      {t("Missões da Partida", "Match Quests")}
+                      {t("MissÃµes da Partida", "Match Quests")}
                     </h3>
                     <p className="text-xs text-amber-400/80 font-sans">
-                      {t("Acompanhe seu progresso e metas das missões ativas", "Track your progress and active quest goals")}
+                      {t("Acompanhe seu progresso e metas das missÃµes ativas", "Track your progress and active quest goals")}
                     </p>
                   </div>
                 </div>
@@ -20833,7 +20825,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                       <div className="flex items-center gap-2">
                         <Award className="w-4 h-4 text-amber-400 animate-pulse" />
                         <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-300">
-                          {t("Missão Ativa Selecionada", "Selected Active Quest")}
+                          {t("MissÃ£o Ativa Selecionada", "Selected Active Quest")}
                         </span>
                       </div>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
@@ -20881,18 +20873,18 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                   <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
                     <ListTodo className="w-4 h-4 text-slate-400" />
                     <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
-                      {t("Missões em Andamento", "Quests in Progress")}
+                      {t("MissÃµes em Andamento", "Quests in Progress")}
                     </h4>
                   </div>
 
                   {loadingQuests ? (
                     <div className="py-8 text-center text-xs font-mono text-slate-400 animate-pulse flex flex-col items-center gap-2">
                       <Sparkles className="w-5 h-5 text-amber-400 animate-spin" />
-                      {t("Carregando missões do pergaminho...", "Loading scroll quests...")}
+                      {t("Carregando missÃµes do pergaminho...", "Loading scroll quests...")}
                     </div>
                   ) : allQuests.length === 0 ? (
                     <div className="py-8 text-center text-xs text-slate-400 font-sans italic">
-                      {t("Nenhuma missão em andamento encontrada.", "No active quests found.")}
+                      {t("Nenhuma missÃ£o em andamento encontrada.", "No active quests found.")}
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -20964,17 +20956,17 @@ onClick={() => handleSelectTarget(combatant.id, true)}
         )}
       </AnimatePresence>
 
-      {/* 🧪 OVERLAY DE DIAGNÓSTICO (temporário) — log de combate visível no canto.
-          Mostra as últimas mensagens de sistema (⏳ watchdog, 🛑 anti-loop, iniciativa).
-          Pode ser ocultado via Configurações da Batalha → "Log da Batalha". */}
+      {/* ðŸ§ª OVERLAY DE DIAGNÃ“STICO (temporÃ¡rio) â€” log de combate visÃ­vel no canto.
+          Mostra as Ãºltimas mensagens de sistema (â³ watchdog, ðŸ›‘ anti-loop, iniciativa).
+          Pode ser ocultado via ConfiguraÃ§Ãµes da Batalha â†’ "Log da Batalha". */}
       {showBattleLog && (
         <div className="fixed bottom-2 left-2 z-[90] max-w-[280px] pointer-events-none select-none">
           <div className="bg-black/75 border border-orange-900/60 rounded-lg px-2 py-1.5 font-mono text-[9px] leading-snug text-slate-200 shadow-lg">
-            <div className="text-orange-400 font-bold uppercase tracking-wider mb-0.5">🧪 Log v7</div>
+            <div className="text-orange-400 font-bold uppercase tracking-wider mb-0.5">ðŸ§ª Log v7</div>
             {logs.slice(-7).map(l => (
               <div
                 key={l.id}
-                className={`truncate ${l.message.startsWith('🧪') || l.message.includes('⏳') || l.message.includes('🛑') || l.message.includes('⚠️') ? 'text-amber-300' : 'text-slate-300'}`}
+                className={`truncate ${l.message.startsWith('ðŸ§ª') || l.message.includes('â³') || l.message.includes('ðŸ›‘') || l.message.includes('âš ï¸') ? 'text-amber-300' : 'text-slate-300'}`}
                 title={l.message}
               >
                 {l.message}
