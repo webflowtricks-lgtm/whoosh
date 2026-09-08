@@ -1509,6 +1509,19 @@ e-squad-name {
   .battle-arena-layout {
     gap: 0.375rem;
   }
+
+  .ml-life { 
+    margin-top: -9px;
+  }
+
+  .ml-skills-detalhes {
+    padding: 20px !important
+  }
+
+  .ml-skill-pergaminho {
+    margin-top: -7px;
+  }
+
   .battle-left-squad,
   .battle-right-squad {
     gap: 0.375rem;
@@ -1556,7 +1569,7 @@ e-squad-name {
   .battle-center-squad [data-panel="skills-detalhes"] {
     /* vertical compacto, mas com folga horizontal para o conteÃºdo nÃ£o tocar
        nas bordas laterais do pergaminho (imagem da skill + textos) */
-    padding: 0.6rem 1.75rem !important;
+ 
     /* â¬‡ï¸ AJUSTE AQUI: quanto menor o valor (0.8 = 80%), menor o pergaminho
        e o conteÃºdo do Skill Detalhes (imagem + textos) na proporÃ§Ã£o. */
     transform: scale(0.85);
@@ -1591,6 +1604,38 @@ e-squad-name {
   .battle-enemy-card-ml {
     margin-left: -20px;
     margin-right: -10px;
+  }
+
+  /* ===== BOTÃO FINALIZAR TURNO: menor e fixo no canto inferior direito =====
+     Apenas em mobile landscape. No desktop/portrait o botão mantém o layout original
+     do header (flex justify-between à direita, com margin-right: 120px). */
+  .btn-end-turn {
+    position: fixed !important;
+    bottom: 14px !important;
+    right: 16px !important;
+    margin-right: 0 !important;
+    z-index: 40 !important;
+    padding: 6px 12px !important;
+    font-size: 9px !important;
+    gap: 5px !important;
+    letter-spacing: 0.08em !important;
+  }
+  .btn-end-turn svg {
+    width: 13px !important;
+    height: 13px !important;
+  }
+  .btn-end-turn img {
+    width: 13px !important;
+    height: 13px !important;
+  }
+
+  /* ===== TEXTO DE VIDA (100/100) DOS PERSONAGENS: menor em mobile landscape =====
+     Classe utilitária .ml-hp aplicada nos spans que exibem a vida dos combatentes.
+     Só tem efeito aqui (dentro do media query de celular deitado), então o
+     desktop/portrait mantém o tamanho original. */
+  .ml-hp {
+    font-size: 8.5px !important;
+    line-height: 1 !important;
   }
 }
 

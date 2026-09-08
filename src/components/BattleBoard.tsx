@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -1456,7 +1456,7 @@ function GameOverOverlay({
                         <span className="text-[8px] sm:text-[9px] font-mono font-black text-emerald-950 bg-emerald-700/20 px-2.5 py-0.5 rounded-full border border-emerald-800/40 uppercase tracking-wider shadow-xs">
                           SOBREVIVENTE
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] font-mono font-black text-emerald-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] pt-0.5">
+                        <span className="text-[9.5px] sm:text-[10.5px] font-mono font-black text-emerald-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] pt-0.5 ml-hp">
                           ❤️ {combatant.health} / {combatant.maxHealth}
                         </span>
                       </>
@@ -17918,7 +17918,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               const incomingCues = getIncomingCuesForCombatant(combatant);
 
               return (
-                <div key={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch battle-player-card-mr">
+                <div key={combatant.id} className="flex items-center gap-1 sm:gap-1 items-stretch battle-player-card-mr">
                   {/* Standing Skin PNG Artwork (OUTSIDE card on left side) */}
                   {(() => {
                     const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
@@ -18074,7 +18074,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                               <div className="absolute inset-0 bg-red-950/85 border border-red-500/80 flex flex-col items-center justify-center p-0.5 font-mono text-[8px] font-black text-red-300 tracking-tighter text-center leading-none uppercase animate-pulse">
                                 {hasOffensiveBlockOnly && !hasNormalStun ? (
                                   <>
-                                    <span>🛑 OFENSIVAS</span>
+                                    <span>OFENSIVAS</span>
                                     <span className="text-[7px] text-red-400">BLOQUEADAS</span>
                                   </>
                                 ) : (
@@ -18119,10 +18119,10 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       </div>
 
                       {/* Health bar */}
-                      <div className="space-y-1">
+                      <div className="space-y-1 ml-life">
                         <div className="flex justify-between text-[11px] font-mono text-slate-400 leading-none">
                            
-                          <span className="font-bold text-[#cb6a22]">{combatant.health} / {combatant.maxHealth}</span>
+                          <span className="font-bold text-[#cb6a22] ml-hp">{combatant.health} / {combatant.maxHealth}</span>
                         </div>
                         <div className="h-2.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-900">
                           <div
@@ -18728,7 +18728,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
           {/* Skill Inspector Details (skills_detalhes.webp) */}
           <div
             data-panel="skills-detalhes"
-            className="relative w-full overflow-hidden p-3.5 sm:p-5 flex flex-col mt-[-5px] mb-[10px]"
+            className="ml-skills-detalhes relative w-full overflow-hidden p-2 sm:p-3.5 flex flex-col mt-[-5px] mb-[10px]"
             style={{
               backgroundImage: "url('/static/img/skills_detalhes.webp')",
               backgroundSize: "100% 100%",
@@ -18740,8 +18740,8 @@ onClick={() => handleSelectTarget(combatant.id, false)}
             {inspectedSkill ? (
               <div className="flex flex-col h-full space-y-3">
                 {/* Top Green Header Area: No dark background box, clean alignment over green top banner */}
-                <div className="flex items-center gap-3 px-1 pt-0.5 pb-2" style={{ marginTop: '-5px' }}>
-                  <div className="w-12 h-12 rounded-lg overflow-hidden border border-[#823500] flex-shrink-0 bg-black/40 shadow-md">
+                <div className="ml-skill-pergaminho flex items-center gap-3 px-1 pt-1.5 pb-2">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg overflow-hidden border-2 border-[#823500] flex-shrink-0 bg-black/50 shadow-md my-auto">
                     <img 
                       src={inspectedSkill.skill.icon || null} 
                       alt={inspectedSkill.skill.name} 
@@ -18779,12 +18779,11 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 <div className="grid grid-cols-3 gap-1 font-mono pb-3.5 px-1" style={{ paddingTop: '13px' }}>
                   {/* Paper 1: Custo */}
                   <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
-                   
-                    <div className="flex flex-wrap justify-center gap-1 mt-0.5 items-center max-w-full">
+                   <div className="flex flex-wrap justify-center gap-1 items-center max-w-full">
                       {(() => {
                         const effectiveCost = getEffectiveSkillCost(inspectedSkill.skill, inspectedSkill.combatant, [...playerCombatants, ...enemyCombatants]);
                         if (inspectedSkill.skill.noChakraCost || effectiveCost.length === 0) {
-                          return <span className="text-emerald-950 text-[8.5px] whitespace-normal text-center font-extrabold uppercase">Sem Custo</span>;
+                          return <span className="text-emerald-950 text-[10px] whitespace-normal text-center font-extrabold uppercase leading-none">Sem<br />Custo</span>;
                         }
                         return (
                           <>
@@ -18802,16 +18801,14 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                   {/* Paper 2: Recarga */}
                   <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
- 
-                    <p className="font-extrabold text-amber-950 text-[10.5px] leading-[1.1] mt-0.5 whitespace-normal break-words text-center uppercase">
+                    <p className="font-extrabold text-amber-950 text-[10.5px] leading-[1.1] whitespace-normal break-words text-center uppercase">
                       {inspectedSkill.skill.cooldown === 0 ? <span>Sem<br />Recarga</span> : <span>{inspectedSkill.skill.cooldown}<br />turnos</span>}
                     </p>
                   </div>
 
                   {/* Paper 3: Alvo */}
-                  <div className="ml-[-4px] flex flex-col justify-center items-center text-center p-0.5 min-w-0">
- 
-                    <p className="font-extrabold text-amber-950 text-[10.5px] leading-[1.1] mt-0.5 whitespace-normal break-words text-center max-w-full px-0.5 uppercase">
+                  <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
+                    <p className="font-extrabold text-amber-950 text-[10.5px] leading-[1.1] whitespace-normal break-words text-center max-w-full px-0.5 uppercase">
                       {inspectedSkill.skill.targetType === 'Enemy' && <span>Inimigo<br />Único</span>}
                       {inspectedSkill.skill.targetType === 'Self' && 'Próprio'}
                       {inspectedSkill.skill.targetType === 'Ally' && <span>Aliado<br />Único</span>}
@@ -19246,10 +19243,10 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                       </div>
 
                       {/* Health bar */}
-                      <div className="space-y-1">
+                      <div className="space-y-1 ml-life">
                         <div className="flex justify-end text-[11px] font-mono text-slate-400 leading-none">
                            
-                          <span className="font-bold text-[#cb6a22]">{combatant.health} / {combatant.maxHealth}</span>
+                          <span className="font-bold text-[#cb6a22] ml-hp">{combatant.health} / {combatant.maxHealth}</span>
                         </div>
                         <div className="h-2.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-900">
                           <div
