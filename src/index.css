@@ -1585,10 +1585,12 @@ e-squad-name {
   /* Card do MEU personagem: margin-right negativa aproxima o conjunto do centro */
   .battle-player-card-mr {
     margin-right: -20px;
+    margin-left: -10px;
   }
   /* Card do OPONENTE: margin-left positiva desloca o conjunto para a direita */
   .battle-enemy-card-ml {
     margin-left: -20px;
+    margin-right: -10px;
   }
 }
 
