@@ -1834,6 +1834,27 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<{ charId: string; skillIndex: number } | null>(null);
   const [cuedActions, setCuedActions] = useState<CuedAction[]>([]);
 
+  // 📌 Tooltip de buff/debuff fixado por clique. Chave única = `${combatant.id}:${effIdx}`.
+  // Quando setado, o tooltip desse efeito fica aberto mesmo sem hover; fecha ao clicar
+  // nele de novo ou em qualquer outro lugar da tela.
+  const [pinnedEffectTooltip, setPinnedEffectTooltip] = useState<string | null>(null);
+
+  // Fecha o tooltip fixado ao clicar em QUALQUER lugar fora dele (mousedown).
+  useEffect(() => {
+    const onDocMouseDown = (ev: MouseEvent) => {
+      setPinnedEffectTooltip((prev) => {
+        if (!prev) return prev;
+        const t = ev.target as HTMLElement | null;
+        // Se o clique foi dentro do elemento que tem o tooltip fixado, mantém (o toggle
+        // do próprio ícone cuida de fechar). Senão, fecha.
+        if (t && t.closest(`[data-pin-key="${prev}"]`)) return prev;
+        return null;
+      });
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, []);
+
   // Guard against rapid multi-click exploits on turn confirmation
   const [isEndingTurn, setIsEndingTurn] = useState(false);
   const isEndingTurnRef = useRef(false);
@@ -17576,71 +17597,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 <ArrowLeft className="w-4 h-4" />
               </button>
             )}
-          </div>
 
-          <div className="flex items-center gap-2 sm:gap-4 pointer-events-none">
-            {/* End Turn Button */}
-            <button
-              onClick={handleEndTurnClick}
-              disabled={isEndingTurn || isPreparing || isWaitingForOpponent || turnCooldownRemaining > 0 || (!isSandbox && activePlanner !== 'player')}
-              className={`btn-end-turn pointer-events-auto px-4 sm:px-6 py-2 sm:py-2.5 ${
-                isEndingTurn || isWaitingForOpponent || turnCooldownRemaining > 0
-                  ? 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
-                  : isSandbox
-                    ? activePlanner === 'player'
-                      ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40 cursor-pointer'
-                      : 'bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-600/50 shadow-red-950/40 cursor-pointer'
-                    : activePlanner === 'player'
-                      ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40 cursor-pointer'
-                      : 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
-              } font-black rounded-xl active:scale-95 transition-all shadow-lg text-xs uppercase tracking-widest flex items-center gap-2 border disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {isEndingTurn ? (
-                <>
-                  <img src="/static/img/ui/gold-shuriken.webp" alt="Calculando" className="w-4 h-4 animate-spin object-contain" />
-                  <span className="normal-case font-bold">(calculando...)</span>
-                </>
-              ) : (
-                <>
-                  <Swords className="w-4 h-4" />
-                  {turnCooldownRemaining > 0
-                    ? `Aguardar ${Math.ceil(turnCooldownRemaining / 1000)}s...`
-                    : isWaitingForOpponent
-                      ? 'Aguardando...'
-                      : isSandbox
-                        ? activePlanner === 'player'
-                          ? 'Terminar Turno Jogador'
-                          : 'Terminar Turno Oponente'
-                        : activePlanner === 'player'
-                          ? 'Finalizar Turno'
-                          : 'Aguardando...'}
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Battle Grid Area */}
-
-      <div className="leaves gpu-accelerated">
-        <img src="/static/img/ui/folha.webp" className="leaf leaf1" alt="" loading="lazy" decoding="async" />
-        <img src="/static/img/ui/folha.webp" className="leaf leaf2" alt="" loading="lazy" decoding="async" />
-        <img src="/static/img/ui/folha.webp" className="leaf leaf3" alt="" loading="lazy" decoding="async" />
-        <img src="/static/img/ui/folha.webp" className="leaf leaf4" alt="" loading="lazy" decoding="async" />
-        <img src="/static/img/ui/folha.webp" className="leaf leaf5" alt="" loading="lazy" decoding="async" />
-        <img src="/static/img/ui/folha.webp" className="leaf leaf6" alt="" loading="lazy" decoding="async" />
-      </div>
-
-
-      <div className="battle-scale-wrapper">
-      <main className="main-area battle-arena-layout max-w-[1920px] w-full mx-auto px-2 sm:px-4 pt-4 pb-36 flex-1 items-start">
-        {/* Left Side: PLAYER SQUAD */}
-        <section className="battle-left-squad space-y-6">
-          {/* BEAUTIFUL COMPETITIVE GAME USER PROFILE CARD */}
-          <div className="relative flex items-center gap-2" data-battle-settings>
-            {/* Gear Icon - Battle Settings */}
-            <div className="relative" data-battle-settings>
+            {/* Battle Settings Button */}
+            <div className="relative pointer-events-auto" data-battle-settings>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -17657,9 +17616,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 <Settings className="w-4 h-4" />
               </button>
 
-              {/* Settings Dropdown */}
+              {/* Settings Dropdown (opens upward) */}
               {showBattleSettings && (
-                <div className="absolute left-full ml-2 top-0 z-50 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl shadow-slate-950/60 p-2 min-w-[160px] flex flex-col gap-1">
+                <div className="absolute bottom-full mb-2 left-0 z-50 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl shadow-slate-950/60 p-2 min-w-[160px] flex flex-col gap-1 max-h-[70vh] overflow-y-auto overscroll-contain" data-battle-settings>
                   {/* Volume Toggle */}
                   <button
                     onClick={(e) => {
@@ -17782,7 +17741,68 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 </div>
               )}
             </div>
+          </div>
 
+          <div className="flex items-center gap-2 sm:gap-4 pointer-events-none">
+            {/* End Turn Button */}
+            <button
+              onClick={handleEndTurnClick}
+              disabled={isEndingTurn || isPreparing || isWaitingForOpponent || turnCooldownRemaining > 0 || (!isSandbox && activePlanner !== 'player')}
+              className={`btn-end-turn pointer-events-auto px-4 sm:px-6 py-2 sm:py-2.5 ${
+                isEndingTurn || isWaitingForOpponent || turnCooldownRemaining > 0
+                  ? 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
+                  : isSandbox
+                    ? activePlanner === 'player'
+                      ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40 cursor-pointer'
+                      : 'bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-600/50 shadow-red-950/40 cursor-pointer'
+                    : activePlanner === 'player'
+                      ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40 cursor-pointer'
+                      : 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
+              } font-black rounded-xl active:scale-95 transition-all shadow-lg text-xs uppercase tracking-widest flex items-center gap-2 border disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {isEndingTurn ? (
+                <>
+                  <img src="/static/img/ui/gold-shuriken.webp" alt="Calculando" className="w-4 h-4 animate-spin object-contain" />
+                  <span className="normal-case font-bold">(calculando...)</span>
+                </>
+              ) : (
+                <>
+                  <Swords className="w-4 h-4" />
+                  {turnCooldownRemaining > 0
+                    ? `Aguardar ${Math.ceil(turnCooldownRemaining / 1000)}s...`
+                    : isWaitingForOpponent
+                      ? 'Aguardando...'
+                      : isSandbox
+                        ? activePlanner === 'player'
+                          ? 'Terminar Turno Jogador'
+                          : 'Terminar Turno Oponente'
+                        : activePlanner === 'player'
+                          ? 'Finalizar Turno'
+                          : 'Aguardando...'}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Battle Grid Area */}
+
+      <div className="leaves gpu-accelerated">
+        <img src="/static/img/ui/folha.webp" className="leaf leaf1" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf2" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf3" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf4" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf5" alt="" loading="lazy" decoding="async" />
+        <img src="/static/img/ui/folha.webp" className="leaf leaf6" alt="" loading="lazy" decoding="async" />
+      </div>
+
+
+      <div className="battle-scale-wrapper">
+      <main className="main-area battle-arena-layout max-w-[1920px] w-full mx-auto px-2 sm:px-4 pt-4 pb-36 flex-1 items-start">
+        {/* Left Side: PLAYER SQUAD */}
+        <section className="battle-left-squad space-y-6">
+          {/* BEAUTIFUL COMPETITIVE GAME USER PROFILE CARD */}
             {/* Profile Card */}
             <div
               onClick={() => {
@@ -17888,7 +17908,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               </div>
             </div>
             </div>
-          </div>
           <div className="space-y-2">
             {playerCombatants.map((combatant, idx) => {
               const isMyTurn = activePlanner === 'player' || isSandbox;
@@ -17912,12 +17931,16 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     const skinImg = (rawSkin && !isPortrait) ? rawSkin : null;
 
                     return (
-                      <div className="w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
+                      <div className="w-[95px] flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch overflow-visible">
                         {skinImg ? (
                           <img
                             src={skinImg || null}
                             alt={combatant.character.name}
                             referrerPolicy="no-referrer"
+                            /* Skin NA MESMA ALTURA do card (self-stretch + h-full):
+                               encosta na altura do card e cresce junto com ele.
+                               w-auto + object-contain preservam a proporção
+                               (sem distorcer) e max-w-full evita vazar o container. */
                             className="h-full w-auto max-w-full object-contain"
                             onError={(e) => {
                               const img = e.currentTarget;
@@ -17934,7 +17957,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   {/* Main Combatant Card Container */}
                   <div
 onClick={() => handleSelectTarget(combatant.id, false)}
-                    className={`flex-1 relative isolate  mr-[-22px] pr-[15px] p-5 transition-all ${
+                    className={`flex-1 relative isolate  pr-[15px] p-5 transition-all ${
                       combatant.isDead
                         ? (combatant.isDead && isMyTurn && isReviveSelectionActive()
                           ? 'opacity-80 cursor-pointer shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40 hover:ring-emerald-400/80 animate-pulse'
@@ -18110,7 +18133,8 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                       </div>
 
                       {/* Explicit Stun Debuff Banner */}
-                      {isStunned && (() => {
+                      {/* Ocultado por enquanto — para reativar troque false por isStunned */}                     
+                      {false && (() => {
                         const stunEffs = combatant.activeEffects.filter(e => (e.type === 'stun' || (e as any).type === 'blocks_offensive_skills') && isEffectVisibleToViewer(e, 'player'));
                         const hasOffensiveBlockOnly = stunEffs.some(e => e.blocksOffensiveSkills || (e as any).type === 'blocks_offensive_skills');
                         const hasNormalStun = stunEffs.some(e => !e.blocksOffensiveSkills && (e as any).type !== 'blocks_offensive_skills');
@@ -18174,6 +18198,8 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                 return (
                                   <div
                                     key={effIdx}
+                                    data-pin-key={`${combatant.id}:${effIdx}`}
+                                    onClick={(e) => { e.stopPropagation(); setPinnedEffectTooltip(prev => prev === `${combatant.id}:${effIdx}` ? null : `${combatant.id}:${effIdx}`); }}
                                     className={`buff-debuff-icon relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
                                       isDebuff
                                         ? 'border-red-500/80 shadow-md shadow-red-950/60'
@@ -18210,7 +18236,9 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                     )}
 
                                     {/* Rich Tooltip on hover */}
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
+                                    <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex-col items-center z-50 pointer-events-none ${
+                                      pinnedEffectTooltip === `${combatant.id}:${effIdx}` ? 'flex' : 'hidden group-hover:flex'
+                                    }`}>
                                       <div className="bg-slate-950/95 border border-slate-700 rounded-xl p-2.5 text-center shadow-2xl backdrop-blur-md min-w-[13rem] max-w-[16rem] text-white">
                                         <div className="flex items-center justify-center gap-1.5 mb-1.5 border-b border-slate-800/80 pb-1">
                                           <span className={`text-[8px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
@@ -18297,7 +18325,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                           </button>
                         )}
 
-                        <div className="grid grid-cols-4 gap-2.5">
+                        <div className="grid grid-cols-4 gap-1.5">
                           {paginatedSkills.map((skill, pIdx) => {
                             const sIdx = skillsPage * skillsPerPage + pIdx;
                             const isCooldown = skill.currentCooldown > 0;
@@ -18582,6 +18610,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
       <section className="battle-center-squad space-y-4 p-1 sm:p-2">
         {/* TURN, TIMER, TURN STATUS & CHAKRA PANEL (turnoss.webp) */}
           <div
+            data-panel="turnoss"
             className="relative w-full rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col justify-between"
             style={{
               backgroundImage: "url('/static/img/turnoss.webp')",
@@ -18633,7 +18662,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
               {/* Chakra Header Row */}
               <div className="flex flex-col items-center justify-center gap-1 pt-0.5 text-center">
-                <span className="text-[11px] sm:text-sm font-brush tracking-wider text-[#823500] drop-shadow-[0_1px_1px_rgba(255,255,255,0.6)] uppercase">
+                <span className="text-[11px] font-black sm:text-sm font-brush tracking-wider text-[#823500] drop-shadow-[0_1px_1px_rgba(255,255,255,0.6)] uppercase">
                   Estoque de Chakra
                 </span>
                 <div className="flex items-center justify-center gap-2.5">
@@ -18645,12 +18674,12 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                     }}
                     className="bg-[#cb6a22] border border-[#cb6a22] text-[#fef3c7] text-[10px] sm:text-[11px] uppercase tracking-wider cursor-pointer rounded-md px-1.5 py-0.5 shadow transition-all hover:scale-110 active:scale-95 will-change-transform"
                   >
-                    <span className="relative z-10 font-brush drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
+                    <span className="relative z-10 font-black  text-white">
                       Trocar 4→1
                     </span>
                   </button>
                   <span className="bg-[#cb6a22] border border-[#cb6a22] text-[#fef3c7] text-[10px] sm:text-[11px] uppercase tracking-wider rounded-md px-2 py-0.5 shadow">
-                    <span className="relative z-10 font-brush drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">
+                    <span className="relative z-10 font-black  text-white">
                       Total: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
                     </span>
                   </span>
@@ -18698,6 +18727,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
           {/* Skill Inspector Details (skills_detalhes.webp) */}
           <div
+            data-panel="skills-detalhes"
             className="relative w-full overflow-hidden p-3.5 sm:p-5 flex flex-col mt-[-5px] mb-[10px]"
             style={{
               backgroundImage: "url('/static/img/skills_detalhes.webp')",
@@ -18872,7 +18902,8 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
           {/* Suas Ações Preparadas (ações.webp) */}
           <div
-            className="relative w-full overflow-hidden p-3.5 sm:p-4 flex flex-col "
+            data-panel="acoes"
+            className="relative w-full overflow-hidden p-3.5 sm:p-4 flex flex-col"
             style={{
               backgroundImage: "url('/static/img/ações.webp')",
               backgroundSize: "100% 100%",
@@ -19054,7 +19085,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                   {/* Main Combatant Card Container */}
                   <div
 onClick={() => handleSelectTarget(combatant.id, true)}
-                    className={`flex-1 relative isolate p-5 ml-[-20px] pl-[15px] transition-all ${
+                    className={`flex-1 relative isolate p-5 pl-[15px] transition-all ${
                       combatant.isDead
                         ? (isReviveSelectionActive()
                           ? 'opacity-80 cursor-pointer shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40 hover:ring-emerald-400/80 animate-pulse'
@@ -19229,7 +19260,8 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                       </div>
 
                       {/* Explicit Stun Debuff Banner */}
-                      {isStunned && (() => {
+                      {/* Ocultado por enquanto — para reativar troque false por isStunned */}                     
+                      {false && (() => {
                         const stunEffs = combatant.activeEffects.filter(e => (e.type === 'stun' || (e as any).type === 'blocks_offensive_skills') && isEffectVisibleToViewer(e, 'player'));
                         const hasOffensiveBlockOnly = stunEffs.some(e => e.blocksOffensiveSkills || (e as any).type === 'blocks_offensive_skills');
                         const hasNormalStun = stunEffs.some(e => !e.blocksOffensiveSkills && (e as any).type !== 'blocks_offensive_skills');
@@ -19293,6 +19325,8 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                 return (
                                   <div
                                     key={effIdx}
+                                    data-pin-key={`${combatant.id}:${effIdx}`}
+                                    onClick={(e) => { e.stopPropagation(); setPinnedEffectTooltip(prev => prev === `${combatant.id}:${effIdx}` ? null : `${combatant.id}:${effIdx}`); }}
                                     className={`buff-debuff-icon relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
                                       isDebuff
                                         ? 'border-red-500/80 shadow-md shadow-red-950/60'
@@ -19329,7 +19363,9 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                     )}
 
                                     {/* Rich Tooltip on hover */}
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
+                                    <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex-col items-center z-50 pointer-events-none ${
+                                      pinnedEffectTooltip === `${combatant.id}:${effIdx}` ? 'flex' : 'hidden group-hover:flex'
+                                    }`}>
                                       <div className="bg-slate-950/95 border border-slate-700 rounded-xl p-2.5 text-center shadow-2xl backdrop-blur-md min-w-[13rem] max-w-[16rem] text-white">
                                         <div className="flex items-center justify-center gap-1.5 mb-1.5 border-b border-slate-800/80 pb-1">
                                           <span className={`text-[8px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
@@ -19422,7 +19458,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                           </button>
                         )}
 
-                        <div className="grid grid-cols-4 gap-2.5">
+                        <div className="grid grid-cols-4 gap-1.5">
                           {paginatedSkills.map((skill, pIdx) => {
                             const sIdx = skillsPage * skillsPerPage + pIdx;
                             const isCooldown = skill.currentCooldown > 0;

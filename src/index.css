@@ -1504,6 +1504,84 @@ e-squad-name {
   }
 }
 
+/* Mobile landscape: grid mais compacto */
+@media (orientation: landscape) and (max-height: 500px) {
+  .battle-arena-layout {
+    gap: 0.375rem;
+  }
+  .battle-left-squad,
+  .battle-right-squad {
+    gap: 0.375rem;
+  }
+  /* Override Tailwind space-y-6 (24px) → compact */
+  .battle-left-squad > * + *,
+  .battle-right-squad > * + * {
+    margin-top: 0.5rem !important;
+  }
+  /* ⬇️ JUNTAR COLUNAS LATERAIS AO MEIO: dá padding na borda EXTERNA de cada
+     coluna, empurrando o conteúdo (e as skins dos personagens) para dentro
+     (perto do centro) e abrindo espaço vazio nas laterais da tela.
+     Aumente o valor para afastar mais / diminua para aproximar das bordas.
+     (Coluna esquerda = padding-left; Coluna direita = padding-right) */
+  .battle-left-squad {
+    padding-left: 1.25rem;
+  }
+  .battle-right-squad {
+    padding-right: 1.25rem;
+  }
+  .battle-scale-wrapper main.main-area {
+    padding-top: 0.5rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    padding-bottom: 5rem;
+  }
+
+  /* ===== CENTRO: painéis de pergaminho/ações menores em escala proporcional ===== */
+  /* Aplica scale() APENAS nos painéis turnoss e ações (e seus filhos na mesma
+     proporção), mantendo o skills-detalhes com tamanho original. */
+  .battle-center-squad > * + * {
+    margin-top: 0.5rem !important;
+  }
+  .battle-center-squad [data-panel="turnoss"] {
+    transform: scale(0.8);
+    transform-origin: top center;
+    margin-bottom: -2.9rem; /* compensa a altura que o scale não preenche no topo */
+  }
+  .battle-center-squad [data-panel="acoes"] {
+    transform: scale(0.8);
+    transform-origin: top center;
+    margin-bottom: -1.6rem;
+  }
+  /* mantém os paddings originais dos painéis (sem forçar recorte) */
+  .battle-center-squad [data-panel="skills-detalhes"] {
+    /* vertical compacto, mas com folga horizontal para o conteúdo não tocar
+       nas bordas laterais do pergaminho (imagem da skill + textos) */
+    padding: 0.6rem 1.75rem !important;
+    /* ⬇️ AJUSTE AQUI: quanto menor o valor (0.8 = 80%), menor o pergaminho
+       e o conteúdo do Skill Detalhes (imagem + textos) na proporção. */
+    transform: scale(0.85);
+    transform-origin: top center;
+    /* compensa a altura que o scale libera no topo (minHeight 360px → ~306px) */
+    margin-bottom: -3.4rem;
+  }
+
+  /* ===== SIDES: retratos e avatares menores ===== */
+  .battle-left-squad [class*="w-16 h-16"],
+  .battle-right-squad [class*="w-16 h-16"] {
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+  .battle-left-squad [class*="w-14 h-14"],
+  .battle-right-squad [class*="w-14 h-14"] {
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+  .battle-left-squad [class*="w-24 sm:w-32"],
+  .battle-right-squad [class*="w-24 sm:w-32"] {
+    width: 4rem !important;
+  }
+}
+
 .battle-left-squad {
   width: 100%;
   min-width: 0;
