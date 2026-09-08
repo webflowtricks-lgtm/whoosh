@@ -17918,7 +17918,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               const incomingCues = getIncomingCuesForCombatant(combatant);
 
               return (
-                <div key={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch">
+                <div key={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch battle-player-card-mr">
                   {/* Standing Skin PNG Artwork (OUTSIDE card on left side) */}
                   {(() => {
                     const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
@@ -19081,7 +19081,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
               const incomingCues = getIncomingCuesForCombatant(combatant);
 
               return (
-                <div key={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch">
+                <div key={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch battle-enemy-card-ml">
                   {/* Main Combatant Card Container */}
                   <div
 onClick={() => handleSelectTarget(combatant.id, true)}

@@ -1,4 +1,4 @@
-body.processing-cursor,
+﻿body.processing-cursor,
 body.processing-cursor * {
   cursor: none !important;
 }
@@ -6,17 +6,17 @@ body.processing-cursor * {
 @import "tailwindcss";
 
 /* =========================================================
-   FONTE BLOWBRUSH (títulos/botões estilo pincel ninja)
-   Fonte 100% free (Petar Acanski) — adicionada via DaFont.
+   FONTE BLOWBRUSH (tÃ­tulos/botÃµes estilo pincel ninja)
+   Fonte 100% free (Petar Acanski) â€” adicionada via DaFont.
    Use via var(--font-brush) ou classe .font-brush.
 
-   >>> ONDE EDITAR O PADRÃO GLOBAL DESSA FONTE <<<
-   Nesta tela (vitória/derrota) a Blowbrush aparece em:
+   >>> ONDE EDITAR O PADRÃƒO GLOBAL DESSA FONTE <<<
+   Nesta tela (vitÃ³ria/derrota) a Blowbrush aparece em:
    - Badges de XP (+XP/-XP) e "RANK:" -> <span class="font-brush"> no JSX
-   - Botão "VOLTAR AO MENU" -> <span class="font-brush text-[13px] sm:text-[15px]">
+   - BotÃ£o "VOLTAR AO MENU" -> <span class="font-brush text-[13px] sm:text-[15px]">
    Todos usam a classe .font-brush (linhas 30-34) que define:
-   * font-family  = var(--font-brush)  -> família (arquivo blowbrush.ttf)
-   * letter-spacing = 0.06em           -> espaçamento entre letras
+   * font-family  = var(--font-brush)  -> famÃ­lia (arquivo blowbrush.ttf)
+   * letter-spacing = 0.06em           -> espaÃ§amento entre letras
    Para o TAMANHO: ajuste o text-*  (ex: text-sm) direto no JSX.
    Para o LETTER-SPACING/outros: edite .font-brush aqui embaixo.
    ========================================================= */
@@ -40,10 +40,10 @@ body.processing-cursor * {
   --font-brush: "Blowbrush", "Space Grotesk", sans-serif;
 }
 
-/* Fallback explícito da classe (garante a fonte mesmo sem o Tailwind gerar) */
+/* Fallback explÃ­cito da classe (garante a fonte mesmo sem o Tailwind gerar) */
 .font-brush {
   font-family: var(--font-brush);
-  letter-spacing: 2.5px; /* Blowbrush é condensada — espaçamento extra melhora a leitura */
+  letter-spacing: 2.5px; /* Blowbrush Ã© condensada â€” espaÃ§amento extra melhora a leitura */
 }
 
 .xp-pergaminho {
@@ -56,9 +56,9 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   CLASSE ÚNICA DA LARGURA DO CARD DO PERFIL (.profile-card-modal-container)
+   CLASSE ÃšNICA DA LARGURA DO CARD DO PERFIL (.profile-card-modal-container)
    =========================================================
-   Para ajustar a largura máxima do Card de Perfil, altere o valor de max-width abaixo.
+   Para ajustar a largura mÃ¡xima do Card de Perfil, altere o valor de max-width abaixo.
    ========================================================= */
 .profile-card-modal-container {
   width: 100%;
@@ -74,9 +74,9 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   CLASSE ÚNICA DA LARGURA DO CARD DE RECOMPENSA (.quest-reward-card)
+   CLASSE ÃšNICA DA LARGURA DO CARD DE RECOMPENSA (.quest-reward-card)
    =========================================================
-   Para ajustar a largura máxima do Card de Recompensa, altere o valor de max-width abaixo.
+   Para ajustar a largura mÃ¡xima do Card de Recompensa, altere o valor de max-width abaixo.
    ========================================================= */
 .quest-reward-card {
   width: 100%;
@@ -88,17 +88,17 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   BOTÃO VERMELHO COM IMAGEM (red-button.webp) + SHURIKEN DOURADA
-   Reutilizável — use .btn-red-image no <button> e .btn-shuriken
+   BOTÃƒO VERMELHO COM IMAGEM (red-button.webp) + SHURIKEN DOURADA
+   ReutilizÃ¡vel â€” use .btn-red-image no <button> e .btn-shuriken
    no <img> da shuriken (gold-shuriken.webp, gira com glow dourado).
 
    Exemplo de uso:
    <button className="btn-red-image">
      <img src="/static/img/ui/gold-shuriken.webp" alt="" className="btn-shuriken" />
-     <span>Texto do Botão</span>
+     <span>Texto do BotÃ£o</span>
    </button>
 
-   Para texto sem ícone, basta omitir o <img>.
+   Para texto sem Ã­cone, basta omitir o <img>.
    ========================================================= */
 .btn-red-image {
   position: relative;
@@ -150,9 +150,9 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   CLASSE ÚNICA DO BOTÃO ENTRAR NA ARENA (.entrar-na-arena-btn)
+   CLASSE ÃšNICA DO BOTÃƒO ENTRAR NA ARENA (.entrar-na-arena-btn)
    =========================================================
-   Botão com efeito GLITCH estilo Button 49. Gradiente laranja
+   BotÃ£o com efeito GLITCH estilo Button 49. Gradiente laranja
    com corte diagonal, sombra dourada hard, e pseudo-elemento
    ::after que cria fatias glitch clip-path no hover.
    ========================================================= */
@@ -220,7 +220,7 @@ body.processing-cursor * {
   animation: entrar-glow 2.6s ease-in-out infinite;
 }
 
-/* Shuriken dourada dentro do botão */
+/* Shuriken dourada dentro do botÃ£o */
 .entrar-na-arena-btn .btn-shuriken {
   width: 1.6rem;
   height: 1.6rem;
@@ -228,17 +228,17 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   BOTÃO DIAMANTE HORIZONTAL (Partida Rápida)
+   BOTÃƒO DIAMANTE HORIZONTAL (Partida RÃ¡pida)
    clip-path hexagonal com pontas laterais.
    Aplicar a um wrapper com padding para servir de "borda",
-   e ao botão interno para o preenchimento.
+   e ao botÃ£o interno para o preenchimento.
    ========================================================= */
 .clip-diamond {
   clip-path: polygon(12% 0%, 88% 0%, 100% 50%, 88% 100%, 12% 100%, 0% 50%);
 }
 
 /* =========================================================
-   BOTÃO MADEIRA COM IMAGEM (btn-wood.webp)
+   BOTÃƒO MADEIRA COM IMAGEM (btn-wood.webp)
    Estrutura espelhada de .btn-red-image mas com tema madeira.
    ========================================================= */
 .btn-wood-image {
@@ -286,10 +286,10 @@ body.processing-cursor * {
  }
  
 /* =========================================================
-   TEXTO DO BOTÃO ENTRAR NA ARENA (.entrar-na-arena-label)
+   TEXTO DO BOTÃƒO ENTRAR NA ARENA (.entrar-na-arena-label)
    =========================================================
-   O texto agora é centralizado pelo flex do próprio botão
-   (não há mais imagem de fundo). A fonte é a Blowbrush.
+   O texto agora Ã© centralizado pelo flex do prÃ³prio botÃ£o
+   (nÃ£o hÃ¡ mais imagem de fundo). A fonte Ã© a Blowbrush.
    ========================================================= */
 .entrar-na-arena-label { 
     font-family: var(--font-brush);
@@ -300,14 +300,14 @@ body.processing-cursor * {
 .text-escolha-seu-time {
   font-size: 14px;
  width: 530px;
- /* Sobe o texto sem mexer nos botões:
-    aumente o valor absoluto de top (ex: -28px → -40px sobe mais) */
+ /* Sobe o texto sem mexer nos botÃµes:
+    aumente o valor absoluto de top (ex: -28px â†’ -40px sobe mais) */
   position: relative;
   top: 8px;
   color: #bebebe;
 }
 
-.botões-main-menu {
+.botÃµes-main-menu {
   margin-top: 170px;
 }
 
@@ -322,18 +322,18 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   CLASSE ÚNICA DO TAMANHO DA LOGO CENTRAL DO MENU (.menu-logo-central)
+   CLASSE ÃšNICA DO TAMANHO DA LOGO CENTRAL DO MENU (.menu-logo-central)
    =========================================================
    Para ajustar o tamanho da logo central (logo.webp), altere o
-   valor de height abaixo. A largura acompanha a proporção.
+   valor de height abaixo. A largura acompanha a proporÃ§Ã£o.
    ========================================================= */
 .menu-logo-central {
     height: 173px;
     width: 562px;
     margin-bottom: 0px;
     margin-top: 0px;
-    /* Sobe o logo sem mexer nos botões:
-       aumente o valor absoluto de top (ex: -28px → -40px sobe mais) */
+    /* Sobe o logo sem mexer nos botÃµes:
+       aumente o valor absoluto de top (ex: -28px â†’ -40px sobe mais) */
     position: relative;
     top: -8px;
 }
@@ -345,7 +345,7 @@ body.processing-cursor * {
    altere o valor de padding-top abaixo. Exemplos:
    pt 8px  = atual
    0px     = sobe o logo/texto um pouco
-   -20px   = sobe ainda mais (sobrepõe a borda de cima se
+   -20px   = sobe ainda mais (sobrepÃµe a borda de cima se
              for abaixo de -0px... cuidado com o header)
    ========================================================= */
 .menu-center-container {
@@ -354,21 +354,21 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   CLASSE ÚNICA DO TAMANHO DA LOGO DO MENU (.menu-logo)
+   CLASSE ÃšNICA DO TAMANHO DA LOGO DO MENU (.menu-logo)
    =========================================================
    Para ajustar o tamanho da logo (logo.webp) do menu inicial,
-   altere o valor de height abaixo. A largura acompanha a proporção.
+   altere o valor de height abaixo. A largura acompanha a proporÃ§Ã£o.
    ========================================================= */
 .menu-logo {
   height: 36px;
 }
 
 /* =========================================================
-   ANIMAÇÃO DE FOGO/ELETRICIDADE DA BARRA DE PROGRESSO DA ARENA
+   ANIMAÃ‡ÃƒO DE FOGO/ELETRICIDADE DA BARRA DE PROGRESSO DA ARENA
    (.arena-progress-fill e .arena-progress-sheen)
    =========================================================
    A barra usa um gradiente de fogo deslizante + brilho pulsante,
-   e o sheen é a faísca elétrica clara que varre da esquerda p/ direita.
+   e o sheen Ã© a faÃ­sca elÃ©trica clara que varre da esquerda p/ direita.
    Para acelerar o fogo, reduza o tempo em fire-slide (1.2s).
    ========================================================= */
 @keyframes fire-slide {
@@ -434,9 +434,9 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   CLASSE ÚNICA DO TAMANHO DO PORTAL (.portal-animation)
+   CLASSE ÃšNICA DO TAMANHO DO PORTAL (.portal-animation)
    =========================================================
-   Para diminuir ou aumentar o portal inteiro (todos os anéis,
+   Para diminuir ou aumentar o portal inteiro (todos os anÃ©is,
    espiral, brilho e microbolinhas), altere o valor de scale.
    Exemplos: 0.6 = 60% do tamanho | 1.2 = 20% maior | 0.75 = 75%
    ========================================================= */
@@ -445,12 +445,12 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   ANIMAÇÃO DO PORTAL ATRÁS DO BOTÃO ENTRAR NA ARENA
+   ANIMAÃ‡ÃƒO DO PORTAL ATRÃS DO BOTÃƒO ENTRAR NA ARENA
    =========================================================
    Camadas do portal (portal-rim / portal-halo / portal-vortex-a/b/c /
    portal-depth / portal-orbit / portal-particle).
-   Os braços do vórtice usam conic-gradient suave + blur para ficarem
-   líquidos (sem pontas de ventilador). Para deixar mais denso, aumente
+   Os braÃ§os do vÃ³rtice usam conic-gradient suave + blur para ficarem
+   lÃ­quidos (sem pontas de ventilador). Para deixar mais denso, aumente
    os intervalos de cor (ex: 60deg -> 90deg) e/ou reduza o blur.
    Velocidades em portal-spin.
    ========================================================= */
@@ -460,7 +460,7 @@ body.processing-cursor * {
   }
 }
 
-/* Shuriken girando (botões com gold-shuriken.webp) */
+/* Shuriken girando (botÃµes com gold-shuriken.webp) */
 @keyframes shuriken-spin {
   from {
     transform: rotate(0deg);
@@ -474,7 +474,7 @@ body.processing-cursor * {
    BADGE DE XP PERDIDO (tela de derrota) - vermelho vivo
    =========================================================
    .xp-lost-badge -> badge vermelho com pulso de brilho,
-   borda que respira e leve balanço.
+   borda que respira e leve balanÃ§o.
    ========================================================= */
 @keyframes xp-lost-glow {
   0%, 100% {
@@ -509,10 +509,10 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   BADGE DE XP GANHO (tela de vitória) - verde vivo
+   BADGE DE XP GANHO (tela de vitÃ³ria) - verde vivo
    =========================================================
    .xp-gain-badge  -> pill verde vivo com pulso de brilho,
-   borda que "respira" e leve balanço (espelho do vermelho).
+   borda que "respira" e leve balanÃ§o (espelho do vermelho).
    ========================================================= */
 @keyframes xp-gain-glow {
   0%, 100% {
@@ -545,7 +545,7 @@ body.processing-cursor * {
   will-change: filter, scale;
 }
 
-/* Brilho pulsante do ícone na ponta da barra de XP */
+/* Brilho pulsante do Ã­cone na ponta da barra de XP */
 @keyframes xp-icon-glow {
   0%, 100% {
     filter: drop-shadow(0 0 3px rgba(12, 173, 129, 0.7)) drop-shadow(0 0 9px rgba(12, 173, 129, 0.35));
@@ -558,7 +558,7 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   BARRA DE XP (tela de vitória/derrota) - brilho + raio
+   BARRA DE XP (tela de vitÃ³ria/derrota) - brilho + raio
    =========================================================
    .xp-bar-ray      -> borda e glow "respiram" (raio na borda)
    .xp-bar-shimmer  -> faixa de luz que varre a barra
@@ -600,20 +600,20 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   BANNER DE VITÓRIA/DERROTA (.gameover-banner-img) - YW/YL
+   BANNER DE VITÃ“RIA/DERROTA (.gameover-banner-img) - YW/YL
    =========================================================
-   MESMA classe para vitória (yw.webp) e derrota (yl.webp) —
+   MESMA classe para vitÃ³ria (yw.webp) e derrota (yl.webp) â€”
    basta alterar width aqui para redimensionar os dois.
 
    .gameover-banner-wrap  -> reserva a altura (mesmo valor do
-   banner + a pill de rendição) para o banner ABSOLUTO não
-   sobrepor o conteúdo abaixo nem quebrar o layout.
+   banner + a pill de rendiÃ§Ã£o) para o banner ABSOLUTO nÃ£o
+   sobrepor o conteÃºdo abaixo nem quebrar o layout.
    ========================================================= */
 .gameover-banner-wrap {
   position: relative;
   width: min(260px, 82vw);
   max-width: 100%;
-  height: 65px; /* reserva o espaço vertical do banner */
+  height: 65px; /* reserva o espaÃ§o vertical do banner */
   flex-shrink: 0;
   pointer-events: none;
 }
@@ -631,7 +631,7 @@ body.processing-cursor * {
   user-select: none;
 }
 
-/* Pill de rendição que fica abaixo do banner (opcional) */
+/* Pill de rendiÃ§Ã£o que fica abaixo do banner (opcional) */
 .gameover-surrender-pill {
   position: absolute;
   left: 50%;
@@ -650,7 +650,7 @@ body.processing-cursor * {
 }
 
  
-/* Naruto chorando — exibido no canto inferior esquerdo da derrota */
+/* Naruto chorando â€” exibido no canto inferior esquerdo da derrota */
 .gameover-naruto-chorando {
   position: fixed !important;
   left: -48px !important;
@@ -668,7 +668,7 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   TELA DE VITÓRIA/DERROTA - ajuste automático por altura
+   TELA DE VITÃ“RIA/DERROTA - ajuste automÃ¡tico por altura
    =========================================================
    .gameover-content encolhe proporcionalmente em viewports
    baixas para caber tudo sem scroll (overflow-hidden no
@@ -831,10 +831,10 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   CLASSE ÚNICA DO BOTÃO COMO JOGAR (.como-jogar-btn)
+   CLASSE ÃšNICA DO BOTÃƒO COMO JOGAR (.como-jogar-btn)
    =========================================================
-   Botão "Como Jogar" redesenhado em CSS puro (imagem
-   como-jogar.webp removida). Botão azul com gradiente,
+   BotÃ£o "Como Jogar" redesenhado em CSS puro (imagem
+   como-jogar.webp removida). BotÃ£o azul com gradiente,
    borda clara e glow, no mesmo estilo do "Entrar na Arena".
    ========================================================= */
 .como-jogar-btn {
@@ -860,7 +860,7 @@ body.processing-cursor * {
   position: relative;
 }
 
-/* Borda superior metálica decorativa */
+/* Borda superior metÃ¡lica decorativa */
 .como-jogar-btn::after {
   content: '';
   position: absolute;
@@ -872,12 +872,12 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   NARUTO DUVIDA ATRÁS DO BOTÃO COMO JOGAR (.como-jogar-naruto)
+   NARUTO DUVIDA ATRÃS DO BOTÃƒO COMO JOGAR (.como-jogar-naruto)
    =========================================================
-   Imagem naruto-duvida.webp posicionada atrás do botão azul
-   "Como Jogar", um pouco acima dele. pointer-events já é
-   none (não bloqueia o clique no botão).
-   Leve inclinação (like os badges de XP) via @keyframes naruto-float.
+   Imagem naruto-duvida.webp posicionada atrÃ¡s do botÃ£o azul
+   "Como Jogar", um pouco acima dele. pointer-events jÃ¡ Ã©
+   none (nÃ£o bloqueia o clique no botÃ£o).
+   Leve inclinaÃ§Ã£o (like os badges de XP) via @keyframes naruto-float.
    ========================================================= */
 @keyframes naruto-float {
   0%, 100% {
@@ -903,10 +903,10 @@ body.processing-cursor * {
 }
 
 /* =========================================================
-   NARUTO VS SASUKE ATRÁS DO BOTÃO ENTRAR NA ARENA (.entrar-na-arena-vs)
+   NARUTO VS SASUKE ATRÃS DO BOTÃƒO ENTRAR NA ARENA (.entrar-na-arena-vs)
    =========================================================
-   Imagem narutovssasuke.webp posicionada atrás do botão laranja
-   "Entrar na Arena", um pouco acima dele. Inclinação ESPELHADA
+   Imagem narutovssasuke.webp posicionada atrÃ¡s do botÃ£o laranja
+   "Entrar na Arena", um pouco acima dele. InclinaÃ§Ã£o ESPELHADA
    (lado oposto do naruto-duvida) via @keyframes vs-float.
    pointer-events none.
    ========================================================= */
@@ -933,13 +933,13 @@ body.processing-cursor * {
   transition: scale 0.6s cubic-bezier(0.22, 1, 0.36, 1), translate 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Hover do botão Entrar na Arena → cresce e sobe a imagem por trás */
+/* Hover do botÃ£o Entrar na Arena â†’ cresce e sobe a imagem por trÃ¡s */
 .arena-btn-wrap:hover .entrar-na-arena-vs {
   scale: 1.18;
   translate: -50% -15px;
 }
 
-/* Hover do botão Como Jogar → cresce e sobe a imagem por trás */
+/* Hover do botÃ£o Como Jogar â†’ cresce e sobe a imagem por trÃ¡s */
 .como-jogar-wrap:hover .como-jogar-naruto {
   scale: 1.18;
   translate: -50% -15px;
@@ -947,12 +947,12 @@ body.processing-cursor * {
 
 /* Force Desktop Layout on all devices & Custom Mouse Class */
 /* =========================================================
-   CLASSE ÚNICA DO MOUSE / CURSOR DA APLICAÇÃO (.custom-cursor)
+   CLASSE ÃšNICA DO MOUSE / CURSOR DA APLICAÃ‡ÃƒO (.custom-cursor)
    =========================================================
-   Para ajustar a imagem ou aparência do mouse, edite a classe .custom-cursor.
+   Para ajustar a imagem ou aparÃªncia do mouse, edite a classe .custom-cursor.
    Nota: O navegador utiliza o tamanho original da imagem especificada no url().
    Para alterar o tamanho visual do cursor:
-   1. Você pode redimensionar/trocar a imagem em '/static/img/icon/kunai-cursor2.png'
+   1. VocÃª pode redimensionar/trocar a imagem em '/static/img/icon/kunai-cursor2.png'
    2. Ou definir uma URL com hotspot/tamanho desejado abaixo.
    ========================================================= */
 
@@ -1022,7 +1022,7 @@ html, body {
   animation: electricMove 1.2s linear infinite;
 }
 
-/* Núcleo brilhante */
+/* NÃºcleo brilhante */
 .electric-border::after {
   content: "";
   position: absolute;
@@ -1270,7 +1270,7 @@ html, body {
 }
 
 /* =========================================================
-   PARTÍCULAS DE VITÓRIA SUBINDO (Pure CSS Upward Sparkles)
+   PARTÃCULAS DE VITÃ“RIA SUBINDO (Pure CSS Upward Sparkles)
    ========================================================= */
 .victory-particles-container {
   position: fixed;
@@ -1331,7 +1331,7 @@ html, body {
 
 /* =========================================================
    SCROLLBAR PERSONALIZADA (cards de perfil, modais etc.)
-   Tema âmbar/ninja com thumb em gradiente e brilho sutil.
+   Tema Ã¢mbar/ninja com thumb em gradiente e brilho sutil.
    ========================================================= */
 .custom-scrollbar {
   scrollbar-width: thin;
@@ -1359,7 +1359,7 @@ html, body {
 .custom-scrollbar::-webkit-scrollbar-corner {
   background: transparent;
 }
-/* Firefox: mantém o thumb âmbar mesmo sem gradiente */
+/* Firefox: mantÃ©m o thumb Ã¢mbar mesmo sem gradiente */
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #d97706 rgba(15, 23, 42, 0.35);
@@ -1367,8 +1367,8 @@ html, body {
 
 /* =========================================================
    IMAGENS DE SKILL NOS TILES DA BATALHA
-   As imagens originais são 75x75 e são ampliadas (object-cover)
-   nos tiles; forçamos reamostragem mais nítida no upscale.
+   As imagens originais sÃ£o 75x75 e sÃ£o ampliadas (object-cover)
+   nos tiles; forÃ§amos reamostragem mais nÃ­tida no upscale.
    ========================================================= */
 .skill-tile-img {
   image-rendering: -webkit-optimize-contrast;
@@ -1465,8 +1465,8 @@ e-squad-name {
 }
 
 /* =========================================================
-   POSIÇÕES DOS NÚMEROS DE CHAKRA NOS CILINDROS DA ARENA (.turnoss)
-   Ordem dos cilindros: 1º Taijutsu | 2º Ninjutsu | 3º Genjutsu | 4º Blood
+   POSIÃ‡Ã•ES DOS NÃšMEROS DE CHAKRA NOS CILINDROS DA ARENA (.turnoss)
+   Ordem dos cilindros: 1Âº Taijutsu | 2Âº Ninjutsu | 3Âº Genjutsu | 4Âº Blood
    ========================================================= */
 .chakra-number-tai {
   left: 13.0%;
@@ -1513,14 +1513,14 @@ e-squad-name {
   .battle-right-squad {
     gap: 0.375rem;
   }
-  /* Override Tailwind space-y-6 (24px) → compact */
+  /* Override Tailwind space-y-6 (24px) â†’ compact */
   .battle-left-squad > * + *,
   .battle-right-squad > * + * {
     margin-top: 0.5rem !important;
   }
-  /* ⬇️ JUNTAR COLUNAS LATERAIS AO MEIO: dá padding na borda EXTERNA de cada
-     coluna, empurrando o conteúdo (e as skins dos personagens) para dentro
-     (perto do centro) e abrindo espaço vazio nas laterais da tela.
+  /* â¬‡ï¸ JUNTAR COLUNAS LATERAIS AO MEIO: dÃ¡ padding na borda EXTERNA de cada
+     coluna, empurrando o conteÃºdo (e as skins dos personagens) para dentro
+     (perto do centro) e abrindo espaÃ§o vazio nas laterais da tela.
      Aumente o valor para afastar mais / diminua para aproximar das bordas.
      (Coluna esquerda = padding-left; Coluna direita = padding-right) */
   .battle-left-squad {
@@ -1536,32 +1536,32 @@ e-squad-name {
     padding-bottom: 5rem;
   }
 
-  /* ===== CENTRO: painéis de pergaminho/ações menores em escala proporcional ===== */
-  /* Aplica scale() APENAS nos painéis turnoss e ações (e seus filhos na mesma
-     proporção), mantendo o skills-detalhes com tamanho original. */
+  /* ===== CENTRO: painÃ©is de pergaminho/aÃ§Ãµes menores em escala proporcional ===== */
+  /* Aplica scale() APENAS nos painÃ©is turnoss e aÃ§Ãµes (e seus filhos na mesma
+     proporÃ§Ã£o), mantendo o skills-detalhes com tamanho original. */
   .battle-center-squad > * + * {
     margin-top: 0.5rem !important;
   }
   .battle-center-squad [data-panel="turnoss"] {
     transform: scale(0.8);
     transform-origin: top center;
-    margin-bottom: -2.9rem; /* compensa a altura que o scale não preenche no topo */
+    margin-bottom: -2.9rem; /* compensa a altura que o scale nÃ£o preenche no topo */
   }
   .battle-center-squad [data-panel="acoes"] {
     transform: scale(0.8);
     transform-origin: top center;
     margin-bottom: -1.6rem;
   }
-  /* mantém os paddings originais dos painéis (sem forçar recorte) */
+  /* mantÃ©m os paddings originais dos painÃ©is (sem forÃ§ar recorte) */
   .battle-center-squad [data-panel="skills-detalhes"] {
-    /* vertical compacto, mas com folga horizontal para o conteúdo não tocar
+    /* vertical compacto, mas com folga horizontal para o conteÃºdo nÃ£o tocar
        nas bordas laterais do pergaminho (imagem da skill + textos) */
     padding: 0.6rem 1.75rem !important;
-    /* ⬇️ AJUSTE AQUI: quanto menor o valor (0.8 = 80%), menor o pergaminho
-       e o conteúdo do Skill Detalhes (imagem + textos) na proporção. */
+    /* â¬‡ï¸ AJUSTE AQUI: quanto menor o valor (0.8 = 80%), menor o pergaminho
+       e o conteÃºdo do Skill Detalhes (imagem + textos) na proporÃ§Ã£o. */
     transform: scale(0.85);
     transform-origin: top center;
-    /* compensa a altura que o scale libera no topo (minHeight 360px → ~306px) */
+    /* compensa a altura que o scale libera no topo (minHeight 360px â†’ ~306px) */
     margin-bottom: -3.4rem;
   }
 
@@ -1579,6 +1579,16 @@ e-squad-name {
   .battle-left-squad [class*="w-24 sm:w-32"],
   .battle-right-squad [class*="w-24 sm:w-32"] {
     width: 4rem !important;
+  }
+
+  /* ===== CARDS: margens direcionais do mobile landscape ===== */
+  /* Card do MEU personagem: margin-right negativa aproxima o conjunto do centro */
+  .battle-player-card-mr {
+    margin-right: -20px;
+  }
+  /* Card do OPONENTE: margin-left positiva desloca o conjunto para a direita */
+  .battle-enemy-card-ml {
+    margin-left: -20px;
   }
 }
 
@@ -1598,8 +1608,8 @@ e-squad-name {
 }
 
 /* =========================================================
-   EFEITOS DE RARIDADE NAS FIGURINHAS (animação)
-   épica / lendária / secreta
+   EFEITOS DE RARIDADE NAS FIGURINHAS (animaÃ§Ã£o)
+   Ã©pica / lendÃ¡ria / secreta
    ========================================================= */
 
 /* Feixe de luz (varrimento) que atravessa o card */
@@ -1611,14 +1621,14 @@ e-squad-name {
   100% { transform: translateX(400%) skewX(-18deg); opacity: 0; }
 }
 
-/* Frame: estático (sem escurecer/clarear). A cor/glow vem do CARD_RARITY_META. */
+/* Frame: estÃ¡tico (sem escurecer/clarear). A cor/glow vem do CARD_RARITY_META. */
 .card-fx-epico,
 .card-fx-lendario,
 .card-fx-secreto {
-  /* sem animação */
+  /* sem animaÃ§Ã£o */
 }
 
-/* Feixe de luz realista e difuso (não sólido) posicionado dentro do card */
+/* Feixe de luz realista e difuso (nÃ£o sÃ³lido) posicionado dentro do card */
 .card-fx-sweep {
   position: absolute;
   top: 0;
@@ -1627,7 +1637,7 @@ e-squad-name {
   pointer-events: none;
   z-index: 5;
   animation: cardLightLine 3.2s ease-in-out infinite;
-  /* Núcleo brilhante fino + brilho difuso ao redor (efeito de luz, não faixa sólida) */
+  /* NÃºcleo brilhante fino + brilho difuso ao redor (efeito de luz, nÃ£o faixa sÃ³lida) */
   background: linear-gradient(
     90deg,
     rgba(255, 255, 255, 0) 0%,
@@ -1644,7 +1654,7 @@ e-squad-name {
 
 /* =========================================================
    PERGAMINHO FLUTUANTE (ProfileModal)
-   Imagem decorativa atrás do modal, flutuando suavemente.
+   Imagem decorativa atrÃ¡s do modal, flutuando suavemente.
    ========================================================= */
 @keyframes pergaminho-float {
   0%, 100% { transform: translateY(0) rotate(-3deg); }
@@ -1666,7 +1676,7 @@ e-squad-name {
     opacity: 1;
 }
 
-/* Folhas animadas no ProfileModal (mesma animação da batalha, atrás do modal) */
+/* Folhas animadas no ProfileModal (mesma animaÃ§Ã£o da batalha, atrÃ¡s do modal) */
 .leaves-modal {
   position: fixed;
   inset: 0;
