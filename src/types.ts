@@ -1137,6 +1137,8 @@ export interface FloatingText {
   targetId: string;
   text: string;
   type: 'damage' | 'heal' | 'shield' | 'stun' | 'invulnerable' | 'dodge' | 'effect';
+  /** Sequência dentro de um mesmo lote (mesma resolução/momento). Textos com order > 0 aparecem um por um. */
+  order?: number;
 }
 
 export interface SelectionState {

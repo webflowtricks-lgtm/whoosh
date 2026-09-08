@@ -1829,6 +1829,14 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
   // Floating text animations
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
+  // 🎯 Sistema de floating texts agrupados por tipo: textos com o mesmo conteúdo aparecem
+  // simultaneamente em TODOS os alvos, depois somem e o próximo grupo aparece.
+  // O buffer acumula textos durante uma resolução; o flush agrupa por texto e exibe em sequência.
+  const floatingBufferRef = useRef<Array<{ id: string; targetId: string; text: string; type: FloatingText['type'] }>>([]);
+  const floatingFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const FLOATING_BATCH_WINDOW = 700; // ms — janela de silêncio para considerar o lote completo
+  const FLOATING_STEP_DELAY = 500;   // ms — atraso entre cada grupo de textos idênticos (próximo aparece 0.5s após o anterior)
+  const FLOATING_BASE_LIFE = 3000;   // ms — vida útil de cada texto no DOM
 
   // Battle logs
   const [logs, setLogs] = useState<CombatLog[]>([]);
@@ -1844,6 +1852,11 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const processedOpponentTurnsRef = useRef<Set<number>>(new Set());
   const passedPlayersRef = useRef<('player' | 'enemy')[]>([]);
   const isResolvingTurnEndRef = useRef(false);
+  // ⏱️ Cooldown de 5s antes de poder finalizar turno novamente (após transição de turno)
+  const turnCooldownUntilRef = useRef(0);
+  const [turnCooldownRemaining, setTurnCooldownRemaining] = useState(0);
+  const turnCooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const battleStartedRef = useRef(false); // evita cooldown na primeira aparição do player
   // 🛑 Timestamp da última resolução de rodada (disjuntor anti-loop).
   const lastResolutionAtRef = useRef(0);
   // 🎲 Iniciativa da partida — sorteada UMA ÚNICA VEZ quando a partida é encontrada
@@ -2648,14 +2661,66 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   }, [gameOver, onBattleFinished, playWinSound, playLoseSound]);
 
   // Add floating combat numbers helper
+  // 🎯 Textos com o mesmo conteúdo aparecem simultaneamente em TODOS os alvos:
+  // O buffer acumula textos durante a resolução. Quando nenhum texto novo chega
+  // por FLOATING_BATCH_WINDOW ms, o flush agrupa por text, e exibe cada grupo
+  // simultaneamente (todos os alvos ao mesmo tempo) com stagger entre grupos.
   const addFloatingText = (targetId: string, text: string, type: FloatingText['type']) => {
     const id = Math.random().toString();
-    setFloatingTexts(prev => [...prev, { id, targetId, text, type }]);
-    // Remove after 5 seconds
-    setTimeout(() => {
-      setFloatingTexts(prev => prev.filter(t => t.id !== id));
-    }, 5000);
+    floatingBufferRef.current.push({ id, targetId, text, type });
+    // Reinicia o timer: flush só acontece quando nenhum texto novo chegar por BATCH_WINDOW
+    if (floatingFlushTimerRef.current) clearTimeout(floatingFlushTimerRef.current);
+    floatingFlushTimerRef.current = setTimeout(flushFloatingBatch, FLOATING_BATCH_WINDOW);
   };
+
+  const flushFloatingBatch = () => {
+    const buffer = floatingBufferRef.current;
+    floatingBufferRef.current = [];
+    if (buffer.length === 0) return;
+
+    // Agrupar por conteúdo do texto, preservando ordem de primeira aparição.
+    // Deduplica entradas com o MESMO texto no MESMO alvo: quando o motor dispara
+    // o mesmo floating (ex.: dano aplicado + proc duplicado) ele cairia 2x no mesmo
+    // alvo e ficaria visível duplicado no agrupamento. Mantendo apenas 1 por alvo.
+    const groupOrder: string[] = [];
+    const groups = new Map<string, Array<{ id: string; targetId: string; text: string; type: FloatingText['type'] }>>();
+    const seen = new Set<string>();
+    for (const entry of buffer) {
+      const key = `${entry.targetId}\u0000${entry.text}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (!groups.has(entry.text)) {
+        groupOrder.push(entry.text);
+        groups.set(entry.text, [entry]);
+      } else {
+        groups.get(entry.text)!.push(entry);
+      }
+    }
+
+    // Exibir cada grupo simultaneamente em todos os alvos, com stagger entre grupos
+    groupOrder.forEach((_text, groupIdx) => {
+      const entries = groups.get(groupOrder[groupIdx])!;
+      const delay = groupIdx * FLOATING_STEP_DELAY;
+      setTimeout(() => {
+        const newFloats: FloatingText[] = entries.map(e => ({
+          id: e.id, targetId: e.targetId, text: e.text, type: e.type, order: groupIdx,
+        }));
+        setFloatingTexts(prev => [...prev, ...newFloats]);
+        // Remover após vida útil (cronômetro a partir da inserção no DOM)
+        setTimeout(() => {
+          const ids = new Set(entries.map(e => e.id));
+          setFloatingTexts(prev => prev.filter(t => !ids.has(t.id)));
+        }, FLOATING_BASE_LIFE);
+      }, delay);
+    });
+  };
+
+  // Cleanup do flush timer ao desmontar
+  useEffect(() => {
+    return () => {
+      if (floatingFlushTimerRef.current) clearTimeout(floatingFlushTimerRef.current);
+    };
+  }, []);
 
   // Calculate simulated remaining chakra pool after deducting cued actions
   const getSimulatedRemainingChakra = (pool: ChakraPool, actions: CuedAction[], isForEnemy: boolean = false): ChakraPool => {
@@ -3216,6 +3281,39 @@ const handleTradeChakra = () => {
   const [activePlanner, setActivePlanner] = useState<'player' | 'enemy'>('player');
   const activePlannerRef = useRef<'player' | 'enemy'>('player');
   useEffect(() => { activePlannerRef.current = activePlanner; }, [activePlanner]);
+  // ⏱️ COOLDOWN DE TURNO: quando o jogador se torna o planner (após a 1ª resolução),
+  // inicia um cooldown de 5s antes dele poder finalizar o turno novamente.
+  // No sandbox, o cooldown vale também para a fase do OPONENTE (que vc comanda manualmente).
+  useEffect(() => {
+    if (gameOver) return;
+    // Limpa qualquer interval anterior (deps mudaram → nova fase de planejamento)
+    if (turnCooldownIntervalRef.current) {
+      clearInterval(turnCooldownIntervalRef.current);
+      turnCooldownIntervalRef.current = null;
+    }
+    const plannerForCooldown = (activePlanner === 'player' || (isSandbox && activePlanner === 'enemy'));
+    if (plannerForCooldown && battleStartedRef.current) {
+      turnCooldownUntilRef.current = Date.now() + 5000;
+      setTurnCooldownRemaining(5000);
+      turnCooldownIntervalRef.current = setInterval(() => {
+        const remaining = Math.max(0, turnCooldownUntilRef.current - Date.now());
+        setTurnCooldownRemaining(remaining);
+        if (remaining <= 0 && turnCooldownIntervalRef.current) {
+          clearInterval(turnCooldownIntervalRef.current);
+          turnCooldownIntervalRef.current = null;
+        }
+      }, 100);
+    } else {
+      setTurnCooldownRemaining(0);
+    }
+    battleStartedRef.current = true;
+    return () => {
+      if (turnCooldownIntervalRef.current) {
+        clearInterval(turnCooldownIntervalRef.current);
+        turnCooldownIntervalRef.current = null;
+      }
+    };
+  }, [activePlanner, turn, gameOver, isSandbox]);
   const [isPreparing, setIsPreparing] = useState(false);
   useEffect(() => {
     onProcessingChange(isEndingTurn || isPreparing);
@@ -11030,6 +11128,13 @@ splashOnlyTargets = splashPool.filter(c =>
         setShowNoInternetModal(true);
         return;
       }
+      // ⏱️ COOLDOWN DE 5s: proteção também aqui para todos os caminhos que chegam
+      // direto no handleEndTurn (rand chakra modal, watchdog, etc.). skipActions=true
+      // (auto-pass) continua liberado para garantir que o turno sempre avance.
+      if (!skipActions && Date.now() < turnCooldownUntilRef.current) {
+        console.log(`[TURN] handleEndTurn bloqueado por cooldown: ${Math.ceil((turnCooldownUntilRef.current - Date.now()) / 1000)}s restantes`);
+        return;
+      }
 
       // 🌐 ONLINE: se já estou aguardando o oponente, NUNCA reprocessar meu turno
       // (fecha de vez o "cliquei de novo e jogou 2x / voltou pra mim").
@@ -11541,7 +11646,7 @@ splashOnlyTargets = splashPool.filter(c =>
         } else {
           executeTurnEndResolution();
         }
-      }, 700);
+      }, 5000);
 
       return () => clearTimeout(timer);
     }
@@ -11605,6 +11710,11 @@ splashOnlyTargets = splashPool.filter(c =>
   const checkAndProceedWithEndTurn = (customRandAllocation?: ChakraPool) => {
     if (turnActionLockedRef.current || isEndingTurnRef.current || randConfirmLockRef.current) {
       console.warn(`[TURN] checkAndProceedWithEndTurn bloqueado por lock: active=${activePlanner} lock=${turnActionLockedRef.current} ending=${isEndingTurnRef.current} randLock=${randConfirmLockRef.current}`);
+      return;
+    }
+    // ⏱️ COOLDOWN DE 5s: bloco também neste caminho (confirm modal → handleEndTurn)
+    if (Date.now() < turnCooldownUntilRef.current) {
+      console.log(`[TURN] checkAndProceedWithEndTurn bloqueado por cooldown: ${Math.ceil((turnCooldownUntilRef.current - Date.now()) / 1000)}s restantes`);
       return;
     }
 
@@ -11733,6 +11843,11 @@ splashOnlyTargets = splashPool.filter(c =>
   const handleEndTurnClick = () => {
     if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current) {
       console.log(`[TURN] click bloqueado por lock: active=${activePlanner} sandbox=${isSandbox} ending=${isEndingTurnRef.current || isEndingTurn} lock=${turnActionLockedRef.current}`);
+      return;
+    }
+    // ⏱️ COOLDOWN DE 5s: o jogador precisa aguardar antes de finalizar o turno novamente
+    if (Date.now() < turnCooldownUntilRef.current) {
+      console.log(`[TURN] click bloqueado por cooldown: ${Math.ceil((turnCooldownUntilRef.current - Date.now()) / 1000)}s restantes`);
       return;
     }
     // 🌐 ONLINE: já finalizei este turno / estou aguardando → clique não faz nada.
@@ -17490,9 +17605,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             {/* End Turn Button */}
             <button
               onClick={handleEndTurnClick}
-              disabled={isEndingTurn || isPreparing || isWaitingForOpponent || (!isSandbox && activePlanner !== 'player')}
+              disabled={isEndingTurn || isPreparing || isWaitingForOpponent || turnCooldownRemaining > 0 || (!isSandbox && activePlanner !== 'player')}
               className={`btn-end-turn pointer-events-auto px-4 sm:px-6 py-2 sm:py-2.5 ${
-                isEndingTurn || isWaitingForOpponent
+                isEndingTurn || isWaitingForOpponent || turnCooldownRemaining > 0
                   ? 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
                   : isSandbox
                     ? activePlanner === 'player'
@@ -17511,15 +17626,17 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               ) : (
                 <>
                   <Swords className="w-4 h-4" />
-                  {isWaitingForOpponent
-                    ? 'Aguardando...'
-                    : isSandbox
-                      ? activePlanner === 'player'
-                        ? 'Terminar Turno Jogador'
-                        : 'Terminar Turno Oponente'
-                      : activePlanner === 'player'
-                        ? 'Finalizar Turno'
-                        : 'Aguardando...'}
+                  {turnCooldownRemaining > 0
+                    ? `Aguardar ${Math.ceil(turnCooldownRemaining / 1000)}s...`
+                    : isWaitingForOpponent
+                      ? 'Aguardando...'
+                      : isSandbox
+                        ? activePlanner === 'player'
+                          ? 'Terminar Turno Jogador'
+                          : 'Terminar Turno Oponente'
+                        : activePlanner === 'player'
+                          ? 'Finalizar Turno'
+                          : 'Aguardando...'}
                 </>
               )}
             </button>
@@ -17840,7 +17957,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   {/* Main Combatant Card Container */}
                   <div
 onClick={() => handleSelectTarget(combatant.id, false)}
-                    className={`flex-1 relative isolate p-5 rounded-xl transition-all ${
+                    className={`flex-1 relative isolate  mr-[-22px] pr-[15px] p-5 transition-all ${
                       combatant.isDead
                         ? (combatant.isDead && isMyTurn && isReviveSelectionActive()
                           ? 'opacity-80 cursor-pointer shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40 hover:ring-emerald-400/80 animate-pulse'
@@ -17862,6 +17979,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                     />
                     {/* Floating combat numbers portal */}
                     <div className="absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
+                      <AnimatePresence>
                       {floatingTexts
                         .filter(f => f.targetId === combatant.id)
                         .map((f, fIdx) => {
@@ -17876,13 +17994,15 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                             key={`${f.id}-${fIdx}`}
                             initial={{ opacity: 0, y: 10, scale: 0.8 }}
                             animate={{ opacity: 1, y: -20, scale: 1.1 }}
-                            exit={{ opacity: 0 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.35 }}
                             className={`font-mono text-xs font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${textClass}`}
                           >
                             {f.text}
                           </motion.span>
                         );
                       })}
+                      </AnimatePresence>
                   </div>
 
                   {/* Incoming skills icons (Targeted skills prediction) */}
@@ -17972,7 +18092,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
                     <div className="flex-1 space-y-2">
                       <div className="flex justify-between items-start">
-                        <h4 className="font-bold text-base tracking-tight text-[#823500] flex items-center gap-1.5 flex-wrap">
+                        <h4 className={`font-bold tracking-tight text-[#823500] flex items-center gap-1.5 whitespace-nowrap ${combatant.character.name.length > 28 ? 'text-[13px]' : combatant.character.name.length > 18 ? 'text-xs' : combatant.character.name.length > 12 ? 'text-sm' : 'text-base'}`}>
                           {combatant.character.name}
                           {checkCombatantInvulnerable(combatant) && (
                             <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
@@ -18068,7 +18188,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                         const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]);
 
                         return (
-                          <div className="flex items-center gap-1.5 pt-1.5 w-full">
+                          <div className="flex items-center gap-1.5 w-full">
                             <div className="flex flex-wrap gap-1.5 items-center">
                               {groupedEffects.map((item, effIdx) => {
                                 const eff = item.effect;
@@ -18485,7 +18605,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
       <section className="battle-center-squad space-y-4 p-1 sm:p-2">
         {/* TURN, TIMER, TURN STATUS & CHAKRA PANEL (turnoss.webp) */}
           <div
-            className="relative w-full rounded-2xl overflow-hidden p-3 sm:p-4 shadow-2xl flex flex-col justify-between"
+            className="relative w-full rounded-2xl overflow-hidden p-3 sm:p-4 flex flex-col justify-between"
             style={{
               backgroundImage: "url('/static/img/turnoss.webp')",
               backgroundSize: "100% 100%",
@@ -18601,7 +18721,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
           {/* Skill Inspector Details (skills_detalhes.webp) */}
           <div
-            className="relative w-full overflow-hidden p-3.5 sm:p-5 shadow-2xl flex flex-col"
+            className="relative w-full overflow-hidden p-3.5 sm:p-5 flex flex-col mt-[-5px] mb-[10px]"
             style={{
               backgroundImage: "url('/static/img/skills_detalhes.webp')",
               backgroundSize: "100% 100%",
@@ -18775,7 +18895,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
 
           {/* Suas Ações Preparadas (ações.webp) */}
           <div
-            className="relative w-full rounded-2xl overflow-hidden p-3.5 sm:p-4 shadow-2xl flex flex-col border border-amber-900/20"
+            className="relative w-full overflow-hidden p-3.5 sm:p-4 flex flex-col "
             style={{
               backgroundImage: "url('/static/img/ações.webp')",
               backgroundSize: "100% 100%",
@@ -18957,7 +19077,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                   {/* Main Combatant Card Container */}
                   <div
 onClick={() => handleSelectTarget(combatant.id, true)}
-                    className={`flex-1 relative isolate p-5 rounded-xl transition-all ${
+                    className={`flex-1 relative isolate p-5 ml-[-20px] pl-[15px] transition-all ${
                       combatant.isDead
                         ? (isReviveSelectionActive()
                           ? 'opacity-80 cursor-pointer shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40 hover:ring-emerald-400/80 animate-pulse'
@@ -18977,6 +19097,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     />
                     {/* Floating combat numbers portal */}
                     <div className="absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
+                      <AnimatePresence>
                       {floatingTexts
                         .filter(f => f.targetId === combatant.id)
                         .map((f, fIdx) => {
@@ -18991,13 +19112,15 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                             key={`${f.id}-${fIdx}`}
                             initial={{ opacity: 0, y: 10, scale: 0.8 }}
                             animate={{ opacity: 1, y: -20, scale: 1.1 }}
-                            exit={{ opacity: 0 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.35 }}
                             className={`font-mono text-xs font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${textClass}`}
                           >
                             {f.text}
                           </motion.span>
                         );
                       })}
+                      </AnimatePresence>
                   </div>
 
                   {/* Incoming skills icons (Targeted skills prediction) */}
@@ -19088,7 +19211,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                     <div className="flex-1 space-y-2">
                       <div className="flex items-start gap-2 flex-row-reverse">
-                        <h4 className="font-bold text-base tracking-tight text-[#823500] flex items-center gap-1.5 flex-wrap justify-end text-right">
+                        <h4 className={`font-bold tracking-tight text-[#823500] flex items-center gap-1.5 whitespace-nowrap justify-end text-right ${combatant.character.name.length > 28 ? 'text-[13px]' : combatant.character.name.length > 18 ? 'text-xs' : combatant.character.name.length > 12 ? 'text-sm' : 'text-base'}`}>
                           {combatant.character.name}
                           {checkCombatantInvulnerable(combatant) && (
                             <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
@@ -19184,7 +19307,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                         const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]);
 
                         return (
-                          <div className="flex items-center gap-1.5 pt-1.5 w-full">
+                          <div className="flex items-center gap-1.5 w-full">
                             <div className="flex flex-wrap gap-1.5 items-center">
                               {groupedEffects.map((item, effIdx) => {
                                 const eff = item.effect;

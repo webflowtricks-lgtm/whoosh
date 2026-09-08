@@ -187,12 +187,17 @@
         ],
         "cooldown": 4,
         "currentCooldown": 0,
-        "targetType": "Self",
+        "targetType": "Enemy",
         "classes": [
           "Mental"
         ],
-        "damageBuffVal": 10,
-        "damageBuffDuration": 4
+        "damageBuffVal": 0,
+        "damageBuffDuration": 0,
+        "cannotBeReflected": true,
+        "cannotReduceDamageDuration": 2,
+        "cannotBeInvulnerableDuration": 2,
+        "damageReductionVal": 15,
+        "damageReductionDuration": 2
       },
       {
         "name": "Orochimaru Block",
@@ -1238,7 +1243,8 @@
           "affliction",
           "chakra"
         ],
-        "stunTurns": 1
+        "stunTurns": 1,
+        "directDamageTarget": "RandomEnemy"
       },
       {
         "name": "Chakra Hair Trap",
@@ -3970,7 +3976,7 @@
         "stackable": false,
         "stackType": "",
         "stackTarget": "Target",
-        "damage": 35,
+        "damage": 30,
         "stunTurns": 1,
         "stunType": [
           "physical"
