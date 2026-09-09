@@ -1514,6 +1514,13 @@ e-squad-name {
     margin-top: -9px;
   }
 
+  .pergaminho-profile-modal {
+    width: 850px;
+    max-height: 400px;
+    top: -5% !important;
+    left: 4% !important;
+  }
+
   .ml-skills-detalhes {
     padding: 20px !important
   }

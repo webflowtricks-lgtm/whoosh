@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Heart, Shield, Award, Sparkles, User, Swords, Trophy, Flame, CheckCircle2, Calendar, ChevronLeft, ChevronRight, Images } from 'lucide-react';
 import { UserProfile, NinjaCard } from '../types';
@@ -29,6 +29,116 @@ function useIsMobileLandscape(): boolean {
     return () => mq.removeListener(update);
   }, []);
   return isLandscape;
+}
+
+/**
+ * Efeito 3D tilt reutilizável — segue o ponteiro (mouse OU dedo).
+ * Usa Pointer Events universais + manipulação direta do DOM via refs.
+ * O overflow-hidden do conteúdo NÃO afeta o 3D (a transformação vive aqui).
+ */
+function Tilt3D({ children, className, glareRadius = 'rounded-md' }: {
+  children: React.ReactNode;
+  className?: string;
+  glareRadius?: string;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const glareRef = useRef<HTMLSpanElement>(null);
+
+  const applyTilt = useCallback((clientX: number, clientY: number) => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = (clientX - rect.left) / rect.width;   // 0..1
+    const y = (clientY - rect.top) / rect.height;    // 0..1
+    const rotY = (x - 0.5) * 24;   // ±12°
+    const rotX = (0.5 - y) * 24;   // ±12°
+    el.style.transform = `perspective(500px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale3d(1.12,1.12,1.12)`;
+    el.style.transition = 'transform 0.06s ease-out';
+    const g = glareRef.current;
+    if (g) {
+      g.style.background = `radial-gradient(circle at ${x * 100}% ${y * 100}%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.12) 30%, transparent 60%)`;
+      g.style.opacity = '1';
+    }
+  }, []);
+
+  // Encostou (mouse OU dedo) em qualquer ponto da carta → anima imediatamente.
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    applyTilt(e.clientX, e.clientY);
+  }, [applyTilt]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    applyTilt(e.clientX, e.clientY);
+  }, [applyTilt]);
+
+  const resetTilt = useCallback(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    el.style.transform = 'perspective(500px) rotateX(0deg) rotateY(0deg) scale3d(1,1,1)';
+    el.style.transition = 'transform 0.45s ease-out';
+    const g = glareRef.current;
+    if (g) {
+      g.style.opacity = '0';
+      g.style.transition = 'opacity 0.35s ease';
+    }
+  }, []);
+
+  // Mouse: ao sair/dedo solto em DESKTOP, reseta (hover clássico).
+  // Toque (mobile): NÃO reseta — a inclinação fica posicionada onde encostou.
+  const handlePointerLeaveOrUp = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') resetTilt();
+  }, [resetTilt]);
+
+  // Sistema cancelou o gesto (ex.: virou scroll) → reseta sempre.
+  const handlePointerCancel = useCallback(() => {
+    resetTilt();
+  }, [resetTilt]);
+
+  return (
+    <div
+      ref={wrapRef}
+      style={{
+        transformStyle: 'preserve-3d',
+        willChange: 'transform',
+        touchAction: 'pan-y',
+        userSelect: 'none',
+        WebkitTouchCallout: 'none',
+      }}
+      className={className}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeaveOrUp}
+      onPointerUp={handlePointerLeaveOrUp}
+      onPointerCancel={handlePointerCancel}
+    >
+      {children}
+      {/* Reflexo de luz que acompanha o cursor/dedo */}
+      <span
+        ref={glareRef}
+        className={`absolute inset-0 ${glareRadius} pointer-events-none z-10`}
+        style={{ opacity: 0, transition: 'opacity 0.35s ease' }}
+      />
+    </div>
+  );
+}
+
+/** Cartão premium (lendário/segredo) do grid com efeito 3D. */
+function TiltCard({ children, className, onClick, title }: {
+  children: React.ReactNode;
+  className: string;
+  onClick: () => void;
+  title: string;
+}) {
+  return (
+    <Tilt3D className="relative">
+      <button
+        className={className}
+        onClick={onClick}
+        title={title}
+      >
+        {children}
+      </button>
+    </Tilt3D>
+  );
 }
 
 export interface ProfileCardData {
@@ -187,6 +297,28 @@ export default function ProfileCardModal({
   // Numeração global (renumeradas em ordem sequencial)
   const numberedOwned = ownedCards.map((c, i) => ({ card: c, num: i + 1 }));
 
+  // Histórico da Arena — bloco reutilizável:
+  // - mobile landscape → abaixo das curtidas do perfil (coluna esquerda)
+  // - demais orientações → na barra do FECHAR (rodapé)
+  const arenaHistoryBlock = (
+    <div className={`${isLandscape ? 'px-2.5 py-1.5 gap-2' : 'px-3.5 py-2 gap-3.5'} bg-slate-950/90 border border-slate-800/90 rounded-xl shadow-inner flex items-center flex-shrink-0`}>
+      <div className={`${isLandscape ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 flex-shrink-0`}>
+        <Swords className={`${isLandscape ? 'w-3 h-3' : 'w-4 h-4'}`} />
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] text-slate-400 font-mono uppercase tracking-wider">{t('HISTÓRICO DA ARENA', 'ARENA HISTORY')}</span>
+          <span className="text-[9px] text-cyan-300 font-mono font-bold whitespace-nowrap">{winRate}% {t('Vitórias', 'Win Rate')}</span>
+        </div>
+        <div className="flex items-center gap-2.5 text-[11px] font-black font-mono">
+          <span className="text-emerald-400">⚔️ {wins} {t('Vitórias', 'Wins')}</span>
+          <span className="text-slate-700">|</span>
+          <span className="text-red-400">🛡️ {losses} {t('Derrotas', 'Losses')}</span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <AnimatePresence>
       <div
@@ -261,7 +393,7 @@ export default function ProfileCardModal({
             <div className={`${isLandscape ? 'gap-2' : 'gap-4'} flex items-center relative z-10 transition-opacity duration-500 ${bannerHover ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
               {/* Avatar Container with Equipped Frame */}
               <div className="relative group flex-shrink-0">
-                <div className={`${isLandscape ? 'w-12 h-12' : 'w-20 h-20'} rounded-full overflow-hidden bg-slate-950 flex items-center justify-center relative shadow-2xl ${
+                <div className={`${isLandscape ? 'w-16 h-16' : 'w-20 h-20'} rounded-full overflow-hidden bg-slate-950 flex items-center justify-center relative shadow-2xl ${
                   !profile.equippedFrameUrl ? frameStyle : ''
                 }`}>
                   <MangekyoLoader
@@ -287,7 +419,7 @@ export default function ProfileCardModal({
               <div className="min-w-0 flex-1 pr-8">
                 {/* Rank badge (patente) acima do nome — substitui o título */}
                 <span
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider shadow overflow-hidden relative mb-1 ${rankBgClass}`}
+                  className={`inline-flex items-center gap-1 sm:gap-1.5 px-1.5 py-px sm:px-2.5 sm:py-0.5 rounded-md sm:rounded-lg text-[10px] font-extrabold uppercase tracking-wider shadow overflow-hidden relative mb-1 ${rankBgClass}`}
                   style={{
                     ...(rankR.bgColor ? { backgroundColor: rankR.bgColor } : {}),
                     color: rankR.fontColor || '#ffffff'
@@ -297,9 +429,9 @@ export default function ProfileCardModal({
                     <img src={rankR.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
                   )}
                   {rankR.iconUrl ? (
-                    <img src={rankR.iconUrl} alt="" className="w-3.5 h-3.5 object-contain relative z-10" />
+                    <img src={rankR.iconUrl} alt="" className="w-3 h-3 sm:w-3.5 sm:h-3.5 object-contain relative z-10" />
                   ) : (
-                    <Award className="w-3.5 h-3.5 text-white relative z-10" />
+                    <Award className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white relative z-10" />
                   )}
                   <span className="relative z-10">{rankR.name}</span>
                 </span>
@@ -309,11 +441,11 @@ export default function ProfileCardModal({
                 </h2>
 
                 {/* Título do jogador abaixo do nome */}
-                <div className={`${isLandscape ? 'gap-1 mt-0.5' : 'gap-2 mt-1'} flex flex-wrap items-center`}>
-                  <span className="text-[10px] font-mono font-black uppercase px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 shadow">
+                <div className={`${isLandscape ? 'gap-1 mt-0.5' : 'gap-1.5 sm:gap-2 mt-0.5 sm:mt-1'} flex flex-wrap items-center`}>
+                  <span className="text-[9px] sm:text-[10px] font-mono font-black uppercase px-1.5 sm:px-2.5 py-px sm:py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 sm:shadow">
                     {profile.title || t('ESTUDANTE', 'STUDENT')}
                   </span>
-                  <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-slate-950/60 text-slate-300 border border-slate-800">
+                  <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase px-1.5 sm:px-2 py-px sm:py-0.5 rounded bg-slate-950/60 text-slate-300 border border-slate-800">
                     @{profile.username || profile.name}
                   </span>
                 </div>
@@ -392,6 +524,9 @@ export default function ProfileCardModal({
                   )}
                 </div>
 
+                {/* HISTÓRICO DA ARENA — mobile landscape: abaixo das curtidas do perfil */}
+                {isLandscape && arenaHistoryBlock}
+
                 {/* VILA NINJA — ocultada por enquanto (permanece no DOM) */}
                 <div className="hidden bg-slate-950/90 border border-slate-800/90 rounded-2xl p-3.5 flex items-center gap-3.5 shadow-inner">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
@@ -442,23 +577,8 @@ export default function ProfileCardModal({
             {/* ACTION FOOTER (com o Histórico da Arena à esquerda) */}
             <div className={`${isLandscape ? 'mt-2 pt-2' : 'mt-5 pt-3'} flex flex-wrap items-center gap-3 border-t border-slate-800/80`}>
 
-              {/* Histórico da Arena (posicionado na barra do FECHAR, à esquerda) */}
-              <div className={`${isLandscape ? 'px-2.5 py-1.5 gap-2' : 'px-3.5 py-2 gap-3.5'} bg-slate-950/90 border border-slate-800/90 rounded-xl shadow-inner flex items-center flex-shrink-0`}>
-                <div className={`${isLandscape ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 flex-shrink-0`}>
-                  <Swords className={`${isLandscape ? 'w-3 h-3' : 'w-4 h-4'}`} />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] text-slate-400 font-mono uppercase tracking-wider">{t('HISTÓRICO DA ARENA', 'ARENA HISTORY')}</span>
-                    <span className="text-[9px] text-cyan-300 font-mono font-bold whitespace-nowrap">{winRate}% {t('Vitórias', 'Win Rate')}</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-[11px] font-black font-mono">
-                    <span className="text-emerald-400">⚔️ {wins} {t('Vitórias', 'Wins')}</span>
-                    <span className="text-slate-700">|</span>
-                    <span className="text-red-400">🛡️ {losses} {t('Derrotas', 'Losses')}</span>
-                  </div>
-                </div>
-              </div>
+              {/* Histórico da Arena — em mobile landscape fica abaixo das curtidas (coluna esquerda) */}
+              {!isLandscape && arenaHistoryBlock}
 
               {isSelf && onOpenEditModal && (
                 <button
@@ -513,22 +633,31 @@ export default function ProfileCardModal({
               <div className={`${isLandscape ? 'grid-cols-3' : 'grid-cols-5'} grid gap-1.5`}>
                 {numberedOwned.map(({ card: c, num }) => {
                   const fx = rarityFx(c.rarity);
-                  return (
-                  <button
-                    key={c.id}
-                    onClick={() => { if (playClickSound) playClickSound(); setLightboxCard(c); }}
-                    className={`relative aspect-[3/4] rounded-md overflow-hidden border ${CARD_RARITY_META[c.rarity].border} ${CARD_RARITY_META[c.rarity].glow} bg-slate-900 cursor-pointer group hover:scale-105 transition-transform shadow-lg flex-shrink-0 ${fx?.frame || ''}`}
-                    title={`#${String(num).padStart(3, '0')} — ${c.characterName} (${c.title})`}
-                  >
-                    <img src={cardImage(c)} alt={c.characterName} className="w-full h-full object-cover" />
-                    {fx && <span className={fx.sweep} />}
-                    <span className="absolute top-0.5 left-0.5 text-[6px] font-mono font-black text-white px-0.5 py-px rounded bg-slate-950/80 leading-none">
-                      #{String(num).padStart(3, '0')}
-                    </span>
-                    <span className={`absolute bottom-0.5 right-0.5 text-[5px] font-mono font-black uppercase px-1 py-px rounded ${CARD_RARITY_META[c.rarity].chip}`}>
-                      {c.rarity}
-                    </span>
-                  </button>
+                  const isPremium = c.rarity === 'lendario' || c.rarity === 'secreto';
+                  const cardTitle = `#${String(num).padStart(3, '0')} — ${c.characterName} (${c.title})`;
+                  const cardContent = (
+                    <>
+                      <img src={cardImage(c)} alt={c.characterName} className="w-full h-full object-cover" />
+                      {fx && <span className={fx.sweep} />}
+                      <span className="absolute top-0.5 left-0.5 text-[6px] font-mono font-black text-white px-0.5 py-px rounded bg-slate-950/80 leading-none">
+                        #{String(num).padStart(3, '0')}
+                      </span>
+                      <span className={`absolute bottom-0.5 right-0.5 text-[5px] font-mono font-black uppercase px-1 py-px rounded ${CARD_RARITY_META[c.rarity].chip}`}>
+                        {c.rarity}
+                      </span>
+                    </>
+                  );
+                  const cardClass = `relative aspect-[3/4] rounded-md border ${CARD_RARITY_META[c.rarity].border} ${CARD_RARITY_META[c.rarity].glow} bg-slate-900 cursor-pointer group shadow-lg flex-shrink-0 ${isPremium ? 'w-full overflow-hidden' : 'overflow-hidden hover:scale-105 transition-transform'} ${fx?.frame || ''}`;
+                  const cardClick = () => { if (playClickSound) playClickSound(); setLightboxCard(c); };
+
+                  return isPremium ? (
+                    <TiltCard key={c.id} className={cardClass} onClick={cardClick} title={cardTitle}>
+                      {cardContent}
+                    </TiltCard>
+                  ) : (
+                    <button key={c.id} className={cardClass} onClick={cardClick} title={cardTitle}>
+                      {cardContent}
+                    </button>
                   );
                 })}
               </div>
@@ -562,7 +691,7 @@ export default function ProfileCardModal({
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative flex flex-col items-center"
+              className={`${isLandscape ? 'flex-row-reverse items-center gap-4' : 'flex-col items-center'} relative flex`}
             >
               {/* Navegação (anterior) */}
               {ownedCards.length > 1 && (
@@ -582,15 +711,26 @@ export default function ProfileCardModal({
               )}
 
               {/* Card ampliado — foto completa (cover), borda única, sem texto na imagem */}
-              <div className={`relative w-56 sm:w-64 aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
-                <img src={cardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
-                <span className={`absolute top-2 right-2 text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
-                  {lightboxCard.rarity}
-                </span>
-              </div>
+              {(lightboxCard.rarity === 'lendario' || lightboxCard.rarity === 'secreto') ? (
+                <Tilt3D key={lightboxCard.id} className="relative" glareRadius="rounded-2xl">
+                  <div className={`relative ${isLandscape ? 'w-50 sm:w-55' : 'w-56 sm:w-64'} aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
+                    <img src={cardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
+                    <span className={`absolute top-2 right-2 text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
+                      {lightboxCard.rarity}
+                    </span>
+                  </div>
+                </Tilt3D>
+              ) : (
+                <div className={`relative ${isLandscape ? 'w-50 sm:w-55' : 'w-56 sm:w-64'} aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
+                  <img src={cardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
+                  <span className={`absolute top-2 right-2 text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
+                    {lightboxCard.rarity}
+                  </span>
+                </div>
+              )}
 
               {/* Informações da figurinha (fora da imagem) */}
-              <div className="mt-3 text-center max-w-xs">
+              <div className={`${isLandscape ? 'text-left max-w-[190px] mt-0' : 'mt-3 text-center max-w-xs'} flex-shrink-0`}>
                 <span className={`inline-block text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded mb-1 ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
                   #{(ownedCards.findIndex(x => x.id === lightboxCard.id) + 1).toString().padStart(3, '0')} • {lightboxCard.rarity}
                 </span>
