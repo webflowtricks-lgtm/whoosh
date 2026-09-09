@@ -13,6 +13,24 @@ import { getCharacters } from '../lib/characterStorage';
 import { useLanguage } from '../lib/i18n';
 import MangekyoLoader from './MangekyoLoader';
 
+/** Detecta mobile landscape (celular deitado) — mesmo critério do BattleBoard. */
+function useIsMobileLandscape(): boolean {
+  const [isLandscape, setIsLandscape] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(orientation: landscape) and (max-height: 500px)');
+    const update = () => setIsLandscape(mq.matches);
+    update();
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', update);
+      return () => mq.removeEventListener('change', update);
+    }
+    mq.addListener(update);
+    return () => mq.removeListener(update);
+  }, []);
+  return isLandscape;
+}
+
 interface ProfileModalProps {
   user: UserProfile;
   onClose: () => void;
@@ -33,6 +51,7 @@ const PRESET_STYLED_FRAMES = [
 
 export default function ProfileModal({ user, onClose, onUpdateUser, playClickSound, playUahSound, playScrollSound }: ProfileModalProps) {
   const { t } = useLanguage();
+  const isLandscape = useIsMobileLandscape();
   const [name, setName] = useState(user.name);
   const [photoUrl, setPhotoUrl] = useState(user.photoUrl);
   const [title, setTitle] = useState(user.title || 'Estudante');
@@ -156,7 +175,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
 
   return (
     <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto custom-scrollbar"
+        className={`fixed inset-0 z-50 flex items-center justify-center ${isLandscape ? 'p-2' : 'p-4'} overflow-y-auto custom-scrollbar`}
         onClick={() => { playClickSound(); onClose(); }}
       >
       {/* Background Image */}
@@ -187,7 +206,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]"
+        className={`ml-profile-modal-card ${isLandscape ? 'w-full max-h-[82vh]' : ''} bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]`}
       >
         {/* Header Banner Preview */}
         <div className={`p-6 text-slate-950 relative overflow-hidden flex-shrink-0 transition-all duration-300 ${

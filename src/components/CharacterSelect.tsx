@@ -574,7 +574,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           <img 
             src="/static/img/topbar.webp" 
             alt="Topbar Pergaminho" 
-            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
+            className="mv-pergaminho-top-bar absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
             onError={(e) => {
               e.currentTarget.src = '/static/img/filtro_pergaminho.webp';
             }}
@@ -590,7 +590,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             </div>
 
             {/* Player Selection Status Indicator & Game Mode Buttons */}
-            <div className="flex flex-wrap items-center gap-3 sm:gap-5 justify-center">
+            <div className="mv-personagens-btns flex flex-wrap items-center gap-3 sm:gap-5 justify-center">
               <div className="flex items-center gap-2">
                 {[0, 1, 2].map(idx => {
                   const charId = selectedIds[idx];
@@ -641,7 +641,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     <button
                       onClick={handleBackToPlayerSelect}
                       data-sound="uah"
-                      className="px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md shadow-black/20 font-mono"
+                      className="mv-back-bottom-left px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md shadow-black/20 font-mono"
                     >
                       <ChevronLeft className="w-4 h-4" />
                       {t("Voltar (Time A)", "Back (Team A)")}
@@ -670,7 +670,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           onBack();
                         }}
                         data-sound="uah"
-                        className="px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md shadow-black/20 font-mono"
+                        className="mv-back-bottom-left px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md shadow-black/20 font-mono"
                       >
                         <ChevronLeft className="w-4 h-4" />
                         {t("Voltar", "Back")}
@@ -695,7 +695,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       onClick={handleStartSandboxPhase}
                       data-sound="uah"
                       disabled={selectedIds.length !== 3}
-                      className={`px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
+                      className={`mv-hide-sandbox px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all font-mono ${
                         selectedIds.length === 3
                           ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:brightness-110 text-amber-950 border-amber-500 shadow-md shadow-black/20'
                           : 'bg-amber-950/20 text-amber-900/50 border-amber-900/30 cursor-not-allowed font-medium shadow-sm shadow-black/10'
@@ -738,7 +738,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       <main className="max-w-[1400px] w-full mx-auto px-3 sm:px-6 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform">
         {/* Roster Grid (Left Side) */}
         <div className="lg:col-span-6 space-y-6">
-          <div className="flex flex-col gap-4">
+          <div className="mv-filtro flex flex-col gap-4">
        
 
             {/* Filter and Search Bar inside Parchment Scroll */}
@@ -754,13 +754,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               />
 
               {/* Filter inputs inside parchment printable bounds */}
-              <div className="mb-[5px] mt-[2px] relative z-10 w-full grid sm:grid-cols-2 gap-2.5 px-7 sm:px-10 py-3">
+              <div className="mv-filter-row mb-[5px] mt-[2px] relative z-10 w-full grid sm:grid-cols-2 gap-2.5 px-7 sm:px-10 py-3">
                 {/* Search Input */}
                 <div className="relative flex items-center">
                   <Search className="absolute left-3 w-4 h-4 text-amber-950/70" />
                   <input
                     type="text"
-                    placeholder="Buscar ninja pelo nome..."
+                    placeholder="Buscar ninja..."
                     value={searchTerm}
                     onChange={(e) => handleSearchChange(e.target.value)}
                     className="w-full  rounded-lg pl-9 pr-3 py-1.5 text-xs text-amber-950   font-sans font-medium focus:outline-none transition-all"

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
 import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo, SlidersHorizontal, Settings } from 'lucide-react';
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, getEffectiveTargetType, getEffectiveCooldown, getSkillCombatTypes, Quest, QuestGoal } from '../types';
@@ -121,6 +121,224 @@ export interface EffectDisplayItem {
   skillName: string;
   isDebuff: boolean;
   subEffects: EffectSubItem[];
+}
+/**
+ * 🧊 Buff/Debuff badges paginated (mobile landscape only).
+ * Fora do mobile landscape mantém o comportamento original (flex-wrap com
+ * todos os ícones visíveis). No mobile landscape os ícones ficam menores e,
+ * quando há muitos efeitos, aparecem páginas de ícones navegáveis por setas.
+ */
+const EFFECTS_PER_PAGE = 4;
+
+function useIsMobileLandscape(): boolean {
+  const [isLandscape, setIsLandscape] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(orientation: landscape) and (max-height: 500px)');
+    const update = () => setIsLandscape(mq.matches);
+    update();
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', update);
+      return () => mq.removeEventListener('change', update);
+    }
+    // Safari antigo
+    mq.addListener(update);
+    return () => mq.removeListener(update);
+  }, []);
+  return isLandscape;
+}
+
+/** 📱 Mobile VERTICAL (retrato): espelho do useIsMobileLandscape.
+ *  Vale apenas para celular em pé — a dimensão pequena é a largura
+ *  (max-width: 500px) em vez da altura. Use p/ aplicar classes "mv-"
+ *  no JSX condicionalmente, sem afetar desktop/landscape. */
+function useIsMobileVertical(): boolean {
+  const [isVertical, setIsVertical] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(orientation: portrait) and (max-width: 500px)');
+    const update = () => setIsVertical(mq.matches);
+    update();
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', update);
+      return () => mq.removeEventListener('change', update);
+    }
+    // Safari antigo
+    mq.addListener(update);
+    return () => mq.removeListener(update);
+  }, []);
+  return isVertical;
+}
+
+function EffectBadges({
+  combatantId,
+  groupedEffects,
+  pinnedEffectTooltip,
+  setPinnedEffectTooltip,
+  onPlaySound,
+  opponentView = false,
+}: {
+  combatantId: string;
+  groupedEffects: EffectDisplayItem[];
+  pinnedEffectTooltip: string | null;
+  setPinnedEffectTooltip: Dispatch<SetStateAction<string | null>>;
+  onPlaySound: () => void;
+  opponentView?: boolean;
+}) {
+  const isMobileLandscape = useIsMobileLandscape();
+  const [page, setPage] = useState(0);
+
+  if (groupedEffects.length === 0) return null;
+
+  const totalPages = Math.max(1, Math.ceil(groupedEffects.length / EFFECTS_PER_PAGE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageOffset = isMobileLandscape ? safePage * EFFECTS_PER_PAGE : 0;
+  const visibleEffects = isMobileLandscape
+    ? groupedEffects.slice(pageOffset, pageOffset + EFFECTS_PER_PAGE)
+    : groupedEffects;
+
+  const goPrev = () => { onPlaySound(); setPage(p => Math.max(0, p - 1)); };
+  const goNext = () => { onPlaySound(); setPage(p => Math.min(totalPages - 1, p + 1)); };
+
+  return (
+    <div className="flex items-center gap-1.5 w-full">
+      <div className={isMobileLandscape ? 'flex flex-nowrap items-center gap-1.5' : 'flex flex-wrap items-center gap-1.5'}>
+        {visibleEffects.map((item, localIdx) => {
+          // ÍNDICE GLOBAL (não o da página) → o pin/tooltip continua estável
+          // quando o usuário navega entre as páginas.
+          const effIdx = pageOffset + localIdx;
+          const eff = item.effect;
+          const isDebuff = item.isDebuff;
+
+          return (
+            <div
+              key={effIdx}
+              data-pin-key={`${combatantId}:${effIdx}`}
+              onClick={(e) => { e.stopPropagation(); setPinnedEffectTooltip(prev => prev === `${combatantId}:${effIdx}` ? null : `${combatantId}:${effIdx}`); }}
+              className={`buff-debuff-icon relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
+                isDebuff
+                  ? 'border-red-500/80 shadow-md shadow-red-950/60'
+                  : 'border-emerald-500/80 shadow-md shadow-emerald-950/60'
+              }`}
+            >
+              <div className={`relative rounded-lg overflow-hidden flex items-center justify-center bg-slate-900 ${isMobileLandscape ? 'w-6 h-6' : 'w-8 h-8 sm:w-9 sm:h-9'}`}>
+                {eff.icon ? (
+                  <img
+                    src={eff.icon || null}
+                    alt={item.skillName || eff.name}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover rounded-lg"
+                    onError={(e) => {
+                      const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                    }}
+                  />
+                ) : (
+                  <span className={`${isMobileLandscape ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} rounded-full ${isDebuff ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`} />
+                )}
+                {eff.irremovable && (
+                  <span className="absolute top-0 right-0 bg-slate-950/80 rounded text-[8px] p-0.5">🔒</span>
+                )}
+                {(eff.isInvisible || eff.type === 'invisible') && (
+                  <span className="absolute top-0 left-0 bg-pink-950/90 text-pink-300 rounded text-[8px] p-0.5 border border-pink-700/80" title="Invisível para o oponente">👁️</span>
+                )}
+              </div>
+              {/* Overlay stack badge ONLY if stacks > 1 */}
+              {item.stacks > 1 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-amber-400 border-2 border-slate-950 text-[10px] font-sans font-black text-slate-950 shadow-md z-20">
+                  {item.stacks}
+                </span>
+              )}
+
+              {/* Rich Tooltip on hover */}
+              <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex-col items-center z-50 pointer-events-none ${
+                pinnedEffectTooltip === `${combatantId}:${effIdx}` ? 'flex' : 'hidden group-hover:flex'
+              }`}>
+                <div className="bg-slate-950/95 border border-slate-700 rounded-xl p-2.5 text-center shadow-2xl backdrop-blur-md min-w-[13rem] max-w-[16rem] text-white">
+                  <div className="flex items-center justify-center gap-1.5 mb-1.5 border-b border-slate-800/80 pb-1">
+                    <span className={`text-[8px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
+                      isDebuff ? 'bg-red-950/80 border-red-800/80 text-red-400' : 'bg-emerald-950/80 border-emerald-800/80 text-emerald-400'
+                    }`}>
+                      {isDebuff ? 'DEBUFF' : 'BUFF'}
+                    </span>
+                    <span className="font-extrabold text-xs text-orange-300 truncate">{item.skillName || eff.name}</span>
+                  </div>
+
+                  {(opponentView && (eff.isInvisible || eff.type === 'invisible')) && (
+                    <p className="text-[9px] font-sans font-bold text-pink-400 bg-pink-950/80 px-1.5 py-0.5 rounded border border-pink-800/80 my-1">
+                      👁️‍🗨️ INVISÍVEL PARA O OPONENTE
+                    </p>
+                  )}
+
+                  {item.subEffects && item.subEffects.length > 1 ? (
+                    <div className="flex flex-col gap-1.5 my-1 text-left">
+                      <span className="text-[9px] font-sans font-bold text-slate-400 uppercase tracking-wider text-center block">
+                        Efeitos Aplicados ({item.subEffects.length}):
+                      </span>
+                      {item.subEffects.map((sub, sIdx) => (
+                        <div key={sIdx} className="text-xs text-slate-200 font-sans leading-snug bg-slate-900/80 p-1.5 rounded border border-slate-800/80">
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <span className="font-extrabold text-[11px] text-amber-300 truncate">
+                              {sub.effect.name}
+                            </span>
+                            <span className="text-[9px] font-sans text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
+                              {sub.effect.duration >= 99999 ? '♾️ Permanente' : sub.effect.duration + 'T'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-300 leading-tight">
+                            <RichText text={sub.description} />
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-200 font-sans leading-snug my-1 text-left">
+                      <RichText text={item.description} />
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-sans text-slate-400 mt-1">
+                    <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️ Permanente' : eff.duration + 'T'}</strong></span>
+                    {item.stacks > 1 && (
+                      <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
+                    )}
+                  </div>
+                </div>
+                <div className="w-2 h-2 bg-slate-950 border-r border-b border-slate-700 rotate-45 -mt-1" />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+              {/* Paginação mobile landscape: setas + contador (só quando há mais de 1 página) */}
+      {isMobileLandscape && totalPages > 1 && (
+        <div className="flex items-center gap-0.5 shrink-0 pl-1 border-l border-slate-800/60" data-effect-pager>
+          <button
+            type="button"
+            onClick={goPrev}
+            disabled={safePage === 0}
+            className={`p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 transition-all ${
+              safePage === 0 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
+            }`}
+            title="Anterior"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-[9px] font-mono font-bold text-slate-400 whitespace-nowrap">{safePage + 1}/{totalPages}</span>
+          <button
+            type="button"
+            onClick={goNext}
+            disabled={safePage >= totalPages - 1}
+            className={`p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 transition-all ${
+              safePage >= totalPages - 1 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
+            }`}
+            title="Próximo"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function isOffensiveSkill(skill: Skill | null): boolean {
@@ -850,6 +1068,14 @@ function getGroupedActiveEffects(
   const visibleEffects = effects.filter(eff => isEffectVisibleToViewer(eff, viewerSide, viewerCombatants, targetCombatant, allCombatants));
   if (visibleEffects.length === 0) return [];
 
+  // 🟥 Skills do INIMIGO aplicadas em combatentes do JOGADOR sempre aparecem como
+  // DEBUFF (vermelho), mesmo quando o efeito é, na prática, vantajoso (escudo, cura,
+  // damage_buff etc.). A regra vale apenas na renderização — a mecânica do jogo
+  // (cleanse por tipo, cannot_receive_friendly etc.) continua usando isDebuffEffect().
+  const targetIsPlayerSide = viewerCombatants && viewerCombatants.length > 0
+    ? viewerCombatants.includes(targetCombatant as CombatCharacter)
+    : !!targetCombatant && targetCombatant.id.startsWith('player');
+
   const groupsMap = new Map<string, {
     key: string;
     skillName: string;
@@ -859,7 +1085,11 @@ function getGroupedActiveEffects(
   }>();
 
   for (const eff of visibleEffects) {
-    const isDebuff = isDebuffEffect(eff);
+    // Side efetivo de quem conjurou: usa casterSide quando presente; senão deriva do casterId.
+    const effectCasterSide = eff.casterSide ||
+      (eff.casterId ? (eff.casterId.startsWith('player') ? 'player' : 'enemy') : undefined);
+    const enemyAppliedOnPlayer = targetIsPlayerSide && effectCasterSide === 'enemy';
+    const isDebuff = enemyAppliedOnPlayer || isDebuffEffect(eff);
     const skillBaseName = getSkillBaseName(eff);
     const singleDesc = getSingleEffectDescription(eff);
 
@@ -11814,17 +12044,6 @@ splashOnlyTargets = splashPool.filter(c =>
         Blood: Math.max(0, sideChakra.Blood - fixedCosts.Blood),
       };
 
-      const initialAllocation: ChakraPool = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
-      const tempAvail = { ...availablePoolForRand };
-      for (let i = 0; i < totalRandRequired; i++) {
-        const sorted = (Object.keys(tempAvail) as (keyof ChakraPool)[]).sort((a, b) => tempAvail[b] - tempAvail[a]);
-        const highest = sorted[0];
-        if (tempAvail[highest] > 0) {
-          tempAvail[highest]--;
-          initialAllocation[highest]++;
-        }
-      }
-
       setRandModalData({
         actions: sideActions,
         isPlayerSide: isCurrentPlayer,
@@ -11833,7 +12052,9 @@ splashOnlyTargets = splashPool.filter(c =>
         fixedCosts,
         availablePoolForRand,
       });
-      setRandAllocation(initialAllocation);
+      // 👤 O jogador escolhe manualmente quais chakras usar para o custo Rand —
+      // nenhuma pré-seleção automática.
+      setRandAllocation({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
       setShowRandChakraModal(true);
       playScrollSound();
       turnActionLockedRef.current = false;
@@ -18184,114 +18405,16 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                         </div>
                       )}
 
-                      {/* Active Status Badges */}
-                      {combatant.activeEffects.length > 0 && (() => {
-                        const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]);
-
-                        return (
-                          <div className="flex items-center gap-1.5 w-full">
-                            <div className="flex flex-wrap gap-1.5 items-center">
-                              {groupedEffects.map((item, effIdx) => {
-                                const eff = item.effect;
-                                const isDebuff = item.isDebuff;
-
-                                return (
-                                  <div
-                                    key={effIdx}
-                                    data-pin-key={`${combatant.id}:${effIdx}`}
-                                    onClick={(e) => { e.stopPropagation(); setPinnedEffectTooltip(prev => prev === `${combatant.id}:${effIdx}` ? null : `${combatant.id}:${effIdx}`); }}
-                                    className={`buff-debuff-icon relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
-                                      isDebuff
-                                        ? 'border-red-500/80 shadow-md shadow-red-950/60'
-                                        : 'border-emerald-500/80 shadow-md shadow-emerald-950/60'
-                                    }`}
-                                  >
-                                    <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden flex items-center justify-center bg-slate-900">
-                                      {eff.icon ? (
-                                        <img
-                                          src={eff.icon || null}
-                                          alt={item.skillName || eff.name}
-                                          referrerPolicy="no-referrer"
-                                          className="w-full h-full object-cover rounded-lg"
-                                          onError={(e) => {
-                                            const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                                          }}
-                                        />
-                                      ) : (
-                                        <span className={`w-3.5 h-3.5 rounded-full ${isDebuff ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`} />
-                                      )}
-                                      {eff.irremovable && (
-                                        <span className="absolute top-0 right-0 bg-slate-950/80 rounded text-[8px] p-0.5">🔒</span>
-                                      )}
-                                      {(eff.isInvisible || eff.type === 'invisible') && (
-                                        <span className="absolute top-0 left-0 bg-pink-950/90 text-pink-300 rounded text-[8px] p-0.5 border border-pink-700/80" title="Invisível para o oponente">👁️</span>
-                                      )}
-                                    </div>
-
-                                    {/* Overlay stack badge ONLY if stacks > 1 */}
-                                    {item.stacks > 1 && (
-                                      <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-amber-400 border-2 border-slate-950 text-[10px] font-sans font-black text-slate-950 shadow-md z-20">
-                                        {item.stacks}
-                                      </span>
-                                    )}
-
-                                    {/* Rich Tooltip on hover */}
-                                    <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex-col items-center z-50 pointer-events-none ${
-                                      pinnedEffectTooltip === `${combatant.id}:${effIdx}` ? 'flex' : 'hidden group-hover:flex'
-                                    }`}>
-                                      <div className="bg-slate-950/95 border border-slate-700 rounded-xl p-2.5 text-center shadow-2xl backdrop-blur-md min-w-[13rem] max-w-[16rem] text-white">
-                                        <div className="flex items-center justify-center gap-1.5 mb-1.5 border-b border-slate-800/80 pb-1">
-                                          <span className={`text-[8px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
-                                            isDebuff ? 'bg-red-950/80 border-red-800/80 text-red-400' : 'bg-emerald-950/80 border-emerald-800/80 text-emerald-400'
-                                          }`}>
-                                            {isDebuff ? 'DEBUFF' : 'BUFF'}
-                                          </span>
-                                          <span className="font-extrabold text-xs text-orange-300 truncate">{item.skillName || eff.name}</span>
-                                        </div>
-
-                                        {item.subEffects && item.subEffects.length > 1 ? (
-                                          <div className="flex flex-col gap-1.5 my-1 text-left">
-                                            <span className="text-[9px] font-sans font-bold text-slate-400 uppercase tracking-wider text-center block">
-                                              Efeitos Aplicados ({item.subEffects.length}):
-                                            </span>
-                                            {item.subEffects.map((sub, sIdx) => (
-                                              <div key={sIdx} className="text-xs text-slate-200 font-sans leading-snug bg-slate-900/80 p-1.5 rounded border border-slate-800/80">
-                                                <div className="flex items-center justify-between gap-1 mb-0.5">
-                                                  <span className="font-extrabold text-[11px] text-amber-300 truncate">
-                                                    {sub.effect.name}
-                                                  </span>
-                                                  <span className="text-[9px] font-sans text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
-                                                    {sub.effect.duration >= 99999 ? '♾️ Permanente' : sub.effect.duration + 'T'}
-                                                  </span>
-                                                </div>
-                                                <p className="text-[11px] text-slate-300 leading-tight">
-                                                  <RichText text={sub.description} />
-                                                </p>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          <p className="text-xs text-slate-200 font-sans leading-snug my-1 text-left">
-                                            <RichText text={item.description} />
-                                          </p>
-                                        )}
-
-                                        <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-sans text-slate-400 mt-1">
-                                          <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️ Permanente' : eff.duration + 'T'}</strong></span>
-                                          {item.stacks > 1 && (
-                                            <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="w-2 h-2 bg-slate-950 border-r border-b border-slate-700 rotate-45 -mt-1" />
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })()}
+                                            {/* Active Status Badges — paginado no mobile landscape */}
+                      {combatant.activeEffects.length > 0 && (
+                        <EffectBadges
+                          combatantId={combatant.id}
+                          groupedEffects={getGroupedActiveEffects(combatant.activeEffects, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants])}
+                          pinnedEffectTooltip={pinnedEffectTooltip}
+                          setPinnedEffectTooltip={setPinnedEffectTooltip}
+                          onPlaySound={() => playClickSound()}
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -18463,10 +18586,10 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                   {/* Selected Target Prompt Overlay */}
                                   {isSelected && !isCued && (
                                     <div className="absolute inset-0 bg-amber-950/90 flex flex-col items-center justify-center p-1 text-center z-20 animate-pulse">
-                                      <span className="text-amber-300 text-[9px] sm:text-[11px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md flex items-center gap-1.5">
-                                        <span>🎯</span>
+                                      <span className="ml-selecione-o-alvo text-amber-300 text-[9px] sm:text-[11px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md flex items-center gap-1.5">
+
                                         SELECIONE O ALVO
-                                        <span>🎯</span>
+
                                       </span>
                                     </div>
                                   )}
@@ -19308,120 +19431,17 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                         </div>
                       )}
 
-                      {/* Active Status Badges */}
-                      {combatant.activeEffects.length > 0 && (() => {
-                        const groupedEffects = getGroupedActiveEffects(combatant.activeEffects, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]);
-
-                        return (
-                          <div className="flex items-center gap-1.5 w-full">
-                            <div className="flex flex-wrap gap-1.5 items-center">
-                              {groupedEffects.map((item, effIdx) => {
-                                const eff = item.effect;
-                                const isDebuff = item.isDebuff;
-
-                                return (
-                                  <div
-                                    key={effIdx}
-                                    data-pin-key={`${combatant.id}:${effIdx}`}
-                                    onClick={(e) => { e.stopPropagation(); setPinnedEffectTooltip(prev => prev === `${combatant.id}:${effIdx}` ? null : `${combatant.id}:${effIdx}`); }}
-                                    className={`buff-debuff-icon relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
-                                      isDebuff
-                                        ? 'border-red-500/80 shadow-md shadow-red-950/60'
-                                        : 'border-emerald-500/80 shadow-md shadow-emerald-950/60'
-                                    }`}
-                                  >
-                                    <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden flex items-center justify-center bg-slate-900">
-                                      {eff.icon ? (
-                                        <img
-                                          src={eff.icon || null}
-                                          alt={item.skillName || eff.name}
-                                          referrerPolicy="no-referrer"
-                                          className="w-full h-full object-cover rounded-lg"
-                                          onError={(e) => {
-                                            const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                                          }}
-                                        />
-                                      ) : (
-                                        <span className={`w-3.5 h-3.5 rounded-full ${isDebuff ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`} />
-                                      )}
-                                      {eff.irremovable && (
-                                        <span className="absolute top-0 right-0 bg-slate-950/80 rounded text-[8px] p-0.5">🔒</span>
-                                      )}
-                                      {(eff.isInvisible || eff.type === 'invisible') && (
-                                        <span className="absolute top-0 left-0 bg-pink-950/90 text-pink-300 rounded text-[8px] p-0.5 border border-pink-700/80" title="Invisível para o oponente">👁️</span>
-                                      )}
-                                    </div>
-
-                                    {/* Overlay stack badge ONLY if stacks > 1 */}
-                                    {item.stacks > 1 && (
-                                      <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-amber-400 border-2 border-slate-950 text-[10px] font-sans font-black text-slate-950 shadow-md z-20">
-                                        {item.stacks}
-                                      </span>
-                                    )}
-
-                                    {/* Rich Tooltip on hover */}
-                                    <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex-col items-center z-50 pointer-events-none ${
-                                      pinnedEffectTooltip === `${combatant.id}:${effIdx}` ? 'flex' : 'hidden group-hover:flex'
-                                    }`}>
-                                      <div className="bg-slate-950/95 border border-slate-700 rounded-xl p-2.5 text-center shadow-2xl backdrop-blur-md min-w-[13rem] max-w-[16rem] text-white">
-                                        <div className="flex items-center justify-center gap-1.5 mb-1.5 border-b border-slate-800/80 pb-1">
-                                          <span className={`text-[8px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
-                                            isDebuff ? 'bg-red-950/80 border-red-800/80 text-red-400' : 'bg-emerald-950/80 border-emerald-800/80 text-emerald-400'
-                                          }`}>
-                                            {isDebuff ? 'DEBUFF' : 'BUFF'}
-                                          </span>
-                                          <span className="font-extrabold text-xs text-orange-300 truncate">{item.skillName || eff.name}</span>
-                                        </div>
-
-                                        {(eff.isInvisible || eff.type === 'invisible') && (
-                                          <p className="text-[9px] font-sans font-bold text-pink-400 bg-pink-950/80 px-1.5 py-0.5 rounded border border-pink-800/80 my-1">
-                                            👁️‍🗨️ INVISÍVEL PARA O OPONENTE
-                                          </p>
-                                        )}
-
-                                        {item.subEffects && item.subEffects.length > 1 ? (
-                                          <div className="flex flex-col gap-1.5 my-1 text-left">
-                                            <span className="text-[9px] font-sans font-bold text-slate-400 uppercase tracking-wider text-center block">
-                                              Efeitos Aplicados ({item.subEffects.length}):
-                                            </span>
-                                            {item.subEffects.map((sub, sIdx) => (
-                                              <div key={sIdx} className="text-xs text-slate-200 font-sans leading-snug bg-slate-900/80 p-1.5 rounded border border-slate-800/80">
-                                                <div className="flex items-center justify-between gap-1 mb-0.5">
-                                                  <span className="font-extrabold text-[11px] text-amber-300 truncate">
-                                                    {sub.effect.name}
-                                                  </span>
-                                                  <span className="text-[9px] font-sans text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
-                                                    {sub.effect.duration >= 99999 ? '♾️ Permanente' : sub.effect.duration + 'T'}
-                                                  </span>
-                                                </div>
-                                                <p className="text-[11px] text-slate-300 leading-tight">
-                                                  <RichText text={sub.description} />
-                                                </p>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          <p className="text-xs text-slate-200 font-sans leading-snug my-1 text-left">
-                                            <RichText text={item.description} />
-                                          </p>
-                                        )}
-
-                                        <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-sans text-slate-400 mt-1">
-                                          <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️ Permanente' : eff.duration + 'T'}</strong></span>
-                                          {item.stacks > 1 && (
-                                            <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="w-2 h-2 bg-slate-950 border-r border-b border-slate-700 rotate-45 -mt-1" />
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })()}
+                                            {/* Active Status Badges — paginado no mobile landscape */}
+                      {combatant.activeEffects.length > 0 && (
+                        <EffectBadges
+                          combatantId={combatant.id}
+                          groupedEffects={getGroupedActiveEffects(combatant.activeEffects, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants])}
+                          pinnedEffectTooltip={pinnedEffectTooltip}
+                          setPinnedEffectTooltip={setPinnedEffectTooltip}
+                          onPlaySound={() => playClickSound()}
+                          opponentView
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -20409,23 +20429,20 @@ onClick={() => handleSelectTarget(combatant.id, true)}
       <AnimatePresence>
         {showRandChakraModal && randModalData && (
           <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 10 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            <div
               className="relative bg-slate-900 border-2 border-amber-600/50 rounded-2xl p-5 max-w-md w-full shadow-2xl text-slate-100 space-y-4"
+              data-rand-modal
             >
               <div className="flex items-start justify-between border-b border-amber-900/40 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                    <Sparkles className="w-5 h-5" />
+                  <div className="p-1.5 rounded-xl bg-slate-800/60 border border-slate-700/60">
+                    {renderChakraIcon('Rand', 'w-5 h-5')}
                   </div>
                   <div>
                     <h3 className="font-extrabold text-sm sm:text-base text-amber-100 uppercase tracking-wide">
                       Substituir Chakra Aleatório
                     </h3>
-                    <p className="text-[11px] font-semibold text-slate-400">
+                    <p className="text-[11px] font-semibold text-slate-400" data-rand-sub>
                       Escolha quais chakras usar para o custo genérico (Rand)
                     </p>
                   </div>
@@ -20442,12 +20459,14 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                 </button>
               </div>
 
+              {/* Conteúdo horizontal no mobile landscape: skills à esquerda, seleção à direita */}
+              <div className="flex flex-col gap-3 min-h-0" data-rand-body>
               {/* Queued Skills requiring Rand */}
               <div className="space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
                 <p className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Swords className="w-3.5 h-3.5" /> Habilidades com Custo Aleatório:
                 </p>
-                <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1" data-rand-list>
                   {randModalData.queuedSkillsWithRand.map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between text-xs bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800">
                       <div className="flex items-center gap-2">
@@ -20474,7 +20493,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
 
                 return (
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center bg-amber-950/30 border border-amber-600/30 p-2.5 rounded-xl">
+                    <div className="flex justify-between items-center bg-amber-950/30 border border-amber-600/30 p-2.5 rounded-xl" data-rand-progress>
                       <span className="text-xs font-bold text-amber-200">Total de Chakras Aleatórios Necessários:</span>
                       <span className={`text-xs font-black font-mono px-2 py-0.5 rounded ${
                         isComplete ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-orange-500/20 text-orange-400 border border-orange-500/40'
@@ -20484,7 +20503,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     </div>
 
                     {/* Chakra allocation picker */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2" data-rand-picker>
                       {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map(key => {
                         const available = randModalData.availablePoolForRand[key] || 0;
                         const allocated = randAllocation[key] || 0;
@@ -20497,7 +20516,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                         if (key === 'Blood') elemLabel = 'Bloodline';
 
                         return (
-                          <div key={key} className={`p-2.5 rounded-xl border flex flex-col justify-between transition-all ${
+                          <div key={key} data-rand-card className={`p-2.5 rounded-xl border flex flex-col justify-between transition-all ${
                             allocated > 0
                               ? 'bg-amber-950/40 border-amber-500/50 shadow-md shadow-amber-950/20'
                               : 'bg-slate-950/50 border-slate-800'
@@ -20548,8 +20567,9 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                   </div>
                 );
               })()}
+              </div>
 
-              <div className="flex items-center gap-2.5 pt-2">
+              <div className="flex items-center gap-2.5 pt-2" data-rand-actions>
                 <button
                   type="button"
                   onClick={() => {
@@ -20581,7 +20601,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                   Confirmar e Finalizar
                 </button>
               </div>
-            </motion.div>
+            </div>
           </div>
         )}
       </AnimatePresence>

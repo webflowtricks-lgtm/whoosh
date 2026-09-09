@@ -1522,6 +1522,10 @@ e-squad-name {
     margin-top: -7px;
   }
 
+  .ml-selecione-o-alvo {
+    font-size: 8px ;
+  }
+
   .battle-left-squad,
   .battle-right-squad {
     gap: 0.375rem;
@@ -1629,6 +1633,15 @@ e-squad-name {
     height: 13px !important;
   }
 
+  /* ===== BUFF/DEBUFF BADGES: paginados e compactos em mobile landscape =====
+     Os ícones são menores via classes Tailwind no componente EffectBadges
+     (w-6 h-6) e, quando há muitos efeitos, aparecem setas < > + contador
+     (navegação por páginas em vez de quebrar linha). */
+  [data-effect-pager] button svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+
   /* ===== TEXTO DE VIDA (100/100) DOS PERSONAGENS: menor em mobile landscape =====
      Classe utilitária .ml-hp aplicada nos spans que exibem a vida dos combatentes.
      Só tem efeito aqui (dentro do media query de celular deitado), então o
@@ -1637,7 +1650,239 @@ e-squad-name {
     font-size: 8.5px !important;
     line-height: 1 !important;
   }
+
+  /* ===== MODAL SUBSTITUIR CHAKRA ALEATÓRIO: menor em mobile landscape =====
+     Diminui largura (max-width), padding e espaçamentos internos para caber
+     melhor na tela deitada do celular. Sem efeito no desktop. */
+  [data-rand-modal] {
+    max-width: min(96vw, 660px) !important;
+    padding: 0.75rem !important;
+  }
+  [data-rand-modal] h3 {
+    font-size: 12px !important;
+  }
+  [data-rand-modal] [data-rand-sub] {
+    font-size: 9px !important;
+  }
+  [data-rand-modal] > * + * {
+    margin-top: 0.4rem !important;
+  }
+  [data-rand-modal] [data-rand-list] {
+    max-height: 4.5rem !important;
+  }
+  [data-rand-modal] [data-rand-progress] {
+    padding: 0.5rem !important;
+  }
+  [data-rand-modal] [data-rand-progress] span {
+    font-size: 10px !important;
+  }
+  [data-rand-modal] [data-rand-picker] {
+    gap: 0.4rem !important;
+  }
+  [data-rand-modal] [data-rand-card] {
+    padding: 0.4rem !important;
+  }
+  [data-rand-modal] [data-rand-card] span {
+    font-size: 10px !important;
+  }
+  [data-rand-modal] [data-rand-card] button {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    font-size: 10px !important;
+  }
+  [data-rand-modal] [data-rand-actions] button {
+    padding-top: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+    font-size: 10px !important;
+  }
+
+  /* ===== LAYOUT HORIZONTAL do modal no mobile landscape =====
+     No celular deitado, o conteúdo fica em colunas: skills à ESQUERDA
+     (largura ~40%) e a seleção dos chakras à DIREITA (~60%). No desktop
+     continua empilhado em coluna (flex-col, o padrão do JSX). */
+  [data-rand-modal] [data-rand-body] {
+    display: flex;
+    flex-direction: row !important;
+    align-items: stretch;
+    gap: 0.4rem !important;
+    min-height: 0;
+  }
+  /* Coluna esquerda: lista de habilidades que precisam de chakra aleatório */
+  [data-rand-modal] [data-rand-body] > :first-child {
+    flex: 0 0 40% !important;
+    min-width: 0;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  [data-rand-modal] [data-rand-body] > :first-child [data-rand-list] {
+    flex: 1 !important;
+    max-height: none !important;
+    overflow-y: auto;
+  }
+  /* Coluna direita: seleção de chakras a usar (o último filho do body é a
+     própria div .space-y-3 retornada pelo IIFE — aplica flex column nela) */
+  [data-rand-modal] [data-rand-body] > :last-child {
+    flex: 1 1 60% !important;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  [data-rand-modal] [data-rand-body] > :last-child [data-rand-picker] {
+    flex: 1 !important;
+    align-content: center;
+  }
+  /* Header do modal mais compacto no mobile landscape */
+  [data-rand-modal] > :first-child {
+    padding-bottom: 0.5rem !important;
+  }
+  [data-rand-modal] [data-rand-body] > :first-child > p {
+    font-size: 9px !important;
+    white-space: nowrap;
+  }
+
+  /* ===== TABS tab-wood (AuthScreen / QuestBoard / ProfileModal /
+     ShopModal / CardGalleryModal): em mobile landscape o conteúdo
+     (ícone + texto) fica um pouco ACIMA do centro da aba. Desce o texto
+     alguns px para alinhar ao centro visual do corpo da madeira — mas
+     compensa o ícone subindo de volta, para ele não descer junto. ===== */
+  button:has(> img[src*="tab-wood"]) > span {
+    transform: translateY(2px);
+  }
+  /* Ícones das tabs com tab-wood: sobem 2px de volta (contra-deslocamento),
+     mantendo o ícone centralizado enquanto apenas o texto desce. */
+  button:has(> img[src*="tab-wood"]) > span > svg {
+    transform: translateY(-2px);
+  }
+
+  /* ===== MODAIS DE PERFIL: compactos no mobile landscape =====
+     Em deitado, a ALTURA é o gargalo (~375px). Dois painéis lado a lado
+     (ProfileCardModal: card 620px + figurinhas 335px) não cabem na largura
+     e 92vh preenche toda a tela. Reduzimos ambos e limitamos a altura. */
+
+  /* --- ProfileCardModal: wrapper do card + figurinhas --- */
+  .ml-profile-card-wrap {
+    max-height: 80vh !important;
+    gap: 0.375rem !important;
+    align-items: flex-start !important; /* empurra painéis para cima, não estica */
+    overflow-y: auto !important;
+  }
+  /* Card principal: largura quase-full, altura limitada, conteúdo rolável */
+  .profile-card-modal-container {
+    max-width: min(470px, 65vw) !important;
+    max-height: 78vh !important;
+    overflow-y: auto !important;
+  }
+  /* Painel de figurinhas: proporcional ao espaço */
+  .ml-figurinhas-panel {
+    width: 230px !important;
+    max-height: 75vh !important;
+    overflow-y: auto !important;
+  }
+  /* Header do card: padding compacto */
+  .ml-profile-card-wrap .bg-gradient-to-r {
+    padding: 0.75rem !important;
+  }
+  .ml-profile-card-wrap h2 {
+    font-size: 1rem !important;
+  }
+
+  /* --- ProfileModal (editar perfil) --- */
+  .ml-profile-modal-card {
+    max-width: min(590px, 88vw) !important;
+    max-height: 82vh !important;
+  }
+  /* Header do ProfileModal: compacto */
+  .ml-profile-modal-card > :first-child {
+    padding: 0.75rem !important;
+  }
+  .ml-profile-modal-card > :first-child h2 {
+    font-size: 1rem !important;
+  }
 }
+
+/* =========================================================
+   📱 MOBILE VERTICAL (RETRATO) — grid mais compacto
+   =========================================================
+   ⚠️  Esta seção vale SOMENTE para celular em retrato (vertical).
+   Condição simétrica do mobile landscape: no landscape a dimensão
+   pequena é a ALTURA (max-height: 500px); no retrato a dimensão
+   pequena é a LARGURA (max-width: 500px) → só celulares em pé,
+   nunca tablets/desktop.
+
+   ✍️  REGRA DE USO: para criar estilos que valham APENAS no
+   mobile vertical, adicione aqui dentro classes com prefixo "mv-"
+   (ex.: .mv-life, .mv-hp, .mv-skills-detalhes) e aplique o nome
+   da classe no JSX/BattleBoard.tsx junto das classes Tailwind.
+   O desktop e o mobile landscape NÃO enxergam nada daqui.
+   ========================================================= */
+@media (orientation: portrait) and (max-width: 500px) {
+  .battle-arena-layout {
+    gap: 0.375rem;
+  }
+
+  .mv-pergaminho-top-bar {
+     width: 155vw;
+  max-width: none;
+  margin-left: -74px;
+  }
+
+
+
+  .mv-personagens-btns {
+    margin-top: -15px;
+  }
+
+  .mv-filtro {
+    margin-top: 90px;
+  }
+
+  .ninja-village-tag {
+    color: #f97007;
+    margin-top: 0px;
+  }
+
+  .mv-filtro img {
+    height: 70px
+  }
+
+  .battle-left-squad,
+  .battle-right-squad {
+    gap: 0.375rem;
+  }
+  /* Override Tailwind space-y-6 (24px) → compact */
+  .battle-left-squad > * + *,
+  .battle-right-squad > * + * {
+    margin-top: 0.5rem !important;
+  }
+
+  /* ===== Exemplo de uso: coloque aqui seus estilos "mv-" ===== */
+
+  /* 🔒 Remove o botão Sandbox (CharacterSelect) APENAS no mobile vertical */
+  .mv-hide-sandbox {
+    display: none !important;
+  }
+
+  /* 🔙 Botão Voltar (CharacterSelect): fixo no canto INFERIOR ESQUERDO
+     da tela no mobile vertical (fora da linha de botões do topo) */
+  .mv-back-bottom-left {
+    position: fixed !important;
+    bottom: 12px !important;
+    left: 12px !important;
+    z-index: 40 !important;
+  }
+
+  /* 🃏 Roster (CharacterSelect): 4 colunas por linha no mobile vertical — REMOVIDO (voltou ao padrão 3 colunas) */
+
+  /* 🔎 Filtro (CharacterSelect): busca + tag "Todos" lado a lado em linha
+     reta no mobile vertical (em vez de um embaixo do outro) */
+  .mv-filter-row {
+    margin-top: 7px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+} /* FIM Mobile vertical (retrato) */
 
 .battle-left-squad {
   width: 100%;
