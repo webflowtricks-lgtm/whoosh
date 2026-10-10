@@ -1514,6 +1514,12 @@ e-squad-name {
     margin-top: -9px;
   }
 
+  .ml-badge-profile {
+    position: absolute;
+    z-index: 2;
+    left: -20px
+  }
+
   .pergaminho-profile-modal {
     width: 850px;
     max-height: 400px;
@@ -1763,6 +1769,11 @@ e-squad-name {
     transform: translateY(-2px);
   }
 
+  /* ===== PROFILE CARD RANK BADGE: imagem do rank no canto superior esquerdo ===== */
+  .profile-card-rank-badge {
+    /* Estilos base — personalize aqui para todas as imagens de rank */
+  }
+
   /* ===== MODAIS DE PERFIL: compactos no mobile landscape =====
      Em deitado, a ALTURA é o gargalo (~375px). Dois painéis lado a lado
      (ProfileCardModal: card 620px + figurinhas 335px) não cabem na largura
@@ -1780,6 +1791,11 @@ e-squad-name {
     max-width: min(470px, 65vw) !important;
     max-height: 78vh !important;
     overflow-y: auto !important;
+  }
+  /* Badge rank (imagem absoluta canto superior esquerdo) — landscape compacto */
+  .profile-card-rank-badge {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
   }
   /* Painel de figurinhas: proporcional ao espaço */
   .ml-figurinhas-panel {
@@ -1835,8 +1851,7 @@ e-squad-name {
   margin-left: -74px;
   }
 
-
-
+  
   .mv-personagens-btns {
     margin-top: -15px;
   }

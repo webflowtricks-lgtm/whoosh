@@ -5,11 +5,11 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Heart, Shield, Award, Sparkles, User, Swords, Trophy, Flame, CheckCircle2, Calendar, ChevronLeft, ChevronRight, Images } from 'lucide-react';
+import { X, Heart, Shield, Sparkles, User, Swords, Trophy, Flame, CheckCircle2, Calendar, ChevronLeft, ChevronRight, Images } from 'lucide-react';
 import { UserProfile, NinjaCard } from '../types';
+import { getCards, fetchCardsFromServer, CARD_RARITY_META, rarityFx, RARITY_ORDER } from '../lib/cardStorage';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
-import { getCards, fetchCardsFromServer, CARD_RARITY_META, rarityFx, RARITY_ORDER } from '../lib/cardStorage';
 import { useLanguage } from '../lib/i18n';
 import MangekyoLoader from './MangekyoLoader';
 
@@ -274,14 +274,10 @@ export default function ProfileCardModal({
   const winRate = totalBattles > 0 ? Math.round((wins / totalBattles) * 100) : 100;
   const village = profile.village || t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)');
 
-  // Rank badge (só o selo, exibido no cabeçalho)
+  // Rank do jogador (para badge genin)
   const rankRanks = getRanks();
   const rankProgress = getRankProgress(profile.xp || 0, rankRanks);
   const rankR = rankProgress.currentRank;
-  const rankIsNone = !rankR.color || rankR.color === 'none';
-  const rankBgClass = rankIsNone
-    ? 'bg-slate-800 text-amber-300 border border-amber-500/30'
-    : (rankR.color.includes('bg-gradient') ? rankR.color : `bg-gradient-to-r ${rankR.color}`);
 
   // Figurinhas do jogador (coleção) + paginação
   const cardImage = (c: NinjaCard) => c.imageUrl || `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${c.slug || ''}/icon.jpg`;
@@ -417,32 +413,13 @@ export default function ProfileCardModal({
 
               {/* Badges & Name & Level Header */}
               <div className="min-w-0 flex-1 pr-8">
-                {/* Rank badge (patente) acima do nome — substitui o título */}
-                <span
-                  className={`inline-flex items-center gap-1 sm:gap-1.5 px-1.5 py-px sm:px-2.5 sm:py-0.5 rounded-md sm:rounded-lg text-[10px] font-extrabold uppercase tracking-wider shadow overflow-hidden relative mb-1 ${rankBgClass}`}
-                  style={{
-                    ...(rankR.bgColor ? { backgroundColor: rankR.bgColor } : {}),
-                    color: rankR.fontColor || '#ffffff'
-                  }}
-                >
-                  {rankR.imageUrl && (
-                    <img src={rankR.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
-                  )}
-                  {rankR.iconUrl ? (
-                    <img src={rankR.iconUrl} alt="" className="w-3 h-3 sm:w-3.5 sm:h-3.5 object-contain relative z-10" />
-                  ) : (
-                    <Award className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white relative z-10" />
-                  )}
-                  <span className="relative z-10">{rankR.name}</span>
-                </span>
-
                 <h2 className={`${isLandscape ? 'text-base' : 'text-2xl sm:text-3xl'} font-black text-white tracking-tight truncate drop-shadow-md leading-tight`}>
                   {profile.name}
                 </h2>
 
-                {/* Título do jogador abaixo do nome */}
+                {/* Título do jogador + @username abaixo do nome */}
                 <div className={`${isLandscape ? 'gap-1 mt-0.5' : 'gap-1.5 sm:gap-2 mt-0.5 sm:mt-1'} flex flex-wrap items-center`}>
-                  <span className="text-[9px] sm:text-[10px] font-mono font-black uppercase px-1.5 sm:px-2.5 py-px sm:py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 sm:shadow">
+                  <span className="text-[9px] sm:text-[10px] font-mono font-black uppercase px-1.5 sm:px-2.5 py-px sm:py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 shadow">
                     {profile.title || t('ESTUDANTE', 'STUDENT')}
                   </span>
                   <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase px-1.5 sm:px-2 py-px sm:py-0.5 rounded bg-slate-950/60 text-slate-300 border border-slate-800">
@@ -665,6 +642,14 @@ export default function ProfileCardModal({
           </div>
         </motion.div>
         </div>
+
+        {/* Badge rank — imagem absoluta no canto superior esquerdo */}
+        <img
+          src={`/static/img/ui/${rankR.id}.webp`}
+          alt={rankR.name}
+          style={{ position: 'fixed', top: '12px', left: '12px', zIndex: 9999, objectFit: 'contain', pointerEvents: 'none', userSelect: 'none', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))' }}
+          className="profile-card-rank-badge w-12 h-12 sm:w-16 sm:h-16"
+        />
       </div>
 
       {/* LIGHTBOX — figurinha ampliada */}
