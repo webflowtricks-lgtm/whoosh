@@ -19190,6 +19190,38 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         </div>
       </section>
 
+      <div className="mv-center-status" aria-label="Status da batalha">
+        <div className="mv-center-status-chakra">
+          <span aria-hidden="true">⚡</span>
+          <span>{Object.values(playerChakra).reduce((total, amount) => total + amount, 0)}</span>
+          <span>Chakra</span>
+        </div>
+        <div
+          className={`mv-center-status-turn ${
+            isWaitingForOpponent
+              ? 'is-waiting'
+              : activePlanner === 'player'
+                ? 'is-player-turn'
+                : 'is-opponent-turn'
+          }`}
+        >
+          <span className="mv-center-status-round">Turno {turn}</span>
+          <span className="mv-center-status-label">
+            {gameOver
+              ? 'Batalha encerrada'
+              : isWaitingForOpponent
+                ? 'Aguardando...'
+                : activePlanner === 'player'
+                  ? 'Seu turno'
+                  : 'Vez do oponente'}
+          </span>
+        </div>
+        <div className={`mv-center-status-timer ${timeLeft <= 10 && !gameOver ? 'is-low' : ''}`}>
+          <Clock aria-hidden="true" />
+          <span>{timeLeft}s</span>
+        </div>
+      </div>
+
       {/* Center: ARENA CONTROL BOARD & CHAKRA */}
       <section className="battle-center-squad mv-hide-battle-center space-y-4 p-1 sm:p-2">
         {/* TURN, TIMER, TURN STATUS & CHAKRA PANEL (turnoss.webp) */}

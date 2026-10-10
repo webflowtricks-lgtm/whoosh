@@ -1864,6 +1864,10 @@ e-squad-name {
    da classe no JSX/BattleBoard.tsx junto das classes Tailwind.
    O desktop e o mobile landscape NÃO enxergam nada daqui.
    ========================================================= */
+.mv-center-status {
+  display: none;
+}
+
 @media (orientation: portrait) and (max-width: 500px) {
   .battle-arena-layout {
     display: grid;
@@ -1871,7 +1875,7 @@ e-squad-name {
     grid-template-areas:
       "player-profile opponent-profile"
       "enemy-roster enemy-roster"
-      ". ."
+      "center-status center-status"
       "player-roster player-roster";
     grid-template-rows: auto auto minmax(1rem, 1fr) auto;
     align-items: start;
@@ -1906,6 +1910,98 @@ e-squad-name {
 
   .mv-player-roster {
     grid-area: player-roster;
+  }
+
+  .mv-center-status {
+    grid-area: center-status;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr) minmax(0, 0.7fr);
+    align-items: center;
+    justify-self: center;
+    width: min(100%, 24rem);
+    min-width: 0;
+    align-self: center;
+    padding: 0.55rem 0.45rem;
+    border: 1px solid rgba(251, 191, 36, 0.55);
+    border-radius: 0.85rem;
+    background: linear-gradient(110deg, rgba(41, 24, 13, 0.94), rgba(91, 48, 20, 0.92), rgba(41, 24, 13, 0.94));
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.32), inset 0 0 12px rgba(251, 191, 36, 0.08);
+    color: #fff7db;
+    text-align: center;
+  }
+
+  .mv-center-status-chakra,
+  .mv-center-status-turn,
+  .mv-center-status-timer {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    line-height: 1.1;
+  }
+
+  .mv-center-status-chakra {
+    color: #fcd34d;
+    font-size: 0.75rem;
+    font-weight: 900;
+  }
+
+  .mv-center-status-chakra > span:last-child {
+    font-size: 0.48rem;
+    text-transform: uppercase;
+  }
+
+  .mv-center-status-turn {
+    flex-direction: column;
+    gap: 0.12rem;
+    border-right: 1px solid rgba(253, 230, 138, 0.24);
+    border-left: 1px solid rgba(253, 230, 138, 0.24);
+  }
+
+  .mv-center-status-round {
+    color: rgba(255, 237, 188, 0.72);
+    font-size: 0.48rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .mv-center-status-label {
+    overflow: hidden;
+    max-width: 100%;
+    color: #fde68a;
+    font-size: 0.63rem;
+    font-weight: 900;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .mv-center-status-turn.is-player-turn .mv-center-status-label {
+    color: #86efac;
+  }
+
+  .mv-center-status-turn.is-opponent-turn .mv-center-status-label {
+    color: #fca5a5;
+  }
+
+  .mv-center-status-timer {
+    color: #fef3c7;
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+    font-weight: 900;
+  }
+
+  .mv-center-status-timer svg {
+    width: 0.75rem;
+    height: 0.75rem;
+    color: #fcd34d;
+  }
+
+  .mv-center-status-timer.is-low,
+  .mv-center-status-timer.is-low svg {
+    color: #fca5a5;
   }
 
   .mv-profile-card {
