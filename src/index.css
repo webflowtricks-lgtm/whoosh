@@ -2083,8 +2083,8 @@ e-squad-name {
 
   .mv-character-skin[aria-expanded="true"],
   .mv-enemy-portrait-trigger[aria-expanded="true"] {
-    outline: 2px solid #f97316;
-    outline-offset: 2px;
+    outline: none !important;
+    box-shadow: none !important;
   }
 
   .mv-skill-targetable {
