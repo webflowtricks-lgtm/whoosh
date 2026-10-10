@@ -180,6 +180,7 @@ function EffectBadges({
   opponentView = false,
   tooltipBelow = false,
   mobilePlacement = 'inline',
+  onMobileTargetClick,
 }: {
   combatantId: string;
   groupedEffects: EffectDisplayItem[];
@@ -189,6 +190,7 @@ function EffectBadges({
   opponentView?: boolean;
   tooltipBelow?: boolean;
   mobilePlacement?: 'inline' | 'below';
+  onMobileTargetClick?: () => void;
 }) {
   const isMobileLandscape = useIsMobileLandscape();
   const isMobileVertical = useIsMobileVertical();
@@ -236,6 +238,7 @@ function EffectBadges({
   return (
     <div
       className={`mv-effect-badges ${mobilePlacement === 'below' ? 'mv-effect-badges-below' : 'mv-effect-badges-inline'} ${isMobileVertical && mobilePlacement === 'below' ? 'mv-vertical-health-effects cursor-pointer' : ''} flex items-center gap-1.5 w-full`}
+      data-combatant-target={isMobileVertical && mobilePlacement === 'below' && onMobileTargetClick ? combatantId : undefined}
       onClick={event => {
         if (!isMobileVertical || mobilePlacement !== 'below') return;
         event.stopPropagation();
@@ -244,6 +247,10 @@ function EffectBadges({
           return;
         }
         if (event.target instanceof Element && event.target.closest('[data-effect-pager]')) return;
+        if (onMobileTargetClick) {
+          onMobileTargetClick();
+          return;
+        }
         setMobileEffectDetailsOpen(true);
       }}
       onTouchStart={handleTouchStart}
@@ -268,6 +275,10 @@ function EffectBadges({
                   return;
                 }
                 if (isMobileVertical) {
+                  if (mobilePlacement === 'below' && onMobileTargetClick) {
+                    onMobileTargetClick();
+                    return;
+                  }
                   setMobileEffectDetailsOpen(true);
                   return;
                 }
@@ -3723,6 +3734,29 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     return true;
   };
+
+  useEffect(() => {
+    if (!selectedSkill || !window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches) return;
+
+    const cancelOnNonTargetClick = (event: MouseEvent) => {
+      const clickedElement = event.target;
+      const targetRegion = clickedElement instanceof Element
+        ? clickedElement.closest<HTMLElement>('[data-combatant-target]')
+        : null;
+      const targetId = targetRegion?.dataset.combatantTarget;
+      const targetCombatant = targetId?.startsWith('enemy')
+        ? enemyCombatants.find(combatant => combatant.id === targetId)
+        : playerCombatants.find(combatant => combatant.id === targetId);
+      const isEnemyTarget = !!targetId?.startsWith('enemy');
+
+      if (!targetCombatant || !isSkillTargetable(targetCombatant, isEnemyTarget)) {
+        setSelectedSkill(null);
+      }
+    };
+
+    document.addEventListener('click', cancelOnNonTargetClick, true);
+    return () => document.removeEventListener('click', cancelOnNonTargetClick, true);
+  }, [selectedSkill, playerCombatants, enemyCombatants]);
 
 // Trade 4 chakras of choice for 1 chakra of choice
 const handleTradeChakra = () => {
@@ -18013,20 +18047,23 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     const allCombatants = [...playerCombatants, ...enemyCombatants];
     const effectiveCost = getEffectiveSkillCost(skill, combatant, allCombatants);
     const effectiveCooldown = getEffectiveCooldown(skill, combatant, allCombatants);
+    const skillRequirements = [
+      skill.requireEffect && `Requer ${translateGameText(skill.requireEffect, language)}`,
+      skill.requirePreviousSkill && `Após ${translateSkillName(skill.requirePreviousSkill, language)}`,
+      skill.requireTargetEffect && `Alvo requer ${translateGameText(skill.requireTargetEffect, language)}`,
+    ].filter((requirement): requirement is string => !!requirement);
 
     return (
       <div
         className="mv-skill-detail-panel"
         role="region"
         aria-label={`Características de ${translateSkillName(skill.name, language)}`}
-        onClick={event => event.stopPropagation()}
+        onClick={event => {
+          event.stopPropagation();
+          if (selectedSkill) setSelectedSkill(null);
+        }}
       >
-        <img
-          src="/static/img/ui/p-batalha.webp"
-          alt=""
-          aria-hidden="true"
-          className={`mv-skill-detail-background ${isEnemy ? 'scale-x-[-1]' : ''}`}
-        />
+        
         <div className="mv-skill-detail-content">
           <div className="mv-skill-detail-heading">
             <img
@@ -18064,9 +18101,20 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             </div>
           </div>
 
-          {!!skill.classes?.length && (
-            <div className="mv-skill-detail-classes" aria-label="Classes da habilidade">
-              {skill.classes.map(skillClass => <span key={skillClass}>{skillClass}</span>)}
+          {(!!skill.classes?.length || !!skillRequirements.length) && (
+            <div className="mv-skill-detail-labels">
+              {!!skill.classes?.length && (
+                <div className="mv-skill-detail-classes" aria-label="Classes da habilidade">
+                  {skill.classes.map(skillClass => <span key={skillClass}>{skillClass}</span>)}
+                </div>
+              )}
+              {!!skillRequirements.length && (
+                <div className="mv-skill-detail-requirements" aria-label="Requisitos da habilidade">
+                  {skillRequirements.map(requirement => (
+                    <span key={requirement} title={requirement}>{requirement}</span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -18484,6 +18532,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     return (
                       <button
                         type="button"
+                        data-combatant-target={combatant.id}
                         disabled={combatant.isDead}
                         aria-label={`Ver habilidades de ${combatant.character.name}`}
                         aria-expanded={skillsModalCharacterId === combatant.id}
@@ -18517,6 +18566,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   <div className="mv-combatant-panel">
                   {/* Main Combatant Card Container */}
                   <div
+                    data-combatant-target={combatant.id}
                     onClick={() => handleCombatantCardClick(combatant.id, false)}
                     data-effect-tooltip-pinned={idx === 0 && pinnedEffectTooltip?.startsWith(`${combatant.id}:`) ? 'true' : undefined}
                     className={`flex-1 relative isolate ${idx === 0 ? 'battle-first-character-card' : ''} ${isSkillTargetable(combatant, false) ? 'mv-skill-targetable' : ''} pr-[15px] p-5 transition-all ${
@@ -18781,6 +18831,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       onPlaySound={() => playClickSound()}
                       tooltipBelow={idx === 0}
                       mobilePlacement="below"
+                      onMobileTargetClick={selectedSkill ? () => handleSelectTarget(combatant.id, false) : undefined}
                     />
                   )}
                   </div>
@@ -19611,6 +19662,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 <div key={combatant.id} data-combatant-id={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch battle-enemy-card-ml">
                   {/* Main Combatant Card Container */}
                   <div
+                    data-combatant-target={combatant.id}
                     onClick={() => handleCombatantCardClick(combatant.id, true)}
                     data-effect-tooltip-pinned={idx === 0 && pinnedEffectTooltip?.startsWith(`${combatant.id}:`) ? 'true' : undefined}
                     className={`flex-1 relative isolate ${idx === 0 ? 'battle-first-character-card' : ''} ${isSkillTargetable(combatant, true) ? 'mv-skill-targetable' : ''} p-5 pl-[15px] transition-all ${
@@ -19713,6 +19765,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       return (
                         <button
                           type="button"
+                          data-combatant-target={combatant.id}
                           disabled={combatant.isDead}
                           aria-label={`Ver habilidades de ${combatant.character.name}`}
                           aria-expanded={skillsModalCharacterId === combatant.id}
@@ -19884,6 +19937,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         opponentView
                         tooltipBelow={idx === 0}
                         mobilePlacement="below"
+                        onMobileTargetClick={selectedSkill ? () => handleSelectTarget(combatant.id, true) : undefined}
                       />
                     )}
 
