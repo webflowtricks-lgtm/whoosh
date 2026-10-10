@@ -1,7 +1,7 @@
 [
   {
     "id": "rank_estudante",
-    "name": "STUDENT",
+    "name": "Estudante",
     "requiredXp": 0,
     "color": "from-slate-500 to-slate-400 border-slate-500/30 text-white",
     "fontColor": "#fff"

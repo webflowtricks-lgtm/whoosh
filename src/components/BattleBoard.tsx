@@ -18598,7 +18598,6 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                                 {/* Hover Details tooltip card */}
                                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
                                   <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
-                                  <p className="text-[10px] text-slate-400 leading-normal pt-1"><RichText text={skill.desc} /></p>
                                    
                                   {(skill.cannotBeCountered || skill.cannotBeReflected) && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
@@ -18899,10 +18898,10 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 </div>
 
                 {/* 3 Papers Grid: Custo, Recarga, Alvo positioned cleanly over paper artwork */}
-                <div className="grid grid-cols-3 gap-1 font-mono pb-3.5 px-1" style={{ paddingTop: '13px' }}>
+                <div className="grid grid-cols-3 items-stretch gap-1 font-mono px-1" style={{ marginBottom: '0px' }}>
                   {/* Paper 1: Custo */}
-                  <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
-                   <div className="flex flex-wrap justify-center gap-1 items-center max-w-full">
+                  <div className="h-12 flex flex-col justify-center items-center text-center p-1.5 min-w-0 bg-amber-100/70 border border-amber-900/30 rounded-lg shadow-sm">
+                   <div className="h-full flex flex-wrap justify-center gap-1 items-center content-center max-w-full">
                       {(() => {
                         const effectiveCost = getEffectiveSkillCost(inspectedSkill.skill, inspectedSkill.combatant, [...playerCombatants, ...enemyCombatants]);
                         if (inspectedSkill.skill.noChakraCost || effectiveCost.length === 0) {
@@ -18923,18 +18922,19 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                   </div>
 
                   {/* Paper 2: Recarga */}
-                  <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
-                    <p className="font-extrabold text-amber-950 text-[10.5px] leading-[1.1] whitespace-normal break-words text-center uppercase">
+                  <div className="h-12 flex flex-col justify-center items-center text-center p-1.5 min-w-0 bg-amber-100/70 border border-amber-900/30 rounded-lg shadow-sm">
+                    <p className="flex items-center justify-center font-extrabold text-amber-950 text-[10.5px] leading-[1.1] whitespace-normal break-words text-center uppercase">
                       {inspectedSkill.skill.cooldown === 0 ? <span>Sem<br />Recarga</span> : <span>{inspectedSkill.skill.cooldown}<br />turnos</span>}
                     </p>
                   </div>
 
                   {/* Paper 3: Alvo */}
-                  <div className="flex flex-col justify-center items-center text-center p-0.5 min-w-0">
-                    <p className="font-extrabold text-amber-950 text-[10.5px] leading-[1.1] whitespace-normal break-words text-center max-w-full px-0.5 uppercase">
+                  <div className="h-12 flex flex-col justify-center items-center text-center p-1.5 min-w-0 bg-amber-100/70 border border-amber-900/30 rounded-lg shadow-sm">
+                    <p className="flex items-center justify-center font-extrabold text-amber-950 text-[10.5px] leading-[1.1] whitespace-normal break-words text-center max-w-full px-0.5 uppercase">
                       {inspectedSkill.skill.targetType === 'Enemy' && <span>Inimigo<br />Único</span>}
                       {inspectedSkill.skill.targetType === 'Self' && 'Próprio'}
                       {inspectedSkill.skill.targetType === 'Ally' && <span>Aliado<br />Único</span>}
+                      {inspectedSkill.skill.targetType === 'SelfAndAlly' && <span>Próprio e<br />Aliado</span>}
                       {inspectedSkill.skill.targetType === 'AllEnemies' && <span>Todos<br />Inimigos</span>}
                       {inspectedSkill.skill.targetType === 'AllAllies' && <span>Todos<br />Aliados</span>}
                       {inspectedSkill.skill.targetType === 'AnyLiving' && <span>Qualquer<br />Vivo</span>}
@@ -19002,10 +19002,6 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                     </div>
                   )}
 
-                  {/* Detailed Description */}
-                  <p className="text-xs text-slate-900 font-medium leading-relaxed">
-                    <RichText text={inspectedSkill.skill.desc} />
-                  </p>
                   {renderSkillCustomEffects(inspectedSkill.skill)}
                 </div>
               </div>
@@ -19650,8 +19646,6 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                   {/* Hover Details tooltip card */}
                                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
                                     <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
-                                    <p className="text-[10px] text-slate-400 leading-normal pt-1"><RichText text={translateGameText(skill.desc, language)} /></p>
-                                    
                                     {(skill.cannotBeCountered || skill.cannotBeReflected) && (
                                       <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
                                         {skill.cannotBeCountered && (
@@ -19785,8 +19779,6 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                                 {/* Hover Details tooltip card */}
                                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
                                   <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
-                                  <p className="text-[10px] text-slate-400 leading-normal pt-1"><RichText text={translateGameText(skill.desc, language)} /></p>
-
                                   {skill.blocksOffensiveSkills && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-red-300 bg-red-950/90 p-1 rounded border border-red-800/80">
                                       <span className="font-bold flex items-center gap-1">
