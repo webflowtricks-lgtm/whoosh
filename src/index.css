@@ -1942,14 +1942,24 @@ e-squad-name {
   }
 
   .mv-center-status-chakra {
-    color: #fcd34d;
-    font-size: 0.75rem;
-    font-weight: 900;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: center;
+    gap: 0.12rem;
   }
 
-  .mv-center-status-chakra > span:last-child {
-    font-size: 0.48rem;
-    text-transform: uppercase;
+  .mv-center-status-chakra-item {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.12rem;
+    color: #fff7db;
+    font-family: ui-monospace, monospace;
+    font-size: 0.55rem;
+    font-weight: 900;
+    line-height: 1;
   }
 
   .mv-center-status-turn {

@@ -19191,10 +19191,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       </section>
 
       <div className="mv-center-status" aria-label="Status da batalha">
-        <div className="mv-center-status-chakra">
-          <span aria-hidden="true">⚡</span>
-          <span>{Object.values(playerChakra).reduce((total, amount) => total + amount, 0)}</span>
-          <span>Chakra</span>
+        <div className="mv-center-status-chakra" role="group" aria-label="Quantidade de chakra por tipo">
+          {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map((type) => (
+            <div key={type} className="mv-center-status-chakra-item">
+              {renderChakraIcon(type, 'w-2.5 h-2.5')}
+              <span>{playerChakra[type] || 0}</span>
+            </div>
+          ))}
         </div>
         <div
           className={`mv-center-status-turn ${
