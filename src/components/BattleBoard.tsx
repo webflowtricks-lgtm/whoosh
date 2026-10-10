@@ -2073,17 +2073,19 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<{ charId: string; skillIndex: number } | null>(null);
   const [cuedActions, setCuedActions] = useState<CuedAction[]>([]);
   const [skillsModalCharacterId, setSkillsModalCharacterId] = useState<string | null>(null);
+  const [mobileSkillDetailsCharacterId, setMobileSkillDetailsCharacterId] = useState<string | null>(null);
   const [battlePortalContainer, setBattlePortalContainer] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!skillsModalCharacterId) return;
 
     const closeModalOnOutsideClick = (event: PointerEvent) => {
       const target = event.target;
-      const modal = document.querySelector('.mv-character-skills-open');
+      const modal = document.querySelector('.mv-skills-modal-stack, .mv-character-skills-open');
       if (target instanceof Node && !modal?.contains(target)) {
         const targetCard = target instanceof Element ? target.closest('.mv-skill-targetable') : null;
         if (!targetCard) setSelectedSkill(null);
         setSkillsModalCharacterId(null);
+        setMobileSkillDetailsCharacterId(null);
       }
     };
 
@@ -3175,6 +3177,9 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   const handleSelectSkill = (charId: string, skillIdx: number) => {
     if (isEndingTurnRef.current || isEndingTurn || gameOver) return;
     playClickSound();
+    if (window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches) {
+      setMobileSkillDetailsCharacterId(charId);
+    }
 
     const isEnemyChar = charId.startsWith('enemy');
     const combatant = isEnemyChar
@@ -3491,11 +3496,13 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     setSelectedSkill(null);
     setSkillsModalCharacterId(null);
+    setMobileSkillDetailsCharacterId(null);
   };
 
   const handleCombatantCardClick = (targetId: string, isEnemyTarget: boolean) => {
     if (!selectedSkill && window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches) {
       playClickSound();
+      setMobileSkillDetailsCharacterId(null);
       setSkillsModalCharacterId(current => current === targetId ? null : targetId);
       return;
     }
@@ -16848,7 +16855,7 @@ if (skill.redirectOffensiveToCaster) {
     SelfAndAllEnemies: 'Mim e Todos os Inimigos',
   };
 
-  const renderSkillCustomEffects = (skill: Skill) => {
+  const renderSkillCustomEffects = (skill: Skill, compact = false) => {
     const effects: { label: string; value: string; color: string; targetLabel?: string }[] = [];
 
     const fmtDur = (d?: number) => (d && d >= 99999 ? 'Infinito' : `${d || 1} ${(d || 1) === 1 ? 'Turno' : 'Turnos'}`);
@@ -17802,16 +17809,18 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     if (effects.length === 0) return null;
 
     return (
-      <div className="mt-2.5 pt-2 border-t border-amber-900/30 space-y-1.5 text-[10px] font-sans text-left">
+      <div className={compact ? 'mv-skill-detail-effects' : 'mt-2.5 pt-2 border-t border-amber-900/30 space-y-1.5 text-[10px] font-sans text-left'}>
         <p className="text-[10px] text-amber-950 font-extrabold uppercase tracking-wider mb-1 flex items-center gap-1">
           <span>Efeitos da Habilidade</span>
           <span className="bg-amber-900/30 text-amber-950 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold">{effects.length}</span>
         </p>
-        <div className="grid grid-cols-1 gap-1.5">
+        <div className={compact ? 'mv-skill-detail-effect-list' : 'grid grid-cols-1 gap-1.5'}>
           {effects.map((eff, idx) => (
             <div
               key={idx}
-              className="flex flex-col gap-1 bg-amber-100/70 border border-amber-900/30 p-2 rounded-lg text-[10px] font-sans shadow-sm"
+              className={compact
+                ? 'mv-skill-detail-effect'
+                : 'flex flex-col gap-1 bg-amber-100/70 border border-amber-900/30 p-2 rounded-lg text-[10px] font-sans shadow-sm'}
             >
               <div className="flex items-center justify-between">
                 <span className={`${eff.color} font-extrabold text-[10px]`}>{eff.label}</span>
@@ -17828,6 +17837,85 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               )}
             </div>
           ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMobileSkillDetails = (combatantId: string) => {
+    if (
+      mobileSkillDetailsCharacterId !== combatantId ||
+      inspectedSkill?.combatant?.id !== combatantId
+    ) return null;
+
+    const { skill, combatant, ownerName, isEnemy } = inspectedSkill;
+    const allCombatants = [...playerCombatants, ...enemyCombatants];
+    const effectiveCost = getEffectiveSkillCost(skill, combatant, allCombatants);
+    const effectiveCooldown = getEffectiveCooldown(skill, combatant, allCombatants);
+
+    return (
+      <div
+        className="mv-skill-detail-panel"
+        role="region"
+        aria-label={`Características de ${translateSkillName(skill.name, language)}`}
+        onClick={event => event.stopPropagation()}
+      >
+        <img
+          src="/static/img/ui/p-batalha.webp"
+          alt=""
+          aria-hidden="true"
+          className={`mv-skill-detail-background ${isEnemy ? 'scale-x-[-1]' : ''}`}
+        />
+        <div className="mv-skill-detail-content">
+          <div className="mv-skill-detail-heading">
+            <img
+              src={skill.icon || null}
+              alt=""
+              className="mv-skill-detail-icon"
+              onError={event => {
+                event.currentTarget.style.visibility = 'hidden';
+              }}
+            />
+            <div className="min-w-0">
+              <span className="mv-skill-detail-owner">{ownerName}</span>
+              <h3>{translateSkillName(skill.name, language)}</h3>
+            </div>
+          </div>
+
+          <div className="mv-skill-detail-stats">
+            <div className="mv-skill-detail-stat">
+              <span>Custo</span>
+              <div>
+                {skill.noChakraCost || effectiveCost.length === 0
+                  ? <b>Grátis</b>
+                  : effectiveCost.map((chakra, index) => (
+                    <span key={`${chakra}-${index}`}>{renderChakraIcon(chakra, 'w-3.5 h-3.5')}</span>
+                  ))}
+              </div>
+            </div>
+            <div className="mv-skill-detail-stat">
+              <span>Recarga</span>
+              <b>{skill.permanent ? 'Permanente' : effectiveCooldown === 0 ? 'Sem recarga' : `${effectiveCooldown} turno${effectiveCooldown === 1 ? '' : 's'}`}</b>
+            </div>
+            <div className="mv-skill-detail-stat">
+              <span>Alvo</span>
+              <b>{translateTargetType(skill.targetType)}</b>
+            </div>
+          </div>
+
+          {!!skill.classes?.length && (
+            <div className="mv-skill-detail-classes" aria-label="Classes da habilidade">
+              {skill.classes.map(skillClass => <span key={skillClass}>{skillClass}</span>)}
+            </div>
+          )}
+
+          {skill.desc && (
+            <p className="mv-skill-detail-description">
+              {translateGameText(skill.desc, language)}
+            </p>
+          )}
+
+          {renderSkillCustomEffects(skill, true)}
         </div>
       </div>
     );
@@ -18542,7 +18630,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
                     const skillsContent = (
                       <div
-                        className={`relative pt-1 mt-1 mv-character-skills ${skillsModalCharacterId === combatant.id ? 'mv-character-skills-open' : ''}`}
+                        className={`relative pt-1 mt-1 mv-character-skills ${skillsModalCharacterId === combatant.id ? 'mv-character-skills-open' : ''} ${
+                          skillsModalCharacterId === combatant.id &&
+                          mobileSkillDetailsCharacterId === combatant.id &&
+                          inspectedSkill?.combatant?.id === combatant.id
+                            ? 'mv-character-skills-stacked'
+                            : ''
+                        }`}
                         role={skillsModalCharacterId === combatant.id ? 'dialog' : undefined}
                         aria-modal={skillsModalCharacterId === combatant.id ? true : undefined}
                         aria-labelledby={skillsModalCharacterId === combatant.id ? `skills-modal-title-${combatant.id}` : undefined}
@@ -18552,7 +18646,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           <span id={`skills-modal-title-${combatant.id}`}>Habilidades — {combatant.character.name}</span>
                           <button
                             type="button"
-                            onClick={() => setSkillsModalCharacterId(null)}
+                            onClick={() => {
+                              setSkillsModalCharacterId(null);
+                              setMobileSkillDetailsCharacterId(null);
+                            }}
                             aria-label="Fechar habilidades"
                             className="mv-skill-parchment-close"
                           >
@@ -18852,11 +18949,24 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         )}
                       </div>
                     );
-                    return skillsModalCharacterId === combatant.id &&
+                    if (
+                      skillsModalCharacterId === combatant.id &&
                       battlePortalContainer &&
                       window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches
-                      ? createPortal(skillsContent, battlePortalContainer, combatant.id)
-                      : skillsContent;
+                    ) {
+                      const hasDetails = mobileSkillDetailsCharacterId === combatant.id &&
+                        inspectedSkill?.combatant?.id === combatant.id;
+                      const modalContent = hasDetails
+                        ? (
+                          <div className="mv-skills-modal-stack">
+                            {skillsContent}
+                            {renderMobileSkillDetails(combatant.id)}
+                          </div>
+                        )
+                        : skillsContent;
+                      return createPortal(modalContent, battlePortalContainer, combatant.id);
+                    }
+                    return skillsContent;
                   })()}
                 </div>
               </div>
@@ -19599,7 +19709,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
                     const skillsContent = (
                       <div
-                        className={`relative pt-1 mt-1 mv-character-skills ${skillsModalCharacterId === combatant.id ? 'mv-character-skills-open' : ''}`}
+                        className={`relative pt-1 mt-1 mv-character-skills ${skillsModalCharacterId === combatant.id ? 'mv-character-skills-open' : ''} ${
+                          skillsModalCharacterId === combatant.id &&
+                          mobileSkillDetailsCharacterId === combatant.id &&
+                          inspectedSkill?.combatant?.id === combatant.id
+                            ? 'mv-character-skills-stacked'
+                            : ''
+                        }`}
                         role={skillsModalCharacterId === combatant.id ? 'dialog' : undefined}
                         aria-modal={skillsModalCharacterId === combatant.id ? true : undefined}
                         aria-labelledby={skillsModalCharacterId === combatant.id ? `skills-modal-title-${combatant.id}` : undefined}
@@ -19609,7 +19725,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           <span id={`skills-modal-title-${combatant.id}`}>Habilidades — {combatant.character.name}</span>
                           <button
                             type="button"
-                            onClick={() => setSkillsModalCharacterId(null)}
+                            onClick={() => {
+                              setSkillsModalCharacterId(null);
+                              setMobileSkillDetailsCharacterId(null);
+                            }}
                             aria-label="Fechar habilidades"
                             className="mv-skill-parchment-close"
                           >
@@ -19917,6 +20036,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                   e.stopPropagation();
                                   playClickSound();
                                   playScrollSound();
+                                  if (window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches) {
+                                    setMobileSkillDetailsCharacterId(combatant.id);
+                                  }
                                   setInspectedSkill({
                                     skill,
                                     ownerName: combatant.character.name,
@@ -20033,11 +20155,24 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         )}
                       </div>
                     );
-                    return skillsModalCharacterId === combatant.id &&
+                    if (
+                      skillsModalCharacterId === combatant.id &&
                       battlePortalContainer &&
                       window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches
-                      ? createPortal(skillsContent, battlePortalContainer, combatant.id)
-                      : skillsContent;
+                    ) {
+                      const hasDetails = mobileSkillDetailsCharacterId === combatant.id &&
+                        inspectedSkill?.combatant?.id === combatant.id;
+                      const modalContent = hasDetails
+                        ? (
+                          <div className="mv-skills-modal-stack">
+                            {skillsContent}
+                            {renderMobileSkillDetails(combatant.id)}
+                          </div>
+                        )
+                        : skillsContent;
+                      return createPortal(modalContent, battlePortalContainer, combatant.id);
+                    }
+                    return skillsContent;
                   })()}
                 </div>
 
