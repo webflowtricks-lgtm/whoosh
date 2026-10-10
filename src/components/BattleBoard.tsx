@@ -2074,6 +2074,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const [cuedActions, setCuedActions] = useState<CuedAction[]>([]);
   const [skillsModalCharacterId, setSkillsModalCharacterId] = useState<string | null>(null);
   const [mobileSkillDetailsCharacterId, setMobileSkillDetailsCharacterId] = useState<string | null>(null);
+  const outsideModalCombatantClickRef = useRef<string | null>(null);
   const [battlePortalContainer, setBattlePortalContainer] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!skillsModalCharacterId) return;
@@ -2083,6 +2084,12 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
       const modal = document.querySelector('.mv-skills-modal-stack, .mv-character-skills-open');
       if (target instanceof Node && !modal?.contains(target)) {
         const targetCard = target instanceof Element ? target.closest('.mv-skill-targetable') : null;
+        const combatantRow = target instanceof Element
+          ? target.closest<HTMLElement>('[data-combatant-id]')
+          : null;
+        outsideModalCombatantClickRef.current = targetCard
+          ? null
+          : combatantRow?.dataset.combatantId || null;
         if (!targetCard) setSelectedSkill(null);
         setSkillsModalCharacterId(null);
         setMobileSkillDetailsCharacterId(null);
@@ -3500,6 +3507,11 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   };
 
   const handleCombatantCardClick = (targetId: string, isEnemyTarget: boolean) => {
+    if (outsideModalCombatantClickRef.current === targetId) {
+      outsideModalCombatantClickRef.current = null;
+      return;
+    }
+
     if (!selectedSkill && window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches) {
       playClickSound();
       setMobileSkillDetailsCharacterId(null);
@@ -17909,12 +17921,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             </div>
           )}
 
-          {skill.desc && (
-            <p className="mv-skill-detail-description">
-              {translateGameText(skill.desc, language)}
-            </p>
-          )}
-
           {renderSkillCustomEffects(skill, true)}
         </div>
       </div>
@@ -18314,7 +18320,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               const incomingCues = getIncomingCuesForCombatant(combatant);
 
               return (
-                <div key={combatant.id} className="flex items-center gap-1 sm:gap-1 items-stretch battle-player-card-mr">
+                <div key={combatant.id} data-combatant-id={combatant.id} className="flex items-center gap-1 sm:gap-1 items-stretch battle-player-card-mr">
                   {/* Standing Skin PNG Artwork (OUTSIDE card on left side) */}
                   {(() => {
                     const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
@@ -19444,7 +19450,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               const incomingCues = getIncomingCuesForCombatant(combatant);
 
               return (
-                <div key={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch battle-enemy-card-ml">
+                <div key={combatant.id} data-combatant-id={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch battle-enemy-card-ml">
                   {/* Main Combatant Card Container */}
                   <div
                     onClick={() => handleCombatantCardClick(combatant.id, true)}

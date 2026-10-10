@@ -2247,6 +2247,7 @@ e-squad-name {
     min-width: 0;
     align-items: center;
     gap: 0.5rem;
+    padding-right: 38%;
   }
 
   .mv-skill-detail-icon {
@@ -2325,10 +2326,15 @@ e-squad-name {
   }
 
   .mv-skill-detail-classes {
+    position: absolute;
+    top: 0;
+    right: 0;
     display: flex;
+    max-width: 58%;
     gap: 0.25rem;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    overflow: hidden;
   }
 
   .mv-skill-detail-classes::-webkit-scrollbar,
@@ -2346,17 +2352,6 @@ e-squad-name {
     font-size: 0.5rem;
     font-weight: 900;
     line-height: 1;
-  }
-
-  .mv-skill-detail-description {
-    display: -webkit-box;
-    overflow: hidden;
-    color: rgba(69, 26, 3, 0.88);
-    font-size: 0.56rem;
-    font-weight: 700;
-    line-height: 1.25;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
   }
 
   .mv-skill-detail-effects {
