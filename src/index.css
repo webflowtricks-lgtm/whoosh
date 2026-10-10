@@ -2033,6 +2033,25 @@ e-squad-name {
     object-fit: contain;
   }
 
+  .mv-enemy-skin-art {
+    order: -1;
+    width: 100%;
+    height: 118px;
+    min-height: 76px;
+    margin-bottom: -20px;
+    flex: 0 0 118px;
+  }
+
+  .mv-enemy-skin-art > div {
+    width: 100%;
+    max-width: 100%;
+    background-color: transparent;
+  }
+
+  .mv-enemy-skin-art img {
+    object-fit: contain !important;
+  }
+
   .mv-profile-portrait {
     width: 40px !important;
     height: 40px !important;

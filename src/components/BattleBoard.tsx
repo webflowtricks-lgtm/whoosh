@@ -20206,7 +20206,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   const skinImg = (rawSkin && !isPortrait) ? rawSkin : null;
 
                   return (
-                    <div className="w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
+                    <div className="mv-enemy-skin-art w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
                       {skinImg ? (
                         <MangekyoLoader
                           src={skinImg}
