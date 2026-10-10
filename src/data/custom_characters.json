@@ -19041,6 +19041,9 @@
         "desc": "Causa 20 de dano físico a um inimigo.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/NarutoUzumakiBarrage.jpg",
         "cost": [
+          "Tai",
+          "Nin",
+          "Nin",
           "Tai"
         ],
         "cooldown": 0,

@@ -18943,7 +18943,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 </div>
 
                 {/* Below Papers: Classes, Tags, Requirements & Description */}
-                <div className=" rounded-lg p-2.5 space-y-2 overflow-y-auto max-h-[190px] scrollbar-thin scrollbar-thumb-amber-800/40">
+                <div className="rounded-lg p-2.5 space-y-2 overflow-y-auto max-h-[190px] battle-skill-scrollbar">
                   {/* Classes & Tags */}
                   {inspectedSkill.skill.classes && inspectedSkill.skill.classes.length > 0 && (
                     <div className="flex flex-wrap gap-1">

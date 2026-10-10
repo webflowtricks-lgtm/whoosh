@@ -1330,6 +1330,24 @@ html, body {
   border-radius: 9999px;
 }
 
+.battle-skill-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #f97316 transparent;
+}
+.battle-skill-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.battle-skill-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.battle-skill-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #f97316;
+  border-radius: 9999px;
+}
+.battle-skill-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #fb923c;
+}
+
 /* =========================================================
    SCROLLBAR PERSONALIZADA (cards de perfil, modais etc.)
    Tema Ã¢mbar/ninja com thumb em gradiente e brilho sutil.
