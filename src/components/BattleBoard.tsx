@@ -177,6 +177,7 @@ function EffectBadges({
   setPinnedEffectTooltip,
   onPlaySound,
   opponentView = false,
+  tooltipBelow = false,
 }: {
   combatantId: string;
   groupedEffects: EffectDisplayItem[];
@@ -184,6 +185,7 @@ function EffectBadges({
   setPinnedEffectTooltip: Dispatch<SetStateAction<string | null>>;
   onPlaySound: () => void;
   opponentView?: boolean;
+  tooltipBelow?: boolean;
 }) {
   const isMobileLandscape = useIsMobileLandscape();
   const [page, setPage] = useState(0);
@@ -250,9 +252,14 @@ function EffectBadges({
               )}
 
               {/* Rich Tooltip on hover */}
-              <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex-col items-center z-50 pointer-events-none ${
+              <div className={`absolute left-1/2 -translate-x-1/2 flex-col items-center z-[2147483647] pointer-events-none ${
+                tooltipBelow ? 'top-full mt-2' : 'bottom-full mb-2'
+              } ${
                 pinnedEffectTooltip === `${combatantId}:${effIdx}` ? 'flex' : 'hidden group-hover:flex'
               }`}>
+                {tooltipBelow && (
+                  <div className="w-2 h-2 bg-slate-950 border-l border-t border-slate-700 rotate-45 -mb-1" />
+                )}
                 <div className="bg-slate-950/95 border border-slate-700 rounded-xl p-2.5 text-center shadow-2xl backdrop-blur-md min-w-[13rem] max-w-[16rem] text-white">
                   <div className="flex items-center justify-center gap-1.5 mb-1.5 border-b border-slate-800/80 pb-1">
                     <span className={`text-[8px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded-full border ${
@@ -303,7 +310,9 @@ function EffectBadges({
                     )}
                   </div>
                 </div>
-                <div className="w-2 h-2 bg-slate-950 border-r border-b border-slate-700 rotate-45 -mt-1" />
+                {!tooltipBelow && (
+                  <div className="w-2 h-2 bg-slate-950 border-r border-b border-slate-700 rotate-45 -mt-1" />
+                )}
               </div>
             </div>
           );
@@ -2063,6 +2072,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   // Selection/Targeting State
   const [selectedSkill, setSelectedSkill] = useState<{ charId: string; skillIndex: number } | null>(null);
   const [cuedActions, setCuedActions] = useState<CuedAction[]>([]);
+  const [mobileSkillsCharacterId, setMobileSkillsCharacterId] = useState<string | null>(null);
 
   // 📌 Tooltip de buff/debuff fixado por clique. Chave única = `${combatant.id}:${effIdx}`.
   // Quando setado, o tooltip desse efeito fica aberto mesmo sem hover; fecha ao clicar
@@ -3166,6 +3176,12 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     });
     setCenterTab('inspector');
     playScrollSound();
+
+    if (selectedSkill?.charId === charId && selectedSkill.skillIndex === skillIdx) {
+      setSelectedSkill(null);
+      playCustomSound('Cancel');
+      return;
+    }
 
     if (combatant.isDead) return;
     if (isEndingTurnRef.current || isEndingTurn || turnActionLockedRef.current || isWaitingForOpponent) return;
@@ -18050,7 +18066,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   isSelf: true,
                 });
               }}
-              className="relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer flex-1"
+              className="mv-profile-card mv-player-profile-card relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer flex-1"
               title="Clique para ver o Card do Perfil & Curtidas"
             >
             {/* Profile Banner Background */}
@@ -18068,7 +18084,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             <div className="absolute top-0 right-0 w-32 h-32 bg-orange-600/5 rounded-full blur-2xl group-hover:bg-orange-600/10 transition-all pointer-events-none z-0" />
             
             {/* Avatar container with high fidelity glow and frame overlay (Foreground z-10) */}
-            <div className="relative z-10 w-14 h-14 flex-shrink-0">
+            <div className="mv-profile-avatar relative z-10 w-14 h-14 flex-shrink-0">
               <div className="absolute inset-0 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
               <div className="relative w-full h-full rounded-full border-2 border-orange-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
                 <img
@@ -18088,7 +18104,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             </div>
 
             {/* Profile Info details (Foreground z-10 above banner) */}
-            <div className="relative z-10 flex-1 text-left">
+            <div className="mv-profile-info relative z-10 flex-1 text-left">
               <p className="text-xs font-mono text-orange-400 font-black uppercase tracking-wider mb-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
                 {user.title || 'Shinobi'}
               </p>
@@ -18129,7 +18145,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               </div>
             </div>
             </div>
-          <div className="space-y-2">
+          <div className="space-y-2 mv-battle-roster mv-player-roster">
             {playerCombatants.map((combatant, idx) => {
               const isMyTurn = activePlanner === 'player' || isSandbox;
               const isSelectedSource = selectedSkill?.charId === combatant.id;
@@ -18152,7 +18168,18 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     const skinImg = (rawSkin && !isPortrait) ? rawSkin : null;
 
                     return (
-                      <div className="w-[95px] flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch overflow-visible">
+                      <button
+                        type="button"
+                        disabled={combatant.isDead}
+                        aria-label={`Ver habilidades de ${combatant.character.name}`}
+                        aria-expanded={mobileSkillsCharacterId === combatant.id}
+                        onClick={() => {
+                          if (!window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches) return;
+                          playClickSound();
+                          setMobileSkillsCharacterId(current => current === combatant.id ? null : combatant.id);
+                        }}
+                        className="mv-character-skin w-[95px] flex-shrink-0 flex items-center justify-center relative select-none self-stretch overflow-visible"
+                      >
                         {skinImg ? (
                           <img
                             src={skinImg || null}
@@ -18169,16 +18196,22 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             }}
                           />
                         ) : (
-                          <div className="w-full h-full" />
+                          <img
+                            src={portrait || null}
+                            alt={combatant.character.name}
+                            className="mv-profile-portrait w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
                         )}
-                      </div>
+                      </button>
                     );
                   })()}
 
                   {/* Main Combatant Card Container */}
                   <div
 onClick={() => handleSelectTarget(combatant.id, false)}
-                    className={`flex-1 relative isolate  pr-[15px] p-5 transition-all ${
+                    data-effect-tooltip-pinned={idx === 0 && pinnedEffectTooltip?.startsWith(`${combatant.id}:`) ? 'true' : undefined}
+                    className={`flex-1 relative isolate ${idx === 0 ? 'battle-first-character-card' : ''} pr-[15px] p-5 transition-all ${
                       combatant.isDead
                         ? (combatant.isDead && isMyTurn && isReviveSelectionActive()
                           ? 'opacity-80 cursor-pointer shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40 hover:ring-emerald-400/80 animate-pulse'
@@ -18413,6 +18446,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                           pinnedEffectTooltip={pinnedEffectTooltip}
                           setPinnedEffectTooltip={setPinnedEffectTooltip}
                           onPlaySound={() => playClickSound()}
+                          tooltipBelow={idx === 0}
                         />
                       )}
                     </div>
@@ -18426,7 +18460,18 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                     const paginatedSkills = combatant.character.skills.slice(skillsPage * skillsPerPage, (skillsPage + 1) * skillsPerPage);
 
                     return (
-                      <div className="relative pt-1 mt-1">
+                      <div className={`relative pt-1 mt-1 mv-character-skills ${mobileSkillsCharacterId === combatant.id ? 'mv-character-skills-open' : ''}`}>
+                        <div className="mv-skill-parchment-header">
+                          <span>Habilidades — {combatant.character.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setMobileSkillsCharacterId(null)}
+                            aria-label="Fechar habilidades"
+                            className="mv-skill-parchment-close"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
                         {/* Left side pagination arrow */}
                         {totalSkillPages > 1 && (
                           <button
@@ -18729,7 +18774,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
       </section>
 
       {/* Center: ARENA CONTROL BOARD & CHAKRA */}
-      <section className="battle-center-squad space-y-4 p-1 sm:p-2">
+      <section className="battle-center-squad mv-hide-battle-center space-y-4 p-1 sm:p-2">
         {/* TURN, TIMER, TURN STATUS & CHAKRA PANEL (turnoss.webp) */}
           <div
             data-panel="turnoss"
@@ -19107,7 +19152,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                 isSelf: false,
               });
             }}
-            className="relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer"
+            className="mv-profile-card mv-opponent-profile-card relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer"
             title="Clique para ver o Card do Perfil do Oponente & Curtir"
           >
             {/* Profile Banner Background */}
@@ -19125,7 +19170,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
             <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/5 rounded-full blur-2xl group-hover:bg-red-600/10 transition-all pointer-events-none z-0" />
             
             {/* Avatar container with high fidelity glow and frame overlay (Foreground z-10) */}
-            <div className="relative z-10 w-14 h-14 flex-shrink-0">
+            <div className="mv-profile-avatar relative z-10 w-14 h-14 flex-shrink-0">
               <div className="absolute inset-0 bg-gradient-to-tr from-red-600 to-rose-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
               <div className="relative w-full h-full rounded-full border-2 border-red-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
                 <MangekyoLoader
@@ -19149,7 +19194,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
             </div>
 
             {/* Profile Info details (Foreground z-10 above banner) */}
-            <div className="relative z-10 flex-1 text-right">
+            <div className="mv-profile-info relative z-10 flex-1 text-right">
               <p className="text-xs font-mono text-red-400 font-black uppercase tracking-wider mb-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
                 {onlineParams?.isOnline ? (onlineParams.opponentProfile.title || 'Oponente') : 'Renegado S-Rank'}
               </p>
@@ -19191,7 +19236,7 @@ onClick={() => handleSelectTarget(combatant.id, false)}
             </div>
           </div>
        
-          <div className="space-y-2">
+          <div className="space-y-2 mv-battle-roster mv-enemy-roster">
             {enemyCombatants.map((combatant, idx) => {
               const isStunned = combatant.activeEffects.some(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]));
               const incomingCues = getIncomingCuesForCombatant(combatant);
@@ -19201,7 +19246,8 @@ onClick={() => handleSelectTarget(combatant.id, false)}
                   {/* Main Combatant Card Container */}
                   <div
 onClick={() => handleSelectTarget(combatant.id, true)}
-                    className={`flex-1 relative isolate p-5 pl-[15px] transition-all ${
+                    data-effect-tooltip-pinned={idx === 0 && pinnedEffectTooltip?.startsWith(`${combatant.id}:`) ? 'true' : undefined}
+                    className={`flex-1 relative isolate ${idx === 0 ? 'battle-first-character-card' : ''} p-5 pl-[15px] transition-all ${
                       combatant.isDead
                         ? (isReviveSelectionActive()
                           ? 'opacity-80 cursor-pointer shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-500/40 hover:ring-emerald-400/80 animate-pulse'
@@ -19299,9 +19345,21 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                       const displayPortrait = (isInvul && invulnSkillIcon) ? invulnSkillIcon : combatant.character.portrait;
 
                       return (
-                        <div className={`w-16 h-16 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
+                        <button
+                          type="button"
+                          disabled={combatant.isDead}
+                          aria-label={`Ver habilidades de ${combatant.character.name}`}
+                          aria-expanded={mobileSkillsCharacterId === combatant.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches) return;
+                            playClickSound();
+                            setMobileSkillsCharacterId(current => current === combatant.id ? null : combatant.id);
+                          }}
+                          className={`mv-enemy-portrait-trigger w-16 h-16 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
                           isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] bg-slate-950' : 'border-slate-800 bg-slate-950'
-                        }`}>
+                        }`}
+                        >
                           <MangekyoLoader
                             src={displayPortrait}
                             alt={combatant.character.name}
@@ -19329,7 +19387,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                           {isInvul && (
                             <div className="absolute inset-0 rounded-lg z-10 border-2 border-cyan-400 pointer-events-none shadow-[inset_0_0_8px_rgba(34,211,238,0.5)]" />
                           )}
-                        </div>
+                        </button>
                       );
                     })()}
 
@@ -19436,6 +19494,7 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                           setPinnedEffectTooltip={setPinnedEffectTooltip}
                           onPlaySound={() => playClickSound()}
                           opponentView
+                          tooltipBelow={idx === 0}
                         />
                       )}
                     </div>
@@ -19449,7 +19508,18 @@ onClick={() => handleSelectTarget(combatant.id, true)}
                     const paginatedSkills = combatant.character.skills.slice(skillsPage * skillsPerPage, (skillsPage + 1) * skillsPerPage);
 
                     return (
-                      <div className="relative pt-1 mt-1">
+                      <div className={`relative pt-1 mt-1 mv-character-skills ${mobileSkillsCharacterId === combatant.id ? 'mv-character-skills-open' : ''}`}>
+                        <div className="mv-skill-parchment-header">
+                          <span>Habilidades — {combatant.character.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setMobileSkillsCharacterId(null)}
+                            aria-label="Fechar habilidades"
+                            className="mv-skill-parchment-close"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
                         {/* Left side pagination arrow */}
                         {totalSkillPages > 1 && (
                           <button
