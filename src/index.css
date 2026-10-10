@@ -1993,6 +1993,74 @@ e-squad-name {
     padding: 0 0.1rem;
   }
 
+  .mv-enemy-health-below > div:first-child {
+    justify-content: flex-start;
+  }
+
+  .mv-effect-badges-inline {
+    display: none !important;
+  }
+
+  .mv-effect-badges-below {
+    display: flex !important;
+    width: 100%;
+    min-width: 0;
+    justify-content: space-between;
+    gap: 0.15rem !important;
+    margin-top: 0.1rem;
+    touch-action: pan-y;
+  }
+
+  .mv-effect-badges-below > div:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: space-between;
+    gap: 0.15rem !important;
+  }
+
+  .mv-effect-badges-below .buff-debuff-icon {
+    padding: 0 !important;
+    border-width: 1px !important;
+    border-radius: 0.35rem !important;
+  }
+
+  .mv-effect-badges-below .buff-debuff-icon > div:first-child {
+    width: 1.1rem !important;
+    height: 1.1rem !important;
+    border-radius: 0.25rem !important;
+  }
+
+  .mv-effect-badges-below .buff-debuff-icon > span {
+    min-width: 0.75rem;
+    height: 0.75rem;
+    border-width: 1px;
+    font-size: 0.5rem;
+    line-height: 1;
+  }
+
+  .mv-effect-badges-below [data-effect-pager] {
+    gap: 0 !important;
+    padding-left: 0.1rem !important;
+  }
+
+  .mv-effect-badges-below [data-effect-pager] button {
+    width: 1rem;
+    height: 1.25rem;
+    padding: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mv-effect-badges-below [data-effect-pager] span {
+    font-size: 0.45rem;
+  }
+
+  .mv-effect-badges-below [data-effect-pager] svg {
+    width: 0.65rem !important;
+    height: 0.65rem !important;
+  }
+
   .battle-player-card-mr,
   .battle-enemy-card-ml {
     min-width: 0;
@@ -2048,13 +2116,13 @@ e-squad-name {
   }
 
   .mv-profile-portrait {
-    width: 40px !important;
-    height: 40px !important;
-    min-width: 40px !important;
-    min-height: 40px !important;
-    max-width: 40px !important;
-    max-height: 40px !important;
-    flex: 0 0 40px !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    max-width: 36px !important;
+    max-height: 36px !important;
+    flex: 0 0 36px !important;
     border: 2px solid rgba(249, 115, 22, 0.8);
     border-radius: 0.75rem;
     background: #020617;
@@ -2165,6 +2233,10 @@ e-squad-name {
   display: none;
 }
 
+.mv-effect-badges-below {
+  display: none;
+}
+
 .mv-character-skin,
 .mv-enemy-portrait-trigger {
   appearance: none;
@@ -2176,6 +2248,143 @@ e-squad-name {
 }
 
 @media (orientation: portrait) and (max-width: 500px) {
+  .mv-effect-tooltip {
+    display: none !important;
+  }
+
+  .mv-effect-detail-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(2, 6, 23, 0.72);
+    backdrop-filter: blur(2px);
+  }
+
+  .mv-effect-detail-modal {
+    width: min(100%, 22rem);
+    max-height: min(80dvh, 34rem);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(100, 116, 139, 0.8);
+    border-radius: 0.85rem;
+    background: #0f172a;
+    color: #e2e8f0;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+  }
+
+  .mv-effect-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.8rem 0.9rem;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.9);
+  }
+
+  .mv-effect-detail-close {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid rgba(71, 85, 105, 0.8);
+    border-radius: 0.5rem;
+    background: rgba(30, 41, 59, 0.9);
+    color: #cbd5e1;
+  }
+
+  .mv-effect-detail-content {
+    overflow-y: auto;
+    padding: 0.85rem 0.9rem;
+  }
+
+  .mv-effect-detail-section + .mv-effect-detail-section {
+    margin-top: 1rem;
+  }
+
+  .mv-effect-detail-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.65);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+
+  .mv-effect-detail-section-title span {
+    color: #94a3b8;
+    font-size: 0.62rem;
+  }
+
+  .mv-effect-detail-empty {
+    padding: 0.55rem 0.65rem;
+    border: 1px dashed rgba(71, 85, 105, 0.65);
+    border-radius: 0.5rem;
+    color: #94a3b8;
+    font-size: 0.7rem;
+  }
+
+  .mv-effect-detail-item {
+    padding: 0.6rem;
+    border: 1px solid rgba(51, 65, 85, 0.9);
+    border-radius: 0.65rem;
+    background: rgba(30, 41, 59, 0.55);
+  }
+
+  .mv-effect-detail-item-title {
+    color: #fcd34d;
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  .mv-effect-detail-item-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .mv-effect-detail-skill-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: 0 0 auto;
+    border: 1px solid rgba(251, 191, 36, 0.55);
+    border-radius: 0.35rem;
+    background: #0f172a;
+    object-fit: cover;
+  }
+
+  .mv-effect-detail-subitem {
+    padding: 0.5rem;
+    border: 1px solid rgba(51, 65, 85, 0.7);
+    border-radius: 0.45rem;
+    background: rgba(15, 23, 42, 0.8);
+  }
+
+  .mv-effect-detail-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.8rem;
+    padding: 0.65rem 0.9rem;
+    border-top: 1px solid rgba(51, 65, 85, 0.9);
+    color: #94a3b8;
+    font-size: 0.68rem;
+  }
+
+  .mv-effect-detail-footer strong {
+    color: #fbbf24;
+  }
+
   .mv-skills-modal-stack {
     position: fixed;
     top: 50%;

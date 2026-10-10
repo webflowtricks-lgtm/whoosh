@@ -179,6 +179,7 @@ function EffectBadges({
   onPlaySound,
   opponentView = false,
   tooltipBelow = false,
+  mobilePlacement = 'inline',
 }: {
   combatantId: string;
   groupedEffects: EffectDisplayItem[];
@@ -187,25 +188,58 @@ function EffectBadges({
   onPlaySound: () => void;
   opponentView?: boolean;
   tooltipBelow?: boolean;
+  mobilePlacement?: 'inline' | 'below';
 }) {
   const isMobileLandscape = useIsMobileLandscape();
+  const isMobileVertical = useIsMobileVertical();
   const [page, setPage] = useState(0);
+  const [mobileEffectDetailsOpen, setMobileEffectDetailsOpen] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+  const suppressNextClick = useRef(false);
+
+  useEffect(() => {
+    if (!mobileEffectDetailsOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileEffectDetailsOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [mobileEffectDetailsOpen]);
 
   if (groupedEffects.length === 0) return null;
 
-  const totalPages = Math.max(1, Math.ceil(groupedEffects.length / EFFECTS_PER_PAGE));
+  const effectsPerPage = isMobileVertical ? 3 : EFFECTS_PER_PAGE;
+  const totalPages = Math.max(1, Math.ceil(groupedEffects.length / effectsPerPage));
   const safePage = Math.min(page, totalPages - 1);
-  const pageOffset = isMobileLandscape ? safePage * EFFECTS_PER_PAGE : 0;
-  const visibleEffects = isMobileLandscape
-    ? groupedEffects.slice(pageOffset, pageOffset + EFFECTS_PER_PAGE)
+  const isPaginated = isMobileLandscape || isMobileVertical;
+  const pageOffset = isPaginated ? safePage * effectsPerPage : 0;
+  const visibleEffects = isPaginated
+    ? groupedEffects.slice(pageOffset, pageOffset + effectsPerPage)
     : groupedEffects;
 
-  const goPrev = () => { onPlaySound(); setPage(p => Math.max(0, p - 1)); };
-  const goNext = () => { onPlaySound(); setPage(p => Math.min(totalPages - 1, p + 1)); };
+  const goPrev = () => { onPlaySound(); setPage(p => Math.max(0, Math.min(p, totalPages - 1) - 1)); };
+  const goNext = () => { onPlaySound(); setPage(p => Math.min(totalPages - 1, Math.min(p, totalPages - 1) + 1)); };
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    touchStartX.current = event.changedTouches[0]?.clientX ?? null;
+  };
+  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (!isMobileVertical || touchStartX.current === null) return;
+    const deltaX = event.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(deltaX) < 35 || totalPages <= 1) return;
+    suppressNextClick.current = true;
+    window.setTimeout(() => { suppressNextClick.current = false; }, 350);
+    if (deltaX < 0) goNext();
+    else goPrev();
+  };
 
   return (
-    <div className="flex items-center gap-1.5 w-full">
-      <div className={isMobileLandscape ? 'flex flex-nowrap items-center gap-1.5' : 'flex flex-wrap items-center gap-1.5'}>
+    <div
+      className={`mv-effect-badges ${mobilePlacement === 'below' ? 'mv-effect-badges-below' : 'mv-effect-badges-inline'} flex items-center gap-1.5 w-full`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div className={isPaginated ? 'flex flex-nowrap items-center gap-1.5' : 'flex flex-wrap items-center gap-1.5'}>
         {visibleEffects.map((item, localIdx) => {
           // ÍNDICE GLOBAL (não o da página) → o pin/tooltip continua estável
           // quando o usuário navega entre as páginas.
@@ -217,7 +251,18 @@ function EffectBadges({
             <div
               key={effIdx}
               data-pin-key={`${combatantId}:${effIdx}`}
-              onClick={(e) => { e.stopPropagation(); setPinnedEffectTooltip(prev => prev === `${combatantId}:${effIdx}` ? null : `${combatantId}:${effIdx}`); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (suppressNextClick.current) {
+                  suppressNextClick.current = false;
+                  return;
+                }
+                if (isMobileVertical) {
+                  setMobileEffectDetailsOpen(true);
+                  return;
+                }
+                setPinnedEffectTooltip(prev => prev === `${combatantId}:${effIdx}` ? null : `${combatantId}:${effIdx}`);
+              }}
               className={`buff-debuff-icon relative group flex items-center justify-center p-0.5 rounded-xl select-none bg-slate-950 border-2 transition-all hover:scale-110 hover:z-30 cursor-help shrink-0 ${
                 isDebuff
                   ? 'border-red-500/80 shadow-md shadow-red-950/60'
@@ -253,7 +298,7 @@ function EffectBadges({
               )}
 
               {/* Rich Tooltip on hover */}
-              <div className={`absolute left-1/2 -translate-x-1/2 flex-col items-center z-[2147483647] pointer-events-none ${
+              <div className={`mv-effect-tooltip absolute left-1/2 -translate-x-1/2 flex-col items-center z-[2147483647] pointer-events-none ${
                 tooltipBelow ? 'top-full mt-2' : 'bottom-full mb-2'
               } ${
                 pinnedEffectTooltip === `${combatantId}:${effIdx}` ? 'flex' : 'hidden group-hover:flex'
@@ -320,11 +365,11 @@ function EffectBadges({
         })}
       </div>
               {/* Paginação mobile landscape: setas + contador (só quando há mais de 1 página) */}
-      {isMobileLandscape && totalPages > 1 && (
+      {isPaginated && totalPages > 1 && (
         <div className="flex items-center gap-0.5 shrink-0 pl-1 border-l border-slate-800/60" data-effect-pager>
           <button
             type="button"
-            onClick={goPrev}
+            onClick={event => { event.stopPropagation(); goPrev(); }}
             disabled={safePage === 0}
             className={`p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 transition-all ${
               safePage === 0 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
@@ -336,7 +381,7 @@ function EffectBadges({
           <span className="text-[9px] font-mono font-bold text-slate-400 whitespace-nowrap">{safePage + 1}/{totalPages}</span>
           <button
             type="button"
-            onClick={goNext}
+            onClick={event => { event.stopPropagation(); goNext(); }}
             disabled={safePage >= totalPages - 1}
             className={`p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 transition-all ${
               safePage >= totalPages - 1 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
@@ -346,6 +391,94 @@ function EffectBadges({
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
+      )}
+      {isMobileVertical && mobileEffectDetailsOpen && createPortal(
+        <div
+          className="mv-effect-detail-backdrop"
+          role="presentation"
+          onClick={() => setMobileEffectDetailsOpen(false)}
+        >
+          <section
+            className="mv-effect-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mv-effect-detail-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <header className="mv-effect-detail-header">
+              <div className="min-w-0">
+                <h2 id="mv-effect-detail-title" className="text-sm font-bold text-amber-300 leading-tight">
+                  Buffs e Debuffs
+                </h2>
+                <p className="text-[10px] text-slate-400">Todos os efeitos ativos deste personagem</p>
+              </div>
+              <button
+                type="button"
+                className="mv-effect-detail-close"
+                aria-label="Fechar características"
+                onClick={() => setMobileEffectDetailsOpen(false)}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </header>
+            <div className="mv-effect-detail-content">
+              {([
+                { label: 'BUFFS', isDebuff: false, items: groupedEffects.filter(item => !item.isDebuff) },
+                { label: 'DEBUFFS', isDebuff: true, items: groupedEffects.filter(item => item.isDebuff) },
+              ] as const).map(section => (
+                <section key={section.label} className="mv-effect-detail-section">
+                  <h3 className={section.isDebuff ? 'mv-effect-detail-section-title text-red-300' : 'mv-effect-detail-section-title text-emerald-300'}>
+                    {section.label} <span>({section.items.length})</span>
+                  </h3>
+                  {section.items.length === 0 ? (
+                    <p className="mv-effect-detail-empty">Nenhum {section.isDebuff ? 'debuff' : 'buff'} ativo.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {section.items.map((item, itemIdx) => (
+                        <article key={`${item.skillName}:${itemIdx}`} className="mv-effect-detail-item">
+                          <div className="mv-effect-detail-item-heading">
+                            {item.effect.icon && (
+                              <img
+                                src={item.effect.icon}
+                                alt=""
+                                className="mv-effect-detail-skill-icon"
+                                referrerPolicy="no-referrer"
+                              />
+                            )}
+                            <h4 className="mv-effect-detail-item-title">
+                              {item.skillName || item.effect.name}
+                            </h4>
+                          </div>
+                          <div className="space-y-1.5">
+                            {item.subEffects.map((sub, subIdx) => (
+                              <div key={`${sub.effect.type}:${sub.effect.name}:${subIdx}`} className="mv-effect-detail-subitem">
+                                <div className="flex items-start justify-between gap-2 mb-1">
+                                  <span className="text-[11px] font-semibold text-slate-100">{sub.effect.name}</span>
+                                  <span className="text-[10px] text-amber-400 whitespace-nowrap">
+                                    {sub.effect.duration >= 99999 ? 'Permanente' : `${sub.effect.duration}T`}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-200 leading-relaxed">
+                                  <RichText text={sub.description} />
+                                </p>
+                                {sub.stacks > 1 && (
+                                  <p className="mt-1 text-[10px] text-slate-400">
+                                    Acúmulos: <strong className="text-amber-400">{sub.stacks}x</strong>
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
+          </section>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -18610,6 +18743,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         />
                       )}
                     </div>
+
                   </div>
 
                   <div className="hidden mv-health-below space-y-0.5">
@@ -18623,6 +18757,17 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       />
                     </div>
                   </div>
+                  {combatant.activeEffects.length > 0 && (
+                    <EffectBadges
+                      combatantId={combatant.id}
+                      groupedEffects={getGroupedActiveEffects(combatant.activeEffects, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants])}
+                      pinnedEffectTooltip={pinnedEffectTooltip}
+                      setPinnedEffectTooltip={setPinnedEffectTooltip}
+                      onPlaySound={() => playClickSound()}
+                      tooltipBelow={idx === 0}
+                      mobilePlacement="below"
+                    />
+                  )}
                   </div>
 
                   {/* Character Skills list */}
@@ -19703,6 +19848,29 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       )}
                     </div>
                   </div>
+                    <div className="hidden mv-health-below mv-enemy-health-below space-y-0.5">
+                      <div className="flex justify-end text-[10px] font-mono leading-none">
+                        <span className="font-bold text-[#cb6a22]">{combatant.health} / {combatant.maxHealth}</span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-900">
+                        <div
+                          className={`h-full transition-all duration-300 ${getHealthColor(combatant.health)}`}
+                          style={{ width: `${combatant.health}%` }}
+                        />
+                      </div>
+                    </div>
+                    {combatant.activeEffects.length > 0 && (
+                      <EffectBadges
+                        combatantId={combatant.id}
+                        groupedEffects={getGroupedActiveEffects(combatant.activeEffects, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants])}
+                        pinnedEffectTooltip={pinnedEffectTooltip}
+                        setPinnedEffectTooltip={setPinnedEffectTooltip}
+                        onPlaySound={() => playClickSound()}
+                        opponentView
+                        tooltipBelow={idx === 0}
+                        mobilePlacement="below"
+                      />
+                    )}
 
                   {/* Character Skills list (as previews for tactical depth) */}
                   {!combatant.isDead && (() => {
@@ -20178,18 +20346,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     }
                     return skillsContent;
                   })()}
-                </div>
-
-                <div className="hidden mv-health-below space-y-0.5">
-                  <div className="flex justify-end text-[10px] font-mono leading-none">
-                    <span className="font-bold text-[#cb6a22]">{combatant.health} / {combatant.maxHealth}</span>
-                  </div>
-                  <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-900">
-                    <div
-                      className={`h-full transition-all duration-300 ${getHealthColor(combatant.health)}`}
-                      style={{ width: `${combatant.health}%` }}
-                    />
-                  </div>
                 </div>
 
                 {/* Standing Skin Artwork or WebM Animation (OUTSIDE card on right side) */}
