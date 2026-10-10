@@ -4,6 +4,7 @@
  */
 
 import { Character } from '../types';
+import { isWebmSkinSource } from './skinMedia';
 
 const preloadedUrls = new Set<string>();
 
@@ -67,7 +68,7 @@ export function preloadCharacters(characters: Character[]): void {
     
     if (Array.isArray(char.skins)) {
       char.skins.forEach(skin => {
-        if (skin.image) urls.push(skin.image);
+        if (skin.image && !isWebmSkinSource(skin.image)) urls.push(skin.image);
       });
     }
 

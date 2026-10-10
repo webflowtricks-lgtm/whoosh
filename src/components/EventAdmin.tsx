@@ -15,6 +15,8 @@ import { getPngFrames, addPngFrame, deletePngFrame, PngFrameItem, resetToDefault
 import { getCustomBanners, addCustomBanner, deleteCustomBanner, resetToDefaultCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
 import { getCharacters, saveCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
 import { motion, AnimatePresence } from 'motion/react';
+import SkinMedia from './SkinMedia';
+import { getSkinUploadError } from '../lib/skinMedia';
 
 interface EventAdminProps {
   playClickSound: () => void;
@@ -248,15 +250,24 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
   // --- SKINS GALLERY HANDLERS ---
   const handleSkinFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setNewSkinImage(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const uploadError = getSkinUploadError(file);
+    if (uploadError) {
+      showError(uploadError);
+      e.target.value = '';
+      return;
     }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setNewSkinImage(reader.result);
+      }
+    };
+    reader.onerror = () => showError('Não foi possível ler o arquivo da skin.');
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleAddOrUpdateSkin = async () => {
@@ -270,7 +281,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
       return;
     }
     if (!newSkinImage.trim()) {
-      showError('Envie um arquivo PNG da skin ou informe a URL.');
+      showError('Envie uma imagem, um vídeo WebM de até 20 MB ou informe a URL.');
       return;
     }
 
@@ -1375,7 +1386,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                 </h3>
               </div>
               <span className="text-[9px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 uppercase">
-                ARTE PNG
+                ARTE PNG / WEBM
               </span>
             </div>
 
@@ -1413,7 +1424,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
 
               <div>
                 <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">
-                  Imagem PNG da Skin (URL ou Arquivo) *
+                  Skin PNG ou vídeo WebM (URL ou Arquivo) *
                 </label>
                 <div className="space-y-2">
                   <div className="flex gap-2">
@@ -1421,17 +1432,17 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                       type="text"
                       value={newSkinImage}
                       onChange={(e) => setNewSkinImage(e.target.value)}
-                      placeholder="Ex: https://.../skin.png"
+                      placeholder="Ex: https://.../skin.png ou skin.webm"
                       className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none font-mono"
                     />
                     <label className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-bold rounded-xl border border-slate-700 cursor-pointer flex items-center gap-1.5 flex-shrink-0">
                       <Upload className="w-3.5 h-3.5 text-amber-400" />
                       <span>Upload</span>
-                      <input type="file" accept="image/*" onChange={handleSkinFileUpload} className="hidden" />
+                      <input type="file" accept="image/*,.webm,video/webm" onChange={handleSkinFileUpload} className="hidden" />
                     </label>
                   </div>
                   <p className="text-[9px] text-slate-500 font-mono">
-                    Recomendado imagem em formato PNG com fundo transparente do ninja em pé.
+                    Use PNG transparente ou WebM VP9 com canal alfa. Vídeos enviados podem ter até 20 MB.
                   </p>
                 </div>
               </div>
@@ -1440,19 +1451,20 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
               <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-col items-center justify-center min-h-[140px] relative overflow-hidden">
                 <span className="text-[9px] font-mono text-slate-500 uppercase mb-2">PRÉ-VISUALIZAÇÃO DA SKIN</span>
                 {newSkinImage ? (
-                  <img
-                    src={newSkinImage || null}
-                    alt="Preview"
-                    referrerPolicy="no-referrer"
-                    className="max-h-36 object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)]"
-                    onError={(e) => {
-                      const img = e.currentTarget; img.onerror = null; img.src = 'https://via.placeholder.com/150?text=Erro+PNG';
+                  <SkinMedia
+                    src={newSkinImage}
+                    alt="Pré-visualização da skin"
+                    className="max-h-36 max-w-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)]"
+                    autoPlay
+                    onImageError={e => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = 'https://via.placeholder.com/150?text=Erro+na+skin';
                     }}
                   />
                 ) : (
                   <div className="flex flex-col items-center text-slate-600 space-y-1">
                     <Shirt className="w-8 h-8 opacity-40" />
-                    <span className="text-[10px] font-mono">Nenhuma imagem carregada</span>
+                    <span className="text-[10px] font-mono">Nenhuma mídia carregada</span>
                   </div>
                 )}
               </div>
@@ -1527,16 +1539,13 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                     key={`${char.id}-${skin.id || skinIdx}`}
                     className="bg-slate-950/80 border border-slate-800 hover:border-slate-700 rounded-xl p-3 flex gap-3 items-center relative group transition-all shadow-md"
                   >
-                    {/* Skin PNG Preview Card */}
+                    {/* Skin media preview */}
                     <div className="w-20 h-24 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center p-1 relative flex-shrink-0 overflow-hidden">
-                      <img
-                        src={skin.image || null}
+                      <SkinMedia
+                        src={skin.image}
                         alt={skin.name}
-                        referrerPolicy="no-referrer"
                         className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]"
-                        onError={(e) => {
-                          const img = e.currentTarget; img.onerror = null; img.src = char.portrait;
-                        }}
+                        onImageError={e => { e.currentTarget.onerror = null; e.currentTarget.src = char.portrait; }}
                       />
                     </div>
 

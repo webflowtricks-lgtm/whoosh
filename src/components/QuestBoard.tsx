@@ -30,6 +30,7 @@ import {
   Zap
 } from 'lucide-react';
 import { Quest, UserProfile, Character, QuestReward } from '../types';
+import SkinMedia from './SkinMedia';
 import { getGoalDescription } from '../lib/questUtils';
 import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
@@ -544,9 +545,7 @@ export default function QuestBoard({
                           <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/10 via-transparent to-amber-300/10 opacity-70 animate-pulse pointer-events-none z-10" />
 
                           {/* Large Floating Character Image */}
-                          <motion.img
-                            src={displayImg || null}
-                            alt={char.name}
+                          <motion.div
                             initial={{ scale: 0.7, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1, y: [0, -8, 0] }}
                             transition={{
@@ -554,14 +553,18 @@ export default function QuestBoard({
                               opacity: { duration: 0.5 },
                               y: { duration: 3, repeat: Infinity, ease: "easeInOut" }
                             }}
-                            className="relative z-20 w-full h-full object-contain p-2 filter drop-shadow-[0_12px_28px_rgba(245,158,11,0.5)]"
-                            referrerPolicy="no-referrer"
-                            onError={(e) => {
-                              if (e.currentTarget.src !== char.portrait) {
-                                e.currentTarget.src = char.portrait;
-                              }
-                            }}
-                          />
+                            className="relative z-20 w-full h-full"
+                          >
+                            <SkinMedia
+                              src={displayImg}
+                              alt={char.name}
+                              className="w-full h-full object-contain p-2 filter drop-shadow-[0_12px_28px_rgba(245,158,11,0.5)]"
+                              autoPlay
+                              onImageError={e => {
+                                if (e.currentTarget.src !== char.portrait) e.currentTarget.src = char.portrait;
+                              }}
+                            />
+                          </motion.div>
 
                           {/* Bottom Dark Gradient Overlay for Typography contrast */}
                           <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent pointer-events-none z-30" />

@@ -15,6 +15,7 @@ import { getPngFrames } from '../lib/frameStorage';
 import { preloadImage } from '../lib/imagePreloader';
 import { safeFetchJson } from '../lib/api';
 import { useLanguage } from '../lib/i18n';
+import { isWebmSkinSource } from '../lib/skinMedia';
 
 const ARENA_MESSAGES_PT = [
   'Por favor, aguarde para uma melhor experiência...',
@@ -55,7 +56,9 @@ function collectImageUrls(): string[] {
   try {
     getCharacters().forEach(c => {
       push(c.portrait);
-      (c.skins || []).forEach(s => push((s as any).image));
+      (c.skins || []).forEach(s => {
+        if (!isWebmSkinSource(s.image)) push(s.image);
+      });
       (c.skills || []).forEach(sk => push(sk.icon));
     });
   } catch {}

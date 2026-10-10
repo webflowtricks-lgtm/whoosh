@@ -14,14 +14,14 @@ const STORAGE_KEY = 'naruto_combat_characters';
 // mesmo quando o localStorage estoura a cota (QuotaExceededError) e não atualiza.
 let memoryCache: Character[] | null = null;
 
-// Imagens base64 gigantes (portraits/icons) não cabem na cota do localStorage
-// (~5MB); o cache persiste sem elas e o memoryCache mantém os dados completos.
+// Mídia base64 grande não cabe na cota do localStorage (~5MB); o cache persiste
+// sem ela e o memoryCache mantém os dados completos.
 const stripHeavyData = (obj: any): any => {
   if (Array.isArray(obj)) return obj.map(stripHeavyData);
   if (obj && typeof obj === 'object') {
     const out: any = {};
     for (const [k, v] of Object.entries(obj)) {
-      if (typeof v === 'string' && v.startsWith('data:image/') && v.length > 2000) continue;
+      if (typeof v === 'string' && /^data:(?:image|video)\//i.test(v) && v.length > 2000) continue;
       out[k] = stripHeavyData(v);
     }
     return out;

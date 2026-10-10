@@ -2042,13 +2042,8 @@ e-squad-name {
     flex: 0 0 118px;
   }
 
-  .mv-enemy-skin-art > div {
-    width: 100%;
-    max-width: 100%;
-    background-color: transparent;
-  }
-
-  .mv-enemy-skin-art img {
+  .mv-enemy-skin-art img,
+  .mv-enemy-skin-art video {
     object-fit: contain !important;
   }
 

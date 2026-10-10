@@ -12,6 +12,7 @@ import { getCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from
 import { getCharacters } from '../lib/characterStorage';
 import { useLanguage } from '../lib/i18n';
 import MangekyoLoader from './MangekyoLoader';
+import SkinMedia from './SkinMedia';
 
 /** Detecta mobile landscape (celular deitado) — mesmo critério do BattleBoard. */
 function useIsMobileLandscape(): boolean {
@@ -845,11 +846,10 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
                         </div>
                       )}
                       <div className="w-20 h-24 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center overflow-hidden relative">
-                        <img
+                        <SkinMedia
                           src={item.imageUrl}
                           alt={item.name}
                           className="w-full h-full object-contain filter drop-shadow"
-                          referrerPolicy="no-referrer"
                         />
                       </div>
                       <div className="min-w-0 w-full">

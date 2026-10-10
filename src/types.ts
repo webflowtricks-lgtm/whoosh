@@ -903,7 +903,7 @@ export type TargetOverride =
 export interface CharacterSkin {
   id: string;
   name: string;
-  image: string; // PNG transparent artwork URL
+  image: string; // Transparent PNG artwork or WebM video URL/data URL
 }
 
 export interface Character {

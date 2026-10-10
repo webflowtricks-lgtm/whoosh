@@ -16,6 +16,8 @@ import { RankConfig, getRanks, saveRanks, fetchRanksFromServer, RANK_GRADIENT_PR
 import { safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import QuestAdmin from './QuestAdmin';
+import SkinMedia from './SkinMedia';
+import { getSkinUploadError } from '../lib/skinMedia';
 import ShopAdmin from './ShopAdmin';
 import EventAdmin from './EventAdmin';
 import CardAdmin from './CardAdmin';
@@ -2056,7 +2058,7 @@ const newSkill: Skill = {
                       <div key={skin.id || skinIdx} className="flex gap-3 items-center bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
                         <div className="w-12 h-12 rounded border border-slate-800 bg-slate-950 flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {skin.image ? (
-                            <img src={skin.image || null} alt={skin.name} className="w-full h-full object-contain" />
+                            <SkinMedia src={skin.image} alt={skin.name} className="w-full h-full object-contain" />
                           ) : (
                             <span className="text-[8px] text-slate-600 font-mono text-center">Sem Imagem</span>
                           )}
@@ -2083,15 +2085,13 @@ const newSkill: Skill = {
                              <div className="flex gap-1 items-center">
                                <div className="w-8 h-8 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-center flex-shrink-0">
                                  {skin.image ? (
-                                   <img 
+                                   <SkinMedia
                                      src={skin.image} 
                                      alt={skin.name} 
                                      className="w-full h-full object-contain" 
-                                     referrerPolicy="no-referrer"
-                                     onError={(e) => {
-                                       const img = e.currentTarget; 
-                                       img.onerror = null; 
-                                       img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
+                                     onImageError={e => {
+                                       e.currentTarget.onerror = null;
+                                       e.currentTarget.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
                                      }}
                                    />
                                  ) : (
@@ -2114,22 +2114,33 @@ const newSkill: Skill = {
                                  <span>Upload</span>
                                  <input
                                    type="file"
-                                   accept=".png,.jpg,.jpeg,.webp,image/*"
+                                   accept=".png,.jpg,.jpeg,.webp,image/*,.webm,video/webm"
                                    className="hidden"
                                    onChange={(e) => {
                                      const file = e.target.files?.[0];
-                                     if (file) {
-                                       const reader = new FileReader();
-                                       reader.onload = (uploadEvt) => {
-                                         const result = uploadEvt.target?.result as string;
-                                         if (result) {
-                                           const updatedSkins = [...(editingChar.skins || [])];
-                                           updatedSkins[skinIdx] = { ...updatedSkins[skinIdx], image: result };
-                                           handleUpdateCharDetails('skins', updatedSkins);
-                                         }
-                                       };
-                                       reader.readAsDataURL(file);
+                                     if (!file) return;
+                                     const uploadError = getSkinUploadError(file);
+                                     if (uploadError) {
+                                       setErrorMessage(uploadError);
+                                       setTimeout(() => setErrorMessage(''), 4000);
+                                       e.currentTarget.value = '';
+                                       return;
                                      }
+                                     const reader = new FileReader();
+                                     reader.onload = (uploadEvt) => {
+                                       const result = uploadEvt.target?.result;
+                                       if (typeof result === 'string') {
+                                         const updatedSkins = [...(editingChar.skins || [])];
+                                         updatedSkins[skinIdx] = { ...updatedSkins[skinIdx], image: result };
+                                         handleUpdateCharDetails('skins', updatedSkins);
+                                       }
+                                     };
+                                     reader.onerror = () => {
+                                       setErrorMessage('Não foi possível ler o arquivo da skin.');
+                                       setTimeout(() => setErrorMessage(''), 4000);
+                                     };
+                                     reader.readAsDataURL(file);
+                                     e.currentTarget.value = '';
                                    }}
                                  />
                                </label>

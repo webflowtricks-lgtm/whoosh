@@ -10,6 +10,7 @@ import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, Floati
 import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
 import MangekyoLoader from './MangekyoLoader';
+import SkinMedia from './SkinMedia';
 import { calculateBattleXp, getRankProgress, checkRankChange } from '../lib/xpSystem';
 import { getRanks } from '../lib/rankStorage';
 import { getCharacters } from '../lib/characterStorage';
@@ -18321,7 +18322,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
               return (
                 <div key={combatant.id} data-combatant-id={combatant.id} className="flex items-center gap-1 sm:gap-1 items-stretch battle-player-card-mr">
-                  {/* Standing Skin PNG Artwork (OUTSIDE card on left side) */}
+                  {/* Standing Skin Artwork or WebM Animation (OUTSIDE card on left side) */}
                   {(() => {
                     const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
                     const portrait = combatant.character.portrait;
@@ -18342,19 +18343,16 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         className="mv-character-skin w-[95px] flex-shrink-0 flex items-center justify-center relative select-none self-stretch overflow-visible"
                       >
                         {skinImg ? (
-                          <img
-                            src={skinImg || null}
+                          <SkinMedia
+                            src={skinImg}
                             alt={combatant.character.name}
-                            referrerPolicy="no-referrer"
                             /* Skin NA MESMA ALTURA do card (self-stretch + h-full):
                                encosta na altura do card e cresce junto com ele.
                                w-auto + object-contain preservam a proporção
                                (sem distorcer) e max-w-full evita vazar o container. */
                             className="h-full w-auto max-w-full object-contain"
-                            onError={(e) => {
-                              const img = e.currentTarget;
-                              img.style.display = 'none';
-                            }}
+                            autoPlay
+                            onImageError={e => { e.currentTarget.style.display = 'none'; }}
                           />
                         ) : (
                           <img
@@ -20194,7 +20192,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   </div>
                 </div>
 
-                {/* Standing Skin PNG Artwork (OUTSIDE card on right side) */}
+                {/* Standing Skin Artwork or WebM Animation (OUTSIDE card on right side) */}
                 {(() => {
                   const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
                   const portrait = combatant.character.portrait;
@@ -20208,12 +20206,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   return (
                     <div className="mv-enemy-skin-art w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
                       {skinImg ? (
-                        <MangekyoLoader
+                        <SkinMedia
                           src={skinImg}
                           alt={combatant.character.name}
-                          className="h-full w-auto max-w-full"
-                          imgClassName="h-full w-auto max-w-full object-contain scale-x-[-1]"
-                          iconScale={0.3}
+                          className="h-full w-auto max-w-full object-contain scale-x-[-1]"
+                          autoPlay
                         />
                       ) : (
                         <div className="w-full h-full" />

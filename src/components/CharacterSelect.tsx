@@ -13,6 +13,7 @@ import { useLanguage, translateGameText, translateSkillName, translateTargetType
 import { RichText, stripRichMarkup } from '../lib/richText';
 import { playGlobalSound } from '../lib/soundUtils';
 import MangekyoLoader from './MangekyoLoader';
+import SkinMedia from './SkinMedia';
 
 interface CharacterSelectProps {
   onConfirmTeams: (
@@ -1089,13 +1090,14 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                             )}
 
                             <div className="w-full h-32 flex items-center justify-center overflow-hidden p-1">
-                              <img
-                                src={skin.image || null}
+                              <SkinMedia
+                                src={skin.image}
                                 alt={skin.name}
-                                referrerPolicy="no-referrer"
                                 className="max-h-full max-w-full object-contain transition-transform group-hover:scale-105"
-                                onError={(e) => {
-                                  const img = e.currentTarget; img.onerror = null; img.src = previewCharacter.portrait;
+                                autoPlay
+                                onImageError={e => {
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = previewCharacter.portrait;
                                 }}
                               />
                             </div>
