@@ -1957,6 +1957,10 @@ e-squad-name {
     height: 0.55rem !important;
   }
 
+  .mv-combatant-name {
+    display: none !important;
+  }
+
   .mv-hide-battle-center {
     display: none !important;
   }
@@ -1973,6 +1977,22 @@ e-squad-name {
     margin-top: 0 !important;
   }
 
+  .mv-combatant-panel {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .mv-health-inline {
+    display: none !important;
+  }
+
+  .mv-health-below {
+    display: block !important;
+    width: 100%;
+    margin-top: -0.15rem;
+    padding: 0 0.1rem;
+  }
+
   .battle-player-card-mr,
   .battle-enemy-card-ml {
     min-width: 0;
@@ -1983,7 +2003,8 @@ e-squad-name {
 
   .mv-character-skin {
     width: 100% !important;
-    height: 76px;
+    height: 118px;
+    margin-bottom: -20px;
     min-height: 76px;
     padding: 0;
     border: 0;
@@ -1998,30 +2019,50 @@ e-squad-name {
     outline-offset: 2px;
   }
 
+  .mv-skill-targetable {
+    position: relative;
+    z-index: 1001;
+    outline: 2px solid #fbbf24;
+    outline-offset: 1px;
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.75);
+    filter: brightness(1.2);
+  }
+
   .mv-character-skin img {
     max-height: 100%;
     object-fit: contain;
   }
 
   .mv-profile-portrait {
-    width: 64px;
-    height: 64px;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    flex: 0 0 40px !important;
     border: 2px solid rgba(249, 115, 22, 0.8);
     border-radius: 0.75rem;
     background: #020617;
     object-fit: cover !important;
   }
 
-  .battle-player-card-mr > div:nth-child(2),
+  .battle-player-card-mr > .mv-combatant-panel,
+  .battle-player-card-mr .mv-combatant-panel > div:first-child,
   .battle-enemy-card-ml > div:first-child {
     width: 100%;
     min-width: 0;
+  }
+
+  .battle-player-card-mr .mv-combatant-panel > div:first-child,
+  .battle-enemy-card-ml > div:first-child {
     padding: 0.55rem !important;
   }
 
   .mv-enemy-portrait-trigger {
-    width: 48px;
-    height: 48px;
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
     padding: 0;
     pointer-events: auto;
     cursor: pointer;
@@ -2029,49 +2070,6 @@ e-squad-name {
 
   .mv-character-skills {
     display: none !important;
-  }
-
-  .mv-character-skills-open {
-    position: fixed !important;
-    z-index: 2147483647 !important;
-    top: 50%;
-    left: 50%;
-    display: block !important;
-    width: min(92vw, 420px);
-    max-height: 72vh;
-    overflow-y: auto;
-    padding: 2.75rem 1rem 1rem !important;
-    border: 2px solid rgba(120, 53, 15, 0.8);
-    border-radius: 1rem;
-    background: #fef3c7 url('/static/img/skills_detalhes.webp') center / 100% 100% no-repeat;
-    box-shadow: 0 0 0 100vmax rgba(2, 6, 23, 0.78), 0 20px 60px rgba(0, 0, 0, 0.8);
-    transform: translate(-50%, -50%);
-  }
-
-  .mv-skill-parchment-header {
-    position: absolute;
-    top: 0.65rem;
-    right: 0.75rem;
-    left: 0.9rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    color: #78350f;
-    font-size: 0.75rem;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-
-  .mv-skill-parchment-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.25rem;
-    border: 1px solid rgba(120, 53, 15, 0.45);
-    border-radius: 0.5rem;
-    background: rgba(120, 53, 15, 0.12);
-    color: #78350f;
   }
 
   .mv-pergaminho-top-bar {
@@ -2149,6 +2147,10 @@ e-squad-name {
   display: none;
 }
 
+.mv-skill-modal-backdrop {
+  display: none;
+}
+
 .mv-character-skin,
 .mv-enemy-portrait-trigger {
   appearance: none;
@@ -2159,9 +2161,72 @@ e-squad-name {
   cursor: default;
 }
 
+@media (orientation: portrait) and (max-width: 500px) {
+  .mv-character-skills-open {
+    position: fixed !important;
+    z-index: 1000 !important;
+    top: 50%;
+    left: 50%;
+    display: block !important;
+    width: min(92vw, 680px);
+    max-height: min(72vh, 320px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 2.6rem 1rem 1rem !important;
+    border: 1px solid rgba(249, 115, 22, 0.75);
+    border-radius: 0.85rem;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    transform: translate(-50%, -50%);
+  }
+
+  .mv-character-skills-open .mv-skill-parchment-header {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.7rem;
+    left: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    color: #fdba74;
+    font-size: 0.75rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .mv-character-skills-open .mv-skill-parchment-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem;
+    border: 1px solid rgba(249, 115, 22, 0.5);
+    border-radius: 0.5rem;
+    background: rgba(249, 115, 22, 0.12);
+    color: #fdba74;
+  }
+
+  .mv-skill-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    display: block;
+    pointer-events: none;
+    background: rgba(2, 6, 23, 0.28);
+  }
+}
+
 .mv-character-skin {
   border: 0;
   background: transparent;
+}
+
+@media (orientation: portrait) and (max-width: 500px) {
+  .mv-character-skin,
+  .mv-enemy-portrait-trigger {
+    pointer-events: auto;
+    cursor: pointer;
+  }
 }
 
 .battle-right-squad {
