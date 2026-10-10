@@ -235,7 +235,17 @@ function EffectBadges({
 
   return (
     <div
-      className={`mv-effect-badges ${mobilePlacement === 'below' ? 'mv-effect-badges-below' : 'mv-effect-badges-inline'} flex items-center gap-1.5 w-full`}
+      className={`mv-effect-badges ${mobilePlacement === 'below' ? 'mv-effect-badges-below' : 'mv-effect-badges-inline'} ${isMobileVertical && mobilePlacement === 'below' ? 'mv-vertical-health-effects cursor-pointer' : ''} flex items-center gap-1.5 w-full`}
+      onClick={event => {
+        if (!isMobileVertical || mobilePlacement !== 'below') return;
+        event.stopPropagation();
+        if (suppressNextClick.current) {
+          suppressNextClick.current = false;
+          return;
+        }
+        if (event.target instanceof Element && event.target.closest('[data-effect-pager]')) return;
+        setMobileEffectDetailsOpen(true);
+      }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -3459,8 +3469,10 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     const effectiveTargetType = getEffectiveTargetType(skill, combatant, [...playerCombatants, ...enemyCombatants]);
 
-    // Self target auto-cue
-    if (effectiveTargetType === 'Self') {
+    const isMobileVertical = window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches;
+
+    // No mobile vertical, habilidades próprias aguardam a confirmação pelo toque no combatente.
+    if (effectiveTargetType === 'Self' && !isMobileVertical) {
       setCuedActions(prev => {
         const filtered = prev.filter(a => a.sourceId !== charId);
         return [...filtered, { sourceId: charId, skillIndex: skillIdx, targetId: charId }];
@@ -3531,6 +3543,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     const skill = sourceChar.character.skills[selectedSkill.skillIndex];
     const effectiveTargetType = getEffectiveTargetType(skill, sourceChar, [...playerCombatants, ...enemyCombatants]);
+
+    if (effectiveTargetType === 'Self' && (targetId !== sourceChar.id || isEnemyTarget !== isSourceEnemy)) return;
 
     // Target restriction checks depending on source team
     const expectedEnemyTarget = isSourceEnemy ? false : true;
@@ -3677,6 +3691,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     const targetType = getEffectiveTargetType(skill, source, [...playerCombatants, ...enemyCombatants]);
     const expectedEnemyTarget = isSourceEnemy ? false : true;
     const correctSide = targetType === 'AnyLiving'
+      || (targetType === 'Self' && target.id === source.id && isEnemyTarget === isSourceEnemy)
       || (targetType === 'Enemy' && isEnemyTarget === expectedEnemyTarget)
       || (targetType === 'Ally' && isEnemyTarget !== expectedEnemyTarget)
       || (targetType === 'SelfAndAlly' && isEnemyTarget !== expectedEnemyTarget)

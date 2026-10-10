@@ -2001,7 +2001,7 @@ e-squad-name {
     display: none !important;
   }
 
-  .mv-effect-badges-below {
+  .mv-vertical-health-effects {
     display: flex !important;
     width: 100%;
     min-width: 0;
@@ -2011,26 +2011,26 @@ e-squad-name {
     touch-action: pan-y;
   }
 
-  .mv-effect-badges-below > div:first-child {
+  .mv-vertical-health-effects > div:first-child {
     flex: 1 1 auto;
     min-width: 0;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 0.15rem !important;
   }
 
-  .mv-effect-badges-below .buff-debuff-icon {
+  .mv-vertical-health-effects .buff-debuff-icon {
     padding: 0 !important;
     border-width: 1px !important;
     border-radius: 0.35rem !important;
   }
 
-  .mv-effect-badges-below .buff-debuff-icon > div:first-child {
-    width: 1.1rem !important;
-    height: 1.1rem !important;
+  .mv-vertical-health-effects .buff-debuff-icon > div:first-child {
+    width: 2.1rem !important;
+    height: 2.1rem !important;
     border-radius: 0.25rem !important;
   }
 
-  .mv-effect-badges-below .buff-debuff-icon > span {
+  .mv-vertical-health-effects .buff-debuff-icon > span {
     min-width: 0.75rem;
     height: 0.75rem;
     border-width: 1px;
@@ -2038,12 +2038,12 @@ e-squad-name {
     line-height: 1;
   }
 
-  .mv-effect-badges-below [data-effect-pager] {
+  .mv-vertical-health-effects [data-effect-pager] {
     gap: 0 !important;
     padding-left: 0.1rem !important;
   }
 
-  .mv-effect-badges-below [data-effect-pager] button {
+  .mv-vertical-health-effects [data-effect-pager] button {
     width: 1rem;
     height: 1.25rem;
     padding: 0 !important;
@@ -2052,11 +2052,11 @@ e-squad-name {
     justify-content: center;
   }
 
-  .mv-effect-badges-below [data-effect-pager] span {
+  .mv-vertical-health-effects [data-effect-pager] span {
     font-size: 0.45rem;
   }
 
-  .mv-effect-badges-below [data-effect-pager] svg {
+  .mv-vertical-health-effects [data-effect-pager] svg {
     width: 0.65rem !important;
     height: 0.65rem !important;
   }
@@ -2090,9 +2090,8 @@ e-squad-name {
   .mv-skill-targetable {
     position: relative;
     z-index: 1001;
-    outline: 2px solid #fbbf24;
-    outline-offset: 1px;
-    box-shadow: 0 0 14px rgba(251, 191, 36, 0.75);
+    outline: none !important;
+    box-shadow: none !important;
     filter: brightness(1.2);
   }
 
