@@ -2128,6 +2128,11 @@ e-squad-name {
     object-fit: cover !important;
   }
 
+  .mv-player-combatant-portrait {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+
   .battle-player-card-mr > .mv-combatant-panel,
   .battle-player-card-mr .mv-combatant-panel > div:first-child,
   .battle-enemy-card-ml > div:first-child {

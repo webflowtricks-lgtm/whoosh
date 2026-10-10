@@ -18619,7 +18619,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       const displayPortrait = (isInvul && invulnSkillIcon) ? invulnSkillIcon : combatant.character.portrait;
 
                       return (
-                        <div className={`w-16 h-16 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
+                        <div className={`mv-player-combatant-portrait w-16 h-16 rounded-lg overflow-hidden border flex-shrink-0 relative transition-all ${
                           isInvul ? 'border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)] bg-slate-950' : 'border-slate-800 bg-slate-950'
                         }`}>
                           <MangekyoLoader
