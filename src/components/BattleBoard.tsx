@@ -18807,7 +18807,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         onClick={skillsModalCharacterId === combatant.id ? event => event.stopPropagation() : undefined}
                       >
                         <div className="mv-skill-parchment-header">
-                          <span id={`skills-modal-title-${combatant.id}`}>Habilidades — {combatant.character.name}</span>
+                          <span id={`skills-modal-title-${combatant.id}`}>{combatant.character.name}</span>
                           <button
                             type="button"
                             onClick={() => {
