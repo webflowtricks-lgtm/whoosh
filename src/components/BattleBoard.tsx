@@ -18753,7 +18753,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         );
                       })}
                       </div>
-                    </div>
                   )}
 
                   {/* Character Info */}
@@ -19362,6 +19361,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               </div>
             );
           })}
+        </div>
         </div>
       </section>
 

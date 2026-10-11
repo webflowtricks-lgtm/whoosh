@@ -2130,16 +2130,18 @@ e-squad-name {
   .mv-enemy-roster {
     grid-area: enemy-roster;
     position: relative;
-    top: 4.5rem;
+    top: 2.2rem;
   }
 
   .mv-player-roster {
     grid-area: player-roster;
     position: relative;
     top: -2.8rem;
-    margin-top: -128px !important;
+    
   }
 
+ 
+  
   .mv-center-status {
     grid-area: center-status;
     position: relative;
@@ -2356,11 +2358,11 @@ e-squad-name {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: start;
     gap: 0.25rem;
-    margin-top: 0 !important;
+    margin-top: -60px ;
   }
 
   .mv-battle-roster > * + * {
-    margin-top: 0 !important;
+    /* margin-top: 0 !important; */
   }
 
   .mv-battle-roster > .mv-has-floating-combat-text {
@@ -2500,7 +2502,7 @@ e-squad-name {
     order: -1;
     width: 100%;
     height: 118px;
-    min-height: 76px;
+    min-height: 156px;
     margin-bottom: -20px;
     flex: 0 0 118px;
   }
