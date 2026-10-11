@@ -2341,6 +2341,9 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
 
   // Skill pagination state per combatant id
   const [combatantSkillPages, setCombatantSkillPages] = useState<Record<string, number>>({});
+  const [skillPageDragOffsets, setSkillPageDragOffsets] = useState<Record<string, number>>({});
+  const skillPageDragRef = useRef<{ combatantId: string; startX: number; pointerId: number; width: number; startPage: number } | null>(null);
+  const suppressSkillClickRef = useRef(false);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -18841,7 +18844,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     const skillsPerPage = 4;
                     const skillsPage = combatantSkillPages[combatant.id] || 0;
                     const totalSkillPages = Math.ceil(combatant.character.skills.length / skillsPerPage);
-                    const paginatedSkills = combatant.character.skills.slice(skillsPage * skillsPerPage, (skillsPage + 1) * skillsPerPage);
+                    const skillPages = Array.from({ length: totalSkillPages }, (_, pageIndex) =>
+                      combatant.character.skills.slice(pageIndex * skillsPerPage, (pageIndex + 1) * skillsPerPage)
+                    );
 
                     const skillsContent = (
                       <div
@@ -18892,9 +18897,82 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           </button>
                         )}
 
-                        <div className="grid grid-cols-4 gap-1.5">
-                          {paginatedSkills.map((skill, pIdx) => {
-                            const sIdx = skillsPage * skillsPerPage + pIdx;
+                        <div
+                          className="mv-skill-carousel-viewport"
+                          onPointerDown={event => {
+                            if (event.button !== 0 || !event.isPrimary) return;
+                            suppressSkillClickRef.current = false;
+                            const width = event.currentTarget.clientWidth;
+                            skillPageDragRef.current = {
+                              combatantId: combatant.id,
+                              startX: event.clientX,
+                              pointerId: event.pointerId,
+                              width,
+                              startPage: skillsPage
+                            };
+                            setSkillPageDragOffsets(prev => ({ ...prev, [combatant.id]: 0 }));
+                          }}
+                          onPointerMove={event => {
+                            const drag = skillPageDragRef.current;
+                            if (!drag || drag.pointerId !== event.pointerId || drag.combatantId !== combatant.id) return;
+                            const deltaX = event.clientX - drag.startX;
+                            setSkillPageDragOffsets(prev => ({ ...prev, [combatant.id]: deltaX }));
+                            if (Math.abs(deltaX) >= Math.max(40, drag.width * 0.18) && !event.currentTarget.hasPointerCapture(event.pointerId)) {
+                              event.currentTarget.setPointerCapture(event.pointerId);
+                            }
+                          }}
+                          onPointerUp={event => {
+                            const drag = skillPageDragRef.current;
+                            skillPageDragRef.current = null;
+                            if (!drag || drag.pointerId !== event.pointerId || drag.combatantId !== combatant.id) return;
+                            const deltaX = event.clientX - drag.startX;
+                            const threshold = Math.max(40, drag.width * 0.18);
+                            const nextPage = deltaX <= -threshold
+                              ? Math.min(totalSkillPages - 1, drag.startPage + 1)
+                              : deltaX >= threshold
+                                ? Math.max(0, drag.startPage - 1)
+                                : drag.startPage;
+                            if (Math.abs(deltaX) >= threshold) {
+                              suppressSkillClickRef.current = true;
+                              window.setTimeout(() => {
+                                suppressSkillClickRef.current = false;
+                              }, 0);
+                            }
+                            if (nextPage !== skillsPage) {
+                              playCustomSound('Scroll');
+                              setCombatantSkillPages(prev => ({ ...prev, [combatant.id]: nextPage }));
+                            }
+                            setSkillPageDragOffsets(prev => {
+                              const next = { ...prev };
+                              delete next[combatant.id];
+                              return next;
+                            });
+                          }}
+                          onPointerCancel={() => {
+                            skillPageDragRef.current = null;
+                            setSkillPageDragOffsets(prev => {
+                              const next = { ...prev };
+                              delete next[combatant.id];
+                              return next;
+                            });
+                          }}
+                          onClickCapture={event => {
+                            if (!suppressSkillClickRef.current) return;
+                            suppressSkillClickRef.current = false;
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }}
+                        >
+                          <div
+                            className={`mv-skill-carousel-track ${skillPageDragOffsets[combatant.id] !== undefined ? 'is-dragging' : ''}`}
+                            style={{
+                              transform: `translate3d(calc(-${skillsPage * 100}% + ${skillPageDragOffsets[combatant.id] || 0}px), 0, 0)`
+                            }}
+                          >
+                          {skillPages.map((pageSkills, pageIndex) => (
+                            <div className="mv-skill-carousel-page" key={pageIndex}>
+                            {pageSkills.map((skill, pIdx) => {
+                            const sIdx = pageIndex * skillsPerPage + pIdx;
                             const isCooldown = skill.currentCooldown > 0;
                             const isCued = cuedAct && cuedAct.skillIndex === sIdx;
                             const isSelected = selectedSkill?.charId === combatant.id && selectedSkill?.skillIndex === sIdx;
@@ -19139,7 +19217,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                 </div>
                               </div>
                             );
-                          })}
+                            })}
+                            </div>
+                          ))}
+                          </div>
                         </div>
 
                         {/* Right side pagination arrow */}
@@ -19981,7 +20062,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     const skillsPerPage = 4;
                     const skillsPage = combatantSkillPages[combatant.id] || 0;
                     const totalSkillPages = Math.ceil(combatant.character.skills.length / skillsPerPage);
-                    const paginatedSkills = combatant.character.skills.slice(skillsPage * skillsPerPage, (skillsPage + 1) * skillsPerPage);
+                    const skillPages = Array.from({ length: totalSkillPages }, (_, pageIndex) =>
+                      combatant.character.skills.slice(pageIndex * skillsPerPage, (pageIndex + 1) * skillsPerPage)
+                    );
 
                     const skillsContent = (
                       <div
@@ -20032,9 +20115,82 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           </button>
                         )}
 
-                        <div className="grid grid-cols-4 gap-1.5">
-                          {paginatedSkills.map((skill, pIdx) => {
-                            const sIdx = skillsPage * skillsPerPage + pIdx;
+                        <div
+                          className="mv-skill-carousel-viewport"
+                          onPointerDown={event => {
+                            if (event.button !== 0 || !event.isPrimary) return;
+                            suppressSkillClickRef.current = false;
+                            const width = event.currentTarget.clientWidth;
+                            skillPageDragRef.current = {
+                              combatantId: combatant.id,
+                              startX: event.clientX,
+                              pointerId: event.pointerId,
+                              width,
+                              startPage: skillsPage
+                            };
+                            setSkillPageDragOffsets(prev => ({ ...prev, [combatant.id]: 0 }));
+                          }}
+                          onPointerMove={event => {
+                            const drag = skillPageDragRef.current;
+                            if (!drag || drag.pointerId !== event.pointerId || drag.combatantId !== combatant.id) return;
+                            const deltaX = event.clientX - drag.startX;
+                            setSkillPageDragOffsets(prev => ({ ...prev, [combatant.id]: deltaX }));
+                            if (Math.abs(deltaX) >= Math.max(40, drag.width * 0.18) && !event.currentTarget.hasPointerCapture(event.pointerId)) {
+                              event.currentTarget.setPointerCapture(event.pointerId);
+                            }
+                          }}
+                          onPointerUp={event => {
+                            const drag = skillPageDragRef.current;
+                            skillPageDragRef.current = null;
+                            if (!drag || drag.pointerId !== event.pointerId || drag.combatantId !== combatant.id) return;
+                            const deltaX = event.clientX - drag.startX;
+                            const threshold = Math.max(40, drag.width * 0.18);
+                            const nextPage = deltaX <= -threshold
+                              ? Math.min(totalSkillPages - 1, drag.startPage + 1)
+                              : deltaX >= threshold
+                                ? Math.max(0, drag.startPage - 1)
+                                : drag.startPage;
+                            if (Math.abs(deltaX) >= threshold) {
+                              suppressSkillClickRef.current = true;
+                              window.setTimeout(() => {
+                                suppressSkillClickRef.current = false;
+                              }, 0);
+                            }
+                            if (nextPage !== skillsPage) {
+                              playCustomSound('Scroll');
+                              setCombatantSkillPages(prev => ({ ...prev, [combatant.id]: nextPage }));
+                            }
+                            setSkillPageDragOffsets(prev => {
+                              const next = { ...prev };
+                              delete next[combatant.id];
+                              return next;
+                            });
+                          }}
+                          onPointerCancel={() => {
+                            skillPageDragRef.current = null;
+                            setSkillPageDragOffsets(prev => {
+                              const next = { ...prev };
+                              delete next[combatant.id];
+                              return next;
+                            });
+                          }}
+                          onClickCapture={event => {
+                            if (!suppressSkillClickRef.current) return;
+                            suppressSkillClickRef.current = false;
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }}
+                        >
+                          <div
+                            className={`mv-skill-carousel-track ${skillPageDragOffsets[combatant.id] !== undefined ? 'is-dragging' : ''}`}
+                            style={{
+                              transform: `translate3d(calc(-${skillsPage * 100}% + ${skillPageDragOffsets[combatant.id] || 0}px), 0, 0)`
+                            }}
+                          >
+                          {skillPages.map((pageSkills, pageIndex) => (
+                            <div className="mv-skill-carousel-page" key={pageIndex}>
+                            {pageSkills.map((skill, pIdx) => {
+                            const sIdx = pageIndex * skillsPerPage + pIdx;
                             const isCooldown = skill.currentCooldown > 0;
                             const hasRevealInvisible = [...playerCombatants, ...enemyCombatants].some(
                               c => c.activeEffects?.some(e => e.type === 'reveal_invisible' && (e.casterSide === 'player' || !e.casterSide))
@@ -20406,7 +20562,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                 </div>
                               </div>
                             );
-                          })}
+                            })}
+                            </div>
+                          ))}
+                          </div>
                         </div>
 
                         {/* Right side pagination arrow */}

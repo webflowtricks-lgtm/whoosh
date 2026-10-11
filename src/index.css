@@ -1868,6 +1868,34 @@ e-squad-name {
   display: none;
 }
 
+.mv-skill-carousel-viewport {
+  position: relative;
+  overflow-x: clip;
+  overflow-y: visible;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.mv-skill-carousel-track {
+  display: flex;
+  will-change: transform;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mv-skill-carousel-track.is-dragging {
+  transition: none;
+  cursor: grabbing;
+}
+
+.mv-skill-carousel-page {
+  display: grid;
+  flex: 0 0 100%;
+  min-width: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
 @media (orientation: portrait) and (max-width: 500px) {
   html:has(.battle-arena-layout),
   body:has(.battle-arena-layout) {
