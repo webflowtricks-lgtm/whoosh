@@ -1897,6 +1897,17 @@ e-squad-name {
 }
 
 @media (orientation: portrait) and (max-width: 500px) {
+  .mv-chakra-roll-icon-frame {
+    flex: 0 0 auto;
+  }
+
+  .mv-chakra-roll-icon {
+    display: block;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: 0 0 1.25rem;
+  }
+
   html:has(.battle-arena-layout),
   body:has(.battle-arena-layout) {
     overflow: hidden;
@@ -2084,17 +2095,26 @@ e-squad-name {
 
   .mv-player-roster {
     grid-area: player-roster;
+    transform: translateY(-1.5rem);
   }
 
   .mv-center-status {
     grid-area: center-status;
-    display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr) minmax(0, 0.7fr);
-    align-items: center;
+    position: relative;
+    display: block;
     justify-self: center;
     width: min(100%, 24rem);
     min-width: 0;
     align-self: center;
+  }
+
+  .mv-center-status-main {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr) minmax(0, 0.7fr);
+    align-items: center;
+    row-gap: 0.35rem;
     padding: 0.55rem 0.45rem;
     border: 1px solid rgba(251, 191, 36, 0.55);
     border-radius: 0.85rem;
@@ -2120,6 +2140,19 @@ e-squad-name {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     align-items: center;
     gap: 0.12rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mv-center-status-chakra:focus-visible {
+    outline: 1px solid rgba(253, 230, 138, 0.8);
+    outline-offset: 2px;
+    border-radius: 0.3rem;
   }
 
   .mv-center-status-chakra-item {
@@ -2134,6 +2167,37 @@ e-squad-name {
     font-size: 0.55rem;
     font-weight: 900;
     line-height: 1;
+  }
+
+  .mv-center-status-exchange {
+    position: absolute;
+    z-index: 0;
+    top: calc(100% - 0.25rem);
+    left: 0.45rem;
+    min-width: 5.5rem;
+    padding: 0.28rem 0.65rem 0.2rem;
+    border: 1px solid rgba(253, 230, 138, 0.72);
+    border-top: 0;
+    border-radius: 0 0 0.35rem 0.35rem;
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.9), rgba(254, 240, 180, 0.98));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 5px rgba(0, 0, 0, 0.28);
+    color: #422006;
+    font-family: inherit;
+    font-size: 0.55rem;
+    font-weight: 900;
+    line-height: 1;
+    text-transform: lowercase;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: filter 150ms ease, transform 150ms ease;
+  }
+
+  .mv-center-status-exchange:hover {
+    filter: brightness(1.08);
+  }
+
+  .mv-center-status-exchange:active {
+    transform: scale(0.96);
   }
 
   .mv-center-status-turn {
@@ -2255,6 +2319,11 @@ e-squad-name {
 
   .mv-battle-roster > * + * {
     margin-top: 0 !important;
+  }
+
+  .mv-battle-roster:has(.mv-floating-combat-text) {
+    position: relative;
+    z-index: 40;
   }
 
   .mv-combatant-panel {

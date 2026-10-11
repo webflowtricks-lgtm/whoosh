@@ -358,15 +358,33 @@ function EffectBadges({
                               {sub.effect.duration >= 99999 ? '♾️ Permanente' : sub.effect.duration + 'T'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-300 leading-tight">
-                            <RichText text={sub.description} />
+                          <p className="flex items-start gap-1.5 text-[11px] text-slate-300 leading-tight">
+                            {sub.effect.icon && (
+                              <img
+                                src={sub.effect.icon}
+                                alt=""
+                                aria-hidden="true"
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded object-cover border border-slate-700"
+                                referrerPolicy="no-referrer"
+                              />
+                            )}
+                            <span><RichText text={sub.description} /></span>
                           </p>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-200 font-sans leading-snug my-1 text-left">
-                      <RichText text={item.description} />
+                    <p className="flex items-start gap-1.5 text-xs text-slate-200 font-sans leading-snug my-1 text-left">
+                      {item.effect.icon && (
+                        <img
+                          src={item.effect.icon}
+                          alt=""
+                          aria-hidden="true"
+                          className="mt-0.5 h-4 w-4 shrink-0 rounded object-cover border border-slate-700"
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                      <span><RichText text={item.description} /></span>
                     </p>
                   )}
 
@@ -479,8 +497,17 @@ function EffectBadges({
                                     {sub.effect.duration >= 99999 ? 'Permanente' : `${sub.effect.duration}T`}
                                   </span>
                                 </div>
-                                <p className="text-xs text-slate-200 leading-relaxed">
-                                  <RichText text={sub.description} />
+                                <p className="flex items-start gap-1.5 text-xs text-slate-200 leading-relaxed">
+                                  {sub.effect.icon && (
+                                    <img
+                                      src={sub.effect.icon}
+                                      alt=""
+                                      aria-hidden="true"
+                                      className="mt-0.5 h-4 w-4 shrink-0 rounded object-cover border border-slate-700"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  )}
+                                  <span><RichText text={sub.description} /></span>
                                 </p>
                                 {sub.stacks > 1 && (
                                   <p className="mt-1 text-[10px] text-slate-400">
@@ -2215,7 +2242,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   // 🎯 Sistema de floating texts agrupados por tipo: textos com o mesmo conteúdo aparecem
   // simultaneamente em TODOS os alvos, depois somem e o próximo grupo aparece.
   // O buffer acumula textos durante uma resolução; o flush agrupa por texto e exibe em sequência.
-  const floatingBufferRef = useRef<Array<{ id: string; targetId: string; text: string; type: FloatingText['type'] }>>([]);
+  const floatingBufferRef = useRef<Array<{ id: string; targetId: string; text: string; type: FloatingText['type']; skillIcon?: string }>>([]);
   const floatingFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const FLOATING_BATCH_WINDOW = 0;    // ms — janela de silêncio p/ considerar o lote completo (0 = flush imediato após o tick síncrono: primeiro tooltip na hora)
   const FLOATING_STEP_DELAY = 2000;  // ms — atraso entre cada grupo de textos idênticos (próximo aparece 2s após o anterior)
@@ -3098,9 +3125,9 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   // O buffer acumula textos durante a resolução. Quando nenhum texto novo chega
   // por FLOATING_BATCH_WINDOW ms, o flush agrupa por text, e exibe cada grupo
   // simultaneamente (todos os alvos ao mesmo tempo) com stagger entre grupos.
-  const addFloatingText = (targetId: string, text: string, type: FloatingText['type']) => {
+  const addFloatingText = (targetId: string, text: string, type: FloatingText['type'], skillIcon = currentSkillRef.current?.icon) => {
     const id = Math.random().toString();
-    floatingBufferRef.current.push({ id, targetId, text, type });
+    floatingBufferRef.current.push({ id, targetId, text, type, skillIcon });
     // Reinicia o timer: flush só acontece quando nenhum texto novo chegar por BATCH_WINDOW
     if (floatingFlushTimerRef.current) clearTimeout(floatingFlushTimerRef.current);
     floatingFlushTimerRef.current = setTimeout(flushFloatingBatch, FLOATING_BATCH_WINDOW);
@@ -3116,7 +3143,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     // o mesmo floating (ex.: dano aplicado + proc duplicado) ele cairia 2x no mesmo
     // alvo e ficaria visível duplicado no agrupamento. Mantendo apenas 1 por alvo.
     const groupOrder: string[] = [];
-    const groups = new Map<string, Array<{ id: string; targetId: string; text: string; type: FloatingText['type'] }>>();
+    const groups = new Map<string, Array<{ id: string; targetId: string; text: string; type: FloatingText['type']; skillIcon?: string }>>();
     const seen = new Set<string>();
     for (const entry of buffer) {
       const key = `${entry.targetId}\u0000${entry.text}`;
@@ -3136,7 +3163,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       const delay = groupIdx * FLOATING_STEP_DELAY;
       setTimeout(() => {
         const newFloats: FloatingText[] = entries.map(e => ({
-          id: e.id, targetId: e.targetId, text: e.text, type: e.type, order: groupIdx,
+          id: e.id, targetId: e.targetId, text: e.text, type: e.type, skillIcon: e.skillIcon, order: groupIdx,
         }));
         setFloatingTexts(prev => [...prev, ...newFloats]);
         // Remover após vida útil (cronômetro a partir da inserção no DOM)
@@ -10313,6 +10340,8 @@ splashOnlyTargets = splashPool.filter(c =>
         }
       });
     });
+
+    currentSkillRef.current = null;
 
     // 💜 Sincronização IMEDIATA dos valores de aflição com as regras condicionais:
     // ao ativar/desativar a skill condição (ex.: Mangekyo Sharingan), os debuffs de
@@ -18160,8 +18189,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900/95 border border-orange-500/50 rounded-2xl px-8 py-4 flex items-center gap-4 shadow-2xl shadow-orange-600/20 backdrop-blur"
           >
-            <div className="bg-orange-600/10 p-2 rounded-lg border border-orange-500/30">
-              <img src="/static/img/icon/star.svg" alt="Loading" className="w-5 h-5 animate-spin object-contain" />
+            <div className="mv-chakra-roll-icon-frame bg-orange-600/10 p-2 rounded-lg border border-orange-500/30">
+              <img src="/static/img/icon/star.svg" alt="Loading" className="mv-chakra-roll-icon w-5 h-5 animate-spin object-contain" />
             </div>
             <div>
               <p className="text-[10px] font-mono text-orange-400 font-bold uppercase tracking-wider">Giro de Chakra - Turno {turn}</p>
@@ -18593,7 +18622,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       className="absolute inset-0 w-full h-full object-cover rounded-xl -z-10 pointer-events-none select-none"
                     />
                     {/* Floating combat numbers portal */}
-                    <div className="absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
+                    <div className="mv-floating-combat-text absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
                       <AnimatePresence>
                       {floatingTexts
                         .filter(f => f.targetId === combatant.id)
@@ -18611,8 +18640,17 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             animate={{ opacity: 1, y: -20, scale: 1.1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
                             transition={{ duration: 0.35 }}
-                            className={`font-mono text-xs font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${textClass}`}
+                            className={`inline-flex items-center gap-1.5 font-mono text-xs font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${textClass}`}
                           >
+                            {f.skillIcon && (
+                              <img
+                                src={f.skillIcon}
+                                alt=""
+                                aria-hidden="true"
+                                className="h-4 w-4 shrink-0 rounded-sm border border-slate-700 object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                            )}
                             {f.text}
                           </motion.span>
                         );
@@ -19272,38 +19310,61 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       </section>
 
       <div className="mv-center-status" aria-label="Status da batalha">
-        <div className="mv-center-status-chakra" role="group" aria-label="Quantidade de chakra por tipo">
-          {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map((type) => (
-            <div key={type} className="mv-center-status-chakra-item">
-              {renderChakraIcon(type, 'w-2.5 h-2.5')}
-              <span>{playerChakra[type] || 0}</span>
-            </div>
-          ))}
-        </div>
-        <div
-          className={`mv-center-status-turn ${
-            isWaitingForOpponent
-              ? 'is-waiting'
-              : activePlanner === 'player'
-                ? 'is-player-turn'
-                : 'is-opponent-turn'
-          }`}
-        >
-          <span className="mv-center-status-round">Turno {turn}</span>
-          <span className="mv-center-status-label">
-            {gameOver
-              ? 'Batalha encerrada'
-              : isWaitingForOpponent
-                ? 'Aguardando...'
+        <div className="mv-center-status-main">
+          <button
+            type="button"
+            className="mv-center-status-chakra"
+            onClick={() => {
+              playClickSound();
+              playScrollSound();
+              setShowChakraTrade(true);
+            }}
+            aria-label="Trocar quatro chakras por um: abrir troca de chakra"
+          >
+            {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map((type) => (
+              <span key={type} className="mv-center-status-chakra-item">
+                {renderChakraIcon(type, 'w-2.5 h-2.5')}
+                <span>{playerChakra[type] || 0}</span>
+              </span>
+            ))}
+          </button>
+          <div
+            className={`mv-center-status-turn ${
+              isWaitingForOpponent
+                ? 'is-waiting'
                 : activePlanner === 'player'
-                  ? 'Seu turno'
-                  : 'Vez do oponente'}
-          </span>
+                  ? 'is-player-turn'
+                  : 'is-opponent-turn'
+            }`}
+          >
+            <span className="mv-center-status-round">Turno {turn}</span>
+            <span className="mv-center-status-label">
+              {gameOver
+                ? 'Batalha encerrada'
+                : isWaitingForOpponent
+                  ? 'Aguardando...'
+                  : activePlanner === 'player'
+                    ? 'Seu turno'
+                    : 'Vez do oponente'}
+            </span>
+          </div>
+          <div className={`mv-center-status-timer ${timeLeft <= 10 && !gameOver ? 'is-low' : ''}`}>
+            <Clock aria-hidden="true" />
+            <span>{timeLeft}s</span>
+          </div>
         </div>
-        <div className={`mv-center-status-timer ${timeLeft <= 10 && !gameOver ? 'is-low' : ''}`}>
-          <Clock aria-hidden="true" />
-          <span>{timeLeft}s</span>
-        </div>
+        <button
+          type="button"
+          className="mv-center-status-exchange"
+          onClick={() => {
+            playClickSound();
+            playScrollSound();
+            setShowChakraTrade(true);
+          }}
+          aria-label="Trocar quatro chakras por um"
+        >
+          trocar 4 - por 1
+        </button>
       </div>
 
       {/* Center: ARENA CONTROL BOARD & CHAKRA */}
@@ -19800,7 +19861,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       className="absolute inset-0 w-full h-full object-cover rounded-xl scale-x-[-1] -z-10 pointer-events-none select-none"
                     />
                     {/* Floating combat numbers portal */}
-                    <div className="absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
+                    <div className="mv-floating-combat-text absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
                       <AnimatePresence>
                       {floatingTexts
                         .filter(f => f.targetId === combatant.id)
@@ -19818,8 +19879,17 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             animate={{ opacity: 1, y: -20, scale: 1.1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
                             transition={{ duration: 0.35 }}
-                            className={`font-mono text-xs font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${textClass}`}
+                            className={`inline-flex items-center gap-1.5 font-mono text-xs font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${textClass}`}
                           >
+                            {f.skillIcon && (
+                              <img
+                                src={f.skillIcon}
+                                alt=""
+                                aria-hidden="true"
+                                className="h-4 w-4 shrink-0 rounded-sm border border-slate-700 object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                            )}
                             {f.text}
                           </motion.span>
                         );
