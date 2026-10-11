@@ -1869,6 +1869,134 @@ e-squad-name {
 }
 
 @media (orientation: portrait) and (max-width: 500px) {
+  .ml-profile-card-wrap {
+    width: min(100%, 28rem);
+    max-height: calc(100dvh - 1rem) !important;
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.5rem;
+  }
+
+  .profile-card-modal-container {
+    width: 100%;
+    max-width: none;
+    height: min(62dvh, 34rem);
+    max-height: 62dvh !important;
+    flex: 0 0 auto;
+  }
+
+  .profile-card-modal-body {
+    min-height: 0;
+    padding: 0.75rem !important;
+  }
+
+  .profile-card-modal-body > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch !important;
+    height: 100%;
+    gap: 0.5rem !important;
+  }
+
+  .profile-card-modal-body > div > :first-child {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem !important;
+  }
+
+  .profile-card-modal-body > div > :first-child > :first-child {
+    padding: 0.5rem !important;
+  }
+
+  .profile-card-modal-body > div > :first-child > :first-child > div:first-child {
+    gap: 0.35rem !important;
+  }
+
+  .profile-card-modal-body > div > :first-child > :first-child > div:first-child > div:first-child {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .profile-card-modal-body > div > :first-child > :first-child p {
+    display: none;
+  }
+
+  .profile-card-modal-body > div > :last-child {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 16rem !important;
+    max-height: none;
+    align-self: stretch;
+  }
+
+  .mv-arena-history-card {
+    width: 100%;
+    min-width: 0;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem !important;
+    padding: 0.5rem !important;
+  }
+
+  .mv-arena-history-details,
+  .mv-arena-history-heading,
+  .mv-arena-history-results {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .mv-arena-history-heading,
+  .mv-arena-history-results {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem !important;
+  }
+
+  .mv-arena-history-heading > span {
+    white-space: normal;
+  }
+
+  .mv-arena-history-results {
+    font-size: 0.6rem;
+  }
+
+  .mv-arena-history-separator {
+    display: none;
+  }
+
+  .profile-card-showcase {
+    width: 100%;
+    min-height: 12rem !important;
+    max-height: 14rem;
+  }
+
+  .profile-card-showcase > img:not([aria-hidden]) {
+    max-height: 11rem !important;
+  }
+
+  .ml-figurinhas-panel {
+    width: 100%;
+    height: 22dvh;
+    min-height: 7rem;
+    max-height: 24dvh;
+    flex: 0 0 auto;
+  }
+
+  .ml-figurinhas-panel > :last-child {
+    min-height: 0;
+  }
+
+  .ml-profile-card-wrap .profile-card-modal-container h2 {
+    font-size: 1.25rem;
+  }
+
   .header-footer {
     margin-bottom: 24px;
   }

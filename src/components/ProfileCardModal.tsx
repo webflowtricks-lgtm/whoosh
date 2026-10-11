@@ -2,7 +2,6 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Heart, Shield, Sparkles, User, Swords, Trophy, Flame, CheckCircle2, Calendar, ChevronLeft, ChevronRight, Images } from 'lucide-react';
@@ -29,6 +28,23 @@ function useIsMobileLandscape(): boolean {
     return () => mq.removeListener(update);
   }, []);
   return isLandscape;
+}
+
+function useIsMobilePortrait(): boolean {
+  const [isPortrait, setIsPortrait] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(orientation: portrait) and (max-width: 500px)');
+    const update = () => setIsPortrait(mq.matches);
+    update();
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', update);
+      return () => mq.removeEventListener('change', update);
+    }
+    mq.addListener(update);
+    return () => mq.removeListener(update);
+  }, []);
+  return isPortrait;
 }
 
 /**
@@ -200,6 +216,7 @@ export default function ProfileCardModal({
   };
   const { t } = useLanguage();
   const isLandscape = useIsMobileLandscape();
+  const isMobilePortrait = useIsMobilePortrait();
   const profileKey = (profile.username || profile.name || 'ninja').toLowerCase().replace(/[^a-z0-9]/g, '_');
   const likesStorageKey = `naruto_profile_real_likes_${profileKey}`;
   const lastLikeDateStorageKey = `naruto_profile_last_like_${profileKey}`;
@@ -297,18 +314,18 @@ export default function ProfileCardModal({
   // - mobile landscape → abaixo das curtidas do perfil (coluna esquerda)
   // - demais orientações → na barra do FECHAR (rodapé)
   const arenaHistoryBlock = (
-    <div className={`${isLandscape ? 'px-2.5 py-1.5 gap-2' : 'px-3.5 py-2 gap-3.5'} bg-slate-950/90 border border-slate-800/90 rounded-xl shadow-inner flex items-center flex-shrink-0`}>
+    <div className={`mv-arena-history-card ${isLandscape ? 'px-2.5 py-1.5 gap-2' : 'px-3.5 py-2 gap-3.5'} bg-slate-950/90 border border-slate-800/90 rounded-xl shadow-inner flex items-center flex-shrink-0`}>
       <div className={`${isLandscape ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 flex-shrink-0`}>
         <Swords className={`${isLandscape ? 'w-3 h-3' : 'w-4 h-4'}`} />
       </div>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
+      <div className="mv-arena-history-details min-w-0">
+        <div className="mv-arena-history-heading flex items-center gap-2">
           <span className="text-[9px] text-slate-400 font-mono uppercase tracking-wider">{t('HISTÓRICO DA ARENA', 'ARENA HISTORY')}</span>
           <span className="text-[9px] text-cyan-300 font-mono font-bold whitespace-nowrap">{winRate}% {t('Vitórias', 'Win Rate')}</span>
         </div>
-        <div className="flex items-center gap-2.5 text-[11px] font-black font-mono">
+        <div className="mv-arena-history-results flex items-center gap-2.5 text-[11px] font-black font-mono">
           <span className="text-emerald-400">⚔️ {wins} {t('Vitórias', 'Wins')}</span>
-          <span className="text-slate-700">|</span>
+          <span className="mv-arena-history-separator text-slate-700">|</span>
           <span className="text-red-400">🛡️ {losses} {t('Derrotas', 'Losses')}</span>
         </div>
       </div>
@@ -436,7 +453,7 @@ export default function ProfileCardModal({
           </div>
 
           {/* CARD BODY: TWO COLUMNS (LEFT STATS | RIGHT SHOWCASE CHARACTER SKIN ARTWORK) */}
-          <div className={`${isLandscape ? 'p-2' : 'p-4 sm:p-6'} bg-slate-900 flex-1 overflow-y-auto relative custom-scrollbar`}>
+          <div className={`profile-card-modal-body ${isLandscape ? 'p-2' : 'p-4 sm:p-6'} bg-slate-900 flex-1 overflow-y-auto relative custom-scrollbar`}>
             <div className={`${isLandscape ? 'flex-row gap-2' : 'gap-4 sm:gap-6'} flex flex-col md:flex-row items-stretch`}>
               
               {/* LEFT COLUMN: STATS & DETAILS */}
@@ -460,9 +477,6 @@ export default function ProfileCardModal({
 
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 flex-shrink-0">
-                        <Heart className={`w-5 h-5 ${hasLikedToday ? 'fill-rose-500 text-rose-500' : 'animate-pulse'}`} />
-                      </div>
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-base font-black text-white font-mono">{likes}</span>
@@ -501,6 +515,8 @@ export default function ProfileCardModal({
                   )}
                 </div>
 
+                {isMobilePortrait && arenaHistoryBlock}
+
                 {/* HISTÓRICO DA ARENA — mobile landscape: abaixo das curtidas do perfil */}
                 {isLandscape && arenaHistoryBlock}
 
@@ -520,7 +536,7 @@ export default function ProfileCardModal({
               </div>
 
               {/* RIGHT COLUMN: SHOWCASE CHARACTER SKIN ARTWORK ("SKIN DE DESTAQUE") */}
-              <div className={`${isLandscape ? 'min-h-[120px] w-28' : 'w-full sm:w-52 md:w-56 min-h-[250px] md:min-h-[300px]'} relative flex-shrink-0 flex items-end justify-center bg-slate-950/50 border border-slate-800/60 rounded-2xl overflow-hidden p-2`}>
+              <div className={`profile-card-showcase ${isLandscape ? 'min-h-[120px] w-28' : 'w-full sm:w-52 md:w-56 min-h-[250px] md:min-h-[300px]'} relative flex-shrink-0 flex items-end justify-center bg-slate-950/50 border border-slate-800/60 rounded-2xl overflow-hidden p-2`}>
                 
                 {/* Glowing Aura Background Effect */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-amber-500/10 pointer-events-none" />
@@ -552,35 +568,27 @@ export default function ProfileCardModal({
             </div>
 
             {/* ACTION FOOTER (com o Histórico da Arena à esquerda) */}
-            <div className={`${isLandscape ? 'mt-2 pt-2' : 'mt-5 pt-3'} flex flex-wrap items-center gap-3 border-t border-slate-800/80`}>
+            {(!isMobilePortrait || (isSelf && onOpenEditModal)) && (
+              <div className={`${isLandscape ? 'mt-2 pt-2' : 'mt-5 pt-3'} flex flex-wrap items-center gap-3 border-t border-slate-800/80`}>
 
-              {/* Histórico da Arena — em mobile landscape fica abaixo das curtidas (coluna esquerda) */}
-              {!isLandscape && arenaHistoryBlock}
+                {/* Histórico da Arena — em mobile landscape fica abaixo das curtidas (coluna esquerda) */}
+                {!isLandscape && !isMobilePortrait && arenaHistoryBlock}
 
-              {isSelf && onOpenEditModal && (
-                <button
-                  onClick={() => {
-                    closeModal();
-                    onOpenEditModal();
-                  }}
-                  data-sound="Scroll"
-                  className="px-4 py-2 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/25 text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-2"
-                >
-                  <User className="w-3.5 h-3.5" />
-                  {t('Editar perfil', 'Edit Profile')}
-                </button>
-              )}
-
-              <button
-                onClick={() => {
-                  closeModal();
-                }}
-                data-sound="Scroll"
-                className="ml-auto px-6 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer shadow"
-              >
-                {t('FECHAR', 'CLOSE')}
-              </button>
-            </div>
+                {isSelf && onOpenEditModal && (
+                  <button
+                    onClick={() => {
+                      closeModal();
+                      onOpenEditModal();
+                    }}
+                    data-sound="Scroll"
+                    className="px-4 py-2 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/25 text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-2"
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    {t('Editar perfil', 'Edit Profile')}
+                  </button>
+                )}
+              </div>
+            )}
 
           </div>
         </motion.div>
