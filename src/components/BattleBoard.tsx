@@ -18634,7 +18634,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             alt={`Invulnerabilidade de ${combatant.character.name}`}
                             title={`Invulnerável por ${getActiveInvulnerabilityEffect(combatant)?.name || 'Skill'}`}
                             referrerPolicy="no-referrer"
-                            className="h-full w-auto max-w-full object-contain"
+                            className="mv-player-invulnerability-skin h-full w-auto max-w-full object-contain"
                           />
                         ) : skinImg ? (
                           <SkinMedia
@@ -18804,7 +18804,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           <span className="mv-combatant-name">{combatant.character.name}</span>
                           {getActiveInvulnerabilityEffect(combatant) && (
                             <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
-                              🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
+                            {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
                             </span>
                           )}
                         </h4>
@@ -20054,7 +20054,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           <span className="mv-combatant-name">{combatant.character.name}</span>
                           {getActiveInvulnerabilityEffect(combatant) && (
                             <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
-                              🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
+                            {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
                             </span>
                           )}
                         </h4>

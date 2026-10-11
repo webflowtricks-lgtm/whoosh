@@ -2498,6 +2498,12 @@ e-squad-name {
     object-fit: contain;
   }
 
+  .mv-player-invulnerability-skin {
+    max-height: 100%;
+    object-fit: contain;
+    margin-bottom: -35px;
+  }
+
   .mv-enemy-skin-art {
     order: -1;
     width: 100%;
