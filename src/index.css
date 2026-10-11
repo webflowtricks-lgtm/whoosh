@@ -1869,20 +1869,23 @@ e-squad-name {
 }
 
 @media (orientation: portrait) and (max-width: 500px) {
+  .header-footer {
+    margin-bottom: 24px;
+  }
+
   .battle-arena-layout {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
-      "player-profile opponent-profile"
       "enemy-roster enemy-roster"
       "center-status center-status"
       "player-roster player-roster";
-    grid-template-rows: auto auto minmax(1rem, 1fr) auto;
+    grid-template-rows: auto minmax(1rem, 1fr) auto;
     align-items: start;
     column-gap: 0.35rem;
     row-gap: 0.15rem;
     padding-top: 0.25rem !important;
-    padding-bottom: 4rem !important;
+    padding-bottom: 6rem !important;
     min-height: calc(100dvh - 4rem);
   }
 
@@ -1897,11 +1900,19 @@ e-squad-name {
   }
 
   .mv-player-profile-card {
-    grid-area: player-profile;
+    grid-area: auto;
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    transform: translateY(calc(-50% - 1.5rem));
   }
 
   .mv-opponent-profile-card {
-    grid-area: opponent-profile;
+    grid-area: auto;
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    transform: translateY(calc(-50% - 1.5rem));
   }
 
   .mv-enemy-roster {
@@ -2177,7 +2188,7 @@ e-squad-name {
 
   .mv-character-skin {
     width: 100% !important;
-    height: 118px;
+    height: 190px;
     margin-bottom: -20px;
     min-height: 76px;
     padding: 0;
