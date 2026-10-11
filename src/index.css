@@ -1869,6 +1869,12 @@ e-squad-name {
 }
 
 @media (orientation: portrait) and (max-width: 500px) {
+  html:has(.battle-arena-layout),
+  body:has(.battle-arena-layout) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   .ml-profile-card-wrap {
     width: min(100%, 28rem);
     max-height: calc(100dvh - 1rem) !important;
@@ -2045,6 +2051,7 @@ e-squad-name {
 
   .mv-enemy-roster {
     grid-area: enemy-roster;
+    transform: translateY(2.45rem);
   }
 
   .mv-player-roster {
@@ -2338,6 +2345,11 @@ e-squad-name {
     outline: none !important;
     box-shadow: none !important;
     filter: brightness(1.2);
+  }
+
+  .mv-battle-roster:has(.mv-skill-targetable) {
+    position: relative;
+    z-index: 1001;
   }
 
   .mv-character-skin img {
