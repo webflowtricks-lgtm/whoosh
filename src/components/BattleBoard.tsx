@@ -131,6 +131,36 @@ export interface EffectDisplayItem {
  */
 const EFFECTS_PER_PAGE = 4;
 
+function getFloatingTextClass(floatingText: FloatingText): string {
+  if (floatingText.type === 'shield' || floatingText.type === 'invulnerable') return 'mv-floating-protection';
+  if (/afli[cç][aã]o/i.test(floatingText.text)) return 'mv-floating-affliction';
+  if (floatingText.type === 'damage') return 'mv-floating-damage';
+  if (floatingText.type === 'heal') return 'mv-floating-heal';
+  if (floatingText.type === 'stun') return 'mv-floating-stun';
+  if (floatingText.type === 'effect') return 'text-orange-400';
+  return 'text-red-500 shadow-red-500/5';
+}
+
+function getActiveInvulnerabilityEffect(combatant: CombatCharacter): ActiveEffect | undefined {
+  if (
+    combatant.activeEffects.some(effect => effect.type === 'cannot_be_invulnerable') ||
+    hasNegateFriendlyEffects(combatant)
+  ) return undefined;
+  return combatant.activeEffects.find(effect => effect.type === 'invulnerable');
+}
+
+function getInvulnerabilitySkillIcon(combatant: CombatCharacter, combatants: CombatCharacter[]): string | undefined {
+  const effect = getActiveInvulnerabilityEffect(combatant);
+  if (!effect) return undefined;
+  if (effect.icon) return effect.icon;
+
+  return [...combatants.flatMap(c => c.character.skills), ...combatant.character.skills]
+    .find(skill => skill.icon && skill.name && (
+      skill.name === effect.sourceSkillName ||
+      effect.name.toLowerCase().includes(skill.name.toLowerCase())
+    ))?.icon;
+}
+
 function useIsMobileLandscape(): boolean {
   const [isLandscape, setIsLandscape] = useState(false);
   useEffect(() => {
@@ -211,16 +241,33 @@ function EffectBadges({
   if (groupedEffects.length === 0) return null;
 
   const effectsPerPage = isMobileVertical ? 3 : EFFECTS_PER_PAGE;
-  const totalPages = Math.max(1, Math.ceil(groupedEffects.length / effectsPerPage));
+  const prioritizedEffects = isMobileVertical
+    ? [...groupedEffects].sort((a, b) =>
+      Number(b.subEffects.some(sub => sub.effect.type === 'invulnerable')) -
+      Number(a.subEffects.some(sub => sub.effect.type === 'invulnerable'))
+    )
+    : groupedEffects;
+  const totalPages = Math.max(1, Math.ceil(prioritizedEffects.length / effectsPerPage));
   const safePage = Math.min(page, totalPages - 1);
   const isPaginated = isMobileLandscape || isMobileVertical;
   const pageOffset = isPaginated ? safePage * effectsPerPage : 0;
   const visibleEffects = isPaginated
-    ? groupedEffects.slice(pageOffset, pageOffset + effectsPerPage)
-    : groupedEffects;
+    ? prioritizedEffects.slice(pageOffset, pageOffset + effectsPerPage)
+    : prioritizedEffects;
 
   const goPrev = () => { onPlaySound(); setPage(p => Math.max(0, Math.min(p, totalPages - 1) - 1)); };
   const goNext = () => { onPlaySound(); setPage(p => Math.min(totalPages - 1, Math.min(p, totalPages - 1) + 1)); };
+  const renderEffectDescription = (description: string) => {
+    const afflictionPrefix = description.match(/^aflição:/i)?.[0];
+    return afflictionPrefix ? (
+      <>
+        <span className="text-purple-400">{afflictionPrefix}</span>
+        <RichText text={description.slice(afflictionPrefix.length)} />
+      </>
+    ) : (
+      <RichText text={description} />
+    );
+  };
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     touchStartX.current = event.changedTouches[0]?.clientX ?? null;
   };
@@ -497,17 +544,8 @@ function EffectBadges({
                                     {sub.effect.duration >= 99999 ? 'Permanente' : `${sub.effect.duration}T`}
                                   </span>
                                 </div>
-                                <p className="flex items-start gap-1.5 text-xs text-slate-200 leading-relaxed">
-                                  {sub.effect.icon && (
-                                    <img
-                                      src={sub.effect.icon}
-                                      alt=""
-                                      aria-hidden="true"
-                                      className="mt-0.5 h-4 w-4 shrink-0 rounded object-cover border border-slate-700"
-                                      referrerPolicy="no-referrer"
-                                    />
-                                  )}
-                                  <span><RichText text={sub.description} /></span>
+                                <p className="flex items-start text-xs text-slate-200 leading-relaxed">
+                                  <span>{renderEffectDescription(sub.description)}</span>
                                 </p>
                                 {sub.stacks > 1 && (
                                   <p className="mt-1 text-[10px] text-slate-400">
@@ -675,8 +713,16 @@ export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Ski
       return true;
     }
 
-    // No types specified = protects against all by default
-    if (!types) return true;
+    // Sem invulnerableTypes, a normal invulnerability blocks hostile skills,
+    // but it does not prevent allies from targeting the character.
+    if (!types) {
+      if (skillOrType === 'friendly') return false;
+      if (skillOrType && typeof skillOrType === 'object' && !Array.isArray(skillOrType)) {
+        const classes = ((skillOrType as Skill).classes || []).map(cls => cls.toLowerCase());
+        if (classes.some(cls => ['friendly', 'suporte', 'cura'].includes(cls))) return false;
+      }
+      return true;
+    }
     // Explicitly empty array = protects against nothing
     if (types.length === 0) return false;
 
@@ -10935,7 +10981,8 @@ splashOnlyTargets = splashPool.filter(c =>
         //  - marcadores 'custom' (stacks, stacks pendentes, liberação atrasada, reflexão por stack, etc.)
         //  - efeitos permanentes (duration >= 99999) e stack Raikiri congelada
         const KEEP_CAST_ROUND_SKIP = new Set([
-          'stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'custom',
+          'stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'custom', 'invulnerable',
+          // Invulnerabilidade precisa sobreviver à resolução em que foi aplicada para proteger a próxima ação.
           // 🛡️ Proteções reativas: "anula a primeira skill por 1 turno" precisa sobreviver à rodada
           // em que foi lançada — se eu sou RESPONDENTE, a skill inimiga que deve ser anulada vem na
           // MESMA rodada ou na seguinte. Sem o skip, duração 1 morria na resolução da própria rodada
@@ -18187,7 +18234,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             initial={{ opacity: 0, y: -50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900/95 border border-orange-500/50 rounded-2xl px-8 py-4 flex items-center gap-4 shadow-2xl shadow-orange-600/20 backdrop-blur"
+            className="mv-chakra-roll-banner fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900/95 border border-orange-500/50 rounded-2xl px-8 py-4 flex items-center gap-4 shadow-2xl shadow-orange-600/20 backdrop-blur"
           >
             <div className="mv-chakra-roll-icon-frame bg-orange-600/10 p-2 rounded-lg border border-orange-500/30">
               <img src="/static/img/icon/star.svg" alt="Loading" className="mv-chakra-roll-icon w-5 h-5 animate-spin object-contain" />
@@ -18539,7 +18586,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               </div>
             </div>
             </div>
-          <div className="space-y-2 mv-battle-roster mv-player-roster">
+          <div className="mv-player-roster">
+            <div className="space-y-2 mv-battle-roster mv-player-roster-content">
             {playerCombatants.map((combatant, idx) => {
               const isMyTurn = activePlanner === 'player' || isSandbox;
               const isSelectedSource = selectedSkill?.charId === combatant.id;
@@ -18549,11 +18597,20 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               const incomingCues = getIncomingCuesForCombatant(combatant);
 
               return (
-                <div key={combatant.id} data-combatant-id={combatant.id} className="flex items-center gap-1 sm:gap-1 items-stretch battle-player-card-mr">
+                <div
+                  key={combatant.id}
+                  data-combatant-id={combatant.id}
+                  className={`flex items-center gap-1 sm:gap-1 items-stretch battle-player-card-mr ${
+                    floatingTexts.some(text => text.targetId === combatant.id) ? 'mv-has-floating-combat-text' : ''
+                  } ${
+                    isSkillTargetable(combatant, false) ? 'mv-skill-target-row' : ''
+                  }`}
+                >
                   {/* Standing Skin Artwork or WebM Animation (OUTSIDE card on left side) */}
                   {(() => {
                     const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
                     const portrait = combatant.character.portrait;
+                    const invulnerabilityIcon = getInvulnerabilitySkillIcon(combatant, [...playerCombatants, ...enemyCombatants]);
                     const isPortrait = !!(rawSkin && portrait && (
                       rawSkin.trim().toLowerCase() === portrait.trim().toLowerCase() ||
                       rawSkin.toLowerCase().endsWith('/icon.jpg') ||
@@ -18571,7 +18628,15 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         onClick={() => handleCombatantCardClick(combatant.id, false)}
                         className="mv-character-skin w-[95px] flex-shrink-0 flex items-center justify-center relative select-none self-stretch overflow-visible"
                       >
-                        {skinImg ? (
+                        {invulnerabilityIcon ? (
+                          <img
+                            src={invulnerabilityIcon}
+                            alt={`Invulnerabilidade de ${combatant.character.name}`}
+                            title={`Invulnerável por ${getActiveInvulnerabilityEffect(combatant)?.name || 'Skill'}`}
+                            referrerPolicy="no-referrer"
+                            className="h-full w-auto max-w-full object-contain"
+                          />
+                        ) : skinImg ? (
                           <SkinMedia
                             src={skinImg}
                             alt={combatant.character.name}
@@ -18627,12 +18692,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       {floatingTexts
                         .filter(f => f.targetId === combatant.id)
                         .map((f) => {
-                          let textClass = 'text-red-500 shadow-red-500/5';
-                          if (f.type === 'heal') textClass = 'text-emerald-400 shadow-emerald-500/5';
-                          if (f.type === 'shield') textClass = 'text-blue-400 shadow-blue-500/5';
-                          if (f.type === 'stun') textClass = 'text-amber-500';
-                        if (f.type === 'effect') textClass = 'text-orange-400';
-
                         return (
                           <motion.span
                             key={f.id}
@@ -18640,7 +18699,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             animate={{ opacity: 1, y: -20, scale: 1.1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
                             transition={{ duration: 0.35 }}
-                            className={`inline-flex items-center gap-1.5 font-mono text-xs font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${textClass}`}
+                            className={`inline-flex items-center gap-1.5 font-mono text-[10px] font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${getFloatingTextClass(f)}`}
                           >
                             {f.skillIcon && (
                               <img
@@ -18693,19 +18752,16 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           </div>
                         );
                       })}
+                      </div>
                     </div>
                   )}
 
                   {/* Character Info */}
                   <div className="flex gap-4">
                     {(() => {
-                      const isInvul = checkCombatantInvulnerable(combatant);
-                      const invulnEff = isInvul ? combatant.activeEffects.find(e => e.type === 'invulnerable') : undefined;
-                      const invulnSkillIcon = invulnEff
-                        ? (invulnEff.icon ||
-                           combatant.character.skills.find(s => (s.invulnerableDuration && s.invulnerableDuration > 0) || (invulnEff.name && invulnEff.name.toLowerCase().includes(s.name.toLowerCase())))?.icon ||
-                           [...playerCombatants, ...enemyCombatants].flatMap(c => c.character.skills).find(s => (s.invulnerableDuration && s.invulnerableDuration > 0) || (invulnEff.name && invulnEff.name.toLowerCase().includes(s.name.toLowerCase())))?.icon)
-                        : null;
+                    const invulnEff = getActiveInvulnerabilityEffect(combatant);
+                    const isInvul = !!invulnEff;
+                      const invulnSkillIcon = getInvulnerabilitySkillIcon(combatant, [...playerCombatants, ...enemyCombatants]);
 
                       const displayPortrait = (isInvul && invulnSkillIcon) ? invulnSkillIcon : combatant.character.portrait;
 
@@ -18747,7 +18803,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       <div className="flex justify-between items-start">
                         <h4 className={`font-bold tracking-tight text-[#823500] flex items-center gap-1.5 whitespace-nowrap ${combatant.character.name.length > 28 ? 'text-[13px]' : combatant.character.name.length > 18 ? 'text-xs' : combatant.character.name.length > 12 ? 'text-sm' : 'text-base'}`}>
                           <span className="mv-combatant-name">{combatant.character.name}</span>
-                          {checkCombatantInvulnerable(combatant) && (
+                          {getActiveInvulnerabilityEffect(combatant) && (
                             <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
                               🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
                             </span>
@@ -19363,7 +19419,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           }}
           aria-label="Trocar quatro chakras por um"
         >
-          trocar 4 - por 1
+          trocar 4 por 1
         </button>
       </div>
 
@@ -19836,7 +19892,15 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               const incomingCues = getIncomingCuesForCombatant(combatant);
 
               return (
-                <div key={combatant.id} data-combatant-id={combatant.id} className="flex items-center gap-2 sm:gap-3 items-stretch battle-enemy-card-ml">
+                <div
+                  key={combatant.id}
+                  data-combatant-id={combatant.id}
+                  className={`flex items-center gap-2 sm:gap-3 items-stretch battle-enemy-card-ml ${
+                    floatingTexts.some(text => text.targetId === combatant.id) ? 'mv-has-floating-combat-text' : ''
+                  } ${
+                    isSkillTargetable(combatant, true) ? 'mv-skill-target-row' : ''
+                  }`}
+                >
                   {/* Main Combatant Card Container */}
                   <div
                     data-combatant-target={combatant.id}
@@ -19866,12 +19930,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       {floatingTexts
                         .filter(f => f.targetId === combatant.id)
                         .map((f) => {
-                          let textClass = 'text-red-500 shadow-red-500/5';
-                          if (f.type === 'heal') textClass = 'text-emerald-400 shadow-emerald-500/5';
-                          if (f.type === 'shield') textClass = 'text-blue-400 shadow-blue-500/5';
-                          if (f.type === 'stun') textClass = 'text-amber-500';
-                        if (f.type === 'effect') textClass = 'text-orange-400';
-
                         return (
                           <motion.span
                             key={f.id}
@@ -19879,7 +19937,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             animate={{ opacity: 1, y: -20, scale: 1.1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
                             transition={{ duration: 0.35 }}
-                            className={`inline-flex items-center gap-1.5 font-mono text-xs font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${textClass}`}
+                            className={`inline-flex items-center gap-1.5 font-mono text-[10px] font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${getFloatingTextClass(f)}`}
                           >
                             {f.skillIcon && (
                               <img
@@ -19938,13 +19996,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   {/* Character Info */}
                   <div className="flex gap-4 flex-row-reverse">
                     {(() => {
-                      const isInvul = checkCombatantInvulnerable(combatant);
-                      const invulnEff = isInvul ? combatant.activeEffects.find(e => e.type === 'invulnerable') : undefined;
-                      const invulnSkillIcon = invulnEff
-                        ? (invulnEff.icon ||
-                           combatant.character.skills.find(s => (s.invulnerableDuration && s.invulnerableDuration > 0) || (invulnEff.name && invulnEff.name.toLowerCase().includes(s.name.toLowerCase())))?.icon ||
-                           [...playerCombatants, ...enemyCombatants].flatMap(c => c.character.skills).find(s => (s.invulnerableDuration && s.invulnerableDuration > 0) || (invulnEff.name && invulnEff.name.toLowerCase().includes(s.name.toLowerCase())))?.icon)
-                        : null;
+                      const invulnEff = getActiveInvulnerabilityEffect(combatant);
+                      const isInvul = !!invulnEff;
+                      const invulnSkillIcon = getInvulnerabilitySkillIcon(combatant, [...playerCombatants, ...enemyCombatants]);
 
                       const displayPortrait = (isInvul && invulnSkillIcon) ? invulnSkillIcon : combatant.character.portrait;
 
@@ -19998,7 +20052,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       <div className="flex items-start gap-2 flex-row-reverse">
                         <h4 className={`font-bold tracking-tight text-[#823500] flex items-center gap-1.5 whitespace-nowrap justify-end text-right ${combatant.character.name.length > 28 ? 'text-[13px]' : combatant.character.name.length > 18 ? 'text-xs' : combatant.character.name.length > 12 ? 'text-sm' : 'text-base'}`}>
                           <span className="mv-combatant-name">{combatant.character.name}</span>
-                          {checkCombatantInvulnerable(combatant) && (
+                          {getActiveInvulnerabilityEffect(combatant) && (
                             <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
                               🛡️ {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
                             </span>
@@ -20685,6 +20739,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 {(() => {
                   const rawSkin = combatant.character.selectedSkinUrl || combatant.character.skins?.[0]?.image;
                   const portrait = combatant.character.portrait;
+                  const invulnerabilityIcon = getInvulnerabilitySkillIcon(combatant, [...playerCombatants, ...enemyCombatants]);
                   const isPortrait = !!(rawSkin && portrait && (
                     rawSkin.trim().toLowerCase() === portrait.trim().toLowerCase() ||
                     rawSkin.toLowerCase().endsWith('/icon.jpg') ||
@@ -20694,7 +20749,15 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
                   return (
                     <div className="mv-enemy-skin-art w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
-                      {skinImg ? (
+                      {invulnerabilityIcon ? (
+                        <img
+                          src={invulnerabilityIcon}
+                          alt={`Invulnerabilidade de ${combatant.character.name}`}
+                          title={`Invulnerável por ${getActiveInvulnerabilityEffect(combatant)?.name || 'Skill'}`}
+                          referrerPolicy="no-referrer"
+                          className="h-full w-auto max-w-full object-contain"
+                        />
+                      ) : skinImg ? (
                         <SkinMedia
                           src={skinImg}
                           alt={combatant.character.name}
