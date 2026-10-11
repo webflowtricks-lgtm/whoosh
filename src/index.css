@@ -2111,20 +2111,22 @@ e-squad-name {
     margin: 0 !important;
   }
 
-  .mv-player-profile-card {
+  .battle-player-profile-wrap {
     grid-area: auto;
     grid-column: 1;
     grid-row: 2;
     align-self: center;
     transform: translateY(calc(-50% - 1.5rem));
+    width: 100%;
   }
 
-  .mv-opponent-profile-card {
+  .battle-enemy-profile-wrap {
     grid-area: auto;
     grid-column: 2;
     grid-row: 2;
     align-self: center;
     transform: translateY(calc(-50% - 1.5rem));
+    width: 100%;
   }
 
   .mv-enemy-roster {
@@ -2488,6 +2490,11 @@ e-squad-name {
     filter: brightness(1.2);
   }
 
+  .mv-character-skin.mv-skill-targetable,
+  .mv-enemy-skin-art.mv-skill-targetable {
+    filter: none;
+  }
+
   .mv-battle-roster > .mv-skill-target-row {
     position: relative;
     z-index: 1001;
@@ -2626,6 +2633,38 @@ e-squad-name {
 .battle-left-squad {
   width: 100%;
   min-width: 0;
+}
+
+.battle-player-rank-badge {
+  position: absolute;
+  left: calc(1rem + 1.75rem);
+  top: 1rem;
+  transform: translate(-30%, -90%);
+  padding-bottom: 0.6rem;
+}
+
+.battle-enemy-rank-badge {
+  position: absolute;
+  right: calc(1rem + 1.75rem);
+  top: 1rem;
+  transform: translate(30%, -90%);
+  padding-bottom: 0.6rem;
+}
+
+.battle-profile-chakra {
+  display: none !important;
+}
+
+@media (orientation: portrait) and (max-width: 500px) {
+  .battle-player-rank-badge {
+    left: calc(0.6rem + 1rem);
+    top: 0.4rem;
+  }
+
+  .battle-enemy-rank-badge {
+    right: calc(0.6rem + 1rem);
+    top: 0.4rem;
+  }
 }
 
 .battle-center-squad {

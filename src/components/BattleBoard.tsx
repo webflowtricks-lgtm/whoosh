@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -1618,12 +1618,12 @@ function GameOverOverlay({
                 <img
                   src={user.equippedBannerUrl || undefined}
                   alt=""
-                  className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none rounded-2xl z-0"
+                  className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none rounded-2xl z-0"
                   style={{ objectPosition: `${user.equippedBannerPositionX ?? 50}% ${user.equippedBannerPositionY ?? 50}%` }}
                   referrerPolicy="no-referrer"
                 />
               )}
-              {user.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/50 to-slate-900/20 pointer-events-none rounded-2xl z-0" />}
+              {user.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-slate-900/25 to-slate-900/10 pointer-events-none rounded-2xl z-0" />}
               <div className="absolute top-0 right-0 w-24 h-24 bg-orange-600/5 rounded-full blur-2xl group-hover:bg-orange-600/10 transition-all pointer-events-none z-0" />
 
               <div className="relative z-10 w-12 h-12 flex-shrink-0">
@@ -1796,12 +1796,12 @@ function GameOverOverlay({
                 <img
                   src={opp.equippedBannerUrl || undefined}
                   alt=""
-                  className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none rounded-2xl z-0"
+                  className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none rounded-2xl z-0"
                   style={{ objectPosition: `${opp.equippedBannerPositionX ?? 50}% ${opp.equippedBannerPositionY ?? 50}%` }}
                   referrerPolicy="no-referrer"
                 />
               )}
-              {isOnline && opp?.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/50 to-slate-900/20 pointer-events-none rounded-2xl z-0" />}
+              {isOnline && opp?.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-slate-900/25 to-slate-900/10 pointer-events-none rounded-2xl z-0" />}
               <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 rounded-full blur-2xl group-hover:bg-red-600/10 transition-all pointer-events-none z-0" />
 
               <div className="relative z-10 w-12 h-12 flex-shrink-0">
@@ -18482,6 +18482,33 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         <section className="battle-left-squad space-y-6">
           {/* BEAUTIFUL COMPETITIVE GAME USER PROFILE CARD */}
             {/* Profile Card */}
+            <div className="battle-player-profile-wrap relative flex-1 overflow-visible">
+            {(() => {
+              const r = playerCurrentRank;
+              const isNone = !r.color || r.color === 'none';
+              const bgClass = isNone
+                ? ''
+                : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
+              return (
+                <span
+                  className={`battle-player-rank-badge z-0 flex w-max max-w-[120px] items-center gap-1 overflow-hidden whitespace-nowrap rounded-lg border px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider shadow-md ${bgClass}`}
+                  style={{
+                    ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
+                    color: r.fontColor || '#ffffff'
+                  }}
+                >
+                  {r.imageUrl && (
+                    <img src={r.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40" />
+                  )}
+                  {r.iconUrl ? (
+                    <img src={r.iconUrl} alt="" className="relative z-10 h-3 w-3 object-contain" />
+                  ) : (
+                    <Award className="relative z-10 h-3 w-3 text-amber-300" />
+                  )}
+                  <span className="relative z-10">{r.name}</span>
+                </span>
+              );
+            })()}
             <div
               onClick={() => {
                 playClickSound();
@@ -18507,7 +18534,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   isSelf: true,
                 });
               }}
-              className="mv-profile-card mv-player-profile-card relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer flex-1"
+              className="mv-profile-card mv-player-profile-card relative z-10 overflow-visible bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer flex-1"
               title="Clique para ver o Card do Perfil & Curtidas"
             >
             {/* Profile Banner Background */}
@@ -18515,7 +18542,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               <img
                 src={user.equippedBannerUrl || null}
                 alt=""
-                className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none rounded-2xl z-0"
+                className="absolute inset-0 w-full h-full object-cover opacity-100 pointer-events-none rounded-2xl z-0"
                 style={{ objectPosition: `${user.equippedBannerPositionX ?? 50}% ${user.equippedBannerPositionY ?? 50}%` }}
                 referrerPolicy="no-referrer"
               />
@@ -18527,7 +18554,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             {/* Avatar container with high fidelity glow and frame overlay (Foreground z-10) */}
             <div className="mv-profile-avatar relative z-10 w-14 h-14 flex-shrink-0">
               <div className="absolute inset-0 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
-              <div className="relative w-full h-full rounded-full border-2 border-orange-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
+              <div className="relative z-10 w-full h-full rounded-full border-2 border-orange-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
                 <img
                   src={user.photoUrl || null}
                   alt={user.name}
@@ -18553,37 +18580,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 {user.name}
               </h4>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                {(() => {
-                  const r = playerCurrentRank;
-                  const isNone = !r.color || r.color === 'none';
-                  const bgClass = isNone
-                    ? ''
-                    : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
-                  return (
-                    <span
-                      className={`px-2 py-0.5 rounded-lg border text-[10px] font-mono font-black uppercase tracking-wider shadow-md flex items-center gap-1.5 overflow-hidden relative ${bgClass}`}
-                      style={{
-                        ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
-                        color: r.fontColor || '#ffffff'
-                      }}
-                    >
-                      {r.imageUrl && (
-                        <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
-                      )}
-                      {r.iconUrl ? (
-                        <img src={r.iconUrl} alt="" className="w-3 h-3 object-contain relative z-10" />
-                      ) : (
-                        <Award className="w-3 h-3 relative z-10 text-amber-300" />
-                      )}
-                      <span className="relative z-10">{r.name}</span>
-                    </span>
-                  );
-                })()}
-                <span className="w-1 h-1 bg-slate-500 rounded-full" />
-                <span className="text-[10px] font-mono font-bold text-amber-300 bg-amber-950/90 border border-amber-500/60 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
+                <span className="battle-profile-chakra text-[10px] font-mono font-bold text-amber-300 bg-amber-950/90 border border-amber-500/60 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
                   ⚡ Chakra: {Object.values(playerChakra).reduce((a, b) => a + b, 0)}
                 </span>
               </div>
+            </div>
             </div>
             </div>
           <div className="mv-player-roster">
@@ -18595,6 +18596,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               const cuedAct = cuedActions.find(a => a.sourceId === combatant.id);
               const isStunned = combatant.activeEffects.some(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]));
               const incomingCues = getIncomingCuesForCombatant(combatant);
+              const activeInvulnerability = getActiveInvulnerabilityEffect(combatant);
 
               return (
                 <div
@@ -18622,11 +18624,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       <button
                         type="button"
                         data-combatant-target={combatant.id}
-                        disabled={combatant.isDead}
+                        disabled={combatant.isDead && !isSkillTargetable(combatant, false)}
                         aria-label={`Ver habilidades de ${combatant.character.name}`}
                         aria-expanded={skillsModalCharacterId === combatant.id}
                         onClick={() => handleCombatantCardClick(combatant.id, false)}
-                        className="mv-character-skin w-[95px] flex-shrink-0 flex items-center justify-center relative select-none self-stretch overflow-visible"
+                        className={`mv-character-skin w-[95px] flex-shrink-0 flex items-center justify-center relative select-none self-stretch overflow-visible ${
+                          isSkillTargetable(combatant, false) ? 'mv-skill-targetable' : ''
+                        }`}
                       >
                         {invulnerabilityIcon ? (
                           <img
@@ -18686,6 +18690,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       draggable={false}
                       className="absolute inset-0 w-full h-full object-cover rounded-xl -z-10 pointer-events-none select-none"
                     />
+                    {activeInvulnerability && (
+                      <div className="absolute inset-x-0 top-0 z-0 flex h-6 -translate-y-[86%] items-center justify-center border-2 border-cyan-300/80 bg-cyan-600/90 text-white font-mono text-[8px] font-black uppercase tracking-wider whitespace-nowrap shadow-[0_0_10px_rgba(34,211,238,0.65)] pointer-events-none">
+                        {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
+                      </div>
+                    )}
                     {/* Floating combat numbers portal */}
                     <div className="mv-floating-combat-text absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
                       <AnimatePresence>
@@ -18802,11 +18811,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       <div className="flex justify-between items-start">
                         <h4 className={`font-bold tracking-tight text-[#823500] flex items-center gap-1.5 whitespace-nowrap ${combatant.character.name.length > 28 ? 'text-[13px]' : combatant.character.name.length > 18 ? 'text-xs' : combatant.character.name.length > 12 ? 'text-sm' : 'text-base'}`}>
                           <span className="mv-combatant-name">{combatant.character.name}</span>
-                          {getActiveInvulnerabilityEffect(combatant) && (
-                            <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
-                            {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
-                            </span>
-                          )}
                         </h4>
                         {combatant.shield > 0 && (() => {
                           const shieldRemaining = combatant.shieldExpiresTurn ? combatant.shieldExpiresTurn - turn : null;
@@ -19774,6 +19778,33 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         {/* Right Side: ENEMY SQUAD */}
         <section className="battle-right-squad space-y-6">
           {/* BEAUTIFUL COMPETITIVE GAME USER PROFILE CARD (ENEMY) */}
+          <div className="battle-enemy-profile-wrap relative w-full overflow-visible">
+          {(() => {
+            const r = opponentCurrentRank;
+            const isNone = !r.color || r.color === 'none';
+            const bgClass = isNone
+              ? ''
+              : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
+            return (
+              <span
+                className={`battle-enemy-rank-badge z-0 flex w-max max-w-[120px] items-center gap-1 overflow-hidden whitespace-nowrap rounded-lg border px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider shadow-md ${bgClass}`}
+                style={{
+                  ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
+                  color: r.fontColor || '#ffffff'
+                }}
+              >
+                {r.imageUrl && (
+                  <img src={r.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40" />
+                )}
+                {r.iconUrl ? (
+                  <img src={r.iconUrl} alt="" className="relative z-10 h-3 w-3 object-contain" />
+                ) : (
+                  <Award className="relative z-10 h-3 w-3 text-red-300" />
+                )}
+                <span className="relative z-10">{r.name}</span>
+              </span>
+            );
+          })()}
           <div
             onClick={() => {
               playClickSound();
@@ -19802,7 +19833,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 isSelf: false,
               });
             }}
-            className="mv-profile-card mv-opponent-profile-card relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer"
+            className="mv-profile-card mv-opponent-profile-card relative z-10 overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer"
             title="Clique para ver o Card do Perfil do Oponente & Curtir"
           >
             {/* Profile Banner Background */}
@@ -19810,7 +19841,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               <img
                 src={onlineParams.opponentProfile.equippedBannerUrl || null}
                 alt=""
-                className="absolute inset-0 w-full h-full object-cover opacity-35 pointer-events-none rounded-2xl z-0"
+                className="absolute inset-0 w-full h-full object-cover opacity-100 pointer-events-none rounded-2xl z-0"
                 style={{ objectPosition: `${onlineParams.opponentProfile.equippedBannerPositionX ?? 50}% ${onlineParams.opponentProfile.equippedBannerPositionY ?? 50}%` }}
                 referrerPolicy="no-referrer"
               />
@@ -19852,44 +19883,20 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 {onlineParams?.isOnline ? onlineParams.opponentProfile.name : 'I.A. Kakashi'}
               </h4>
               <div className="flex items-center justify-end gap-2 mt-0.5 flex-wrap">
-                {(() => {
-                  const r = opponentCurrentRank;
-                  const isNone = !r.color || r.color === 'none';
-                  const bgClass = isNone
-                    ? ''
-                    : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
-                  return (
-                    <span
-                      className={`px-2 py-0.5 rounded-lg border text-[10px] font-mono font-black uppercase tracking-wider shadow-md flex items-center justify-end gap-1.5 overflow-hidden relative ${bgClass}`}
-                      style={{
-                        ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
-                        color: r.fontColor || '#ffffff'
-                      }}
-                    >
-                      {r.imageUrl && (
-                        <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
-                      )}
-                      {r.iconUrl ? (
-                        <img src={r.iconUrl} alt="" className="w-3 h-3 object-contain relative z-10" />
-                      ) : (
-                        <Award className="w-3 h-3 relative z-10 text-red-300" />
-                      )}
-                      <span className="relative z-10">{r.name}</span>
-                    </span>
-                  );
-                })()}
                 <span className="w-1 h-1 bg-slate-500 rounded-full" />
-                <span className="text-[10px] font-mono font-bold text-red-300 bg-red-950/90 border border-red-500/60 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
+                <span className="battle-profile-chakra text-[10px] font-mono font-bold text-red-300 bg-red-950/90 border border-red-500/60 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
                   ⚡ Chakra: {Object.values(enemyChakra).reduce((a, b) => a + b, 0)}
                 </span>
               </div>
             </div>
+          </div>
           </div>
        
           <div className="space-y-2 mv-battle-roster mv-enemy-roster">
             {enemyCombatants.map((combatant, idx) => {
               const isStunned = combatant.activeEffects.some(e => e.type === 'stun' && isEffectVisibleToViewer(e, 'player', playerCombatants, combatant, [...playerCombatants, ...enemyCombatants]));
               const incomingCues = getIncomingCuesForCombatant(combatant);
+              const activeInvulnerability = getActiveInvulnerabilityEffect(combatant);
 
               return (
                 <div
@@ -19924,6 +19931,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       draggable={false}
                       className="absolute inset-0 w-full h-full object-cover rounded-xl scale-x-[-1] -z-10 pointer-events-none select-none"
                     />
+                    {activeInvulnerability && (
+                      <div className="absolute inset-x-0 top-0 z-0 flex h-6 -translate-y-[86%] items-center justify-center border-2 border-cyan-300/80 bg-cyan-600/90 text-white font-mono text-[8px] font-black uppercase tracking-wider whitespace-nowrap shadow-[0_0_10px_rgba(34,211,238,0.65)] pointer-events-none">
+                        {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
+                      </div>
+                    )}
                     {/* Floating combat numbers portal */}
                     <div className="mv-floating-combat-text absolute -top-3 left-4 z-10 flex flex-col gap-1 pointer-events-none">
                       <AnimatePresence>
@@ -20052,11 +20064,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       <div className="flex items-start gap-2 flex-row-reverse">
                         <h4 className={`font-bold tracking-tight text-[#823500] flex items-center gap-1.5 whitespace-nowrap justify-end text-right ${combatant.character.name.length > 28 ? 'text-[13px]' : combatant.character.name.length > 18 ? 'text-xs' : combatant.character.name.length > 12 ? 'text-sm' : 'text-base'}`}>
                           <span className="mv-combatant-name">{combatant.character.name}</span>
-                          {getActiveInvulnerabilityEffect(combatant) && (
-                            <span className="inline-flex items-center gap-0.5 text-[8px] bg-cyan-600/90 border border-cyan-300/80 text-white px-1.5 py-0.5 rounded-full font-mono font-black uppercase tracking-wide shadow-[0_0_8px_rgba(34,211,238,0.7)]">
-                            {hasTotalInvulnerability(combatant) ? 'Invulnerável Total' : 'Invulnerável'}
-                            </span>
-                          )}
                         </h4>
                         {combatant.shield > 0 && (() => {
                           const shieldRemaining = combatant.shieldExpiresTurn ? combatant.shieldExpiresTurn - turn : null;
@@ -20748,7 +20755,16 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   const skinImg = (rawSkin && !isPortrait) ? rawSkin : null;
 
                   return (
-                    <div className="mv-enemy-skin-art w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-none self-stretch">
+                    <button
+                      type="button"
+                      data-combatant-target={combatant.id}
+                      disabled={combatant.isDead && !isSkillTargetable(combatant, true)}
+                      aria-label={`Selecionar ${combatant.character.name} como alvo`}
+                      onClick={() => handleCombatantCardClick(combatant.id, true)}
+                      className={`mv-enemy-skin-art w-24 sm:w-32 flex-shrink-0 flex items-center justify-center relative select-none pointer-events-auto self-stretch ${
+                        isSkillTargetable(combatant, true) ? 'mv-skill-targetable' : ''
+                      }`}
+                    >
                       {invulnerabilityIcon ? (
                         <img
                           src={invulnerabilityIcon}
@@ -20767,7 +20783,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       ) : (
                         <div className="w-full h-full" />
                       )}
-                    </div>
+                    </button>
                   );
                 })()}
               </div>
