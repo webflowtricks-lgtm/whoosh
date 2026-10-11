@@ -1966,14 +1966,14 @@ function GameOverOverlay({
       {/* Modais ficam fora do stacking context do conteúdo para sobrepor Naruto. */}
       {showRankUpModal && (
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={false}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
           onClick={() => setShowRankUpModal(false)}
         >
           <motion.div
-            initial={{ scale: 0.7, opacity: 0, y: 30 }}
+            initial={false}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.15 }}
             className="relative w-full max-w-xl rounded-2xl p-6 sm:p-8 text-center overflow-hidden"
@@ -1999,14 +1999,14 @@ function GameOverOverlay({
 
       {showRankDownModal && (
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={false}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
           onClick={() => setShowRankDownModal(false)}
         >
           <motion.div
-            initial={{ scale: 0.7, opacity: 0, y: 30 }}
+            initial={false}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.15 }}
             className="relative w-full max-w-xl rounded-2xl p-6 sm:p-8 text-center overflow-hidden"
@@ -2032,14 +2032,14 @@ function GameOverOverlay({
 
       {showBattleResultModal && (
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={false}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[10010] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
           onClick={() => setShowBattleResultModal(false)}
         >
           <motion.div
-            initial={{ scale: 0.7, opacity: 0, y: 30 }}
+            initial={false}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.15 }}
             className="relative w-full max-w-xl rounded-2xl p-6 sm:p-8 text-center overflow-hidden"
@@ -2302,8 +2302,15 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const [cuedActions, setCuedActions] = useState<CuedAction[]>([]);
   const [skillsModalCharacterId, setSkillsModalCharacterId] = useState<string | null>(null);
   const [mobileSkillDetailsCharacterId, setMobileSkillDetailsCharacterId] = useState<string | null>(null);
+  const [mobileBlockedSkill, setMobileBlockedSkill] = useState<{ charId: string; skillIndex: number; message: string } | null>(null);
   const outsideModalCombatantClickRef = useRef<string | null>(null);
   const [battlePortalContainer, setBattlePortalContainer] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!mobileBlockedSkill) return;
+    const timeout = window.setTimeout(() => setMobileBlockedSkill(null), 2200);
+    return () => window.clearTimeout(timeout);
+  }, [mobileBlockedSkill]);
+
   useEffect(() => {
     if (!skillsModalCharacterId) return;
 
@@ -2404,6 +2411,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   // Active selected skill inspector
   const [inspectedSkill, setInspectedSkill] = useState<{
     skill: Skill;
+    skillIndex?: number;
     ownerName: string;
     isEnemy: boolean;
     combatant?: CombatCharacter;
@@ -3411,10 +3419,19 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     });
   };
 
+  const showSkillRequirementError = (charId: string, skillIdx: number, message: string) => {
+    if (window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches) {
+      setMobileBlockedSkill({ charId, skillIndex: skillIdx, message });
+      return;
+    }
+    addFloatingText(charId, message, 'effect');
+  };
+
   // Skill click select
   const handleSelectSkill = (charId: string, skillIdx: number) => {
     if (isEndingTurnRef.current || isEndingTurn || gameOver) return;
     playClickSound();
+    setMobileBlockedSkill(null);
     if (window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches) {
       setMobileSkillDetailsCharacterId(charId);
     }
@@ -3430,6 +3447,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     // Always inspect the skill first!
     setInspectedSkill({
       skill,
+      skillIndex: skillIdx,
       ownerName: combatant.character.name,
       isEnemy: isEnemyChar,
       combatant,
@@ -3492,7 +3510,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       const reqLower = skill.requireEffect.toLowerCase();
       const hasReq = combatant.activeEffects.some(e => e.name && (e.name.toLowerCase() === reqLower || e.name.toLowerCase().startsWith(reqLower) || e.name.toLowerCase().includes(reqLower)));
       if (!hasReq) {
-        addFloatingText(charId, `Requer ${skill.requireEffect}!`, 'effect');
+        showSkillRequirementError(charId, skillIdx, `Requer ${skill.requireEffect}!`);
         return;
       }
     }
@@ -3502,7 +3520,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       const prevSkills = lastTurnUsedSkills.current[charId];
       const hasPrev = prevSkills && prevSkills.has(skill.requirePreviousSkill);
       if (!hasPrev) {
-        addFloatingText(charId, `Requer ${skill.requirePreviousSkill} no turno anterior!`, 'effect');
+        showSkillRequirementError(charId, skillIdx, `Requer ${skill.requirePreviousSkill} no turno anterior!`);
         return;
       }
     }
@@ -3511,20 +3529,20 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     if (skill.requireHpBelow && skill.requireHpBelow > 0) {
       const hpThreshold = skill.requireHpBelow;
       if (combatant.health > hpThreshold) {
-        addFloatingText(charId, `Requer HP ≤ ${hpThreshold}!`, 'effect');
+        showSkillRequirementError(charId, skillIdx, `Requer HP ≤ ${hpThreshold}!`);
         return;
       }
     }
 
     // Resurrection requirement (requireRevived)
     if (skill.requireRevived && !combatant.hasRevived) {
-      addFloatingText(charId, 'Requer ter ressuscitado!', 'effect');
+      showSkillRequirementError(charId, skillIdx, 'Requer ter ressuscitado!');
       return;
     }
 
     // Blocked after resurrecting (blockIfRevived)
     if (skill.blockIfRevived && combatant.hasRevived) {
-      addFloatingText(charId, 'Bloqueada após ressuscitar!', 'effect');
+      showSkillRequirementError(charId, skillIdx, 'Bloqueada após ressuscitar!');
       return;
     }
 
@@ -19214,8 +19232,19 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                   )}
                                 </div>
 
+                                {mobileBlockedSkill?.charId === combatant.id && mobileBlockedSkill.skillIndex === sIdx && (
+                                  <div
+                                    className={`mv-skill-requirement-float ${
+                                      pIdx === 0 ? 'left-0' : pIdx === pageSkills.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'
+                                    }`}
+                                    role="alert"
+                                  >
+                                    {mobileBlockedSkill.message}
+                                  </div>
+                                )}
+
                                 {/* Hover Details tooltip card */}
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
+                                <div className="mv-skill-hover-tooltip absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
                                   <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
                                    
                                   {(skill.cannotBeCountered || skill.cannotBeReflected) && (
@@ -20492,7 +20521,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                   </div>
 
                                   {/* Hover Details tooltip card */}
-                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
+                                  <div className="mv-skill-hover-tooltip absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-700/80 p-2.5 rounded-lg shadow-2xl z-[100] pointer-events-none text-left">
                                     <p className="font-bold text-xs text-white pb-1 border-b border-slate-800">{translateSkillName(skill.name, language)}</p>
                                     {(skill.cannotBeCountered || skill.cannotBeReflected) && (
                                       <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
@@ -20905,24 +20934,24 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         {showChakraTrade && (
           <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
             <motion.div
-              initial={{ scale: 0.85, opacity: 0, y: 15 }}
+              initial={false}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.85, opacity: 0, y: 15 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative rounded-3xl overflow-hidden shadow-2xl max-w-xl w-full min-h-[420px] flex flex-col justify-between p-8 sm:p-10"
+              className="chakra-trade-modal relative overflow-hidden shadow-2xl flex flex-col justify-between"
             >
               {/* Background Pergaminho Image */}
               <img
-                src="/static/img/ui/pergaminho.webp"
+                src="/static/img/ui/pergaminho2_.webp"
                 alt="Pergaminho Shinobi"
                 className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
               />
 
-              <div className="text-surrender content-trade relative z-10 flex flex-col items-center justify-between text-center space-y-5 h-full">
+              <div className="chakra-trade-content text-surrender content-trade relative z-10 grid grid-cols-2 grid-rows-[1fr_auto] items-center text-center">
 
-                <div className="w-full">
-                  <p className="text-xs font-bold text-stone-800 mb-2">Escolha 4 chakras para gastar:</p>
-                  <div className="flex justify-around items-center bg-[#d3ad75]/30 p-3 rounded-xl border border-[#7a4e25]/30">
+                <div className="chakra-trade-spend w-full">
+                  <p className="chakra-trade-heading text-xs font-bold text-stone-800 mb-2">Escolha 4 chakras para gastar:</p>
+                  <div className="chakra-trade-options grid grid-cols-2 bg-[#d3ad75]/30 p-3 rounded-xl border border-[#7a4e25]/30">
                     {(Object.keys(playerChakra) as (keyof ChakraPool)[]).map(key => {
                       const totalSelected = (Object.keys(tradeSelection) as (keyof ChakraPool)[])
                         .reduce((sum, k) => sum + tradeSelection[k], 0);
@@ -20948,14 +20977,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   </div>
                 </div>
 
-                <div className="w-full">
-                  <p className="text-xs font-bold text-stone-800 mb-2">Escolha o chakra que vai receber:</p>
-                  <div className="flex justify-around items-center px-3 py-2">
+                <div className="chakra-trade-receive w-full">
+                  <p className="chakra-trade-heading text-xs font-bold text-stone-800 mb-2">Escolha o chakra que vai receber:</p>
+                  <div className="chakra-trade-targets grid grid-cols-2 rounded-xl border border-[#7a4e25]/30 bg-[#d3ad75]/30 px-3 py-2">
                     {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map(key => (
                       <button
                         key={key}
                         onClick={() => setTradeTarget(key)}
-                        className={`p-2 rounded-lg transition cursor-pointer ${tradeTarget === key ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
+                        className={`chakra-trade-target p-1.5 rounded-lg transition cursor-pointer ${tradeTarget === key ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
                       >
                         {renderChakraIcon(key, 'w-12 h-12')}
                       </button>
@@ -20963,7 +20992,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-2 w-full">
+                <div className="chakra-trade-actions col-span-2 flex gap-3 w-full">
                   <button
                     onClick={() => { setShowChakraTrade(false); setTradeSelection({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 }); setTradeTarget(null); }}
                     data-sound="uah"
@@ -20974,7 +21003,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   <button
                     onClick={handleTradeChakra}
                     data-sound="uah"
-                    className="flex-1 py-2 px-3 bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-orange-950/40 border border-orange-600/50 transition cursor-pointer active:scale-95"
+                    className="flex-1 py-2 px-3 bg-gradient-to-r from-green-800 to-emerald-700 hover:from-green-700 hover:to-emerald-600 text-green-50 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-green-950/40 border border-green-500/50 transition cursor-pointer active:scale-95"
                   >
                     Confirmar
                   </button>
@@ -21014,7 +21043,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         {showSurrenderModal && (
           <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
             <motion.div
-              initial={{ scale: 0.85, opacity: 0, y: 15 }}
+              initial={false}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.85, opacity: 0, y: 15 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
@@ -21070,7 +21099,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         {showReloadModal && (
           <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
             <motion.div
-              initial={{ scale: 0.85, opacity: 0, y: 15 }}
+              initial={false}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.85, opacity: 0, y: 15 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
@@ -21126,7 +21155,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         {showSandboxConfirmModal && (
           <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 10 }}
+              initial={false}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 10 }}
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
@@ -21234,7 +21263,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         {showNoInternetModal && (
           <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 10 }}
+              initial={false}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 10 }}
               className="bg-slate-900 border-2 border-red-500/60 rounded-2xl p-6 max-w-md w-full shadow-2xl relative text-center"
@@ -21266,7 +21295,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         {showRoomLostModal && !gameOver && (
           <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 10 }}
+              initial={false}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               className="bg-slate-900 border-2 border-orange-500/60 rounded-2xl p-6 max-w-md w-full shadow-2xl relative text-center"
             >
@@ -21541,6 +21570,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         <ProfileCardModal
           profile={viewingProfile.profile}
           isSelf={viewingProfile.isSelf}
+          disableEntranceAnimation
           onClose={() => setViewingProfile(null)}
           playClickSound={playClickSound}
           playUahSound={playUahSound}
@@ -21553,10 +21583,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         {isQuestModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md">
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={false}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-slate-900 border-2 border-amber-600/60 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-slate-100"
+              className="bg-slate-900 border-2 border-amber-600/60 rounded-2xl w-full max-w-2xl max-h-[78vh] flex flex-col shadow-2xl overflow-hidden text-slate-100"
             >
               {/* Modal Header */}
               <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 p-4 border-b border-amber-600/40 flex items-center justify-between shrink-0">
@@ -21603,7 +21633,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     </div>
 
                     <div>
-                      <h4 className="text-sm sm:text-base font-extrabold text-amber-100">{activeQuest.title}</h4>
+                      <h4 className="text-sm sm:text-base font-extrabold text-yellow-300">{activeQuest.title}</h4>
                     </div>
 
                     {/* Goals Progress */}
@@ -21648,7 +21678,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
                   {loadingQuests ? (
                     <div className="py-8 text-center text-xs font-mono text-slate-400 animate-pulse flex flex-col items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-amber-400 animate-spin" />
+                      <img src="/static/img/icon/star.svg" alt="Carregando" className="w-5 h-5 animate-spin object-contain" />
                       {t("Carregando missões do pergaminho...", "Loading scroll quests...")}
                     </div>
                   ) : allQuests.length === 0 ? (
@@ -21672,7 +21702,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2 mb-2">
-                              <h5 className="text-xs sm:text-sm font-bold text-slate-100 flex items-center gap-1.5">
+                              <h5 className="text-xs sm:text-sm font-bold text-yellow-300 flex items-center gap-1.5">
                                 {quest.title}
                               </h5>
                               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 shrink-0">

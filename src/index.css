@@ -150,84 +150,63 @@ body.processing-cursor * {
   }
 }
 
-/* =========================================================
-   CLASSE ÃšNICA DO BOTÃƒO ENTRAR NA ARENA (.entrar-na-arena-btn)
-   =========================================================
-   BotÃ£o com efeito GLITCH estilo Button 49. Gradiente laranja
-   com corte diagonal, sombra dourada hard, e pseudo-elemento
-   ::after que cria fatias glitch clip-path no hover.
-   ========================================================= */
-.entrar-na-arena-btn {
-  height: 58px;
-  min-width: 250px;
-  padding: 0 26px;
-  border-radius: 10px 20px 10px 20px;
-  background: linear-gradient(45deg, transparent 5%, #f97316 5%, #ea580c 50%, #c2410c 100%);
-  border: 0;
-  box-shadow: 6px 0px 0px #ffd58a;
-  color: #fff;
- 
-  font-family: var(--font-brush);
-  font-size: 19px;
-  letter-spacing: 1.5px;
+.main-menu-arena-cta {
   position: relative;
-  overflow: hidden;
-  user-select: none;
+  min-width: 250px;
+  min-height: 58px;
+  padding: 0 1.6rem;
+  border: 2px solid rgba(255, 214, 165, 0.95);
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, #c2410c 0%, #f97316 52%, #ea580c 100%);
+  color: white;
+  font-family: var(--font-brush);
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  box-shadow:
+    0 0 0 3px rgba(194, 65, 12, 0.55),
+    0 8px 24px rgba(124, 45, 18, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -4px 0 rgba(124, 45, 18, 0.35);
+  text-shadow: 0 2px 5px rgba(67, 20, 7, 0.75);
+  transition: filter 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 
-.entrar-na-arena-btn::after {
-  --slice-0: inset(50% 50% 50% 50%);
-  --slice-1: inset(80% -6px 0 0);
-  --slice-2: inset(50% -6px 30% 0);
-  --slice-3: inset(10% -6px 85% 0);
-  --slice-4: inset(40% -6px 43% 0);
-  --slice-5: inset(80% -6px 5% 0);
-
+.main-menu-arena-cta::before,
+.como-jogar-btn::before {
   content: '';
-  display: block;
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(45deg, transparent 3%, #ffd58a 3%, #ffd58a 5%, #f97316 5%, #ea580c 50%, #c2410c 100%);
-  clip-path: var(--slice-0);
-  pointer-events: none;
+  inset: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: inherit;
+  pointer-events: none;
 }
 
-.entrar-na-arena-btn:hover::after {
-  animation: entrar-glitch 1s steps(2, end);
+.como-jogar-btn::after {
+  pointer-events: none;
 }
 
-@keyframes entrar-glitch {
-  0%   { clip-path: var(--slice-1); transform: translate(-20px, -10px); }
-  10%  { clip-path: var(--slice-3); transform: translate(10px, 10px); }
-  20%  { clip-path: var(--slice-1); transform: translate(-10px, 10px); }
-  30%  { clip-path: var(--slice-3); transform: translate(0px, 5px); }
-  40%  { clip-path: var(--slice-2); transform: translate(-5px, 0px); }
-  50%  { clip-path: var(--slice-3); transform: translate(5px, 0px); }
-  60%  { clip-path: var(--slice-4); transform: translate(5px, 10px); }
-  70%  { clip-path: var(--slice-2); transform: translate(-10px, 10px); }
-  80%  { clip-path: var(--slice-5); transform: translate(20px, -10px); }
-  90%  { clip-path: var(--slice-1); transform: translate(-10px, 0px); }
-  100% { clip-path: var(--slice-1); transform: translate(0); }
+.main-menu-arena-cta:hover {
+  filter: brightness(1.12);
+  box-shadow:
+    0 0 0 4px rgba(251, 146, 60, 0.45),
+    0 10px 30px rgba(194, 65, 12, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -4px 0 rgba(124, 45, 18, 0.35);
 }
 
-/* Brilho pulsante sutil no anel externo */
-@keyframes entrar-glow {
-  0%, 100% { box-shadow: 6px 0px 0px rgba(255, 213, 138, 0.7); }
-  50%      { box-shadow: 6px 0px 0px #ffd58a, 0 0 18px rgba(255, 213, 138, 0.6); }
+.main-menu-arena-cta:active {
+  transform: scale(0.98);
 }
 
-.entrar-na-arena-btn {
-  animation: entrar-glow 2.6s ease-in-out infinite;
+.main-menu-arena-star {
+  filter: brightness(0) invert(1);
+}
+
+.main-menu-character-portraits {
+  display: none;
 }
 
 /* Shuriken dourada dentro do botÃ£o */
-.entrar-na-arena-btn .btn-shuriken {
-  width: 1.6rem;
-  height: 1.6rem;
-  flex-shrink: 0;
-}
-
 /* =========================================================
    BOTÃƒO DIAMANTE HORIZONTAL (Partida RÃ¡pida)
    clip-path hexagonal com pontas laterais.
@@ -846,12 +825,12 @@ body.processing-cursor * {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 40%),
     linear-gradient(180deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
-  border: 2px solid rgba(147, 197, 253, 0.85);
+  border: 2px solid rgba(191, 219, 254, 0.95);
   box-shadow:
-    0 0 0 3px rgba(59, 130, 246, 0.2),
+    0 0 0 3px rgba(37, 99, 235, 0.55),
     0 0 16px rgba(59, 130, 246, 0.5),
     0 0 40px rgba(59, 130, 246, 0.2),
-    inset 0 2px 6px rgba(255, 255, 255, 0.35),
+    inset 0 2px 6px rgba(255, 255, 255, 0.4),
     inset 0 -4px 10px rgba(30, 58, 138, 0.55);
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
@@ -865,10 +844,10 @@ body.processing-cursor * {
 .como-jogar-btn::after {
   content: '';
   position: absolute;
-  top: -1px; left: 12%; right: 12%;
-  height: 2px;
+  inset: 0;
   border-radius: 2px;
-  background: linear-gradient(90deg, transparent, rgba(147, 197, 253, 0.9), rgba(255, 255, 255, 0.8), rgba(147, 197, 253, 0.9), transparent);
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent) center 3px / 70% 2px no-repeat;
   pointer-events: none;
 }
 
@@ -899,7 +878,7 @@ body.processing-cursor * {
   height: auto;
   opacity: 0.95;
   pointer-events: none;
-  animation: naruto-float 3s ease-in-out infinite;
+  animation: none;
   transition: scale 0.6s cubic-bezier(0.22, 1, 0.36, 1), translate 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -1931,6 +1910,25 @@ e-squad-name {
   gap: 0.375rem;
 }
 
+.mv-skill-requirement-float {
+  position: absolute;
+  bottom: calc(100% + 0.25rem);
+  z-index: 2003;
+  width: max-content;
+  max-width: min(80vw, 14rem);
+  border: 1px solid rgba(248, 113, 113, 0.75);
+  border-radius: 0.5rem;
+  background: rgba(69, 10, 10, 0.96);
+  padding: 0.35rem 0.55rem;
+  color: #fecaca;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+
 @media (orientation: portrait) and (max-width: 500px) {
   .mv-chakra-roll-banner {
     top: calc(env(safe-area-inset-top, 0px) + 0.35rem) !important;
@@ -2655,6 +2653,80 @@ e-squad-name {
   display: none !important;
 }
 
+.chakra-trade-modal {
+  width: min(100%, 48rem, calc((100dvh - 2rem) * 1.74));
+  aspect-ratio: 956 / 550;
+  min-height: 0;
+  padding: clamp(0.65rem, 2vw, 1.25rem);
+}
+
+.chakra-trade-content {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: clamp(0.35rem, 1.2vw, 0.75rem);
+  grid-template-rows: minmax(0, 1fr) auto;
+  column-gap: clamp(0.45rem, 2vw, 1.25rem);
+  row-gap: clamp(0.25rem, 1vh, 0.5rem);
+  overflow: hidden;
+}
+
+.chakra-trade-spend,
+.chakra-trade-receive {
+  min-width: 0;
+}
+
+.chakra-trade-heading {
+  font-size: clamp(0.58rem, 1.2vw, 0.75rem);
+}
+
+.chakra-trade-actions {
+  margin-bottom: 5px;
+}
+
+.chakra-trade-options {
+  height: calc(100% - 1.3rem);
+  min-height: 0;
+  padding: clamp(0.25rem, 1vw, 0.65rem);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
+  row-gap: 0.2rem;
+}
+
+.chakra-trade-options > div {
+  gap: clamp(0.15rem, 0.6vw, 0.35rem);
+}
+
+.chakra-trade-targets {
+  height: calc(100% - 1.3rem);
+  min-height: 0;
+  padding: 1.1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
+  row-gap: clamp(0.65rem, 2vh, 1.1rem);
+}
+
+.chakra-trade-target {
+  padding: clamp(0.1rem, 0.5vw, 0.4rem);
+}
+
+.chakra-trade-target svg,
+.chakra-trade-target img,
+.chakra-trade-target > div {
+  width: clamp(1.5rem, 4vw, 2.25rem);
+  height: clamp(1.5rem, 4vw, 2.25rem);
+}
+
+.chakra-trade-content .text-surrender {
+  margin-left: 0;
+}
+
 @media (orientation: portrait) and (max-width: 500px) {
   .battle-player-rank-badge {
     left: calc(0.6rem + 1rem);
@@ -2836,7 +2908,7 @@ e-squad-name {
     position: fixed;
     top: 50%;
     left: 50%;
-    z-index: 1000;
+    z-index: 2000;
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
@@ -2852,7 +2924,7 @@ e-squad-name {
 
   .mv-character-skills-open {
     position: fixed !important;
-    z-index: 1000 !important;
+    z-index: 2000 !important;
     top: 50%;
     left: 50%;
     display: block !important;
@@ -2866,6 +2938,14 @@ e-squad-name {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
     transform: translate(-50%, -50%);
+  }
+
+  .mv-character-skills-open .group:hover {
+    z-index: 2001;
+  }
+
+  .mv-character-skills-open .mv-skill-hover-tooltip {
+    z-index: 2002;
   }
 
   .mv-character-skills-stacked {
@@ -3231,6 +3311,229 @@ e-squad-name {
     opacity: 1;
 }
 
+@media (orientation: portrait) and (max-width: 500px) {
+  .main-menu-screen {
+    width: 100%;
+    position: fixed;
+    inset: 0;
+    height: 100dvh;
+    min-height: 0;
+    max-height: 100dvh;
+    overflow: hidden;
+    justify-content: flex-start;
+    gap: 0;
+    padding: max(0.65rem, env(safe-area-inset-top)) 0.75rem max(0.65rem, env(safe-area-inset-bottom));
+    background-image: url('/static/img/ui/main-menu.webp');
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+  }
+
+  html:has(.main-menu-screen),
+  body:has(.main-menu-screen),
+  #root:has(.main-menu-screen) {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  .main-menu-screen > img:first-child,
+  .main-menu-screen > div:nth-child(2),
+  .main-menu-screen > div:nth-child(3),
+  .main-menu-screen > div:nth-child(4) {
+    display: none;
+  }
+
+  .main-menu-character-portraits {
+    position: absolute;
+    z-index: 1;
+    top: 11%;
+    left: 0;
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 0;
+    transform: rotateZ(-16deg) scaleY(0.85);
+    transform-origin: top left;
+    pointer-events: none;
+  }
+
+  .main-menu-character-row {
+    display: flex;
+    width: max-content;
+    align-items: center;
+    margin: 0 0 -2px;
+  }
+
+  .main-menu-character-track,
+  .main-menu-character-set {
+    display: flex;
+    width: max-content;
+    flex: 0 0 auto;
+  }
+
+  .main-menu-character-set {
+    gap: 2px;
+  }
+
+  .main-menu-character-track {
+    animation: main-menu-character-slide 44s linear infinite;
+    will-change: transform;
+  }
+
+  .main-menu-character-row img {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 43px;
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    border-radius: 1px;
+    background: rgba(15, 23, 42, 0.7);
+    object-fit: cover;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.8), 0 0 2px rgba(255, 255, 255, 0.4);
+    filter: blur(0.2px);
+    opacity: 0.82;
+  }
+
+  @keyframes main-menu-character-slide {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(-50%, 0, 0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .main-menu-character-track {
+      animation-play-state: paused;
+    }
+  }
+
+  .main-menu-header {
+    width: 100%;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    gap: 0;
+  }
+
+  .main-menu-user {
+    display: none;
+  }
+
+  .main-menu-header-actions {
+    justify-content: flex-end;
+    gap: 0.55rem;
+  }
+
+  .main-menu-header-actions > button {
+    min-width: 2.7rem;
+    min-height: 2.7rem;
+    justify-content: center;
+    padding: 0.65rem;
+    border-color: rgba(255, 255, 255, 0.38);
+    background: rgba(15, 23, 42, 0.42);
+    color: white;
+    backdrop-filter: blur(3px);
+  }
+
+  .main-menu-admin-button,
+  .main-menu-cards-button {
+    display: none;
+  }
+
+  .main-menu-center {
+    width: 100%;
+    min-height: 0;
+    flex: 1 1 0;
+    overflow: hidden;
+    justify-content: flex-end;
+    padding: 0 0 8vh;
+  }
+
+  .main-menu-hero-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    width: 100%;
+    padding: 0;
+  }
+
+  .main-menu-hero-content > .menu-logo-central,
+  .main-menu-hero-content > .text-escolha-seu-time {
+    display: none;
+  }
+
+  .main-menu-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: min(100%, 340px);
+    max-width: none;
+    gap: 0.9rem;
+    margin: 0;
+    padding-top: 0;
+  }
+
+  .arena-btn-wrap,
+  .como-jogar-wrap {
+    position: relative;
+    width: 100%;
+  }
+
+  .main-menu-arena-cta,
+  .como-jogar-btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 3.6rem;
+    border-radius: 0.85rem;
+  }
+
+  .como-jogar-naruto {
+    width: 5.5rem;
+    height: 4.5rem;
+    left: 1rem;
+    bottom: 2px;
+    translate: 0 0;
+    object-fit: contain;
+    opacity: 1;
+    z-index: 2;
+  }
+
+  .main-menu-arena-cta {
+    min-height: 3.8rem;
+    font-size: 1.2rem;
+  }
+
+  .portal-animation {
+    display: none;
+  }
+
+  .main-menu-footer {
+    display: flex;
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+    align-items: center;
+    gap: 0.25rem;
+    padding-top: 0;
+    font-size: 0.55rem;
+    line-height: 1.35;
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  }
+
+  .main-menu-copyright {
+    max-width: 100%;
+  }
+
+  .main-menu-footer > div:last-child {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: center;
+    gap: 0.65rem;
+    white-space: nowrap;
+  }
+}
+
 /* Folhas animadas no ProfileModal (mesma animaÃ§Ã£o da batalha, atrÃ¡s do modal) */
 .leaves-modal {
   position: fixed;
@@ -3238,4 +3541,55 @@ e-squad-name {
   overflow: hidden;
   pointer-events: none;
   z-index: 1;
+}
+
+.main-menu-leaves {
+  z-index: 1;
+}
+
+.main-menu-leaves .leaf1,
+.main-menu-leaves .leaf4 {
+  animation-name: main-menu-wind1;
+}
+
+.main-menu-leaves .leaf2,
+.main-menu-leaves .leaf5 {
+  animation-name: main-menu-wind2;
+}
+
+.main-menu-leaves .leaf3,
+.main-menu-leaves .leaf6 {
+  animation-name: main-menu-wind3;
+}
+
+.main-menu-center,
+.main-menu-footer {
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes main-menu-wind1 {
+  0% { transform: translateX(0) translateY(0) rotate(0deg) scale(.7); opacity: 0; }
+  10% { opacity: 1; }
+  50% { transform: translateX(-50vw) translateY(-30px) rotate(180deg) scale(.9); opacity: 1; }
+  95% { opacity: 1; }
+  100% { transform: translateX(-120vw) translateY(20px) rotate(420deg) scale(.6); opacity: 0; }
+}
+
+@keyframes main-menu-wind2 {
+  0% { transform: translateX(0) translateY(0) rotate(30deg) scale(.9); opacity: 0; }
+  10% { opacity: 1; }
+  30% { transform: translateX(-30vw) translateY(25px) rotate(120deg); opacity: 1; }
+  60% { transform: translateX(-70vw) translateY(-25px) rotate(260deg); opacity: 1; }
+  95% { opacity: 1; }
+  100% { transform: translateX(-120vw) translateY(10px) rotate(520deg); opacity: 0; }
+}
+
+@keyframes main-menu-wind3 {
+  0% { transform: translateX(0) translateY(0) rotate(-40deg) scale(.8); opacity: 0; }
+  10% { opacity: .8; }
+  40% { transform: translateX(-40vw) translateY(-35px) rotate(140deg); opacity: .8; }
+  75% { transform: translateX(-90vw) translateY(30px) rotate(320deg); opacity: .8; }
+  95% { opacity: .8; }
+  100% { transform: translateX(-120vw) translateY(-10px) rotate(540deg); opacity: 0; }
 }

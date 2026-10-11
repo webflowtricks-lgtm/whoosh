@@ -681,7 +681,7 @@ export default function App() {
                       <button
                         onClick={() => handleRestoreGame(reconnectData)}
                         data-sound="uah"
-                        className="sm:w-auto sm:flex-none w-full py-2.5 px-5 rounded-xl bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-orange-950/40 border border-orange-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
+                        className="sm:w-auto sm:flex-none w-full py-2.5 px-5 rounded-xl bg-gradient-to-r from-green-800 to-emerald-700 hover:from-green-700 hover:to-emerald-600 text-green-50 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-green-950/40 border border-green-500/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
                       >
                         <Swords className="w-4 h-4" />
                         <span>Continuar</span>

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ShoppingBag, Sparkles, Check, Lock, Award, Shield, CircleDollarSign, Gem, Star, Tag, UserCheck, Shirt } from 'lucide-react';
+import { X, ShoppingBag, ShoppingCart, Sparkles, Check, Award, Shield, CircleDollarSign, UserCheck, Shirt } from 'lucide-react';
 import { UserProfile, ShopItem } from '../types';
 import { getShopItems, fetchShopItemsFromServer } from '../lib/shopStorage';
 
@@ -21,6 +21,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
   const [items, setItems] = useState<ShopItem[]>(() => getShopItems());
   const [activeTab, setActiveTab] = useState<'all' | 'skin' | 'title' | 'frame' | 'bundle'>('all');
   const [purchaseToast, setPurchaseToast] = useState<string | null>(null);
+  const [pendingPurchase, setPendingPurchase] = useState<ShopItem | null>(null);
 
   useEffect(() => {
     fetchShopItemsFromServer().then(setItems);
@@ -269,8 +270,8 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         </div>
 
         {/* Shop Items Grid */}
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="flex-1 p-2.5 sm:p-4 overflow-y-auto">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {filteredItems.map(item => {
               const isUnlockedFrame = item.category === 'frame' && unlockedFrames.includes(item.name);
               const isUnlockedTitle = item.category === 'title' && unlockedTitles.includes(item.name);
@@ -283,40 +284,28 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
               return (
                 <div
                   key={item.id}
-                  className={`relative p-4 rounded-2xl border flex flex-col justify-between transition-all bg-slate-900/80 hover:bg-slate-900 border-slate-800 hover:border-slate-700 shadow-xl group`}
+                  className="relative min-w-0 rounded-xl border border-slate-800 bg-slate-900/80 p-1.5 shadow-xl transition-colors hover:border-slate-700 hover:bg-slate-900 sm:rounded-2xl sm:p-3"
                 >
-                  <div className="space-y-3">
-                    {/* Badge & Category */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                        {item.badge || item.category}
+                  <div className="relative aspect-square overflow-hidden rounded-lg border border-slate-800/80 bg-slate-950/80 sm:rounded-xl">
+                    {item.badge && (
+                      <span className="absolute left-1 top-1 z-10 max-w-[80%] truncate rounded bg-slate-950/80 px-1 py-0.5 text-[7px] font-mono font-bold uppercase text-orange-300 sm:text-[9px]">
+                        {item.badge}
                       </span>
-                      {isEquipped ? (
-                        <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Equipado
-                        </span>
-                      ) : isOwned ? (
-                        <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Adquirido
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {/* Preview Graphic for Skins / Frames / Titles / Bundles */}
-                    <div className="h-28 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-center p-3 relative overflow-hidden group-hover:border-slate-700 transition">
+                    )}
+                    <div className="flex h-full items-center justify-center p-1.5 sm:p-3">
                       {item.category === 'skin' && (
-                        <div className="relative w-full h-full flex items-center justify-center">
+                        <div className="relative flex h-full w-full items-center justify-center">
                           {item.skinImageUrl ? (
                             <img
                               src={item.skinImageUrl || null}
                               alt={item.name}
-                              className="w-full h-full object-cover rounded-lg"
+                              className="h-full w-full rounded-lg object-cover"
                             />
                           ) : (
-                            <Shirt className="w-10 h-10 text-orange-400" />
+                            <Shirt className="h-8 w-8 text-orange-400 sm:h-10 sm:w-10" />
                           )}
                           {item.characterName && (
-                            <span className="absolute bottom-1 left-1 bg-slate-950/80 text-orange-300 font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border border-slate-800">
+                            <span className="absolute bottom-0.5 left-0.5 max-w-full truncate rounded border border-slate-800 bg-slate-950/80 px-1 py-0.5 font-mono text-[7px] font-bold text-orange-300 sm:bottom-1 sm:left-1 sm:px-1.5 sm:text-[9px]">
                               {item.characterName}
                             </span>
                           )}
@@ -324,72 +313,87 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                       )}
 
                       {item.category === 'frame' && (
-                        <div className="relative">
-                          <div className={`w-16 h-16 rounded-full p-1 ${item.frameStyle || 'border-2 border-orange-500'}`}>
+                        <div className={`relative h-12 w-12 rounded-full p-1 sm:h-16 sm:w-16 ${item.frameStyle || 'border-2 border-orange-500'}`}>
+                          {item.frameImageUrl ? (
+                            <img
+                              src={item.frameImageUrl}
+                              alt={item.name}
+                              className="w-full h-full rounded-full object-cover"
+                            />
+                          ) : (
                             <img
                               src={user.photoUrl || null}
                               alt={user.name}
-                              className="w-full h-full rounded-full object-cover"
+                              className="h-full w-full rounded-full object-cover"
                               referrerPolicy="no-referrer"
                             />
-                          </div>
+                          )}
                         </div>
                       )}
 
                       {item.category === 'title' && (
-                        <div className="text-center space-y-1">
-                          <Award className="w-8 h-8 text-amber-400 mx-auto animate-pulse" />
-                          <p className="text-xs font-mono font-black uppercase tracking-wider text-amber-300 px-3 py-1 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                            "{item.name}"
+                        <div className="space-y-1 text-center">
+                          {item.icon ? (
+                            <img src={item.icon} alt="" className="mx-auto h-10 w-10 object-contain sm:h-12 sm:w-12" />
+                          ) : (
+                            <Award className="mx-auto h-7 w-7 text-amber-400 sm:h-8 sm:w-8" />
+                          )}
+                          <p className="line-clamp-2 rounded border border-amber-500/20 bg-amber-500/10 px-1 py-0.5 text-[8px] font-mono font-black uppercase tracking-wider text-amber-300 sm:px-2 sm:py-1 sm:text-xs">
+                            {item.name}
                           </p>
                         </div>
                       )}
 
                       {item.category === 'bundle' && (
-                        <div className="text-center space-y-1">
-                          <CircleDollarSign className="w-10 h-10 text-cyan-400 mx-auto" />
-                          <p className="text-xs font-mono font-bold text-cyan-300">
+                        <div className="space-y-1 text-center">
+                          {item.icon ? (
+                            <img src={item.icon} alt="" className="mx-auto h-10 w-10 object-contain sm:h-12 sm:w-12" />
+                          ) : (
+                            <CircleDollarSign className="mx-auto h-8 w-8 text-cyan-400 sm:h-10 sm:w-10" />
+                          )}
+                          <p className="text-[8px] font-mono font-bold text-cyan-300 sm:text-xs">
                             +{item.bundleGrant?.amount} Ryos
                           </p>
                         </div>
                       )}
                     </div>
-
-                    <div>
-                      <h3 className="text-sm font-extrabold text-slate-100 tracking-tight">
-                        {item.name}
-                      </h3>
-                      <p className="text-[11px] text-slate-400 leading-snug mt-1">
-                        {item.description}
-                      </p>
-                    </div>
                   </div>
 
-                  {/* Buy / Equip Button Footer */}
-                  <div className="pt-4 mt-3 border-t border-slate-800/80">
+                  <div className="mt-1 min-w-0">
+                    <h3 className="truncate text-[9px] font-extrabold tracking-tight text-slate-100 sm:text-sm" title={item.name}>
+                      {item.name}
+                    </h3>
+                  </div>
+
+                  <div className="mt-1.5 flex items-center justify-between gap-1 border-t border-slate-800/80 pt-1.5 sm:mt-2 sm:pt-2">
+                    <span className="flex min-w-0 items-center gap-0.5 whitespace-nowrap text-[8px] font-mono font-bold text-amber-300 sm:gap-1 sm:text-xs">
+                      <span aria-hidden="true">{item.currency === 'ryos' ? '🪙' : '💎'}</span>
+                      <span className="truncate">{item.price.toLocaleString()}</span>
+                    </span>
                     {isEquipped ? (
-                      <button
-                        disabled
-                        className="w-full py-2 px-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-emerald-400 text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-default"
-                      >
-                        <Check className="w-4 h-4" /> Equipado
-                      </button>
+                      <span className="p-1 text-emerald-400" title="Equipado" aria-label="Equipado">
+                        <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      </span>
                     ) : isOwned ? (
                       <button
                         onClick={() => handleBuyOrEquip(item)}
-                        className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-mono font-bold uppercase tracking-wider transition cursor-pointer active:scale-95"
+                        aria-label={`Equipar ${item.name}`}
+                        title="Equipar"
+                        className="rounded-lg border border-slate-600 bg-slate-800 p-1 text-slate-200 transition hover:bg-slate-700"
                       >
-                        Equipar
+                        <UserCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleBuyOrEquip(item)}
-                        className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-slate-950 font-mono font-black text-xs uppercase tracking-wider shadow-lg shadow-orange-600/20 transition cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                        onClick={() => {
+                          playClickSound();
+                          setPendingPurchase(item);
+                        }}
+                        aria-label={`Comprar ${item.name}`}
+                        title="Comprar"
+                        className="rounded-lg border border-amber-400/50 bg-gradient-to-br from-amber-500 to-orange-600 p-1 text-slate-950 shadow-md shadow-orange-600/20 transition hover:from-amber-400 hover:to-orange-500 active:scale-95"
                       >
-                        <span>Comprar por</span>
-                        <span className="font-bold flex items-center gap-1">
-                          {item.currency === 'ryos' ? '🪙' : '💎'} {item.price}
-                        </span>
+                        <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </button>
                     )}
                   </div>
@@ -399,6 +403,64 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
           </div>
         </div>
       </motion.div>
+
+      {pendingPurchase && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/75 p-4"
+          role="presentation"
+          onClick={() => setPendingPurchase(null)}
+        >
+          <div
+            className="relative aspect-[865/1060] w-[min(92vw,465px,67vh)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="shop-purchase-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <img
+              src="/static/img/ui/shop_confirm.webp"
+              alt=""
+              className="absolute inset-0 h-full w-full object-contain"
+            />
+            <div className="absolute inset-x-[12%] bottom-[9%] top-[42%] flex flex-col items-center justify-center gap-3 text-center sm:gap-4">
+              <p className="text-base font-bold leading-snug text-amber-950 sm:text-lg">
+                Você tem certeza que
+                <br />
+                deseja gastar{' '}
+                <span className="whitespace-nowrap font-black text-orange-700">
+                  {pendingPurchase.price.toLocaleString()} {pendingPurchase.currency === 'ryos' ? '🪙' : '💎'}
+                </span>
+                {' '}em
+              </p>
+              <h3 id="shop-purchase-title" className="max-w-full break-words text-2xl font-black leading-tight text-orange-700 drop-shadow-sm sm:text-3xl">
+                {pendingPurchase.name}?
+              </h3>
+              <div className="mt-1 flex w-full justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClickSound();
+                    setPendingPurchase(null);
+                  }}
+                  className="rounded-lg border border-red-900/60 bg-red-800/90 px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-md transition hover:bg-red-700 sm:text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleBuyOrEquip(pendingPurchase);
+                    setPendingPurchase(null);
+                  }}
+                  className="rounded-lg border border-emerald-900/50 bg-emerald-700/95 px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-md transition hover:bg-emerald-600 sm:text-sm"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
