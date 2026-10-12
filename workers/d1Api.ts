@@ -512,9 +512,12 @@ const CONFIGS: Record<string, { key: string; field: string }> = {
 
 async function readConfig(db: D1Database, key: string): Promise<unknown[] | null> {
   const head = await db.prepare(
-    'SELECT version_id FROM game_config_versions WHERE config_key = ?',
-  ).bind(key).first<{ version_id: string }>();
+    'SELECT version_id, item_count FROM game_config_versions WHERE config_key = ?',
+  ).bind(key).first<{ version_id: string; item_count: number }>();
   if (head) {
+    if (!Number.isSafeInteger(head.item_count) || head.item_count < 0) {
+      throw new Error(`Contagem inválida na configuração ${key} do D1.`);
+    }
     const statement = db.prepare(`
       SELECT ordinal, chunk_number, value_part FROM game_config_items
       WHERE config_key = ? AND version_id = ? ORDER BY ordinal, chunk_number
@@ -525,11 +528,22 @@ async function readConfig(db: D1Database, key: string): Promise<unknown[] | null
       value_part: string;
     }>();
     if (!result.success) throw new Error(`Falha ao ler configuração ${key} do D1.`);
-    const values: string[] = [];
+    const values = Array.from({ length: head.item_count }, () => ({
+      serialized: '',
+      nextChunk: 0,
+    }));
     for (const row of result.results || []) {
-      values[row.ordinal] = (values[row.ordinal] || '') + row.value_part;
+      const value = values[row.ordinal];
+      if (!value || row.chunk_number !== value.nextChunk) {
+        throw new Error(`Configuração ${key} incompleta ou fora de ordem no D1.`);
+      }
+      value.serialized += row.value_part;
+      value.nextChunk++;
     }
-    return values.map(value => JSON.parse(value));
+    if (values.some(value => value.nextChunk === 0)) {
+      throw new Error(`Configuração ${key} incompleta no D1.`);
+    }
+    return values.map(value => JSON.parse(value.serialized));
   }
   const legacy = await db.prepare(
     'SELECT value_json FROM game_config WHERE config_key = ?',

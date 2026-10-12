@@ -291,6 +291,30 @@ const readCounts = () => {
   const rows = parsed.flatMap(entry => entry.results || []);
   return Object.fromEntries(rows.map(row => [row.name, Number(row.count)]));
 };
+const readConfigIntegrityIssues = () => {
+  const query = `
+    SELECT config_key, ordinal, COUNT(*) AS chunks,
+      MIN(chunk_number) AS first_chunk, MAX(chunk_number) AS last_chunk
+    FROM game_config_items
+    GROUP BY config_key, version_id, ordinal
+    HAVING first_chunk != 0 OR chunks != last_chunk + 1
+    UNION ALL
+    SELECT versions.config_key, -1 AS ordinal, COUNT(DISTINCT items.ordinal) AS chunks,
+      MIN(items.ordinal) AS first_chunk, MAX(items.ordinal) AS last_chunk
+    FROM game_config_versions AS versions
+    LEFT JOIN game_config_items AS items
+      ON items.config_key = versions.config_key
+      AND items.version_id = versions.version_id
+    GROUP BY versions.config_key, versions.item_count
+    HAVING chunks != versions.item_count
+      OR (versions.item_count > 0 AND (first_chunk != 0 OR last_chunk != versions.item_count - 1))
+  `;
+  const result = runWrangler(
+    ['d1', 'execute', database, ...locationArgs, '--command', query, '--json'],
+    'pipe',
+  );
+  return JSON.parse(result.stdout).flatMap(entry => entry.results || []);
+};
 
 if (local) {
   runWrangler(['d1', 'migrations', 'apply', database, '--local', '--persist-to', stateDir]);
@@ -370,6 +394,14 @@ try {
     .filter(([key, minimum]) => (after[key] || 0) < minimum);
   if (mismatches.length) {
     throw new Error(`Contagem D1 abaixo da fonte: ${mismatches.map(([key]) => key).join(', ')}.`);
+  }
+  const integrityIssues = readConfigIntegrityIssues();
+  if (integrityIssues.length) {
+    throw new Error(
+      `Configurações D1 incompletas ou com blocos ausentes: ${
+        [...new Set(integrityIssues.map(issue => issue.config_key))].join(', ')
+      }.`,
+    );
   }
   console.log('Contagens D1 verificadas:');
   console.log(JSON.stringify({ before, source: expected, after }, null, 2));

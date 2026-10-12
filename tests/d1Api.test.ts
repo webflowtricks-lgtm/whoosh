@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   awardD1MatchRewards,
+  getD1Config,
   handleD1Request,
   type D1Database,
   type D1PreparedStatement,
@@ -180,9 +181,9 @@ class MemoryStatement implements D1PreparedStatement {
       }
       return null;
     }
-    if (q.startsWith('select version_id from game_config_versions')) {
+    if (q.startsWith('select version_id, item_count from game_config_versions')) {
       const row = this.db.configHeads.get(String(this.values[0]));
-      return row ? { version_id: row.version_id } as T : null;
+      return row ? { version_id: row.version_id, item_count: row.item_count } as T : null;
     }
     if (q.startsWith('select value_json from game_config where')) return null;
     throw new Error(`Unhandled mock D1 first: ${q.slice(0, 90)}`);
@@ -223,7 +224,7 @@ test('awards server-derived online rewards idempotently and updates rank', async
     password_hash: null,
     profile_json: JSON.stringify({ username: 'loser', name: 'Loser', xp: 500, wins: 1, losses: 4 }),
   });
-  db.configHeads.set('ranks', { config_key: 'ranks', version_id: 'rank-v1' });
+  db.configHeads.set('ranks', { config_key: 'ranks', version_id: 'rank-v1', item_count: 3 });
   db.configItems.push(
     { config_key: 'ranks', version_id: 'rank-v1', ordinal: 0, chunk_number: 0, value_part: JSON.stringify({ id: 'academy', name: 'Academia', requiredXp: 0 }) },
     { config_key: 'ranks', version_id: 'rank-v1', ordinal: 1, chunk_number: 0, value_part: JSON.stringify({ id: 'genin', name: 'Genin', requiredXp: 200 }) },
@@ -355,6 +356,24 @@ test('claims sessions, reports takeover, and revokes the prior device', async ()
   }), env);
   assert.equal((await responseBody(revokedStatus!)).status, 'revoked');
   assert.equal((await responseBody(activeNewStatus!)).status, 'active');
+});
+
+test('rejects a D1 configuration with missing chunks instead of parsing partial catalog data', async () => {
+  const db = new MemoryD1();
+  db.configHeads.set('characters', {
+    config_key: 'characters',
+    version_id: 'characters-v1',
+    item_count: 2,
+  });
+  db.configItems.push(
+    { config_key: 'characters', version_id: 'characters-v1', ordinal: 0, chunk_number: 0, value_part: '{"id":"first"}' },
+    { config_key: 'characters', version_id: 'characters-v1', ordinal: 1, chunk_number: 1, value_part: '{"id":"partial"}' },
+  );
+
+  await assert.rejects(
+    getD1Config(db, 'characters'),
+    /Configuração characters incompleta ou fora de ordem no D1/,
+  );
 });
 
 test('rejects client-owned progression writes while persisting cosmetic profile updates', async () => {
