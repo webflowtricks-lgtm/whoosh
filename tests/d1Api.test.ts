@@ -313,7 +313,7 @@ test('claims sessions, reports takeover, and revokes the prior device', async ()
     name: 'Session User',
   }), env);
   const firstTicket = String((await responseBody(signup!)).sessionTicket);
-  const firstToken = 'a'.repeat(64);
+  const firstToken = '123e4567-e89b-12d3-a456-426614174000';
   const firstClaim = await handleD1Request(request('/api/auth/session/claim', 'POST', {
     username: 'session_user',
     sessionToken: firstToken,
@@ -418,4 +418,22 @@ test('rejects an unimported configuration without contacting the legacy API', as
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('provides and persists the configurable AI enemy character limit', async () => {
+  const env = { DB: new MemoryD1() };
+  const initial = await handleD1Request(request('/api/ai-settings', 'GET'), env);
+  assert.deepEqual((await responseBody(initial!)).settings, [{ maxEnemyCharacterNumber: 69 }]);
+
+  const invalid = await handleD1Request(request('/api/ai-settings', 'POST', {
+    settings: [{ maxEnemyCharacterNumber: 2 }],
+  }), env);
+  assert.equal(invalid?.status, 400);
+
+  const saved = await handleD1Request(request('/api/ai-settings', 'POST', {
+    settings: [{ maxEnemyCharacterNumber: 123 }],
+  }), env);
+  assert.equal(saved?.status, 200);
+  const loaded = await handleD1Request(request('/api/ai-settings', 'GET'), env);
+  assert.deepEqual((await responseBody(loaded!)).settings, [{ maxEnemyCharacterNumber: 123 }]);
 });

@@ -7,6 +7,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, Loader2, AlertTriangle, Shirt, Lock, X, Eye } from 'lucide-react';
 import { Character, ChakraType, UserProfile, Quest, Skill } from '../types';
 import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
+import {
+  DEFAULT_AI_ENEMY_CHARACTER_LIMIT,
+  fetchAiMatchSettings,
+} from '../lib/aiMatchSettings';
 import { safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage, translateGameText, translateSkillName, translateTargetType } from '../lib/i18n';
@@ -36,6 +40,7 @@ interface CharacterSelectProps {
 export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, playUahSound, playTargetSound, onProcessingChange, user, activeQuest, onBack }: CharacterSelectProps) {
   const { t, language } = useLanguage();
   const [charList, setCharList] = useState<Character[]>(() => getCharacters());
+  const [aiEnemyCharacterLimit, setAiEnemyCharacterLimit] = useState(DEFAULT_AI_ENEMY_CHARACTER_LIMIT);
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('naruto_last_selected_team');
@@ -327,11 +332,23 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
     const rawPlayerTeam = charList.filter(c => selectedIds.includes(c.id));
     const playerTeam = attachSkinsToTeam(rawPlayerTeam);
-    
-    // Select 3 random unique characters for the enemy team
-    const remaining = charList.filter(c => !selectedIds.includes(c.id));
-    const shuffled = [...remaining].sort(() => 0.5 - Math.random());
-    const enemyTeam = attachSkinsToTeam(shuffled.slice(0, 3));
+
+    const remaining = charList
+      .slice(0, aiEnemyCharacterLimit)
+      .filter(character => !selectedIds.includes(character.id));
+    if (remaining.length < 3) {
+      setLockedNotice(t(
+        `O limite atual permite apenas ${remaining.length} personagem(ns) disponível(is) para o time da IA. Aumente o limite no painel de controle ou escolha outros personagens.`,
+        `The current limit leaves only ${remaining.length} character(s) available for the AI team. Increase the limit in the developer dashboard or choose different characters.`,
+      ));
+      setTimeout(() => setLockedNotice(null), 5000);
+      return;
+    }
+    for (let index = remaining.length - 1; index > 0; index--) {
+      const otherIndex = Math.floor(Math.random() * (index + 1));
+      [remaining[index], remaining[otherIndex]] = [remaining[otherIndex], remaining[index]];
+    }
+    const enemyTeam = attachSkinsToTeam(remaining.slice(0, 3));
 
     onConfirmTeams(playerTeam, enemyTeam);
   };
@@ -536,6 +553,18 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetchAiMatchSettings()
+      .then(settings => {
+        if (active) setAiEnemyCharacterLimit(settings.maxEnemyCharacterNumber);
+      })
+      .catch(error => {
+        console.error('Failed to load AI match settings; using the default character limit.', error);
+      });
+    return () => { active = false; };
   }, []);
 
   const renderChakraCosts = (costs: ChakraType[]) => {

@@ -20,6 +20,7 @@ const BANNERS_FILE = path.join(DATA_DIR, "banners.json");
 const FRAMES_FILE = path.join(DATA_DIR, "frames.json");
 const CARDS_FILE = path.join(DATA_DIR, "cards.json");
 const CARD_PACKS_FILE = path.join(DATA_DIR, "card_packs.json");
+const AI_SETTINGS_FILE = path.join(DATA_DIR, "ai_settings.json");
 const MATCH_ROOMS_FILE = path.join(DATA_DIR, "match_rooms.json");
 const ACCOUNT_SESSIONS_FILE = path.join(DATA_DIR, "account_sessions.json");
 const ONLINE_BATTLE_HISTORY_FILE = path.join(DATA_DIR, "online_battle_history.json");
@@ -1437,6 +1438,27 @@ async function startServer() {
   }, 60000);
 
   // Character Sync API
+  app.get("/api/ai-settings", (_req, res) => {
+    const settings = readJSON<{ maxEnemyCharacterNumber: number }[]>(
+      AI_SETTINGS_FILE,
+      [{ maxEnemyCharacterNumber: 69 }],
+    );
+    res.json({ success: true, settings });
+  });
+
+  app.post("/api/ai-settings", (req, res) => {
+    const settings = req.body?.settings;
+    const limit = settings?.[0]?.maxEnemyCharacterNumber;
+    if (!Array.isArray(settings) || settings.length !== 1 ||
+        !Number.isSafeInteger(limit) || limit < 3 || limit > 100_000) {
+      return res.status(400).json({
+        error: "O limite de personagens da IA deve ser um número inteiro entre 3 e 100000.",
+      });
+    }
+    writeJSON(AI_SETTINGS_FILE, [{ maxEnemyCharacterNumber: limit }]);
+    res.json({ success: true, message: "Configuração de batalha contra IA salva." });
+  });
+
   app.get("/api/characters", (req, res) => {
     let characters = readJSON<any[]>(CHARACTERS_FILE, []);
     if (!Array.isArray(characters) || characters.length === 0) {
@@ -1833,6 +1855,10 @@ async function startServer() {
     const frames = readJSON<any[]>(FRAMES_FILE, []);
     const cards = readJSON<any[]>(CARDS_FILE, []);
     const cardPacks = readJSON<any[]>(CARD_PACKS_FILE, []);
+    const aiSettings = readJSON<{ maxEnemyCharacterNumber: number }[]>(
+      AI_SETTINGS_FILE,
+      [{ maxEnemyCharacterNumber: 69 }],
+    );
 
     const configBackup = {
       appName: "Naruto Unison Combat",
@@ -1845,7 +1871,8 @@ async function startServer() {
       banners,
       frames,
       cards,
-      cardPacks
+      cardPacks,
+      aiSettings,
     };
 
     res.setHeader("Content-Type", "application/json");
@@ -1897,6 +1924,14 @@ async function startServer() {
     if (Array.isArray(data.cardPacks)) {
       writeJSON(CARD_PACKS_FILE, data.cardPacks);
       countDetails.push(`${data.cardPacks.length} Pacotes de Cards`);
+    }
+    if (Array.isArray(data.aiSettings)) {
+      const limit = data.aiSettings[0]?.maxEnemyCharacterNumber;
+      if (data.aiSettings.length !== 1 || !Number.isSafeInteger(limit) || limit < 3 || limit > 100_000) {
+        return res.status(400).json({ error: "Configuração de batalha contra IA inválida." });
+      }
+      writeJSON(AI_SETTINGS_FILE, data.aiSettings);
+      countDetails.push("Configuração de batalha contra IA");
     }
 
     if (countDetails.length === 0) {

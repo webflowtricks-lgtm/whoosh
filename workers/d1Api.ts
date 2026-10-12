@@ -70,6 +70,11 @@ function randomHex(byteLength: number): string {
   return hex(bytes);
 }
 
+function validSessionToken(token: unknown): token is string {
+  return typeof token === 'string' &&
+    /^(?:[a-f0-9]{32,128}|[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/i.test(token);
+}
+
 async function digestHex(value: string): Promise<string> {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return hex(new Uint8Array(bytes));
@@ -295,8 +300,7 @@ async function googleLogin(request: Request, env: D1Env): Promise<Response> {
 
 function validSessionInput(username: unknown, token: unknown): username is string {
   return normalizedUsername(username) !== null &&
-    typeof token === 'string' &&
-    /^[a-f0-9]{32,128}$/i.test(token);
+    validSessionToken(token);
 }
 
 export async function isD1SessionActive(
@@ -305,7 +309,7 @@ export async function isD1SessionActive(
   token: string | null,
 ): Promise<boolean> {
   if (username === 'convidado') return true;
-  if (!token || !/^[a-f0-9]{32,128}$/i.test(token)) return false;
+  if (!validSessionToken(token)) return false;
   const row = await env.DB.prepare(
     'SELECT active_token_hash FROM account_sessions WHERE username = ?',
   ).bind(username.trim().toLowerCase()).first<{ active_token_hash: string }>();
@@ -503,6 +507,7 @@ const CONFIGS: Record<string, { key: string; field: string }> = {
   '/api/cards': { key: 'cards', field: 'cards' },
   '/api/cards/packs': { key: 'cardPacks', field: 'packs' },
   '/api/quests': { key: 'quests', field: 'quests' },
+  '/api/ai-settings': { key: 'aiSettings', field: 'settings' },
 };
 
 async function readConfig(db: D1Database, key: string): Promise<unknown[] | null> {
@@ -699,6 +704,12 @@ async function getConfig(
 ): Promise<Response> {
   const stored = await readConfig(env.DB, config.key);
   if (stored !== null) return json({ success: true, [config.field]: stored });
+  if (config.key === 'aiSettings') {
+    return json({
+      success: true,
+      settings: [{ maxEnemyCharacterNumber: 69 }],
+    });
+  }
   return error(503, `Configuração ${config.key} ainda não foi migrada para D1.`);
 }
 
@@ -709,6 +720,15 @@ async function saveConfig(
 ): Promise<Response> {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body || !Array.isArray(body[config.field])) return error(400, `Lista de ${config.field} inválida.`);
+  if (config.key === 'aiSettings') {
+    const settings = body.settings as Array<Record<string, unknown>>;
+    const limit = settings[0]?.maxEnemyCharacterNumber;
+    if (settings.length !== 1 || !Number.isSafeInteger(limit) ||
+        Number(limit) < 3 || Number(limit) > 100_000) {
+      return error(400, 'O limite de personagens da IA deve ser um número inteiro entre 3 e 100000.');
+    }
+    body.settings = [{ maxEnemyCharacterNumber: Number(limit) }];
+  }
   try {
     await writeConfig(env.DB, config.key, body[config.field] as unknown[]);
   } catch (cause) {
@@ -731,7 +751,9 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
     };
     let missing = false;
     for (const config of Object.values(CONFIGS)) {
-      const items = await readConfig(env.DB, config.key);
+      const items = config.key === 'aiSettings'
+        ? (await readConfig(env.DB, config.key) ?? [{ maxEnemyCharacterNumber: 69 }])
+        : await readConfig(env.DB, config.key);
       if (items === null) {
         missing = true;
         continue;
@@ -747,11 +769,20 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
     const inputKeys: Record<string, string> = {
       characters: 'characters', quests: 'quests', shop: 'shop', events: 'events',
       ranks: 'ranks', banners: 'banners', frames: 'frames', cards: 'cards', cardPacks: 'cardPacks',
+      aiSettings: 'aiSettings',
     };
     const datasets = Object.entries(inputKeys)
       .filter(([input]) => Array.isArray(body[input]));
     if (datasets.length === 0) return error(400, 'Nenhum dado de configuração válido encontrado no arquivo JSON.');
     for (const [input, key] of datasets) {
+      if (key === 'aiSettings') {
+        const settings = body[input] as Array<Record<string, unknown>>;
+        const limit = settings[0]?.maxEnemyCharacterNumber;
+        if (settings.length !== 1 || !Number.isSafeInteger(limit) ||
+            Number(limit) < 3 || Number(limit) > 100_000) {
+          return error(400, 'Configuração de batalha contra IA inválida.');
+        }
+      }
       await writeConfig(env.DB, key, body[input] as unknown[]);
     }
     return json({ success: true, message: `Configurações importadas para D1 (${datasets.length} conjuntos).` });

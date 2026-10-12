@@ -12,6 +12,11 @@ import {
 } from 'lucide-react';
 import { Character, Skill, ChakraType, CharacterSkin, Quest } from '../types';
 import { getCharacters, saveCharacters, resetToDefaultCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
+import {
+  DEFAULT_AI_ENEMY_CHARACTER_LIMIT,
+  fetchAiMatchSettings,
+  saveAiMatchSettings,
+} from '../lib/aiMatchSettings';
 import { RankConfig, getRanks, saveRanks, fetchRanksFromServer, RANK_GRADIENT_PRESETS } from '../lib/rankStorage';
 import { safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
@@ -98,7 +103,7 @@ interface AdminDashboardProps {
 export default function AdminDashboard({ onBack, playClickSound, playScrollSound }: AdminDashboardProps) {
   const { t } = useLanguage();
   const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events' | 'ranks' | 'cards' | 'backup'>('ninjas');
+  const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events' | 'ranks' | 'ai' | 'cards' | 'backup'>('ninjas');
 
   // Character list state loaded from storage
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -119,6 +124,8 @@ export default function AdminDashboard({ onBack, playClickSound, playScrollSound
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [invulnClassInput, setInvulnClassInput] = useState('');
+  const [aiEnemyCharacterLimit, setAiEnemyCharacterLimit] = useState(DEFAULT_AI_ENEMY_CHARACTER_LIMIT);
+  const [savingAiSettings, setSavingAiSettings] = useState(false);
 
   // Editing forms state
   const [editingChar, setEditingChar] = useState<Character | null>(null);
@@ -233,7 +240,29 @@ const getEffectNameSuggestions = (): string[] => {
 
     // Fetch ranks
     fetchRanksFromServer().then(r => setRanksList(r));
+
+    fetchAiMatchSettings()
+      .then(settings => setAiEnemyCharacterLimit(settings.maxEnemyCharacterNumber))
+      .catch(error => {
+        console.error('Failed to load AI match settings.', error);
+        setErrorMessage(error instanceof Error ? error.message : 'Não foi possível carregar as configurações da IA.');
+      });
   }, []);
+
+  const handleSaveAiSettings = async () => {
+    setSavingAiSettings(true);
+    setErrorMessage('');
+    try {
+      await saveAiMatchSettings({ maxEnemyCharacterNumber: aiEnemyCharacterLimit });
+      setSuccessMessage('Limite de personagens da IA salvo com sucesso!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Failed to save AI match settings.', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível salvar as configurações da IA.');
+    } finally {
+      setSavingAiSettings(false);
+    }
+  };
 
   // Update editing character when selected ID changes
   useEffect(() => {
@@ -328,6 +357,10 @@ const getEffectNameSuggestions = (): string[] => {
         if (Array.isArray(importedConfigData.ranks)) {
           saveRanks(importedConfigData.ranks);
           setRanksList(importedConfigData.ranks);
+        }
+        if (Array.isArray(importedConfigData.aiSettings) &&
+            Number.isSafeInteger(importedConfigData.aiSettings[0]?.maxEnemyCharacterNumber)) {
+          setAiEnemyCharacterLimit(importedConfigData.aiSettings[0].maxEnemyCharacterNumber);
         }
 
         triggerSuccess(result.message || 'Configurações importadas e aplicadas neste ambiente com sucesso!');
@@ -812,6 +845,16 @@ const newSkill: Skill = {
                 {t('Ranks & XP', 'Ranks & XP')}
               </button>
               <button
+                onClick={() => { playClickSound(); setActiveTab('ai'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'ai'
+                    ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                    : 'text-slate-400 hover:text-slate-200 font-bold'
+                }`}
+              >
+                {t('Batalha contra IA', 'AI Battle')}
+              </button>
+              <button
                 onClick={() => { playClickSound(); setActiveTab('cards'); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
                   activeTab === 'cards'
@@ -865,6 +908,67 @@ const newSkill: Skill = {
         <EventAdmin playClickSound={playClickSound} playScrollSound={playScrollSound} />
       ) : activeTab === 'cards' ? (
         <CardAdmin playClickSound={playClickSound} playScrollSound={playScrollSound} />
+      ) : activeTab === 'ai' ? (
+        <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 z-10 space-y-6">
+          <section className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-5 h-5 text-amber-400" />
+              <h2 className="text-lg font-bold uppercase tracking-wider text-white font-mono">
+                {t('Configurações da batalha contra IA', 'AI Battle Settings')}
+              </h2>
+            </div>
+            <p className="text-xs text-slate-400 font-mono mb-5">
+              {t(
+                'Defina a posição máxima na lista de personagens que pode aparecer aleatoriamente no time inimigo ao lutar contra IA. A posição segue a ordem da aba Ninjas; personagens depois desse número nunca serão sorteados.',
+                'Set the highest character position in the roster that can be randomly selected for the enemy team in AI battles. Positions follow the Ninjas tab order; characters after this number are never selected.',
+              )}
+            </p>
+            <label className="block max-w-sm">
+              <span className="block text-[10px] text-slate-400 font-mono uppercase tracking-wider mb-2">
+                {t('Sortear até a posição', 'Randomize through position')}
+              </span>
+              <input
+                type="number"
+                min={3}
+                max={Math.max(3, characters.length)}
+                step={1}
+                value={aiEnemyCharacterLimit}
+                onChange={event => setAiEnemyCharacterLimit(Number(event.target.value))}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white font-mono focus:border-amber-500 outline-none"
+              />
+              <span className="block text-[10px] text-slate-500 font-mono mt-2">
+                {t(`A lista atual tem ${characters.length} personagens. Valor inicial: 69.`, `The current roster has ${characters.length} characters. Default: 69.`)}
+              </span>
+            </label>
+            <button
+              onClick={() => void handleSaveAiSettings()}
+              disabled={savingAiSettings || !Number.isSafeInteger(aiEnemyCharacterLimit) ||
+                aiEnemyCharacterLimit < 3 || aiEnemyCharacterLimit > 100_000}
+              className="mt-5 px-5 py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-extrabold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-orange-600/20"
+            >
+              <Save className="w-4 h-4 stroke-[3]" />
+              {savingAiSettings ? t('Salvando...', 'Saving...') : t('Salvar limite da IA', 'Save AI limit')}
+            </button>
+          </section>
+          <AnimatePresence>
+            {(successMessage || errorMessage) && (
+              <motion.div
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                role={errorMessage ? 'alert' : 'status'}
+                className={`fixed top-20 left-1/2 -translate-x-1/2 px-4 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-2 font-mono text-xs max-w-md ${
+                  errorMessage
+                    ? 'bg-red-500/15 border border-red-500/40 text-red-300'
+                    : 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-400'
+                }`}
+              >
+                {errorMessage ? <AlertTriangle className="w-4 h-4 flex-shrink-0" /> : <CheckCircle className="w-4 h-4 flex-shrink-0" />}
+                <span>{errorMessage || successMessage}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
       ) : activeTab === 'ranks' ? (
         <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 z-10 space-y-6">
           {/* Header Card */}
@@ -1494,6 +1598,9 @@ const newSkill: Skill = {
                     <div className="flex items-center gap-1.5">
                       <span className="text-amber-400">🖼️</span> Molduras de Perfil
                     </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-amber-400">🤖</span> Limite da equipe de IA
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1546,6 +1653,9 @@ const newSkill: Skill = {
                       {importedConfigData.shop && <div>• {importedConfigData.shop.length} Itens de Loja</div>}
                       {importedConfigData.events && <div>• {importedConfigData.events.length} Eventos</div>}
                       {importedConfigData.ranks && <div>• {importedConfigData.ranks.length} Ranks/XP</div>}
+                      {importedConfigData.aiSettings && (
+                        <div>• IA: inimigos até a posição {importedConfigData.aiSettings[0]?.maxEnemyCharacterNumber ?? 'inválida'}</div>
+                      )}
                     </div>
                   </div>
                 )}

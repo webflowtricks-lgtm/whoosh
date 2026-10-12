@@ -26,7 +26,7 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 - Auth: `POST /api/auth/register`, `/api/auth/login`, `/api/auth/google`; exclusive device sessions: `/api/auth/session/claim`, `/api/auth/session/status`, `/api/auth/session/takeover`, `/api/auth/session/cancel`, `/api/auth/session/release`
 - Profile: `PUT /api/user/profile`
 - Multiplayer (in-memory, HTTP polling): `/api/matchmaking/join`, `/api/matchmaking/status`, `/api/matchmaking/quit`, `/api/match/submit-turn`, `/api/match/room-state`, `/api/match/surrender`, `/api/match/emoji`, `/api/match/emojis`, `/api/match/chat/send`, `/api/match/chat/messages`
-- Config CRUD: `/api/characters`, `/api/ranks`, `/api/shop`, `/api/events`, `/api/banners`, `/api/frames`, `/api/quests` (GET default-seeds + POST overwrite)
+- Config CRUD: `/api/characters`, `/api/ranks`, `/api/shop`, `/api/events`, `/api/banners`, `/api/frames`, `/api/quests`, `/api/ai-settings` (AI random-enemy roster cutoff, defaults to position 69)
 - Backup: `/api/config/export`, `/api/config/import`
 - Health: `/api/health`
 
