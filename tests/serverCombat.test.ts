@@ -123,10 +123,74 @@ test('derives a battle winner from server-calculated team deaths', () => {
   assert.equal(state.winnerSide, 'player');
 });
 
-test('does not initialize teams with unported battle-start passives', () => {
-  const passiveCharacter = findCharacter('Young Karin');
-  assert.throws(() => createServerCombatState([
-    [passiveCharacter, findCharacter('Sakura Haruno'), findCharacter('Shiranui Genma')],
+test('ignores later queued actions whose target was defeated earlier in the turn', () => {
+  const tenten = findCharacter('Tenten');
+  const teamA = [tenten, structuredClone(tenten), structuredClone(tenten)];
+  const teamB = [structuredClone(tenten), structuredClone(tenten), structuredClone(tenten)];
+  const state = createServerCombatState([teamA, teamB], 0);
+  state.playerChakra = { Tai: 100, Nin: 100, Gen: 100, Blood: 100 };
+  state.enemyChakra = { Tai: 100, Nin: 100, Gen: 100, Blood: 100 };
+  const killTarget = teamA.map((character, index) => ({
+    sourceId: `player-${index}`,
+    skillIndex: findSkill(character, 'Jidanda'),
+    targetId: 'enemy-0',
+  }));
+  const noActions: typeof killTarget = [];
+  const result = resolveAuthoritativeTurn(state, 0, 1, [killTarget, noActions]);
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.state.enemy[0].isDead, true);
+});
+
+test('allows configured passive characters and initializes their starting stacks', () => {
+  const cases = [
+    { name: 'Young Karin', stackType: 'Young Sight' },
+    { name: 'Yuhi Kurenai', stackType: 'Genjutsu Mastery' },
+  ];
+  for (const entry of cases) {
+    const state = createServerCombatState([
+      team(findCharacter(entry.name)),
+      team(findCharacter('Gaara of the Sand')),
+    ], 2);
+    assert.equal(
+      state.player[0].activeEffects.find(effect => effect.stackType === entry.stackType)?.stacks,
+      1,
+      `${entry.name} should begin with its configured passive stack`,
+    );
+  }
+
+  const fugaku = findCharacter('Uchiha Fugaku');
+  const fugakuTeam = [fugaku, findCharacter('Sasuke Uchiha'), findCharacter('Shiranui Genma')];
+  const fugakuState = createServerCombatState([
+    fugakuTeam,
     team(findCharacter('Gaara of the Sand')),
-  ], 2), /não inicializa passivas/);
+  ], 2);
+  assert.equal(
+    fugakuState.player[1].activeEffects.find(effect => effect.stackType === 'Uchiha Clan Member')?.stacks,
+    1,
+    'Fugaku should initialize the Uchiha-tagged ally stack',
+  );
+});
+
+test('gains starting passive stacks when the character uses a skill', () => {
+  const tenten = findCharacter('Tenten');
+  const passive = findCharacter('Young Karin').skills.find(skill => skill.name === 'Young Sight');
+  assert.ok(passive);
+  tenten.skills.push(structuredClone(passive));
+  const state = createServerCombatState([
+    [tenten, findCharacter('Sakura Haruno'), findCharacter('Shiranui Genma')],
+    team(findCharacter('Gaara of the Sand')),
+  ], 2);
+  state.playerChakra = { Tai: 100, Nin: 100, Gen: 100, Blood: 100 };
+  const resolved = resolveAuthoritativeTurn(state, 2, 1, [[{
+    sourceId: 'player-0',
+    skillIndex: findSkill(tenten, 'Jidanda'),
+    targetId: 'enemy-0',
+  }], []]);
+
+  assert.equal(resolved.status, 'resolved');
+  assert.equal(
+    resolved.state.player[0].activeEffects.find(effect => effect.stackType === 'Young Sight')?.stacks,
+    2,
+  );
 });

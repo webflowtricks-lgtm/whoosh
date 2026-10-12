@@ -1874,9 +1874,9 @@ export default function BattleBoard({
     x ^= x >>> 13;
     return (x & 1) as 0 | 1;
   };
-  // Which slot plans first on turn `t` (alternates each round).
-  const onlineFirstSlotForTurn = (t: number): 0 | 1 =>
-    ((onlineStarterSlot() + (t - 1)) % 2) as 0 | 1;
+  // The same seed-derived leader opens every round; planning still alternates
+  // within each round because the responder acts after the leader submits.
+  const onlineFirstSlotForTurn = (_t: number): 0 | 1 => onlineStarterSlot();
   // My slot in the room (0 or 1). Offline this is irrelevant.
   const myOnlineIndex = (): 0 | 1 => (onlineParams?.playerIndex === 1 ? 1 : 0);
   // Do I plan first on turn `t`?
@@ -12440,6 +12440,21 @@ splashOnlyTargets = splashPool.filter(c =>
           submittedTurnRef.current.add(pending.turn);
           pendingSubmitRef.current = null;
           try { const j = await r.json(); if (j?.room) wsPushRef.current?.({ success: true, room: j.room }); } catch {}
+        } else if (r.status >= 400 && r.status < 500 && pendingSubmitRef.current?.turn === pending.turn) {
+          const responseText = await r.text();
+          pendingSubmitRef.current = null;
+          submittedTurnRef.current.delete(pending.turn);
+          finalizedKeysRef.current.delete(`${pending.turn}:player`);
+          passedPlayersRef.current = passedPlayersRef.current.filter(side => side !== 'player');
+          setPassedPlayersThisTurn(passedPlayersRef.current);
+          setActivePlanner('player');
+          setIsWaitingForOpponent(false);
+          setLogs(previous => [...previous, {
+            id: Math.random().toString(),
+            turn: pending.turn,
+            message: `⚠️ O servidor recusou as ações pendentes: ${responseText || 'revise suas ações e tente novamente.'}`,
+            type: 'system',
+          }]);
         }
       }).catch(() => {});
     };
@@ -12517,7 +12532,20 @@ splashOnlyTargets = splashPool.filter(c =>
             const mine = onlineParams.playerIndex === 1 ? 1 : 0;
             const ownState = mine === 0 ? canonicalCombat.player : canonicalCombat.enemy;
             const opposingState = mine === 0 ? canonicalCombat.enemy : canonicalCombat.player;
-            const mergeCombatants = (current: CombatCharacter[], authoritative: CombatCharacter[]) =>
+            const mergeCombatants = (
+              current: CombatCharacter[],
+              authoritative: Array<{
+                health: number;
+                maxHealth: number;
+                shield: number;
+                shieldExpiresTurn?: number;
+                activeEffects: CombatCharacter['activeEffects'];
+                isDead: boolean;
+                hasRevived?: boolean;
+                skillUseCounts?: Record<string, number>;
+                skillCooldowns: number[];
+              }>,
+            ) =>
               current.map((combatant, index) => {
                 const serverCombatant = authoritative?.[index];
                 if (!serverCombatant) return combatant;
@@ -12535,13 +12563,16 @@ splashOnlyTargets = splashPool.filter(c =>
                     : undefined,
                   character: {
                     ...combatant.character,
-                    skills: serverCombatant.character.skills.map((skill, skillIndex) => ({
-                      ...combatant.character.skills[skillIndex],
+                    skills: combatant.character.skills.map((skill, skillIndex) => ({
                       ...skill,
+                      currentCooldown: serverCombatant.skillCooldowns?.[skillIndex] ?? skill.currentCooldown,
                     })),
                   },
                 };
               });
+            if (playerRef.current.length !== ownState.length || enemyRef.current.length !== opposingState.length) {
+              return;
+            }
             const localPlayer = mergeCombatants(playerRef.current, ownState);
             const localEnemy = mergeCombatants(enemyRef.current, opposingState);
             playerRef.current = localPlayer;

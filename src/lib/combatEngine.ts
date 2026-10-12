@@ -124,7 +124,10 @@ function hasUnsupportedSkillMechanics(skill: Skill): boolean {
 
 function hasUnsupportedActiveEffects(combatants: CombatCharacter[]): boolean {
   return combatants.some(combatant =>
-    combatant.activeEffects.some(effect => !SUPPORTED_ACTIVE_EFFECT_TYPES.has(effect.type)),
+    combatant.activeEffects.some(effect =>
+      !SUPPORTED_ACTIVE_EFFECT_TYPES.has(effect.type) &&
+      !(effect.type === 'custom' && effect.stackable === true && !!effect.stackType),
+    ),
   );
 }
 

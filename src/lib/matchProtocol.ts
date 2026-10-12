@@ -33,8 +33,7 @@ export function firstSlotForTurn(seed: number, turn: number): 0 | 1 {
   x ^= x >>> 15;
   x = (x * 2246822519) >>> 0;
   x ^= x >>> 13;
-  const starterSlot = (x & 1) as 0 | 1;
-  return ((starterSlot + turn - 1) % 2) as 0 | 1;
+  return (x & 1) as 0 | 1;
 }
 
 export function isValidMatchTeam(team: unknown): team is MatchProtocolPlayer['team'] {

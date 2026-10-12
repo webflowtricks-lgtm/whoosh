@@ -91,18 +91,30 @@ class MemoryStatement implements D1PreparedStatement {
       if (row?.active_token_hash === active) this.db.sessions.delete(String(username));
       return { success: true, meta: { changes: row?.active_token_hash === active ? 1 : 0 } };
     }
-    if (q.startsWith('update accounts set profile_json')) {
+    if (q.startsWith('insert or ignore into online_battle_rewards')) {
+      const [roomId, username] = this.values;
+      const key = `${roomId}:${username}`;
+      const changes = this.db.rewardClaims.has(key) ? 0 : 1;
+      this.db.rewardClaims.add(key);
+      this.db.lastChanges = changes;
+      return { success: true, meta: { changes } };
+    }
+    if (q.startsWith('update accounts set profile_json = ?')) {
       const [profile_json, username] = this.values;
       const row = this.db.accounts.get(String(username));
       if (row) row.profile_json = profile_json;
       this.db.lastChanges = row ? 1 : 0;
       return { success: true, meta: { changes: row ? 1 : 0 } };
     }
-    if (q.startsWith('insert or ignore into online_battle_rewards')) {
-      const [roomId, username] = this.values;
-      const key = `${roomId}:${username}`;
-      const changes = this.db.rewardClaims.has(key) ? 0 : 1;
-      this.db.rewardClaims.add(key);
+    if (q.startsWith('update accounts set profile_json = json_set(profile_json,')) {
+      const [rankJson, username, expectedXp] = this.values;
+      const row = this.db.accounts.get(String(username));
+      const profile = row ? JSON.parse(String(row.profile_json)) as Row : null;
+      const changes = !!row && Number(profile?.xp || 0) === Number(expectedXp) ? 1 : 0;
+      if (changes && row && profile) {
+        profile.rank = JSON.parse(String(rankJson));
+        row.profile_json = JSON.stringify(profile);
+      }
       this.db.lastChanges = changes;
       return { success: true, meta: { changes } };
     }
@@ -115,18 +127,6 @@ class MemoryStatement implements D1PreparedStatement {
         profile.xp = Math.max(0, (Number(profile.xp) || 0) + Number(xpDelta));
         profile.wins = (Number(profile.wins) || 0) + Number(winsDelta);
         profile.losses = (Number(profile.losses) || 0) + Number(lossesDelta);
-        row.profile_json = JSON.stringify(profile);
-      }
-      this.db.lastChanges = changes;
-      return { success: true, meta: { changes } };
-    }
-    if (q.startsWith('update accounts set profile_json = json_set(profile_json,') ) {
-      const [rankJson, username, expectedXp] = this.values;
-      const row = this.db.accounts.get(String(username));
-      const profile = row ? JSON.parse(String(row.profile_json)) as Row : null;
-      const changes = !!row && Number(profile?.xp || 0) === Number(expectedXp) ? 1 : 0;
-      if (changes && row && profile) {
-        profile.rank = JSON.parse(String(rankJson));
         row.profile_json = JSON.stringify(profile);
       }
       this.db.lastChanges = changes;
@@ -208,6 +208,53 @@ class MemoryStatement implements D1PreparedStatement {
     throw new Error(`Unhandled mock D1 all: ${q.slice(0, 90)}`);
   }
 }
+
+test('awards server-derived online rewards idempotently and updates rank', async () => {
+  const db = new MemoryD1();
+  db.accounts.set('winner', {
+    username: 'winner',
+    password_salt: null,
+    password_hash: null,
+    profile_json: JSON.stringify({ username: 'winner', name: 'Winner', xp: 100, wins: 2, losses: 1 }),
+  });
+  db.accounts.set('loser', {
+    username: 'loser',
+    password_salt: null,
+    password_hash: null,
+    profile_json: JSON.stringify({ username: 'loser', name: 'Loser', xp: 500, wins: 1, losses: 4 }),
+  });
+  db.configHeads.set('ranks', { config_key: 'ranks', version_id: 'rank-v1' });
+  db.configItems.push(
+    { config_key: 'ranks', version_id: 'rank-v1', ordinal: 0, chunk_number: 0, value_part: JSON.stringify({ id: 'academy', name: 'Academia', requiredXp: 0 }) },
+    { config_key: 'ranks', version_id: 'rank-v1', ordinal: 1, chunk_number: 0, value_part: JSON.stringify({ id: 'genin', name: 'Genin', requiredXp: 200 }) },
+    { config_key: 'ranks', version_id: 'rank-v1', ordinal: 2, chunk_number: 0, value_part: JSON.stringify({ id: 'chunin', name: 'Chunin', requiredXp: 600 }) },
+  );
+
+  const match = {
+    roomId: 'room-reward-1',
+    winnerUsername: 'winner',
+    turns: 3,
+    players: [
+      { username: 'winner', aliveCount: 2, damageDealt: 200 },
+      { username: 'loser', aliveCount: 1, damageDealt: 100 },
+    ],
+  };
+  const first = await awardD1MatchRewards({ DB: db }, match);
+  const winnerAfterFirst = JSON.parse(String(db.accounts.get('winner')?.profile_json));
+  const loserAfterFirst = JSON.parse(String(db.accounts.get('loser')?.profile_json));
+  assert.equal(winnerAfterFirst.xp, 525);
+  assert.equal(winnerAfterFirst.wins, 3);
+  assert.equal(winnerAfterFirst.rank.id, 'genin');
+  assert.equal(loserAfterFirst.xp, 79);
+  assert.equal(loserAfterFirst.losses, 5);
+  assert.equal(loserAfterFirst.rank.id, 'academy');
+  assert.equal(first[0].user?.xp, 525);
+
+  await awardD1MatchRewards({ DB: db }, match);
+  assert.equal(JSON.parse(String(db.accounts.get('winner')?.profile_json)).xp, 525);
+  assert.equal(JSON.parse(String(db.accounts.get('loser')?.profile_json)).xp, 79);
+  assert.equal(db.rewardClaims.size, 2);
+});
 
 function request(path: string, method = 'POST', body?: unknown, headers?: HeadersInit): Request {
   return new Request(`https://worker.test${path}`, {

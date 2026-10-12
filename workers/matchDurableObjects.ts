@@ -641,6 +641,38 @@ export class MatchRoomDurableObject {
         if (turns[turn]) turnActions[turn] = turns[turn];
       }
     }
+    const combatState = room.combatState ? {
+      turn: room.combatState.turn,
+      activeSide: room.combatState.activeSide,
+      player: room.combatState.player.map(combatant => ({
+        id: combatant.id,
+        health: combatant.health,
+        maxHealth: combatant.maxHealth,
+        shield: combatant.shield,
+        shieldExpiresTurn: combatant.shieldExpiresTurn,
+        activeEffects: combatant.activeEffects,
+        isDead: combatant.isDead,
+        hasRevived: combatant.hasRevived,
+        skillUseCounts: combatant.skillUseCounts,
+        skillCooldowns: combatant.character.skills.map(skill => skill.currentCooldown || 0),
+      })),
+      enemy: room.combatState.enemy.map(combatant => ({
+        id: combatant.id,
+        health: combatant.health,
+        maxHealth: combatant.maxHealth,
+        shield: combatant.shield,
+        shieldExpiresTurn: combatant.shieldExpiresTurn,
+        activeEffects: combatant.activeEffects,
+        isDead: combatant.isDead,
+        hasRevived: combatant.hasRevived,
+        skillUseCounts: combatant.skillUseCounts,
+        skillCooldowns: combatant.character.skills.map(skill => skill.currentCooldown || 0),
+      })),
+      playerChakra: room.combatState.playerChakra,
+      enemyChakra: room.combatState.enemyChakra,
+      winnerSide: room.combatState.winnerSide,
+      damageDealt: room.combatState.damageDealt,
+    } : null;
     return {
       id: room.id,
       seed: room.seed,
@@ -649,7 +681,7 @@ export class MatchRoomDurableObject {
         : room.players.map(({ username }) => ({ username })),
       turnActions,
       resolvedTurn: room.resolvedTurn,
-      combatState: room.combatState,
+      combatState,
       surrenderedBy: room.surrenderedBy,
       winnerUsername: room.winnerUsername,
       surrenderReason: room.surrenderReason,

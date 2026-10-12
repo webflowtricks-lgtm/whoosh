@@ -29,6 +29,81 @@ function combatant(id: string, character: Character): CombatCharacter {
   };
 }
 
+function initializeStartingStacks(
+  teams: [CombatCharacter[], CombatCharacter[]],
+): void {
+  teams.forEach((allies, side) => {
+    const enemies = teams[side === 0 ? 1 : 0];
+    for (const caster of allies) {
+      for (const skill of caster.character.skills) {
+        if (!skill.stackable) continue;
+        const stackType = skill.stackType || skill.name;
+        const startTags = (skill.stackStartTags || []).map(tag => tag.toLowerCase());
+        const targets = new Map<string, CombatCharacter>();
+        const matchingAllies = startTags.length
+          ? allies.filter(ally => ally.character.tags.some(tag => startTags.includes(tag.toLowerCase())))
+          : [];
+        for (const target of matchingAllies) targets.set(target.id, target);
+
+        if (skill.stackStartActive) {
+          const initialTargets = skill.stackTarget === 'Ally'
+            ? allies.filter(ally => ally.id !== caster.id).slice(0, 1)
+            : skill.stackTarget === 'AllAllies'
+              ? allies
+              : skill.stackTarget === 'AllEnemies'
+                ? enemies
+                : [caster];
+          for (const target of initialTargets) targets.set(target.id, target);
+        }
+
+        const startCount = Math.max(1, skill.stackStartCount || 1);
+        for (const target of targets.values()) {
+          const existing = target.activeEffects.find(effect =>
+            effect.type === 'custom' && effect.stackable && effect.stackType === stackType,
+          );
+          if (existing) {
+            existing.stacks = skill.stackNonCumulative
+              ? 1
+              : (existing.stacks || 0) + startCount;
+            existing.duration = Math.max(existing.duration, skill.stackDuration ?? 999);
+            continue;
+          }
+          target.activeEffects.push({
+            name: `${stackType} (Stack)`,
+            type: 'custom',
+            value: 0,
+            stacks: startCount,
+            duration: skill.stackDuration ?? 999,
+            icon: skill.icon,
+            stackable: true,
+            stackType,
+            stackApplyOnAttack: skill.stackApplyOnAttack || false,
+            stackApplyOnAttackDuration: skill.stackApplyOnAttackDuration,
+            casterId: caster.id,
+            casterSide: side === 0 ? 'player' : 'enemy',
+            castTurn: 0,
+            sourceSkillName: skill.name,
+          });
+        }
+      }
+    }
+  });
+}
+
+function gainStacksOnSkillUse(state: CombatEngineState, sourceId: string): void {
+  const source = [...state.player, ...state.enemy].find(character => character.id === sourceId);
+  if (!source) return;
+  for (const effect of source.activeEffects) {
+    if (effect.type !== 'custom' || !effect.stackable || !effect.stackType) continue;
+    const originSkill = source.character.skills.find(skill => skill.name === effect.sourceSkillName);
+    if (!originSkill?.stackable ||
+      (originSkill.stackGainMode !== 'skill' && originSkill.stackGainMode !== 'both')) continue;
+    effect.stacks = (effect.stacks || 1) + (originSkill.stackGainAmount || 1);
+    const cap = originSkill.stackCapReset;
+    if (cap && cap > 0 && effect.stacks >= cap) effect.stacks = 1;
+  }
+}
+
 function chakraRoll(seed: number, turn: number, slot: 0 | 1, count: number): ChakraPool {
   const pool: ChakraPool = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
   const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
@@ -52,17 +127,15 @@ export function createServerCombatState(
   if (teams.some(team => team.length !== MAX_TEAM_SIZE)) {
     throw new Error('A partida autoritativa exige dois times completos de três personagens.');
   }
-  if (teams.some(team => team.some(character =>
-    character.skills.some(skill => skill.isPassive || skill.stackStartActive),
-  ))) {
-    throw new Error('O piloto ainda não inicializa passivas e stacks de início de batalha.');
-  }
   const firstSlot = firstSlotForTurn(seed, 1);
+  const player = teams[0].map((character, index) => combatant(`player-${index}`, character));
+  const enemy = teams[1].map((character, index) => combatant(`enemy-${index}`, character));
+  initializeStartingStacks([player, enemy]);
   return {
     turn: 1,
     activeSide: firstSlot === 0 ? 'player' : 'enemy',
-    player: teams[0].map((character, index) => combatant(`player-${index}`, character)),
-    enemy: teams[1].map((character, index) => combatant(`enemy-${index}`, character)),
+    player,
+    enemy,
     playerChakra: chakraRoll(seed, 1, 0, firstSlot === 0 ? 1 : 3),
     enemyChakra: chakraRoll(seed, 1, 1, firstSlot === 1 ? 1 : 3),
     damageDealt: { player: 0, enemy: 0 },
@@ -161,6 +234,7 @@ function resolveActions(
         winnerSlot: null,
       };
     }
+    gainStacksOnSkillUse(result.state, mapped.sourceId);
     const opposingBefore = (side === 'player' ? state.enemy : state.player)
       .reduce((sum, combatant) => sum + combatant.health + combatant.shield, 0);
     const opposingAfter = (side === 'player' ? result.state.enemy : result.state.player)
@@ -189,7 +263,7 @@ export function validateAuthoritativeActions(
   slot: 0 | 1,
   actions: MatchProtocolAction[],
 ): { status: 'valid' } | { status: 'unsupported' | 'rejected'; code: string } {
-  const result = resolveActions(state, slot, actions);
+  const result = resolveActions(state, slot, actions, true);
   return result.status === 'resolved'
     ? { status: 'valid' }
     : { status: result.status, code: result.code || 'invalid-action' };

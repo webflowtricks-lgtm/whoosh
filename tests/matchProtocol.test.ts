@@ -60,7 +60,7 @@ test('advances the authoritative turn only after both player slots submit', () =
   assert.equal(room.resolvedTurn, 1);
 });
 
-test('enforces the initiative order and alternates the first slot each turn', () => {
+test('keeps the seed-derived leader first on every turn', () => {
   const room = createRoom();
   const firstTurnLeader = firstSlotForTurn(room.seed, 1);
   const firstTurnResponder = (firstTurnLeader === 0 ? 1 : 0) as 0 | 1;
@@ -72,7 +72,7 @@ test('enforces the initiative order and alternates the first slot each turn', ()
 
   const secondTurnLeader = firstSlotForTurn(room.seed, 2);
   const secondTurnResponder = (secondTurnLeader === 0 ? 1 : 0) as 0 | 1;
-  assert.notEqual(secondTurnLeader, firstTurnLeader);
+  assert.equal(secondTurnLeader, firstTurnLeader);
   assert.equal(submitTurnActions(room, secondTurnResponder, 2, [validAction]).status, 'conflict');
   assert.equal(submitTurnActions(room, secondTurnLeader, 2, [validAction]).status, 'accepted');
   assert.equal(submitTurnActions(room, secondTurnResponder, 2, [validAction]).status, 'accepted');
