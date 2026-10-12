@@ -12791,10 +12791,13 @@ splashOnlyTargets = splashPool.filter(c =>
 
     const envUrl = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_WS_URL;
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     // Produção (Vercel): rewrite não repassa upgrade de WebSocket — aponta direto
     // para o Render. Ao migrar de conta/serviço, ajuste aqui ou defina VITE_WS_URL.
-    const wsUrl = envUrl || (isLocal ? `${proto}//${window.location.host}/ws` : 'wss://narutoarena.onrender.com/ws');
+    const isVercel = window.location.hostname.endsWith('.vercel.app');
+    const wsBase = envUrl || (isVercel
+      ? 'wss://narutoarena.onrender.com/ws'
+      : `${proto}//${window.location.host}/ws`);
+    const wsUrl = `${wsBase}${wsBase.includes('?') ? '&' : '?'}roomId=${encodeURIComponent(onlineParams.roomId)}`;
 
     const scheduleReconnect = () => {
       if (closed || reconnectTimer) return;

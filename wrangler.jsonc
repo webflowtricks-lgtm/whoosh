@@ -7,6 +7,15 @@
   "vars": {
     "LEGACY_API_ORIGIN": "https://narutoarena.onrender.com"
   },
+  "durable_objects": {
+    "bindings": [
+      { "name": "MATCHMAKER", "class_name": "MatchmakerDurableObject" },
+      { "name": "MATCH_ROOM", "class_name": "MatchRoomDurableObject" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["MatchmakerDurableObject", "MatchRoomDurableObject"] }
+  ],
   "assets": {
     "directory": "./dist/client",
     "binding": "ASSETS",

@@ -21,7 +21,9 @@ View your app in AI Studio: https://ai.studio/apps/8522cf8c-35ea-4988-a803-d48e1
 
 ## Cloudflare migration status
 
-The repository currently uses an Express/Node backend and JSON-file persistence. The Cloudflare target is **not yet a full backend migration**. The first reversible deployment unit is a Workers Static Assets frontend with an edge gateway that forwards `/api/*` and `/ws` to the existing backend, preserving the current API and WebSocket behavior while the backend is migrated separately.
+The React/Vite frontend is published with Workers Static Assets. Multiplayer matchmaking, turn submissions, room snapshots, WebSocket pushes, chat, emojis, surrender, disconnect timeouts, and online surrender history now run through Cloudflare Durable Objects with SQLite-backed room state. The coordinator Durable Object serializes matchmaking and each battle uses its own named room Durable Object.
+
+Authentication, account sessions, profiles/progression, character/configuration administration, and account JSON persistence still use the Express/Render API. The Worker validates multiplayer HTTP sessions against that API, and room WebSocket joins revalidate there as well. This is an incremental migration: D1 has not replaced account storage, and battle damage, victory, and rewards are not server-authoritative yet. The room API deliberately rejects `/api/match/finish` rather than accepting a client-provided win/loss result; until combat is authoritative, normal battle result history/rewards remain incomplete on this beta.
 
 ### Run the Cloudflare frontend gateway locally
 
@@ -29,18 +31,18 @@ The repository currently uses an Express/Node backend and JSON-file persistence.
 2. Copy `.dev.vars.example` to `.dev.vars`. This local-only file points the gateway to `http://localhost:3000`; do not commit it.
 3. Build only the public Vite assets: `npm run build:cf`.
 4. Start the local Workers runtime: `npm run cf:dev`.
-5. Open `http://127.0.0.1:8788/`. API and WebSocket paths are forwarded to the configured legacy origin. Without a valid `LEGACY_API_ORIGIN`, API requests fail explicitly with HTTP 503; failed upstream requests return 502.
+5. Open `http://127.0.0.1:8788/`. Matchmaking and room APIs use local Durable Objects; account and configuration APIs continue to use the configured legacy origin. `.dev.vars.example` shows the local backend setting.
 
 The Cloudflare asset directory is `dist/client`, intentionally separate from the legacy Node bundle at `dist/server.cjs` so the server bundle and source map are not published as static assets.
 
-### Beta on Cloudflare (shared production backend)
+### Beta on Cloudflare (incremental cutover)
 
-The beta Worker is separate from the Vercel domain and is served on its `workers.dev` address. It uses the existing Render backend (`https://narutoarena.onrender.com`) for `/api/*` and `/ws`; therefore beta users share production accounts, progress, matchmaking, battles, and data. This is a frontend/edge beta, not the Cloudflare backend migration. It has no D1 or Durable Object bindings.
+The beta Worker is served at `https://naruto-infinity-beta.robertosouzasouza999.workers.dev` and does not replace the Vercel domain. Matchmaking and room state are stored in the Worker account's Durable Objects; accounts, profiles and game configuration still share production Render data. This beta can create real online rooms, so coordinate testing with the existing player population.
 
-To deploy after authenticating Wrangler with `npx wrangler login`, run `npm run cf:deploy`. This publishes the Worker named `naruto-infinity-beta`; it does not change DNS or replace Vercel. Verify the deployed URL, sign-in, profile loading, matchmaking and battle WebSocket behavior before inviting players. Rollback is to disable/delete this beta Worker; the existing Vercel/Render route remains unchanged. Avoid load tests or test accounts that could affect real players or production data.
+After `npx wrangler login`, `npm run cf:deploy` builds and publishes the Worker. It does not change DNS. Wrangler migrations create SQLite-backed Durable Object namespaces for the matchmaker coordinator and individual rooms. Rollback to the prior frontend Worker version is possible, but matches created by the Durable Objects are not visible to Render; do not switch an active match between the beta and the old Vercel game.
 
 ### Data and service cutover gates
 
-The JSON persistence set includes users/progress, characters and game configuration, cards/packs, account sessions, active match rooms, and online battle history. A production migration needs a consistent export, immutable verified backup, field-level validation, idempotent import, before/after counts, and a tested rollback. The current account file uses legacy password storage, and Google sign-in identity is currently accepted through the existing API contract; authentication must be hardened and compatibility-tested before accounts can move to D1. Match rooms cannot move to Durable Objects as authoritative state until the full combat engine and disconnect/reconnect/reward lifecycle are ported and differential-tested.
+The remaining JSON persistence set includes users/progress, characters and game configuration, cards/packs, and account sessions. A D1 migration needs a consistent export, immutable verified backup, field-level validation, idempotent import, before/after counts, and a tested rollback. The current account file uses legacy password storage, and Google sign-in identity is currently accepted through the existing API contract; authentication needs a compatibility plan before accounts can move to D1. Durable room state currently stores submitted actions and client state reports, not server-calculated damage. The combat engine must be completed before authoritative outcomes or rewards can move.
 
 R2 is not configured: existing game images are served from the repository's static assets or external image URLs, and no evidence currently requires object storage.
