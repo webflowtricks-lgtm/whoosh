@@ -171,6 +171,7 @@ function decrementTurnState(state: CombatEngineState): void {
     }
     character.activeEffects = character.activeEffects.filter(effect => {
       if (effect.duration >= 99999) return true;
+      if (effect.castTurn === state.turn) return true;
       effect.duration--;
       return effect.duration > 0;
     });

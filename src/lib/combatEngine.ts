@@ -65,6 +65,15 @@ const SUPPORTED_SKILL_FIELDS = new Set([
   'shieldDuration',
   'shieldIrremovable',
   'noChakraCost',
+  'permanent',
+  'doNotApplyIfActive',
+  'invulnerableDuration',
+  'invulnerableTypes',
+  'invulnerableClasses',
+  'immortalHpThreshold',
+  'immortalDuration',
+  'immortalImmediate',
+  'afflictionInstant',
 ]);
 
 const SUPPORTED_ACTIVE_EFFECT_TYPES = new Set([
@@ -118,6 +127,9 @@ function hasUnsupportedSkillMechanics(skill: Skill): boolean {
     if (SUPPORTED_SKILL_FIELDS.has(field) || value == null || value === false || value === 0 || value === '') {
       return false;
     }
+    if (field === 'afflictionInstant' && !(skill.afflictionVal && skill.afflictionVal > 0)) {
+      return false;
+    }
     return !Array.isArray(value) || value.length > 0;
   });
 }
@@ -126,7 +138,12 @@ function hasUnsupportedActiveEffects(combatants: CombatCharacter[]): boolean {
   return combatants.some(combatant =>
     combatant.activeEffects.some(effect =>
       !SUPPORTED_ACTIVE_EFFECT_TYPES.has(effect.type) &&
-      !(effect.type === 'custom' && effect.stackable === true && !!effect.stackType),
+      !(effect.type === 'custom' && effect.stackable === true && !!effect.stackType) &&
+      !(effect.type === 'custom' &&
+        effect.sourceSkillName &&
+        combatant.character.skills.some(skill =>
+          skill.name === effect.sourceSkillName && skill.permanent === true,
+        )),
     ),
   );
 }
@@ -145,6 +162,27 @@ function consumeFirstHitImmunity(target: CombatCharacter, incomingTypes: string[
     return !effect.immunityTypes?.length || incomingTypes.some(type => effect.immunityTypes?.includes(type));
   });
   if (index !== -1) target.activeEffects.splice(index, 1);
+}
+
+function activateThresholdImmortality(target: CombatCharacter, turn: number): void {
+  if (target.isDead || hasImmortalEffect(target)) return;
+  const skill = target.character.skills.find(candidate =>
+    (candidate.immortalHpThreshold || 0) > 0 &&
+    target.health <= candidate.immortalHpThreshold! &&
+    target.activeEffects.some(effect =>
+      effect.name === candidate.name || effect.sourceSkillName === candidate.name,
+    ),
+  );
+  if (!skill) return;
+  target.activeEffects.push({
+    name: `${skill.name} (Imortal)`,
+    type: 'immortal',
+    duration: skill.immortalDuration || 3,
+    icon: skill.icon,
+    casterId: target.id,
+    casterSide: target.id.startsWith('player-') ? 'player' : 'enemy',
+    castTurn: turn,
+  });
 }
 
 function isFriendlyEffectBlocked(target: CombatCharacter, skill: Skill): boolean {
@@ -263,6 +301,8 @@ function applyDamage(
     target.health = hasImmortalEffect(target)
       ? Math.max(1, target.health - damage)
       : Math.max(0, target.health - damage);
+    activateThresholdImmortality(target, turn);
+    if (hasImmortalEffect(target)) target.health = Math.max(1, target.health);
     if (target.health === 0) target.isDead = true;
   }
 
@@ -331,6 +371,11 @@ export function resolveCombatIntent(
   const skill = source.character.skills[intent.skillIndex];
   if (!skill || skill.isPassive) return result('rejected', 'invalid-skill', state);
   if (hasUnsupportedSkillMechanics(skill)) return result('unsupported', 'skill-mechanics-not-ported', state);
+  if (skill.doNotApplyIfActive && source.activeEffects.some(effect =>
+    effect.name === skill.name || effect.sourceSkillName === skill.name,
+  )) {
+    return result('rejected', 'effect-already-active', state);
+  }
   if ((skill.damage || 0) > 0 && (skill.directDamage || 0) > 0) {
     return result('unsupported', 'multiple-damage-channels-not-ported', state);
   }
@@ -348,12 +393,20 @@ export function resolveCombatIntent(
   const targetType = getEffectiveTargetType(skill, source, allCombatants, state.turn);
   const isAttack = (skill.damage || 0) > 0 || (skill.directDamage || 0) > 0;
   const isFriendlyAction = (skill.heal || 0) > 0 || (skill.shieldVal || 0) > 0;
+  const hasSelfEffect = targetType === 'Self' && (
+    skill.permanent === true ||
+    (skill.invulnerableDuration || 0) > 0 ||
+    (skill.immortalDuration || 0) > 0 ||
+    (skill.immortalHpThreshold || 0) > 0 ||
+    ((skill.afflictionInstant || 0) > 0 && !(skill.afflictionVal && skill.afflictionVal > 0))
+  );
   if (isAttack && isFriendlyAction) return result('unsupported', 'combined-offense-and-support-not-ported', state);
 
   if (targetType !== 'Enemy' && targetType !== 'Self' && targetType !== 'Ally' && targetType !== 'AllAllies') {
     return result('unsupported', 'target-type-not-ported', state);
   }
-  if ((targetType === 'Enemy' && !isAttack) || (targetType !== 'Enemy' && !isFriendlyAction)) {
+  if ((targetType === 'Enemy' && !isAttack) ||
+    (targetType !== 'Enemy' && !isFriendlyAction && !hasSelfEffect)) {
     return result('unsupported', 'target-type-effect-combination-not-ported', state);
   }
 
@@ -366,7 +419,7 @@ export function resolveCombatIntent(
   if (isAttack && checkCombatantInvulnerable(target, skill, source)) {
     return result('rejected', 'target-invulnerable', state);
   }
-  if (!isAttack && !isFriendlyAction) {
+  if (!isAttack && !isFriendlyAction && !hasSelfEffect) {
     return result('unsupported', 'skill-effect-not-ported', state);
   }
 
@@ -403,6 +456,52 @@ export function resolveCombatIntent(
         applyFriendlyEffects(nextSource, friendlyTarget, nextSkill, nextState.turn),
       )),
   ];
+
+  if (skill.permanent && !nextTarget.activeEffects.some(effect =>
+    effect.type === 'custom' && effect.sourceSkillName === skill.name,
+  )) {
+    nextTarget.activeEffects.push({
+      name: skill.name,
+      type: 'custom',
+      value: 0,
+      duration: 99999,
+      icon: skill.icon,
+      sourceSkillName: skill.name,
+      casterId: nextSource.id,
+      casterSide: intent.side,
+    });
+  }
+
+  if ((skill.invulnerableDuration || 0) > 0) {
+    nextTarget.activeEffects.push({
+      name: `${skill.name} Escape`,
+      type: 'invulnerable',
+      duration: skill.invulnerableDuration!,
+      icon: skill.icon,
+      invulnerableTypes: skill.invulnerableTypes,
+      invulnerableClasses: skill.invulnerableClasses,
+      casterId: nextSource.id,
+      casterSide: intent.side,
+      castTurn: nextState.turn,
+    });
+  }
+
+  activateThresholdImmortality(nextSource, nextState.turn);
+  if ((skill.immortalDuration || 0) > 0 &&
+    (skill.immortalImmediate ||
+      (!(skill.immortalHpThreshold || 0) && skill.immortalImmediate !== false)) &&
+    !nextSource.activeEffects.some(effect => effect.type === 'immortal')) {
+    nextSource.activeEffects.push({
+      name: `${skill.name} (Imortal)`,
+      type: 'immortal',
+      duration: skill.immortalDuration || 3,
+      icon: skill.icon,
+      casterId: nextSource.id,
+      casterSide: intent.side,
+      castTurn: nextState.turn,
+    });
+  }
+
   if (opposingTeam.length > 0 && opposingTeam.every(combatant => {
     const updated = [...nextState.player, ...nextState.enemy]
       .find(candidate => candidate.id === combatant.id);

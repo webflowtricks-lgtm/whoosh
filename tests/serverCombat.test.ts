@@ -8,6 +8,7 @@ import {
   resolveAuthoritativeTurn,
   validateAuthoritativeActions,
 } from '../workers/serverCombat';
+import { resolveCombatIntent } from '../src/lib/combatEngine';
 
 const catalog = JSON.parse(
   readFileSync(new URL('../src/data/custom_characters.json', import.meta.url), 'utf8'),
@@ -93,6 +94,88 @@ test('rejects catalog mechanics not yet implemented rather than partially resolv
     }]),
     { status: 'unsupported', code: 'skill-mechanics-not-ported' },
   );
+});
+
+test('supports Rock Lee Fifth Gate marker and threshold immortality', () => {
+  const lee = findCharacter('Rock Lee');
+  const state = createServerCombatState([
+    team(lee),
+    team(findCharacter('Tenten')),
+  ], 21);
+  state.playerChakra = { Tai: 5, Nin: 5, Gen: 5, Blood: 5 };
+  state.enemyChakra = { Tai: 5, Nin: 5, Gen: 5, Blood: 5 };
+  state.player[0].health = 45;
+  const fifthGate = findSkill(lee, 'Fifth Gate Opening');
+
+  const activated = resolveCombatIntent(state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex: fifthGate,
+    targetId: 'player-0',
+  });
+  assert.equal(activated.status, 'applied');
+  if (activated.status !== 'applied') return;
+  assert.ok(activated.state.player[0].activeEffects.some(effect =>
+    effect.sourceSkillName === 'Fifth Gate Opening',
+  ));
+  assert.deepEqual(
+    validateAuthoritativeActions(activated.state, 0, [{
+      sourceId: 'player-0',
+      skillIndex: fifthGate,
+      targetId: 'player-0',
+    }]),
+    { status: 'rejected', code: 'effect-already-active' },
+  );
+
+  const damaged = resolveCombatIntent({
+    ...activated.state,
+    activeSide: 'enemy',
+  }, {
+    side: 'enemy',
+    sourceId: 'enemy-0',
+    skillIndex: findSkill(findCharacter('Tenten'), 'Jidanda'),
+    targetId: 'player-0',
+  });
+  assert.equal(damaged.status, 'applied');
+  if (damaged.status !== 'applied') return;
+  assert.ok(damaged.state.player[0].health <= 40);
+  assert.ok(damaged.state.player[0].health >= 1);
+  assert.ok(damaged.state.player[0].activeEffects.some(effect => effect.type === 'immortal'));
+  assert.equal(damaged.state.player[0].isDead, false);
+});
+
+test('supports Tenten Twin Dragons Defense through the opposing action in the same turn', () => {
+  const tenten = findCharacter('Tenten');
+  const state = createServerCombatState([
+    team(tenten),
+    team(findCharacter('Tenten')),
+  ], 21);
+  state.playerChakra = { Tai: 5, Nin: 5, Gen: 5, Blood: 5 };
+  state.enemyChakra = { Tai: 5, Nin: 5, Gen: 5, Blood: 5 };
+
+  const defense = resolveCombatIntent(state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex: findSkill(tenten, 'Twin Dragons Defense'),
+    targetId: 'player-0',
+  });
+  assert.equal(defense.status, 'applied');
+  if (defense.status !== 'applied') return;
+  assert.ok(defense.state.player[0].activeEffects.some(effect =>
+    effect.type === 'invulnerable' && effect.duration === 1 && effect.castTurn === 1,
+  ));
+
+  const attack = resolveCombatIntent({
+    ...defense.state,
+    activeSide: 'enemy',
+  }, {
+    side: 'enemy',
+    sourceId: 'enemy-0',
+    skillIndex: findSkill(findCharacter('Tenten'), 'Jidanda'),
+    targetId: 'player-0',
+  });
+  assert.equal(attack.status, 'rejected');
+  if (attack.status === 'rejected') assert.equal(attack.code, 'target-invulnerable');
 });
 
 test('derives a battle winner from server-calculated team deaths', () => {
