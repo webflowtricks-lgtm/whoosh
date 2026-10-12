@@ -12791,11 +12791,10 @@ splashOnlyTargets = splashPool.filter(c =>
 
     const envUrl = (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_WS_URL;
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Produção (Vercel): rewrite não repassa upgrade de WebSocket — aponta direto
-    // para o Render. Ao migrar de conta/serviço, ajuste aqui ou defina VITE_WS_URL.
+    // Vercel API rewrites do not proxy WebSocket upgrades, so connect to the Worker directly.
     const isVercel = window.location.hostname.endsWith('.vercel.app');
     const wsBase = envUrl || (isVercel
-      ? 'wss://naruto-3loc.onrender.com/ws'
+      ? 'wss://naruto-infinity-beta.robertosouzasouza999.workers.dev/ws'
       : `${proto}//${window.location.host}/ws`);
     const wsUrl = `${wsBase}${wsBase.includes('?') ? '&' : '?'}roomId=${encodeURIComponent(onlineParams.roomId)}`;
 

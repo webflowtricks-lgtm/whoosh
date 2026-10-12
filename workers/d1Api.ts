@@ -18,7 +18,6 @@ export interface D1Database {
 
 export interface D1Env {
   DB: D1Database;
-  LEGACY_API_ORIGIN?: string;
   FIREBASE_PROJECT_ID?: string;
 }
 
@@ -116,86 +115,6 @@ async function createTicket(db: D1Database, username: string): Promise<string> {
   return ticket;
 }
 
-async function fetchLegacy(request: Request, env: D1Env, path: string): Promise<Response> {
-  if (!env.LEGACY_API_ORIGIN) return error(503, 'O endpoint legado ainda não está configurado.');
-  const origin = new URL(env.LEGACY_API_ORIGIN);
-  const incoming = new URL(request.url);
-  const upstream = new URL(path + incoming.search, origin);
-  return fetch(new Request(upstream, request));
-}
-
-async function importLegacyLogin(
-  request: Request,
-  env: D1Env,
-  username: string,
-  password: string,
-): Promise<Response> {
-  let legacyResponse: Response;
-  try {
-    legacyResponse = await fetchLegacy(request, env, '/api/auth/login');
-  } catch (cause) {
-    console.error('[d1-auth] Falha ao autenticar conta ainda não migrada.', cause);
-    return error(502, 'Não foi possível validar esta conta no serviço de autenticação legado.');
-  }
-  const result = await legacyResponse.json().catch(() => null) as
-    | { success?: boolean; error?: string; user?: Record<string, unknown> }
-    | null;
-  if (!legacyResponse.ok || !result?.user) {
-    return json(result || { error: 'Usuário ou senha incorretos.' }, legacyResponse.status || 401);
-  }
-
-  const user = result.user;
-  const userUsername = normalizedUsername(user.username) || username;
-  let profile: Record<string, unknown> = { ...user, username: userUsername };
-  try {
-    const profileRequest = new Request(
-      new URL(`/api/user/profile?username=${encodeURIComponent(userUsername)}`, env.LEGACY_API_ORIGIN),
-      { headers: { Accept: 'application/json' } },
-    );
-    const profileResponse = await fetch(profileRequest);
-    if (profileResponse.ok) {
-      const profileResult = await profileResponse.json() as { user?: Record<string, unknown> };
-      if (profileResult.user && typeof profileResult.user === 'object') {
-        profile = { ...profileResult.user, username: userUsername };
-      }
-    }
-  } catch (cause) {
-    console.error('[d1-auth] Perfil legado indisponível; preservando o perfil retornado no login.', cause);
-  }
-
-  const salt = randomHex(16);
-  const passwordHash = await derivePassword(password, salt);
-  delete profile.password;
-  await env.DB.prepare(`
-    INSERT INTO accounts (username, password_salt, password_hash, profile_json)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(username) DO NOTHING
-  `).bind(userUsername, salt, passwordHash, JSON.stringify(profile)).run();
-
-  const stored = await env.DB.prepare(
-    'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
-  ).bind(userUsername).first<AccountRow>();
-  if (!stored) {
-    return error(409, 'A conta foi alterada durante a migração; tente entrar novamente.');
-  }
-  if (!stored.password_hash || !stored.password_salt ||
-      !constantTimeEqual(await derivePassword(password, stored.password_salt), stored.password_hash)) {
-    await env.DB.prepare(`
-      UPDATE accounts SET password_salt = ?, password_hash = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE username = ?
-    `).bind(salt, passwordHash, userUsername).run();
-  }
-  const current = await env.DB.prepare(
-    'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
-  ).bind(userUsername).first<AccountRow>();
-  if (!current) return error(500, 'Não foi possível concluir a migração desta conta.');
-  return json({
-    success: true,
-    sessionTicket: await createTicket(env.DB, userUsername),
-    user: publicAccount(current),
-  });
-}
-
 async function register(request: Request, env: D1Env): Promise<Response> {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return error(400, 'Dados de cadastro inválidos.');
@@ -232,11 +151,10 @@ async function login(request: Request, env: D1Env): Promise<Response> {
   const account = await env.DB.prepare(
     'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
   ).bind(username).first<AccountRow>();
-  if (!account) return importLegacyLogin(request, env, username, password);
+  if (!account) return error(401, 'Usuário ou senha incorretos.');
   if (!account.password_hash || !account.password_salt ||
       !constantTimeEqual(await derivePassword(password, account.password_salt), account.password_hash)) {
-    if (!env.LEGACY_API_ORIGIN) return error(401, 'Usuário ou senha incorretos.');
-    return importLegacyLogin(request, env, username, password);
+    return error(401, 'Usuário ou senha incorretos.');
   }
   return json({
     success: true,
@@ -531,7 +449,7 @@ async function profileRoute(request: Request, env: D1Env, pathname: string): Pro
     const row = await env.DB.prepare(
       'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
     ).bind(username).first<AccountRow>();
-    if (!row) return null;
+    if (!row) return error(404, 'Usuário não encontrado.');
     return json({ success: true, user: publicAccount(row) });
   }
   if (pathname !== '/api/user/profile' || request.method !== 'PUT') return null;
@@ -607,6 +525,20 @@ async function readConfig(db: D1Database, key: string): Promise<unknown[] | null
   return value;
 }
 
+export async function getD1Config(db: D1Database, key: string): Promise<unknown[] | null> {
+  return readConfig(db, key);
+}
+
+export async function getD1AccountProfile(
+  db: D1Database,
+  username: string,
+): Promise<Record<string, unknown> | null> {
+  const row = await db.prepare(
+    'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
+  ).bind(username.trim().toLowerCase()).first<AccountRow>();
+  return row ? publicAccount(row) : null;
+}
+
 async function writeConfig(db: D1Database, key: string, values: unknown[]): Promise<void> {
   if (values.length > 20_000) throw new Error(`Configuração ${key} excede o limite de registros.`);
   const version = randomHex(16);
@@ -645,27 +577,12 @@ async function writeConfig(db: D1Database, key: string, values: unknown[]): Prom
 }
 
 async function getConfig(
-  request: Request,
   env: D1Env,
-  path: string,
   config: { key: string; field: string },
 ): Promise<Response> {
   const stored = await readConfig(env.DB, config.key);
   if (stored !== null) return json({ success: true, [config.field]: stored });
-
-  let legacy: Response;
-  try {
-    legacy = await fetchLegacy(request, env, path);
-  } catch (cause) {
-    console.error(`[d1-config] Falha ao importar ${config.key} do backend legado.`, cause);
-    return error(502, `Não foi possível carregar ${config.key} do backend legado.`);
-  }
-  if (!legacy.ok) return legacy;
-  const value = await legacy.json().catch(() => null) as Record<string, unknown> | null;
-  const content = value?.[config.field];
-  if (!Array.isArray(content)) return error(502, `Resposta legada inválida para ${config.key}.`);
-  await writeConfig(env.DB, config.key, content);
-  return json({ success: true, [config.field]: await readConfig(env.DB, config.key) || [] });
+  return error(503, `Configuração ${config.key} ainda não foi migrada para D1.`);
 }
 
 async function saveConfig(
@@ -704,22 +621,7 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
       }
       backup[config.key] = items;
     }
-    if (missing && env.LEGACY_API_ORIGIN) {
-      const legacy = await fetchLegacy(request, env, '/api/config/export');
-      if (!legacy.ok) return legacy;
-      const data = await legacy.json() as Record<string, unknown>;
-      const importMap: Record<string, string> = {
-        characters: 'characters', quests: 'quests', shop: 'shop', events: 'events',
-        ranks: 'ranks', banners: 'banners', frames: 'frames', cards: 'cards',
-        cardPacks: 'cardPacks',
-      };
-      for (const [key, field] of Object.entries(importMap)) {
-        if (Array.isArray(data[field])) {
-          if (backup[key] === undefined) await writeConfig(env.DB, key, data[field]);
-          backup[key] = backup[key] ?? data[field];
-        }
-      }
-    }
+    if (missing) return error(503, 'Nem todas as configurações foram migradas para D1.');
     return json(backup);
   }
   if (pathname === '/api/config/import' && request.method === 'POST') {
@@ -739,7 +641,7 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
   }
   const config = CONFIGS[pathname];
   if (!config) return null;
-  if (request.method === 'GET') return getConfig(request, env, pathname, config);
+  if (request.method === 'GET') return getConfig(env, config);
   if (request.method === 'POST') return saveConfig(request, env, config);
   return null;
 }

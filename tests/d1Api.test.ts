@@ -308,8 +308,8 @@ test('persists profile progression and cosmetic updates for the current beta cli
   assert.equal(profile.xp, 999999);
 });
 
-test('lazy-imports a configuration from the legacy API once and serves D1 thereafter', async () => {
-  const env = { DB: new MemoryD1(), LEGACY_API_ORIGIN: 'https://legacy.test' };
+test('rejects an unimported configuration without contacting the legacy API', async () => {
+  const env = { DB: new MemoryD1() };
   const originalFetch = globalThis.fetch;
   let calls = 0;
   try {
@@ -319,9 +319,9 @@ test('lazy-imports a configuration from the legacy API once and serves D1 therea
     };
     const first = await handleD1Request(request('/api/characters', 'GET'), env);
     const second = await handleD1Request(request('/api/characters', 'GET'), env);
-    assert.deepEqual((await responseBody(first!)).characters, [{ id: 'one' }, { id: 'two' }]);
-    assert.deepEqual((await responseBody(second!)).characters, [{ id: 'one' }, { id: 'two' }]);
-    assert.equal(calls, 1);
+    assert.equal(first?.status, 503);
+    assert.equal(second?.status, 503);
+    assert.equal(calls, 0);
   } finally {
     globalThis.fetch = originalFetch;
   }

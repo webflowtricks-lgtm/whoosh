@@ -13,7 +13,7 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 - Start an isolated local load-test server with `WHOOSH_DATA_DIR` pointing to a temporary data directory, `PORT=3100`, `ENABLE_LOAD_TEST_AUTH=true`, and `ENABLE_RUNTIME_METRICS=true`; copy `src/data/custom_characters.json` into that directory before startup. Never enable test auth in production.
 - `npm run load:online -- --url http://localhost:3100 --players 60 --rooms 15 --turns 10` — repeatable local multiplayer protocol load (30 active players + 30 matchmaking pollers)
 - For 60 active players use `--rooms 30`; each room currently has two human players.
-- Deploy: `vercel.json` rewrites `/api/*` to `https://naruto-3loc.onrender.com/api`
+- Deploy: `vercel.json` rewrites `/api/*` to the Cloudflare Worker; the Vercel domain remains the frontend host.
 
 ## Architecture
 - **Backend**: single-file Express API (`server.ts`), persistence via JSON files in `src/data/` using `readJSON`/`writeJSON` helpers.
@@ -175,7 +175,7 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - Deflate ON: `perMessageDeflate:{threshold:128,zlibDeflateOptions:{level:9}}` (~3-5x wire reduction). Ping replies `{type:'pong'}`.
 - Client: data handling lives in `processData(data)` inside `runSync(wsData?)` — SHARED by HTTP fetch (`.then(processData)`), WS push and submit-response. Do NOT duplicate that logic again.
 - **WS health = `wsConnectedRef && Date.now()-lastWsMsgAtRef < 45000`** (ping every 25s keeps freshness). When healthy: syncLoop does ZERO HTTP (checks every 5s), chat poll returns early, emoji poll returns early, watchdog heartbeat skipped. When unhealthy: everything falls back automatically (sync 1500ms, polls resume).
-- URL: localhost → same-host `/ws`; production defaults to `wss://naruto-3loc.onrender.com/ws` because Vercel rewrites do NOT pass WS upgrade. Override with `VITE_WS_URL` env at build time or edit the constant when migrating Render service.
+- URL: localhost → same-host `/ws`; production defaults to `wss://naruto-infinity-beta.robertosouzasouza999.workers.dev/ws` because Vercel rewrites do NOT pass WS upgrade. Override with `VITE_WS_URL` env at build time or edit the constant when migrating Render service.
 - Smoke-tested locally (smoke v26): opponent-only pushes ✔, submitter fed by HTTP response room ✔, dedup collapses identical reports ✔, chat all / emoji opponent-only ✔, deflate negotiated ✔.
 - **v27 — Render strips permessage-deflate (confirmed via raw upgrade: 101 but no `sec-websocket-extensions`)**. Compensations: `report-state` NO LONGER broadcasts a full room-state — it sends a tiny `{type:'report',username,turn,units,chakra}` event (≈208B, exclude reporter) consumed by `wsApplyReportRef` → shared `applyOppReport` (hoisted in runSync scope, same converge-para-menor logic + guards). `lightRoomObject` includes `stateReports` ONLY on `full` (join). `sendToRoom` events do NOT dedup (client guards make duplicates harmless).
 - Budget math @30 players × 24h/day: ~4KB/round/player (2 submits + 2 reports HTTP ≈ 3.2KB + ~2 deflated pushes ≈ 1KB) ≈ 170KB/h/player ≈ **~4GB/month total** — fits 5GB free tier. Without deflate on prod pushes: ~4KB/round still holds thanks to v27 slim reports (~2 submits+reports HTTP ≈ 3.2KB + ~1.5KB raw pushes) → **~3.5-4.5GB/month**, borderline but fits; monitor Render dashboard.

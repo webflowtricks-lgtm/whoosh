@@ -5,7 +5,6 @@
   "compatibility_date": "2026-10-12",
   "workers_dev": true,
   "vars": {
-    "LEGACY_API_ORIGIN": "https://naruto-3loc.onrender.com",
     "FIREBASE_PROJECT_ID": "secret-sunrise-pgtt6"
   },
   "durable_objects": {

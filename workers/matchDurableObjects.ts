@@ -4,7 +4,12 @@ import {
   submitTurnActions,
   type MatchProtocolAction,
 } from '../src/lib/matchProtocol';
-import { isD1SessionActive, type D1Env } from './d1Api';
+import {
+  getD1AccountProfile,
+  getD1Config,
+  isD1SessionActive,
+  type D1Env,
+} from './d1Api';
 
 interface WorkerAssets {
   fetch(request: Request): Promise<Response>;
@@ -69,7 +74,6 @@ interface HistoryRecord {
 
 interface MatchEnv {
   DB?: D1Env['DB'];
-  LEGACY_API_ORIGIN?: string;
   MATCH_ROOM: DurableObjectNamespace;
   MATCHMAKER: DurableObjectNamespace;
 }
@@ -123,15 +127,7 @@ async function verifySession(env: MatchEnv, username: string, token: string | nu
   if (username === 'convidado') return true;
   if (!validSessionToken(token)) return false;
   if (env.DB) return isD1SessionActive({ DB: env.DB }, username, token);
-  if (!env.LEGACY_API_ORIGIN) return false;
-  const response = await fetch(new URL('/api/auth/session/status', env.LEGACY_API_ORIGIN), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, sessionToken: token }),
-  });
-  if (!response.ok) return false;
-  const result = await response.json() as { status?: unknown };
-  return result.status === 'active';
+  return false;
 }
 
 function getRoomId(request: Request, body?: Record<string, unknown>): string {
@@ -207,25 +203,20 @@ export class MatchmakerDurableObject {
   private async authoritativePlayer(raw: Record<string, unknown>): Promise<PlayerSlot | null> {
     const username = canonicalUsername(raw.username);
     if (!username || username.length > 100 || !isValidMatchTeam(raw.team)) return null;
-
-    const origin = this.env.LEGACY_API_ORIGIN;
-    if (!origin) throw new Error('LEGACY_API_ORIGIN não configurado.');
-    const [charactersResponse, profileResponse] = await Promise.all([
-      fetch(new URL('/api/characters', origin)),
+    if (!this.env.DB) throw new Error('D1 não está configurado para validar a equipe.');
+    const [characters, storedProfile] = await Promise.all([
+      getD1Config(this.env.DB, 'characters'),
       username === 'convidado'
-        ? Promise.resolve(Response.json({ user: raw.profile || { username, name: raw.name || username } }))
-        : fetch(new URL(`/api/user/profile?username=${encodeURIComponent(username)}`, origin)),
+        ? Promise.resolve(null)
+        : getD1AccountProfile(this.env.DB, username),
     ]);
-    if (!charactersResponse.ok || !profileResponse.ok) {
-      throw new Error(`Falha ao carregar dados de jogador: characters=${charactersResponse.status}, profile=${profileResponse.status}.`);
-    }
-    const characterPayload = await charactersResponse.json() as { characters?: unknown };
-    const profilePayload = await profileResponse.json() as { user?: unknown };
-    if (!Array.isArray(characterPayload.characters)) throw new Error('Catálogo oficial de personagens inválido.');
+    if (!characters) throw new Error('Catálogo oficial de personagens ausente do D1.');
+    if (username !== 'convidado' && !storedProfile) return null;
     const catalog = new Map(
-      characterPayload.characters
+      characters
         .filter((character): character is Record<string, unknown> =>
-          !!character && typeof character === 'object' && typeof character.id === 'string')
+          !!character && typeof character === 'object' && 'id' in character &&
+          typeof character.id === 'string')
         .map(character => [character.id as string, character]),
     );
 
@@ -244,14 +235,16 @@ export class MatchmakerDurableObject {
     });
     if (team.some(character => !character)) return null;
 
-    const submittedName = typeof raw.name === 'string' ? raw.name.trim().slice(0, 100) : '';
-    const displayName = submittedName || username;
-    const profileUser = profilePayload.user;
+    const guestProfile = cleanPublicProfile(raw.profile, username, username);
+    const profile = storedProfile || guestProfile;
+    const displayName = typeof profile.name === 'string' && profile.name.trim()
+      ? profile.name.trim().slice(0, 100)
+      : username;
     return {
       username,
       name: displayName,
-      photoUrl: typeof raw.photoUrl === 'string' ? raw.photoUrl.slice(0, 2048) : '',
-      profile: cleanPublicProfile(profileUser, username, displayName),
+      photoUrl: typeof profile.photoUrl === 'string' ? profile.photoUrl.slice(0, 2048) : '',
+      profile: cleanPublicProfile(profile, username, displayName),
       team: team as PlayerSlot['team'],
     };
   }

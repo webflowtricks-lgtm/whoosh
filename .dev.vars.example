@@ -1,2 +1,1 @@
-# Local-only compatibility gateway target. Copy to .dev.vars for local testing.
-LEGACY_API_ORIGIN=http://localhost:3000
+# No legacy service URL is used. Use the D1 and Durable Object bindings from wrangler.jsonc.

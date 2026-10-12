@@ -1,6 +1,39 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { D1Database, D1PreparedStatement } from '../workers/d1Api';
 import worker from '../workers/index';
+
+function database(activeSessionHash: string | null = null): D1Database {
+  return {
+    prepare(query: string): D1PreparedStatement {
+      return {
+        bind() {
+          return this;
+        },
+        async first<T>() {
+          if (query.includes('FROM account_sessions') && activeSessionHash) {
+            return { active_token_hash: activeSessionHash } as T;
+          }
+          return null;
+        },
+        async all<T>() {
+          return { success: true, results: [] as T[] };
+        },
+        async run<T>() {
+          return { success: true, results: [] as T[] };
+        },
+      };
+    },
+    async batch<T>() {
+      return [{ success: true, results: [] as T[] }];
+    },
+  };
+}
+
+async function tokenHash(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
 
 function namespace(response: Response = Response.json({ routed: true })) {
   let requestedId = '';
@@ -36,7 +69,6 @@ test('serves non-API requests from Workers Static Assets', async () => {
         return new Response('static app');
       },
     },
-    LEGACY_API_ORIGIN: 'https://legacy.example',
     MATCHMAKER: matchmaker.value,
     MATCH_ROOM: namespace().value,
   };
@@ -49,40 +81,35 @@ test('serves non-API requests from Workers Static Assets', async () => {
 });
 
 test('requires an active account session before routing match HTTP requests', async () => {
-  const originalFetch = globalThis.fetch;
   const matchmaker = namespace();
   const env = {
     ASSETS: { async fetch() { return new Response('asset'); } },
-    LEGACY_API_ORIGIN: 'https://legacy.example',
+    DB: database(),
     MATCHMAKER: matchmaker.value,
     MATCH_ROOM: namespace().value,
   };
-  try {
-    globalThis.fetch = async () => Response.json({ status: 'revoked' });
-    const rejected = await worker.fetch(new Request('https://game.example/api/matchmaking/status?username=ninja', {
-      headers: { 'X-Account-Session': 'a'.repeat(32) },
-    }), env);
-    assert.equal(rejected.status, 401);
-    assert.equal(matchmaker.requestedId, '');
+  const token = 'a'.repeat(32);
+  const rejected = await worker.fetch(new Request('https://game.example/api/matchmaking/status?username=ninja', {
+    headers: { 'X-Account-Session': token },
+  }), env);
+  assert.equal(rejected.status, 401);
+  assert.equal(matchmaker.requestedId, '');
 
-    globalThis.fetch = async () => Response.json({ status: 'active' });
-    const accepted = await worker.fetch(new Request('https://game.example/api/matchmaking/status?username=ninja', {
-      headers: { 'X-Account-Session': 'a'.repeat(32) },
-    }), env);
-    assert.equal(accepted.status, 200);
-    assert.equal(matchmaker.requestedId, 'global-matchmaker');
-    assert.ok(matchmaker.forwarded);
-    assert.equal(matchmaker.forwarded?.url, 'https://game.example/api/matchmaking/status?username=ninja');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  const activeEnv = { ...env, DB: database(await tokenHash(token)) };
+  const accepted = await worker.fetch(new Request('https://game.example/api/matchmaking/status?username=ninja', {
+    headers: { 'X-Account-Session': token },
+  }), activeEnv);
+  assert.equal(accepted.status, 200);
+  assert.equal(matchmaker.requestedId, 'global-matchmaker');
+  assert.ok(matchmaker.forwarded);
+  assert.equal(matchmaker.forwarded?.url, 'https://game.example/api/matchmaking/status?username=ninja');
 });
 
 test('routes WebSockets to the room Durable Object named by roomId', async () => {
   const roomNamespace = namespace(new Response(null, { status: 426 }));
   const env = {
     ASSETS: { async fetch() { throw new Error('WebSocket reached assets'); } },
-    LEGACY_API_ORIGIN: 'https://legacy.example',
+    DB: database(),
     MATCHMAKER: namespace().value,
     MATCH_ROOM: roomNamespace.value,
   };
@@ -92,24 +119,16 @@ test('routes WebSockets to the room Durable Object named by roomId', async () =>
 });
 
 test('routes online battle history through the Durable Object store', async () => {
-  const originalFetch = globalThis.fetch;
   const matchmaker = namespace();
   const env = {
     ASSETS: { async fetch() { throw new Error('History reached assets'); } },
-    LEGACY_API_ORIGIN: 'https://legacy.example',
+    DB: database(),
     MATCHMAKER: matchmaker.value,
     MATCH_ROOM: namespace().value,
   };
-  try {
-    globalThis.fetch = async () => {
-      throw new Error('Public history must not depend on the legacy backend');
-    };
-    const response = await worker.fetch(new Request(
-      'https://game.example/api/user/online-battle-history?username=ninja',
-    ), env);
-    assert.equal(response.status, 200);
-    assert.equal(matchmaker.requestedId, 'global-matchmaker');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  const response = await worker.fetch(new Request(
+    'https://game.example/api/user/online-battle-history?username=ninja',
+  ), env);
+  assert.equal(response.status, 200);
+  assert.equal(matchmaker.requestedId, 'global-matchmaker');
 });
