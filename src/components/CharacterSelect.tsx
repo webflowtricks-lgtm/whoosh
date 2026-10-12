@@ -495,8 +495,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     setMatchmakingStatus('matched');
     setOpponent(opponentData);
 
-    // Audio cue
-    playGlobalSound('NextTurn', 0.55);
+    playGlobalSound('sharingan', 0.55);
 
     // Start 5 second countdown before starting battle
     let currentCountdown = 5;
