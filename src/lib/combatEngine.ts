@@ -9,6 +9,7 @@ import {
 } from '../types';
 import {
   checkCombatantInvulnerable,
+  hasEffectWithName,
   hasImmortalEffect,
   hasNegateFriendlyEffects,
   hasTotalInvulnerability,
@@ -67,6 +68,18 @@ const SUPPORTED_SKILL_FIELDS = new Set([
   'noChakraCost',
   'permanent',
   'doNotApplyIfActive',
+  'costRules',
+  'costRuleActiveSkill',
+  'costRuleReduceRand',
+  'costRuleReduceSpecificType',
+  'costRuleReduceSpecificAmount',
+  'damageRules',
+  'stunTurns',
+  'stunType',
+  'requireEffect',
+  'requireTargetEffect',
+  'damageReductionVal',
+  'damageReductionDuration',
   'invulnerableDuration',
   'invulnerableTypes',
   'invulnerableClasses',
@@ -124,6 +137,11 @@ function result(
 
 function hasUnsupportedSkillMechanics(skill: Skill): boolean {
   return Object.entries(skill).some(([field, value]) => {
+    if (field === 'damageRules') {
+      return Array.isArray(value) && value.some(rule =>
+        !['damage', 'direct_damage', 'piercing', undefined].includes(rule.damageType),
+      );
+    }
     if (SUPPORTED_SKILL_FIELDS.has(field) || value == null || value === false || value === 0 || value === '') {
       return false;
     }
@@ -333,6 +351,37 @@ function applyDamage(
   }];
 }
 
+function applyConditionalDamageRules(
+  skill: Skill,
+  allCombatants: CombatCharacter[],
+): Pick<Skill, 'damage' | 'directDamage'> {
+  let damage = skill.damage || 0;
+  let directDamage = skill.directDamage || 0;
+  let replaceDamage = false;
+  let replaceDirectDamage = false;
+  for (const rule of skill.damageRules || []) {
+    if (!rule.activeSkillName || rule.damageBoost <= 0 ||
+      !allCombatants.some(combatant => hasEffectWithName(combatant, rule.activeSkillName))) {
+      continue;
+    }
+    const direct = rule.damageType === 'direct_damage' || rule.damageType === 'piercing';
+    if (direct) {
+      directDamage += rule.damageBoost;
+      replaceDirectDamage ||= rule.ignoreBaseDamage !== false;
+    } else {
+      damage += rule.damageBoost;
+      replaceDamage ||= rule.ignoreBaseDamage !== false;
+    }
+  }
+  if (replaceDamage) damage = (skill.damageRules || []).some(rule =>
+    rule.activeSkillName && rule.damageBoost > 0 &&
+    rule.damageType !== 'direct_damage' && rule.damageType !== 'piercing' &&
+    allCombatants.some(combatant => hasEffectWithName(combatant, rule.activeSkillName)),
+  ) ? damage - (skill.damage || 0) : damage;
+  if (replaceDirectDamage) directDamage = directDamage - (skill.directDamage || 0);
+  return { damage, directDamage };
+}
+
 function spendSkillCost(pool: ChakraPool, costs: ReturnType<typeof getEffectiveSkillCost>): ChakraPool | null {
   const next = { ...pool };
   let randomCost = 0;
@@ -371,6 +420,9 @@ export function resolveCombatIntent(
   const skill = source.character.skills[intent.skillIndex];
   if (!skill || skill.isPassive) return result('rejected', 'invalid-skill', state);
   if (hasUnsupportedSkillMechanics(skill)) return result('unsupported', 'skill-mechanics-not-ported', state);
+  if (skill.requireEffect && !hasEffectWithName(source, skill.requireEffect)) {
+    return result('rejected', 'required-effect-missing', state);
+  }
   if (skill.doNotApplyIfActive && source.activeEffects.some(effect =>
     effect.name === skill.name || effect.sourceSkillName === skill.name,
   )) {
@@ -391,10 +443,13 @@ export function resolveCombatIntent(
   }
 
   const targetType = getEffectiveTargetType(skill, source, allCombatants, state.turn);
-  const isAttack = (skill.damage || 0) > 0 || (skill.directDamage || 0) > 0;
+  const effectiveDamage = applyConditionalDamageRules(skill, allCombatants);
+  const isAttack = effectiveDamage.damage > 0 || effectiveDamage.directDamage > 0;
   const isFriendlyAction = (skill.heal || 0) > 0 || (skill.shieldVal || 0) > 0;
+  const isControlAction = targetType === 'Enemy' && (skill.stunTurns || 0) > 0;
   const hasSelfEffect = targetType === 'Self' && (
     skill.permanent === true ||
+    (skill.damageReductionVal || 0) > 0 ||
     (skill.invulnerableDuration || 0) > 0 ||
     (skill.immortalDuration || 0) > 0 ||
     (skill.immortalHpThreshold || 0) > 0 ||
@@ -405,8 +460,9 @@ export function resolveCombatIntent(
   if (targetType !== 'Enemy' && targetType !== 'Self' && targetType !== 'Ally' && targetType !== 'AllAllies') {
     return result('unsupported', 'target-type-not-ported', state);
   }
-  if ((targetType === 'Enemy' && !isAttack) ||
-    (targetType !== 'Enemy' && !isFriendlyAction && !hasSelfEffect)) {
+  if ((targetType === 'Enemy' && !isAttack && !isControlAction) ||
+    (targetType !== 'Enemy' && !isFriendlyAction && !hasSelfEffect) ||
+    (targetType === 'Enemy' && !isAttack && !isControlAction)) {
     return result('unsupported', 'target-type-effect-combination-not-ported', state);
   }
 
@@ -416,10 +472,16 @@ export function resolveCombatIntent(
   if (targetType === 'Self' && target.id !== source.id) {
     return result('rejected', 'invalid-target', state);
   }
+  if (skill.requireTargetEffect && !hasEffectWithName(target, skill.requireTargetEffect)) {
+    return result('rejected', 'required-target-effect-missing', state);
+  }
   if (isAttack && checkCombatantInvulnerable(target, skill, source)) {
     return result('rejected', 'target-invulnerable', state);
   }
-  if (!isAttack && !isFriendlyAction && !hasSelfEffect) {
+  if (effectiveDamage.damage > 0 && effectiveDamage.directDamage > 0) {
+    return result('unsupported', 'combined-damage-types-not-ported', state);
+  }
+  if (!isAttack && !isFriendlyAction && !hasSelfEffect && !isControlAction) {
     return result('unsupported', 'skill-effect-not-ported', state);
   }
 
@@ -451,11 +513,29 @@ export function resolveCombatIntent(
   const events: CombatEngineEvent[] = [
     { type: 'chakra-spent', side: intent.side, chakra: { ...newChakraPool } },
     ...(isAttack
-      ? applyDamage(nextTarget, nextSkill, nextState.turn)
+      ? applyDamage(nextTarget, {
+        ...nextSkill,
+        damage: effectiveDamage.damage,
+        directDamage: effectiveDamage.directDamage,
+      }, nextState.turn)
       : friendlyTargets.flatMap(friendlyTarget =>
         applyFriendlyEffects(nextSource, friendlyTarget, nextSkill, nextState.turn),
       )),
   ];
+
+  if ((skill.stunTurns || 0) > 0 && targetType === 'Enemy') {
+    nextTarget.activeEffects.push({
+      name: `${skill.name} (Stun)`,
+      type: 'stun',
+      duration: skill.stunTurns!,
+      stunType: skill.stunType,
+      icon: skill.icon,
+      casterId: nextSource.id,
+      casterSide: intent.side,
+      castTurn: nextState.turn,
+      sourceSkillName: skill.name,
+    });
+  }
 
   if (skill.permanent && !nextTarget.activeEffects.some(effect =>
     effect.type === 'custom' && effect.sourceSkillName === skill.name,
@@ -483,6 +563,20 @@ export function resolveCombatIntent(
       casterId: nextSource.id,
       casterSide: intent.side,
       castTurn: nextState.turn,
+    });
+  }
+
+  if ((skill.damageReductionVal || 0) > 0) {
+    nextTarget.activeEffects.push({
+      name: `${skill.name} (Redução de Dano)`,
+      type: 'damage_reduction',
+      value: skill.damageReductionVal,
+      duration: skill.damageReductionDuration || 1,
+      icon: skill.icon,
+      casterId: nextSource.id,
+      casterSide: intent.side,
+      castTurn: nextState.turn,
+      sourceSkillName: skill.name,
     });
   }
 

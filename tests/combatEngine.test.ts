@@ -77,6 +77,49 @@ test('resolves catalog Tenten Jidanda base damage, cost, and cooldown', () => {
   assert.equal(state.enemy[0].health, 100, 'the input snapshot remains immutable');
 });
 
+test('resolves Naruto conditional damage and chakra-cost rules authoritatively', () => {
+  const state = createState({
+    playerCharacter: character('Naruto Uzumaki'),
+    playerChakra: { Tai: 2, Nin: 0, Gen: 0, Blood: 0 },
+  });
+  const setupSkillIndex = state.player[0].character.skills.findIndex(skill => skill.name === 'Shadow Clones');
+  assert.notEqual(setupSkillIndex, -1);
+  const setup = resolveCombatIntent(state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex: setupSkillIndex,
+    targetId: 'player-0',
+  });
+  assert.equal(setup.status, 'applied');
+  if (setup.status !== 'applied') return;
+  const { intent: action } = intent('Uzumaki Barrage', state);
+
+  const resolved = resolveCombatIntent(setup.state, action);
+
+  assert.equal(resolved.status, 'applied');
+  if (resolved.status !== 'applied') return;
+  assert.equal(resolved.state.enemy[0].health, 65);
+  assert.equal(resolved.state.playerChakra.Tai, 0);
+  assert.equal(resolved.state.playerChakra.Nin, 0);
+});
+
+test('applies configured stun-only actions and enforces their blocked skill classes', () => {
+  const state = createState({
+    playerCharacter: character('Ino Yamanaka'),
+    playerChakra: { Tai: 0, Nin: 0, Gen: 2, Blood: 0 },
+  });
+  const { intent: action } = intent('Mind Transfer', state);
+
+  const resolved = resolveCombatIntent(state, action);
+
+  assert.equal(resolved.status, 'applied');
+  if (resolved.status !== 'applied') return;
+  const stun = resolved.state.enemy[0].activeEffects.find(effect => effect.type === 'stun');
+  assert.equal(stun?.duration, 3);
+  assert.deepEqual(stun?.stunType, ['physical', 'mental', 'affliction', 'chakra']);
+  assert.equal(resolved.state.enemy[0].health, 100);
+});
+
 test('resolves catalog Shiranui Genma direct damage and shield absorption', () => {
   const state = createState({
     playerCharacter: character('Shiranui Genma'),
