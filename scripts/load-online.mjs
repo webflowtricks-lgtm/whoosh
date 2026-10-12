@@ -45,6 +45,8 @@ const runId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 
 const usernames = Array.from({ length: playerCount }, (_, index) => `loadtest_${runId}_${index}`);
 const roomByPlayer = new Map();
 const slotByPlayer = new Map();
+const seedByRoom = new Map();
+const socketByPlayer = new Map();
 const sockets = [];
 const latencies = [];
 const statusCounts = new Map();
@@ -181,6 +183,7 @@ try {
     if (state?.status !== 'matched') throw new Error(`${usernames[index]} não foi pareado: ${JSON.stringify(state)}`);
     roomByPlayer.set(usernames[index], state.roomId);
     slotByPlayer.set(usernames[index], state.myIndex);
+    seedByRoom.set(state.roomId, state.seed);
   }
 
   const groupedRooms = new Map();
@@ -193,7 +196,11 @@ try {
   }
 
   for (const [roomId, players] of groupedRooms) {
-    const joined = await Promise.all(players.map(username => connectSocket(username, roomId)));
+    const joined = await Promise.all(players.map(async username => {
+      const socket = await connectSocket(username, roomId);
+      socketByPlayer.set(username, socket);
+      return socket;
+    }));
     sockets.push(...joined);
   }
 
@@ -207,6 +214,15 @@ try {
 
   const firstRoomPlayers = groupedRooms.values().next().value;
   const firstRoomId = roomByPlayer.get(firstRoomPlayers[0]);
+  const reconnectingSocket = socketByPlayer.get(firstRoomPlayers[0]);
+  await new Promise(resolve => {
+    reconnectingSocket.once('close', resolve);
+    reconnectingSocket.close();
+  });
+  const restoredSocket = await connectSocket(firstRoomPlayers[0], firstRoomId);
+  sockets.push(restoredSocket);
+  socketByPlayer.set(firstRoomPlayers[0], restoredSocket);
+
   const invalidAction = await request('POST', '/api/match/submit-turn', {
     roomId: firstRoomId,
     username: firstRoomPlayers[0],
@@ -218,18 +234,31 @@ try {
   const loadStarted = performance.now();
   for (let turn = 1; turn <= turnCount; turn += 1) {
     const turnResults = await Promise.all([
-      ...[...groupedRooms].flatMap(([roomId, players]) =>
-        players.map(username => request('POST', '/api/match/submit-turn', {
-          roomId,
-          username,
-          turn,
-          actions: [{
-            sourceId: `player-${turn % 3}`,
-            skillIndex: turn % team[turn % 3].skills.length,
-            targetId: `enemy-${(turn + slotByPlayer.get(username)) % 3}`,
-          }],
-        })),
-      ),
+      ...[...groupedRooms].map(async ([roomId, players]) => {
+        let seedValue = (seedByRoom.get(roomId) + 0x9e3779b9) >>> 0;
+        seedValue ^= seedValue >>> 15;
+        seedValue = (seedValue * 2246822519) >>> 0;
+        seedValue ^= seedValue >>> 13;
+        const starterSlot = seedValue & 1;
+        const leaderSlot = (starterSlot + turn - 1) % 2;
+        const orderedPlayers = [...players].sort((left, right) =>
+          slotByPlayer.get(left) === leaderSlot ? -1 : slotByPlayer.get(right) === leaderSlot ? 1 : 0,
+        );
+        const results = [];
+        for (const username of orderedPlayers) {
+          results.push(await request('POST', '/api/match/submit-turn', {
+            roomId,
+            username,
+            turn,
+            actions: [{
+              sourceId: `player-${turn % 3}`,
+              skillIndex: turn % team[turn % 3].skills.length,
+              targetId: `enemy-${(turn + slotByPlayer.get(username)) % 3}`,
+            }],
+          }));
+        }
+        return results;
+      }),
       ...usernames.slice(expectedActivePlayers).map(username =>
         request('GET', `/api/matchmaking/status?username=${encodeURIComponent(username)}`),
       ),
@@ -274,6 +303,34 @@ try {
   }, [200]);
   if (!duplicateResult.data?.duplicate) {
     throw new Error('Retry idempotente não foi reconhecido como duplicado.');
+  }
+
+  const surrenderingPlayer = firstRoomPlayers[0];
+  const surrenderResult = await request('POST', '/api/match/surrender', {
+    roomId: firstRoomId,
+    username: surrenderingPlayer,
+    reason: 'manual',
+  });
+  if (!surrenderResult.data?.success) throw new Error('A partida não foi finalizada por abandono.');
+  const finalRoom = await request(
+    'GET',
+    `/api/match/room-state?roomId=${encodeURIComponent(firstRoomId)}&username=${encodeURIComponent(surrenderingPlayer)}`,
+  );
+  if (finalRoom.data?.room?.surrenderedBy !== surrenderingPlayer) {
+    throw new Error('O abandono não foi refletido no estado da sala.');
+  }
+  const postFinishAction = await request('POST', '/api/match/submit-turn', {
+    roomId: firstRoomId,
+    username: surrenderingPlayer,
+    turn: turnCount + 1,
+    actions: [{
+      sourceId: `player-${(turnCount + 1) % 3}`,
+      skillIndex: 0,
+      targetId: 'enemy-0',
+    }],
+  }, [409]);
+  if (postFinishAction.status !== 409) {
+    throw new Error('O servidor aceitou uma ação após o abandono da partida.');
   }
 
   await new Promise(resolve => setTimeout(resolve, 600));

@@ -21,6 +21,18 @@ import { safeFetchJson } from '../lib/api';
 import { RichText } from '../lib/richText';
 import { playGlobalSound } from '../lib/soundUtils';
 import { matchFetch } from '../lib/matchFetch';
+import {
+  checkCombatantInvulnerable,
+  hasConditionalInvulnerabilityBypass as hasConditionalInvulnBypass,
+  hasEffectWithName,
+  hasImmortalEffect,
+  hasNegateFriendlyEffects,
+  hasTotalInvulnerability,
+  isOffensiveSkill,
+  isSkillBlockedByDelayedUnlock,
+  isSkillBlockedByStun,
+  isInvulnerableToFriendlyEffects as isInvulnToFriendlyEffects,
+} from '../lib/combatRules';
 
 interface BattleBoardProps {
   playerTeam: Character[];
@@ -574,22 +586,6 @@ function EffectBadges({
   );
 }
 
-export function isOffensiveSkill(skill: Skill | null): boolean {
-  if (!skill) return false;
-  const target = skill.targetType || 'Enemy';
-  if (target === 'Self' || target === 'Ally' || target === 'AllAllies' || target === 'SelfAndAlly' || target === 'AnyLiving') {
-    return false;
-  }
-  if (target === 'Enemy' || target === 'AllEnemies' || target === 'EnemyAndAlly') {
-    return true;
-  }
-  const classes = (skill.classes || []).map(c => c.toLowerCase());
-  if (classes.some(c => c.includes('friendly') || c.includes('amigável') || c.includes('suporte') || c.includes('cura') || c.includes('heal'))) {
-    return false;
-  }
-  return true;
-}
-
 function isFriendlyOrPassiveSkill(skill: Skill | null): boolean {
   return !isOffensiveSkill(skill);
 }
@@ -623,246 +619,6 @@ export function gameRng(): number {
   _grngState ^= _grngState << 5;
   return (_grngState >>> 0) / 4294967296;
 }
-export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveEffect[]): boolean {
-  if (!activeEffects || activeEffects.length === 0) return false;
-  // Esta skill é imune a atordoamento: pode ser usada mesmo sob stun
-  if (skill && skill.cannotBeStunned) return false;
-  // Stun immunity: if character has ignore_stun effect, they cannot be stunned
-  if (activeEffects.some(e => e.type === 'ignore_stun')) return false;
-
-  // Check if character has an active effect that specifically blocks offensive skills
-  const blocksOffensive = activeEffects.some(e => e.blocksOffensiveSkills || e.type === 'blocks_offensive_skills');
-  if (blocksOffensive && skill && isOffensiveSkill(skill)) {
-    return true;
-  }
-
-  const stunEffects = activeEffects.filter(e => e.type === 'stun');
-  if (stunEffects.length === 0) return false;
-  if (!skill) return true;
-
-  for (const eff of stunEffects) {
-    if (eff.blocksOffensiveSkills) {
-      if (isOffensiveSkill(skill)) return true;
-      continue;
-    }
-    if (!eff.stunType || eff.stunType.length === 0 || eff.stunType.length >= 4) {
-      return true; // Complete stun
-    }
-    const skillClasses = (skill.classes || []).map(c => c.toLowerCase());
-    for (const st of eff.stunType) {
-      if (st === 'physical' && (skillClasses.includes('physical') || skillClasses.includes('físico') || skillClasses.includes('melee') || skillClasses.includes('corpo a corpo') || skillClasses.includes('taijutsu'))) {
-        return true;
-      }
-      if (st === 'mental' && (skillClasses.includes('mental') || skillClasses.includes('genjutsu'))) {
-        return true;
-      }
-      if (st === 'affliction' && (skillClasses.includes('affliction') || skillClasses.includes('aflição') || skillClasses.includes('dot'))) {
-        return true;
-      }
-      if (st === 'chakra' && (skillClasses.includes('chakra') || skillClasses.includes('ninjutsu') || skillClasses.includes('ranged') || skillClasses.includes('à distância'))) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-// 🔓 Liberação Atrasada: retorna true se a skill está bloqueada pela regra delayedUnlockSkills.
-// Enquanto a fase for 'locked', a skill listada fica bloqueada. Na fase 'window', fica liberada.
-// Se não houver efeito ativo com a skill listada, ela NÃO é bloqueada por esta regra.
-export function isSkillBlockedByDelayedUnlock(skill: Skill | null, activeEffects: ActiveEffect[]): boolean {
-  if (!skill || !activeEffects || activeEffects.length === 0) return false;
-  const skillName = (skill.name || '').toLowerCase();
-  for (const eff of activeEffects) {
-    if (eff.type !== 'custom' || !Array.isArray(eff.delayedUnlockSkills)) continue;
-    const listed = eff.delayedUnlockSkills.map(s => (s || '').toLowerCase());
-    if (!listed.includes(skillName)) continue;
-    // A skill está listada: bloqueada na fase 'locked', liberada na fase 'window'.
-    if (eff.delayedUnlockPhase === 'locked') return true;
-  }
-  return false;
-}
-
-export function checkCombatantInvulnerable(c: CombatCharacter, skillOrType?: Skill | string | string[], caster?: CombatCharacter): boolean {
-  if (!c || !c.activeEffects) return false;
-  if (c.activeEffects.some(e => e.type === 'cannot_be_invulnerable')) return false;
-  // Negação de efeitos amigáveis: invulnerabilidade é ignorada enquanto ativa
-  if (hasNegateFriendlyEffects(c)) return false;
-  // Conditional bypass: skill ignores invulnerability when the listed skill/effect is active
-  // (on the target by default, or on the caster if activeOn='self')
-  if (skillOrType && typeof skillOrType === 'object' && !Array.isArray(skillOrType) && hasConditionalInvulnBypass(c, skillOrType as Skill, caster)) {
-    return false;
-  }
-  const invulEffects = c.activeEffects.filter(e => e.type === 'invulnerable');
-  if (invulEffects.length === 0) return false;
-
-  return invulEffects.some(eff => {
-    const types = eff.invulnerableTypes;
-    const invClasses = eff.invulnerableClasses;
-
-    // 0. Proteção por classe é AUTORITATIVA quando definida: o alvo fica invulnerável
-    // contra skills que tenham UMA das classes protegidas (independente de invulnerableTypes).
-    // Esse gate vem ANTES dos short-circuits de types para não ser ignorado por
-    // invulnerableTypes vazio/indefinido.
-    if (invClasses && invClasses.length > 0) {
-      // Sem contexto de skill (aura/AI): considerado protegido
-      if (!skillOrType) return true;
-      if (typeof skillOrType === 'object' && !Array.isArray(skillOrType)) {
-        const skill = skillOrType as Skill;
-        const classes = (skill.classes || []).map(cls => cls.toLowerCase());
-        const normInv = invClasses.map(ic => ic.trim().toLowerCase()).filter(Boolean);
-        return normInv.length > 0 && classes.some(cls => normInv.includes(cls));
-      }
-      // skillOrType é string/array de tipos: sem contexto de classe → protegido
-      return true;
-    }
-
-    // Sem invulnerableTypes, a normal invulnerability blocks hostile skills,
-    // but it does not prevent allies from targeting the character.
-    if (!types) {
-      if (skillOrType === 'friendly') return false;
-      if (skillOrType && typeof skillOrType === 'object' && !Array.isArray(skillOrType)) {
-        const classes = ((skillOrType as Skill).classes || []).map(cls => cls.toLowerCase());
-        if (classes.some(cls => ['friendly', 'suporte', 'cura'].includes(cls))) return false;
-      }
-      return true;
-    }
-    // Explicitly empty array = protects against nothing
-    if (types.length === 0) return false;
-
-    // 1. If skillOrType is a single string
-    if (typeof skillOrType === 'string') {
-      return isSingleTypeProtected(skillOrType, types);
-    }
-
-    // 2. If skillOrType is an array of strings
-    if (Array.isArray(skillOrType)) {
-      return skillOrType.some(st => isSingleTypeProtected(st, types));
-    }
-
-    // 3. If skillOrType is a Skill object
-    if (skillOrType) {
-      const skill = skillOrType as Skill;
-      const classes = (skill.classes || []).map(cls => cls.toLowerCase());
-
-      const isPhysical = classes.some(cls => ['physical', 'físico', 'fisico', 'taijutsu', 'melee', 'corpo a corpo'].includes(cls));
-      const isMental = classes.some(cls => ['mental', 'genjutsu'].includes(cls));
-      const isChakra = classes.some(cls => ['chakra', 'ninjutsu'].includes(cls));
-      const isRanged = classes.some(cls => ['ranged', 'à distância', 'distância', 'distancia'].includes(cls));
-      const isAffliction = classes.some(cls => ['affliction', 'aflição', 'aflicao'].includes(cls));
-      const isFriendly = classes.some(cls => ['friendly', 'suporte', 'cura'].includes(cls));
-
-      // If skill has Physical class, target MUST be protected against Physical
-      if (isPhysical && !types.includes('physical')) return false;
-
-      // If skill has Mental class, target MUST be protected against Mental
-      if (isMental && !types.includes('mental')) return false;
-
-      // If skill has Chakra class, target MUST be protected against Chakra
-      if (isChakra && !types.includes('chakra')) return false;
-
-      // If skill has Ranged class, target MUST be protected against Ranged
-      if (isRanged && !types.includes('ranged')) return false;
-
-      // If skill has Affliction class, target MUST be protected against Affliction
-      if (isAffliction && !types.includes('affliction')) return false;
-
-      // If skill has Friendly class, target MUST be protected against Friendly
-      if (isFriendly && !types.includes('friendly')) return false;
-
-      // Se a skill TEM classes reconhecidas (físico/mental/chakra/etc.) e passou pelos
-      // checks de proteção acima, ela JÁ ESTÁ protegida — não deixar os checks de campos
-      // específicos (directDamage/dot/bleeding) anularem a proteção por classe.
-      if (isPhysical || isMental || isChakra || isRanged || isAffliction || isFriendly) return true;
-
-      // Check specific damage/effect fields if skill has no primary class tags or passed all class checks
-      if (skill.directDamage && skill.directDamage > 0) {
-        if (!types.includes('direct_damage') && !types.includes('damage') && !types.includes('all')) return false;
-      }
-      if (skill.dotVal && skill.dotVal > 0) {
-        if (!types.includes('dot') && !types.includes('damage') && !types.includes('all')) return false;
-      }
-      if (skill.bleedingVal && skill.bleedingVal > 0) {
-        if (!types.includes('bleeding') && !types.includes('damage') && !types.includes('all')) return false;
-      }
-
-      return true;
-    }
-
-    // If no skill or damage type context provided at call-site (UI aura), check if 'all' or has any types
-    if (types.includes('all')) return true;
-
-    return true;
-  });
-}
-
-// Invulnerabilidade Total: alvo com efeito de invulnerabilidade TOTAL (flag invulnerableTotal)
-// também fica imune a skills amigáveis (curas, escudos, buffs) — nem aliados podem marcá-lo.
-// A Invulnerabilidade (Desvio) só bloqueia amigáveis se o tipo 'friendly' estiver marcado.
-export function isInvulnToFriendlyEffects(c: CombatCharacter, skill?: Skill): boolean {
-  if (skill?.ignoreInvulnerable) return false;
-  if (hasTotalInvulnerability(c)) return true;
-  return checkCombatantInvulnerable(c, 'friendly');
-}
-
-// "Invulnerabilidade Total" (flag invulnerableTotal): o alvo fica SELADO — não pode
-// selecionar skills (só passar o turno) e ninguém pode marcá-lo como alvo (nem aliados).
-export function hasTotalInvulnerability(c?: CombatCharacter | null): boolean {
-  if (!c || !c.activeEffects) return false;
-  if (c.activeEffects.some(e => e.type === 'cannot_be_invulnerable')) return false;
-  if (hasNegateFriendlyEffects(c)) return false;
-  return c.activeEffects.some(e => e.type === 'invulnerable' && (e as any).invulnerableTotal === true);
-}
-
-function isSingleTypeProtected(typeStr: string, types: string[]): boolean {
-  if (types.includes('all')) return true;
-  const st = typeStr.toLowerCase();
-  if (types.includes(st)) return true;
-  if (['físico', 'fisico', 'taijutsu', 'melee', 'corpo a corpo'].includes(st) && types.includes('physical')) return true;
-  if (['genjutsu'].includes(st) && types.includes('mental')) return true;
-  if (['ninjutsu'].includes(st) && types.includes('chakra')) return true;
-  if (['aflição', 'aflicao'].includes(st) && types.includes('affliction')) return true;
-  if (['à distância', 'distância', 'distancia', 'ranged'].includes(st) && types.includes('ranged')) return true;
-  return false;
-}
-
-function hasEffectWithName(combatant: CombatCharacter | undefined, name: string): boolean {
-  if (!combatant || !name) return false;
-  const rn = name.trim().toLowerCase();
-  return (combatant.activeEffects || []).some(e => {
-    if (!e.name) return false;
-    const n = e.name.toLowerCase();
-    return n === rn || n.startsWith(rn) || n.includes(rn);
-  });
-}
-
-// Conditional invulnerability bypass: if the skill has ignoreInvulnWhenActiveRules and the
-// condition skill/effect is ACTIVE (on the target by default, or on the caster if activeOn='self'),
-// this skill ignores that combatant's invulnerability
-function hasConditionalInvulnBypass(c: CombatCharacter, skill: Skill, caster?: CombatCharacter): boolean {
-  if (!skill.ignoreInvulnWhenActiveRules || skill.ignoreInvulnWhenActiveRules.length === 0) return false;
-  return skill.ignoreInvulnWhenActiveRules.some(rule => {
-    const rn = (rule.activeSkillName || '').trim().toLowerCase();
-    if (!rn) return false;
-    if (rule.activeOn === 'self') return hasEffectWithName(caster, rule.activeSkillName);
-    return hasEffectWithName(c, rule.activeSkillName);
-  });
-}
-
-// Negação de efeitos amigáveis: enquanto ativo no combatente, buffs de dano,
-// invulnerabilidade, redução de dano, curas, escudos, counters, reflect, retaliate,
-// imortalidade, revives e imunidades são todos IGNORADOS.
-export function hasNegateFriendlyEffects(c?: CombatCharacter | null): boolean {
-  return !!c && !!c.activeEffects && c.activeEffects.some(e => e.type === 'negate_friendly_effects');
-}
-
-// Imortalidade também é efeito amigável: anulada sob negate_friendly_effects.
-export function hasImmortalEffect(c?: CombatCharacter | null): boolean {
-  if (!c) return false;
-  if (hasNegateFriendlyEffects(c)) return false;
-  return !!c.activeEffects && c.activeEffects.some(e => e.type === 'immortal');
-}
-
 export function isEffectVisibleToViewer(
   eff: ActiveEffect,
   viewerSide: 'player' | 'enemy' = 'player',

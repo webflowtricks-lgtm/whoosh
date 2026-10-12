@@ -9,6 +9,9 @@
     "start": "node dist/server.cjs",
     "test": "tsx --test tests/*.test.ts",
     "load:online": "node scripts/load-online.mjs",
+    "build:cf": "vite build --outDir dist/client",
+    "cf:dev": "wrangler dev --local --ip 127.0.0.1 --port 8788",
+    "cf:deploy": "npm run build:cf && wrangler deploy",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"
   },
@@ -37,6 +40,7 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "wrangler": "^4.149.0"
   }
 }

@@ -1,0 +1,2 @@
+# Local-only compatibility gateway target. Copy to .dev.vars for local testing.
+LEGACY_API_ORIGIN=http://localhost:3000

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  firstSlotForTurn,
   isValidMatchTeam,
   submitTurnActions,
   type MatchProtocolRoom,
@@ -12,6 +13,7 @@ function createRoom(): MatchProtocolRoom {
     skills: [{ name: `skill-${index}` }, { name: `skill-${index}-secondary` }],
   }));
   return {
+    seed: 0,
     players: [
       { username: 'one', team },
       { username: 'two', team: team.map(character => ({ ...character })) },
@@ -54,8 +56,27 @@ test('advances the authoritative turn only after both player slots submit', () =
   assert.equal(submitTurnActions(room, 1, 1, [validAction]).status, 'accepted');
   assert.equal(room.resolvedTurn, 1);
 
-  assert.equal(submitTurnActions(room, 0, 2, [validAction]).status, 'accepted');
+  assert.equal(submitTurnActions(room, firstSlotForTurn(room.seed, 2), 2, [validAction]).status, 'accepted');
   assert.equal(room.resolvedTurn, 1);
+});
+
+test('enforces the initiative order and alternates the first slot each turn', () => {
+  const room = createRoom();
+  const firstTurnLeader = firstSlotForTurn(room.seed, 1);
+  const firstTurnResponder = (firstTurnLeader === 0 ? 1 : 0) as 0 | 1;
+
+  assert.equal(submitTurnActions(room, firstTurnResponder, 1, [validAction]).status, 'conflict');
+  assert.deepEqual(room.turns, {});
+  assert.equal(submitTurnActions(room, firstTurnLeader, 1, [validAction]).status, 'accepted');
+  assert.equal(submitTurnActions(room, firstTurnResponder, 1, [validAction]).status, 'accepted');
+
+  const secondTurnLeader = firstSlotForTurn(room.seed, 2);
+  const secondTurnResponder = (secondTurnLeader === 0 ? 1 : 0) as 0 | 1;
+  assert.notEqual(secondTurnLeader, firstTurnLeader);
+  assert.equal(submitTurnActions(room, secondTurnResponder, 2, [validAction]).status, 'conflict');
+  assert.equal(submitTurnActions(room, secondTurnLeader, 2, [validAction]).status, 'accepted');
+  assert.equal(submitTurnActions(room, secondTurnResponder, 2, [validAction]).status, 'accepted');
+  assert.equal(room.resolvedTurn, 2);
 });
 
 test('makes retries idempotent and rejects a conflicting overwrite', () => {
@@ -76,6 +97,18 @@ test('rejects turn skips, malformed and oversized submissions without mutation',
   assert.equal(submitTurnActions(room, 0, 1, new Array(97).fill(validAction)).status, 'invalid');
   assert.deepEqual(room.turns, {});
   assert.equal(room.resolvedTurn, 0);
+});
+
+test('rejects submissions after surrender or a server-declared winner', () => {
+  const surrenderedRoom = createRoom();
+  surrenderedRoom.surrenderedBy = 'one';
+  assert.equal(submitTurnActions(surrenderedRoom, 0, 1, [validAction]).status, 'conflict');
+  assert.deepEqual(surrenderedRoom.turns, {});
+
+  const finishedRoom = createRoom();
+  finishedRoom.winnerUsername = 'two';
+  assert.equal(submitTurnActions(finishedRoom, 0, 1, [validAction]).status, 'conflict');
+  assert.deepEqual(finishedRoom.turns, {});
 });
 
 test('serializes concurrent submissions without double-resolving or overwriting', async () => {

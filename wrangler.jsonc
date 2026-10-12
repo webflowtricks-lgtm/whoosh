@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "naruto-infinity-beta",
+  "main": "workers/index.ts",
+  "compatibility_date": "2026-10-12",
+  "workers_dev": true,
+  "vars": {
+    "LEGACY_API_ORIGIN": "https://narutoarena.onrender.com"
+  },
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/ws"]
+  }
+}

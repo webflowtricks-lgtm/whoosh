@@ -6,7 +6,7 @@ import fs from "fs";
 import { createHash, randomBytes } from "crypto";
 import { createServer as createViteServer } from "vite";
 import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
-import { isValidMatchTeam, submitTurnActions } from "./src/lib/matchProtocol";
+import { firstSlotForTurn, isValidMatchTeam, submitTurnActions } from "./src/lib/matchProtocol";
 
 const DATA_DIR = path.resolve(process.env.WHOOSH_DATA_DIR || path.join(process.cwd(), "src", "data"));
 const USERS_FILE = path.join(DATA_DIR, "users.json");
@@ -1320,15 +1320,7 @@ async function startServer() {
       if (!room2.turns[curTurn]) room2.turns[curTurn] = [null, null];
       const slots: any[] = room2.turns[curTurn]!;
       let activeIdx: 0 | 1 | null = null;
-      // Determina lder real deste turno via mesma funcao do cliente (seed -> starterSlot)
-      const starterSlot = (() => {
-        let x = (room2.seed + 0x9e3779b9) >>> 0;
-        x ^= x >>> 15;
-        x = (x * 2246822519) >>> 0;
-        x ^= x >>> 13;
-        return (x & 1) as 0 | 1;
-      })();
-      const leaderForTurn = ((starterSlot + (curTurn - 1)) % 2) as 0 | 1;
+      const leaderForTurn = firstSlotForTurn(room2.seed, curTurn);
       if (slots[0] === null && slots[1] === null) {
         activeIdx = leaderForTurn;
       } else if (slots[0] !== null && slots[1] === null) {

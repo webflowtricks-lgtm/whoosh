@@ -10,6 +10,7 @@ export interface MatchProtocolPlayer {
 }
 
 export interface MatchProtocolRoom {
+  seed: number;
   players: [MatchProtocolPlayer, MatchProtocolPlayer];
   turns: Record<number, (MatchProtocolAction[] | null)[]>;
   resolvedTurn: number;
@@ -26,6 +27,15 @@ export type TurnSubmissionResult =
 export const MAX_TEAM_SIZE = 3;
 export const MAX_SKILLS_PER_CHARACTER = 32;
 export const MAX_TURN_ACTIONS = MAX_TEAM_SIZE * MAX_SKILLS_PER_CHARACTER;
+
+export function firstSlotForTurn(seed: number, turn: number): 0 | 1 {
+  let x = (seed + 0x9e3779b9) >>> 0;
+  x ^= x >>> 15;
+  x = (x * 2246822519) >>> 0;
+  x ^= x >>> 13;
+  const starterSlot = (x & 1) as 0 | 1;
+  return ((starterSlot + turn - 1) % 2) as 0 | 1;
+}
 
 export function isValidMatchTeam(team: unknown): team is MatchProtocolPlayer['team'] {
   if (!Array.isArray(team) || team.length !== MAX_TEAM_SIZE) return false;
@@ -100,6 +110,14 @@ export function submitTurnActions(
 
   if (turn !== room.resolvedTurn + 1) {
     return { status: 'conflict', message: 'O turno enviado está fora de sequência.' };
+  }
+
+  const firstSlot = firstSlotForTurn(room.seed, turn);
+  const secondSlot = (firstSlot === 0 ? 1 : 0) as 0 | 1;
+  const existingTurn = room.turns[turn] || [null, null];
+  const expectedSlot = existingTurn[firstSlot] === null ? firstSlot : secondSlot;
+  if (slot !== expectedSlot) {
+    return { status: 'conflict', message: 'Ainda não é a vez deste jogador neste turno.' };
   }
 
   if (!room.turns[turn]) room.turns[turn] = [null, null];
