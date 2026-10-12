@@ -15,7 +15,7 @@ const AVATAR_PRESETS = [
 ];
 
 interface AuthScreenProps {
-  onLoginSuccess: (user: UserProfile) => void;
+  onLoginSuccess: (user: UserProfile, sessionTicket?: string) => void;
   playClickSound: () => void;
   playScrollSound: () => void;
   onBack?: () => void;
@@ -63,10 +63,13 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
       if (!res.ok) {
         throw new Error(data.error || t('Erro ao realizar login.', 'Error logging in.'));
       }
+      if (typeof data.sessionTicket !== 'string') {
+        throw new Error(t('Não foi possível iniciar uma sessão segura.', 'Could not start a secure session.'));
+      }
 
       setSuccess(t('Conectando ao servidor...', 'Connecting to server...'));
       setTimeout(() => {
-        onLoginSuccess(data.user);
+        onLoginSuccess(data.user, data.sessionTicket);
       }, 800);
     } catch (err: any) {
       setError(err.message || t('Falha de rede.', 'Network failure.'));
@@ -103,10 +106,13 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
       if (!res.ok) {
         throw new Error(data.error || t('Erro ao realizar cadastro.', 'Error registering account.'));
       }
+      if (typeof data.sessionTicket !== 'string') {
+        throw new Error(t('Não foi possível iniciar uma sessão segura.', 'Could not start a secure session.'));
+      }
 
       setSuccess(t('Cadastro realizado! Entrando...', 'Account created! Logging in...'));
       setTimeout(() => {
-        onLoginSuccess(data.user);
+        onLoginSuccess(data.user, data.sessionTicket);
       }, 1000);
     } catch (err: any) {
       setError(err.message || t('Falha de rede.', 'Network failure.'));
@@ -393,4 +399,3 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
     </div>
   );
 }
-

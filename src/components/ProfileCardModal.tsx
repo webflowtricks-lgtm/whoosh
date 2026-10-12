@@ -9,8 +9,16 @@ import { UserProfile, NinjaCard } from '../types';
 import { getCards, fetchCardsFromServer, CARD_RARITY_META, rarityFx, RARITY_ORDER } from '../lib/cardStorage';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
-import { useLanguage } from '../lib/i18n';
+import { getLanguage, useLanguage } from '../lib/i18n';
 import MangekyoLoader from './MangekyoLoader';
+
+interface OnlineBattleHistoryRecord {
+  roomId: string;
+  players: [{ username: string; name: string }, { username: string; name: string }];
+  winnerUsername: string;
+  finishedAt: string;
+  reason: 'battle' | 'manual' | 'disconnect' | 'timeout';
+}
 
 /** Detecta mobile landscape (celular deitado) — mesmo critério do BattleBoard. */
 function useIsMobileLandscape(): boolean {
@@ -244,6 +252,9 @@ export default function ProfileCardModal({
   const [likeFeedback, setLikeFeedback] = useState<string | null>(null);
   const [showHeartBurst, setShowHeartBurst] = useState<boolean>(false);
   const [bannerHover, setBannerHover] = useState<boolean>(false);
+  const [onlineBattleHistory, setOnlineBattleHistory] = useState<OnlineBattleHistoryRecord[]>([]);
+  const [onlineHistoryLoading, setOnlineHistoryLoading] = useState(true);
+  const [onlineHistoryError, setOnlineHistoryError] = useState<string | null>(null);
 
   // Figurinhas colecionáveis do jogador
   const [allCards, setAllCards] = useState<NinjaCard[]>(() => getCards());
@@ -252,6 +263,31 @@ export default function ProfileCardModal({
   useEffect(() => {
     fetchCardsFromServer().then(setAllCards);
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setOnlineHistoryLoading(true);
+    setOnlineHistoryError(null);
+    fetch(`/api/user/online-battle-history?username=${encodeURIComponent(profile.username)}`, {
+      signal: controller.signal,
+    })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok || !data?.success || !Array.isArray(data.matches)) {
+          throw new Error(data?.error || 'Não foi possível carregar o histórico de batalhas online.');
+        }
+        setOnlineBattleHistory(data.matches);
+      })
+      .catch(error => {
+        if (controller.signal.aborted) return;
+        console.error('Failed to load online battle history:', error);
+        setOnlineHistoryError(error instanceof Error ? error.message : 'Não foi possível carregar o histórico de batalhas online.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setOnlineHistoryLoading(false);
+      });
+    return () => controller.abort();
+  }, [profile.username]);
 
   const frameStyle = profile.equippedFrame ? (PRESET_STYLED_FRAMES[profile.equippedFrame] || 'border-2 border-orange-400') : 'border-2 border-orange-400';
 
@@ -330,6 +366,51 @@ export default function ProfileCardModal({
         </div>
       </div>
     </div>
+  );
+
+  const onlineBattleHistoryBlock = (
+    <section className="w-full max-w-[420px] rounded-xl border border-slate-800/90 bg-slate-950/90 p-3 shadow-inner">
+      <h3 className="mb-2 flex items-center gap-2 text-[10px] font-mono font-extrabold uppercase tracking-wider text-cyan-300">
+        <Swords className="h-3.5 w-3.5" />
+        {t('HISTÓRICO DE BATALHAS ONLINE', 'ONLINE BATTLE HISTORY')}
+      </h3>
+      {onlineHistoryLoading ? (
+        <p className="text-[11px] font-mono text-slate-400">{t('Carregando batalhas...', 'Loading battles...')}</p>
+      ) : onlineHistoryError ? (
+        <p role="alert" className="text-[11px] font-mono text-rose-300">{onlineHistoryError}</p>
+      ) : onlineBattleHistory.length === 0 ? (
+        <p className="text-[11px] font-mono text-slate-500">{t('Nenhuma batalha online registrada.', 'No online battles recorded.')}</p>
+      ) : (
+        <ol className="max-h-40 space-y-2 overflow-y-auto pr-1">
+          {onlineBattleHistory.map(record => {
+            const ownPlayer = record.players.find(player => player.username === profile.username.toLowerCase());
+            const opponent = record.players.find(player => player.username !== profile.username.toLowerCase());
+            const winner = record.players.find(player => player.username === record.winnerUsername);
+            const didWin = record.winnerUsername === profile.username.toLowerCase();
+            const locale = getLanguage() === 'en' ? 'en-US' : 'pt-BR';
+
+            return (
+              <li key={record.roomId} className="rounded-lg border border-slate-800/80 bg-slate-900/80 px-2.5 py-2">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="min-w-0 text-[11px] font-bold leading-snug text-slate-100">
+                    {ownPlayer?.name || profile.name} <span className="text-slate-500">vs</span> {opponent?.name || t('Oponente', 'Opponent')}
+                  </p>
+                  <span className={`shrink-0 text-[9px] font-black uppercase tracking-wide ${didWin ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {didWin ? t('Vitória', 'Victory') : t('Derrota', 'Defeat')}
+                  </span>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[9px] font-mono text-slate-400">
+                  <span>{t('Vencedor', 'Winner')}: {winner?.name || winner?.username || '—'}</span>
+                  <time dateTime={record.finishedAt}>
+                    {new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(record.finishedAt))}
+                  </time>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
   );
 
   return (
@@ -515,10 +596,20 @@ export default function ProfileCardModal({
                   )}
                 </div>
 
-                {isMobilePortrait && arenaHistoryBlock}
+                {isMobilePortrait && (
+                  <>
+                    {arenaHistoryBlock}
+                    {onlineBattleHistoryBlock}
+                  </>
+                )}
 
                 {/* HISTÓRICO DA ARENA — mobile landscape: abaixo das curtidas do perfil */}
-                {isLandscape && arenaHistoryBlock}
+                {isLandscape && (
+                  <>
+                    {arenaHistoryBlock}
+                    {onlineBattleHistoryBlock}
+                  </>
+                )}
 
                 {/* VILA NINJA — ocultada por enquanto (permanece no DOM) */}
                 <div className="hidden bg-slate-950/90 border border-slate-800/90 rounded-2xl p-3.5 flex items-center gap-3.5 shadow-inner">
@@ -572,7 +663,12 @@ export default function ProfileCardModal({
               <div className={`${isLandscape ? 'mt-2 pt-2' : 'mt-5 pt-3'} flex flex-wrap items-center gap-3 border-t border-slate-800/80`}>
 
                 {/* Histórico da Arena — em mobile landscape fica abaixo das curtidas (coluna esquerda) */}
-                {!isLandscape && !isMobilePortrait && arenaHistoryBlock}
+                {!isLandscape && !isMobilePortrait && (
+                  <div className="flex min-w-0 flex-col gap-2">
+                    {arenaHistoryBlock}
+                    {onlineBattleHistoryBlock}
+                  </div>
+                )}
 
                 {isSelf && onOpenEditModal && (
                   <button

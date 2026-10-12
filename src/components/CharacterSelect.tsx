@@ -559,9 +559,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             glow = '0 0 5px rgba(220,38,38,0.95), 0 0 12px rgba(220,38,38,0.55)';
             border = 'border-red-300/80';
           } else {
-            bg = 'radial-gradient(circle at 35% 30%, #e2e8f0, #64748b 50%, #334155)';
-            glow = '0 0 5px rgba(148,163,184,0.95), 0 0 12px rgba(148,163,184,0.5)';
-            border = 'border-slate-300/80';
+            bg = 'radial-gradient(circle at 35% 30%, #cbd5e1, #475569 50%, #1e293b)';
+            glow = '0 0 5px rgba(100,116,139,0.75), 0 0 12px rgba(100,116,139,0.35)';
+            border = 'border-slate-400/80';
           }
 
           return (

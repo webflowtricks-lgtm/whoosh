@@ -3,6 +3,7 @@ import http from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import path from "path";
 import fs from "fs";
+import { createHash, randomBytes } from "crypto";
 import { createServer as createViteServer } from "vite";
 import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
 
@@ -18,6 +19,8 @@ const FRAMES_FILE = path.join(process.cwd(), "src", "data", "frames.json");
 const CARDS_FILE = path.join(process.cwd(), "src", "data", "cards.json");
 const CARD_PACKS_FILE = path.join(process.cwd(), "src", "data", "card_packs.json");
 const MATCH_ROOMS_FILE = path.join(process.cwd(), "src", "data", "match_rooms.json");
+const ACCOUNT_SESSIONS_FILE = path.join(process.cwd(), "src", "data", "account_sessions.json");
+const ONLINE_BATTLE_HISTORY_FILE = path.join(process.cwd(), "src", "data", "online_battle_history.json");
 
 // Ensure data directory exists
 const dataDir = path.dirname(USERS_FILE);
@@ -54,6 +57,91 @@ async function startServer() {
 
   app.use(express.json({ limit: "50mb" }));
 
+  type AccountSession = {
+    activeTokenHash: string;
+    pendingTokenHashes: string[];
+  };
+  const accountSessions = Object.assign(
+    Object.create(null) as Record<string, AccountSession>,
+    readJSON<Record<string, AccountSession>>(ACCOUNT_SESSIONS_FILE, {})
+  );
+  const sessionTickets = new Map<string, { username: string; expiresAt: number }>();
+  type OnlineBattleHistoryRecord = {
+    roomId: string;
+    players: [{ username: string; name: string }, { username: string; name: string }];
+    winnerUsername: string;
+    finishedAt: string;
+    reason: 'battle' | 'manual' | 'disconnect' | 'timeout';
+  };
+  const onlineBattleHistory = new Map(
+    Object.entries(readJSON<Record<string, OnlineBattleHistoryRecord>>(ONLINE_BATTLE_HISTORY_FILE, {}))
+  );
+  const saveOnlineBattleHistory = () => {
+    try {
+      fs.writeFileSync(ONLINE_BATTLE_HISTORY_FILE, JSON.stringify(Object.fromEntries(onlineBattleHistory), null, 2));
+      return true;
+    } catch (error) {
+      console.error("[MATCH] Falha ao persistir histórico de batalhas online:", error);
+      return false;
+    }
+  };
+  const recordOnlineBattle = (
+    room: MatchRoom,
+    winnerUsername: string,
+    reason: OnlineBattleHistoryRecord['reason']
+  ) => {
+    const existing = onlineBattleHistory.get(room.id);
+    if (existing) return existing;
+
+    const winner = winnerUsername.trim().toLowerCase();
+    if (!room.players.some(player => player.username === winner)) return null;
+
+    const record: OnlineBattleHistoryRecord = {
+      roomId: room.id,
+      players: [
+        { username: room.players[0].username, name: room.players[0].name || room.players[0].username },
+        { username: room.players[1].username, name: room.players[1].name || room.players[1].username },
+      ],
+      winnerUsername: winner,
+      finishedAt: new Date().toISOString(),
+      reason,
+    };
+    onlineBattleHistory.set(room.id, record);
+    if (!saveOnlineBattleHistory()) {
+      onlineBattleHistory.delete(room.id);
+      return null;
+    }
+    return record;
+  };
+  const hashSessionToken = (token: string) => createHash("sha256").update(token).digest("hex");
+  const saveAccountSessions = () => {
+    try {
+      fs.writeFileSync(ACCOUNT_SESSIONS_FILE, JSON.stringify(accountSessions, null, 2));
+      return true;
+    } catch (error) {
+      console.error("[AUTH] Falha ao persistir sessões de conta:", error);
+      return false;
+    }
+  };
+  const createSessionTicket = (username: string) => {
+    const ticket = randomBytes(32).toString("hex");
+    sessionTickets.set(ticket, { username, expiresAt: Date.now() + 120000 });
+    return ticket;
+  };
+  const validSessionInput = (username: unknown, token: unknown) =>
+    typeof username === "string" &&
+    username.trim().length > 0 &&
+    username.trim().length <= 100 &&
+    typeof token === "string" &&
+    /^[a-f0-9-]{32,128}$/i.test(token);
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ticket, entry] of sessionTickets) {
+      if (entry.expiresAt <= now) sessionTickets.delete(ticket);
+    }
+  }, 60000).unref();
+
   // API routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", version: "match-persistence-v2", rooms: Object.keys(activeRooms).length });
@@ -84,7 +172,11 @@ async function startServer() {
     users.push(newUser);
     writeJSON(USERS_FILE, users);
 
-    res.json({ success: true, user: { username: newUser.username, name: newUser.name, photoUrl: newUser.photoUrl } });
+    res.json({
+      success: true,
+      sessionTicket: createSessionTicket(newUser.username),
+      user: { username: newUser.username, name: newUser.name, photoUrl: newUser.photoUrl }
+    });
   });
 
   app.post("/api/auth/login", (req, res) => {
@@ -101,7 +193,11 @@ async function startServer() {
       return res.status(400).json({ error: "Usuário ou senha incorretos." });
     }
 
-    res.json({ success: true, user: { username: user.username, name: user.name, photoUrl: user.photoUrl } });
+    res.json({
+      success: true,
+      sessionTicket: createSessionTicket(user.username),
+      user: { username: user.username, name: user.name, photoUrl: user.photoUrl }
+    });
   });
 
   app.post("/api/auth/google", (req, res) => {
@@ -135,7 +231,150 @@ async function startServer() {
       writeJSON(USERS_FILE, users);
     }
 
-    res.json({ success: true, user });
+    res.json({ success: true, sessionTicket: createSessionTicket(user.username), user });
+  });
+
+  app.post("/api/auth/session/claim", (req, res) => {
+    const { username, sessionToken, sessionTicket } = req.body;
+    if (!validSessionInput(username, sessionToken) || typeof sessionTicket !== "string") {
+      return res.status(400).json({ error: "Dados da sessão inválidos." });
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+    const ticket = sessionTickets.get(sessionTicket);
+    if (!ticket || ticket.username !== cleanUsername || ticket.expiresAt <= Date.now()) {
+      sessionTickets.delete(sessionTicket);
+      return res.status(401).json({ error: "A autenticação expirou. Entre novamente." });
+    }
+    sessionTickets.delete(sessionTicket);
+
+    const tokenHash = hashSessionToken(sessionToken);
+    let account = accountSessions[cleanUsername];
+    if (!account) {
+      account = { activeTokenHash: tokenHash, pendingTokenHashes: [] };
+      accountSessions[cleanUsername] = account;
+      if (!saveAccountSessions()) {
+        delete accountSessions[cleanUsername];
+        return res.status(500).json({ error: "Não foi possível salvar a sessão neste servidor." });
+      }
+      return res.json({ success: true, status: "active" });
+    }
+
+    if (account.activeTokenHash === tokenHash) {
+      return res.json({ success: true, status: "active" });
+    }
+
+    if (!account.pendingTokenHashes.includes(tokenHash)) {
+      account.pendingTokenHashes.push(tokenHash);
+      if (!saveAccountSessions()) {
+        account.pendingTokenHashes.pop();
+        return res.status(500).json({ error: "Não foi possível salvar a solicitação de sessão." });
+      }
+    }
+    res.json({ success: true, status: "pending" });
+  });
+
+  app.post("/api/auth/session/status", (req, res) => {
+    const { username, sessionToken } = req.body;
+    if (!validSessionInput(username, sessionToken)) {
+      return res.status(400).json({ error: "Dados da sessão inválidos." });
+    }
+
+    const account = accountSessions[username.trim().toLowerCase()];
+    if (!account) return res.json({ success: true, status: "revoked" });
+
+    const tokenHash = hashSessionToken(sessionToken);
+    if (account.activeTokenHash === tokenHash) {
+      return res.json({
+        success: true,
+        status: "active",
+        takeoverRequested: account.pendingTokenHashes.length > 0
+      });
+    }
+    if (account.pendingTokenHashes.includes(tokenHash)) {
+      return res.json({ success: true, status: "pending" });
+    }
+    res.json({ success: true, status: "revoked" });
+  });
+
+  app.post("/api/auth/session/takeover", (req, res) => {
+    const { username, sessionToken, requestingSessionToken } = req.body;
+    if (!validSessionInput(username, sessionToken) || (
+      requestingSessionToken !== undefined &&
+      !validSessionInput(username, requestingSessionToken)
+    )) {
+      return res.status(400).json({ error: "Dados da sessão inválidos." });
+    }
+
+    const account = accountSessions[username.trim().toLowerCase()];
+    if (!account) return res.status(409).json({ error: "A sessão ativa já foi encerrada." });
+
+    const currentTokenHash = hashSessionToken(sessionToken);
+    const requestingTokenHash = requestingSessionToken
+      ? hashSessionToken(requestingSessionToken)
+      : account.pendingTokenHashes[0];
+    if (!requestingTokenHash) {
+      return res.status(409).json({ error: "Não há outro aparelho aguardando acesso." });
+    }
+    const isActiveSession = account.activeTokenHash === currentTokenHash;
+    const isPendingSession = account.pendingTokenHashes.includes(currentTokenHash);
+    const requestedSessionExists = account.pendingTokenHashes.includes(requestingTokenHash);
+    if ((!isActiveSession && !isPendingSession) || !requestedSessionExists) {
+      return res.status(409).json({ error: "A solicitação de acesso não está mais disponível." });
+    }
+
+    const previousActiveTokenHash = account.activeTokenHash;
+    const previousPendingTokenHashes = account.pendingTokenHashes;
+    account.activeTokenHash = requestingTokenHash;
+    account.pendingTokenHashes = [];
+    if (!saveAccountSessions()) {
+      account.activeTokenHash = previousActiveTokenHash;
+      account.pendingTokenHashes = previousPendingTokenHashes;
+      return res.status(500).json({ error: "Não foi possível concluir a troca de aparelho." });
+    }
+    res.json({ success: true });
+  });
+
+  app.post("/api/auth/session/cancel", (req, res) => {
+    const { username, sessionToken } = req.body;
+    if (!validSessionInput(username, sessionToken)) {
+      return res.status(400).json({ error: "Dados da sessão inválidos." });
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+    const account = accountSessions[cleanUsername];
+    if (account) {
+      const tokenHash = hashSessionToken(sessionToken);
+      const previousPendingTokenHashes = account.pendingTokenHashes;
+      if (account.activeTokenHash === tokenHash) {
+        account.pendingTokenHashes = [];
+      } else {
+        account.pendingTokenHashes = account.pendingTokenHashes.filter(hash => hash !== tokenHash);
+      }
+      if (!saveAccountSessions()) {
+        account.pendingTokenHashes = previousPendingTokenHashes;
+        return res.status(500).json({ error: "Não foi possível cancelar a solicitação." });
+      }
+    }
+    res.json({ success: true });
+  });
+
+  app.post("/api/auth/session/release", (req, res) => {
+    const { username, sessionToken } = req.body;
+    if (!validSessionInput(username, sessionToken)) {
+      return res.status(400).json({ error: "Dados da sessão inválidos." });
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+    const account = accountSessions[cleanUsername];
+    if (account && account.activeTokenHash === hashSessionToken(sessionToken)) {
+      delete accountSessions[cleanUsername];
+      if (!saveAccountSessions()) {
+        accountSessions[cleanUsername] = account;
+        return res.status(500).json({ error: "Não foi possível encerrar a sessão neste servidor." });
+      }
+    }
+    res.json({ success: true });
   });
 
   app.put("/api/user/profile", (req, res) => {
@@ -225,6 +464,7 @@ async function startServer() {
     chatMessages: { id: string; username: string; senderName: string; senderTitle?: string; text: string; timestamp: number }[];
     lastActivity: number;
     surrenderedBy: string | null;
+    winnerUsername?: string | null;
     pings: [number, number];
     phaseDeadline: number;
     timeoutStreak: [number, number]; // turnos seguidos sem jogar (offline) - derrota apos 2
@@ -263,6 +503,7 @@ async function startServer() {
     resolvedTurn: room.resolvedTurn ?? 0,
     stateReports: full ? (room.stateReports || {}) : undefined, // nos pushes enxutos o relato chega via evento {type:'report'}
     surrenderedBy: room.surrenderedBy || null,
+    winnerUsername: room.winnerUsername || null,
     surrenderReason: (room as any).surrenderReason || null,
     phaseDeadline: room.phaseDeadline ?? Date.now() + 60000,
   });
@@ -329,6 +570,7 @@ async function startServer() {
           activeRooms[id] = {
             ...r,
             resolvedTurn: typeof r.resolvedTurn === "number" ? r.resolvedTurn : 0,
+            winnerUsername: typeof r.winnerUsername === "string" ? r.winnerUsername : null,
             emojis: r.emojis || [],
             chatMessages: r.chatMessages || [],
             pings: [fresh, fresh],
@@ -417,6 +659,7 @@ async function startServer() {
         chatMessages: [],
         lastActivity: Date.now(),
         surrenderedBy: null,
+        winnerUsername: null,
         pings: [Date.now(), Date.now()],
         phaseDeadline: Date.now() + 60000,
         timeoutStreak: [0, 0],
@@ -457,7 +700,7 @@ async function startServer() {
       if (room) {
         // 🧹 Sala rendida não é mais uma partida ativa: devolve idle para o
         // cliente não reconectar/ressuscitar uma partida que já acabou.
-        if (room.surrenderedBy) {
+        if (room.surrenderedBy || room.winnerUsername) {
           delete userMatches[username];
           return res.json({ status: "idle" });
         }
@@ -557,10 +800,16 @@ async function startServer() {
       if (now - room.pings[0] > 60000) {
         room.surrenderedBy = room.players[0].username;
         (room as any).surrenderReason = 'disconnect';
+        if (!recordOnlineBattle(room, room.players[1].username, 'disconnect')) {
+          console.error(`[MATCH] Não foi possível registrar a vitória por desconexão da sala ${room.id}.`);
+        }
         markRoomsDirty();
       } else if (now - room.pings[1] > 60000) {
         room.surrenderedBy = room.players[1].username;
         (room as any).surrenderReason = 'disconnect';
+        if (!recordOnlineBattle(room, room.players[0].username, 'disconnect')) {
+          console.error(`[MATCH] Não foi possível registrar a vitória por desconexão da sala ${room.id}.`);
+        }
         markRoomsDirty();
       }
     }
@@ -582,6 +831,7 @@ async function startServer() {
         resolvedTurn: room.resolvedTurn ?? 0,
         stateReports: room.stateReports || {},
         surrenderedBy: room.surrenderedBy || null,
+        winnerUsername: room.winnerUsername || null,
         surrenderReason: (room as any).surrenderReason || null,
         phaseDeadline: room.phaseDeadline ?? Date.now() + 60000,
       },
@@ -618,7 +868,7 @@ async function startServer() {
 
   // Declare Surrender / Defeat
   app.post("/api/match/surrender", (req, res) => {
-    const { roomId, username } = req.body;
+    const { roomId, username, reason } = req.body;
     if (!roomId || !username) {
       return res.status(400).json({ error: "roomId e username são obrigatórios." });
     }
@@ -628,8 +878,22 @@ async function startServer() {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
 
-    room.surrenderedBy = username.trim().toLowerCase();
-    (room as any).surrenderReason = 'manual';
+    const cleanUsername = username.trim().toLowerCase();
+    const surrenderingSlot = slotOf(room, cleanUsername);
+    if (surrenderingSlot === -1) {
+      return res.status(403).json({ error: "Você não faz parte desta sala." });
+    }
+    if (room.winnerUsername || room.surrenderedBy) {
+      return res.json({ success: true, alreadyFinished: true });
+    }
+
+    const surrenderReason = reason === 'disconnect' ? 'disconnect' : 'manual';
+    const winner = room.players[surrenderingSlot === 0 ? 1 : 0];
+    if (!recordOnlineBattle(room, winner.username, surrenderReason)) {
+      return res.status(500).json({ error: "Não foi possível salvar o histórico da batalha." });
+    }
+    room.surrenderedBy = cleanUsername;
+    (room as any).surrenderReason = surrenderReason;
     room.lastActivity = Date.now();
     // 🧹 Limpa o mapeamento usuario→partida dos DOIS jogadores: sem isso,
     // /matchmaking/status continuava devolvendo esta sala como "matched" e a
@@ -641,6 +905,69 @@ async function startServer() {
     try { broadcastRoomState(roomId); } catch {}
 
     res.json({ success: true });
+  });
+
+  app.post("/api/match/finish", (req, res) => {
+    const { roomId, username, victory } = req.body;
+    if (typeof roomId !== "string" || typeof username !== "string" || typeof victory !== "boolean") {
+      return res.status(400).json({ error: "roomId, username e resultado são obrigatórios." });
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+    const room = activeRooms[roomId];
+    const existing = onlineBattleHistory.get(roomId);
+    if (!room) {
+      if (existing && existing.players.some(player => player.username === cleanUsername)) {
+        return res.json({ success: true, record: existing });
+      }
+      return res.status(404).json({ error: "Sala não encontrada." });
+    }
+
+    const reportingSlot = slotOf(room, cleanUsername);
+    if (reportingSlot === -1) {
+      return res.status(403).json({ error: "Você não faz parte desta sala." });
+    }
+    if (existing) {
+      return res.json({ success: true, record: existing });
+    }
+
+    if (room.surrenderedBy) {
+      const forfeitingSlot = slotOf(room, room.surrenderedBy);
+      if (forfeitingSlot === -1) {
+        return res.status(500).json({ error: "O resultado da sala é inválido." });
+      }
+      const winner = room.players[forfeitingSlot === 0 ? 1 : 0];
+      const storedReason = (room as any).surrenderReason;
+      const reason: OnlineBattleHistoryRecord['reason'] =
+        storedReason === 'disconnect' || storedReason === 'timeout' ? storedReason : 'manual';
+      const record = recordOnlineBattle(room, winner.username, reason);
+      if (!record) return res.status(500).json({ error: "Não foi possível salvar o histórico da batalha." });
+      return res.json({ success: true, record });
+    }
+
+    const winnerUsername = victory
+      ? cleanUsername
+      : room.players[reportingSlot === 0 ? 1 : 0].username;
+    const record = recordOnlineBattle(room, winnerUsername, 'battle');
+    if (!record) return res.status(500).json({ error: "Não foi possível salvar o histórico da batalha." });
+
+    room.winnerUsername = record.winnerUsername;
+    room.lastActivity = Date.now();
+    for (const player of room.players) delete userMatches[player.username];
+    markRoomsDirty();
+    try { broadcastRoomState(roomId); } catch {}
+    res.json({ success: true, record });
+  });
+
+  app.get("/api/user/online-battle-history", (req, res) => {
+    const username = String(req.query.username || "").trim().toLowerCase();
+    if (!username) {
+      return res.status(400).json({ error: "Nome de usuário é obrigatório." });
+    }
+    const matches = Array.from(onlineBattleHistory.values())
+      .filter(record => record.players.some(player => player.username === username))
+      .sort((a, b) => Date.parse(b.finishedAt) - Date.parse(a.finishedAt));
+    res.json({ success: true, matches });
   });
 
   // Send Battle Emoji Reaction
@@ -865,6 +1192,10 @@ async function startServer() {
       if (room2.timeoutStreak[activeIdx] >= 2) {
         room2.surrenderedBy = room2.players[activeIdx].username;
         (room2 as any).surrenderReason = 'timeout';
+        const timeoutWinner = room2.players[activeIdx === 0 ? 1 : 0];
+        if (!recordOnlineBattle(room2, timeoutWinner.username, 'timeout')) {
+          console.error(`[MATCH] Não foi possível registrar a vitória por timeout da sala ${room2.id}.`);
+        }
         room2.phaseDeadline = now2 + 60000;
         markRoomsDirty();
         try { broadcastRoomState(id); } catch {}

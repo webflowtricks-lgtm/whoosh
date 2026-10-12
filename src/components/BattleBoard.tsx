@@ -74,6 +74,8 @@ interface BattleBoardProps {
     turn?: number;
     alivePlayerCount?: number;
   }, gainedXp?: number) => void;
+  sessionRevoked?: boolean;
+  onSessionRevoked?: (stats: any) => void;
   activeQuest?: Quest | null;
 }
 
@@ -2082,6 +2084,8 @@ export default function BattleBoard({
   sandboxPauseChakraGen,
   restoredState,
   onBattleEnd,
+  sessionRevoked,
+  onSessionRevoked,
   activeQuest,
 }: BattleBoardProps) {
   // 🧊 Sandbox: geração de chakra pausada (só vale em sandbox). Restaurado da reconexão quando existir.
@@ -2190,7 +2194,7 @@ export default function BattleBoard({
 
   const handleQuit = async () => {
     console.log('handleQuit gameOver:', gameOver, 'has onBattleEnd:', !!onBattleEnd, 'playerChars:', matchStatsRef.current.playerCharactersUsed);
-    if (gameOver && onBattleEnd) {
+    if (gameOver && onBattleEnd && !sessionRevoked) {
       const isVictory = gameOver === 'victory';
       const alivePlayerCount = playerCombatants.filter((p) => !p.isDead).length;
       const damageDealt = matchStatsRef.current.damageDealt || 0;
@@ -2389,6 +2393,8 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   // Victory/Defeat Game Over State
   const [gameOver, setGameOver] = useState<'victory' | 'defeat' | null>(null);
   const [surrenderReason, setSurrenderReason] = useState<string | null>(null);
+  const sessionRevocationReportedRef = useRef(false);
+  const reportedOnlineResultsRef = useRef<Set<string>>(new Set());
 
   // Active selected skill inspector
   const [inspectedSkill, setInspectedSkill] = useState<{
@@ -3156,6 +3162,68 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       playLoseSound();
     }
   }, [gameOver, onBattleFinished, playWinSound, playLoseSound]);
+
+  useEffect(() => {
+    if (!gameOver || !onlineParams?.isOnline || !onlineParams.roomId || sessionRevoked || surrenderReason) return;
+    if (reportedOnlineResultsRef.current.has(onlineParams.roomId)) return;
+    reportedOnlineResultsRef.current.add(onlineParams.roomId);
+
+    const reportResult = async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const response = await fetch('/api/match/finish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              roomId: onlineParams.roomId,
+              username: user.username,
+              victory: gameOver === 'victory',
+            }),
+          });
+          if (response.ok) return;
+          const message = await response.text();
+          console.error(`Failed to save online battle result (attempt ${attempt + 1}): HTTP ${response.status} ${message}`);
+        } catch (error) {
+          console.error(`Failed to save online battle result (attempt ${attempt + 1}):`, error);
+        }
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
+    };
+
+    void reportResult();
+  }, [gameOver, onlineParams, user.username, sessionRevoked, surrenderReason]);
+
+  useEffect(() => {
+    if (!sessionRevoked || sessionRevocationReportedRef.current) return;
+    sessionRevocationReportedRef.current = true;
+    const matchAlreadyFinished = !!gameOver;
+    if (!matchAlreadyFinished) {
+      const defeatReason = 'Você foi derrotado por desconexão: sua conta foi acessada em outro aparelho.';
+      setSurrenderReason(defeatReason);
+      setGameOver('defeat');
+    }
+    try {
+      localStorage.removeItem('active_match_save');
+    } catch (error) {
+      console.error('Failed to clear the active match after account takeover:', error);
+    }
+
+    if (!matchAlreadyFinished && onlineParams?.isOnline && onlineParams.roomId) {
+      fetch('/api/match/surrender', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: onlineParams.roomId, username: user.username, reason: 'disconnect' }),
+      }).catch(error => console.error('Failed to report session takeover as an online defeat:', error));
+    }
+
+    onSessionRevoked?.({
+      ...matchStatsRef.current,
+      turn,
+      alivePlayerCount: playerCombatants.filter(combatant => !combatant.isDead).length,
+      sessionTakeoverAlreadyFinished: matchAlreadyFinished,
+      sessionTakeoverVictory: gameOver === 'victory',
+    });
+  }, [sessionRevoked, onSessionRevoked, onlineParams, user.username, turn, playerCombatants, gameOver]);
 
   // Add floating combat numbers helper
   // 🎯 Textos com o mesmo conteúdo aparecem simultaneamente em TODOS os alvos:
@@ -12506,6 +12574,7 @@ splashOnlyTargets = splashPool.filter(c =>
     try {
       localStorage.removeItem('active_match_save');
     } catch {}
+    setSurrenderReason('Você se rendeu. Derrota por rendição.');
     setGameOver('defeat');
 
     if (onlineParams?.isOnline) {
@@ -12677,8 +12746,10 @@ splashOnlyTargets = splashPool.filter(c =>
               reason = isSelf ? 'Você perdeu por falta de conexão (2 turnos sem jogar).' : `Oponente ${data.room.surrenderedBy} perdeu por falta de conexão (2 turnos offline)!`;
               logMsg = isSelf ? '🏳️ Você perdeu por inatividade (2 turnos offline). Derrota.' : `🏳️ ${data.room.surrenderedBy} perdeu por inatividade! Vitória!`;
             } else if (sReason === 'disconnect') {
-              reason = isSelf ? 'Você perdeu por desconexão.' : `Oponente ${data.room.surrenderedBy} desconectou!`;
-              logMsg = isSelf ? '🏳️ Você desconectou. Derrota.' : `🏳️ ${data.room.surrenderedBy} desconectou! Vitória!`;
+              reason = isSelf
+                ? 'Você foi derrotado por desconexão após sua conta ser acessada em outro aparelho.'
+                : `Vitória por desconexão: ${data.room.surrenderedBy} foi derrotado ao entrar em outro aparelho.`;
+              logMsg = isSelf ? '🏳️ Você foi derrotado por desconexão.' : `🏳️ ${data.room.surrenderedBy} foi derrotado por desconexão. Você venceu!`;
             } else {
               reason = isSelf ? 'Você se rendeu.' : `Oponente ${data.room.surrenderedBy} se rendeu!`;
               logMsg = isSelf ? '🏳️ Você se rendeu. Derrota.' : `🏳️ ${data.room.surrenderedBy} se rendeu! Vitória!`;
@@ -12694,6 +12765,30 @@ splashOnlyTargets = splashPool.filter(c =>
             } else {
               setGameOver('victory');
             }
+            return;
+          }
+
+          if (data.room.winnerUsername) {
+            const winnerUsername = String(data.room.winnerUsername).trim().toLowerCase();
+            const isSelfWinner = winnerUsername === user.username.trim().toLowerCase();
+            const winnerName = data.room.players?.find((player: any) =>
+              String(player.username).trim().toLowerCase() === winnerUsername
+            )?.name || winnerUsername;
+            setSurrenderReason(
+              isSelfWinner
+                ? `Vitória! ${onlineParams.opponentProfile?.name || 'Seu oponente'} foi derrotado na batalha.`
+                : `Você foi derrotado por ${winnerName}.`
+            );
+            setLogs(logs => [...logs, {
+              id: Math.random().toString(),
+              turn,
+              message: isSelfWinner ? `🏆 Vitória online contra ${onlineParams.opponentProfile?.name || 'o oponente'}!` : `🏳️ Você foi derrotado por ${winnerName}.`,
+              type: 'system',
+            }]);
+            try {
+              localStorage.removeItem('active_match_save');
+            } catch {}
+            setGameOver(isSelfWinner ? 'victory' : 'defeat');
             return;
           }
 
@@ -17064,9 +17159,9 @@ if (skill.redirectOffensiveToCaster) {
       border = 'border-red-300/80';
       name = 'Bloodline';
     } else {
-      bg = 'radial-gradient(circle at 35% 30%, #e2e8f0, #64748b 50%, #334155)';
-      glow = '0 0 5px rgba(148,163,184,0.95), 0 0 12px rgba(148,163,184,0.5)';
-      border = 'border-slate-300/80';
+      bg = 'radial-gradient(circle at 35% 30%, #cbd5e1, #475569 50%, #1e293b)';
+      glow = '0 0 5px rgba(100,116,139,0.75), 0 0 12px rgba(100,116,139,0.35)';
+      border = 'border-slate-400/80';
       name = 'Qualquer Chakra (Rand)';
     }
     return (

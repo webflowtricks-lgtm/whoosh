@@ -17,12 +17,16 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 - **API fetch helper**: `safeFetchJson` in `src/lib/api.ts` (returns null on failure).
 
 ## Backend API Endpoints (server.ts)
-- Auth: `POST /api/auth/register`, `/api/auth/login`, `/api/auth/google`
+- Auth: `POST /api/auth/register`, `/api/auth/login`, `/api/auth/google`; exclusive device sessions: `/api/auth/session/claim`, `/api/auth/session/status`, `/api/auth/session/takeover`, `/api/auth/session/cancel`, `/api/auth/session/release`
 - Profile: `PUT /api/user/profile`
 - Multiplayer (in-memory, HTTP polling): `/api/matchmaking/join`, `/api/matchmaking/status`, `/api/matchmaking/quit`, `/api/match/submit-turn`, `/api/match/room-state`, `/api/match/surrender`, `/api/match/emoji`, `/api/match/emojis`, `/api/match/chat/send`, `/api/match/chat/messages`
 - Config CRUD: `/api/characters`, `/api/ranks`, `/api/shop`, `/api/events`, `/api/banners`, `/api/frames`, `/api/quests` (GET default-seeds + POST overwrite)
 - Backup: `/api/config/export`, `/api/config/import`
 - Health: `/api/health`
+
+Authenticated accounts have one active browser session at a time. A second login must be approved by either device; approving it revokes the previous session. The browser polls session status, and revoking a session during an online or AI battle records a defeat before logging out. Session hashes are stored in `src/data/account_sessions.json`; the unauthenticated guest profile is exempt. Existing saved logins without a session token require one re-login after this feature is deployed; any saved battle remains available to resume.
+
+Online battle results are persisted in `src/data/online_battle_history.json`. `POST /api/match/finish` records normal online results, and `GET /api/user/online-battle-history?username=...` returns a player's online match history for the profile card.
 
 ## Frontend
 - `src/App.tsx` orchestrates screens: `main-menu` → `quests` → `character-select` → `battle`, plus `admin`. Also handles reconnection modal (`active_match_save` in localStorage) and battle-end XP/quest sync.
@@ -167,4 +171,3 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - Budget math @30 players × 24h/day: ~4KB/round/player (2 submits + 2 reports HTTP ≈ 3.2KB + ~2 deflated pushes ≈ 1KB) ≈ 170KB/h/player ≈ **~4GB/month total** — fits 5GB free tier. Without deflate on prod pushes: ~4KB/round still holds thanks to v27 slim reports (~2 submits+reports HTTP ≈ 3.2KB + ~1.5KB raw pushes) → **~3.5-4.5GB/month**, borderline but fits; monitor Render dashboard.
 
 **Server side**: rooms persist to `src/data/match_rooms.json` (debounced `markRoomsDirty`, restore-on-boot); `/api/health` reports version. Render free tier cold-start tolerances are baked into the 20-failure room-lost threshold. `resolvedTurn` is persisted per room and restored (fallback 0).
-

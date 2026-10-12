@@ -18,7 +18,7 @@ import { getRanks, getUserRankFromConfig } from './lib/rankStorage';
 import { preloadCommonUI, preloadCharacters } from './lib/imagePreloader';
 import { playGlobalSound, bindGlobalClickSound, bindGlobalModalSound, preloadGlobalSounds, setEffectsVolumeMultiplier } from './lib/soundUtils';
 import { motion, AnimatePresence } from 'motion/react';
-import { Swords, Flag } from 'lucide-react';
+import { Swords, Flag, Smartphone, ShieldAlert, LogOut } from 'lucide-react';
 
 import MainMenu from './components/MainMenu';
 import CharacterSelect from './components/CharacterSelect';
@@ -49,6 +49,91 @@ function ScreenLoadingFallback() {
           Concentrando Chakra...
         </h3>
         <p className="text-xs text-slate-400 font-sans">Carregando modulo do jogo...</p>
+      </div>
+    </div>
+  );
+}
+
+function AccountSessionPrompt({
+  status,
+  error,
+  busy,
+  onTakeover,
+  onCancel,
+}: {
+  status: 'initializing' | 'pending' | 'requested' | 'error';
+  error: string | null;
+  busy: boolean;
+  onTakeover: () => void;
+  onCancel: () => void;
+}) {
+  const isRequester = status === 'pending';
+  const isWaiting = status === 'initializing';
+  const hasError = status === 'error';
+
+  return (
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-sm">
+      <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl border border-orange-500/40 bg-slate-900 p-6 text-center shadow-2xl">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-orange-500/15 text-orange-400">
+          {isRequester ? <Smartphone className="h-7 w-7" /> : <ShieldAlert className="h-7 w-7" />}
+        </div>
+        <h2 className="text-xl font-black uppercase tracking-wide text-amber-300">
+          {isWaiting ? 'Verificando sessão' : hasError ? 'Não foi possível verificar a sessão' : 'Conta conectada em outro aparelho'}
+        </h2>
+        <p className="mt-3 text-sm leading-relaxed text-slate-300">
+          {isWaiting
+            ? 'Estamos confirmando sua sessão com o servidor. Aguarde um instante.'
+            : hasError
+              ? 'A conexão com o servidor falhou. Tente verificar sua sessão novamente.'
+              : isRequester
+              ? 'Esta conta já está aberta em outro aparelho. Deseja desconectá-lo para continuar neste?'
+              : 'Alguém tentou entrar nesta conta por outro aparelho. Deseja desconectá-lo e continuar aqui?'}
+        </p>
+        {status === 'error' && error && (
+          <p role="alert" className="mt-3 text-sm font-semibold text-rose-300">{error}</p>
+        )}
+        <div className="mt-6 flex flex-col gap-3">
+          <button
+            type="button"
+            disabled={busy || isWaiting}
+            onClick={onTakeover}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-red-700 px-4 py-3 text-sm font-black uppercase tracking-wide text-white transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
+          >
+            <LogOut className="h-4 w-4" />
+            {hasError ? 'Tentar novamente' : 'Desconectar outro aparelho e continuar aqui'}
+          </button>
+          <button
+            type="button"
+            disabled={busy || isWaiting || hasError}
+            onClick={onCancel}
+            className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-bold text-slate-200 transition hover:bg-slate-700 disabled:opacity-60"
+          >
+            {isRequester ? 'Cancelar login' : 'Continuar neste aparelho'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SessionTakeoverResult({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-sm">
+      <div role="alertdialog" aria-modal="true" className="w-full max-w-md rounded-2xl border border-rose-500/50 bg-slate-900 p-7 text-center shadow-2xl">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/15 text-rose-400">
+          <ShieldAlert className="h-7 w-7" />
+        </div>
+        <h2 className="text-2xl font-black uppercase tracking-wide text-rose-300">Derrota por desconexão</h2>
+        <p className="mt-3 text-sm leading-relaxed text-slate-300">
+          Sua conta foi conectada em outro aparelho. Você saiu da partida e ela foi registrada como derrota por abandono.
+        </p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="mt-6 w-full rounded-xl bg-slate-700 px-4 py-3 text-sm font-black uppercase tracking-wide text-white transition hover:bg-slate-600"
+        >
+          Entendi
+        </button>
       </div>
     </div>
   );
@@ -99,6 +184,16 @@ export default function App() {
   // Login on demand (only when entering the arena) + arena loading screen
   const [showAuth, setShowAuth] = useState(false);
   const [showArenaLoading, setShowArenaLoading] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(() => {
+    try { return sessionStorage.getItem('naruto_account_session_token'); } catch { return null; }
+  });
+  const [sessionTicket, setSessionTicket] = useState<string | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<'idle' | 'initializing' | 'active' | 'pending' | 'requested' | 'revoked' | 'error'>('idle');
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionBusy, setSessionBusy] = useState(false);
+  const [sessionRevoked, setSessionRevoked] = useState(false);
+  const [sessionTakeoverResult, setSessionTakeoverResult] = useState(false);
+  const sessionRevocationHandledRef = useRef(false);
   
   // User Profile state
   const [user, setUser] = useState<UserProfile | null>(() => {
@@ -541,6 +636,82 @@ export default function App() {
     }
   };
 
+  const completeSessionRevocation = async (battleStats?: any) => {
+    if (sessionRevocationHandledRef.current || !user) return;
+    sessionRevocationHandledRef.current = true;
+
+    let savedMatch: any = null;
+    try {
+      const raw = localStorage.getItem('active_match_save');
+      savedMatch = raw ? JSON.parse(raw) : null;
+    } catch (error) {
+      console.error('Failed to read the active match while disconnecting this session:', error);
+    }
+    const battleWasActive = screen === 'battle' || !!savedMatch?.playerCombatants?.length;
+    const activeOnlineMatch = onlineParams?.isOnline
+      ? onlineParams
+      : savedMatch?.onlineParams?.isOnline
+        ? savedMatch.onlineParams
+        : null;
+
+    if (battleWasActive && activeOnlineMatch?.roomId && !battleStats?.sessionTakeoverAlreadyFinished) {
+      const surrenderBody = JSON.stringify({
+        roomId: activeOnlineMatch.roomId,
+        username: user.username,
+        reason: 'disconnect',
+      });
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const response = await fetch('/api/match/surrender', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: surrenderBody,
+          });
+          if (response.ok) break;
+          console.error(`Failed to surrender the online match after session takeover (attempt ${attempt + 1}): HTTP ${response.status}`);
+        } catch (error) {
+          console.error(`Failed to surrender the online match after session takeover (attempt ${attempt + 1}):`, error);
+        }
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+      }
+    }
+
+    if (battleWasActive) {
+      const battleOutcomeWasAlreadyDetermined = !!battleStats?.sessionTakeoverAlreadyFinished;
+      await handleBattleEnd(
+        battleOutcomeWasAlreadyDetermined && !!battleStats?.sessionTakeoverVictory,
+        battleStats || {
+          damageDealt: 0,
+          damageReceived: 0,
+          healingDone: 0,
+          shieldGenerated: 0,
+          stunsApplied: 0,
+          skillsUsed: {},
+          killsWithSkill: {},
+          playerCharactersUsed: savedMatch?.playerCombatants?.map((combatant: any) => combatant.character?.name).filter(Boolean) || [],
+          turn: savedMatch?.turn || 1,
+          alivePlayerCount: 0,
+        }
+      );
+    }
+
+    setSessionTakeoverResult(battleWasActive && !battleStats?.sessionTakeoverAlreadyFinished);
+    setSessionStatus('idle');
+    setSessionTicket(null);
+    setSessionToken(null);
+    setSessionRevoked(false);
+    setUser(null);
+    setScreen('main-menu');
+    setShowAuth(true);
+    try {
+      localStorage.removeItem('naruto_user_profile');
+      localStorage.removeItem('active_match_save');
+      sessionStorage.removeItem('naruto_account_session_token');
+    } catch (error) {
+      console.error('Failed to clear local account session data:', error);
+    }
+  };
+
   const handleQuit = () => {
     setPlayerTeam([]);
     setEnemyTeam([]);
@@ -553,11 +724,31 @@ export default function App() {
     setScreen('character-select'); // Return directly to character selection!
   };
 
-  const handleLoginSuccess = (profile: UserProfile) => {
+  const handleLoginSuccess = (profile: UserProfile, ticket?: string) => {
+    const isGuest = !ticket && profile.username.trim().toLowerCase() === 'convidado';
+    if (!ticket && !isGuest) {
+      console.error('Login succeeded without a session ticket; refusing to start an unprotected account session.');
+      return;
+    }
     const safeProfile = {
       ...profile,
       xp: Math.max(0, profile.xp ?? 0),
     };
+    const token = ticket ? crypto.randomUUID() : null;
+    if (token) {
+      try {
+        sessionStorage.setItem('naruto_account_session_token', token);
+      } catch (error) {
+        console.error('Failed to save this device session:', error);
+      }
+    }
+    sessionRevocationHandledRef.current = false;
+    setSessionToken(token);
+    setSessionTicket(ticket || null);
+    setSessionStatus(ticket ? 'initializing' : 'idle');
+    setSessionError(null);
+    setSessionRevoked(false);
+    setSessionTakeoverResult(false);
     setUser(safeProfile);
     try {
       localStorage.setItem('naruto_user_profile', JSON.stringify(safeProfile));
@@ -570,24 +761,208 @@ export default function App() {
 
   const handleLogout = () => {
     playClickSound();
+    if (user && sessionToken) {
+      const isPendingSession = sessionStatus === 'pending';
+      fetch(`/api/auth/session/${isPendingSession ? 'cancel' : 'release'}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username, sessionToken }),
+        keepalive: true,
+      }).catch(error => console.error('Failed to release the account session:', error));
+    }
     setUser(null);
+    setSessionToken(null);
+    setSessionTicket(null);
+    setSessionStatus('idle');
+    setSessionRevoked(false);
+    sessionRevocationHandledRef.current = false;
     try {
       localStorage.removeItem('naruto_user_profile');
+      sessionStorage.removeItem('naruto_account_session_token');
     } catch {}
     setScreen('main-menu');
   };
 
+  const handleSessionTakeover = async () => {
+    if (!user || !sessionToken || sessionBusy) return;
+    setSessionBusy(true);
+    setSessionError(null);
+    try {
+      if (sessionStatus === 'error') {
+        const response = await fetch('/api/auth/session/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: user.username, sessionToken }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao verificar a sessão.');
+        if (data.status === 'revoked') {
+          setSessionStatus('revoked');
+          if (screen === 'battle') setSessionRevoked(true);
+          else await completeSessionRevocation();
+        } else if (data.status === 'pending') {
+          setSessionStatus('pending');
+        } else if (data.status === 'active') {
+          setSessionStatus(data.takeoverRequested ? 'requested' : 'active');
+        } else {
+          throw new Error('O servidor retornou um estado de sessão desconhecido.');
+        }
+        return;
+      }
+
+      const response = await fetch('/api/auth/session/takeover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user.username,
+          sessionToken,
+          requestingSessionToken: sessionStatus === 'pending' ? sessionToken : undefined,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Não foi possível trocar de aparelho.');
+      if (sessionStatus === 'pending') setSessionStatus('active');
+    } catch (error) {
+      console.error('Failed to confirm account session takeover:', error);
+      setSessionError(error instanceof Error ? error.message : 'Não foi possível trocar de aparelho.');
+      setSessionStatus('error');
+    } finally {
+      setSessionBusy(false);
+    }
+  };
+
+  const handleCancelSessionTakeover = async () => {
+    if (!user || !sessionToken || sessionBusy) return;
+    setSessionBusy(true);
+    setSessionError(null);
+    try {
+      const response = await fetch('/api/auth/session/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username, sessionToken }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Não foi possível cancelar a solicitação.');
+
+      if (sessionStatus === 'pending') {
+        setUser(null);
+        setSessionToken(null);
+        setSessionTicket(null);
+        setSessionStatus('idle');
+        setShowAuth(true);
+        try {
+          localStorage.removeItem('naruto_user_profile');
+          sessionStorage.removeItem('naruto_account_session_token');
+        } catch (error) {
+          console.error('Failed to clear cancelled login data:', error);
+        }
+      } else {
+        setSessionStatus('active');
+      }
+    } catch (error) {
+      console.error('Failed to cancel account session takeover:', error);
+      setSessionError(error instanceof Error ? error.message : 'Não foi possível cancelar a solicitação.');
+      setSessionStatus('error');
+    } finally {
+      setSessionBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user || !sessionToken) return;
+    let cancelled = false;
+
+    const checkSession = async () => {
+      try {
+        const claiming = !!sessionTicket;
+        const response = await fetch(`/api/auth/session/${claiming ? 'claim' : 'status'}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            sessionToken,
+            ...(claiming ? { sessionTicket } : {}),
+          }),
+        });
+        const data = await response.json();
+        if (cancelled) return;
+
+        if (!response.ok) {
+          if (claiming && response.status === 401) {
+            setSessionTicket(null);
+            return;
+          }
+          throw new Error(data.error || 'Falha ao verificar a sessão da conta.');
+        }
+
+        if (claiming) setSessionTicket(null);
+        setSessionError(null);
+        if (data.status === 'active') {
+          setSessionStatus(data.takeoverRequested ? 'requested' : 'active');
+        } else if (data.status === 'pending') {
+          setSessionStatus('pending');
+        } else if (data.status === 'revoked') {
+          setSessionStatus('revoked');
+          if (screen === 'battle') {
+            setSessionRevoked(true);
+          } else {
+            await completeSessionRevocation();
+          }
+        } else {
+          throw new Error('O servidor retornou um estado de sessão desconhecido.');
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Failed to check account session:', error);
+        setSessionError(error instanceof Error ? error.message : 'Falha ao verificar a sessão da conta.');
+        setSessionStatus('error');
+      }
+    };
+
+    void checkSession();
+    const interval = window.setInterval(() => { void checkSession(); }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [user?.username, sessionToken, sessionTicket, screen]);
+
+  useEffect(() => {
+    if (!user || sessionToken || user.username.trim().toLowerCase() === 'convidado') return;
+    setUser(null);
+    setShowAuth(true);
+    setSessionStatus('idle');
+    try {
+      localStorage.removeItem('naruto_user_profile');
+      sessionStorage.removeItem('naruto_account_session_token');
+    } catch (error) {
+      console.error('Failed to clear the legacy account session:', error);
+    }
+  }, [user?.username, sessionToken]);
+
+  const sessionPromptStatus = sessionStatus === 'initializing' ||
+    sessionStatus === 'pending' ||
+    sessionStatus === 'requested' ||
+    sessionStatus === 'error'
+    ? sessionStatus
+    : null;
+
   // If not logged in, only ask for login when the user wants to enter the arena
   if (!user && showAuth) {
     return (
-      <Suspense fallback={<ScreenLoadingFallback />}>
-        <AuthScreen
-          onLoginSuccess={handleLoginSuccess}
-          playClickSound={playClickSound}
-          playScrollSound={playScrollSound}
-          onBack={() => setShowAuth(false)}
-        />
-      </Suspense>
+      <>
+        <Suspense fallback={<ScreenLoadingFallback />}>
+          <AuthScreen
+            onLoginSuccess={handleLoginSuccess}
+            playClickSound={playClickSound}
+            playScrollSound={playScrollSound}
+            onBack={() => setShowAuth(false)}
+          />
+        </Suspense>
+        {sessionTakeoverResult && (
+          <SessionTakeoverResult onDismiss={() => setSessionTakeoverResult(false)} />
+        )}
+      </>
     );
   }
 
@@ -601,6 +976,18 @@ export default function App() {
         > 
           <img src="/static/img/icon/mangeky.svg" alt="Processando" className="h-16 w-16 animate-spin object-contain drop-shadow-lg" />
         </div>
+      )}
+      {user && sessionToken && sessionPromptStatus && (
+        <AccountSessionPrompt
+          status={sessionPromptStatus}
+          error={sessionError}
+          busy={sessionBusy}
+          onTakeover={handleSessionTakeover}
+          onCancel={handleCancelSessionTakeover}
+        />
+      )}
+      {sessionTakeoverResult && (
+        <SessionTakeoverResult onDismiss={() => setSessionTakeoverResult(false)} />
       )}
       {/* RECONNECTION / RECOVERY MODAL */}
       <AnimatePresence>
@@ -797,6 +1184,8 @@ export default function App() {
             sandboxPauseChakraGen={sandboxPauseChakraGen}
             restoredState={restoredState}
             onBattleEnd={handleBattleEnd}
+            sessionRevoked={sessionRevoked}
+            onSessionRevoked={(stats) => { void completeSessionRevocation(stats); }}
             activeQuest={activeQuest}
           />
         )}
