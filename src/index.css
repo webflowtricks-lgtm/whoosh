@@ -292,13 +292,29 @@ body.processing-cursor * {
 }
 
 .ninja-village-tag {
-  margin-top: -3px;
+  margin-top: 0px !important;
   font-size: 9px;
+  margin-bottom: 2px
 }
 
 .ninja-name-tag {
   margin-top: -2px;
  
+}
+
+.character-select-card-info .ninja-name-tag,
+.character-select-card-info .ninja-village-tag {
+  margin-top: 0;
+  line-height: 1.05;
+}
+
+.character-select-card-info .ninja-village-tag {
+  color: #57534e;
+}
+
+.character-select-grid {
+  row-gap: calc(var(--spacing) * 1);
+  column-gap: calc(var(--spacing) * 1);
 }
 
 /* =========================================================
@@ -2723,6 +2739,7 @@ e-squad-name {
 
   .mv-filtro {
     margin-top: 90px;
+    margin-bottom: 5px;
   }
 
   .ninja-village-tag {

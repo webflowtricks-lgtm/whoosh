@@ -1025,7 +1025,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     </div>
 
                     {/* Character Name and Village */}
-                    <div className="w-full text-center px-1 py-0.5 min-h-[32px] flex flex-col justify-center">
+                    <div className="character-select-card-info w-full text-center px-1 py-0.5 min-h-[32px] flex flex-col justify-center">
                       <h4 className={`ninja-name-tag font-black font-mono tracking-tight text-xs sm:text-[13px] leading-tight truncate uppercase ${isLocked ? 'text-red-950 font-bold' : isSelected ? 'text-amber-900 font-extrabold' : 'text-amber-950'}`}>
                         {char.name}
                       </h4>
