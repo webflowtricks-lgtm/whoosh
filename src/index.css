@@ -1930,6 +1930,86 @@ e-squad-name {
 }
 
 @media (orientation: portrait) and (max-width: 500px) {
+  .character-select-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  main:has(.character-select-details-open) {
+    transform: none !important;
+    scale: none !important;
+  }
+
+  .character-select-details-hidden {
+    display: none !important;
+  }
+
+  .character-select-details-open {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 60 !important;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: max(3.5rem, env(safe-area-inset-top)) 0.5rem max(0.75rem, env(safe-area-inset-bottom));
+    background: rgba(2, 6, 23, 0.88);
+    backdrop-filter: none;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .character-select-details-open > .relative {
+    width: 100%;
+    max-width: 36rem;
+    flex: 0 0 auto;
+    padding: 1rem !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .character-select-details-close {
+    position: fixed;
+    top: auto;
+    right: auto;
+    bottom: max(0.8rem, env(safe-area-inset-bottom));
+    left: 50%;
+    z-index: 80;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    transform: translateX(-50%);
+    border: 1px solid rgba(120, 53, 15, 0.65);
+    border-radius: 0.75rem;
+    background: rgba(120, 53, 15, 0.9);
+    color: #ffedd5;
+    cursor: pointer;
+  }
+
+  .character-select-details-trigger {
+    position: fixed;
+    right: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    z-index: 40;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: calc(100vw - 6rem);
+    padding: 0.65rem 0.9rem;
+    border: 1px solid rgba(217, 119, 6, 0.8);
+    border-radius: 0.75rem;
+    background: linear-gradient(135deg, #78350f, #92400e);
+    color: #ffedd5;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
   .mv-chakra-roll-banner {
     top: calc(env(safe-area-inset-top, 0px) + 0.35rem) !important;
   }

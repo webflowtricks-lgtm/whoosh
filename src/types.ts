@@ -1130,6 +1130,7 @@ export interface CombatLog {
   turn: number;
   message: string;
   type: 'system' | 'damage' | 'heal' | 'buff' | 'stun' | 'death' | 'chakra';
+  hiddenFromSide?: 'player' | 'enemy';
 }
 
 export interface FloatingText {

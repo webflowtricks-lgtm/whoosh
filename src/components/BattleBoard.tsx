@@ -863,32 +863,13 @@ export function hasImmortalEffect(c?: CombatCharacter | null): boolean {
 export function isEffectVisibleToViewer(
   eff: ActiveEffect,
   viewerSide: 'player' | 'enemy' = 'player',
-  viewerCombatants?: CombatCharacter[],
-  targetCombatant?: CombatCharacter,
-  allCombatants?: CombatCharacter[]
+  _viewerCombatants?: CombatCharacter[],
+  _targetCombatant?: CombatCharacter,
+  _allCombatants?: CombatCharacter[]
 ): boolean {
   if (eff.isInvisible || eff.type === 'invisible') {
     const effectCasterSide = eff.casterSide || (eff.casterId ? (eff.casterId.startsWith('player') ? 'player' : 'enemy') : undefined);
-    if (effectCasterSide && effectCasterSide === viewerSide) {
-      return true;
-    }
-
-    const combatantsToCheck = (allCombatants && allCombatants.length > 0)
-      ? allCombatants
-      : [
-          ...(viewerCombatants || []),
-          ...(targetCombatant ? [targetCombatant] : [])
-        ];
-
-    const hasActiveReveal = combatantsToCheck.some(c =>
-      c.activeEffects?.some(e => e.type === 'reveal_invisible' && (e.casterSide === viewerSide || !e.casterSide || e.casterSide === 'player'))
-    );
-
-    if (hasActiveReveal) {
-      return true;
-    }
-
-    return false;
+    return effectCasterSide === viewerSide;
   }
   return true;
 }
@@ -3730,12 +3711,6 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
           return;
         }
       } else {
-        const isTargetInvisible = hasNegateFriendlyEffects(targetChar) ? false : targetChar.activeEffects.some(e => e.type === 'invisible');
-        if (isTargetInvisible) {
-          playCustomSound('Error');
-          addFloatingText(targetId, 'ALVO INVISÍVEL!', 'stun');
-          return;
-        }
         const isTargetInvulnerable = checkCombatantInvulnerable(targetChar, skill, sourceChar);
         if (isTargetInvulnerable && !skill.ignoreInvulnerable) {
           playCustomSound('Error');
@@ -3824,8 +3799,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       if (target.activeEffects.some(effect => effect.type === 'cannot_receive_friendly')) return false;
       if (isInvulnToFriendlyEffects(target, skill)) return false;
     } else {
-      const isInvisible = !hasNegateFriendlyEffects(target) && target.activeEffects.some(effect => effect.type === 'invisible');
-      if (isInvisible || (checkCombatantInvulnerable(target, skill, source) && !skill.ignoreInvulnerable)) return false;
+      if (checkCombatantInvulnerable(target, skill, source) && !skill.ignoreInvulnerable) return false;
     }
 
     return true;
@@ -4627,7 +4601,18 @@ const handleTradeChakra = () => {
       playCustomSound('ApplySkill');
     }
 
+    let pendingHiddenLogStart: number | null = null;
+    let pendingHiddenLogViewer: 'player' | 'enemy' = 'player';
+    const markPendingHiddenActionLogs = () => {
+      if (pendingHiddenLogStart === null) return;
+      for (let index = pendingHiddenLogStart; index < newLogs.length; index++) {
+        newLogs[index].hiddenFromSide = pendingHiddenLogViewer;
+      }
+      pendingHiddenLogStart = null;
+    };
+
     formattedActions.forEach((action, actionIndex) => {
+      markPendingHiddenActionLogs();
       const sourceList = action.isPlayer ? updatedPlayer : updatedEnemy;
       const targetList = action.isPlayer ? updatedEnemy : updatedPlayer;
       const allCombatants = [...updatedPlayer, ...updatedEnemy];
@@ -4636,6 +4621,10 @@ const handleTradeChakra = () => {
       if (!source || source.isDead) return;
 
       const rawSkill = source.character.skills[action.skillIndex];
+      if (rawSkill.invisible || (rawSkill.invisibleDuration ?? 0) > 0) {
+        pendingHiddenLogStart = newLogs.length;
+        pendingHiddenLogViewer = action.isPlayer ? 'enemy' : 'player';
+      }
       let skill = (rawSkill.ignoreInvulnWhenActiveRules?.some(r => r.activeOn === 'self' && hasEffectWithName(source, r.activeSkillName)))
         ? { ...rawSkill, ignoreInvulnerable: true }
         : rawSkill;
@@ -6913,9 +6902,7 @@ const startingHealth = t.health;
         }
       }
 
-      // INVISIBILITY TO OPPONENT (effect hiding, no targeting block)
-      // The `invisible` property now only marks effects as hidden (isInvisible), no longer creates an untargetable buff.
-      // If you want actual invisibility (untargetable), use a separate stun or invulnerable effect instead.
+      // Mark the skill's effects as hidden from the opponent for the configured duration.
 
       // PARALYZE COOLDOWN
       if (skill.paralyzeCooldownDuration && skill.paralyzeCooldownDuration > 0) {
@@ -9170,34 +9157,6 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
-      // Reveal Invisible
-      if (skill.revealInvisibleDuration && skill.revealInvisibleDuration > 0) {
-        const revealTargets = resolveEffectTargets(skill.revealInvisibleTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
-        revealTargets.forEach(t => {
-          if (t.isDead) return;
-          const duration = skill.revealInvisibleDuration!;
-          pushActiveEffect(t, {
-            name: `${skill.name} (Revelar Skills Invisíveis)`,
-            type: 'reveal_invisible',
-            duration,
-            icon: skill.icon,
-            irremovable: !!skill.revealInvisibleIrremovable,
-            cannotBeCountered: !!skill.cannotBeCountered,
-            cannotBeReflected: !!skill.cannotBeReflected,
-            casterId: source.id,
-            casterSide: action.isPlayer ? 'player' : 'enemy',
-          });
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `👁️ ${t.character.name} teve suas habilidades e efeitos invisíveis revelados por [${skill.name}] por ${duration} turnos!`,
-            type: 'buff',
-          });
-          addFloatingText(t.id, '👁️ SKILLS REVELADAS', 'effect');
-          cleanseTargetEffects(t, skill.revealInvisibleRemoveType);
-        });
-      }
-
       // 4.11 APPLY IGNORE STUN (IGNORAR STUN)
       if (skill.ignoreStunDuration && skill.ignoreStunDuration > 0) {
         const ignoreStunTargets = resolveEffectTargets(skill.ignoreStunTarget, target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList);
@@ -9390,9 +9349,7 @@ splashOnlyTargets = splashPool.filter(c =>
         });
       }
 
-      // 👻 Invisibilidade REAL: skills com `invisible` criam um efeito 'invisible' no alvo
-      // (padrão: o próprio conjurador), tornando-o INALVEJÁVEL ("ALVO INVISÍVEL!" na seleção)
-      // além de ocultar os badges. Sem isso, a flag só escondia os ícones dos efeitos.
+      // A habilidade oculta seus efeitos do oponente; esse marcador não altera a seleção de alvos.
       const isSkillInvisible = !!skill.invisible || ((skill.invisibleDuration ?? 0) > 0);
       if (isSkillInvisible && target) {
         const invisTargets = resolveEffectTargets(skill.invisibleTarget || skill.shieldTarget || skill.invulnerableTarget || 'Self', target, source, isReflected ? targetList : sourceList, isReflected ? sourceList : targetList, true);
@@ -9414,13 +9371,6 @@ splashOnlyTargets = splashPool.filter(c =>
               casterId: source.id,
               casterSide: action.isPlayer ? 'player' : 'enemy',
             });
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `👻 ${t.character.name} ficou INVISÍVEL com [${skill.name}] por ${invisDur} turno(s) — não pode ser alvo de habilidades!`,
-              type: 'buff',
-            });
-            addFloatingText(t.id, 'INVISÍVEL', 'effect');
             cleanseTargetEffects(t, skill.invisibleRemoveType);
           }
         });
@@ -10407,6 +10357,7 @@ splashOnlyTargets = splashPool.filter(c =>
       });
     });
 
+    markPendingHiddenActionLogs();
     currentSkillRef.current = null;
 
     // 💜 Sincronização IMEDIATA dos valores de aflição com as regras condicionais:
@@ -12061,7 +12012,6 @@ splashOnlyTargets = splashPool.filter(c =>
 
                 const targetIsEnemy = target.id.startsWith('player');
                 const hasInvulnerable = checkCombatantInvulnerable(target, skill);
-                const hasInvisible = target.activeEffects.some(e => e.type === 'invisible');
                 const hasReflect = target.activeEffects.some(e => e.type === 'reflect');
                 const hasCounter = target.activeEffects.some(e => e.type === 'counter_attack' || e.type === 'counter');
                 const hasShield = target.shield > 0;
@@ -12069,9 +12019,6 @@ splashOnlyTargets = splashPool.filter(c =>
                 // --- OFFENSIVE SKILL SCORING ---
                 if (targetIsEnemy) {
                   if (hasInvulnerable && !skill.ignoreInvulnerable) {
-                    score -= 2000;
-                  }
-                  if (hasInvisible && !skill.ignoreInvulnerable) {
                     score -= 2000;
                   }
                   if (hasReflect && !skill.cannotBeReflected) {
@@ -16452,7 +16399,6 @@ if (skill.redirectOffensiveToCaster) {
           }
         });
       }
-
     });
 
     // --- 3. DO T TURN END EFFECTS (DoT, Self damage, and duration decays) ---
@@ -16807,59 +16753,6 @@ if (skill.redirectOffensiveToCaster) {
 
         // Check paralyze cooldown BEFORE decrementing durations
         const isCooldownParalyzed = c.activeEffects.some(e => e.type === 'paralyze_cooldown');
-
-        // Reveal invisible effects that are about to expire
-        const expiringHidden = c.activeEffects.filter((e: ActiveEffect) => (e.isInvisible || e.type === 'invisible') && e.duration === 1);
-        if (expiringHidden.length > 0) {
-          const processedSkills = new Set<string>();
-          const allCombatants = [...updatedPlayer, ...updatedEnemy];
-
-          expiringHidden.forEach(expEff => {
-            const skillName = expEff.sourceSkillName || getSkillBaseName(expEff) || expEff.name || 'Habilidade';
-            if (processedSkills.has(skillName)) return;
-            processedSkills.add(skillName);
-
-            let icon = expEff.icon || '';
-            if (!icon && c.character?.skills) {
-              const foundSkill = c.character.skills.find(s => s.name === skillName || s.name === expEff.sourceSkillName);
-              if (foundSkill?.icon) icon = foundSkill.icon;
-            }
-            if (!icon) {
-              for (const cb of allCombatants) {
-                const s = cb.character?.skills?.find(sk => sk.name === skillName || sk.name === expEff.sourceSkillName);
-                if (s?.icon) { icon = s.icon; break; }
-              }
-            }
-
-            const casterCombatant = allCombatants.find(cb => cb.id === expEff.casterId) || c;
-
-            const alreadyHasBuff = c.activeEffects.some(
-              e => (e.name === skillName || e.sourceSkillName === skillName) && !e.isInvisible && e.type !== 'invisible' && e.duration >= 1
-            );
-
-            if (!alreadyHasBuff) {
-              c.activeEffects.push({
-                name: skillName,
-                sourceSkillName: skillName,
-                type: 'custom',
-                value: 0,
-                duration: 2, // Decremented to 1 in line 6211 right below, so it remains visible for 1 full turn
-                icon: icon,
-                description: `Habilidade [${skillName}] foi usada e revelada`,
-                casterId: casterCombatant.id,
-                isInvisible: false,
-              });
-            }
-
-            newLogs.push({
-              id: Math.random().toString(),
-              turn,
-              message: `👁️ [${skillName}] de ${casterCombatant.character.name} expirou e foi revelada para todos: Habilidade [${skillName}] foi usada.`,
-              type: 'buff',
-            });
-            addFloatingText(c.id, 'SKILL REVELADA', 'effect');
-          });
-        }
 
         // Shield expiration (escudo com duração limitada)
         if (c.shieldExpiresTurn && turn >= c.shieldExpiresTurn) {
@@ -17517,14 +17410,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           color: 'text-sky-950 font-extrabold',
           targetLabel: 'Alvos da Skill'
         });
-      });
-    }
-    if (skill.revealInvisibleDuration && skill.revealInvisibleDuration > 0) {
-      effects.push({
-        label: 'Revelar Skills Invisíveis',
-        value: `Revela habilidades e efeitos invisíveis por ${fmtDur(skill.revealInvisibleDuration)}`,
-        color: 'text-teal-950 font-extrabold',
-        targetLabel: getTargetLabel(skill.revealInvisibleTarget, 'Alvo Principal')
       });
     }
     if (skill.ignoreStunDuration && skill.ignoreStunDuration > 0) {
@@ -18768,28 +18653,22 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         const skill = src?.character.skills[cue.skillIndex];
                         const isEnemyCue = cue.sourceId.startsWith('enemy');
                         const isSkillInvisible = !!(skill?.invisible || (skill?.invisibleDuration !== undefined && skill.invisibleDuration > 0));
-                        const hasReveal = [...playerCombatants, ...enemyCombatants].some(c => c.activeEffects?.some(e => e.type === 'reveal_invisible' && (e.casterSide === 'player' || !e.casterSide)));
-                        const isHiddenCue = isEnemyCue && isSkillInvisible && !hasReveal && !isSandbox;
+                        const isHiddenCue = isEnemyCue && isSkillInvisible && !isSandbox;
+                        if (isHiddenCue) return null;
 
                         return (
                           <div key={`${cue.sourceId}-${cue.skillIndex}-${cIdx}`} className="group relative">
-                            {isHiddenCue ? (
-                              <div className="w-5 h-5 rounded border border-pink-600/80 bg-pink-950/90 text-pink-300 flex items-center justify-center text-[10px] font-bold cursor-help" title="Ação Oculta (Invisível)">
-                                👁️
-                              </div>
-                            ) : (
-                              <img
-                                src={skill?.icon}
-                                alt={skill?.name}
-                                className="w-9 h-9 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
-                                onError={(e) => {
-                                  const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                                }}
-                              />
-                            )}
+                            <img
+                              src={skill?.icon}
+                              alt={skill?.name}
+                              className="w-9 h-9 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
+                              onError={(e) => {
+                                const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                              }}
+                            />
                             {/* Skill Tooltip */}
                             <div className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[9px] text-slate-200 z-50 whitespace-nowrap shadow-2xl pointer-events-none">
-                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{isHiddenCue ? 'Ação Oculta' : skill?.name}]
+                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{skill?.name}]
                             </div>
                           </div>
                         );
@@ -20020,28 +19899,22 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         const skill = src?.character.skills[cue.skillIndex];
                         const isEnemyCue = cue.sourceId.startsWith('enemy');
                         const isSkillInvisible = !!(skill?.invisible || (skill?.invisibleDuration !== undefined && skill.invisibleDuration > 0));
-                        const hasReveal = [...playerCombatants, ...enemyCombatants].some(c => c.activeEffects?.some(e => e.type === 'reveal_invisible' && (e.casterSide === 'player' || !e.casterSide)));
-                        const isHiddenCue = isEnemyCue && isSkillInvisible && !hasReveal && !isSandbox;
+                        const isHiddenCue = isEnemyCue && isSkillInvisible && !isSandbox;
+                        if (isHiddenCue) return null;
 
                         return (
                           <div key={`${cue.sourceId}-${cue.skillIndex}-${cIdx}`} className="group relative">
-                            {isHiddenCue ? (
-                              <div className="w-5 h-5 rounded border border-pink-600/80 bg-pink-950/90 text-pink-300 flex items-center justify-center text-[10px] font-bold cursor-help" title="Ação Oculta (Invisível)">
-                                👁️
-                              </div>
-                            ) : (
-                              <img
-                                src={skill?.icon}
-                                alt={skill?.name}
-                                className="w-9 h-9 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
-                                onError={(e) => {
-                                  const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                                }}
-                              />
-                            )}
+                            <img
+                              src={skill?.icon}
+                              alt={skill?.name}
+                              className="w-9 h-9 rounded border border-orange-500/50 hover:border-orange-400 transition-all object-cover cursor-pointer"
+                              onError={(e) => {
+                                const img = e.currentTarget; img.onerror = null; img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                              }}
+                            />
                             {/* Skill Tooltip */}
                             <div className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[9px] text-slate-200 z-50 whitespace-nowrap shadow-2xl pointer-events-none">
-                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{isHiddenCue ? 'Ação Oculta' : skill?.name}]
+                              <span className="text-orange-400 font-bold">{src?.character.name}</span>: [{skill?.name}]
                             </div>
                           </div>
                         );
@@ -20367,10 +20240,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             {pageSkills.map((skill, pIdx) => {
                             const sIdx = pageIndex * skillsPerPage + pIdx;
                             const isCooldown = skill.currentCooldown > 0;
-                            const hasRevealInvisible = [...playerCombatants, ...enemyCombatants].some(
-                              c => c.activeEffects?.some(e => e.type === 'reveal_invisible' && (e.casterSide === 'player' || !e.casterSide))
-                            );
-                            const isSkillInvisibleToOpponent = (skill.invisible || (skill.invisibleDuration !== undefined && skill.invisibleDuration > 0)) && !hasRevealInvisible;
+                            const isSkillInvisibleToOpponent = skill.invisible || (skill.invisibleDuration !== undefined && skill.invisibleDuration > 0);
 
                             if (isSkillInvisibleToOpponent && !isSandbox) {
                               return (
@@ -21783,7 +21653,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         <div className="fixed bottom-2 left-2 z-[90] max-w-[280px] pointer-events-none select-none">
           <div className="bg-black/75 border border-orange-900/60 rounded-lg px-2 py-1.5 font-mono text-[9px] leading-snug text-slate-200 shadow-lg">
             <div className="text-orange-400 font-bold uppercase tracking-wider mb-0.5">🧪 Log v7</div>
-            {logs.slice(-7).map(l => (
+            {logs.filter(l => l.hiddenFromSide !== 'player').slice(-7).map(l => (
               <div
                 key={l.id}
                 className={`truncate ${l.message.startsWith('🧪') || l.message.includes('⏳') || l.message.includes('🛑') || l.message.includes('⚠️') ? 'text-amber-300' : 'text-slate-300'}`}

@@ -4,13 +4,12 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, Loader2, AlertTriangle, Shirt, Lock, X } from 'lucide-react';
-import { Character, ChakraType, UserProfile, Quest } from '../types';
+import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, Loader2, AlertTriangle, Shirt, Lock, X, Eye } from 'lucide-react';
+import { Character, ChakraType, UserProfile, Quest, Skill } from '../types';
 import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
 import { safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage, translateGameText, translateSkillName, translateTargetType } from '../lib/i18n';
-import { RichText, stripRichMarkup } from '../lib/richText';
 import { playGlobalSound } from '../lib/soundUtils';
 import MangekyoLoader from './MangekyoLoader';
 import SkinMedia from './SkinMedia';
@@ -67,7 +66,31 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     return list[0] || null;
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [isMobilePortrait, setIsMobilePortrait] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches
+  );
+  const [showCharacterDetails, setShowCharacterDetails] = useState(false);
   const [previewSkillsPage, setPreviewSkillsPage] = useState(0);
+  const skillEffectSwipeStartRef = useRef<number | null>(null);
+  const characterPageSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressCharacterClickRef = useRef(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(orientation: portrait) and (max-width: 500px)');
+    const update = () => setIsMobilePortrait(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener('change', update);
+    return () => mediaQuery.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    if (!showCharacterDetails) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowCharacterDetails(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [showCharacterDetails]);
 
   // Auto-persist last selected team whenever selection changes (outside sandbox opponent picking)
   useEffect(() => {
@@ -188,8 +211,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('Todos');
-  const [expandedSkills, setExpandedSkills] = useState<Record<string, boolean>>({});
-
+  const [skillEffectPages, setSkillEffectPages] = useState<Record<string, number>>({});
   const handleSearchChange = (val: string) => {
     setSearchTerm(val);
     setCurrentPage(1);
@@ -211,7 +233,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     return matchesSearch && matchesTag;
   });
 
-  const ITEMS_PER_PAGE = 18;
+  const ITEMS_PER_PAGE = isMobilePortrait ? 20 : 18;
   const totalPages = Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE);
   const activePage = Math.min(currentPage, Math.max(totalPages, 1));
   const startIndex = (activePage - 1) * ITEMS_PER_PAGE;
@@ -552,6 +574,94 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     );
   };
 
+  const getSkillAttributeTargetLabel = (target: string) => target === 'Self'
+    ? t('Conjurador (Mim)', 'Caster (Me)')
+    : target === 'Target'
+      ? t('Alvo Principal', 'Main Target')
+      : translateTargetType(target, language);
+
+  const getSkillAttributeEffects = (skill: Skill) => {
+    const effects: { label: string; value: string; target?: string }[] = [];
+    const duration = (turns?: number) => turns && turns >= 99999 ? '∞' : `${turns || 1} ${t('turno(s)', 'turn(s)')}`;
+    const addEffect = (label: string, value: string, target?: string) => effects.push({ label, value, target });
+
+    if (skill.damage && skill.damage > 0) addEffect(t('Dano', 'Damage'), `${skill.damage} ${t('de dano', 'damage')}`, skill.damageTarget || 'Target');
+    if (skill.directDamage && skill.directDamage > 0) addEffect(t('Dano Direto', 'Direct Damage'), `${skill.directDamage} ${t('de dano direto', 'direct damage')}`, skill.directDamageTarget || 'Target');
+    if (skill.heal && skill.heal > 0) addEffect(t('Cura', 'Heal'), `${skill.heal} ${t('de cura', 'healing')}`, skill.healTarget || 'Target');
+    if (skill.shieldVal && skill.shieldVal > 0) addEffect(t('Escudo', 'Shield'), `+${skill.shieldVal} ${t('de escudo por', 'shield for')} ${duration(skill.shieldDuration)}`, skill.shieldTarget || 'Self');
+    if (skill.damageReductionVal && skill.damageReductionVal > 0) {
+      addEffect(t('Redução de Dano', 'Damage Reduction'), `-${skill.damageReductionVal} ${t('de dano recebido por', 'damage received for')} ${duration(skill.damageReductionDuration)}`, skill.shieldTarget || 'Self');
+    }
+    if (skill.damageReductionPierceVal && skill.damageReductionPierceVal > 0) {
+      addEffect(t('Redução de Dano Direto', 'Direct Damage Reduction'), `-${skill.damageReductionPierceVal} ${t('de dano recebido por', 'damage received for')} ${duration(skill.damageReductionPierceDuration)}`, skill.damageReductionPierceTarget || 'Self');
+    }
+    if (skill.damageBuffVal && skill.damageBuffVal > 0) addEffect(t('Aumento de Dano', 'Damage Boost'), `+${skill.damageBuffVal} ${t('de dano causado por', 'damage dealt for')} ${duration(skill.damageBuffDuration)}`, skill.damageBuffTarget || 'Self');
+    if (skill.damageDebuffVal && skill.damageDebuffVal > 0) addEffect(t('Redução de Dano Causado', 'Damage Debuff'), `-${skill.damageDebuffVal} ${t('de dano causado por', 'damage dealt for')} ${duration(skill.damageDebuffDuration)}`, skill.damageDebuffTarget || 'Target');
+    if (skill.damageVulnerabilityVal && skill.damageVulnerabilityVal > 0) addEffect(t('Vulnerabilidade', 'Vulnerability'), `+${skill.damageVulnerabilityVal} ${t('de dano recebido por', 'damage received for')} ${duration(skill.damageVulnerabilityDuration)}`, skill.damageVulnerabilityTarget || 'Target');
+    if (skill.stunTurns && skill.stunTurns > 0) addEffect(t('Atordoamento', 'Stun'), `${t('Bloqueia habilidades por', 'Blocks skills for')} ${duration(skill.stunTurns)}`, skill.stunTarget || 'Target');
+    if (skill.dotVal && skill.dotVal > 0) addEffect(t('Queimadura', 'Burn'), `${skill.dotVal} ${t('de dano por turno por', 'damage per turn for')} ${duration(skill.dotDuration)}`, skill.dotTarget || 'Target');
+    if (skill.bleedingVal && skill.bleedingVal > 0) addEffect(t('Sangramento', 'Bleeding'), `${skill.bleedingVal} ${t('de dano por turno por', 'damage per turn for')} ${duration(skill.bleedingDuration)}`, skill.bleedingTarget || 'Target');
+    if (skill.afflictionVal && skill.afflictionVal > 0) addEffect(t('Aflição', 'Affliction'), `${skill.afflictionVal} ${t('de dano por turno por', 'damage per turn for')} ${duration(skill.afflictionDuration)}`, skill.afflictionTarget || 'Target');
+    if (skill.invulnerableDuration && skill.invulnerableDuration > 0) addEffect(t('Invulnerabilidade', 'Invulnerability'), `${t('Fica invulnerável por', 'Invulnerable for')} ${duration(skill.invulnerableDuration)}`, skill.invulnerableTarget || 'Self');
+    if (skill.cannotReduceDamageDuration && skill.cannotReduceDamageDuration > 0) addEffect(t('Incapaz de Reduzir Dano', 'Cannot Reduce Damage'), `${t('Não pode reduzir dano por', 'Cannot reduce damage for')} ${duration(skill.cannotReduceDamageDuration)}`, skill.cannotReduceDamageTarget || 'Target');
+    if (skill.cannotBeInvulnerableDuration && skill.cannotBeInvulnerableDuration > 0) addEffect(t('Incapaz de Ficar Invulnerável', 'Cannot Become Invulnerable'), `${t('Não pode ficar invulnerável por', 'Cannot become invulnerable for')} ${duration(skill.cannotBeInvulnerableDuration)}`, skill.cannotBeInvulnerableTarget || 'Target');
+    if (skill.cannotReceiveFriendlyDuration && skill.cannotReceiveFriendlyDuration > 0) addEffect(t('Bloqueio de Efeitos Amigáveis', 'Friendly Effects Blocked'), `${t('Não recebe efeitos amigáveis por', 'Cannot receive friendly effects for')} ${duration(skill.cannotReceiveFriendlyDuration)}`, skill.cannotReceiveFriendlyTarget || 'Target');
+    if (skill.negateFriendlyDuration && skill.negateFriendlyDuration > 0) addEffect(t('Anulação de Efeitos Amigáveis', 'Negate Friendly Effects'), `${t('Anula efeitos amigáveis por', 'Negates friendly effects for')} ${duration(skill.negateFriendlyDuration)}`, skill.negateFriendlyTarget || 'Target');
+    if (skill.damageImmunityDuration && skill.damageImmunityDuration > 0) addEffect(t('Imunidade a Dano', 'Damage Immunity'), `${t('Imune a dano por', 'Immune to damage for')} ${duration(skill.damageImmunityDuration)}`, skill.damageImmunityTarget || 'Self');
+    if (skill.gainChakra && skill.gainChakra > 0) addEffect(t('Ganhar Chakra', 'Gain Chakra'), `+${skill.gainChakra} ${t('chakra por', 'chakra for')} ${duration(skill.gainChakraDuration)}`, skill.gainChakraTarget || 'Self');
+    if (skill.drainChakra && skill.drainChakra > 0) addEffect(t('Drenar Chakra', 'Drain Chakra'), `-${skill.drainChakra} ${t('chakra por', 'chakra for')} ${duration(skill.drainChakraDuration)}`, skill.drainChakraTarget || 'Target');
+    if (skill.removeChakra && skill.removeChakra > 0) addEffect(t('Remover Chakra', 'Remove Chakra'), `-${skill.removeChakra} ${t('chakra por', 'chakra for')} ${duration(skill.removeChakraDuration)}`, skill.removeChakraTarget || 'Target');
+    if (skill.stealChakra && skill.stealChakra > 0) addEffect(t('Roubar Chakra', 'Steal Chakra'), `${skill.stealChakra} ${t('chakra por', 'chakra for')} ${duration(skill.stealChakraDuration)}`, skill.stealChakraTarget || 'Target');
+    if (skill.cooldownIncreaseAmount && skill.cooldownIncreaseAmount > 0) addEffect(t('Aumentar Recarga', 'Increase Cooldown'), `+${skill.cooldownIncreaseAmount} ${t('de recarga por', 'cooldown for')} ${duration(skill.cooldownIncreaseDuration)}`, skill.cooldownIncreaseTarget || 'Target');
+    if (skill.reviveHp && skill.reviveHp > 0) addEffect(t('Ressurreição', 'Revive'), `${t('Ressuscita com', 'Revives with')} ${skill.reviveHp} ${t('de vida', 'health')}`, skill.shieldTarget || 'Self');
+    if (skill.stackable && skill.stackType) {
+      addEffect(
+        t('Acúmulo de Stack', 'Stack Gain'),
+        `${t('Adiciona +1 stack de', 'Adds +1 stack of')} [${skill.stackType}] ${t('por', 'for')} ${duration(skill.stackDuration)}`,
+        skill.stackTarget || 'Self'
+      );
+    } else if (skill.stackType && skill.stackUseEffectRules?.length) {
+      addEffect(
+        t('Progressão de Combo', 'Combo Progression'),
+        `${t('Contribui para o combo de stacks', 'Contributes to the stack combo')} [${skill.stackType}]`,
+        skill.stackTarget || 'Self'
+      );
+    }
+    skill.stackUseEffectRules?.forEach(rule => {
+      const conditions = rule.onwards
+        ? `${rule.requiredStacks}+`
+        : `${rule.requiredStacks}`;
+      const effects: string[] = [];
+      if (rule.stun) effects.push(`${t('Atordoa por', 'Stuns for')} ${duration(rule.stunDuration)}`);
+      if (rule.chakraRemove && rule.chakraRemove > 0) effects.push(`${t('remove', 'removes')} ${rule.chakraRemove} ${t('chakra(s)', 'chakra')}`);
+      if (effects.length > 0) {
+        addEffect(
+          `${t('Combo por Stacks', 'Stack Combo')} (${conditions} ${t('stacks', 'stacks')})`,
+          `${t('Ao usar com', 'When used with')} ${conditions} ${rule.stackType || skill.stackType || t('stacks', 'stacks')}: ${effects.join(' + ')}`,
+          'Target'
+        );
+      }
+    });
+    skill.ignoreInvulnWhenActiveRules?.forEach(rule => {
+      if (!rule.activeSkillName) return;
+      addEffect(
+        t('Ignora Invulnerabilidade', 'Ignore Invulnerability'),
+        `${t('Ignora a invulnerabilidade quando', 'Ignores invulnerability while')} [${rule.activeSkillName}] ${rule.activeOn === 'self' ? t('estiver ativo em mim', 'is active on me') : t('estiver ativo no oponente', 'is active on the opponent')}`,
+        'Target'
+      );
+    });
+    skill.damageRules?.forEach(rule => {
+      if (!rule.activeSkillName || rule.damageBoost <= 0) return;
+      addEffect(
+        `${t('Dano Condicional', 'Conditional Damage')} (${rule.activeSkillName})`,
+        `+${rule.damageBoost} ${t('de dano quando', 'damage while')} [${rule.activeSkillName}] ${t('estiver ativo', 'is active')}`,
+        skill.damageTarget || 'Target'
+      );
+    });
+
+    return effects;
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative selection:bg-orange-600 selection:text-white overflow-x-hidden">
       {/* Background Image: choose team background */}
@@ -806,7 +916,36 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             )}
           </AnimatePresence>
 
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 sm:gap-3">
+          <div
+            className="character-select-grid grid grid-cols-3 sm:grid-cols-6 gap-2.5 sm:gap-3"
+            style={{ touchAction: 'pan-y' }}
+            onPointerDown={event => {
+              characterPageSwipeStartRef.current = { x: event.clientX, y: event.clientY };
+            }}
+            onPointerUp={event => {
+              const start = characterPageSwipeStartRef.current;
+              characterPageSwipeStartRef.current = null;
+              if (!start || totalPages <= 1) return;
+              const deltaX = event.clientX - start.x;
+              const deltaY = event.clientY - start.y;
+              if (Math.abs(deltaX) < 50 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
+              suppressCharacterClickRef.current = true;
+              window.setTimeout(() => {
+                suppressCharacterClickRef.current = false;
+              }, 500);
+              playScrollSound();
+              setCurrentPage(page => Math.max(1, Math.min(totalPages, page + (deltaX < 0 ? 1 : -1))));
+            }}
+            onPointerCancel={() => {
+              characterPageSwipeStartRef.current = null;
+            }}
+            onClickCapture={event => {
+              if (!suppressCharacterClickRef.current) return;
+              suppressCharacterClickRef.current = false;
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+          >
             {paginatedCharacters.map(char => {
               const isSelected = selectedIds.includes(char.id);
               const isFull = selectedIds.length >= 3 && !isSelected;
@@ -977,7 +1116,17 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         </div>
 
         {/* Detailed Inspection sidebar (Right Side) */}
-        <div className="lg:col-span-6 sticky top-28 space-y-6 z-10">
+        <div
+          className={`character-select-details-panel lg:col-span-6 sticky top-28 space-y-6 z-10 ${
+            isMobilePortrait ? (showCharacterDetails ? 'character-select-details-open' : 'character-select-details-hidden') : ''
+          }`}
+          role={isMobilePortrait && showCharacterDetails ? 'dialog' : undefined}
+          aria-modal={isMobilePortrait && showCharacterDetails ? true : undefined}
+          aria-label={isMobilePortrait && showCharacterDetails ? `${previewCharacter.name} - ${t('Detalhes do personagem', 'Character details')}` : undefined}
+          onClick={event => {
+            if (event.target === event.currentTarget) setShowCharacterDetails(false);
+          }}
+        >
           {/* Main Pergaminho Character Details Card */}
           <div className="relative p-7 sm:p-10 md:p-12 flex flex-col justify-between group">
             {/* Pergaminho Personagem Detalhes background asset */}
@@ -1123,31 +1272,48 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   <span className="flex items-center gap-1.5 text-amber-950 font-black">
                     <Sparkles className="w-3.5 h-3.5 text-amber-800" /> {t("HABILIDADES", "SKILLS")}
                   </span>
-                  {previewCharacter.skills.length > 3 && (
+                  {previewCharacter.skills.length > 2 && (
                     <span className="text-[11px] text-amber-900/90 font-bold">
-                      {t("PÁG.", "PAGE")} {previewSkillsPage + 1} {t("DE", "OF")} {Math.ceil(previewCharacter.skills.length / 3)}
+                      {t("PÁG.", "PAGE")} {previewSkillsPage + 1} {t("DE", "OF")} {Math.ceil(previewCharacter.skills.length / 2)}
                     </span>
                   )}
                 </div>
 
                 <div className="space-y-3">
                   {(() => {
-                    const skillsPerPage = 3;
+                    const skillsPerPage = 2;
                     const paginated = previewCharacter.skills.slice(previewSkillsPage * skillsPerPage, (previewSkillsPage + 1) * skillsPerPage);
                     return paginated.map((skill, sIdx) => {
-                      const skillKey = `${previewCharacter.id}_${sIdx}_${skill.name}`;
-                      const isExpanded = !!expandedSkills[skillKey];
-                      const maxLen = 75;
-                      const translatedDesc = translateGameText(skill.desc, language);
+                      const skillEffects = getSkillAttributeEffects(skill);
                       const translatedSkillName = translateSkillName(skill.name, language);
-                      const isLongText = stripRichMarkup(translatedDesc).length > maxLen;
-                      const plainDesc = stripRichMarkup(translatedDesc);
-                      const displayDesc = (isLongText && !isExpanded) ? `${plainDesc.slice(0, maxLen)}...` : translatedDesc;
+                      const skillEffectPageSize = 2;
+                      const effectPageCount = Math.max(1, Math.ceil(skillEffects.length / skillEffectPageSize));
+                      const skillEffectKey = `${previewCharacter.id}:${skill.name}`;
+                      const effectPage = Math.min(skillEffectPages[skillEffectKey] || 0, effectPageCount - 1);
+                      const visibleEffects = skillEffects.slice(effectPage * skillEffectPageSize, (effectPage + 1) * skillEffectPageSize);
+                      const setEffectPage = (page: number) => {
+                        setSkillEffectPages(previous => ({ ...previous, [skillEffectKey]: page }));
+                      };
 
                       return (
                         <div
-                          key={sIdx}
+                          key={`${skill.name}-${sIdx}`}
                           className="relative w-full rounded-xl overflow-hidden min-h-[100px] flex items-center transition-transform hover:scale-[1.01] group"
+                          onPointerDown={event => {
+                            skillEffectSwipeStartRef.current = event.clientX;
+                          }}
+                          onPointerUp={event => {
+                            const startX = skillEffectSwipeStartRef.current;
+                            skillEffectSwipeStartRef.current = null;
+                            if (startX === null || effectPageCount < 2) return;
+                            const deltaX = event.clientX - startX;
+                            if (Math.abs(deltaX) < 40) return;
+                            playScrollSound();
+                            setEffectPage(Math.max(0, Math.min(effectPageCount - 1, effectPage + (deltaX < 0 ? 1 : -1))));
+                          }}
+                          onPointerCancel={() => {
+                            skillEffectSwipeStartRef.current = null;
+                          }}
                         >
                           {/* Background Pergaminho Scroll Asset for each skill */}
                           <img 
@@ -1160,63 +1326,97 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           />
 
                           {/* Content sit on top of parchment paper area inside wooden handles */}
-                          <div className="relative z-10 w-full flex items-center gap-2 sm:gap-2.5 px-6 sm:px-8 py-2.5">
-                            {/* Larger Skill Icon */}
-                            <div className="w-14 h-14 sm:w-[60px] sm:h-[60px] rounded-lg overflow-hidden border-2 border-amber-900/60 bg-amber-950/40 flex-shrink-0 shadow-md">
-                              <img 
-                                src={skill.icon || null} 
-                                alt={translatedSkillName} 
-                                className="w-full h-full object-cover" 
-                                onError={(e) => {
-                                  const img = e.currentTarget;
-                                  img.onerror = null;
-                                  img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
-                                }}
-                              />
+                          <div className="relative z-10 w-full px-6 sm:px-8 py-[20px]" style={{ touchAction: 'pan-y' }}>
+                            <div className="flex items-start justify-between gap-1.5 text-left">
+                              <span className="min-w-0 truncate text-left font-extrabold text-xs sm:text-sm text-amber-950 font-sans tracking-tight drop-shadow-sm">
+                                {translatedSkillName}
+                              </span>
+                              <div className="flex-shrink-0 bg-amber-950/10 px-1 py-0.5 rounded border border-amber-900/20">
+                                {renderChakraCosts(skill.cost)}
+                              </div>
                             </div>
 
-                            <div className="flex-1 min-w-0 space-y-0.5">
-                              <div className="flex justify-between items-start gap-1.5">
-                                <div className="inline-block max-w-full">
-                                  <span 
-                                    className="font-extrabold text-xs sm:text-sm text-amber-950 font-sans tracking-tight truncate drop-shadow-sm block"
-                                  >
-                                    {translatedSkillName}
-                                  </span>
-                                </div>
-                                <div className="flex-shrink-0 bg-amber-950/10 px-1 py-0.5 rounded border border-amber-900/20">
-                                  {renderChakraCosts(skill.cost)}
-                                </div>
+                            <div className="mt-1 flex items-center gap-2 sm:gap-2.5">
+                              {/* Larger Skill Icon */}
+                              <div className="w-14 h-14 sm:w-[60px] sm:h-[60px] rounded-lg overflow-hidden border-2 border-amber-900/60 bg-amber-950/40 flex-shrink-0 shadow-md">
+                                <img 
+                                  src={skill.icon || null} 
+                                  alt={translatedSkillName} 
+                                  className="w-full h-full object-cover" 
+                                  onError={(e) => {
+                                    const img = e.currentTarget;
+                                    img.onerror = null;
+                                    img.src = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg';
+                                  }}
+                                />
                               </div>
-                              
-                              <p className="text-[10px] sm:text-[11px] text-stone-900 font-medium leading-snug">
-                                {isLongText && !isExpanded ? displayDesc : <RichText text={displayDesc} />}{' '}
-                                {isLongText && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setExpandedSkills(prev => ({
-                                        ...prev,
-                                        [skillKey]: !prev[skillKey]
-                                      }));
-                                    }}
-                                    className="text-amber-950 font-black hover:underline cursor-pointer text-[9px] sm:text-[10px] uppercase font-mono tracking-wider ml-1 px-1 py-0.2 bg-amber-900/15 rounded border border-amber-900/20 inline-block"
-                                  >
-                                    {isExpanded ? t('Ver menos', 'See less') : t('Ver mais', 'See more')}
-                                  </button>
+
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="grid grid-cols-2 gap-1">
+                                  {skillEffects.length > 0 ? visibleEffects.map((effect, effectIndex) => (
+                                    <div key={effectIndex} className="min-w-0 rounded-md border border-amber-900/30 bg-amber-100/75 px-1.5 py-1 text-[8px] leading-tight text-amber-950 shadow-sm">
+                                      <div className="font-black">{effect.label}</div>
+                                      <div className="mt-0.5 font-semibold">{effect.value}</div>
+                                      {effect.target && (
+                                        <div className="mt-1 flex justify-end">
+                                          <span className="rounded border border-amber-900/20 bg-amber-900/10 px-1 py-0.5 text-[7px] font-extrabold">
+                                            🎯 {getSkillAttributeTargetLabel(effect.target)}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )) : (
+                                    <span className="text-[9px] font-medium text-amber-950/70">
+                                      {t('Sem efeitos adicionais configurados.', 'No additional effects configured.')}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {effectPageCount > 1 && (
+                                  <div className="flex items-center justify-center gap-2 pt-0.5 text-amber-950" aria-label={t('Paginação dos efeitos', 'Effects pagination')}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        playScrollSound();
+                                        setEffectPage(Math.max(0, effectPage - 1));
+                                      }}
+                                      disabled={effectPage === 0}
+                                      className="rounded p-0.5 disabled:opacity-30"
+                                      aria-label={t('Efeitos anteriores', 'Previous effects')}
+                                    >
+                                      <ChevronLeft className="h-3 w-3" />
+                                    </button>
+                                    <span className="font-mono text-[8px] font-bold">
+                                      {effectPage + 1}/{effectPageCount} · {t('deslize', 'swipe')}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        playScrollSound();
+                                        setEffectPage(Math.min(effectPageCount - 1, effectPage + 1));
+                                      }}
+                                      disabled={effectPage === effectPageCount - 1}
+                                      className="rounded p-0.5 disabled:opacity-30"
+                                      aria-label={t('Próximos efeitos', 'Next effects')}
+                                    >
+                                      <ChevronRight className="h-3 w-3" />
+                                    </button>
+                                  </div>
                                 )}
-                              </p>
+                              </div>
+                            </div>
                               
-                              <div className="flex items-center gap-3 pt-0.5 text-[9px] font-mono font-bold text-amber-900/90">
-                                {skill.cooldown > 0 && (
-                                  <span>{t('Recarga', 'Cooldown')}: {skill.cooldown} {t('turnos', 'turns')}</span>
-                                )}
-                                <span className="truncate">
-                                  {t('Alvo', 'Target')}: {' '}
-                                  {translateTargetType(skill.targetType, language)}
+                            <div className="mt-1 flex items-center gap-3 border-t border-amber-900/20 pt-1 text-[9px] font-mono font-bold text-amber-900/90">
+                              {skill.cooldown > 0 && (
+                                <span>
+                                  <span className="text-amber-950">{t('Recarga', 'Cooldown')}:</span>{' '}
+                                  {skill.cooldown} {t('turnos', 'turns')}
                                 </span>
-                              </div>
+                              )}
+                              <span className="truncate">
+                                <span className="text-amber-950">{t('Alvo', 'Target')}:</span>{' '}
+                                {translateTargetType(skill.targetType, language)}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -1226,8 +1426,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 </div>
 
                 {/* Skills list pagination controls */}
-                {previewCharacter.skills.length > 3 && (() => {
-                  const totalPages = Math.ceil(previewCharacter.skills.length / 3);
+                {previewCharacter.skills.length > 2 && (() => {
+                  const totalPages = Math.ceil(previewCharacter.skills.length / 2);
                   return (
                     <div className="flex items-center justify-between bg-amber-950/10 p-2 rounded-xl border border-amber-900/20 mt-2">
                       <button
@@ -1291,6 +1491,35 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           </div>
         </div>
       </main>
+
+      {isMobilePortrait && showCharacterDetails && (
+        <button
+          type="button"
+          onClick={event => {
+            event.stopPropagation();
+            setShowCharacterDetails(false);
+          }}
+          className="character-select-details-close"
+          aria-label={t('Fechar detalhes', 'Close details')}
+        >
+          <X className="h-5 w-5" />
+        </button>
+      )}
+
+      {isMobilePortrait && (
+        <button
+          type="button"
+          onClick={() => {
+            playClickSound();
+            setShowCharacterDetails(true);
+          }}
+          className="character-select-details-trigger"
+          aria-label={`${t('Ver detalhes de', 'View details for')} ${previewCharacter.name}`}
+        >
+          <Eye className="h-4 w-4 shrink-0" />
+          <span className="truncate">{previewCharacter.name}</span>
+        </button>
+      )}
 
       {/* Matchmaking Overlay */}
       <AnimatePresence>
