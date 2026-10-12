@@ -6,26 +6,27 @@ import fs from "fs";
 import { createHash, randomBytes } from "crypto";
 import { createServer as createViteServer } from "vite";
 import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
+import { isValidMatchTeam, submitTurnActions } from "./src/lib/matchProtocol";
 
-const USERS_FILE = path.join(process.cwd(), "src", "data", "users.json");
-const CHARACTERS_FILE = path.join(process.cwd(), "src", "data", "custom_characters.json");
+const DATA_DIR = path.resolve(process.env.WHOOSH_DATA_DIR || path.join(process.cwd(), "src", "data"));
+const USERS_FILE = path.join(DATA_DIR, "users.json");
+const CHARACTERS_FILE = path.join(DATA_DIR, "custom_characters.json");
 
-const QUESTS_FILE = path.join(process.cwd(), "src", "data", "quests.json");
-const RANKS_FILE = path.join(process.cwd(), "src", "data", "ranks.json");
-const SHOP_FILE = path.join(process.cwd(), "src", "data", "shop.json");
-const EVENTS_FILE = path.join(process.cwd(), "src", "data", "events.json");
-const BANNERS_FILE = path.join(process.cwd(), "src", "data", "banners.json");
-const FRAMES_FILE = path.join(process.cwd(), "src", "data", "frames.json");
-const CARDS_FILE = path.join(process.cwd(), "src", "data", "cards.json");
-const CARD_PACKS_FILE = path.join(process.cwd(), "src", "data", "card_packs.json");
-const MATCH_ROOMS_FILE = path.join(process.cwd(), "src", "data", "match_rooms.json");
-const ACCOUNT_SESSIONS_FILE = path.join(process.cwd(), "src", "data", "account_sessions.json");
-const ONLINE_BATTLE_HISTORY_FILE = path.join(process.cwd(), "src", "data", "online_battle_history.json");
+const QUESTS_FILE = path.join(DATA_DIR, "quests.json");
+const RANKS_FILE = path.join(DATA_DIR, "ranks.json");
+const SHOP_FILE = path.join(DATA_DIR, "shop.json");
+const EVENTS_FILE = path.join(DATA_DIR, "events.json");
+const BANNERS_FILE = path.join(DATA_DIR, "banners.json");
+const FRAMES_FILE = path.join(DATA_DIR, "frames.json");
+const CARDS_FILE = path.join(DATA_DIR, "cards.json");
+const CARD_PACKS_FILE = path.join(DATA_DIR, "card_packs.json");
+const MATCH_ROOMS_FILE = path.join(DATA_DIR, "match_rooms.json");
+const ACCOUNT_SESSIONS_FILE = path.join(DATA_DIR, "account_sessions.json");
+const ONLINE_BATTLE_HISTORY_FILE = path.join(DATA_DIR, "online_battle_history.json");
 
 // Ensure data directory exists
-const dataDir = path.dirname(USERS_FILE);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
 // Helpers to read/write JSON files
@@ -53,8 +54,12 @@ function writeJSON<T>(filePath: string, data: T): void {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number.parseInt(process.env.PORT || "3000", 10);
+  if (!Number.isSafeInteger(PORT) || PORT < 1 || PORT > 65535) {
+    throw new Error("PORT deve ser um inteiro entre 1 e 65535.");
+  }
 
+  app.use(["/api/match", "/api/matchmaking"], express.json({ limit: "512kb" }));
   app.use(express.json({ limit: "50mb" }));
 
   type AccountSession = {
@@ -144,7 +149,23 @@ async function startServer() {
 
   // API routes
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", version: "match-persistence-v2", rooms: Object.keys(activeRooms).length });
+    const health: Record<string, unknown> = {
+      status: "ok",
+      version: "match-persistence-v2",
+      rooms: Object.keys(activeRooms).length,
+    };
+    if (process.env.ENABLE_RUNTIME_METRICS === "true") {
+      const cpu = process.cpuUsage();
+      const memory = process.memoryUsage();
+      health.runtime = {
+        rssBytes: memory.rss,
+        heapUsedBytes: memory.heapUsed,
+        cpuUserMicros: cpu.user,
+        cpuSystemMicros: cpu.system,
+        uptimeSeconds: process.uptime(),
+      };
+    }
+    res.json(health);
   });
 
   // User auth api
@@ -306,7 +327,8 @@ async function startServer() {
       return res.status(400).json({ error: "Dados da sessão inválidos." });
     }
 
-    const account = accountSessions[username.trim().toLowerCase()];
+    const cleanUsername = username.trim().toLowerCase();
+    const account = accountSessions[cleanUsername];
     if (!account) return res.status(409).json({ error: "A sessão ativa já foi encerrada." });
 
     const currentTokenHash = hashSessionToken(sessionToken);
@@ -332,6 +354,7 @@ async function startServer() {
       account.pendingTokenHashes = previousPendingTokenHashes;
       return res.status(500).json({ error: "Não foi possível concluir a troca de aparelho." });
     }
+    forfeitMatchesOnSessionTakeover(cleanUsername);
     res.json({ success: true });
   });
 
@@ -377,7 +400,7 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.put("/api/user/profile", (req, res) => {
+  app.put("/api/user/profile", requireActiveMatchSession, (req, res) => {
     const { username, name, photoUrl, xp, rank, wins, losses, ryos, gems, title, equippedFrame, equippedFrameUrl, equippedBannerUrl } = req.body;
     if (!username) {
       return res.status(400).json({ error: "Nome de usuário é obrigatório." });
@@ -407,7 +430,8 @@ async function startServer() {
 
     writeJSON(USERS_FILE, users);
 
-    res.json({ success: true, user: users[userIdx] });
+    const { password: _password, googleId: _googleId, email: _email, ...publicUser } = users[userIdx];
+    res.json({ success: true, user: publicUser });
   });
 
   app.get("/api/user/profile", (req, res) => {
@@ -420,7 +444,8 @@ async function startServer() {
     if (!user) {
       return res.status(404).json({ error: "Usuário não encontrado." });
     }
-    res.json({ success: true, user });
+    const { password: _password, googleId: _googleId, email: _email, ...publicUser } = user;
+    res.json({ success: true, user: publicUser });
   });
 
   // ==========================================
@@ -602,6 +627,92 @@ async function startServer() {
     return -1;
   };
 
+  function requireActiveMatchSession(req: express.Request, res: express.Response, next: express.NextFunction) {
+    const rawUsername = req.body?.username ?? req.query.username;
+    const username = typeof rawUsername === "string" ? rawUsername.trim().toLowerCase() : "";
+    if (!username) return res.status(400).json({ error: "Nome de usuário é obrigatório." });
+    if (username === "convidado") return next();
+
+    const sessionToken = req.get("X-Account-Session");
+    const account = accountSessions[username];
+    if (!hasActiveAccountSession(username, sessionToken, account)) {
+      return res.status(401).json({ error: "Sessão da conta ausente ou revogada. Entre novamente." });
+    }
+    next();
+  }
+
+  const hasActiveAccountSession = (
+    username: string,
+    sessionToken: unknown,
+    account = accountSessions[username],
+  ) => username === "convidado" ||
+    (process.env.NODE_ENV !== "production" &&
+      process.env.ENABLE_LOAD_TEST_AUTH === "true" &&
+      /^loadtest_[a-z0-9_]{1,80}$/.test(username)) ||
+    (typeof sessionToken === "string" &&
+      validSessionInput(username, sessionToken) &&
+      !!account &&
+      account.activeTokenHash === hashSessionToken(sessionToken));
+
+  const resolveAuthoritativeTeam = (submittedTeam: unknown) => {
+    if (!isValidMatchTeam(submittedTeam)) return null;
+    const characters = getAuthoritativeCharacters();
+    const byId = new Map(characters.filter(character => character && typeof character.id === "string").map(character => [character.id, character]));
+
+    const resolved = submittedTeam.map(submitted => {
+      const official = byId.get(submitted.id);
+      if (!official || !Array.isArray(official.skills) || official.skills.length === 0) return null;
+      const selectedSkinId = typeof (submitted as any).selectedSkinId === "string"
+        ? (submitted as any).selectedSkinId.slice(0, 100)
+        : undefined;
+      const selectedSkinUrl = typeof (submitted as any).selectedSkinUrl === "string"
+        ? (submitted as any).selectedSkinUrl.slice(0, 2048)
+        : undefined;
+      return stripLargeInlineMedia({ ...official, selectedSkinId, selectedSkinUrl });
+    });
+    return resolved.every(Boolean) ? resolved : null;
+  };
+
+  let authoritativeCharactersCache: any[] | null = null;
+  function getAuthoritativeCharacters() {
+    if (authoritativeCharactersCache) return authoritativeCharactersCache;
+    const configuredCharacters = readJSON<any[]>(CHARACTERS_FILE, []);
+    authoritativeCharactersCache = Array.isArray(configuredCharacters) && configuredCharacters.length > 0
+      ? configuredCharacters
+      : DEFAULT_CHARACTERS;
+    return authoritativeCharactersCache;
+  }
+
+  function stripLargeInlineMedia(value: any): any {
+    if (Array.isArray(value)) return value.map(stripLargeInlineMedia);
+    if (!value || typeof value !== "object") return value;
+    const result: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (typeof entry === "string" && /^data:(?:image|video)\//i.test(entry) && entry.length > 2000) continue;
+      result[key] = stripLargeInlineMedia(entry);
+    }
+    return result;
+  }
+
+  function forfeitMatchesOnSessionTakeover(username: string) {
+    for (const room of Object.values(activeRooms)) {
+      if (room.surrenderedBy || room.winnerUsername) continue;
+      const forfeitingSlot = slotOf(room, username);
+      if (forfeitingSlot === -1) continue;
+      const winner = room.players[forfeitingSlot === 0 ? 1 : 0];
+      if (!recordOnlineBattle(room, winner.username, "disconnect")) {
+        console.error(`[AUTH] Não foi possível registrar derrota por troca de aparelho na sala ${room.id}.`);
+        continue;
+      }
+      room.surrenderedBy = username;
+      room.surrenderReason = "disconnect";
+      for (const player of room.players) delete userMatches[player.username];
+      room.lastActivity = Date.now();
+      markRoomsDirty();
+      broadcastRoomState(room.id);
+    }
+  }
+
   // Public opponent payload (what the other player is allowed to see)
   const publicOpponent = (slot: PlayerSlot) => ({
     username: slot.username,
@@ -612,13 +723,33 @@ async function startServer() {
   });
 
   // Join Matchmaking Queue
-  app.post("/api/matchmaking/join", (req, res) => {
+  app.post("/api/matchmaking/join", requireActiveMatchSession, (req, res) => {
     const { username, name, photoUrl, team, profile } = req.body;
-    if (!username || !team || !Array.isArray(team)) {
+    if (typeof username !== "string" || !username.trim() || username.trim().length > 100) {
       return res.status(400).json({ error: "Dados inválidos para matchmaking." });
     }
 
     const cleanUsername = username.trim().toLowerCase();
+    const authoritativeTeam = resolveAuthoritativeTeam(team);
+    if (!authoritativeTeam) {
+      return res.status(400).json({ error: "A equipe deve conter três personagens válidos." });
+    }
+
+    const existingMatch = userMatches[cleanUsername];
+    if (existingMatch) {
+      const existingRoom = activeRooms[existingMatch.roomId];
+      if (existingRoom && !existingRoom.surrenderedBy && !existingRoom.winnerUsername) {
+        const opponentIndex = existingMatch.myIndex === 0 ? 1 : 0;
+        return res.json({
+          status: "matched",
+          roomId: existingRoom.id,
+          myIndex: existingMatch.myIndex,
+          seed: existingRoom.seed,
+          opponent: publicOpponent(existingRoom.players[opponentIndex]),
+        });
+      }
+      delete userMatches[cleanUsername];
+    }
 
     // Clean up any stale queue entry / match mapping for this user
     const existingIdx = waitingQueue.findIndex(p => p.username === cleanUsername);
@@ -630,7 +761,7 @@ async function startServer() {
       name: name || "Shinobi",
       photoUrl: photoUrl || "",
       profile: profile || { username: cleanUsername, name: name || "Shinobi", photoUrl: photoUrl || "" },
-      team,
+      team: authoritativeTeam,
     };
 
     // Pair with the first different waiting player
@@ -688,7 +819,7 @@ async function startServer() {
   });
 
   // Get Matchmaking Status (also used to verify a room on reconnection)
-  app.get("/api/matchmaking/status", (req, res) => {
+  app.get("/api/matchmaking/status", requireActiveMatchSession, (req, res) => {
     const username = (req.query.username as string || "").trim().toLowerCase();
     if (!username) {
       return res.status(400).json({ error: "Username é obrigatório." });
@@ -723,7 +854,7 @@ async function startServer() {
   });
 
   // Submit Turn Actions
-  app.post("/api/match/submit-turn", (req, res) => {
+  app.post("/api/match/submit-turn", requireActiveMatchSession, (req, res) => {
     const { roomId, username, actions, turn } = req.body;
     if (!roomId || !username || typeof turn !== "number" || !Array.isArray(actions)) {
       return res.status(400).json({ error: "Dados de turno inválidos." });
@@ -742,8 +873,16 @@ async function startServer() {
 
     room.lastActivity = Date.now();
     room.pings[idx] = Date.now();
-    if (!room.turns[turn]) room.turns[turn] = [null, null];
-    room.turns[turn][idx] = actions;
+    const submission = submitTurnActions(room, idx, turn, actions);
+    if (submission.status === "invalid") {
+      return res.status(400).json({ error: submission.message });
+    }
+    if (submission.status === "conflict") {
+      return res.status(409).json({ error: submission.message });
+    }
+    if (submission.status === "duplicate") {
+      return res.json({ success: true, resolvedTurn: room.resolvedTurn, room: lightRoomObject(room), duplicate: true });
+    }
     room.timeoutStreak[idx] = 0; // jogou -> zera streak de offline
     // deadline da fase: quando um lado envia, o outro ganha 60s reais (anti-burla refresh)
     {
@@ -756,8 +895,7 @@ async function startServer() {
     // preenchidos, o servidor declara o turno resolvido. resolvedTurn avança em
     // ordem estrita (só de N para N+1) para os clientes seguirem a mesma cadência.
     const slots = room.turns[turn];
-    if (Array.isArray(slots) && slots[0] != null && slots[1] != null && turn === room.resolvedTurn + 1) {
-      room.resolvedTurn = turn;
+    if (Array.isArray(slots) && slots[0] != null && slots[1] != null) {
       // Encadeia caso turnos futuros já estejam completos (chegaram fora de ordem).
       let next = room.resolvedTurn + 1;
       while (room.turns[next] && room.turns[next][0] != null && room.turns[next][1] != null) {
@@ -774,7 +912,7 @@ async function startServer() {
   });
 
   // Get Room State (Polling)
-  app.get("/api/match/room-state", (req, res) => {
+  app.get("/api/match/room-state", requireActiveMatchSession, (req, res) => {
     const roomId = req.query.roomId as string;
     if (!roomId) {
       return res.status(400).json({ error: "roomId é obrigatório." });
@@ -790,7 +928,10 @@ async function startServer() {
     // — the GC only targets truly abandoned rooms.
     const username = (req.query.username as string || "").trim().toLowerCase();
     const idx = slotOf(room, username);
-    if (idx !== -1) room.pings[idx] = Date.now();
+    if (idx === -1) {
+      return res.status(403).json({ error: "Você não faz parte desta sala." });
+    }
+    room.pings[idx] = Date.now();
     room.lastActivity = Date.now();
 
     // Disconnection timeout (60s). Background tabs / locked phones suspend the
@@ -841,18 +982,36 @@ async function startServer() {
   // 🔄 State Report (sincronia pós-resolução): cliente reporta HP/escudo/morte dos
   // PRÓPRIOS personagens + pool de chakra, por turno. O oponente lê via room-state
   // e adota esses valores para o esquadrão dele (fonte da verdade = dono do time).
-  app.post("/api/match/report-state", (req: any, res: any) => {
+  app.post("/api/match/report-state", requireActiveMatchSession, (req: any, res: any) => {
     const { roomId, username, turn, units, chakra } = req.body || {};
-    if (!roomId || !username || typeof turn !== "number" || !units) {
+    if (typeof roomId !== "string" || typeof username !== "string" ||
+      !Number.isSafeInteger(turn) || turn < 1 ||
+      !units || typeof units !== "object" || Array.isArray(units) ||
+      Object.keys(units).length !== 3 ||
+      !["player-0", "player-1", "player-2"].every(id => Object.prototype.hasOwnProperty.call(units, id)) ||
+      Object.values(units).some((unit: any) =>
+        !unit || typeof unit !== "object" ||
+        typeof unit.health !== "number" || !Number.isFinite(unit.health) || unit.health < 0 || unit.health > 1000000 ||
+        typeof unit.shield !== "number" || !Number.isFinite(unit.shield) || unit.shield < 0 || unit.shield > 1000000 ||
+        typeof unit.isDead !== "boolean"
+      )) {
       return res.status(400).json({ error: "Dados de relatório inválidos." });
     }
     const room = activeRooms[roomId];
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
+    const cleanUsername = username.trim().toLowerCase();
+    if (slotOf(room, cleanUsername) === -1) {
+      return res.status(403).json({ error: "Você não faz parte desta sala." });
+    }
+    if (!chakra || typeof chakra !== "object" || Array.isArray(chakra) ||
+      Object.values(chakra).some(value => typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1000)) {
+      return res.status(400).json({ error: "Pool de chakra inválido." });
+    }
     if (!room.stateReports) room.stateReports = {};
     // Mantém apenas o relato mais recente por jogador (a atribuição sobrescreve).
-    room.stateReports[username.trim().toLowerCase()] = {
+    room.stateReports[cleanUsername] = {
       turn,
       units,
       chakra: chakra && typeof chakra === "object" ? chakra : {}
@@ -861,13 +1020,13 @@ async function startServer() {
     markRoomsDirty();
     // Render não negocia permessage-deflate → payload enxuto: envia SÓ o relato
     // (evento minúsculo) em vez de um room-state completo a cada report.
-    const repUser = username.trim().toLowerCase();
+    const repUser = cleanUsername;
     try { sendToRoom(roomId, { type: 'report', username: repUser, turn, units, chakra: room.stateReports[repUser] }, { exclude: repUser }); } catch {}
     res.json({ success: true });
   });
 
   // Declare Surrender / Defeat
-  app.post("/api/match/surrender", (req, res) => {
+  app.post("/api/match/surrender", requireActiveMatchSession, (req, res) => {
     const { roomId, username, reason } = req.body;
     if (!roomId || !username) {
       return res.status(400).json({ error: "roomId e username são obrigatórios." });
@@ -907,7 +1066,7 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.post("/api/match/finish", (req, res) => {
+  app.post("/api/match/finish", requireActiveMatchSession, (req, res) => {
     const { roomId, username, victory } = req.body;
     if (typeof roomId !== "string" || typeof username !== "string" || typeof victory !== "boolean") {
       return res.status(400).json({ error: "roomId, username e resultado são obrigatórios." });
@@ -971,7 +1130,7 @@ async function startServer() {
   });
 
   // Send Battle Emoji Reaction
-  app.post("/api/match/emoji", (req, res) => {
+  app.post("/api/match/emoji", requireActiveMatchSession, (req, res) => {
     const { roomId, username, emoji } = req.body;
     if (!roomId || !username || !emoji) {
       return res.status(400).json({ error: "Dados de reação inválidos." });
@@ -984,10 +1143,10 @@ async function startServer() {
 
     const cleanUsername = username.trim().toLowerCase();
     const emojiIdx = slotOf(room, cleanUsername);
-    let senderName = username;
-    if (emojiIdx !== -1) {
-      senderName = room.players[emojiIdx].name || room.players[emojiIdx].username;
+    if (emojiIdx === -1 || typeof emoji !== "string" || emoji.length > 32) {
+      return res.status(403).json({ error: "Reação inválida ou usuário fora da sala." });
     }
+    const senderName = room.players[emojiIdx].name || room.players[emojiIdx].username;
 
     room.emojis.push({
       username: cleanUsername,
@@ -1008,7 +1167,7 @@ async function startServer() {
   });
 
   // Receive Emojis
-  app.get("/api/match/emojis", (req, res) => {
+  app.get("/api/match/emojis", requireActiveMatchSession, (req, res) => {
     const roomId = req.query.roomId as string;
     const since = parseInt(req.query.since as string || "0", 10);
 
@@ -1019,6 +1178,9 @@ async function startServer() {
     const room = activeRooms[roomId];
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
+    }
+    if (slotOf(room, String(req.query.username).trim().toLowerCase()) === -1) {
+      return res.status(403).json({ error: "Você não faz parte desta sala." });
     }
 
     const fresh = room.emojis.filter(e => e.timestamp > since);
@@ -1050,7 +1212,7 @@ async function startServer() {
   }
 
   // Send Battle Chat Message (Transient memory only)
-  app.post("/api/match/chat/send", (req, res) => {
+  app.post("/api/match/chat/send", requireActiveMatchSession, (req, res) => {
     const { roomId, username, text, title } = req.body;
     if (!roomId || !username || !text) {
       return res.status(400).json({ error: "Dados inválidos." });
@@ -1068,10 +1230,10 @@ async function startServer() {
 
     const cleanUsername = username.trim().toLowerCase();
     const chatIdx = slotOf(room, cleanUsername);
-    let senderName = username;
-    if (chatIdx !== -1) {
-      senderName = room.players[chatIdx].name || room.players[chatIdx].username;
+    if (chatIdx === -1) {
+      return res.status(403).json({ error: "Você não faz parte desta sala." });
     }
+    const senderName = room.players[chatIdx].name || room.players[chatIdx].username;
 
     const msg = {
       id: "msg_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
@@ -1097,7 +1259,7 @@ async function startServer() {
   });
 
   // Receive Battle Chat Messages
-  app.get("/api/match/chat/messages", (req, res) => {
+  app.get("/api/match/chat/messages", requireActiveMatchSession, (req, res) => {
     const roomId = req.query.roomId as string;
     const since = parseInt(req.query.since as string || "0", 10);
 
@@ -1109,6 +1271,9 @@ async function startServer() {
     if (!room) {
       return res.status(404).json({ error: "Sala não encontrada." });
     }
+    if (slotOf(room, String(req.query.username).trim().toLowerCase()) === -1) {
+      return res.status(403).json({ error: "Você não faz parte desta sala." });
+    }
 
     const msgs = room.chatMessages || [];
     const fresh = msgs.filter(m => m.timestamp > since);
@@ -1116,7 +1281,7 @@ async function startServer() {
   });
 
   // Quit/Finish Battle
-  app.post("/api/matchmaking/quit", (req, res) => {
+  app.post("/api/matchmaking/quit", requireActiveMatchSession, (req, res) => {
     const { username, roomId } = req.body;
     const cleanUsername = (username || "").trim().toLowerCase();
 
@@ -1130,6 +1295,9 @@ async function startServer() {
 
     if (roomId && activeRooms[roomId]) {
       const room = activeRooms[roomId];
+      if (slotOf(room, cleanUsername) === -1) {
+        return res.status(403).json({ error: "Você não faz parte desta sala." });
+      }
       delete activeRooms[roomId];
       // Clean up both players' match mappings
       delete userMatches[room.players[0].username];
@@ -1253,6 +1421,7 @@ async function startServer() {
     }
 
     writeJSON(CHARACTERS_FILE, characters);
+    authoritativeCharactersCache = characters;
     res.json({ success: true, message: "Personagens atualizados no banco de dados com sucesso!" });
   });
 
@@ -1662,6 +1831,7 @@ async function startServer() {
 
     if (Array.isArray(data.characters)) {
       writeJSON(CHARACTERS_FILE, data.characters);
+      authoritativeCharactersCache = data.characters;
       countDetails.push(`${data.characters.length} Personagens`);
     }
     if (Array.isArray(data.quests)) {
@@ -1726,32 +1896,49 @@ async function startServer() {
   const wss = new WebSocketServer({
     server: httpServer,
     path: "/ws",
-    // compressão no fio: JSON comprime ~3-5x; threshold baixo p/ comprimir também frames pequenos
-    perMessageDeflate: { threshold: 128, zlibDeflateOptions: { level: 9 } },
+    maxPayload: 64 * 1024,
+    perMessageDeflate: false,
   });
 
   wss.on("connection", (ws, req) => {
     let joinedRoomId: string | null = null;
     let joinedUsername: string | null = null;
+    let joinedSessionToken: string | null = null;
     ws.on("message", (data) => {
       try {
         const msg = JSON.parse(data.toString());
         if (msg.type === "join" && msg.roomId && msg.username) {
-          joinedRoomId = String(msg.roomId);
-          joinedUsername = String(msg.username).trim().toLowerCase();
+          const requestedRoomId = String(msg.roomId);
+          const requestedUsername = String(msg.username).trim().toLowerCase();
+          const room = activeRooms[requestedRoomId];
+          if (!room || slotOf(room, requestedUsername) === -1 ||
+            !hasActiveAccountSession(requestedUsername, msg.sessionToken)) {
+            ws.send(JSON.stringify({ type: "error", error: "Sessão inválida ou usuário fora da sala." }));
+            ws.close(1008, "Unauthorized match socket");
+            return;
+          }
+
+          if (joinedRoomId && roomSockets.has(joinedRoomId)) {
+            roomSockets.get(joinedRoomId)!.delete(ws);
+            if (roomSockets.get(joinedRoomId)!.size === 0) roomSockets.delete(joinedRoomId);
+          }
+          joinedRoomId = requestedRoomId;
+          joinedUsername = requestedUsername;
+          joinedSessionToken = typeof msg.sessionToken === "string" ? msg.sessionToken : null;
           if (!roomSockets.has(joinedRoomId)) roomSockets.set(joinedRoomId, new Set());
           roomSockets.get(joinedRoomId)!.add(ws);
-          socketUsers.set(ws, String(msg.username).trim().toLowerCase());
+          socketUsers.set(ws, requestedUsername);
           lastPushBySocket.delete(ws);
           // envia estado imediatamente ao entrar
-          const room = activeRooms[joinedRoomId];
-          if (room) {
-            // atualiza ping
-            const idx = room.players.findIndex(p => p.username === joinedUsername);
-            if (idx !== -1) { room.pings[idx] = Date.now(); room.lastActivity = Date.now(); }
-            broadcastRoomState(joinedRoomId, { full: true });
-          }
+          const idx = room.players.findIndex(p => p.username === joinedUsername);
+          room.pings[idx] = Date.now();
+          room.lastActivity = Date.now();
+          broadcastRoomState(joinedRoomId, { full: true });
         } else if (msg.type === "ping" && joinedRoomId && joinedUsername) {
+          if (!hasActiveAccountSession(joinedUsername, joinedSessionToken)) {
+            ws.close(1008, "Account session revoked");
+            return;
+          }
           const room = activeRooms[joinedRoomId];
           if (room) {
             const idx = room.players.findIndex(p => p.username === joinedUsername);
@@ -1768,11 +1955,13 @@ async function startServer() {
       }
       socketUsers.delete(ws);
       lastPushBySocket.delete(ws);
+      joinedSessionToken = null;
     });
     ws.on("error", () => {
       if (joinedRoomId && roomSockets.has(joinedRoomId)) roomSockets.get(joinedRoomId)!.delete(ws);
       socketUsers.delete(ws);
       lastPushBySocket.delete(ws);
+      joinedSessionToken = null;
     });
   });
 

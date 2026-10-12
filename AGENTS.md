@@ -9,10 +9,16 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 - `npm run build` — vite build + esbuild server → `dist/server.cjs`
 - `npm run start` — `node dist/server.cjs` (production)
 - `npm run lint` — `tsc --noEmit`
+- `npm test` — unit tests for multiplayer action validation and turn concurrency
+- Start an isolated local load-test server with `WHOOSH_DATA_DIR` pointing to a temporary data directory, `PORT=3100`, `ENABLE_LOAD_TEST_AUTH=true`, and `ENABLE_RUNTIME_METRICS=true`; copy `src/data/custom_characters.json` into that directory before startup. Never enable test auth in production.
+- `npm run load:online -- --url http://localhost:3100 --players 60 --rooms 15 --turns 10` — repeatable local multiplayer protocol load (30 active players + 30 matchmaking pollers)
+- For 60 active players use `--rooms 30`; each room currently has two human players.
 - Deploy: `vercel.json` rewrites `/api/*` to `https://narutoarena.onrender.com/api`
 
 ## Architecture
 - **Backend**: single-file Express API (`server.ts`), persistence via JSON files in `src/data/` using `readJSON`/`writeJSON` helpers.
+- **Multiplayer protocol**: `src/lib/matchProtocol.ts` validates three-character teams and per-turn actions; the server accepts one immutable submission per player/turn and advances only after both slots submit. Damage simulation is still client-side and is not server-authoritative.
+- **Load testing**: `scripts/load-online.mjs` drives HTTP matchmaking, turn submission, state reports, and WebSocket snapshots. Its synthetic `loadtest_*` identities are accepted only when `NODE_ENV !== "production"` and `ENABLE_LOAD_TEST_AUTH=true`; use only against a local server or isolated staging with real test accounts.
 - **Storage pattern (client)**: libs in `src/lib/` cache to localStorage + sync to server (fetch + POST). e.g. `characterStorage.ts`, `rankStorage.ts`, `shopStorage.ts`, `eventStorage.ts`, `bannerStorage.ts`, `frameStorage.ts`.
 - **API fetch helper**: `safeFetchJson` in `src/lib/api.ts` (returns null on failure).
 
@@ -25,6 +31,8 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 - Health: `/api/health`
 
 Authenticated accounts have one active browser session at a time. A second login must be approved by either device; approving it revokes the previous session. The browser polls session status, and revoking a session during an online or AI battle records a defeat before logging out. Session hashes are stored in `src/data/account_sessions.json`; the unauthenticated guest profile is exempt. Existing saved logins without a session token require one re-login after this feature is deployed; any saved battle remains available to resume.
+
+Multiplayer HTTP routes and profile writes require the active account session header `X-Account-Session` (guest account exempt). Match WebSocket joins require a real room participant and active session. Matchmaking resolves selected IDs against server character definitions; reports and turn payloads are bounded and validated, duplicate submissions are idempotent, and a conflicting retry cannot replace accepted actions. The profile read API must never expose password or provider credentials. These protections do not make damage/rewards authoritative; the current battle resolver still runs in the browser.
 
 Online battle results are persisted in `src/data/online_battle_history.json`. `POST /api/match/finish` records normal online results, and `GET /api/user/online-battle-history?username=...` returns a player's online match history for the profile card.
 

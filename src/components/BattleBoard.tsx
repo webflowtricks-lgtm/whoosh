@@ -20,6 +20,7 @@ import { getGoalDescription } from '../lib/questUtils';
 import { safeFetchJson } from '../lib/api';
 import { RichText } from '../lib/richText';
 import { playGlobalSound } from '../lib/soundUtils';
+import { matchFetch } from '../lib/matchFetch';
 
 interface BattleBoardProps {
   playerTeam: Character[];
@@ -2215,7 +2216,7 @@ export default function BattleBoard({
     // 🧹 Online: sai da sala no servidor também (limpa o mapeamento da partida para
     // esta conta — sem isso /matchmaking/status continuava devolvendo a mesma sala).
     if (onlineParams?.isOnline && onlineParams.roomId) {
-      fetch('/api/matchmaking/quit', {
+      matchFetch('/api/matchmaking/quit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: user.username })
@@ -2605,7 +2606,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
     setActiveEmojis(prev => [...prev, { id, emoji, xOffset, rotation, senderName: ourName }]);
 
     if (onlineParams?.isOnline) {
-      fetch('/api/match/emoji', {
+      matchFetch('/api/match/emoji', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3086,7 +3087,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       // v26: com WebSocket saudável o emoji chega por push ({type:'emoji'}) — não polla.
       if (wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000) return;
       try {
-        const res = await fetch(`/api/match/emojis?roomId=${onlineParams.roomId}&since=${lastPolledEmojiTimestamp.current}`);
+        const res = await matchFetch(`/api/match/emojis?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}&since=${lastPolledEmojiTimestamp.current}`);
         const data = await res.json();
         if (data.success && data.emojis.length > 0) {
           data.emojis.forEach((e: any) => {
@@ -3132,7 +3133,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     return () => {
       const info = quitInfoRef.current;
       if (info) {
-        fetch('/api/matchmaking/quit', {
+        matchFetch('/api/matchmaking/quit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(info)
@@ -3171,7 +3172,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     const reportResult = async () => {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const response = await fetch('/api/match/finish', {
+          const response = await matchFetch('/api/match/finish', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -3209,7 +3210,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     }
 
     if (!matchAlreadyFinished && onlineParams?.isOnline && onlineParams.roomId) {
-      fetch('/api/match/surrender', {
+      matchFetch('/api/match/surrender', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roomId: onlineParams.roomId, username: user.username, reason: 'disconnect' }),
@@ -11902,7 +11903,7 @@ splashOnlyTargets = splashPool.filter(c =>
         const submitWithRetry = async () => {
           for (let attempt = 0; attempt < 3; attempt++) {
             try {
-              const r = await fetch('/api/match/submit-turn', {
+              const r = await matchFetch('/api/match/submit-turn', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -12586,7 +12587,7 @@ splashOnlyTargets = splashPool.filter(c =>
       });
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const r = await fetch('/api/match/surrender', {
+          const r = await matchFetch('/api/match/surrender', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: surrenderBody
@@ -12649,7 +12650,7 @@ splashOnlyTargets = splashPool.filter(c =>
       const pending = pendingSubmitRef.current;
       if (!pending || Date.now() < pending.nextRetryAt) return;
       pending.nextRetryAt = Date.now() + 5000;
-      fetch('/api/match/submit-turn', {
+      matchFetch('/api/match/submit-turn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -12988,7 +12989,7 @@ splashOnlyTargets = splashPool.filter(c =>
         processData(wsData);
         return;
       }
-      fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}&turn=${turn}`)
+      matchFetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}&turn=${turn}`)
         .then(r => r.json())
         .then(processData)
         .catch(err => {
@@ -13059,7 +13060,11 @@ splashOnlyTargets = splashPool.filter(c =>
         wsConnectedRef.current = true;
         console.log('[WS] conectado:', wsUrl);
         try {
-          ws?.send(JSON.stringify({ type: 'join', roomId: onlineParams.roomId, username: user.username }));
+          let sessionToken: string | null = null;
+          try { sessionToken = sessionStorage.getItem('naruto_account_session_token'); } catch (error) {
+            console.error('Could not read the active account session for the battle WebSocket:', error);
+          }
+          ws?.send(JSON.stringify({ type: 'join', roomId: onlineParams.roomId, username: user.username, sessionToken }));
         } catch {}
         if (pingTimer) clearInterval(pingTimer);
         pingTimer = setInterval(() => {
@@ -13138,7 +13143,7 @@ splashOnlyTargets = splashPool.filter(c =>
         lastWaitBeatRef.current = Date.now();
         const mineIdxB = onlineParams.playerIndex === 1 ? 1 : 0;
         const oppIdxB = mineIdxB === 0 ? 1 : 0;
-        fetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}&turn=${turn}`)
+        matchFetch(`/api/match/room-state?roomId=${onlineParams.roomId}&username=${encodeURIComponent(user.username)}&turn=${turn}`)
           .then(r => r.json())
           .then(data => {
             if (!data?.success || !data?.room) {
@@ -13229,7 +13234,7 @@ splashOnlyTargets = splashPool.filter(c =>
       squad.forEach(c => {
         units[c.id] = { health: c.health, shield: c.shield, isDead: !!c.isDead };
       });
-      fetch('/api/match/report-state', {
+      matchFetch('/api/match/report-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { GameScreen, Character, UserProfile, Quest } from './types';
 import { evaluateQuestGoal } from './lib/questUtils';
 import { safeFetchJson } from './lib/api';
+import { matchFetch } from './lib/matchFetch';
 import { fetchCharactersFromServer } from './lib/characterStorage';
 import { fetchRanksFromServer } from './lib/rankStorage';
 import { fetchShopItemsFromServer } from './lib/shopStorage';
@@ -255,7 +256,7 @@ export default function App() {
         try { localStorage.setItem('naruto_user_profile', JSON.stringify(mergedUser)); } catch {}
         // Se a coleção local tinha cards que o servidor não conhecia, sobe pro servidor
         if (merged.length > serverCollected.length) {
-          await safeFetchJson('/api/user/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user.username, collectedCardIds: merged }) });
+          await matchFetch('/api/user/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user.username, collectedCardIds: merged }) });
         }
       })
       .catch(() => {});
@@ -277,7 +278,7 @@ export default function App() {
           playScrollSound();
           if (parsed.onlineParams?.isOnline) {
             setReconnectChecking(true);
-            fetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`)
+            matchFetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`)
               .then(r => r.json())
               .then(data => {
                 if (data.status === 'matched' && data.roomId === parsed.onlineParams.roomId) {
@@ -286,7 +287,7 @@ export default function App() {
                   setReconnectSurrender(null);
                 } else {
                   // Server match idle - verifica se foi rendição antes de declarar sala perdida
-                  fetch(`/api/match/room-state?roomId=${encodeURIComponent(parsed.onlineParams.roomId)}&username=${encodeURIComponent(user.username)}`)
+                  matchFetch(`/api/match/room-state?roomId=${encodeURIComponent(parsed.onlineParams.roomId)}&username=${encodeURIComponent(user.username)}`)
                     .then(r => r.json())
                     .then(roomData => {
                       setReconnectChecking(false);
@@ -345,7 +346,7 @@ export default function App() {
     playClickSound();
     if (reconnectData && reconnectData.onlineParams?.isOnline) {
       try {
-        await fetch('/api/match/surrender', {
+        await matchFetch('/api/match/surrender', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -588,7 +589,7 @@ export default function App() {
 
     // Sync profile updates to server
     try {
-      await safeFetchJson('/api/user/profile', {
+      await matchFetch('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedUser)
@@ -662,7 +663,7 @@ export default function App() {
       });
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const response = await fetch('/api/match/surrender', {
+          const response = await matchFetch('/api/match/surrender', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: surrenderBody,

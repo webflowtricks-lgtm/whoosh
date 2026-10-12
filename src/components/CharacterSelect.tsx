@@ -11,6 +11,7 @@ import { safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage, translateGameText, translateSkillName, translateTargetType } from '../lib/i18n';
 import { playGlobalSound } from '../lib/soundUtils';
+import { matchFetch } from '../lib/matchFetch';
 import MangekyoLoader from './MangekyoLoader';
 import SkinMedia from './SkinMedia';
 
@@ -388,7 +389,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
     try {
       // Join matchmaking queue
-      const joinRes = await fetch('/api/matchmaking/join', {
+      const joinRes = await matchFetch('/api/matchmaking/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -426,7 +427,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       matchmakingPollRef.current = setInterval(async () => {
         try {
           pollCount++;
-          const statusRes = await fetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`);
+          const statusRes = await matchFetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`);
           if (!statusRes.ok) {
             if (pollCount > 60) { // 90 seconds timeout
               setMatchmakingStatus('error');
@@ -439,7 +440,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             handleMatchFound(statusData.roomId, statusData.myIndex, statusData.seed, statusData.opponent, playerTeam);
           } else if (statusData.status === 'idle' && pollCount > 3) {
             // Re-join queue if we got idle (might have been cleaned up)
-            fetch('/api/matchmaking/join', {
+            matchFetch('/api/matchmaking/join', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -515,7 +516,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     setIsMatchmaking(false);
 
     try {
-      await fetch('/api/matchmaking/quit', {
+      await matchFetch('/api/matchmaking/quit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: user.username })
