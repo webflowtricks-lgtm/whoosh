@@ -1470,7 +1470,7 @@ function GameOverOverlay({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={false}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
@@ -1546,7 +1546,7 @@ function GameOverOverlay({
 
       {/* Lightweight Main Modal Content */}
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={false}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
@@ -5117,7 +5117,10 @@ const handleTradeChakra = () => {
       }
 
       // Young Kakashi: Implanted Sharingan mark target
-      if ((skill.name === 'Implanted Sharingan' || skill.name === 'Sharingan' || skill.name.toLowerCase().includes('sharingan')) && source.character.folder === 'young-kakashi') {
+      if (
+        skill.name === 'Implanted Sharingan' &&
+        (source.character.id === 'young-kakashi' || source.character.folder === 'young-kakashi')
+      ) {
         if (defaultTarget && !defaultTarget.isDead) {
           pushActiveEffect(defaultTarget, {
             name: 'Implanted Sharingan Target',
@@ -5144,6 +5147,55 @@ const handleTradeChakra = () => {
         const kakashiCaster = allCombatants.find(c => c.id === sharinganTargetEffect.casterId && !c.isDead);
         if (kakashiCaster) {
           const kakashiIsPlayerSide = updatedPlayer.some(p => p.id === kakashiCaster.id);
+
+          const hasActiveChakraRule = (
+            rules: { activeSkillName: string }[] | undefined,
+          ) => rules?.some(rule => {
+            const requiredName = rule.activeSkillName?.trim().toLowerCase();
+            if (!requiredName) return false;
+            return allCombatants.some(combatant => combatant.activeEffects.some(effect => {
+              const effectName = effect.name?.toLowerCase();
+              return !!effectName && (
+                effectName === requiredName ||
+                effectName.startsWith(requiredName) ||
+                effectName.includes(requiredName)
+              );
+            }));
+          }) ?? false;
+          const hasChakraRemovalCombo = skill.stackUseEffectRules?.some(rule => {
+            if (!rule.chakraRemove || rule.chakraRemove <= 0) return false;
+            const stackType = rule.stackType || skill.stackType || skill.name;
+            const stack = source.activeEffects.find(effect =>
+              effect.stackType === stackType ||
+              effect.name === stackType ||
+              effect.sourceSkillName === stackType
+            );
+            const count = stack?.stacks || 0;
+            return count >= rule.requiredStacks && (rule.onwards !== false || count === rule.requiredStacks);
+          }) ?? false;
+
+          const usesChakraRemoval = (skill.drainChakra || 0) > 0 ||
+            (skill.removeChakra || 0) > 0 ||
+            (skill.stealChakra || 0) > 0 ||
+            hasChakraRemovalCombo ||
+            hasActiveChakraRule(skill.chakraRemoveRules) ||
+            hasActiveChakraRule(skill.chakraStealRules);
+          if (usesChakraRemoval) {
+            const kakashiChakra = kakashiIsPlayerSide ? localPlayerChakra : localEnemyChakra;
+            const chakraType = pickChakraGainType(
+              kakashiChakra,
+              undefined,
+              onlineParams?.isOnline ? gameRng : undefined,
+            );
+            kakashiChakra[chakraType] = (kakashiChakra[chakraType] || 0) + 1;
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `👁️ [Implanted Sharingan] de ${kakashiCaster.character.name}: Ganhou +1 chakra aleatório (${chakraType}) após ${source.character.name} usar [${skill.name}]!`,
+              type: 'chakra',
+            });
+            addFloatingText(kakashiCaster.id, `+1 CHAKRA (${chakraType.toUpperCase()})`, 'effect');
+          }
 
           // Rule 1: Stun skill -> Kakashi skills cause Stun Completo for 1 turn
           const isStunSkill = !!(
@@ -17985,6 +18037,35 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       });
     }
 
+    if (skill.name === 'Implanted Sharingan') {
+      effects.push(
+        {
+          label: t('Marca do Sharingan', 'Sharingan Mark'),
+          value: t('Marca o inimigo por 2 turnos. As reações abaixo ativam quando ele usa uma habilidade.', 'Marks the enemy for 2 turns. The reactions below activate when they use a skill.'),
+          color: 'text-amber-950 font-extrabold',
+          targetLabel: getTargetLabel('Target', 'Alvo Principal'),
+        },
+        {
+          label: t('Ganho de Chakra', 'Chakra Gain'),
+          value: t('Se o inimigo marcado usar uma habilidade que remove, drena ou rouba chakra, Kakashi ganha +1 chakra aleatório.', 'If the marked enemy uses a skill that removes, drains, or steals chakra, Kakashi gains +1 random chakra.'),
+          color: 'text-blue-950 font-extrabold',
+          targetLabel: getTargetLabel('Self', 'Conjurador (Mim)'),
+        },
+        {
+          label: t('Cópia de Stun', 'Stun Copy'),
+          value: t('Se o inimigo marcado usar uma habilidade que causa stun, as habilidades de Kakashi causam stun completo por 1 turno.', 'If the marked enemy uses a skill that stuns, Kakashi’s skills inflict full stun for 1 turn.'),
+          color: 'text-indigo-950 font-extrabold',
+          targetLabel: getTargetLabel('Self', 'Conjurador (Mim)'),
+        },
+        {
+          label: t('Leitura de Dano', 'Damage Analysis'),
+          value: t('Se o inimigo marcado usar uma habilidade que causa dano, Kakashi ganha +10 de dano por 1 turno.', 'If the marked enemy uses a damaging skill, Kakashi gains +10 damage for 1 turn.'),
+          color: 'text-red-950 font-extrabold',
+          targetLabel: getTargetLabel('Self', 'Conjurador (Mim)'),
+        },
+      );
+    }
+
     if (effects.length === 0) return null;
 
     return (
@@ -21455,7 +21536,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         <ProfileCardModal
           profile={viewingProfile.profile}
           isSelf={viewingProfile.isSelf}
-          disableEntranceAnimation
           onClose={() => setViewingProfile(null)}
           playClickSound={playClickSound}
           playUahSound={playUahSound}

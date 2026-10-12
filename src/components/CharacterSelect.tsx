@@ -661,6 +661,26 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         skill.damageTarget || 'Target'
       );
     });
+    if (
+      (previewCharacter.id === 'young-kakashi' || previewCharacter.folder === 'young-kakashi') &&
+      skill.name === 'Implanted Sharingan'
+    ) {
+      addEffect(
+        t('Marca do Sharingan', 'Sharingan Mark'),
+        t('Marca o inimigo por 2 turnos; os gatilhos abaixo ativam quando ele usa uma habilidade.', 'Marks the enemy for 2 turns; the triggers below activate when they use a skill.'),
+        'Target'
+      );
+      addEffect(
+        t('Cópia de Stun', 'Stun Copy'),
+        t('Se o inimigo marcado usar uma habilidade que causa stun, as habilidades de Kakashi causam stun completo por 1 turno.', 'If the marked enemy uses a skill that stuns, Kakashi’s skills inflict full stun for 1 turn.'),
+        'Self'
+      );
+      addEffect(
+        t('Leitura de Dano', 'Damage Analysis'),
+        t('Se o inimigo marcado usar uma habilidade que causa dano, Kakashi ganha +10 de dano por 1 turno.', 'If the marked enemy uses a damaging skill, Kakashi gains +10 damage for 1 turn.'),
+        'Self'
+      );
+    }
 
     return effects;
   };
@@ -1576,7 +1596,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       <AnimatePresence>
         {isMatchmaking && (
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={false}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 select-none"
@@ -1675,14 +1695,14 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       <AnimatePresence>
         {showSandboxChakraModal && (
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={false}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
             onClick={() => setShowSandboxChakraModal(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, y: 20 }}
+              initial={false}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}

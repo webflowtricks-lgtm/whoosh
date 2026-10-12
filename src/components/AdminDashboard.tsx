@@ -1283,7 +1283,7 @@ const newSkill: Skill = {
             {presetModalIndex !== null && ranksList[presetModalIndex] && (
               <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
+                  initial={false}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
@@ -11505,7 +11505,7 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
         {confirmModal.isOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 select-none">
             <motion.div
-              initial={{ opacity: 0 }}
+              initial={false}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => {
@@ -11515,7 +11515,7 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
               className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
             />
             <motion.div
-              initial={{ scale: 0.85, opacity: 0, y: 15 }}
+              initial={false}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.85, opacity: 0, y: 15 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}

@@ -203,7 +203,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
         className="pergaminho-profile-modal"
       />
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={false}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}

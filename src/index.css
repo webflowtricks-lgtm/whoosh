@@ -895,7 +895,7 @@ body.processing-cursor * {
   opacity: 0.95;
   pointer-events: none;
   animation: none;
-  transition: scale 0.6s cubic-bezier(0.22, 1, 0.36, 1), translate 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  scale: 1;
 }
 
 /* =========================================================
@@ -936,11 +936,6 @@ body.processing-cursor * {
 }
 
 /* Hover do botÃ£o Como Jogar â†’ cresce e sobe a imagem por trÃ¡s */
-.como-jogar-wrap:hover .como-jogar-naruto {
-  scale: 1.18;
-  translate: -50% -15px;
-}
-
 /* Force Desktop Layout on all devices & Custom Mouse Class */
 /* =========================================================
    CLASSE ÃšNICA DO MOUSE / CURSOR DA APLICAÃ‡ÃƒO (.custom-cursor)

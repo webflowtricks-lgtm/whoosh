@@ -92,7 +92,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
   return (
     <div className="fixed inset-0 bg-slate-950/90 z-50 flex items-center justify-center backdrop-blur-md p-3 sm:p-6 select-none gpu-accelerated" data-no-uah>
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        initial={false}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         className="relative w-full max-w-5xl h-[88vh] max-h-[800px] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100"
@@ -372,14 +372,14 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
         <AnimatePresence>
           {selectedCard && (
             <motion.div
-              initial={{ opacity: 0 }}
+              initial={false}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-30"
               onClick={() => setSelectedCard(null)}
             >
               <motion.div
-                initial={{ scale: 0.9, y: 15 }}
+                initial={false}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.9, y: 15 }}
                 onClick={(e) => e.stopPropagation()}
@@ -433,4 +433,3 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
     </div>
   );
 }
-

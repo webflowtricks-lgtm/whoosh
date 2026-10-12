@@ -493,7 +493,7 @@ export default function QuestBoard({
 
             {/* Main Reward Cards Container */}
             <motion.div
-              initial={{ scale: 0.15, opacity: 0, y: 70, rotate: -7 }}
+              initial={false}
               animate={{ scale: 1, opacity: 1, y: 0, rotate: 0 }}
               exit={{ scale: 0.2, opacity: 0, y: 50, rotate: 7 }}
               transition={{ type: "spring", damping: 14, stiffness: 125, bounce: 0.35 }}
@@ -546,7 +546,7 @@ export default function QuestBoard({
 
                           {/* Large Floating Character Image */}
                           <motion.div
-                            initial={{ scale: 0.7, opacity: 0 }}
+                            initial={false}
                             animate={{ scale: 1, opacity: 1, y: [0, -8, 0] }}
                             transition={{
                               scale: { duration: 0.5 },

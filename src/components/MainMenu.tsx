@@ -322,14 +322,14 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
       <AnimatePresence>
         {showAudioSettings && (
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={false}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
             onClick={() => setShowAudioSettings(false)}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 15 }}
+              initial={false}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 15 }}
               onClick={e => e.stopPropagation()}
@@ -493,7 +493,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
                   playClickSound();
                   setShowRules(true);
                 }}
-                className="como-jogar-btn relative text-white flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all cursor-pointer uppercase tracking-wider"
+                className="como-jogar-btn relative text-white flex items-center justify-center gap-2 active:scale-95 cursor-pointer uppercase tracking-wider"
               >
                 <HelpCircle className="w-4 h-4 drop-shadow" />
                 <span>{t('Como Jogar', 'How to Play')}</span>

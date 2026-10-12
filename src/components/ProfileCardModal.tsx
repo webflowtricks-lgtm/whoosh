@@ -184,7 +184,6 @@ interface ProfileCardModalProps {
   profile: ProfileCardData;
   isSelf?: boolean;
   hideLikeButton?: boolean;
-  disableEntranceAnimation?: boolean;
   onClose: () => void;
   playClickSound?: () => void;
   playUahSound?: () => void;
@@ -205,7 +204,6 @@ export default function ProfileCardModal({
   profile,
   isSelf = false,
   hideLikeButton = false,
-  disableEntranceAnimation = false,
   onClose,
   playClickSound,
   playUahSound,
@@ -366,7 +364,7 @@ export default function ProfileCardModal({
         />
         <div className={`${isLandscape ? 'max-h-[80vh] my-auto gap-2' : 'gap-3'} ml-profile-card-wrap flex items-stretch max-h-[92vh] relative z-10`} onClick={(e) => e.stopPropagation()}>
         <motion.div
-          initial={disableEntranceAnimation ? false : { opacity: 0, scale: 0.9, y: 20 }}
+          initial={false}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
@@ -597,7 +595,7 @@ export default function ProfileCardModal({
 
         {/* PAINEL LATERAL — FIGURINHAS COLECIONÁVEIS */}
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
+          initial={false}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
@@ -666,7 +664,7 @@ export default function ProfileCardModal({
       <AnimatePresence>
         {lightboxCard && (
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={false}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md"
@@ -682,7 +680,7 @@ export default function ProfileCardModal({
             </button>
 
             <motion.div
-              initial={{ scale: 0.9, y: 20 }}
+              initial={false}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
