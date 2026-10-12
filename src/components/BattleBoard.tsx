@@ -9,6 +9,7 @@ import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Sparkles, Flame
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, getEffectiveTargetType, getEffectiveCooldown, getSkillCombatTypes, Quest, QuestGoal } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
+import GameManualModal from './GameManualModal';
 import MangekyoLoader from './MangekyoLoader';
 import SkinMedia from './SkinMedia';
 import { calculateBattleXp, getRankProgress, checkRankChange } from '../lib/xpSystem';
@@ -1493,7 +1494,7 @@ function GameOverOverlay({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
       className="fixed inset-0 z-[10000] w-full h-full flex items-center justify-center p-3 sm:p-4 select-none overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
-      style={{ backgroundImage: "url('/static/img/bg/background-battle.webp')" }}
+      style={{ backgroundImage: "url('/static/img/bg/bg-battle.webp')" }}
     >
       {/* Background Dark/Atmospheric Tint Overlay (Defeat Only - Victory keeps background 100% original & clear) */}
       {!isVictory && (
@@ -2548,6 +2549,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const [globalEmojiCooldownUntil, setGlobalEmojiCooldownUntil] = useState<number>(0);
   const [showBattleSettings, setShowBattleSettings] = useState(false);
   const [showVolumeControls, setShowVolumeControls] = useState(false);
+  const [showGameManual, setShowGameManual] = useState(false);
   // Log da Batalha (overlay no canto inferior esquerdo) — configurável nas
   // Configurações da Batalha e persistido localmente.
   const [showBattleLog, setShowBattleLog] = useState<boolean>(() => {
@@ -18228,7 +18230,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
      <div
   className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
   style={{
-    backgroundImage: "url('/static/img/bg/background-battle.webp')",
+    backgroundImage: "url('/static/img/bg/bg-battle.webp')",
   }}
 />
 
@@ -18315,6 +18317,19 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               {/* Settings Dropdown (opens upward) */}
               {showBattleSettings && (
                 <div className="absolute bottom-full mb-2 left-0 z-50 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl shadow-slate-950/60 p-2 min-w-[160px] flex flex-col gap-1 max-h-[70vh] overflow-y-auto overscroll-contain" data-battle-settings>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      playClickSound();
+                      setShowGameManual(true);
+                      setShowBattleSettings(false);
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                  >
+                    <Scroll className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Manual</span>
+                  </button>
+
                   {/* Volume Toggle */}
                   <button
                     onClick={(e) => {
@@ -21577,6 +21592,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           playScrollSound={playScrollSound}
         />
       )}
+
+      <GameManualModal
+        isOpen={showGameManual}
+        onClose={() => setShowGameManual(false)}
+        playClickSound={playClickSound}
+      />
 
       {/* IN-GAME QUESTS MODAL */}
       <AnimatePresence>

@@ -1966,9 +1966,17 @@ e-squad-name {
   .profile-card-modal-container {
     width: 100%;
     max-width: none;
-    height: min(62dvh, 34rem);
+    height: min(57dvh, 34rem);
     max-height: 62dvh !important;
     flex: 0 0 auto;
+  }
+
+  .profile-card-rank-badge {
+    width: 11rem !important;
+    height: 11rem !important;
+    transform: rotate(-23deg);
+    left: -53px !important;
+    top: -41px !important;
   }
 
   .profile-card-modal-body {
@@ -2065,9 +2073,9 @@ e-squad-name {
 
   .ml-figurinhas-panel {
     width: 100%;
-    height: 22dvh;
-    min-height: 7rem;
-    max-height: 24dvh;
+    height: 30dvh;
+    min-height: 9rem;
+    max-height: 32dvh;
     flex: 0 0 auto;
   }
 
@@ -3419,8 +3427,7 @@ e-squad-name {
   }
 
   .main-menu-header-actions {
-    justify-content: flex-end;
-    gap: 0.55rem;
+    display: none;
   }
 
   .main-menu-header-actions > button {
