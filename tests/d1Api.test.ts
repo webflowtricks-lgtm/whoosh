@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  awardD1MatchRewards,
   handleD1Request,
   type D1Database,
   type D1PreparedStatement,
@@ -14,6 +15,8 @@ class MemoryD1 implements D1Database {
   sessions = new Map<string, Row>();
   configHeads = new Map<string, Row>();
   configItems: Row[] = [];
+  rewardClaims = new Set<string>();
+  lastChanges = 0;
 
   prepare(query: string): D1PreparedStatement {
     return new MemoryStatement(this, query);
@@ -92,7 +95,42 @@ class MemoryStatement implements D1PreparedStatement {
       const [profile_json, username] = this.values;
       const row = this.db.accounts.get(String(username));
       if (row) row.profile_json = profile_json;
+      this.db.lastChanges = row ? 1 : 0;
       return { success: true, meta: { changes: row ? 1 : 0 } };
+    }
+    if (q.startsWith('insert or ignore into online_battle_rewards')) {
+      const [roomId, username] = this.values;
+      const key = `${roomId}:${username}`;
+      const changes = this.db.rewardClaims.has(key) ? 0 : 1;
+      this.db.rewardClaims.add(key);
+      this.db.lastChanges = changes;
+      return { success: true, meta: { changes } };
+    }
+    if (q.startsWith('update accounts set profile_json = json_set(')) {
+      const [xpDelta, winsDelta, lossesDelta, username] = this.values;
+      const row = this.db.accounts.get(String(username));
+      const changes = row && this.db.lastChanges === 1 ? 1 : 0;
+      if (changes) {
+        const profile = JSON.parse(String(row.profile_json)) as Row;
+        profile.xp = Math.max(0, (Number(profile.xp) || 0) + Number(xpDelta));
+        profile.wins = (Number(profile.wins) || 0) + Number(winsDelta);
+        profile.losses = (Number(profile.losses) || 0) + Number(lossesDelta);
+        row.profile_json = JSON.stringify(profile);
+      }
+      this.db.lastChanges = changes;
+      return { success: true, meta: { changes } };
+    }
+    if (q.startsWith('update accounts set profile_json = json_set(profile_json,') ) {
+      const [rankJson, username, expectedXp] = this.values;
+      const row = this.db.accounts.get(String(username));
+      const profile = row ? JSON.parse(String(row.profile_json)) as Row : null;
+      const changes = !!row && Number(profile?.xp || 0) === Number(expectedXp) ? 1 : 0;
+      if (changes && row && profile) {
+        profile.rank = JSON.parse(String(rankJson));
+        row.profile_json = JSON.stringify(profile);
+      }
+      this.db.lastChanges = changes;
+      return { success: true, meta: { changes } };
     }
     if (q.startsWith('insert into game_config_items')) {
       const [config_key, version_id, ordinal, chunk_number, value_part] = this.values;
@@ -121,6 +159,10 @@ class MemoryStatement implements D1PreparedStatement {
     const q = this.query.replace(/\s+/g, ' ').trim().toLowerCase();
     if (q.startsWith('select username, password_salt, password_hash, profile_json from accounts')) {
       return (this.db.accounts.get(String(this.values[0])) as T) || null;
+    }
+    if (q.startsWith('select profile_json from accounts')) {
+      const row = this.db.accounts.get(String(this.values[0]));
+      return row ? { profile_json: row.profile_json } as T : null;
     }
     if (q.startsWith('select active_token_hash from account_sessions')) {
       const row = this.db.sessions.get(String(this.values[0]));
@@ -268,7 +310,7 @@ test('claims sessions, reports takeover, and revokes the prior device', async ()
   assert.equal((await responseBody(activeNewStatus!)).status, 'active');
 });
 
-test('persists profile progression and cosmetic updates for the current beta client', async () => {
+test('rejects client-owned progression writes while persisting cosmetic profile updates', async () => {
   const env = { DB: new MemoryD1() };
   const signup = await handleD1Request(request('/api/auth/register', 'POST', {
     username: 'profile_user',
@@ -291,10 +333,14 @@ test('persists profile progression and cosmetic updates for the current beta cli
     collectedCardIds: ['forged-card'],
   }, headers), env);
   assert.equal(progressionUpdate?.status, 200);
+  assert.deepEqual((await responseBody(progressionUpdate!)).ignoredFields, [
+    'xp', 'wins', 'gems', 'collectedCardIds',
+  ]);
   const progressedProfile = JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json));
-  assert.equal(progressedProfile.xp, 999999);
-  assert.equal(progressedProfile.wins, 100);
-  assert.deepEqual(progressedProfile.collectedCardIds, ['forged-card']);
+  assert.equal(progressedProfile.xp, undefined);
+  assert.equal(progressedProfile.wins, undefined);
+  assert.equal(progressedProfile.gems, undefined);
+  assert.equal(progressedProfile.collectedCardIds, undefined);
 
   const cosmeticUpdate = await handleD1Request(request('/api/user/profile', 'PUT', {
     username: 'profile_user',
@@ -305,7 +351,7 @@ test('persists profile progression and cosmetic updates for the current beta cli
   const profile = JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json));
   assert.equal(profile.name, 'Updated Name');
   assert.equal(profile.equippedFrame, 'frame-1');
-  assert.equal(profile.xp, 999999);
+  assert.equal(profile.xp, undefined);
 });
 
 test('rejects an unimported configuration without contacting the legacy API', async () => {

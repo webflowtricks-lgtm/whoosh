@@ -4,6 +4,8 @@
  */
 
 import { RankConfig, getRanks } from './rankStorage';
+export { calculateBattleXp } from './battleRewards';
+import { calculateBattleXp } from './battleRewards';
 
 export interface RankProgressInfo {
   currentRank: RankConfig;
@@ -20,33 +22,6 @@ export interface RankProgressInfo {
  * surviving player combatants, and total damage dealt to enemy team.
  * Defeat results in a larger XP loss than a typical victory gain.
  */
-export function calculateBattleXp(
-  victory: boolean,
-  turns: number,
-  alivePlayerCombatantsCount: number,
-  damageDealt: number
-): number {
-  const safeTurns = Math.max(1, turns);
-  const safeAlive = Math.max(0, alivePlayerCombatantsCount);
-  const safeDamage = Math.max(0, damageDealt);
-
-  if (victory) {
-    const baseVictoryXp = 200;
-    const aliveBonus = safeAlive * 40; // +40 XP per surviving player shinobi
-    const damageBonus = Math.min(120, Math.floor(safeDamage * 0.4)); // +1 XP per ~2.5 damage
-    const speedBonus = Math.max(10, Math.floor(80 - safeTurns * 5)); // faster victories give speed bonus
-    
-    return baseVictoryXp + aliveBonus + damageBonus + speedBonus;
-  } else {
-    // Defeat deducts significantly more XP than victory gains.
-    const baseDefeatLoss = -450;
-    const damageMitigation = Math.min(60, Math.floor(safeDamage * 0.2)); // slight mitigation for fighting hard
-    const turnMitigation = Math.min(40, safeTurns * 3); // slight mitigation for surviving turns
-
-    return baseDefeatLoss + damageMitigation + turnMitigation;
-  }
-}
-
 /**
  * Computes rank progress info for a given XP amount (minimum 0 XP).
  */

@@ -23,7 +23,7 @@ View your app in AI Studio: https://ai.studio/apps/8522cf8c-35ea-4988-a803-d48e1
 
 The React/Vite frontend is published with Workers Static Assets. Multiplayer matchmaking, rooms, and WebSockets run through SQLite-backed Durable Objects. D1 contains account/profile/session tables, game configuration collections, and archived online-battle history. Worker routes support registration/login, exclusive sessions, profile CRUD, configuration CRUD/import/export, and Firebase ID-token verification. A live Render snapshot has been imported and checked: all 6 exported accounts and all 9 configuration sets match the beta. The Cloudflare Worker no longer falls back to Render; a missing account or configuration fails closed.
 
-The combat engine is still not server-authoritative. The Durable Object continues to reject `/api/match/finish` rather than accepting a client-provided winner, and the server cannot safely award normal battle rewards yet. The beta is not a complete backend retirement. Keep Render available for rollback and for the old deployment until the Vercel API cutover is verified.
+The combat engine is still not server-authoritative. The Durable Object continues to reject `/api/match/finish` rather than accepting a client-provided winner, and the server cannot safely award normal battle rewards yet. D1 ignores client-supplied XP, rank, wins/losses, currency, and collected-card IDs until a server-calculated reward flow is available. This protects stored profiles but means the current client cannot persist battle progression. The beta is not a complete backend retirement. Keep Render available for rollback and for the old deployment until the Vercel API cutover is verified.
 
 ### Run the Cloudflare frontend gateway locally
 

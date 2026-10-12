@@ -183,6 +183,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   }, [isMatchmaking, onProcessingChange]);
   const [matchmakingTime, setMatchmakingTime] = useState(0);
   const [matchmakingStatus, setMatchmakingStatus] = useState<'searching' | 'matched' | 'error'>('searching');
+  const [matchmakingError, setMatchmakingError] = useState('');
   const [opponent, setOpponent] = useState<UserProfile | null>(null);
   const [countdown, setCountdown] = useState(5);
   const [lobbyTip, setLobbyTip] = useState('Dica: Acumule chakra de linhagem (Blood) para liberar jutsus supremos.');
@@ -378,6 +379,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
     setIsMatchmaking(true);
     setMatchmakingStatus('searching');
+    setMatchmakingError('');
     setMatchmakingTime(0);
     setCountdown(5);
     setOpponent(null);
@@ -404,6 +406,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       if (!joinRes.ok) {
         const errData = await joinRes.json().catch(() => ({}));
         console.error('Join queue error:', errData);
+        setMatchmakingError(typeof errData.error === 'string' ? errData.error : 'Não foi possível encontrar um oponente. Tente novamente.');
         setMatchmakingStatus('error');
         return;
       }
@@ -1620,7 +1623,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 </h3>
                 {matchmakingStatus === 'error' ? (
                   <p className="text-xs font-mono text-red-400">
-                    Não foi possível encontrar um oponente. Tente novamente.
+                    {matchmakingError || 'Não foi possível encontrar um oponente. Tente novamente.'}
                   </p>
                 ) : matchmakingStatus === 'searching' ? (
                   <p className="text-xs font-mono text-slate-400">

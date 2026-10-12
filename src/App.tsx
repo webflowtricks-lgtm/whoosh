@@ -565,37 +565,54 @@ export default function App() {
   const handleBattleEnd = async (victory: boolean, stats: any, earnedXp?: number) => {
     if (!user) return;
 
-    // Calculate XP gained
-    const turns = stats?.turn || 1;
-    const aliveCount = stats?.alivePlayerCount || (victory ? 1 : 0);
-    const damageDealt = stats?.damageDealt || 0;
-    const xpGained = earnedXp ?? calculateBattleXp(victory, turns, aliveCount, damageDealt);
+    let updatedUser: UserProfile;
+    if (onlineParams?.isOnline) {
+      const response = await matchFetch('/api/match/finish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: onlineParams.roomId, username: user.username }),
+      });
+      if (!response.ok) {
+        throw new Error(`O servidor não confirmou as recompensas da partida (HTTP ${response.status}).`);
+      }
+      const result = await response.json() as {
+        reward?: { user?: UserProfile | null } | null;
+      };
+      updatedUser = result.reward?.user
+        ? { ...user, ...result.reward.user }
+        : user;
+    } else {
+      const turns = stats?.turn || 1;
+      const aliveCount = stats?.alivePlayerCount || (victory ? 1 : 0);
+      const damageDealt = stats?.damageDealt || 0;
+      const xpGained = earnedXp ?? calculateBattleXp(victory, turns, aliveCount, damageDealt);
+      const oldXp = Math.max(0, user.xp || 0);
+      const newXp = Math.max(0, oldXp + xpGained);
+      const ranksList = getRanks();
+      const newRank = getUserRankFromConfig(newXp, ranksList);
 
-    const oldXp = Math.max(0, user.xp || 0);
-    const newXp = Math.max(0, oldXp + xpGained);
-    const ranksList = getRanks();
-    const newRank = getUserRankFromConfig(newXp, ranksList);
-
-    const updatedUser: UserProfile = {
-      ...user,
-      xp: newXp,
-      rank: newRank,
-      wins: victory ? (user.wins || 0) + 1 : (user.wins || 0),
-      losses: !victory ? (user.losses || 0) + 1 : (user.losses || 0),
-    };
+      updatedUser = {
+        ...user,
+        xp: newXp,
+        rank: newRank,
+        wins: victory ? (user.wins || 0) + 1 : (user.wins || 0),
+        losses: !victory ? (user.losses || 0) + 1 : (user.losses || 0),
+      };
+    }
 
     setUser(updatedUser);
     localStorage.setItem('naruto_user_profile', JSON.stringify(updatedUser));
 
-    // Sync profile updates to server
-    try {
-      await matchFetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedUser)
-      });
-    } catch (err) {
-      console.error('Failed to sync profile update:', err);
+    if (!onlineParams?.isOnline) {
+      try {
+        await matchFetch('/api/user/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedUser)
+        });
+      } catch (err) {
+        console.error('Failed to sync profile update:', err);
+      }
     }
 
     // Process quests if active

@@ -21,6 +21,7 @@ import { safeFetchJson } from '../lib/api';
 import { RichText } from '../lib/richText';
 import { playGlobalSound } from '../lib/soundUtils';
 import { matchFetch } from '../lib/matchFetch';
+import { firstSlotForTurn } from '../lib/matchProtocol';
 import {
   checkCombatantInvulnerable,
   hasConditionalInvulnerabilityBypass as hasConditionalInvulnBypass,
@@ -2018,8 +2019,6 @@ export default function BattleBoard({
   useEffect(() => { playerChakraRef.current = playerChakra; }, [playerChakra]);
   const enemyChakraRef = useRef(enemyChakra);
   useEffect(() => { enemyChakraRef.current = enemyChakra; }, [enemyChakra]);
-  const stateReportSentTurnRef = useRef(0);
-  const lastAppliedOppReportTurnRef = useRef(0);
 
   // Chakra Trade (4 -> 1)
 const [showChakraTrade, setShowChakraTrade] = useState(false);
@@ -2104,6 +2103,8 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const isEndingTurnRef = useRef(false);
   const turnActionLockedRef = useRef(false);
   const processedOpponentTurnsRef = useRef<Set<number>>(new Set());
+  const lastAppliedOppReportTurnRef = useRef(0);
+  const stateReportSentTurnRef = useRef(0);
   const passedPlayersRef = useRef<('player' | 'enemy')[]>([]);
   const isResolvingTurnEndRef = useRef(false);
   // ⏱️ Cooldown de 5s antes de poder finalizar turno novamente (após transição de turno)
@@ -2193,7 +2194,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const wsPushRef = useRef<((data: any) => void) | null>(null);
   const wsConnectedRef = useRef(false);
   const lastWsMsgAtRef = useRef(0);
-  const wsApplyReportRef = useRef<((username: string, rp: { turn: number; units?: any; chakra?: any }) => void) | null>(null);
+  const wsApplyReportRef = useRef<((username: string, report: { turn: number; units?: any; chakra?: any }) => void) | null>(null);
 
   // ── CHAT DESABILITADO: sem auto-scroll / sync de isChatOpenRef ──
   // useEffect(() => {
@@ -2494,8 +2495,6 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     forcedResolveTurnsRef.current.clear();
     waitingSinceRef.current = 0;
     pollFailureStreakRef.current = 0;
-    stateReportSentTurnRef.current = 0;
-    lastAppliedOppReportTurnRef.current = 0;
 
     let startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     if (onlineParams?.isOnline) {
@@ -11608,7 +11607,6 @@ splashOnlyTargets = splashPool.filter(c =>
         return;
       }
       finalizedKeysRef.current.add(finalizeKey);
-      if (onlineParams?.isOnline) submittedTurnRef.current.add(turn); // otimista - evita 'skill usada mas turno ainda meu' por corrida poll vs submit
 
       // In online/offline (non-sandbox) matches, the enemy side only passes
       // through the AI effect or the matchmaking poll — never via this handler.
@@ -11635,10 +11633,12 @@ splashOnlyTargets = splashPool.filter(c =>
       const isCurrentPlayer = activePlanner === 'player';
 
       let isGameOver = false;
-      try {
-        isGameOver = executeSideActions(currentActions, isCurrentPlayer, customRandAllocation);
-      } catch (err) {
-        console.error('[BattleBoard] Erro ao executar as ações do turno (a passagem de turno continuará):', err);
+      if (!onlineParams?.isOnline) {
+        try {
+          isGameOver = executeSideActions(currentActions, isCurrentPlayer, customRandAllocation);
+        } catch (err) {
+          console.error('[BattleBoard] Erro ao executar as ações do turno (a passagem de turno continuará):', err);
+        }
       }
       if (isGameOver) {
         return;
@@ -11646,7 +11646,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // Tick de Dano Contínuo do lado que acabou de passar o turno:
       // o dano é aplicado AGORA (quando o conjurador passa), sem esperar o oponente passar
-      const dotGameOver = tickCasterContinuousDamage(isCurrentPlayer);
+      const dotGameOver = onlineParams?.isOnline ? false : tickCasterContinuousDamage(isCurrentPlayer);
       if (dotGameOver) {
         return;
       }
@@ -11680,6 +11680,26 @@ splashOnlyTargets = splashPool.filter(c =>
                 // v26: a resposta ja traz o room leve - alimenta o MESMO processData
                 // (serverResolvedTurn avanca para QUEM SUBMETEU sem depender de push/poll).
                 try { const j = await r.json(); if (j?.room) wsPushRef.current?.({ success: true, room: j.room }); } catch {}
+                return;
+              }
+              if (r.status >= 400 && r.status < 500) {
+                const responseText = await r.text();
+                submittedTurnRef.current.delete(turn);
+                pendingSubmitRef.current = null;
+                finalizedKeysRef.current.delete(finalizeKey);
+                passedPlayersRef.current = passedPlayersRef.current.filter(side => side !== 'player');
+                setPassedPlayersThisTurn(passedPlayersRef.current);
+                setActivePlanner('player');
+                setIsWaitingForOpponent(false);
+                setIsEndingTurn(false);
+                isEndingTurnRef.current = false;
+                turnActionLockedRef.current = false;
+                setLogs(previous => [...previous, {
+                  id: Math.random().toString(),
+                  turn,
+                  message: `⚠️ O servidor recusou as ações deste turno: ${responseText || 'revise suas ações e tente novamente.'}`,
+                  type: 'system',
+                }]);
                 return;
               }
             } catch {}
@@ -12492,6 +12512,45 @@ splashOnlyTargets = splashPool.filter(c =>
             showRoomLostModalRef.current = false;
             setShowRoomLostModal(false);
           }
+          const canonicalCombat = data.room.combatState;
+          if (canonicalCombat) {
+            const mine = onlineParams.playerIndex === 1 ? 1 : 0;
+            const ownState = mine === 0 ? canonicalCombat.player : canonicalCombat.enemy;
+            const opposingState = mine === 0 ? canonicalCombat.enemy : canonicalCombat.player;
+            const mergeCombatants = (current: CombatCharacter[], authoritative: CombatCharacter[]) =>
+              current.map((combatant, index) => {
+                const serverCombatant = authoritative?.[index];
+                if (!serverCombatant) return combatant;
+                return {
+                  ...combatant,
+                  health: serverCombatant.health,
+                  maxHealth: serverCombatant.maxHealth,
+                  shield: serverCombatant.shield,
+                  shieldExpiresTurn: serverCombatant.shieldExpiresTurn,
+                  activeEffects: serverCombatant.activeEffects.map(effect => ({ ...effect })),
+                  isDead: serverCombatant.isDead,
+                  hasRevived: serverCombatant.hasRevived,
+                  skillUseCounts: serverCombatant.skillUseCounts
+                    ? { ...serverCombatant.skillUseCounts }
+                    : undefined,
+                  character: {
+                    ...combatant.character,
+                    skills: serverCombatant.character.skills.map((skill, skillIndex) => ({
+                      ...combatant.character.skills[skillIndex],
+                      ...skill,
+                    })),
+                  },
+                };
+              });
+            const localPlayer = mergeCombatants(playerRef.current, ownState);
+            const localEnemy = mergeCombatants(enemyRef.current, opposingState);
+            playerRef.current = localPlayer;
+            enemyRef.current = localEnemy;
+            setPlayerCombatants(localPlayer);
+            setEnemyCombatants(localEnemy);
+            setPlayerChakra({ ...(mine === 0 ? canonicalCombat.playerChakra : canonicalCombat.enemyChakra) });
+            setEnemyChakra({ ...(mine === 0 ? canonicalCombat.enemyChakra : canonicalCombat.playerChakra) });
+          }
 
           if (data.room.surrenderedBy) {
             const surrenderedUser = String(data.room.surrenderedBy).toLowerCase();
@@ -12549,11 +12608,47 @@ splashOnlyTargets = splashPool.filter(c =>
             return;
           }
 
-          const oppUsernameLc = onlineParams.opponentProfile?.username
-            ? String(onlineParams.opponentProfile.username).trim().toLowerCase()
-            : (Array.isArray(data.room.players) ? data.room.players.find((p: any) => p && p.username && p.username !== user.username.toLowerCase())?.username : null);
-          if (oppUsernameLc && data.room.stateReports?.[oppUsernameLc]) {
-            applyOppReport(data.room.stateReports[oppUsernameLc]);
+          if (canonicalCombat) {
+            const serverResolvedTurn = typeof data.room.resolvedTurn === 'number' ? data.room.resolvedTurn : 0;
+            const mine = onlineParams.playerIndex === 1 ? 1 : 0;
+            const opponent = mine === 0 ? 1 : 0;
+            const currentActions = data.room.turnActions?.[turn];
+            if (typeof data.room.phaseDeadline === 'number') setServerPhaseDeadline(data.room.phaseDeadline);
+
+            if (serverResolvedTurn >= turn) {
+              resolvedTurnRef.current.add(turn);
+              processedOpponentTurnsRef.current.add(turn);
+              submittedTurnRef.current.delete(turn);
+              pendingSubmitRef.current = null;
+              passedPlayersRef.current = [];
+              setPassedPlayersThisTurn([]);
+              const nextTurn = canonicalCombat.turn;
+              const nextPlanner = firstSlotForTurn(data.room.seed, nextTurn) === mine ? 'player' : 'enemy';
+              setTurn(nextTurn);
+              setActivePlanner(nextPlanner);
+              setIsWaitingForOpponent(nextPlanner !== 'player');
+              setTimeLeft(60);
+              setLogs(previous => [...previous, {
+                id: Math.random().toString(),
+                turn,
+                message: `🔄 Turno ${turn} resolvido pelo servidor. ${nextPlanner === 'player' ? 'Sua vez de planejar.' : 'Aguardando o planejamento do oponente.'}`,
+                type: 'system',
+              }]);
+              return;
+            }
+
+            if (Array.isArray(currentActions) && currentActions[mine] != null) {
+              setActivePlanner('enemy');
+              setIsWaitingForOpponent(true);
+            } else if (Array.isArray(currentActions) && currentActions[opponent] != null) {
+              setActivePlanner('player');
+              setIsWaitingForOpponent(false);
+            } else {
+              const isMyPlanningPhase = firstSlotForTurn(data.room.seed, turn) === mine;
+              setActivePlanner(isMyPlanningPhase ? 'player' : 'enemy');
+              setIsWaitingForOpponent(!isMyPlanningPhase);
+            }
+            return;
           }
 
           // Check online turn state sync
@@ -12574,12 +12669,6 @@ splashOnlyTargets = splashPool.filter(c =>
           if (serverResolvedTurn > turn + 1 && onlineParams?.isOnline) {
             const targetTurn = serverResolvedTurn + 1;
             console.warn(`[TURN] FAST-FORWARD: local=${turn} servidor=${serverResolvedTurn} -> ${targetTurn}`);
-            const ffOppLc = onlineParams.opponentProfile?.username
-              ? String(onlineParams.opponentProfile.username).trim().toLowerCase()
-              : (Array.isArray(data.room.players) ? data.room.players.find((p: any) => p && p.username && p.username !== user.username.toLowerCase())?.username : null);
-            if (ffOppLc && data.room.stateReports?.[ffOppLc]) {
-              applyOppReport(data.room.stateReports[ffOppLc], { anyTurn: true });
-            }
             processedOpponentTurnsRef.current.clear();
             passedPlayersRef.current = [];
             setPassedPlayersThisTurn([]);
@@ -12843,9 +12932,6 @@ splashOnlyTargets = splashPool.filter(c =>
               setActiveEmojis(prev => [...prev, { id: Math.random().toString(), emoji: e.emoji, xOffset: Math.random() * 200 - 100, rotation: Math.random() * 60 - 30, senderName: e.senderName || e.username }]);
             }
             if (e.timestamp > lastPolledEmojiTimestamp.current) lastPolledEmojiTimestamp.current = e.timestamp;
-          } else if (msg && msg.type === 'report' && msg.username) {
-            // relato minúsculo do oponente (v27): mesma converge, sem room-state completo
-            wsApplyReportRef.current?.(String(msg.username), { turn: msg.turn, units: msg.units, chakra: msg.chakra });
           }
         } catch {}
       };
@@ -12977,36 +13063,6 @@ splashOnlyTargets = splashPool.filter(c =>
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [onlineParams, gameOver]);
-
-  // 🔄 SINCRONIA PÓS-RESOLUÇÃO (online): após a rodada avançar, envia ao servidor
-  // um relato com HP/escudo/morte dos MEUS personagens + meu chakra. O oponente
-  // adota esses valores para o MEU esquadrão na tela dele (e vice-versa) — corrige
-  // divergências de simulação entre clientes ("na tela dele ainda tá vida cheia").
-  useEffect(() => {
-    if (!onlineParams?.isOnline || gameOver || turn <= 1) return;
-    if (stateReportSentTurnRef.current >= turn) return;
-    const timer = setTimeout(() => {
-      stateReportSentTurnRef.current = turn;
-      const units: Record<string, { health: number; shield: number; isDead: boolean }> = {};
-      const squad = playerRef.current.length ? playerRef.current : playerCombatants;
-      squad.forEach(c => {
-        units[c.id] = { health: c.health, shield: c.shield, isDead: !!c.isDead };
-      });
-      matchFetch('/api/match/report-state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: onlineParams.roomId,
-          username: user.username,
-          turn,
-          units,
-          chakra: playerChakraRef.current
-        })
-      }).catch(() => {});
-    }, 700);
-    return () => clearTimeout(timer);
-    // playerCombatants deliberadamente fora das deps: lemos via ref no momento do envio
-  }, [turn, onlineParams?.isOnline, gameOver]);
 
   // Auto-save game state to local storage on key changes, or remove it when game over
   useEffect(() => {

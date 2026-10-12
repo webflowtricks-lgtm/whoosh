@@ -25,6 +25,7 @@ export interface CombatEngineState {
   playerChakra: ChakraPool;
   enemyChakra: ChakraPool;
   winnerSide?: 'player' | 'enemy';
+  damageDealt?: { player: number; enemy: number };
 }
 
 export interface CombatActionIntent {

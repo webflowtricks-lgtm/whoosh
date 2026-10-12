@@ -1,3 +1,5 @@
+import { calculateBattleXp } from '../src/lib/battleRewards';
+
 interface D1Result<T = Record<string, unknown>> {
   results?: T[];
   success: boolean;
@@ -35,8 +37,10 @@ interface FirebaseJwk extends JsonWebKey {
   kid?: string;
 }
 const ACCOUNT_FIELDS = new Set([
-  'name', 'photoUrl', 'xp', 'rank', 'wins', 'losses', 'ryos', 'gems', 'title',
-  'equippedFrame', 'equippedFrameUrl', 'equippedBannerUrl', 'collectedCardIds',
+  'name', 'photoUrl', 'title', 'equippedFrame', 'equippedFrameUrl', 'equippedBannerUrl',
+]);
+const SERVER_OWNED_PROFILE_FIELDS = new Set([
+  'xp', 'rank', 'wins', 'losses', 'ryos', 'gems', 'collectedCardIds',
 ]);
 let firebaseJwksCache: { keys: FirebaseJwk[]; expiresAt: number } | null = null;
 
@@ -464,12 +468,14 @@ async function profileRoute(request: Request, env: D1Env, pathname: string): Pro
   ).bind(username).first<AccountRow>();
   if (!row) return error(404, 'Usuário não encontrado.');
   const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+  const ignoredFields: string[] = [];
   for (const [key, value] of Object.entries(body || {})) {
+    if (SERVER_OWNED_PROFILE_FIELDS.has(key)) {
+      ignoredFields.push(key);
+      continue;
+    }
     if (!ACCOUNT_FIELDS.has(key)) continue;
-    if (['xp', 'wins', 'losses', 'ryos', 'gems'].includes(key)) {
-      if (typeof value !== 'number' || !Number.isFinite(value)) continue;
-      profile[key] = key === 'xp' ? Math.max(0, value) : value;
-    } else if (key === 'name' && typeof value === 'string' && value.trim()) {
+    if (key === 'name' && typeof value === 'string' && value.trim()) {
       profile[key] = value.trim().slice(0, 60);
     } else if (key === 'photoUrl' && typeof value === 'string' && value.length <= 2048) {
       profile[key] = value;
@@ -480,7 +486,11 @@ async function profileRoute(request: Request, env: D1Env, pathname: string): Pro
   await env.DB.prepare(
     'UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?',
   ).bind(JSON.stringify(profile), username).run();
-  return json({ success: true, user: { ...profile, username } });
+  return json({
+    success: true,
+    user: { ...profile, username },
+    ...(ignoredFields.length > 0 ? { ignoredFields } : {}),
+  });
 }
 
 const CONFIGS: Record<string, { key: string; field: string }> = {
@@ -537,6 +547,113 @@ export async function getD1AccountProfile(
     'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
   ).bind(username.trim().toLowerCase()).first<AccountRow>();
   return row ? publicAccount(row) : null;
+}
+
+export interface AuthoritativeMatchRewardInput {
+  roomId: string;
+  winnerUsername: string;
+  turns: number;
+  players: Array<{
+    username: string;
+    aliveCount: number;
+    damageDealt: number;
+  }>;
+}
+
+export interface AuthoritativeMatchReward {
+  username: string;
+  xpGained: number;
+  user: Record<string, unknown> | null;
+}
+
+export async function awardD1MatchRewards(
+  env: D1Env,
+  match: AuthoritativeMatchRewardInput,
+): Promise<AuthoritativeMatchReward[]> {
+  if (!match.roomId || !match.winnerUsername || match.players.length !== 2 ||
+      match.players[0].username === match.players[1].username) {
+    throw new Error('Resultado autoritativo inválido para conceder recompensas.');
+  }
+  const ranks = await getD1Config(env.DB, 'ranks');
+  if (!ranks?.length) throw new Error('A configuração de patentes é necessária para conceder recompensas.');
+  const sortedRanks = ranks
+    .filter((rank): rank is Record<string, unknown> =>
+      !!rank && typeof rank === 'object' &&
+      typeof (rank as Record<string, unknown>).requiredXp === 'number' &&
+      typeof (rank as Record<string, unknown>).name === 'string')
+    .sort((left, right) => Number(left.requiredXp) - Number(right.requiredXp));
+  if (!sortedRanks.length) throw new Error('A configuração de patentes no D1 é inválida.');
+
+  const statements: D1PreparedStatement[] = [];
+  const rewards: AuthoritativeMatchReward[] = match.players.map(player => ({
+    username: player.username.trim().toLowerCase(),
+    xpGained: calculateBattleXp(
+      player.username.trim().toLowerCase() === match.winnerUsername.trim().toLowerCase(),
+      Math.max(1, Math.min(10_000, Math.trunc(match.turns))),
+      Math.max(0, Math.min(3, Math.trunc(player.aliveCount))),
+      Math.max(0, Math.min(1_000_000, Math.trunc(player.damageDealt))),
+    ),
+    user: null,
+  }));
+
+  for (const reward of rewards) {
+    if (reward.username === 'convidado') continue;
+    const victory = reward.username === match.winnerUsername.trim().toLowerCase();
+    statements.push(env.DB.prepare(`
+      INSERT OR IGNORE INTO online_battle_rewards (room_id, username, xp_delta)
+      VALUES (?, ?, ?)
+    `).bind(match.roomId, reward.username, reward.xpGained));
+    statements.push(env.DB.prepare(`
+      UPDATE accounts
+      SET profile_json = json_set(
+        profile_json,
+        '$.xp', MAX(0, CAST(COALESCE(json_extract(profile_json, '$.xp'), 0) AS INTEGER) + ?),
+        '$.wins', CAST(COALESCE(json_extract(profile_json, '$.wins'), 0) AS INTEGER) + ?,
+        '$.losses', CAST(COALESCE(json_extract(profile_json, '$.losses'), 0) AS INTEGER) + ?
+      ), updated_at = CURRENT_TIMESTAMP
+      WHERE username = ? AND changes() = 1
+    `).bind(reward.xpGained, victory ? 1 : 0, victory ? 0 : 1, reward.username));
+  }
+
+  if (statements.length) {
+    const results = await env.DB.batch(statements);
+    if (results.some(result => !result.success)) {
+      throw new Error(`Falha ao conceder recompensas da partida ${match.roomId}.`);
+    }
+  }
+
+  for (const reward of rewards) {
+    if (reward.username === 'convidado') continue;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const row = await env.DB.prepare(
+        'SELECT profile_json FROM accounts WHERE username = ?',
+      ).bind(reward.username).first<{ profile_json: string }>();
+      if (!row) throw new Error(`Conta ausente ao concluir recompensa: ${reward.username}.`);
+      const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+      const xp = Math.max(0, Number(profile.xp) || 0);
+      let rank = sortedRanks[0];
+      for (const candidate of sortedRanks) {
+        if (xp < Number(candidate.requiredXp)) break;
+        rank = candidate;
+      }
+      const updated = await env.DB.prepare(`
+        UPDATE accounts
+        SET profile_json = json_set(profile_json, '$.rank', json(?)),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE username = ?
+          AND CAST(COALESCE(json_extract(profile_json, '$.xp'), 0) AS INTEGER) = ?
+      `).bind(JSON.stringify(rank), reward.username, xp).run();
+      if (updated.meta?.changes === 1) break;
+      if (attempt === 2) throw new Error(`Não foi possível atualizar a patente de ${reward.username}.`);
+    }
+    reward.user = await getD1AccountProfile(env.DB, reward.username);
+  }
+
+  return rewards.map(reward => ({
+    username: reward.username,
+    xpGained: reward.xpGained,
+    user: reward.user || null,
+  }));
 }
 
 async function writeConfig(db: D1Database, key: string, values: unknown[]): Promise<void> {

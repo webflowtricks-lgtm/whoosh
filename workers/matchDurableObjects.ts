@@ -4,12 +4,21 @@ import {
   submitTurnActions,
   type MatchProtocolAction,
 } from '../src/lib/matchProtocol';
+import type { Character } from '../src/types';
+import type { CombatEngineState } from '../src/lib/combatEngine';
 import {
   getD1AccountProfile,
   getD1Config,
   isD1SessionActive,
+  awardD1MatchRewards,
+  type AuthoritativeMatchReward,
   type D1Env,
 } from './d1Api';
+import {
+  createServerCombatState,
+  resolveAuthoritativeTurn,
+  validateAuthoritativeActions,
+} from './serverCombat';
 
 interface WorkerAssets {
   fetch(request: Request): Promise<Response>;
@@ -20,13 +29,14 @@ interface PlayerSlot {
   name: string;
   photoUrl: string;
   profile: Record<string, unknown>;
-  team: Array<Record<string, unknown> & { id: string; skills: unknown[] }>;
+  team: Character[];
 }
 
 interface MatchRoomData {
   id: string;
   seed: number;
   players: [PlayerSlot, PlayerSlot];
+  combatState?: CombatEngineState;
   resolvedTurn: number;
   surrenderedBy: string | null;
   winnerUsername: string | null;
@@ -41,11 +51,6 @@ interface TurnRow {
   turn: number;
   slot: number;
   actions_json: string;
-}
-
-interface StateReportRow {
-  username: string;
-  report_json: string;
 }
 
 interface EmojiRow {
@@ -231,7 +236,7 @@ export class MatchmakerDurableObject {
         selectedSkinUrl: typeof (selection as Record<string, unknown>).selectedSkinUrl === 'string'
           ? ((selection as Record<string, unknown>).selectedSkinUrl as string).slice(0, 2048)
           : undefined,
-      }) as Record<string, unknown> & { id: string; skills: unknown[] };
+      }) as unknown as Character;
     });
     if (team.some(character => !character)) return null;
 
@@ -245,7 +250,7 @@ export class MatchmakerDurableObject {
       name: displayName,
       photoUrl: typeof profile.photoUrl === 'string' ? profile.photoUrl.slice(0, 2048) : '',
       profile: cleanPublicProfile(profile, username, displayName),
-      team: team as PlayerSlot['team'],
+      team: team as Character[],
     };
   }
 
@@ -264,6 +269,18 @@ export class MatchmakerDurableObject {
       return fail(502, 'Não foi possível validar a equipe no catálogo oficial.');
     }
     if (!player) return fail(400, 'A equipe deve conter três personagens válidos e uma conta existente.');
+    try {
+      createServerCombatState([
+        player.team,
+        player.team,
+      ], 0);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Equipe incompatível com o motor autoritativo.';
+      return Response.json({ error: message, code: 'unsupported-team' }, {
+        status: 422,
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }
 
     const current = this.state.storage.sql.exec<{ room_id: string; slot: number }>(
       'SELECT room_id, slot FROM matches WHERE username = ?',
@@ -461,10 +478,6 @@ export class MatchRoomDurableObject {
         actions_json TEXT NOT NULL,
         PRIMARY KEY (turn, slot)
       );
-      CREATE TABLE IF NOT EXISTS state_reports (
-        username TEXT PRIMARY KEY,
-        report_json TEXT NOT NULL
-      );
       CREATE TABLE IF NOT EXISTS emojis (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL,
@@ -516,15 +529,36 @@ export class MatchRoomDurableObject {
     const slot = this.slotOf(room, username);
     if (slot !== 0 && slot !== 1) return fail(403, 'Você não faz parte desta sala.');
 
+    const path = url.pathname;
+    if (path === '/api/match/submit-turn' && request.method === 'POST') {
+      return this.state.blockConcurrencyWhile(async () => {
+        const current = this.readRoom();
+        if (!current) return fail(404, 'Sala não encontrada ou partida finalizada.');
+        const currentSlot = this.slotOf(current, username);
+        if (currentSlot !== 0 && currentSlot !== 1) return fail(403, 'Você não faz parte desta sala.');
+        current.pings[currentSlot] = Date.now();
+        await this.saveRoom(current);
+        return this.submit(current, currentSlot, body!);
+      });
+    }
     room.pings[slot] = Date.now();
     await this.saveRoom(room);
-    const path = url.pathname;
-    if (path === '/api/match/submit-turn' && request.method === 'POST') return this.submit(room, slot, body!);
     if (path === '/api/match/room-state' && request.method === 'GET') return this.roomState(room, url, slot);
-    if (path === '/api/match/report-state' && request.method === 'POST') return this.report(room, username, body!);
+    if (path === '/api/match/report-state' && request.method === 'POST') return this.report();
     if (path === '/api/match/surrender' && request.method === 'POST') return this.surrender(room, username, body!);
     if (path === '/api/match/finish' && request.method === 'POST') {
-      return fail(409, 'O resultado ainda depende do cliente: o combate autoritativo precisa ser migrado antes de registrar vitória.');
+      let rewards: AuthoritativeMatchReward[] = [];
+      if (room.winnerUsername) rewards = await this.persistBattleHistory(room);
+      else if (room.surrenderedBy) {
+        const winner = room.players[this.slotOf(room, room.surrenderedBy) === 0 ? 1 : 0];
+        rewards = await this.awardRoomRewards(room, winner.username);
+      } else return fail(409, 'O servidor ainda não confirmou o resultado desta partida.');
+      return json({
+        success: true,
+        winnerUsername: room.winnerUsername,
+        finishedAt: room.finishedAt,
+        reward: rewards.find(reward => reward.username === username) || null,
+      });
     }
     if (path === '/api/match/emoji' && request.method === 'POST') return this.sendEmoji(room, username, body!);
     if (path === '/api/match/emojis' && request.method === 'GET') return this.getEmojis(url);
@@ -540,12 +574,23 @@ export class MatchRoomDurableObject {
       return fail(400, 'Estado inicial de sala inválido.');
     }
     if (this.readRoom()) return fail(409, 'A sala já existe.');
+    try {
+      room.combatState = createServerCombatState([
+        room.players[0].team,
+        room.players[1].team,
+      ], room.seed);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Equipe incompatível com o motor autoritativo.';
+      return Response.json({ error: message, code: 'unsupported-team' }, {
+        status: 422,
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }
     this.state.storage.sql.exec(
       'INSERT INTO room_state (singleton, state_json) VALUES (1, ?)',
       JSON.stringify(room),
     );
     this.state.storage.sql.exec('DELETE FROM turn_submissions');
-    this.state.storage.sql.exec('DELETE FROM state_reports');
     this.state.storage.sql.exec('DELETE FROM emojis');
     this.state.storage.sql.exec('DELETE FROM chat_messages');
     this.state.storage.setAlarm(room.phaseDeadline);
@@ -596,10 +641,6 @@ export class MatchRoomDurableObject {
         if (turns[turn]) turnActions[turn] = turns[turn];
       }
     }
-    const stateReports: Record<string, unknown> = {};
-    for (const row of this.state.storage.sql.exec<StateReportRow>(
-      'SELECT username, report_json FROM state_reports',
-    )) stateReports[row.username] = JSON.parse(row.report_json);
     return {
       id: room.id,
       seed: room.seed,
@@ -608,7 +649,7 @@ export class MatchRoomDurableObject {
         : room.players.map(({ username }) => ({ username })),
       turnActions,
       resolvedTurn: room.resolvedTurn,
-      stateReports: full ? stateReports : undefined,
+      combatState: room.combatState,
       surrenderedBy: room.surrenderedBy,
       winnerUsername: room.winnerUsername,
       surrenderReason: room.surrenderReason,
@@ -715,8 +756,14 @@ export class MatchRoomDurableObject {
   }
 
   private async submit(room: MatchRoomData, slot: 0 | 1, body: Record<string, unknown>): Promise<Response> {
-    if (room.surrenderedBy || room.winnerUsername) return fail(409, 'A partida já foi finalizada.');
-    const turns = this.submissions();
+    if (room.surrenderedBy || room.winnerUsername) {
+      if (room.winnerUsername && !room.surrenderedBy) await this.persistBattleHistory(room);
+      return json({ success: true, room: this.roomPayload(room), alreadyFinished: true });
+    }
+    if (!room.combatState) {
+      return fail(409, 'Esta sala não possui estado de combate autoritativo. Encerre a partida e procure outra sala.');
+    }
+    const turns = structuredClone(this.submissions());
     const protocolRoom = {
       seed: room.seed,
       players: room.players,
@@ -729,28 +776,54 @@ export class MatchRoomDurableObject {
     if (result.status === 'invalid') return fail(400, result.message);
     if (result.status === 'conflict') return fail(409, result.message);
     if (result.status === 'duplicate') {
+      if (room.winnerUsername) await this.persistBattleHistory(room);
       return json({ success: true, resolvedTurn: room.resolvedTurn, room: this.roomPayload(room), duplicate: true });
     }
-    const actions = turns[body.turn as number][slot];
-    this.state.storage.sql.exec(
-      'INSERT INTO turn_submissions (turn, slot, actions_json) VALUES (?, ?, ?)',
-      body.turn,
-      slot,
-      JSON.stringify(actions),
-    );
     const submittedTurn = body.turn as number;
-    const bothSubmitted = !!turns[submittedTurn]?.[0] && !!turns[submittedTurn]?.[1];
-    room.phaseDeadline = Date.now() + 60000;
-    if (bothSubmitted) {
-      let next = room.resolvedTurn + 1;
-      while (turns[next]?.[0] !== null && turns[next]?.[0] !== undefined &&
-        turns[next]?.[1] !== null && turns[next]?.[1] !== undefined) {
-        room.resolvedTurn = next;
-        next++;
-      }
+    const submittedActions = turns[submittedTurn][slot]!;
+    const validation = validateAuthoritativeActions(room.combatState, slot, submittedActions);
+    if (validation.status !== 'valid') {
+      const status = validation.status === 'unsupported' ? 422 : 400;
+      return fail(status, `Ação recusada pelo motor autoritativo (${validation.code}).`);
     }
+
+    const bothSubmitted = turns[submittedTurn][0] !== null && turns[submittedTurn][1] !== null;
+    let nextCombatState = room.combatState;
+    let winnerSlot: 0 | 1 | null = null;
+    if (bothSubmitted) {
+      const resolved = resolveAuthoritativeTurn(room.combatState, room.seed, submittedTurn, [
+        turns[submittedTurn][0]!,
+        turns[submittedTurn][1]!,
+      ]);
+      if (resolved.status !== 'resolved') {
+        const status = resolved.status === 'unsupported' ? 422 : 400;
+        return fail(status, `Turno recusado pelo motor autoritativo (${resolved.code || 'ação inválida'}).`);
+      }
+      nextCombatState = resolved.state;
+      winnerSlot = resolved.winnerSlot;
+      room.resolvedTurn = submittedTurn;
+    }
+    room.combatState = nextCombatState;
+    room.phaseDeadline = Date.now() + 60000;
     room.timeoutStreak[slot] = 0;
-    await this.saveRoom(room);
+    if (winnerSlot !== null) {
+      room.winnerUsername = room.players[winnerSlot].username;
+      room.finishedAt = Date.now();
+    }
+    this.state.storage.transactionSync(() => {
+      this.state.storage.sql.exec(
+        'INSERT INTO turn_submissions (turn, slot, actions_json) VALUES (?, ?, ?)',
+        submittedTurn,
+        slot,
+        JSON.stringify(submittedActions),
+      );
+      this.state.storage.sql.exec(
+        'INSERT INTO room_state (singleton, state_json) VALUES (1, ?) ON CONFLICT(singleton) DO UPDATE SET state_json = excluded.state_json',
+        JSON.stringify(room),
+      );
+    });
+    await this.state.storage.setAlarm(room.phaseDeadline);
+    if (winnerSlot !== null) await this.persistBattleHistory(room);
     this.broadcast(room, room.players[slot].username);
     return json({ success: true, resolvedTurn: room.resolvedTurn, room: this.roomPayload(room) });
   }
@@ -771,28 +844,54 @@ export class MatchRoomDurableObject {
     }
     const payload = this.roomPayload(room);
     payload.turnActions = turnActions;
-    payload.stateReports = Object.fromEntries(
-      this.state.storage.sql.exec<StateReportRow>('SELECT username, report_json FROM state_reports')
-        .toArray().map(row => [row.username, JSON.parse(row.report_json)]),
-    );
     return json({ success: true, room: payload });
   }
 
-  private async report(room: MatchRoomData, username: string, body: Record<string, unknown>): Promise<Response> {
-    const { turn, units, chakra } = body;
-    if (!Number.isSafeInteger(turn) || (turn as number) < 1 ||
-      !units || typeof units !== 'object' || Array.isArray(units) ||
-      !chakra || typeof chakra !== 'object' || Array.isArray(chakra)) {
-      return fail(400, 'Dados de relatório inválidos.');
+  private report(): Response {
+    return fail(410, 'Relatórios de vida e chakra enviados pelo cliente foram desativados.');
+  }
+
+  private async awardRoomRewards(
+    room: MatchRoomData,
+    winnerUsername: string,
+  ): Promise<AuthoritativeMatchReward[]> {
+    if (!room.combatState) return [];
+    if (!this.env.DB) throw new Error('D1 indisponível para conceder recompensas de batalha.');
+    return awardD1MatchRewards({ DB: this.env.DB }, {
+      roomId: room.id,
+      winnerUsername,
+      turns: Math.max(1, room.combatState.turn),
+      players: room.players.map((player, slot) => ({
+        username: player.username,
+        aliveCount: (slot === 0 ? room.combatState!.player : room.combatState!.enemy)
+          .filter(combatant => !combatant.isDead).length,
+        damageDealt: room.combatState!.damageDealt?.[slot === 0 ? 'player' : 'enemy'] || 0,
+      })),
+    });
+  }
+
+  private async persistBattleHistory(room: MatchRoomData): Promise<AuthoritativeMatchReward[]> {
+    if (!room.winnerUsername || !room.finishedAt) return [];
+    const record: HistoryRecord = {
+      roomId: room.id,
+      players: room.players.map(player => ({
+        username: player.username,
+        name: player.name || player.username,
+      })) as HistoryRecord['players'],
+      winnerUsername: room.winnerUsername,
+      finishedAt: new Date(room.finishedAt).toISOString(),
+      reason: 'battle',
+    };
+    const manager = this.env.MATCHMAKER.get(this.env.MATCHMAKER.idFromName('global-matchmaker'));
+    const response = await manager.fetch('https://matchmaker.internal/internal/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record),
+    });
+    if (!response.ok) {
+      throw new Error(`Falha ao salvar histórico da batalha ${room.id}: ${response.status}`);
     }
-    this.state.storage.sql.exec(
-      'INSERT INTO state_reports (username, report_json) VALUES (?, ?) ON CONFLICT(username) DO UPDATE SET report_json = excluded.report_json',
-      username,
-      JSON.stringify({ turn, units, chakra }),
-    );
-    await this.saveRoom(room);
-    this.sendEvent({ type: 'report', username, turn, units, chakra }, username);
-    return json({ success: true });
+    return this.awardRoomRewards(room, room.winnerUsername);
   }
 
   private async surrender(room: MatchRoomData, username: string, body: Record<string, unknown>): Promise<Response> {
@@ -824,6 +923,7 @@ export class MatchRoomDurableObject {
       body: JSON.stringify(record),
     });
     if (!historyResponse.ok) throw new Error(`Falha ao salvar histórico da sala ${room.id}: ${historyResponse.status}`);
+    await this.awardRoomRewards(room, winner.username);
     room.surrenderedBy = loserUsername;
     room.surrenderReason = reason;
     room.finishedAt = Date.now();
