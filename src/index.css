@@ -1882,6 +1882,58 @@ e-squad-name {
   display: none;
 }
 
+.character-select-page-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 20;
+  display: flex;
+  width: 0.75rem;
+  height: 4.25rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 1px solid rgba(120, 53, 15, 0.35);
+  border-radius: 9999px;
+  background: rgba(69, 26, 3, 0.55);
+  color: rgba(255, 237, 213, 0.8);
+  opacity: 0.72;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.character-select-page-arrow-left {
+  left: -0.75rem;
+}
+
+.character-select-page-arrow-right {
+  right: -0.75rem;
+}
+
+.character-select-page-arrow:hover:not(:disabled) {
+  background: rgba(120, 53, 15, 0.8);
+  opacity: 1;
+}
+
+.character-select-page-arrow:disabled {
+  opacity: 0.22;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .character-select-roster {
+    padding-inline: 1.25rem;
+  }
+
+  .character-select-page-arrow-left {
+    left: 0;
+  }
+
+  .character-select-page-arrow-right {
+    right: 0;
+  }
+}
+
 .mv-skill-carousel-viewport {
   position: relative;
   overflow-x: clip;
@@ -1935,8 +1987,11 @@ e-squad-name {
   }
 
   main:has(.character-select-details-open) {
+    position: relative;
+    z-index: 100;
     transform: none !important;
     scale: none !important;
+    transition: none !important;
   }
 
   .character-select-details-hidden {

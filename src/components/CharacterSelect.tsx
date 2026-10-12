@@ -86,11 +86,14 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   useEffect(() => {
     if (!showCharacterDetails) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setShowCharacterDetails(false);
+      if (event.key === 'Escape') {
+        playScrollSound();
+        setShowCharacterDetails(false);
+      }
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [showCharacterDetails]);
+  }, [showCharacterDetails, playScrollSound]);
 
   // Auto-persist last selected team whenever selection changes (outside sandbox opponent picking)
   useEffect(() => {
@@ -846,7 +849,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       </header>
 
       {/* Main Draft Area */}
-      <main className="max-w-[1400px] w-full mx-auto px-3 sm:px-6 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform">
+      <main className="max-w-[1400px] w-full mx-auto px-0 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform">
         {/* Roster Grid (Left Side) */}
         <div className="lg:col-span-6 space-y-6">
           <div className="mv-filtro flex flex-col gap-4">
@@ -916,52 +919,68 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             )}
           </AnimatePresence>
 
-          <div
-            className="character-select-grid grid grid-cols-3 sm:grid-cols-6 gap-2.5 sm:gap-3"
-            style={{ touchAction: 'pan-y' }}
-            onPointerDown={event => {
-              characterPageSwipeStartRef.current = { x: event.clientX, y: event.clientY };
-            }}
-            onPointerUp={event => {
-              const start = characterPageSwipeStartRef.current;
-              characterPageSwipeStartRef.current = null;
-              if (!start || totalPages <= 1) return;
-              const deltaX = event.clientX - start.x;
-              const deltaY = event.clientY - start.y;
-              if (Math.abs(deltaX) < 50 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
-              suppressCharacterClickRef.current = true;
-              window.setTimeout(() => {
+          <div className="character-select-roster relative">
+            {totalPages > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  playScrollSound();
+                  setCurrentPage(page => Math.max(1, page - 1));
+                }}
+                data-sound="Scroll"
+                disabled={activePage <= 1}
+                className="character-select-page-arrow character-select-page-arrow-left"
+                aria-label={t('Página anterior de personagens', 'Previous character page')}
+              >
+                <ChevronLeft className="h-3 w-3" strokeWidth={1.5} />
+              </button>
+            )}
+            <div
+              className="character-select-grid grid grid-cols-3 sm:grid-cols-6 gap-2.5 sm:gap-3"
+              style={{ touchAction: 'pan-y' }}
+              onPointerDown={event => {
+                characterPageSwipeStartRef.current = { x: event.clientX, y: event.clientY };
+              }}
+              onPointerUp={event => {
+                const start = characterPageSwipeStartRef.current;
+                characterPageSwipeStartRef.current = null;
+                if (!start || totalPages <= 1) return;
+                const deltaX = event.clientX - start.x;
+                const deltaY = event.clientY - start.y;
+                if (Math.abs(deltaX) < 50 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return;
+                suppressCharacterClickRef.current = true;
+                window.setTimeout(() => {
+                  suppressCharacterClickRef.current = false;
+                }, 500);
+                playScrollSound();
+                setCurrentPage(page => Math.max(1, Math.min(totalPages, page + (deltaX < 0 ? 1 : -1))));
+              }}
+              onPointerCancel={() => {
+                characterPageSwipeStartRef.current = null;
+              }}
+              onClickCapture={event => {
+                if (!suppressCharacterClickRef.current) return;
                 suppressCharacterClickRef.current = false;
-              }, 500);
-              playScrollSound();
-              setCurrentPage(page => Math.max(1, Math.min(totalPages, page + (deltaX < 0 ? 1 : -1))));
-            }}
-            onPointerCancel={() => {
-              characterPageSwipeStartRef.current = null;
-            }}
-            onClickCapture={event => {
-              if (!suppressCharacterClickRef.current) return;
-              suppressCharacterClickRef.current = false;
-              event.preventDefault();
-              event.stopPropagation();
-            }}
-          >
-            {paginatedCharacters.map(char => {
-              const isSelected = selectedIds.includes(char.id);
-              const isFull = selectedIds.length >= 3 && !isSelected;
-              const { isLocked, reason } = checkCharacterLocked(char);
-              const villageTag = char.tags.find(t => t.includes('Vila')) || char.tags[0];
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+            >
+              {paginatedCharacters.map(char => {
+                const isSelected = selectedIds.includes(char.id);
+                const isFull = selectedIds.length >= 3 && !isSelected;
+                const { isLocked, reason } = checkCharacterLocked(char);
+                const villageTag = char.tags.find(t => t.includes('Vila')) || char.tags[0];
 
-              return (
-                <motion.div
-                  key={char.id}
-                  whileHover={{ scale: isFull || isLocked ? 1 : 1.03 }}
-                  onClick={() => handleSelectCharacter(char)}
-                  className={`group relative flex flex-col items-center justify-between p-0 cursor-pointer transition-all aspect-[1/1.25] w-full select-none ${
-                    isFull && !isSelected ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                  title={isLocked ? reason : char.name}
-                >
+                return (
+                  <motion.div
+                    key={char.id}
+                    whileHover={{ scale: isFull || isLocked ? 1 : 1.03 }}
+                    onClick={() => handleSelectCharacter(char)}
+                    className={`group relative flex flex-col items-center justify-between p-0 cursor-pointer transition-all aspect-[1/1.25] w-full select-none ${
+                      isFull && !isSelected ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    title={isLocked ? reason : char.name}
+                  >
                   {/* Parchment background scroll image - no border */}
                   <img 
                     src="/static/img/personagem_pergaminho.webp" 
@@ -1015,9 +1034,25 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       </p>
                     </div>
                   </div>
-                </motion.div>
-              );
-            })}
+                  </motion.div>
+                );
+              })}
+            </div>
+            {totalPages > 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  playScrollSound();
+                  setCurrentPage(page => Math.min(totalPages, page + 1));
+                }}
+                data-sound="Scroll"
+                disabled={activePage >= totalPages}
+                className="character-select-page-arrow character-select-page-arrow-right"
+                aria-label={t('Próxima página de personagens', 'Next character page')}
+              >
+                <ChevronRight className="h-3 w-3" strokeWidth={1.5} />
+              </button>
+            )}
           </div>
 
           {/* Pagination Controls - Embedded inside public/static/img/paginação.webp pergaminho */}
@@ -1124,7 +1159,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           aria-modal={isMobilePortrait && showCharacterDetails ? true : undefined}
           aria-label={isMobilePortrait && showCharacterDetails ? `${previewCharacter.name} - ${t('Detalhes do personagem', 'Character details')}` : undefined}
           onClick={event => {
-            if (event.target === event.currentTarget) setShowCharacterDetails(false);
+            if (event.target === event.currentTarget) {
+              playScrollSound();
+              setShowCharacterDetails(false);
+            }
           }}
         >
           {/* Main Pergaminho Character Details Card */}
@@ -1270,7 +1308,19 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-xs font-mono font-bold uppercase tracking-wider text-amber-950 px-1">
                   <span className="flex items-center gap-1.5 text-amber-950 font-black">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-800" /> {t("HABILIDADES", "SKILLS")}
+                    <svg
+                      className="w-3.5 h-3.5 text-amber-800"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path fillRule="evenodd" clipRule="evenodd" d="M7.7572 6.3431L11.9998 2.10046L16.2425 6.3431L11.9998 10.5857L7.7572 6.3431ZM10.5856 6.3431L11.9998 4.92889L13.4141 6.3431L11.9998 7.75732L10.5856 6.3431Z" fill="currentColor" />
+                      <path fillRule="evenodd" clipRule="evenodd" d="M2.10046 11.9999L6.3431 7.75726L10.5857 11.9999L6.3431 16.2425L2.10046 11.9999ZM4.92889 11.9999L6.3431 10.5857L7.75732 11.9999L6.3431 13.4141L4.92889 11.9999Z" fill="currentColor" />
+                      <path fillRule="evenodd" clipRule="evenodd" d="M13.4142 11.9999L17.6568 16.2425L21.8995 11.9999L17.6568 7.75726L13.4142 11.9999ZM17.6568 10.5857L16.2426 11.9999L17.6568 13.4141L19.071 11.9999L17.6568 10.5857Z" fill="currentColor" />
+                      <path fillRule="evenodd" clipRule="evenodd" d="M7.7572 17.6569L11.9998 13.4142L16.2425 17.6569L11.9998 21.8995L7.7572 17.6569ZM10.5856 17.6569L11.9998 16.2427L13.4141 17.6569L11.9998 19.0711L10.5856 17.6569Z" fill="currentColor" />
+                    </svg>
+                    {t("HABILIDADES", "SKILLS")}
                   </span>
                   {previewCharacter.skills.length > 2 && (
                     <span className="text-[11px] text-amber-900/90 font-bold">
@@ -1339,9 +1389,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                             <div className="mt-1 flex items-center gap-2 sm:gap-2.5">
                               {/* Larger Skill Icon */}
                               <div className="w-14 h-14 sm:w-[60px] sm:h-[60px] rounded-lg overflow-hidden border-2 border-amber-900/60 bg-amber-950/40 flex-shrink-0 shadow-md">
-                                <img 
-                                  src={skill.icon || null} 
-                                  alt={translatedSkillName} 
+                                <img
+                                  src={skill.icon || null}
+                                  alt={translatedSkillName}
                                   className="w-full h-full object-cover" 
                                   onError={(e) => {
                                     const img = e.currentTarget;
@@ -1497,6 +1547,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           type="button"
           onClick={event => {
             event.stopPropagation();
+            playScrollSound();
             setShowCharacterDetails(false);
           }}
           className="character-select-details-close"
@@ -1510,7 +1561,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         <button
           type="button"
           onClick={() => {
-            playClickSound();
+            playScrollSound();
             setShowCharacterDetails(true);
           }}
           className="character-select-details-trigger"
