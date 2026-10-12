@@ -21,9 +21,9 @@ View your app in AI Studio: https://ai.studio/apps/8522cf8c-35ea-4988-a803-d48e1
 
 ## Cloudflare migration status
 
-The React/Vite frontend is published with Workers Static Assets. Multiplayer matchmaking, turn submissions, room snapshots, WebSocket pushes, chat, emojis, surrender, disconnect timeouts, and online surrender history now run through Cloudflare Durable Objects with SQLite-backed room state. The coordinator Durable Object serializes matchmaking and each battle uses its own named room Durable Object.
+The React/Vite frontend is published with Workers Static Assets. Multiplayer matchmaking, rooms, and WebSockets run through SQLite-backed Durable Objects. D1 now contains the account/profile/session schema, game configuration collections, and archived online-battle history. Worker routes support registration/login, exclusive sessions, profile CRUD, configuration CRUD/import/export, and a secure Firebase ID-token verification path. The legacy Render API remains as a compatibility source for first-login account migration and configuration reads that have not yet been imported.
 
-Authentication, account sessions, profiles/progression, character/configuration administration, and account JSON persistence still use the Express/Render API. The Worker validates multiplayer HTTP sessions against that API, and room WebSocket joins revalidate there as well. This is an incremental migration: D1 has not replaced account storage, and battle damage, victory, and rewards are not server-authoritative yet. The room API deliberately rejects `/api/match/finish` rather than accepting a client-provided win/loss result; until combat is authoritative, normal battle result history/rewards remain incomplete on this beta.
+The combat engine is still not server-authoritative. The Durable Object continues to reject `/api/match/finish` rather than accepting a client-provided winner, and the server cannot safely award normal battle rewards yet. The beta is not a complete backend retirement and Render must not be deleted while the compatibility fallback is in use.
 
 ### Run the Cloudflare frontend gateway locally
 
@@ -43,6 +43,18 @@ After `npx wrangler login`, `npm run cf:deploy` builds and publishes the Worker.
 
 ### Data and service cutover gates
 
-The remaining JSON persistence set includes users/progress, characters and game configuration, cards/packs, and account sessions. A D1 migration needs a consistent export, immutable verified backup, field-level validation, idempotent import, before/after counts, and a tested rollback. The current account file uses legacy password storage, and Google sign-in identity is currently accepted through the existing API contract; authentication needs a compatibility plan before accounts can move to D1. Durable room state currently stores submitted actions and client state reports, not server-calculated damage. The combat engine must be completed before authoritative outcomes or rewards can move.
+`migrations/d1/0001_accounts_and_config.sql` provisions D1 account/session/config/history tables. Configuration items are chunked into bounded SQLite rows because the live character catalog contains individual records larger than 2 MB. Passwords from the legacy JSON source are rehashed with PBKDF2-SHA256; plaintext is not sent to D1. Google accounts are linked by Firebase UID and login verifies Firebase ID-token signatures against Google's published JWKs.
+
+Review the checked-in source summary first with `npm run migrate:d1:preview`. Run a disposable local end-to-end data import with `npm run migrate:d1:local`. For a complete live snapshot, deploy the guarded `/api/migration/export` endpoint on Render and set a high-entropy `DATA_MIGRATION_TOKEN` secret there and in the local shell (never commit or print it). Then run the protected export import:
+
+```powershell
+node scripts/migrate-json-to-d1.mjs --apply --migration-export-url https://naruto-3loc.onrender.com/api/migration/export
+```
+
+The endpoint is disabled (404) until that secret exists, compares tokens in constant time, refuses export while legacy rooms are active, returns `Cache-Control: no-store`, and does not modify the JSON files. The importer backs up D1 before and after the run under `%LOCALAPPDATA%\NarutoInfinity\d1-backups`, hashes passwords locally before sending SQL, verifies before/source/after counts, and uses idempotent `ON CONFLICT DO NOTHING` writes. It invalidates legacy session tokens at the beta origin so the first login can claim a clean D1 session. The old files remain untouched. The less-complete `--legacy-api-origin` mode only imports profiles/history for usernames in the checked-in snapshot and must not be treated as a full account export.
+
+The existing Render backend is not deleted and remains the compatibility fallback for accounts absent from D1. Do not remove it until the protected live export has completed, all account/config/history counts are verified, and beta logins no longer use the fallback.
+
+Historical user data is retained, but online sessions across the old Vercel origin and the beta Worker are temporarily independent during this cutover. Active Durable Object rooms are not copied from the old Express process; the migration tool aborts if its room snapshot is nonempty. The public live configuration counts were checked against the local source before implementation; the account count on Render cannot be independently enumerated through the existing API. Durable room state still stores submitted actions and client state reports, not server-calculated damage. Complete the combat engine before authoritative outcomes or rewards can move.
 
 R2 is not configured: existing game images are served from the repository's static assets or external image URLs, and no evidence currently requires object storage.

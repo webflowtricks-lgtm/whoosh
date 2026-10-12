@@ -4,6 +4,7 @@ import {
   submitTurnActions,
   type MatchProtocolAction,
 } from '../src/lib/matchProtocol';
+import { isD1SessionActive, type D1Env } from './d1Api';
 
 interface WorkerAssets {
   fetch(request: Request): Promise<Response>;
@@ -67,6 +68,7 @@ interface HistoryRecord {
 }
 
 interface MatchEnv {
+  DB?: D1Env['DB'];
   LEGACY_API_ORIGIN?: string;
   MATCH_ROOM: DurableObjectNamespace;
   MATCHMAKER: DurableObjectNamespace;
@@ -119,7 +121,9 @@ function validSessionToken(value: string | null): value is string {
 
 async function verifySession(env: MatchEnv, username: string, token: string | null): Promise<boolean> {
   if (username === 'convidado') return true;
-  if (!validSessionToken(token) || !env.LEGACY_API_ORIGIN) return false;
+  if (!validSessionToken(token)) return false;
+  if (env.DB) return isD1SessionActive({ DB: env.DB }, username, token);
+  if (!env.LEGACY_API_ORIGIN) return false;
   const response = await fetch(new URL('/api/auth/session/status', env.LEGACY_API_ORIGIN), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

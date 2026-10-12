@@ -9,6 +9,8 @@
     "start": "node dist/server.cjs",
     "test": "tsx --test tests/*.test.ts",
     "load:online": "node scripts/load-online.mjs",
+    "migrate:d1:preview": "node scripts/migrate-json-to-d1.mjs",
+    "migrate:d1:local": "node scripts/migrate-json-to-d1.mjs --local --apply",
     "build:cf": "vite build --outDir dist/client",
     "cf:dev": "wrangler dev --local --ip 127.0.0.1 --port 8788",
     "cf:deploy": "npm run build:cf && wrangler deploy",

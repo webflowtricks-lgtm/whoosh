@@ -5,7 +5,8 @@
   "compatibility_date": "2026-10-12",
   "workers_dev": true,
   "vars": {
-    "LEGACY_API_ORIGIN": "https://narutoarena.onrender.com"
+    "LEGACY_API_ORIGIN": "https://naruto-3loc.onrender.com",
+    "FIREBASE_PROJECT_ID": "secret-sunrise-pgtt6"
   },
   "durable_objects": {
     "bindings": [
@@ -13,6 +14,14 @@
       { "name": "MATCH_ROOM", "class_name": "MatchRoomDurableObject" }
     ]
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "naruto-infinity-beta",
+      "database_id": "02cef23b-de7c-428c-94f0-811b9064f512",
+      "migrations_dir": "migrations/d1"
+    }
+  ],
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["MatchmakerDurableObject", "MatchRoomDurableObject"] }
   ],

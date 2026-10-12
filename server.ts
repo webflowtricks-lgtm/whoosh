@@ -3,7 +3,7 @@ import http from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import path from "path";
 import fs from "fs";
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { createServer as createViteServer } from "vite";
 import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
 import { firstSlotForTurn, isValidMatchTeam, submitTurnActions } from "./src/lib/matchProtocol";
@@ -166,6 +166,46 @@ async function startServer() {
       };
     }
     res.json(health);
+  });
+
+  app.get("/api/migration/export", (req, res) => {
+    const expected = process.env.DATA_MIGRATION_TOKEN;
+    const supplied = req.get("X-Data-Migration-Token");
+    if (!expected || !supplied) return res.status(404).json({ error: "Not found." });
+    const expectedBytes = Buffer.from(expected);
+    const suppliedBytes = Buffer.from(supplied);
+    if (expectedBytes.length !== suppliedBytes.length || !timingSafeEqual(expectedBytes, suppliedBytes)) {
+      return res.status(404).json({ error: "Not found." });
+    }
+
+    const roomCount = Object.keys(activeRooms).length;
+    if (roomCount > 0) {
+      return res.status(409).json({
+        error: "A exportação foi bloqueada até as partidas ativas do backend legado terminarem.",
+        activeRooms: roomCount,
+      });
+    }
+
+    res.setHeader("Cache-Control", "no-store, private");
+    res.setHeader("Pragma", "no-cache");
+    res.json({
+      users: readJSON<any[]>(USERS_FILE, []),
+      accountSessions,
+      config: {
+        characters: readJSON<any[]>(CHARACTERS_FILE, DEFAULT_CHARACTERS),
+        quests: readJSON<any[]>(QUESTS_FILE, []),
+        shop: readJSON<any[]>(SHOP_FILE, []),
+        events: readJSON<any[]>(EVENTS_FILE, []),
+        ranks: readJSON<any[]>(RANKS_FILE, []),
+        banners: readJSON<any[]>(BANNERS_FILE, []),
+        frames: readJSON<any[]>(FRAMES_FILE, []),
+        cards: readJSON<any[]>(CARDS_FILE, []),
+        cardPacks: readJSON<any[]>(CARD_PACKS_FILE, []),
+      },
+      onlineBattleHistory: Object.fromEntries(onlineBattleHistory),
+      activeRooms: roomCount,
+      exportedAt: new Date().toISOString(),
+    });
   });
 
   // User auth api

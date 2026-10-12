@@ -12795,7 +12795,7 @@ splashOnlyTargets = splashPool.filter(c =>
     // para o Render. Ao migrar de conta/serviço, ajuste aqui ou defina VITE_WS_URL.
     const isVercel = window.location.hostname.endsWith('.vercel.app');
     const wsBase = envUrl || (isVercel
-      ? 'wss://narutoarena.onrender.com/ws'
+      ? 'wss://naruto-3loc.onrender.com/ws'
       : `${proto}//${window.location.host}/ws`);
     const wsUrl = `${wsBase}${wsBase.includes('?') ? '&' : '?'}roomId=${encodeURIComponent(onlineParams.roomId)}`;
 

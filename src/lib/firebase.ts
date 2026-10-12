@@ -14,5 +14,6 @@ export async function signInWithGoogle() {
     email: user.email,
     name: user.displayName || (user.email ? user.email.split('@')[0] : 'Shinobi Google'),
     photoUrl: user.photoURL || undefined,
+    idToken: await user.getIdToken(),
   };
 }
