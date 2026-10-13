@@ -165,6 +165,7 @@ export default function AdminDashboard({ onBack, playClickSound, playScrollSound
     isOpen: boolean;
     title: string;
     message: string;
+    requiredInput?: string;
     onConfirm: () => void;
   }>({
     isOpen: false,
@@ -172,14 +173,22 @@ export default function AdminDashboard({ onBack, playClickSound, playScrollSound
     message: '',
     onConfirm: () => {},
   });
+  const [confirmInput, setConfirmInput] = useState('');
 
-  const requestConfirm = (title: string, message: string, onConfirm: () => void) => {
+  const requestConfirm = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    requiredInput?: string,
+  ) => {
     playClickSound();
     playScrollSound();
+    setConfirmInput('');
     setConfirmModal({
       isOpen: true,
       title,
       message,
+      requiredInput,
       onConfirm: () => {
         onConfirm();
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
@@ -504,7 +513,8 @@ const getEffectNameSuggestions = (): string[] => {
         } catch (error) {
           triggerError(error instanceof Error ? error.message : 'Falha ao remover o personagem global.');
         }
-      }
+      },
+      char.id,
     );
   };
 
@@ -11678,6 +11688,22 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                   <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
                     {confirmModal.message}
                   </p>
+                  {confirmModal.requiredInput && (
+                    <div className="w-full space-y-2 text-left">
+                      <label className="block text-xs font-black text-stone-900">
+                        Digite o ID <span className="font-mono">{confirmModal.requiredInput}</span> para confirmar:
+                      </label>
+                      <input
+                        autoFocus
+                        value={confirmInput}
+                        onChange={event => setConfirmInput(event.target.value)}
+                        onClick={event => event.stopPropagation()}
+                        onKeyDown={event => event.stopPropagation()}
+                        className="w-full rounded-lg border-2 border-[#7a4e25] bg-amber-50/90 px-3 py-2 font-mono text-sm text-stone-950 outline-none focus:border-red-800"
+                        aria-label="Digite o ID do personagem para confirmar a exclusão"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full pt-1">
@@ -11691,11 +11717,12 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                     Cancelar
                   </button>
                   <button
+                    disabled={!!confirmModal.requiredInput && confirmInput !== confirmModal.requiredInput}
                     onClick={() => {
                       playClickSound();
                       confirmModal.onConfirm();
                     }}
-                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95"
+                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Confirmar
                   </button>
