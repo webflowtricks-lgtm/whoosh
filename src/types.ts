@@ -145,6 +145,13 @@ export interface SkillChakraStealRule {
   ignoreInvulnerable?: boolean;
 }
 
+export interface SkillOpponentSkillUseRule {
+  duration: number;
+  chakraGainOnChakraManipulation?: number;
+  damageBuffOnDamage?: number;
+  stunOnStun?: number;
+}
+
 export interface SkillKillWhenActiveRule {
   activeSkillName: string; // Skill/efeito ativo no Oponente que será morto instantaneamente
   /** Quem morre ao executar: 'target' (Somente o Oponente - padrão) ou 'self_and_target' (Mim e o Oponente / sacrifício) */
@@ -386,6 +393,8 @@ export interface Skill {
    * esta skill rouba X chakras do stock do oponente (respecta invulnerabilidade,
    * exceto se o oponente tiver debuff "incapaz de ficar invulneravel") */
   chakraStealRules?: SkillChakraStealRule[];
+  /** Reage à próxima janela de habilidades do oponente depois que ele usar ações com efeitos específicos. */
+  opponentSkillUseRules?: SkillOpponentSkillUseRule[];
   /** Regras condicionais de morte instantânea: mata o Oponente que estiver com a habilidade ativa */
   killWhenActiveRules?: SkillKillWhenActiveRule[];
   /** Regras condicionais: se a habilidade listada estiver ATIVA no Oponente, esta skill IGNORA a invulnerabilidade dele */
@@ -944,6 +953,9 @@ export interface ActiveEffect {
   | 'direct_damage'
   | 'heal'
   | 'gain_chakra'
+  | 'drain_chakra'
+  | 'remove_chakra'
+  | 'steal_chakra'
   | 'heal_over_time'
   | 'blocks_offensive_skills'
   | 'cannot_reduce_damage'
@@ -952,6 +964,7 @@ export interface ActiveEffect {
   | 'negate_friendly_effects'
   | 'ignore_stun'
   | 'shield_stun_immunity'
+  | 'shield_seal'
   | 'damage_immunity'
   | 'damage_debuff'
   | 'damage_vulnerability'
@@ -1108,6 +1121,8 @@ counterAttackType?: 'attacker' | 'defender';
   storedSkills?: Skill[];
   /** Turnos restantes de atraso antes do efeito (bleeding/affliction) começar a causar dano */
   delayTurns?: number;
+  opponentSkillUseRule?: SkillOpponentSkillUseRule;
+  opponentSkillUseTriggered?: boolean;
 }
 
 export interface CombatCharacter {
@@ -1123,6 +1138,8 @@ export interface CombatCharacter {
   lastTurnStatus?: 'ANULADO' | 'REFLETIDO' | 'CONTRA-ATAQUE' | null;
   /** Contagem de usos BEM-SUCEDIDOS por nome de skill (para o limite maxUses). Anulado por contra-ataque não incrementa. */
   skillUseCounts?: Record<string, number>;
+  previousTurnSkills?: string[];
+  currentTurnSkills?: string[];
 }
 
 export interface CombatLog {

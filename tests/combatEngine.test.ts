@@ -122,6 +122,113 @@ test('applies configured damage buffs and debuffs before subsequent attacks', ()
   assert.equal(attack.state.enemy[0].health, 62);
 });
 
+test('Young Nagato Amateur Rinnegan resolves reveal effects on all allies', () => {
+  const state = createState({
+    playerCharacter: character('Young Nagato'),
+    playerAllies: [character('Tenten'), character('Shikamaru Nara')],
+  });
+  const { intent: action } = intent('Amateur Rinnegan', state);
+
+  const result = resolveCombatIntent(state, action);
+
+  assert.equal(result.status, 'applied');
+  if (result.status !== 'applied') return;
+  assert.deepEqual(
+    result.state.player.map(ally => ally.activeEffects.some(effect => effect.type === 'reveal_invisible')),
+    [true, true, true],
+  );
+});
+
+test('Young Kakashi Implanted Sharingan reacts to observed chakra, damage, and stun skills', () => {
+  const state = createState({
+    playerCharacter: character('Young Kakashi'),
+    enemyCharacter: character('Tenten'),
+    playerChakra: { Tai: 10, Nin: 10, Gen: 10, Blood: 10 },
+  });
+  const { intent: observeAction } = intent('Implanted Sharingan', state);
+  const observed = resolveCombatIntent(state, observeAction);
+  assert.equal(observed.status, 'applied');
+  if (observed.status !== 'applied') return;
+  assert.ok(observed.state.enemy[0].activeEffects.some(effect =>
+    effect.type === 'on_skill_use_damage' && effect.opponentSkillUseRule,
+  ));
+
+  const enemy = observed.state.enemy[0];
+  const enemySkillIndex = enemy.character.skills.findIndex(skill => skill.name === 'Jidanda');
+  assert.notEqual(enemySkillIndex, -1);
+  Object.assign(enemy.character.skills[enemySkillIndex], {
+    cost: [],
+    damage: 20,
+    removeChakra: 1,
+    stunTurns: 1,
+  });
+  observed.state.playerChakra = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
+  observed.state.player[0].activeEffects.push({
+    name: 'Test Ignore Stun',
+    type: 'ignore_stun',
+    duration: 99,
+  });
+  const chakraBefore = Object.values(observed.state.playerChakra).reduce((sum, value) => sum + value, 0);
+  observed.state.activeSide = 'enemy';
+
+  const enemyAction = resolveCombatIntent(observed.state, {
+    side: 'enemy',
+    sourceId: 'enemy-0',
+    skillIndex: enemySkillIndex,
+    targetId: 'player-0',
+  });
+  assert.equal(enemyAction.status, 'applied');
+  if (enemyAction.status !== 'applied') return;
+  assert.equal(
+    Object.values(enemyAction.state.playerChakra).reduce((sum, value) => sum + value, 0),
+    chakraBefore + 1,
+  );
+
+  const kakashi = enemyAction.state.player[0];
+  const kakashiSkillIndex = kakashi.character.skills.findIndex(skill =>
+    (skill.damage || 0) > 0 || (skill.directDamage || 0) > 0,
+  );
+  assert.notEqual(kakashiSkillIndex, -1);
+  kakashi.character.skills[kakashiSkillIndex].cost = [];
+  enemyAction.state.activeSide = 'player';
+  const targetHealth = enemyAction.state.enemy[0].health;
+  const kakashiAction = resolveCombatIntent(enemyAction.state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex: kakashiSkillIndex,
+    targetId: 'enemy-0',
+  });
+
+  assert.equal(kakashiAction.status, 'applied');
+  if (kakashiAction.status !== 'applied') return;
+  const kakashiSkill = kakashi.character.skills[kakashiSkillIndex];
+  const expectedDamage = (kakashiSkill.damage || kakashiSkill.directDamage || 0) + 10;
+  assert.equal(targetHealth - kakashiAction.state.enemy[0].health, expectedDamage);
+  const stun = kakashiAction.state.enemy[0].activeEffects.find(effect => effect.type === 'stun');
+  assert.equal(stun?.duration, 1);
+  assert.deepEqual(stun?.stunType, ['physical', 'mental', 'affliction', 'chakra']);
+  assert.equal(
+    kakashiAction.state.player[0].activeEffects.some(effect => effect.opponentSkillUseTriggered),
+    false,
+  );
+});
+
+test('Maito Gai Leaf Hurricane partially bypasses configured damage reduction', () => {
+  const state = createState({
+    playerCharacter: character('Maito Gai'),
+    enemyUpdates: {
+      activeEffects: [{ name: 'Guard', type: 'damage_reduction', value: 15, duration: 1 }],
+    },
+  });
+  const { intent: action } = intent('Leaf Hurricane', state);
+
+  const result = resolveCombatIntent(state, action);
+
+  assert.equal(result.status, 'applied');
+  if (result.status !== 'applied') return;
+  assert.equal(result.state.enemy[0].health, 80);
+});
+
 test('resolves Naruto conditional damage and chakra-cost rules authoritatively', () => {
   const state = createState({
     playerCharacter: character('Naruto Uzumaki'),
@@ -377,36 +484,17 @@ test('rejects cooldown, stun, wrong phase, and invulnerable target actions', () 
   if (protectedResult.status === 'rejected') assert.equal(protectedResult.code, 'target-invulnerable');
 });
 
-test('keeps unported real mechanics out of the pilot resolver', () => {
+test('rejects unknown skill mechanics rather than silently simulating them', () => {
   const state = createState({ playerCharacter: character('ANBU Kakashi') });
   const action = intent('Raikiri', state);
+  Object.assign(state.player[0].character.skills[action.intent.skillIndex], {
+    unportedServerRule: true,
+  });
   const result = resolveCombatIntent(state, action.intent);
 
   assert.equal(result.status, 'unsupported');
   if (result.status === 'unsupported') assert.equal(result.code, 'skill-mechanics-not-ported');
   assert.equal(state.enemy[0].health, 100);
-});
-
-test('explicitly rejects representative catalog skills from unported mechanic groups', () => {
-  const samples = [
-    ['Kiba Inuzuka', 'Two-Headed Wolf'],
-    ['Zaku Abumi', 'Wallof Air'],
-    ['Yamanaka Inoichi', 'Full Body Takeover'],
-    ['Waraji & Zori', 'Bodyguard'],
-    ['ANBU Kinoe', 'Wood Arm Binding'],
-    ['Haku', 'Thousand Needles of Death'],
-    ['Shizune', 'Healing Resuscitation Regeneration'],
-    ['Hinata Hyuga', 'Sixty-Four Palms'],
-  ] as const;
-
-  for (const [characterName, skillName] of samples) {
-    const state = createState({ playerCharacter: character(characterName) });
-    const { intent: action } = intent(skillName, state);
-    const result = resolveCombatIntent(state, action);
-
-    assert.equal(result.status, 'unsupported', `${characterName} / ${skillName} must not be partially simulated`);
-    assert.equal(state.enemy[0].health, 100);
-  }
 });
 
 test('handles a catalog damage skill with a revive-on-death effect', () => {

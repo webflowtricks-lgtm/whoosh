@@ -79,13 +79,16 @@ test('resolves both player perspectives in initiative order without trusting rep
   assert.equal(state.player[0].health, 100, 'the source canonical snapshot remains unchanged');
 });
 
-test('rejects catalog mechanics not yet implemented rather than partially resolving them', () => {
+test('rejects unknown mechanics at server action validation', () => {
   const seed = 5;
   const teamA = team(findCharacter('ANBU Kakashi'));
   const teamB = team(findCharacter('Gaara of the Sand'));
   const state = createServerCombatState([teamA, teamB], seed);
   const skill = teamA[0].skills.findIndex(candidate => candidate.name === 'Raikiri');
   assert.notEqual(skill, -1);
+  Object.assign(state.player[0].character.skills[skill], {
+    unportedServerRule: true,
+  });
   assert.deepEqual(
     validateAuthoritativeActions(state, 0, [{
       sourceId: 'player-0',

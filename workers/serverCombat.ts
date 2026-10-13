@@ -6,6 +6,7 @@ import {
 } from '../src/lib/matchProtocol';
 import {
   resolveCombatIntent,
+  tickAuthoritativeCombatEffects,
   type CombatEngineResult,
   type CombatEngineState,
 } from '../src/lib/combatEngine';
@@ -166,12 +167,20 @@ function decrementTurnState(state: CombatEngineState): void {
   const combatants = [...state.player, ...state.enemy];
   for (const character of combatants) {
     if (character.isDead) continue;
-    for (const skill of character.character.skills) {
-      if (skill.currentCooldown > 0) skill.currentCooldown--;
+    const cooldownsParalyzed = character.activeEffects.some(effect =>
+      effect.type === 'paralyze_cooldown',
+    );
+    if (!cooldownsParalyzed) {
+      for (const skill of character.character.skills) {
+        if (skill.currentCooldown > 0) skill.currentCooldown--;
+      }
     }
     character.activeEffects = character.activeEffects.filter(effect => {
       if (effect.duration >= 99999) return true;
       if (effect.castTurn === state.turn) return true;
+      if (effect.type === 'skill_copy' && effect.duration <= 1 && effect.storedSkills) {
+        character.character.skills = effect.storedSkills.map(skill => ({ ...skill }));
+      }
       effect.duration--;
       return effect.duration > 0;
     });
@@ -183,6 +192,12 @@ function decrementTurnState(state: CombatEngineState): void {
 }
 
 function nextTurn(state: CombatEngineState, seed: number): void {
+  for (const character of [...state.player, ...state.enemy]) {
+    character.previousTurnSkills = character.currentTurnSkills || [];
+    character.currentTurnSkills = [];
+  }
+  tickAuthoritativeCombatEffects(state, 'player');
+  tickAuthoritativeCombatEffects(state, 'enemy');
   decrementTurnState(state);
   state.turn++;
   const firstSlot = firstSlotForTurn(seed, state.turn);
