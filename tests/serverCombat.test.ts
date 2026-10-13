@@ -81,10 +81,10 @@ test('resolves both player perspectives in initiative order without trusting rep
 
 test('rejects catalog mechanics not yet implemented rather than partially resolving them', () => {
   const seed = 5;
-  const teamA = team(findCharacter('Tenten'));
+  const teamA = team(findCharacter('ANBU Kakashi'));
   const teamB = team(findCharacter('Gaara of the Sand'));
   const state = createServerCombatState([teamA, teamB], seed);
-  const skill = teamA[0].skills.findIndex(candidate => candidate.name === 'Rising Twin Dragons');
+  const skill = teamA[0].skills.findIndex(candidate => candidate.name === 'Raikiri');
   assert.notEqual(skill, -1);
   assert.deepEqual(
     validateAuthoritativeActions(state, 0, [{

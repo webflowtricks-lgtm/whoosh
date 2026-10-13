@@ -80,6 +80,50 @@ const SUPPORTED_SKILL_FIELDS = new Set([
   'requireTargetEffect',
   'damageReductionVal',
   'damageReductionDuration',
+  'damageBuffVal',
+  'damageBuffDuration',
+  'damageBuffTypes',
+  'damageBuffTarget',
+  'damageDebuffVal',
+  'damageDebuffDuration',
+  'damageDebuffTypes',
+  'damageDebuffTarget',
+  'damageVulnerabilityVal',
+  'damageVulnerabilityDuration',
+  'damageVulnerabilityTypes',
+  'damageVulnerabilityTarget',
+  'damageImmunityDuration',
+  'damageImmunityTypes',
+  'damageImmunityFirstHitOnly',
+  'cannotReduceDamageDuration',
+  'cannotReduceDamageTarget',
+  'cannotBeInvulnerableDuration',
+  'cannotBeInvulnerableTarget',
+  'cannotReceiveFriendlyDuration',
+  'cannotReceiveFriendlyTarget',
+  'negateFriendlyDuration',
+  'negateFriendlyTarget',
+  'ignoreStunDuration',
+  'ignoreStunTarget',
+  'stunTarget',
+  'removeShield',
+  'damageTarget',
+  'directDamageTarget',
+  'invulnerableTarget',
+  'ignoreInvulnerable',
+  'stackable',
+  'stackType',
+  'stackTarget',
+  'stackDuration',
+  'stackGainMode',
+  'stackGainAmount',
+  'stackCapReset',
+  'stackNonCumulative',
+  'stackDamageRules',
+  'selfStackDamageRules',
+  'splashDamage',
+  'splashTarget',
+  'damageTarget',
   'invulnerableDuration',
   'invulnerableTypes',
   'invulnerableClasses',
@@ -87,6 +131,85 @@ const SUPPORTED_SKILL_FIELDS = new Set([
   'immortalDuration',
   'immortalImmediate',
   'afflictionInstant',
+  'requirePreviousSkill',
+  'requireHpBelow',
+  'requireRevived',
+  'blockIfRevived',
+  'maxUses',
+  'damageDuration',
+  'damageStacksAsDuration',
+  'damageStacksAsDurationType',
+  'directDamageDuration',
+  'afflictionVal',
+  'afflictionDuration',
+  'afflictionDelay',
+  'afflictionTarget',
+  'afflictionSelfVal',
+  'afflictionNoStack',
+  'afflictionConditionalRules',
+  'dotVal',
+  'dotDuration',
+  'dotInstant',
+  'dotTarget',
+  'bleedingVal',
+  'bleedingDuration',
+  'bleedingDelay',
+  'bleedingTarget',
+  'invisible',
+  'invisibleDuration',
+  'invisibleTarget',
+  'gainChakra',
+  'gainChakraDuration',
+  'gainChakraTypes',
+  'gainChakraTarget',
+  'gainChakraIrremovable',
+  'drainChakra',
+  'drainChakraDuration',
+  'drainChakraTarget',
+  'removeChakra',
+  'removeChakraDuration',
+  'removeChakraTarget',
+  'stealChakra',
+  'stealChakraDuration',
+  'stealChakraTarget',
+  'stealLifeVal',
+  'stealLifeDuration',
+  'stealLifeTarget',
+  'counterAttack',
+  'counterAttackDuration',
+  'counterAttackType',
+  'counterAttackMode',
+  'counterAttackClasses',
+  'counterAttackUntilTriggered',
+  'counterAttackTarget',
+  'counterAttackIrremovable',
+  'counterAttackCannotBeCountered',
+  'counterAttackCannotBeReflected',
+  'reflect',
+  'reflectDuration',
+  'reflectMode',
+  'reflectTarget',
+  'reflectType',
+  'reflectCharges',
+  'blocksOffensiveSkills',
+  'cannotBeCountered',
+  'cannotBeReflected',
+  'removedOnCasterDeath',
+  'removedOnTargetSkillUse',
+  'blocksHealsWhileActive',
+  'cancelSelfOnReuse',
+  'cleanseDebuffs',
+  'cleanseDebuffTypes',
+  'cleanseDebuffTarget',
+  'cleanseBuffs',
+  'cleanseBuffTypes',
+  'cleanseBuffTarget',
+  'damageReductionPierceVal',
+  'damageReductionPierceDuration',
+  'damageReductionPierceTarget',
+  'shieldRegenTurns',
+  'shieldTarget',
+  'healTarget',
 ]);
 
 const SUPPORTED_ACTIVE_EFFECT_TYPES = new Set([
@@ -103,6 +226,60 @@ const SUPPORTED_ACTIVE_EFFECT_TYPES = new Set([
   'negate_friendly_effects',
   'immortal',
   'revive_on_death',
+  'damage',
+  'direct_damage',
+  'dot',
+  'bleeding',
+  'affliction',
+  'damage_buff',
+  'damage_debuff',
+  'damage_vulnerability',
+  'blocks_offensive_skills',
+  'damage',
+  'direct_damage',
+  'dot',
+  'bleeding',
+  'affliction',
+  'gain_chakra',
+  'drain_chakra',
+  'remove_chakra',
+  'steal_chakra',
+  'life_steal',
+  'counter',
+  'counter_attack',
+  'reflect',
+  'invisible',
+  'chakra_cost_increase',
+  'chakra_cost_reduce',
+  'paralyze_cooldown',
+  'heal_over_time',
+  'retaliate_damage',
+  'redirect_offensive',
+]);
+
+const SUPPORTED_TARGET_FIELDS = new Set([
+  'stackTarget',
+  'directDamageTarget',
+  'healTarget',
+  'shieldTarget',
+  'damageBuffTarget',
+  'damageDebuffTarget',
+  'damageVulnerabilityTarget',
+  'damageImmunityTarget',
+  'cannotReduceDamageTarget',
+  'cannotBeInvulnerableTarget',
+  'cannotReceiveFriendlyTarget',
+  'negateFriendlyTarget',
+  'ignoreStunTarget',
+  'invulnerableTarget',
+  'stunTarget',
+]);
+
+const SUPPORTED_TARGET_OVERRIDES = new Set([
+  'Target', 'Self', 'Both', 'Ally', 'AllAllies', 'AllEnemies', 'AllLiving',
+  'AllEnemiesExceptTarget', 'AllAlliesExceptTarget', 'SelfAndAllEnemies',
+  'SelfAndAlly', 'AnyLiving', 'AllNonInvulnerable', 'AllInvulnerable',
+  'OneInvulnerable', 'OneInvulnerableAlly', 'RandomEnemy', 'RandomAlly',
 ]);
 
 function cloneCombatant(combatant: CombatCharacter): CombatCharacter {
@@ -142,8 +319,26 @@ function hasUnsupportedSkillMechanics(skill: Skill): boolean {
         !['damage', 'direct_damage', 'piercing', undefined].includes(rule.damageType),
       );
     }
-    if (SUPPORTED_SKILL_FIELDS.has(field) || value == null || value === false || value === 0 || value === '') {
+    if (value == null || value === false || value === 0 || value === '') {
       return false;
+    }
+    if (field.endsWith('Target') && typeof value === 'string') {
+      if (field === 'stackTarget') return !['Self', 'Target', 'Both'].includes(value);
+      if (field === 'damageTarget') return !['Target', 'AllEnemies'].includes(value);
+      return !SUPPORTED_TARGET_FIELDS.has(field) || !SUPPORTED_TARGET_OVERRIDES.has(value);
+    }
+    if (SUPPORTED_SKILL_FIELDS.has(field)) return false;
+    if (field === 'stackTarget' && ['Self', 'Target', 'Both'].includes(String(value))) {
+      return false;
+    }
+    if (field === 'damageTarget' && ['Target', 'Self', 'AllEnemies', 'AllAllies'].includes(String(value))) {
+      return false;
+    }
+    if (field === 'stackDamageRules' || field === 'selfStackDamageRules') {
+      if (!Array.isArray(value)) return true;
+      return value.some(rule =>
+        !['damage', 'direct_damage', undefined].includes(rule.damageType),
+      );
     }
     if (field === 'afflictionInstant' && !(skill.afflictionVal && skill.afflictionVal > 0)) {
       return false;
@@ -219,9 +414,11 @@ function applyFriendlyEffects(
   target: CombatCharacter,
   skill: Skill,
   turn: number,
+  applyHeal = true,
+  applyShield = true,
 ): CombatEngineEvent[] {
   const events: CombatEngineEvent[] = [];
-  if ((skill.heal || 0) > 0) {
+  if (applyHeal && (skill.heal || 0) > 0) {
     if (isFriendlyEffectBlocked(target, skill)) {
       events.push({ type: 'friendly-effect-blocked', targetId: target.id, effect: 'heal' });
     } else {
@@ -236,7 +433,7 @@ function applyFriendlyEffects(
     }
   }
 
-  if ((skill.shieldVal || 0) > 0) {
+  if (applyShield && (skill.shieldVal || 0) > 0) {
     const previousShield = target.shield;
     const shieldCap = skill.shieldMaxVal && skill.shieldMaxVal > 0
       ? skill.shieldMaxVal
@@ -256,10 +453,256 @@ function applyFriendlyEffects(
   return events;
 }
 
+function effectTargets(
+  selector: string | undefined,
+  source: CombatCharacter,
+  selected: CombatCharacter,
+  allies: CombatCharacter[],
+  enemies: CombatCharacter[],
+  everyone: CombatCharacter[],
+  skill: Skill,
+): CombatCharacter[] {
+  switch (selector || 'Target') {
+    case 'Self': return [source];
+    case 'Both': return source.id === selected.id ? [source] : [source, selected];
+    case 'SelfAndAlly': return source.id === selected.id
+      ? [source, ...allies.filter(combatant => combatant.id !== source.id).slice(0, 1)]
+      : [source, selected];
+    case 'Ally': return allies.some(combatant => combatant.id === selected.id)
+      ? [selected]
+      : [allies.find(combatant => combatant.id !== source.id) || source];
+    case 'AllAllies': return allies;
+    case 'AllEnemies': return enemies;
+    case 'AllLiving': return everyone;
+    case 'AllNonInvulnerable': return everyone.filter(combatant =>
+      !checkCombatantInvulnerable(combatant, skill, source),
+    );
+    case 'AllInvulnerable': return everyone.filter(combatant =>
+      checkCombatantInvulnerable(combatant, skill, source),
+    );
+    case 'OneInvulnerable': {
+      const target = everyone.find(combatant => checkCombatantInvulnerable(combatant, skill, source));
+      return target ? [target] : [];
+    }
+    case 'OneInvulnerableAlly': {
+      const target = allies.find(combatant => checkCombatantInvulnerable(combatant, skill, source));
+      return target ? [target] : [];
+    }
+    case 'RandomEnemy':
+      return enemies.includes(selected) && !selected.isDead &&
+        !checkCombatantInvulnerable(selected, skill, source) ? [selected] : [];
+    case 'RandomAlly':
+      return allies.includes(selected) && !selected.isDead ? [selected] : [];
+    case 'AllEnemiesExceptTarget': return enemies.filter(combatant => combatant.id !== selected.id);
+    case 'AllAlliesExceptTarget': return allies.filter(combatant => combatant.id !== selected.id);
+    case 'SelfAndAllEnemies': return [...new Map([source, ...enemies].map(item => [item.id, item])).values()];
+    case 'AnyLiving': return selected.isDead ? [] : [selected];
+    case 'Target': return [selected];
+    default: return [];
+  }
+}
+
+function applyConfiguredEffects(
+  source: CombatCharacter,
+  selected: CombatCharacter,
+  skill: Skill,
+  turn: number,
+  side: 'player' | 'enemy',
+  allies: CombatCharacter[],
+  enemies: CombatCharacter[],
+  everyone: CombatCharacter[],
+): void {
+  const addEffect = (
+    targetSelector: Skill['damageTarget'],
+    type: CombatCharacter['activeEffects'][number]['type'],
+    duration: number,
+    value?: number,
+    extra: Partial<CombatCharacter['activeEffects'][number]> = {},
+  ) => {
+    if (duration <= 0) return;
+    for (const target of effectTargets(targetSelector, source, selected, allies, enemies, everyone, skill)) {
+      if (target.isDead) continue;
+      if (type === 'stun' && checkCombatantInvulnerable(target, 'stun', source)) continue;
+      const current = target.activeEffects.find(effect =>
+        effect.type === type && effect.sourceSkillName === skill.name,
+      );
+      if (current) {
+        current.duration = Math.max(current.duration, duration);
+        current.value = value ?? current.value;
+        Object.assign(current, extra);
+      } else {
+        target.activeEffects.push({
+          name: skill.name,
+          type,
+          duration,
+          value,
+          icon: skill.icon,
+          casterId: source.id,
+          casterSide: side,
+          sourceSkillName: skill.name,
+          castTurn: turn,
+          ...extra,
+        });
+      }
+    }
+  };
+
+  addEffect(skill.damageBuffTarget || 'Self', 'damage_buff',
+    skill.damageBuffDuration || 0, skill.damageBuffVal,
+    { buffTypes: skill.damageBuffTypes });
+  addEffect(skill.damageDebuffTarget || 'Target', 'damage_debuff',
+    skill.damageDebuffDuration || 0, skill.damageDebuffVal,
+    { debuffTypes: skill.damageDebuffTypes });
+  addEffect(skill.damageVulnerabilityTarget || 'Target', 'damage_vulnerability',
+    skill.damageVulnerabilityDuration || 0, skill.damageVulnerabilityVal,
+    { vulnerabilityTypes: skill.damageVulnerabilityTypes, irremovable: skill.damageVulnerabilityIrremovable });
+  addEffect(skill.damageImmunityTarget || 'Self', 'damage_immunity',
+    skill.damageImmunityDuration || 0, undefined,
+    { immunityTypes: skill.damageImmunityTypes, firstHitOnly: skill.damageImmunityFirstHitOnly });
+  addEffect(skill.cannotReduceDamageTarget || 'Target', 'cannot_reduce_damage',
+    skill.cannotReduceDamageDuration || 0);
+  addEffect(skill.cannotBeInvulnerableTarget || 'Target', 'cannot_be_invulnerable',
+    skill.cannotBeInvulnerableDuration || 0);
+  addEffect(skill.cannotReceiveFriendlyTarget || 'Target', 'cannot_receive_friendly',
+    skill.cannotReceiveFriendlyDuration || 0);
+  addEffect(skill.negateFriendlyTarget || 'Target', 'negate_friendly_effects',
+    skill.negateFriendlyDuration || 0, undefined,
+    { irremovable: skill.negateFriendlyIrremovable });
+  addEffect(skill.ignoreStunTarget || 'Self', 'ignore_stun',
+    skill.ignoreStunDuration || 0);
+  addEffect(skill.invulnerableTarget || 'Target', 'invulnerable',
+    skill.invulnerableDuration || 0, undefined,
+    { invulnerableTypes: skill.invulnerableTypes, invulnerableClasses: skill.invulnerableClasses });
+  addEffect(skill.damageReductionPierceTarget || 'Target', 'damage_reduction_pierce',
+    skill.damageReductionPierceDuration || 0, skill.damageReductionPierceVal);
+  addEffect(skill.stunTarget || 'Target', 'stun', skill.stunTurns || 0, undefined,
+    { stunType: skill.stunType || [] });
+  addEffect(skill.invisibleTarget || 'Self', 'invisible',
+    skill.invisibleDuration || 0, undefined);
+  if (skill.invisible && !(skill.invisibleDuration || 0)) {
+    addEffect(skill.invisibleTarget || 'Self', 'invisible', 1);
+  }
+  addEffect(skill.damageTarget || 'Target', 'damage', Math.max(0, (skill.damageDuration || 1) - 1),
+    skill.damage, { damageType: 'damage' });
+  addEffect(skill.directDamageTarget || skill.damageTarget || 'Target', 'direct_damage',
+    Math.max(0, (skill.directDamageDuration || 1) - 1), skill.directDamage,
+    { damageType: 'direct_damage' });
+  addEffect(skill.dotTarget || 'Target', 'dot', skill.dotDuration || 0, skill.dotVal,
+    { damageType: 'dot', irremovable: skill.dotIrremovable });
+  addEffect(skill.bleedingTarget || 'Target', 'bleeding', skill.bleedingDuration || 0,
+    skill.bleedingVal, { damageType: 'bleeding', delayTurns: skill.bleedingDelay });
+  addEffect(skill.afflictionTarget || 'Target', 'affliction', skill.afflictionDuration || 0,
+    skill.afflictionVal, { damageType: 'affliction', delayTurns: skill.afflictionDelay });
+  addEffect(skill.damageToShieldTarget || 'Self', 'damage_to_shield',
+    skill.damageToShieldDuration || 0, undefined, {
+      shieldDurationTurns: skill.damageToShieldShieldTurns,
+      shieldDamageTypes: skill.damageToShieldTypes,
+      shieldFirstHitOnly: skill.damageToShieldFirstHitOnly,
+      irremovable: skill.damageToShieldIrremovable,
+    });
+  addEffect(skill.totalInvulnerableTarget || 'Target', 'invulnerable',
+    skill.totalInvulnerableDuration || 0, undefined, {
+      invulnerableTotal: true,
+      invulnerableTypes: skill.totalInvulnerableTypes,
+      invulnerableClasses: skill.totalInvulnerableClasses,
+      irremovable: skill.totalInvulnerableIrremovable,
+    });
+  addEffect(skill.counterAttackTarget || 'Self', 'counter_attack',
+    skill.counterAttackUntilTriggered ? 99999 : skill.counterAttackDuration || 0, undefined, {
+      counterAttackType: skill.counterAttackType || 'defender',
+      counterAttackMode: skill.counterAttackMode || 'first',
+      counterAttackClasses: skill.counterAttackClasses,
+      counterAttackUntilTriggered: skill.counterAttackUntilTriggered,
+      irremovable: skill.counterAttackIrremovable || skill.counterAttackUntilTriggered,
+      cannotBeCountered: skill.counterAttackCannotBeCountered,
+      cannotBeReflected: skill.counterAttackCannotBeReflected,
+    });
+  if (skill.counterAttack && !(skill.counterAttackDuration || 0) && !skill.counterAttackUntilTriggered) {
+    addEffect(skill.counterAttackTarget || 'Self', 'counter_attack', 1, undefined, {
+      counterAttackType: skill.counterAttackType || 'defender',
+      counterAttackMode: skill.counterAttackMode || 'first',
+      counterAttackClasses: skill.counterAttackClasses,
+    });
+  }
+  addEffect(skill.reflectTarget || 'Self', 'reflect', skill.reflectDuration || 0, undefined, {
+    reflectMode: skill.reflectMode,
+    reflectType: skill.reflectType,
+    reflectCharges: skill.reflectCharges,
+    irremovable: skill.reflectIrremovable,
+    cannotBeCountered: skill.reflectCannotBeCountered,
+    cannotBeReflected: skill.reflectCannotBeReflected,
+  });
+  if (skill.reflect && !(skill.reflectDuration || 0)) {
+    addEffect(skill.reflectTarget || 'Self', 'reflect', 1, undefined, {
+      reflectMode: skill.reflectMode,
+      reflectType: skill.reflectType,
+      reflectCharges: skill.reflectCharges,
+    });
+  }
+  addEffect(skill.redirectOffensiveTarget || 'Self', 'redirect_offensive',
+    skill.redirectOffensiveDuration || 0, undefined, {
+      redirectOffensiveToCaster: skill.redirectOffensiveToCaster,
+      redirectCasterId: source.id,
+      redirectOffensiveScope: skill.redirectOffensiveScope,
+      irremovable: skill.redirectOffensiveIrremovable,
+    });
+  addEffect(skill.targetType === 'Enemy' ? 'Target' : 'Self',
+    'blocks_offensive_skills', skill.blocksOffensiveSkills ? 1 : 0);
+  if (skill.removeShield) {
+    selected.shield = 0;
+    selected.shieldExpiresTurn = undefined;
+  }
+}
+
+function addChakra(
+  pool: ChakraPool,
+  amount: number,
+  types?: string[],
+  seedText = '',
+): void {
+  const allowed = (types || []).filter((type): type is keyof ChakraPool =>
+    type === 'Tai' || type === 'Nin' || type === 'Gen' || type === 'Blood',
+  );
+  const candidates: (keyof ChakraPool)[] = allowed.length
+    ? allowed
+    : ['Tai', 'Nin', 'Gen', 'Blood'];
+  let seed = [...seedText].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0, 0);
+  for (let index = 0; index < amount; index += 1) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const chakraType = candidates[seed % candidates.length];
+    pool[chakraType] += 1;
+  }
+}
+
+function changeChakra(
+  state: CombatEngineState,
+  source: CombatCharacter,
+  target: CombatCharacter,
+  amount: number,
+  mode: 'remove' | 'drain' | 'steal',
+): number {
+  const sourcePool = source.id.startsWith('player-') ? state.playerChakra : state.enemyChakra;
+  const targetPool = target.id.startsWith('player-') ? state.playerChakra : state.enemyChakra;
+  let remaining = Math.max(0, amount);
+  let changed = 0;
+  const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
+  while (remaining > 0) {
+    const available = types.filter(type => targetPool[type] > 0);
+    if (!available.length) break;
+    const type = available[0];
+    targetPool[type] -= 1;
+    if (mode === 'steal' || mode === 'drain') sourcePool[type] += 1;
+    changed += 1;
+    remaining -= 1;
+  }
+  return changed;
+}
+
 function applyDamage(
   target: CombatCharacter,
   skill: Skill,
   turn: number,
+  source?: CombatCharacter,
 ): CombatEngineEvent[] {
   const direct = (skill.directDamage || 0) > 0;
   const damageType = direct ? 'direct_damage' : 'damage';
@@ -267,6 +710,25 @@ function applyDamage(
     ? ['direct_damage', 'piercing']
     : ['damage', ...getSkillCombatTypes(skill)];
   let damage = direct ? skill.directDamage || 0 : skill.damage || 0;
+  const incomingClasses = getSkillCombatTypes(skill);
+  if (source) {
+    damage += source.activeEffects
+      .filter(effect => effect.type === 'damage_buff' &&
+        (!effect.buffTypes?.length || incomingClasses.some(type => effect.buffTypes?.includes(type))))
+      .reduce((sum, effect) => sum + (effect.value || 0), 0);
+  }
+  const incomingDamageTypes = direct
+    ? ['direct_damage', 'piercing']
+    : ['skill', 'damage', ...incomingClasses];
+  damage -= target.activeEffects
+    .filter(effect => effect.type === 'damage_debuff' &&
+      (!effect.debuffTypes?.length || incomingDamageTypes.some(type => effect.debuffTypes?.includes(type))))
+    .reduce((sum, effect) => sum + (effect.value || 0), 0);
+  damage += target.activeEffects
+    .filter(effect => effect.type === 'damage_vulnerability' &&
+      (!effect.vulnerabilityTypes?.length || incomingClasses.some(type => effect.vulnerabilityTypes?.includes(type))))
+    .reduce((sum, effect) => sum + (effect.value || 0), 0);
+  damage = Math.max(0, damage);
 
   if (isImmuneToDamage(target, incomingTypes)) {
     consumeFirstHitImmunity(target, incomingTypes);
@@ -382,6 +844,95 @@ function applyConditionalDamageRules(
   return { damage, directDamage };
 }
 
+function stackEffectName(skill: Skill): string {
+  return skill.stackType || skill.name;
+}
+
+function findStack(combatant: CombatCharacter, stackType: string): CombatCharacter['activeEffects'][number] | undefined {
+  return combatant.activeEffects.find(effect =>
+    effect.type === 'custom' && effect.stackable === true && effect.stackType === stackType,
+  );
+}
+
+function stackCount(combatant: CombatCharacter, stackType: string): number {
+  return findStack(combatant, stackType)?.stacks || 0;
+}
+
+function applyStack(
+  target: CombatCharacter,
+  source: CombatCharacter,
+  skill: Skill,
+  side: 'player' | 'enemy',
+  turn: number,
+): void {
+  const stackType = stackEffectName(skill);
+  const duration = skill.stackDuration ?? 999;
+  const existing = findStack(target, stackType);
+  if (existing) {
+    existing.stacks = skill.stackNonCumulative ? 1 : Math.max(1, existing.stacks || 1) + 1;
+    existing.duration = Math.max(existing.duration, duration);
+    existing.casterId = source.id;
+    existing.casterSide = side;
+    existing.castTurn = turn;
+    existing.sourceSkillName = skill.name;
+    return;
+  }
+  target.activeEffects.push({
+    name: `${stackType} (Stack)`,
+    type: 'custom',
+    value: 0,
+    stacks: 1,
+    duration,
+    icon: skill.icon,
+    stackable: true,
+    stackType,
+    stackNonCumulative: skill.stackNonCumulative,
+    casterId: source.id,
+    casterSide: side,
+    castTurn: turn,
+    sourceSkillName: skill.name,
+  });
+}
+
+function calculateStackDamage(
+  skill: Skill,
+  source: CombatCharacter,
+  target: CombatCharacter,
+): { damage: number; directDamage: number; consume: Array<{ owner: CombatCharacter; effect: CombatCharacter['activeEffects'][number]; stacks: number }> } {
+  let damage = 0;
+  let directDamage = 0;
+  const consume: Array<{ owner: CombatCharacter; effect: CombatCharacter['activeEffects'][number]; stacks: number }> = [];
+  for (const rule of skill.selfStackDamageRules || []) {
+    const stacks = stackCount(source, rule.stackType);
+    if (stacks <= 0) continue;
+    const amount = stacks * rule.damagePerStack;
+    if (rule.damageType === 'direct_damage') directDamage += amount;
+    else damage += amount;
+  }
+  for (const rule of skill.stackDamageRules || []) {
+    const sourceScope = rule.stackSource || 'target';
+    const combatants = sourceScope === 'self' ? [source]
+      : sourceScope === 'all' ? [source, target]
+        : sourceScope === 'enemies' ? [target]
+          : sourceScope === 'allies' ? [source]
+            : [target];
+    const matching = combatants.flatMap(owner => {
+      const effect = findStack(owner, rule.stackType);
+      return effect ? [{ owner, effect }] : [];
+    });
+    const stacks = matching.reduce((sum, item) => sum + (item.effect.stacks || 0), 0);
+    if (stacks <= 0) continue;
+    const amount = stacks * rule.damagePerStack;
+    if (rule.damageType === 'direct_damage') directDamage += amount;
+    else damage += amount;
+    if (rule.removeStacks && sourceScope === 'target') {
+      const stackEffect = findStack(target, rule.stackType);
+      if (stackEffect) consume.push({ owner: target, effect: stackEffect, stacks: rule.removeStacks });
+    }
+  }
+  return { damage, directDamage, consume };
+}
+
 function spendSkillCost(pool: ChakraPool, costs: ReturnType<typeof getEffectiveSkillCost>): ChakraPool | null {
   const next = { ...pool };
   let randomCost = 0;
@@ -444,11 +995,29 @@ export function resolveCombatIntent(
 
   const targetType = getEffectiveTargetType(skill, source, allCombatants, state.turn);
   const effectiveDamage = applyConditionalDamageRules(skill, allCombatants);
-  const isAttack = effectiveDamage.damage > 0 || effectiveDamage.directDamage > 0;
+  const hasStackDamage = !!skill.stackDamageRules?.length || !!skill.selfStackDamageRules?.length;
+  const hasDamage = effectiveDamage.damage > 0 || effectiveDamage.directDamage > 0 || hasStackDamage;
+  const isAttack = hasDamage;
   const isFriendlyAction = (skill.heal || 0) > 0 || (skill.shieldVal || 0) > 0;
-  const isControlAction = targetType === 'Enemy' && (skill.stunTurns || 0) > 0;
+  const hasConfiguredEffects = (skill.damageBuffVal || 0) > 0 ||
+    (skill.damageDebuffVal || 0) > 0 ||
+    (skill.damageVulnerabilityVal || 0) > 0 ||
+    (skill.damageImmunityDuration || 0) > 0 ||
+    (skill.damageReductionVal || 0) > 0 ||
+    (skill.invulnerableDuration || 0) > 0 ||
+    (skill.stunTurns || 0) > 0 ||
+    (skill.cannotReduceDamageDuration || 0) > 0 ||
+    (skill.cannotBeInvulnerableDuration || 0) > 0 ||
+    (skill.cannotReceiveFriendlyDuration || 0) > 0 ||
+    (skill.negateFriendlyDuration || 0) > 0 ||
+    (skill.ignoreStunDuration || 0) > 0 ||
+    skill.removeShield === true;
+  const isControlAction = (targetType === 'Enemy' || targetType === 'AllEnemies') &&
+    ((skill.stunTurns || 0) > 0 || hasConfiguredEffects);
+  const appliesStack = skill.stackable === true;
   const hasSelfEffect = targetType === 'Self' && (
     skill.permanent === true ||
+    appliesStack ||
     (skill.damageReductionVal || 0) > 0 ||
     (skill.invulnerableDuration || 0) > 0 ||
     (skill.immortalDuration || 0) > 0 ||
@@ -457,31 +1026,44 @@ export function resolveCombatIntent(
   );
   if (isAttack && isFriendlyAction) return result('unsupported', 'combined-offense-and-support-not-ported', state);
 
-  if (targetType !== 'Enemy' && targetType !== 'Self' && targetType !== 'Ally' && targetType !== 'AllAllies') {
+  if (targetType !== 'Enemy' && targetType !== 'AllEnemies' &&
+    targetType !== 'Self' && targetType !== 'Ally' && targetType !== 'AllAllies' &&
+    targetType !== 'SelfAndAlly' && targetType !== 'AnyLiving') {
     return result('unsupported', 'target-type-not-ported', state);
   }
-  if ((targetType === 'Enemy' && !isAttack && !isControlAction) ||
-    (targetType !== 'Enemy' && !isFriendlyAction && !hasSelfEffect) ||
-    (targetType === 'Enemy' && !isAttack && !isControlAction)) {
+  const isOffensiveTarget = targetType === 'Enemy' || targetType === 'AllEnemies' ||
+    skill.damageTarget === 'AllEnemies' ||
+    skill.directDamageTarget === 'AllEnemies';
+  if ((isOffensiveTarget && !isAttack && !isControlAction && !appliesStack) ||
+    (!isOffensiveTarget && !isFriendlyAction && !hasSelfEffect && !hasConfiguredEffects) ||
+    (targetType === 'AllEnemies' && !isAttack && !isControlAction && !appliesStack)) {
     return result('unsupported', 'target-type-effect-combination-not-ported', state);
   }
 
-  const selectableTeam = targetType === 'Enemy' ? opposingTeam : sourceTeam;
+  const selectableTeam = targetType === 'AnyLiving'
+    ? allCombatants
+    : isOffensiveTarget ? opposingTeam : sourceTeam;
   const target = selectableTeam.find(combatant => combatant.id === intent.targetId);
   if (!target || target.isDead) return result('rejected', 'invalid-target', state);
   if (targetType === 'Self' && target.id !== source.id) {
     return result('rejected', 'invalid-target', state);
   }
+  if (targetType === 'SelfAndAlly' &&
+    target.id !== source.id && !sourceTeam.some(combatant => combatant.id === target.id)) {
+    return result('rejected', 'invalid-target', state);
+  }
   if (skill.requireTargetEffect && !hasEffectWithName(target, skill.requireTargetEffect)) {
     return result('rejected', 'required-target-effect-missing', state);
   }
-  if (isAttack && checkCombatantInvulnerable(target, skill, source)) {
+  if (isAttack && (targetType === 'Enemy' || targetType === 'AnyLiving') &&
+    checkCombatantInvulnerable(target, skill, source)) {
     return result('rejected', 'target-invulnerable', state);
   }
-  if (effectiveDamage.damage > 0 && effectiveDamage.directDamage > 0) {
+  if (effectiveDamage.damage > 0 && effectiveDamage.directDamage > 0 && !hasStackDamage) {
     return result('unsupported', 'combined-damage-types-not-ported', state);
   }
-  if (!isAttack && !isFriendlyAction && !hasSelfEffect && !isControlAction) {
+  if (!isAttack && !isFriendlyAction && !hasSelfEffect && !isControlAction &&
+    !hasConfiguredEffects && !appliesStack) {
     return result('unsupported', 'skill-effect-not-ported', state);
   }
 
@@ -502,9 +1084,18 @@ export function resolveCombatIntent(
   const nextTarget = [...nextState.player, ...nextState.enemy]
     .find(combatant => combatant.id === target.id)!;
   const nextSourceTeam = intent.side === 'player' ? nextState.player : nextState.enemy;
-  const friendlyTargets = targetType === 'AllAllies'
-    ? nextSourceTeam.filter(combatant => !combatant.isDead)
+  const offensiveTargets = targetType === 'AllEnemies' ||
+    skill.damageTarget === 'AllEnemies' || skill.directDamageTarget === 'AllEnemies'
+    ? (intent.side === 'player' ? nextState.enemy : nextState.player).filter(combatant => !combatant.isDead)
+    : targetType === 'AnyLiving' && isAttack
+    ? [nextTarget]
     : [nextTarget];
+  const stackTargetType = skill.stackTarget || 'Target';
+  const stackTargets = stackTargetType === 'Self'
+    ? [nextSource]
+    : stackTargetType === 'Both'
+      ? [nextSource, nextTarget]
+      : [nextTarget];
   const nextSkill = nextSource.character.skills[intent.skillIndex];
   nextSkill.currentCooldown = effectiveCooldown;
   if (intent.side === 'player') nextState.playerChakra = newChakraPool;
@@ -512,29 +1103,82 @@ export function resolveCombatIntent(
 
   const events: CombatEngineEvent[] = [
     { type: 'chakra-spent', side: intent.side, chakra: { ...newChakraPool } },
-    ...(isAttack
-      ? applyDamage(nextTarget, {
-        ...nextSkill,
-        damage: effectiveDamage.damage,
-        directDamage: effectiveDamage.directDamage,
-      }, nextState.turn)
-      : friendlyTargets.flatMap(friendlyTarget =>
-        applyFriendlyEffects(nextSource, friendlyTarget, nextSkill, nextState.turn),
-      )),
   ];
-
-  if ((skill.stunTurns || 0) > 0 && targetType === 'Enemy') {
-    nextTarget.activeEffects.push({
-      name: `${skill.name} (Stun)`,
-      type: 'stun',
-      duration: skill.stunTurns!,
-      stunType: skill.stunType,
-      icon: skill.icon,
-      casterId: nextSource.id,
-      casterSide: intent.side,
-      castTurn: nextState.turn,
-      sourceSkillName: skill.name,
-    });
+  if (isAttack) {
+    const splashTargets = skill.splashDamage && skill.splashDamage > 0
+      ? (skill.splashTarget === 'AllAllies'
+        ? nextSourceTeam.filter(combatant => !combatant.isDead && combatant.id !== nextTarget.id)
+        : skill.splashTarget === 'AllLiving'
+          ? [...nextState.player, ...nextState.enemy].filter(combatant => !combatant.isDead && combatant.id !== nextTarget.id)
+          : (intent.side === 'player' ? nextState.enemy : nextState.player)
+            .filter(combatant => !combatant.isDead && combatant.id !== nextTarget.id))
+      : [];
+    const primaryTargets = skill.splashDamage && skill.splashDamage > 0
+      ? [nextTarget]
+      : offensiveTargets;
+    for (const offensiveTarget of [...primaryTargets, ...splashTargets]) {
+      if (checkCombatantInvulnerable(offensiveTarget, skill, nextSource)) continue;
+      const isSplashTarget = splashTargets.includes(offensiveTarget);
+      const stackDamage = isSplashTarget
+        ? { damage: 0, directDamage: 0, consume: [] }
+        : calculateStackDamage(nextSkill, nextSource, offensiveTarget);
+      const damage = (isSplashTarget ? skill.splashDamage || 0 : effectiveDamage.damage) + stackDamage.damage;
+      const directDamage = (isSplashTarget ? 0 : effectiveDamage.directDamage) + stackDamage.directDamage;
+      if (damage > 0 && directDamage > 0) {
+        return result('unsupported', 'combined-damage-types-not-ported', state);
+      }
+      if (damage > 0 || directDamage > 0) {
+        events.push(...applyDamage(offensiveTarget, {
+          ...nextSkill,
+          damage,
+          directDamage,
+        }, nextState.turn, nextSource));
+      }
+      for (const consumed of stackDamage.consume) {
+        consumed.effect.stacks = Math.max(0, (consumed.effect.stacks || 0) - consumed.stacks);
+        if (consumed.effect.stacks <= 0) {
+          consumed.owner.activeEffects = consumed.owner.activeEffects.filter(effect => effect !== consumed.effect);
+        }
+      }
+    }
+  }
+  if (isFriendlyAction || (!isAttack && !isControlAction)) {
+    const living = [...nextState.player, ...nextState.enemy].filter(combatant => !combatant.isDead);
+    const healTargets = effectTargets(
+      nextSkill.healTarget || (targetType === 'AllAllies' ? 'AllAllies' : 'Target'),
+      nextSource,
+      nextTarget,
+      nextSourceTeam.filter(combatant => !combatant.isDead),
+      (intent.side === 'player' ? nextState.enemy : nextState.player).filter(combatant => !combatant.isDead),
+      living,
+      nextSkill,
+    );
+    const shieldTargets = effectTargets(
+      nextSkill.shieldTarget || (targetType === 'AllAllies' ? 'AllAllies' : 'Target'),
+      nextSource,
+      nextTarget,
+      nextSourceTeam.filter(combatant => !combatant.isDead),
+      (intent.side === 'player' ? nextState.enemy : nextState.player).filter(combatant => !combatant.isDead),
+      living,
+      nextSkill,
+    );
+    const effectTargetIds = new Set([...healTargets, ...shieldTargets].map(combatant => combatant.id));
+    events.push(...[...effectTargetIds].flatMap(targetId => {
+      const effectTarget = living.find(combatant => combatant.id === targetId)!;
+      return applyFriendlyEffects(
+        nextSource,
+        effectTarget,
+        nextSkill,
+        nextState.turn,
+        healTargets.some(combatant => combatant.id === targetId),
+        shieldTargets.some(combatant => combatant.id === targetId),
+      );
+    }));
+  }
+  if (appliesStack) {
+    for (const stackTarget of new Set(stackTargets)) {
+      applyStack(stackTarget, nextSource, nextSkill, intent.side, nextState.turn);
+    }
   }
 
   if (skill.permanent && !nextTarget.activeEffects.some(effect =>
@@ -552,20 +1196,6 @@ export function resolveCombatIntent(
     });
   }
 
-  if ((skill.invulnerableDuration || 0) > 0) {
-    nextTarget.activeEffects.push({
-      name: `${skill.name} Escape`,
-      type: 'invulnerable',
-      duration: skill.invulnerableDuration!,
-      icon: skill.icon,
-      invulnerableTypes: skill.invulnerableTypes,
-      invulnerableClasses: skill.invulnerableClasses,
-      casterId: nextSource.id,
-      casterSide: intent.side,
-      castTurn: nextState.turn,
-    });
-  }
-
   if ((skill.damageReductionVal || 0) > 0) {
     nextTarget.activeEffects.push({
       name: `${skill.name} (Redução de Dano)`,
@@ -579,6 +1209,17 @@ export function resolveCombatIntent(
       sourceSkillName: skill.name,
     });
   }
+
+  applyConfiguredEffects(
+    nextSource,
+    nextTarget,
+    nextSkill,
+    nextState.turn,
+    intent.side,
+    nextSourceTeam.filter(combatant => !combatant.isDead),
+    (intent.side === 'player' ? nextState.enemy : nextState.player).filter(combatant => !combatant.isDead),
+    [...nextState.player, ...nextState.enemy].filter(combatant => !combatant.isDead),
+  );
 
   activateThresholdImmortality(nextSource, nextState.turn);
   if ((skill.immortalDuration || 0) > 0 &&

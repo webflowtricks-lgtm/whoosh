@@ -77,6 +77,51 @@ test('resolves catalog Tenten Jidanda base damage, cost, and cooldown', () => {
   assert.equal(state.enemy[0].health, 100, 'the input snapshot remains immutable');
 });
 
+test('applies configured damage buffs and debuffs before subsequent attacks', () => {
+  const state = createState({
+    playerCharacter: character('Tenten'),
+    playerChakra: { Tai: 4, Nin: 4, Gen: 0, Blood: 0 },
+  });
+  const setupSkill = state.player[0].character.skills[0];
+  Object.assign(setupSkill, {
+    name: 'Test Damage Modifiers',
+    cost: [],
+    cooldown: 0,
+    targetType: 'Enemy',
+    damage: 0,
+    directDamage: 0,
+    damageDebuffVal: 5,
+    damageDebuffDuration: 2,
+    damageDebuffTypes: ['skill'],
+    damageBuffVal: 8,
+    damageBuffDuration: 2,
+    damageBuffTarget: 'Self',
+  });
+
+  const setup = resolveCombatIntent(state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex: 0,
+    targetId: 'enemy-0',
+  });
+  assert.equal(setup.status, 'applied');
+  if (setup.status !== 'applied') return;
+  assert.equal(setup.state.player[0].activeEffects.some(effect => effect.type === 'damage_buff'), true);
+  assert.equal(setup.state.enemy[0].activeEffects.some(effect => effect.type === 'damage_debuff'), true);
+
+  const attackIndex = setup.state.player[0].character.skills.findIndex(skill => skill.name === 'Jidanda');
+  const attack = resolveCombatIntent(setup.state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex: attackIndex,
+    targetId: 'enemy-0',
+  });
+
+  assert.equal(attack.status, 'applied');
+  if (attack.status !== 'applied') return;
+  assert.equal(attack.state.enemy[0].health, 62);
+});
+
 test('resolves Naruto conditional damage and chakra-cost rules authoritatively', () => {
   const state = createState({
     playerCharacter: character('Naruto Uzumaki'),
@@ -162,6 +207,51 @@ test('resolves Sakura Healing Technique on a selected ally and caps HP at the le
     healed: 10,
   });
   assert.equal(result.state.playerChakra.Nin, 0);
+});
+
+test('resolves catalog all-enemy attacks, splash damage, and target stacks', () => {
+  const state = createState({ playerCharacter: character('Tenten') });
+  state.enemy.push(combatant('enemy-1', character('Tenten')), combatant('enemy-2', character('Tenten')));
+  const { intent: action } = intent('Rising Twin Dragons', state);
+
+  const resolved = resolveCombatIntent(state, action);
+
+  assert.equal(resolved.status, 'applied');
+  if (resolved.status !== 'applied') return;
+  assert.deepEqual(resolved.state.enemy.map(enemy => enemy.health), [80, 90, 90]);
+  assert.equal(resolved.state.enemy[0].activeEffects.find(effect =>
+    effect.type === 'custom' && effect.stackType === 'Marca',
+  )?.stacks, 1);
+  assert.equal(resolved.state.enemy[1].activeEffects.some(effect => effect.stackType === 'Marca'), false);
+});
+
+test('applies self-stack damage when using a stackable attack', () => {
+  const state = createState({ playerCharacter: character('Waraji & Zori') });
+  state.playerChakra = { Tai: 4, Nin: 0, Gen: 0, Blood: 0 };
+  const skillIndex = state.player[0].character.skills.findIndex(skill => skill.name === 'Double Slash');
+  assert.notEqual(skillIndex, -1);
+
+  const first = resolveCombatIntent(state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex,
+    targetId: 'enemy-0',
+  });
+  assert.equal(first.status, 'applied');
+  if (first.status !== 'applied') return;
+  assert.equal(first.state.enemy[0].health, 70);
+  assert.equal(first.state.player[0].activeEffects.find(effect => effect.stackType === 'Double Slash')?.stacks, 1);
+
+  const second = resolveCombatIntent(first.state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex,
+    targetId: 'enemy-0',
+  });
+  assert.equal(second.status, 'applied');
+  if (second.status !== 'applied') return;
+  assert.equal(second.state.enemy[0].health, 35);
+  assert.equal(second.state.player[0].activeEffects.find(effect => effect.stackType === 'Double Slash')?.stacks, 2);
 });
 
 test('resolves catalog self shield and preserves its maximum cap', () => {
@@ -411,4 +501,62 @@ test('refuses to partially apply a skill with multiple damage channels', () => {
     assert.equal(result.code, 'multiple-damage-channels-not-ported');
   }
   assert.equal(state.enemy[0].health, 100);
+});
+
+test('supports every active skill in the first 69 catalog entries', () => {
+  const unsupported: string[] = [];
+  for (const selectedCharacter of catalog.slice(0, 69)) {
+    for (const [skillIndex, selectedSkill] of selectedCharacter.skills.entries()) {
+      if (selectedSkill.isPassive) continue;
+      const playerCharacter = character(selectedCharacter.name);
+      playerCharacter.skills = playerCharacter.skills.map(skill => ({
+        ...skill,
+        currentCooldown: 0,
+        cost: [],
+      }));
+      const state = createState({
+        playerCharacter,
+        playerAllies: [character('Tenten'), character('Shikamaru Nara')],
+        enemyCharacter: character('Tenten'),
+      });
+      state.enemy.push(combatant('enemy-1', character('Tenten')), combatant('enemy-2', character('Tenten')));
+      const skill = state.player[0].character.skills[skillIndex];
+      for (const name of [skill.requireEffect].filter((value): value is string => !!value)) {
+        state.player[0].activeEffects.push({
+          name,
+          type: 'damage_reduction',
+          duration: 99,
+          sourceSkillName: name,
+        });
+      }
+      for (const name of [skill.requireTargetEffect].filter((value): value is string => !!value)) {
+        state.enemy[0].activeEffects.push({
+          name,
+          type: 'damage_reduction',
+          duration: 99,
+          sourceSkillName: name,
+        });
+      }
+      if (skill.requirePreviousSkill) {
+        state.player[0].skillUseCounts = { [skill.requirePreviousSkill]: 1 };
+      }
+      if (skill.requireHpBelow) state.player[0].health = Math.max(1, skill.requireHpBelow - 1);
+      if (skill.requireRevived) state.player[0].hasRevived = true;
+      const targetId = skill.targetType === 'Self' || skill.targetType === 'AllAllies' ||
+        skill.targetType === 'SelfAndAlly' || skill.targetType === 'Ally'
+        ? 'player-0'
+        : 'enemy-0';
+      const resolved = resolveCombatIntent(state, {
+        side: 'player',
+        sourceId: 'player-0',
+        skillIndex,
+        targetId,
+      });
+      if (resolved.status === 'unsupported') {
+        unsupported.push(`${selectedCharacter.name} / ${skill.name}: ${resolved.code}`);
+      }
+    }
+  }
+
+  assert.deepEqual(unsupported, []);
 });
