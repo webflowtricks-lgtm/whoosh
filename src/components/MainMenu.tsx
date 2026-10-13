@@ -75,6 +75,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
 
   const ryos = user ? (user.ryos ?? 1500) : 1500;
   const gems = user ? (user.gems ?? 120) : 120;
+  const isGameAdmin = user?.username.trim().toLowerCase() === '2';
 
   const ranks = getRanks();
   const userXp = user?.xp || 0;
@@ -260,17 +261,19 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
         </div>
 
         <div className="main-menu-header-actions flex items-center gap-3">
-          <button
-            onClick={() => {
-              playClickSound();
-              onOpenAdmin();
-            }}
-            className="main-menu-admin-button px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-orange-500 hover:bg-slate-950 hover:text-orange-400 transition-all cursor-pointer text-slate-400 font-mono text-xs flex items-center gap-2 uppercase tracking-wider font-semibold shadow"
-            title={t('Painel Administrativo', 'Admin Panel')}
-          >
-            <Shield className="w-4 h-4 text-orange-500" />
-            <span>{t('Painel', 'Admin')}</span>
-          </button>
+          {isGameAdmin && (
+            <button
+              onClick={() => {
+                playClickSound();
+                onOpenAdmin();
+              }}
+              className="main-menu-admin-button px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-orange-500 hover:bg-slate-950 hover:text-orange-400 transition-all cursor-pointer text-slate-400 font-mono text-xs flex items-center gap-2 uppercase tracking-wider font-semibold shadow"
+              title={t('Painel Administrativo', 'Admin Panel')}
+            >
+              <Shield className="w-4 h-4 text-orange-500" />
+              <span>{t('Painel', 'Admin')}</span>
+            </button>
+          )}
 
           <button
             onClick={() => {

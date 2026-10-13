@@ -1123,7 +1123,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {screen === 'main-menu' && (
+        {(screen === 'main-menu' || (screen === 'admin' && user?.username.trim().toLowerCase() !== '2')) && (
           <MainMenu
             onStartGame={handleStartGame}
             isMuted={isMuted}
@@ -1131,7 +1131,9 @@ export default function App() {
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
             playUahSound={playUahSound}
-            onOpenAdmin={() => setScreen('admin')}
+            onOpenAdmin={() => {
+              if (user?.username.trim().toLowerCase() === '2') setScreen('admin');
+            }}
             user={user}
             onLogout={handleLogout}
             audioSettings={audioSettings}
@@ -1188,7 +1190,7 @@ export default function App() {
             audioSettings={audioSettings}
             onUpdateAudioSetting={updateAudioSetting}
             onQuit={handleQuit}
-            onOpenAdmin={() => setScreen('admin')}
+            onOpenAdmin={user?.username.trim().toLowerCase() === '2' ? () => setScreen('admin') : undefined}
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
             playUahSound={playUahSound}
@@ -1209,7 +1211,7 @@ export default function App() {
           />
         )}
 
-        {screen === 'admin' && (
+        {screen === 'admin' && user?.username.trim().toLowerCase() === '2' && (
           <AdminDashboard
             onBack={() => setScreen('main-menu')}
             playClickSound={playClickSound}
