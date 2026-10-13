@@ -473,6 +473,7 @@ async function profileRoute(request: Request, env: D1Env, pathname: string): Pro
   if (!row) return error(404, 'Usuário não encontrado.');
   const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
   const ignoredFields: string[] = [];
+  let changed = false;
   for (const [key, value] of Object.entries(body || {})) {
     if (SERVER_OWNED_PROFILE_FIELDS.has(key)) {
       ignoredFields.push(key);
@@ -480,16 +481,28 @@ async function profileRoute(request: Request, env: D1Env, pathname: string): Pro
     }
     if (!ACCOUNT_FIELDS.has(key)) continue;
     if (key === 'name' && typeof value === 'string' && value.trim()) {
-      profile[key] = value.trim().slice(0, 60);
+      const nextValue = value.trim().slice(0, 60);
+      if (profile[key] !== nextValue) {
+        profile[key] = nextValue;
+        changed = true;
+      }
     } else if (key === 'photoUrl' && typeof value === 'string' && value.length <= 2048) {
-      profile[key] = value;
+      if (profile[key] !== value) {
+        profile[key] = value;
+        changed = true;
+      }
     } else if (value === null || ['string', 'boolean'].includes(typeof value) || Array.isArray(value)) {
-      profile[key] = value;
+      if (JSON.stringify(profile[key]) !== JSON.stringify(value)) {
+        profile[key] = value;
+        changed = true;
+      }
     }
   }
-  await env.DB.prepare(
-    'UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?',
-  ).bind(JSON.stringify(profile), username).run();
+  if (changed) {
+    await env.DB.prepare(
+      'UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?',
+    ).bind(JSON.stringify(profile), username).run();
+  }
   return json({
     success: true,
     user: { ...profile, username },

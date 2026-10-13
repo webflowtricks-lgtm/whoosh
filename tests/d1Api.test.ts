@@ -18,6 +18,7 @@ class MemoryD1 implements D1Database {
   configItems: Row[] = [];
   rewardClaims = new Set<string>();
   lastChanges = 0;
+  profileUpdateCount = 0;
 
   prepare(query: string): D1PreparedStatement {
     return new MemoryStatement(this, query);
@@ -103,7 +104,10 @@ class MemoryStatement implements D1PreparedStatement {
     if (q.startsWith('update accounts set profile_json = ?')) {
       const [profile_json, username] = this.values;
       const row = this.db.accounts.get(String(username));
-      if (row) row.profile_json = profile_json;
+      if (row) {
+        row.profile_json = profile_json;
+        this.db.profileUpdateCount++;
+      }
       this.db.lastChanges = row ? 1 : 0;
       return { success: true, meta: { changes: row ? 1 : 0 } };
     }
@@ -473,6 +477,7 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
   assert.equal(progressedProfile.wins, undefined);
   assert.equal(progressedProfile.gems, undefined);
   assert.equal(progressedProfile.collectedCardIds, undefined);
+  assert.equal(env.DB.profileUpdateCount, 0);
 
   const cosmeticUpdate = await handleD1Request(request('/api/user/profile', 'PUT', {
     username: 'profile_user',
@@ -484,6 +489,15 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
   assert.equal(profile.name, 'Updated Name');
   assert.equal(profile.equippedFrame, 'frame-1');
   assert.equal(profile.xp, undefined);
+  assert.equal(env.DB.profileUpdateCount, 1);
+
+  const unchangedCosmetics = await handleD1Request(request('/api/user/profile', 'PUT', {
+    username: 'profile_user',
+    name: 'Updated Name',
+    equippedFrame: 'frame-1',
+  }, headers), env);
+  assert.equal(unchangedCosmetics?.status, 200);
+  assert.equal(env.DB.profileUpdateCount, 1);
 });
 
 test('rejects an unimported configuration without contacting the legacy API', async () => {

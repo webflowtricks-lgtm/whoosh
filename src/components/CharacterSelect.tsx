@@ -442,7 +442,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       }
 
       // Start polling for matchmaking status
-      const pollInterval = 1500;
+      const pollInterval = 3000;
       let pollCount = 0;
       matchmakingPollRef.current = setInterval(async () => {
         try {

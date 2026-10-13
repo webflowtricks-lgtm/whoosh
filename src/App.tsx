@@ -142,6 +142,8 @@ function SessionTakeoverResult({ onDismiss }: { onDismiss: () => void }) {
 
 export default function App() {
   const [screen, setScreen] = useState<GameScreen>('main-menu');
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
   const [playerTeam, setPlayerTeam] = useState<Character[]>([]);
   const [enemyTeam, setEnemyTeam] = useState<Character[]>([]);
   const [isMuted, setIsMuted] = useState(false);
@@ -254,10 +256,6 @@ export default function App() {
         mergedUser.xp = Math.max(0, serverProfile.xp ?? user.xp ?? 0);
         setUser(mergedUser);
         try { localStorage.setItem('naruto_user_profile', JSON.stringify(mergedUser)); } catch {}
-        // Se a coleção local tinha cards que o servidor não conhecia, sobe pro servidor
-        if (merged.length > serverCollected.length) {
-          await matchFetch('/api/user/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user.username, collectedCardIds: merged }) });
-        }
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -603,18 +601,6 @@ export default function App() {
     setUser(updatedUser);
     localStorage.setItem('naruto_user_profile', JSON.stringify(updatedUser));
 
-    if (!onlineParams?.isOnline) {
-      try {
-        await matchFetch('/api/user/profile', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedUser)
-        });
-      } catch (err) {
-        console.error('Failed to sync profile update:', err);
-      }
-    }
-
     // Process quests if active
     if (activeQuest) {
       const updatedGoals = activeQuest.goals.map((goal) => {
@@ -922,7 +908,7 @@ export default function App() {
           setSessionStatus('pending');
         } else if (data.status === 'revoked') {
           setSessionStatus('revoked');
-          if (screen === 'battle') {
+          if (screenRef.current === 'battle') {
             setSessionRevoked(true);
           } else {
             await completeSessionRevocation();
@@ -939,12 +925,14 @@ export default function App() {
     };
 
     void checkSession();
-    const interval = window.setInterval(() => { void checkSession(); }, 4000);
+    const interval = window.setInterval(() => {
+      if (screenRef.current === 'battle') void checkSession();
+    }, 20000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [user?.username, sessionToken, sessionTicket, screen]);
+  }, [user?.username, sessionToken, sessionTicket]);
 
   useEffect(() => {
     if (!user || sessionToken || user.username.trim().toLowerCase() === 'convidado') return;
