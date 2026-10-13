@@ -56,7 +56,7 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
     setTimeout(() => setErrorMessage(''), 4000);
   };
 
-  const handleCreateNewItem = () => {
+  const handleCreateNewItem = async () => {
     playClickSound();
     const newId = `shop-item-${Date.now().toString().slice(-4)}`;
     const newItem: ShopItem = {
@@ -70,14 +70,19 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
     };
 
     const updated = [...items, newItem];
+    try {
+      await saveShopItems(updated);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar o catálogo global da loja.');
+      return;
+    }
     setItems(updated);
-    saveShopItems(updated);
     setSelectedItemId(newId);
     setEditingItem(newItem);
     showSuccess('Novo item criado no catálogo da loja!');
   };
 
-  const handleSaveItem = () => {
+  const handleSaveItem = async () => {
     if (!editingItem) return;
     playClickSound();
 
@@ -92,20 +97,29 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
     }
 
     const updated = items.map(i => i.id === editingItem.id ? editingItem : i);
-    setItems(updated);
-    saveShopItems(updated);
-    showSuccess(`Item "${editingItem.name}" salvo com sucesso!`);
+    try {
+      await saveShopItems(updated);
+      setItems(updated);
+      showSuccess(`Item "${editingItem.name}" salvo com sucesso!`);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar o catálogo global da loja.');
+    }
   };
 
-  const handleDeleteItem = (itemId: string) => {
+  const handleDeleteItem = async (itemId: string) => {
     playClickSound();
     const item = items.find(i => i.id === itemId);
     if (!item) return;
 
     if (confirm(`Tem certeza de que deseja excluir "${item.name}" da loja?`)) {
       const updated = items.filter(i => i.id !== itemId);
-      setItems(updated);
-      saveShopItems(updated);
+      try {
+        await saveShopItems(updated);
+        setItems(updated);
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao remover o item global da loja.');
+        return;
+      }
 
       if (updated.length > 0) {
         setSelectedItemId(updated[0].id);
@@ -117,10 +131,16 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
     }
   };
 
-  const handleResetDefaults = () => {
+  const handleResetDefaults = async () => {
     playClickSound();
     if (confirm('Deseja restaurar os itens da loja para os padrões originais do jogo?')) {
-      const defaults = resetToDefaultShopItems();
+      let defaults: ShopItem[];
+      try {
+        defaults = await resetToDefaultShopItems();
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao restaurar o catálogo global da loja.');
+        return;
+      }
       setItems(defaults);
       if (defaults.length > 0) {
         setSelectedItemId(defaults[0].id);

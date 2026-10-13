@@ -732,8 +732,18 @@ async function saveConfig(
   env: D1Env,
   config: { key: string; field: string },
 ): Promise<Response> {
+  const username = request.headers.get('X-Account-Username')?.trim().toLowerCase();
+  if (!username) return error(401, 'Entre na conta administradora para alterar as configurações globais.');
+  if (username !== '2') return error(403, 'Somente a conta administradora pode alterar as configurações globais.');
+  if (!await isD1SessionActive(env, username, request.headers.get('X-Account-Session'))) {
+    return error(401, 'A sessão da conta administradora está ausente ou foi revogada.');
+  }
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body || !Array.isArray(body[config.field])) return error(400, `Lista de ${config.field} inválida.`);
+  if ((config.key === 'characters' || config.key === 'ranks') &&
+      (body[config.field] as unknown[]).length === 0) {
+    return error(400, `${config.field === 'characters' ? 'O catálogo de personagens' : 'A lista de ranks'} não pode ficar vazia.`);
+  }
   if (config.key === 'aiSettings') {
     const settings = body.settings as Array<Record<string, unknown>>;
     const limit = settings[0]?.maxEnemyCharacterNumber;
@@ -778,6 +788,12 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
     return json(backup);
   }
   if (pathname === '/api/config/import' && request.method === 'POST') {
+    const username = request.headers.get('X-Account-Username')?.trim().toLowerCase();
+    if (!username) return error(401, 'Entre na conta administradora para importar configurações globais.');
+    if (username !== '2') return error(403, 'Somente a conta administradora pode importar configurações globais.');
+    if (!await isD1SessionActive(env, username, request.headers.get('X-Account-Session'))) {
+      return error(401, 'A sessão da conta administradora está ausente ou foi revogada.');
+    }
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) return error(400, 'Arquivo de configuração JSON inválido.');
     const inputKeys: Record<string, string> = {
@@ -788,6 +804,12 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
     const datasets = Object.entries(inputKeys)
       .filter(([input]) => Array.isArray(body[input]));
     if (datasets.length === 0) return error(400, 'Nenhum dado de configuração válido encontrado no arquivo JSON.');
+    if (datasets.some(([input, key]) =>
+      (key === 'characters' || key === 'ranks') &&
+      (body[input] as unknown[]).length === 0
+    )) {
+      return error(400, 'O catálogo de personagens e a lista de ranks não podem ficar vazios.');
+    }
     for (const [input, key] of datasets) {
       if (key === 'aiSettings') {
         const settings = body[input] as Array<Record<string, unknown>>;

@@ -4,7 +4,7 @@
  */
 
 import { ShopItem } from '../types';
-import { safeFetchJson } from './api';
+import { safeFetchJson, saveGlobalConfig } from './api';
 
 const STORAGE_KEY = 'naruto_shop_items';
 
@@ -142,7 +142,7 @@ export function getShopItems(): ShopItem[] {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     } catch (e) {
@@ -155,7 +155,7 @@ export function getShopItems(): ShopItem[] {
 export async function fetchShopItemsFromServer(): Promise<ShopItem[]> {
   try {
     const data = await safeFetchJson<{ success?: boolean; items?: ShopItem[] }>('/api/shop');
-    if (data && data.success && Array.isArray(data.items) && data.items.length > 0) {
+    if (data && data.success && Array.isArray(data.items)) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data.items));
       } catch (e) {
@@ -169,29 +169,21 @@ export async function fetchShopItemsFromServer(): Promise<ShopItem[]> {
   return getShopItems();
 }
 
-export function saveShopItems(items: ShopItem[]): void {
+export async function saveShopItems(items: ShopItem[]): Promise<void> {
+  await saveGlobalConfig('/api/shop', { items });
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   } catch (e) {
     console.warn("Failed to save shop items in localStorage:", e);
   }
-  fetch('/api/shop', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items }),
-  }).catch(err => console.error('Failed to sync shop items to server:', err));
 }
 
-export function resetToDefaultShopItems(): ShopItem[] {
+export async function resetToDefaultShopItems(): Promise<ShopItem[]> {
+  await saveGlobalConfig('/api/shop', { items: DEFAULT_SHOP_ITEMS });
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_SHOP_ITEMS));
   } catch (e) {
     console.warn("Failed to reset shop items in localStorage:", e);
   }
-  fetch('/api/shop', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: DEFAULT_SHOP_ITEMS }),
-  }).catch(err => console.error('Failed to reset shop items on server:', err));
   return DEFAULT_SHOP_ITEMS;
 }

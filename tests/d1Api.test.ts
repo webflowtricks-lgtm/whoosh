@@ -358,6 +358,72 @@ test('claims sessions, reports takeover, and revokes the prior device', async ()
   assert.equal((await responseBody(activeNewStatus!)).status, 'active');
 });
 
+test('only the active session for account 2 can publish global configuration', async () => {
+  const env = { DB: new MemoryD1() };
+  const adminSignup = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: '2',
+    password: 'admin-password',
+    name: 'Admin',
+  }), env);
+  const adminToken = 'd'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: '2',
+    sessionToken: adminToken,
+    sessionTicket: (await responseBody(adminSignup!)).sessionTicket,
+  }), env);
+
+  const userSignup = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: 'ordinary_user',
+    password: 'user-password',
+    name: 'User',
+  }), env);
+  const userToken = 'e'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'ordinary_user',
+    sessionToken: userToken,
+    sessionTicket: (await responseBody(userSignup!)).sessionTicket,
+  }), env);
+
+  const payload = { characters: [{ id: 'global-character', skills: [{ name: 'Skill' }] }] };
+  const noIdentity = await handleD1Request(request('/api/characters', 'POST', payload), env);
+  assert.equal(noIdentity?.status, 401);
+
+  const otherAccount = await handleD1Request(request('/api/characters', 'POST', payload, {
+    'X-Account-Username': 'ordinary_user',
+    'X-Account-Session': userToken,
+  }), env);
+  assert.equal(otherAccount?.status, 403);
+
+  const wrongAdminSession = await handleD1Request(request('/api/characters', 'POST', payload, {
+    'X-Account-Username': '2',
+    'X-Account-Session': userToken,
+  }), env);
+  assert.equal(wrongAdminSession?.status, 401);
+
+  const saved = await handleD1Request(request('/api/characters', 'POST', payload, {
+    'X-Account-Username': '2',
+    'X-Account-Session': adminToken,
+  }), env);
+  assert.equal(saved?.status, 200);
+  assert.deepEqual(await getD1Config(env.DB, 'characters'), payload.characters);
+
+  const emptyCatalog = await handleD1Request(request('/api/characters', 'POST', {
+    characters: [],
+  }, {
+    'X-Account-Username': '2',
+    'X-Account-Session': adminToken,
+  }), env);
+  assert.equal(emptyCatalog?.status, 400);
+
+  const deniedImport = await handleD1Request(request('/api/config/import', 'POST', {
+    ranks: [{ id: 'forged' }],
+  }, {
+    'X-Account-Username': 'ordinary_user',
+    'X-Account-Session': userToken,
+  }), env);
+  assert.equal(deniedImport?.status, 403);
+});
+
 test('rejects a D1 configuration with missing chunks instead of parsing partial catalog data', async () => {
   const db = new MemoryD1();
   db.configHeads.set('characters', {
@@ -443,15 +509,27 @@ test('provides and persists the configurable AI enemy character limit', async ()
   const env = { DB: new MemoryD1() };
   const initial = await handleD1Request(request('/api/ai-settings', 'GET'), env);
   assert.deepEqual((await responseBody(initial!)).settings, [{ maxEnemyCharacterNumber: 69 }]);
+  const adminSignup = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: '2',
+    password: 'admin-password',
+    name: 'Admin',
+  }), env);
+  const token = 'f'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: '2',
+    sessionToken: token,
+    sessionTicket: (await responseBody(adminSignup!)).sessionTicket,
+  }), env);
+  const adminHeaders = { 'X-Account-Username': '2', 'X-Account-Session': token };
 
   const invalid = await handleD1Request(request('/api/ai-settings', 'POST', {
     settings: [{ maxEnemyCharacterNumber: 2 }],
-  }), env);
+  }, adminHeaders), env);
   assert.equal(invalid?.status, 400);
 
   const saved = await handleD1Request(request('/api/ai-settings', 'POST', {
     settings: [{ maxEnemyCharacterNumber: 123 }],
-  }), env);
+  }, adminHeaders), env);
   assert.equal(saved?.status, 200);
   const loaded = await handleD1Request(request('/api/ai-settings', 'GET'), env);
   assert.deepEqual((await responseBody(loaded!)).settings, [{ maxEnemyCharacterNumber: 123 }]);

@@ -13,7 +13,7 @@ import { Quest, QuestGoal, QuestReward, Character, NinjaCard } from '../types';
 import { getCharacters } from '../lib/characterStorage';
 import { getCards, fetchCardsFromServer, CARD_RARITY_META } from '../lib/cardStorage';
 import { getGoalDescription } from '../lib/questUtils';
-import { safeFetchJson } from '../lib/api';
+import { safeFetchJson, saveGlobalConfig } from '../lib/api';
 import { RankConfig, getRanks, fetchRanksFromServer } from '../lib/rankStorage';
 
 interface QuestAdminProps {
@@ -116,20 +116,12 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
 
   const handleSaveQuests = async (updatedQuests: Quest[]) => {
     try {
-      const data = await safeFetchJson<{ success?: boolean }>('/api/quests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quests: updatedQuests }),
-      });
-      if (data && data.success) {
-        setQuests(updatedQuests);
-        triggerSuccess('Missões salvas e sincronizadas com sucesso!');
-      } else {
-        triggerError('Erro ao salvar as missões no servidor.');
-      }
+      await saveGlobalConfig('/api/quests', { quests: updatedQuests });
+      setQuests(updatedQuests);
+      triggerSuccess('Missões globais salvas e sincronizadas com sucesso!');
     } catch (err) {
       console.error('Save quests error:', err);
-      triggerError('Falha na comunicação de rede com o servidor.');
+      triggerError(err instanceof Error ? err.message : 'Falha na comunicação com o servidor.');
     }
   };
 

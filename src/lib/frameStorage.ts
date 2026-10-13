@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { safeFetchJson } from './api';
+import { safeFetchJson, saveGlobalConfig } from './api';
 
 export interface PngFrameItem {
   id: string;
@@ -45,7 +45,7 @@ export function getPngFrames(): PngFrameItem[] {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     } catch (e) {
@@ -58,7 +58,7 @@ export function getPngFrames(): PngFrameItem[] {
 export async function fetchPngFramesFromServer(): Promise<PngFrameItem[]> {
   try {
     const data = await safeFetchJson<{ success?: boolean; frames?: PngFrameItem[] }>('/api/frames');
-    if (data && data.success && Array.isArray(data.frames) && data.frames.length > 0) {
+    if (data && data.success && Array.isArray(data.frames)) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data.frames));
       } catch (e) {
@@ -72,20 +72,16 @@ export async function fetchPngFramesFromServer(): Promise<PngFrameItem[]> {
   return getPngFrames();
 }
 
-export function savePngFrames(frames: PngFrameItem[]): void {
+export async function savePngFrames(frames: PngFrameItem[]): Promise<void> {
+  await saveGlobalConfig('/api/frames', { frames });
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(frames));
   } catch (e) {
     console.warn("Failed to save png frames to localStorage:", e);
   }
-  fetch('/api/frames', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ frames }),
-  }).catch(err => console.error('Failed to sync frames to server:', err));
 }
 
-export function addPngFrame(frame: PngFrameItem): PngFrameItem[] {
+export async function addPngFrame(frame: PngFrameItem): Promise<PngFrameItem[]> {
   const frames = getPngFrames();
   const existingIndex = frames.findIndex(f => f.id === frame.id);
   let updated: PngFrameItem[];
@@ -95,27 +91,23 @@ export function addPngFrame(frame: PngFrameItem): PngFrameItem[] {
   } else {
     updated = [...frames, frame];
   }
-  savePngFrames(updated);
+  await savePngFrames(updated);
   return updated;
 }
 
-export function deletePngFrame(frameId: string): PngFrameItem[] {
+export async function deletePngFrame(frameId: string): Promise<PngFrameItem[]> {
   const frames = getPngFrames();
   const updated = frames.filter(f => f.id !== frameId);
-  savePngFrames(updated);
+  await savePngFrames(updated);
   return updated;
 }
 
-export function resetToDefaultPngFrames(): PngFrameItem[] {
+export async function resetToDefaultPngFrames(): Promise<PngFrameItem[]> {
+  await saveGlobalConfig('/api/frames', { frames: DEFAULT_PNG_FRAMES });
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_PNG_FRAMES));
   } catch (e) {
     console.warn("Failed to reset png frames in localStorage:", e);
   }
-  fetch('/api/frames', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ frames: DEFAULT_PNG_FRAMES }),
-  }).catch(err => console.error('Failed to reset frames on server:', err));
   return DEFAULT_PNG_FRAMES;
 }

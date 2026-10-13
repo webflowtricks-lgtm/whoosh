@@ -94,7 +94,7 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
   };
 
   // ─── CARDS ─────────────────────────────────────────────
-  const handleCreateNewCard = () => {
+  const handleCreateNewCard = async () => {
     playClickSound();
     const newId = `card-${Date.now().toString().slice(-4)}`;
     const newCard: NinjaCard = {
@@ -111,14 +111,19 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
       packs: [],
     };
     const updated = [...cards, newCard];
-    setCards(updated);
-    saveCards(updated);
+    try {
+      await saveCards(updated);
+      setCards(updated);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar a configuração global de cards.');
+      return;
+    }
     setSelectedCardId(newId);
     setEditingCard(newCard);
     showSuccess('Nova figura criada!');
   };
 
-  const handleSaveCard = () => {
+  const handleSaveCard = async () => {
     if (!editingCard) return;
     playClickSound();
     if (!editingCard.characterName.trim()) {
@@ -140,21 +145,31 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
       description: editingCard.description || '',
     };
     const updated = cards.map(c => c.id === selectedCardId ? toSave : c);
-    setCards(updated);
-    saveCards(updated);
+    try {
+      await saveCards(updated);
+      setCards(updated);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar os cards globais.');
+      return;
+    }
     setEditingCard(toSave);
     setSelectedCardId(editingCard.id);
     showSuccess(`Figura "${toSave.characterName}" salva com sucesso!`);
   };
 
-  const handleDeleteCard = (cardId: string) => {
+  const handleDeleteCard = async (cardId: string) => {
     playClickSound();
     const card = cards.find(c => c.id === cardId);
     if (!card) return;
     if (confirm(`Excluir "${card.title}" (${card.characterName}) da coleção?`)) {
       const updated = cards.filter(c => c.id !== cardId);
-      setCards(updated);
-      saveCards(updated);
+      try {
+        await saveCards(updated);
+        setCards(updated);
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao remover a figura global.');
+        return;
+      }
       if (updated.length > 0) {
         setSelectedCardId(updated[0].id);
       } else {
@@ -165,12 +180,17 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
     }
   };
 
-  const handleResetCards = () => {
+  const handleResetCards = async () => {
     playClickSound();
     if (confirm('Restaurar os cards para os padrões originais do jogo? (Isso apagará todas as figuras customizadas)')) {
       const defaults = buildDefaultCards();
-      setCards(defaults);
-      saveCards(defaults);
+      try {
+        await saveCards(defaults);
+        setCards(defaults);
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao restaurar os cards globais.');
+        return;
+      }
       if (defaults.length > 0) {
         setSelectedCardId(defaults[0].id);
         setEditingCard(JSON.parse(JSON.stringify(defaults[0])));
@@ -204,7 +224,7 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
   };
 
   // ─── PACKS ─────────────────────────────────────────────
-  const handleCreateNewPack = () => {
+  const handleCreateNewPack = async () => {
     playClickSound();
     const newId = `pack-${Date.now().toString().slice(-4)}`;
     const newPack: NinjaPack = {
@@ -219,14 +239,19 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
       imageUrl: '',
     };
     const updated = [...packs, newPack];
-    setPacks(updated);
-    savePacks(updated);
+    try {
+      await savePacks(updated);
+      setPacks(updated);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar a configuração global de pacotes.');
+      return;
+    }
     setSelectedPackId(newId);
     setEditingPack(newPack);
     showSuccess('Novo pacote criado!');
   };
 
-  const handleSavePack = () => {
+  const handleSavePack = async () => {
     if (!editingPack) return;
     playClickSound();
     if (!editingPack.name.trim()) {
@@ -238,19 +263,28 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
       return;
     }
     const updated = packs.map(p => p.id === editingPack.id ? editingPack : p);
-    setPacks(updated);
-    savePacks(updated);
-    showSuccess(`Pacote "${editingPack.name}" salvo com sucesso!`);
+    try {
+      await savePacks(updated);
+      setPacks(updated);
+      showSuccess(`Pacote "${editingPack.name}" salvo com sucesso!`);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar os pacotes globais.');
+    }
   };
 
-  const handleDeletePack = (packId: string) => {
+  const handleDeletePack = async (packId: string) => {
     playClickSound();
     const pack = packs.find(p => p.id === packId);
     if (!pack) return;
     if (confirm(`Excluir o pacote "${pack.name}"?`)) {
       const updated = packs.filter(p => p.id !== packId);
-      setPacks(updated);
-      savePacks(updated);
+      try {
+        await savePacks(updated);
+        setPacks(updated);
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao remover o pacote global.');
+        return;
+      }
       if (updated.length > 0) {
         setSelectedPackId(updated[0].id);
       } else {
@@ -261,12 +295,17 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
     }
   };
 
-  const handleResetPacks = () => {
+  const handleResetPacks = async () => {
     playClickSound();
     if (confirm('Restaurar os pacotes para os padrões originais do jogo?')) {
       const defaults = DEFAULT_PACKS;
-      setPacks(defaults);
-      savePacks(defaults);
+      try {
+        await savePacks(defaults);
+        setPacks(defaults);
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao restaurar os pacotes globais.');
+        return;
+      }
       if (defaults.length > 0) setSelectedPackId(defaults[0].id);
       showSuccess('Pacotes restaurados para os padrões!');
     }

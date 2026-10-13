@@ -5,7 +5,7 @@
 
 import { NinjaCard, CardRarity, NinjaPack, Character } from '../types';
 import { CHARACTERS as DEFAULT_CHARACTERS } from '../data/characters';
-import { safeFetchJson } from './api';
+import { safeFetchJson, saveGlobalConfig } from './api';
 
 const STORAGE_KEY = 'naruto_cards';
 const PACKS_STORAGE_KEY = 'naruto_card_packs';
@@ -175,7 +175,7 @@ export function getCards(): NinjaCard[] {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed as NinjaCard[];
       }
     } catch (e) {
@@ -188,7 +188,7 @@ export function getCards(): NinjaCard[] {
 export async function fetchCardsFromServer(): Promise<NinjaCard[]> {
   try {
     const data = await safeFetchJson<{ success?: boolean; cards?: NinjaCard[] }>('/api/cards');
-    if (data && data.success && Array.isArray(data.cards) && data.cards.length > 0) {
+    if (data && data.success && Array.isArray(data.cards)) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data.cards));
       } catch (e) {
@@ -202,17 +202,13 @@ export async function fetchCardsFromServer(): Promise<NinjaCard[]> {
   return getCards();
 }
 
-export function saveCards(cards: NinjaCard[]): void {
+export async function saveCards(cards: NinjaCard[]): Promise<void> {
+  await saveGlobalConfig('/api/cards', { cards });
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
   } catch (e) {
     console.warn('Falha ao salvar cards no localStorage:', e);
   }
-  fetch('/api/cards', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cards }),
-  }).catch(err => console.error('Falha ao sincronizar cards com o servidor:', err));
 }
 
 // 🎁 PACOTES — agrupam cards por raridade/foco. Guardados separadamente.
@@ -265,7 +261,7 @@ export function getPacks(): NinjaPack[] {
 export async function fetchPacksFromServer(): Promise<NinjaPack[]> {
   try {
     const data = await safeFetchJson<{ success?: boolean; packs?: NinjaPack[] }>('/api/cards/packs');
-    if (data && data.success && Array.isArray(data.packs) && data.packs.length > 0) {
+    if (data && data.success && Array.isArray(data.packs)) {
       try {
         localStorage.setItem(PACKS_STORAGE_KEY, JSON.stringify(data.packs));
       } catch {}
@@ -275,15 +271,11 @@ export async function fetchPacksFromServer(): Promise<NinjaPack[]> {
   return getPacks();
 }
 
-export function savePacks(packs: NinjaPack[]): void {
+export async function savePacks(packs: NinjaPack[]): Promise<void> {
+  await saveGlobalConfig('/api/cards/packs', { packs });
   try {
     localStorage.setItem(PACKS_STORAGE_KEY, JSON.stringify(packs));
   } catch (e) {
     console.warn('Falha ao salvar pacotes no localStorage:', e);
   }
-  fetch('/api/cards/packs', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ packs }),
-  }).catch(err => console.error('Falha ao sincronizar pacotes com o servidor:', err));
 }

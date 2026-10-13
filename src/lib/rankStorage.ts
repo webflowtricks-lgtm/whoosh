@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { safeFetchJson } from './api';
+import { safeFetchJson, saveGlobalConfig } from './api';
 
 export interface RankConfig {
   id: string;
@@ -163,20 +163,15 @@ export function getRanks(): RankConfig[] {
   return DEFAULT_RANKS;
 }
 
-export function saveRanks(ranks: RankConfig[]): void {
+export async function saveRanks(ranks: RankConfig[]): Promise<void> {
   try {
     // Preserve the manual admin order (do NOT re-sort by requiredXp).
     const sorted = [...ranks];
+    await saveGlobalConfig('/api/ranks', { ranks: sorted });
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sorted));
-    
-    // Sync with server if available
-    fetch('/api/ranks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ranks: sorted })
-    }).catch(() => {});
   } catch (err) {
     console.error('Error saving ranks to localStorage:', err);
+    throw err;
   }
 }
 
@@ -184,7 +179,11 @@ export async function fetchRanksFromServer(): Promise<RankConfig[]> {
   try {
     const data = await safeFetchJson<{ success?: boolean; ranks?: RankConfig[] }>('/api/ranks');
     if (data && data.success && Array.isArray(data.ranks) && data.ranks.length > 0) {
-      saveRanks(data.ranks);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data.ranks));
+      } catch (err) {
+        console.error('Error caching ranks from server:', err);
+      }
       // Preserve the server order (manual admin order) — do NOT re-sort by requiredXp.
       return data.ranks;
     }

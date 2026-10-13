@@ -6,7 +6,7 @@
 import { Character } from '../types';
 import { CHARACTERS as DEFAULT_CHARACTERS } from '../data/characters';
 import { preloadCharacters } from './imagePreloader';
-import { safeFetchJson } from './api';
+import { safeFetchJson, saveGlobalConfig } from './api';
 
 const STORAGE_KEY = 'naruto_combat_characters';
 
@@ -91,58 +91,24 @@ export async function fetchCharactersFromServer(): Promise<Character[]> {
 
 export async function saveCharacters(characters: Character[]): Promise<Character[]> {
   const enriched = enrichCharacters(characters);
+  await saveGlobalConfig('/api/characters', { characters: enriched });
   memoryCache = enriched;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stripHeavyData(enriched)));
   } catch (e) {
     console.warn("Failed to save characters to localStorage quota:", e);
   }
-
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return enriched;
-  }
-
-  try {
-    const res = await fetch('/api/characters', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ characters: enriched }),
-    });
-    if (!res.ok) {
-      console.warn('Failed to sync characters to server:', res.statusText);
-    }
-  } catch (err) {
-    console.warn('Failed to sync characters to server:', err);
-  }
-
   return enriched;
 }
 
 export async function resetToDefaultCharacters(): Promise<Character[]> {
   const enriched = enrichCharacters(DEFAULT_CHARACTERS);
+  await saveGlobalConfig('/api/characters', { characters: enriched });
   memoryCache = enriched;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stripHeavyData(enriched)));
   } catch (e) {
     console.warn("Failed to save default characters to localStorage quota:", e);
   }
-
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return enriched;
-  }
-
-  try {
-    const res = await fetch('/api/characters', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ characters: enriched }),
-    });
-    if (!res.ok) {
-      console.warn('Failed to reset characters on server:', res.statusText);
-    }
-  } catch (err) {
-    console.warn('Failed to reset characters on server:', err);
-  }
-
   return enriched;
 }

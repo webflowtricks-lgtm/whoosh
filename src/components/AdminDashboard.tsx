@@ -18,7 +18,7 @@ import {
   saveAiMatchSettings,
 } from '../lib/aiMatchSettings';
 import { RankConfig, getRanks, saveRanks, fetchRanksFromServer, RANK_GRADIENT_PRESETS } from '../lib/rankStorage';
-import { safeFetchJson } from '../lib/api';
+import { configFetch, safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import QuestAdmin from './QuestAdmin';
 import SkinMedia from './SkinMedia';
@@ -341,7 +341,7 @@ const getEffectNameSuggestions = (): string[] => {
     setIsImporting(true);
 
     try {
-      const res = await fetch('/api/config/import', {
+      const res = await configFetch('/api/config/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(importedConfigData)
@@ -351,12 +351,10 @@ const getEffectNameSuggestions = (): string[] => {
       if (res.ok && result.success) {
         // Sync client-side local cache & states immediately
         if (Array.isArray(importedConfigData.characters)) {
-          await saveCharacters(importedConfigData.characters);
-          setCharacters(getCharacters());
+          setCharacters(await fetchCharactersFromServer());
         }
         if (Array.isArray(importedConfigData.ranks)) {
-          saveRanks(importedConfigData.ranks);
-          setRanksList(importedConfigData.ranks);
+          setRanksList(await fetchRanksFromServer());
         }
         if (Array.isArray(importedConfigData.aiSettings) &&
             Number.isSafeInteger(importedConfigData.aiSettings[0]?.maxEnemyCharacterNumber)) {
@@ -434,11 +432,15 @@ const getEffectNameSuggestions = (): string[] => {
       updatedList = [...characters, updatedChar];
     }
 
-    setCharacters(updatedList);
-    setSelectedCharacterId(formattedId);
-    setEditingChar(updatedChar);
-    await saveCharacters(updatedList);
-    triggerSuccess(`Personagem "${updatedChar.name}" (${formattedId}) salvo com sucesso!`);
+    try {
+      await saveCharacters(updatedList);
+      setCharacters(updatedList);
+      setSelectedCharacterId(formattedId);
+      setEditingChar(updatedChar);
+      triggerSuccess(`Personagem "${updatedChar.name}" (${formattedId}) salvo com sucesso!`);
+    } catch (error) {
+      triggerError(error instanceof Error ? error.message : 'Falha ao salvar o catálogo global de personagens.');
+    }
   };
 
   // Add a new character from scratch
@@ -467,11 +469,15 @@ const getEffectNameSuggestions = (): string[] => {
     };
 
     const updatedList = [...characters, newChar];
-    setCharacters(updatedList);
-    setSelectedCharacterId(newId);
-    setEditingChar(newChar);
-    await saveCharacters(updatedList);
-    triggerSuccess('Novo personagem criado! Agora você pode personalizá-lo.');
+    try {
+      await saveCharacters(updatedList);
+      setCharacters(updatedList);
+      setSelectedCharacterId(newId);
+      setEditingChar(newChar);
+      triggerSuccess('Novo personagem criado! Agora você pode personalizá-lo.');
+    } catch (error) {
+      triggerError(error instanceof Error ? error.message : 'Falha ao criar o personagem global.');
+    }
   };
 
   // Delete current character
@@ -485,16 +491,19 @@ const getEffectNameSuggestions = (): string[] => {
       `Tem certeza de que deseja excluir o personagem "${char.name}" permanentemente?`,
       async () => {
         const updatedList = characters.filter(c => c.id !== charId);
-        setCharacters(updatedList);
-        
-        if (updatedList.length > 0) {
-          setSelectedCharacterId(updatedList[0].id);
-        } else {
-          setSelectedCharacterId('');
-          setEditingChar(null);
+        try {
+          await saveCharacters(updatedList);
+          setCharacters(updatedList);
+          if (updatedList.length > 0) {
+            setSelectedCharacterId(updatedList[0].id);
+          } else {
+            setSelectedCharacterId('');
+            setEditingChar(null);
+          }
+          triggerSuccess(`Personagem "${char.name}" removido.`);
+        } catch (error) {
+          triggerError(error instanceof Error ? error.message : 'Falha ao remover o personagem global.');
         }
-        await saveCharacters(updatedList);
-        triggerSuccess(`Personagem "${char.name}" removido.`);
       }
     );
   };
@@ -506,15 +515,19 @@ const getEffectNameSuggestions = (): string[] => {
       'Redefinir Personagens',
       'Atenção: Isso redefinirá todos os personagens e habilidades para as configurações padrão originais do jogo. Deseja continuar?',
       async () => {
-        const defaults = await resetToDefaultCharacters();
-        setCharacters(defaults);
-        if (defaults.length > 0) {
-          setSelectedCharacterId(defaults[0].id);
-          setEditingChar(JSON.parse(JSON.stringify(defaults[0])));
+        try {
+          const defaults = await resetToDefaultCharacters();
+          setCharacters(defaults);
+          if (defaults.length > 0) {
+            setSelectedCharacterId(defaults[0].id);
+            setEditingChar(JSON.parse(JSON.stringify(defaults[0])));
+          }
+          setEditingSkillIndex(null);
+          setEditingSkill(null);
+          triggerSuccess('Personagens restaurados para os padrões com sucesso!');
+        } catch (error) {
+          triggerError(error instanceof Error ? error.message : 'Falha ao restaurar o catálogo global de personagens.');
         }
-        setEditingSkillIndex(null);
-        setEditingSkill(null);
-        triggerSuccess('Personagens restaurados para os padrões com sucesso!');
       }
     );
   };
@@ -1002,11 +1015,15 @@ const newSkill: Skill = {
               </button>
 
               <button
-                onClick={() => {
+                onClick={async () => {
                   playClickSound();
-                  saveRanks(ranksList);
-                  setSuccessMessage('Ranks e requisitos de XP salvos com sucesso!');
-                  setTimeout(() => setSuccessMessage(''), 3000);
+                  try {
+                    await saveRanks(ranksList);
+                    setSuccessMessage('Ranks e requisitos de XP salvos com sucesso!');
+                    setTimeout(() => setSuccessMessage(''), 3000);
+                  } catch (error) {
+                    triggerError(error instanceof Error ? error.message : 'Falha ao salvar os ranks globais.');
+                  }
                 }}
                 className="px-5 py-2 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-slate-950 font-extrabold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-orange-600/20"
               >
@@ -1750,9 +1767,13 @@ const newSkill: Skill = {
               <span className="text-[10px] text-amber-400 font-mono">Ordem alterada</span>
               <button
                 onClick={async () => {
-                  setOrderChanged(false);
-                  await saveCharacters(characters);
-                  triggerSuccess('Ordem dos ninjas salva com sucesso!');
+                  try {
+                    await saveCharacters(characters);
+                    setOrderChanged(false);
+                    triggerSuccess('Ordem dos ninjas salva com sucesso!');
+                  } catch (error) {
+                    triggerError(error instanceof Error ? error.message : 'Falha ao salvar a ordem global dos personagens.');
+                  }
                 }}
                 className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-lg text-[10px] uppercase tracking-wider transition-all cursor-pointer"
               >
@@ -1782,10 +1803,14 @@ const newSkill: Skill = {
                     const dropIdx = updated.findIndex(c => c.id === char.id);
                     if (dropIdx === -1) return;
                     updated.splice(dropIdx, 0, moved);
-                    setCharacters(updated);
                     setDragIndex(null);
-                    await saveCharacters(updated);
-                    triggerSuccess('Ordem salva no banco de exportação!');
+                    try {
+                      await saveCharacters(updated);
+                      setCharacters(updated);
+                      triggerSuccess('Ordem global salva com sucesso!');
+                    } catch (error) {
+                      triggerError(error instanceof Error ? error.message : 'Falha ao salvar a ordem global dos personagens.');
+                    }
                   }}
                   onClick={() => setSelectedCharacterId(char.id)}
                   className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer group ${
@@ -1817,9 +1842,13 @@ const newSkill: Skill = {
                         const updated = [...characters];
                         const [moved] = updated.splice(realIdx, 1);
                         updated.splice(targetPos, 0, moved);
-                        setCharacters(updated);
-                        await saveCharacters(updated);
-                        triggerSuccess(`"${char.name}" movido para a posição ${targetPos + 1}!`);
+                        try {
+                          await saveCharacters(updated);
+                          setCharacters(updated);
+                          triggerSuccess(`"${char.name}" movido para a posição ${targetPos + 1}!`);
+                        } catch (error) {
+                          triggerError(error instanceof Error ? error.message : 'Falha ao salvar a ordem global dos personagens.');
+                        }
                       }}
                       title="Posição na lista (mesma ordem da seleção de time na arena) — digite um número e pressione Enter para mover"
                       className="w-9 shrink-0 px-1 py-1 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-md text-center text-[10px] font-mono font-bold text-orange-300 outline-none"

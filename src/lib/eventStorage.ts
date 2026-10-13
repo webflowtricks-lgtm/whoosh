@@ -4,7 +4,7 @@
  */
 
 import { NinjaEvent } from '../types';
-import { safeFetchJson } from './api';
+import { safeFetchJson, saveGlobalConfig } from './api';
 
 const STORAGE_KEY = 'naruto_ninja_events';
 
@@ -124,7 +124,7 @@ export function getEvents(): NinjaEvent[] {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     } catch (e) {
@@ -137,7 +137,7 @@ export function getEvents(): NinjaEvent[] {
 export async function fetchEventsFromServer(): Promise<NinjaEvent[]> {
   try {
     const data = await safeFetchJson<{ success?: boolean; events?: NinjaEvent[] }>('/api/events');
-    if (data && data.success && Array.isArray(data.events) && data.events.length > 0) {
+    if (data && data.success && Array.isArray(data.events)) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data.events));
       } catch (e) {
@@ -151,29 +151,21 @@ export async function fetchEventsFromServer(): Promise<NinjaEvent[]> {
   return getEvents();
 }
 
-export function saveEvents(events: NinjaEvent[]): void {
+export async function saveEvents(events: NinjaEvent[]): Promise<void> {
+  await saveGlobalConfig('/api/events', { events });
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
   } catch (e) {
     console.warn("Failed to save events to localStorage:", e);
   }
-  fetch('/api/events', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ events }),
-  }).catch(err => console.error('Failed to sync events to server:', err));
 }
 
-export function resetToDefaultEvents(): NinjaEvent[] {
+export async function resetToDefaultEvents(): Promise<NinjaEvent[]> {
+  await saveGlobalConfig('/api/events', { events: DEFAULT_NINJA_EVENTS });
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_NINJA_EVENTS));
   } catch (e) {
     console.warn("Failed to reset events in localStorage:", e);
   }
-  fetch('/api/events', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ events: DEFAULT_NINJA_EVENTS }),
-  }).catch(err => console.error('Failed to reset events on server:', err));
   return DEFAULT_NINJA_EVENTS;
 }

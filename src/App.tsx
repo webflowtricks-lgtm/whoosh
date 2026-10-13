@@ -635,22 +635,23 @@ export default function App() {
       };
 
       setActiveQuest(updatedQuest);
-
-      try {
-        const data = await safeFetchJson<{ success?: boolean; quests?: Quest[] }>('/api/quests');
-        if (data && data.success && Array.isArray(data.quests)) {
-          const updatedQuestsList = data.quests.map((q: any) =>
-            q.id === updatedQuest.id ? updatedQuest : q
-          );
-          await safeFetchJson('/api/quests', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quests: updatedQuestsList })
-          });
-        }
-      } catch (err) {
-        console.error('Failed to sync updated quest on battle end:', err);
+      if (user) {
+        const updatedUser = {
+          ...user,
+          questProgress: {
+            ...user.questProgress,
+            [updatedQuest.id]: updatedGoals.map(({ id, currentValue, currentStreak }) => ({
+              id,
+              currentValue,
+              currentStreak,
+            })),
+          },
+        };
+        setUser(updatedUser);
+        localStorage.setItem('naruto_user_profile', JSON.stringify(updatedUser));
       }
+
+      // Quest progress is account data, not a global quest-definition update.
     }
   };
 

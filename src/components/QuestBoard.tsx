@@ -137,19 +137,30 @@ export default function QuestBoard({
       if (data && data.success && Array.isArray(data.quests)) {
         // Sync completed quests with user profile
         const userCompletedIds = user.completedQuestIds || [];
-        let synced = data.quests.map((q: Quest) => ({
-          ...q,
-          completed: userCompletedIds.includes(q.id)
-        }));
+        let synced = data.quests.map((q: Quest) => {
+          const progressByGoal = new Map(
+            (user.questProgress?.[q.id] || []).map(progress => [progress.id, progress]),
+          );
+          return {
+            ...q,
+            goals: q.goals.map(goal => {
+              const progress = progressByGoal.get(goal.id);
+              return progress
+                ? { ...goal, currentValue: progress.currentValue, currentStreak: progress.currentStreak }
+                : { ...goal, currentValue: 0, currentStreak: 0 };
+            }),
+            completed: userCompletedIds.includes(q.id),
+          };
+        });
 
         // Missões bloqueadas (e as novas que ainda não desbloquearam) só começam a
         // contar a meta a partir do momento em que são desbloqueadas. Zera o progresso
         // acumulado delas para que vitórias/batalhas anteriores ao desbloqueio não contem.
         const lockedIds = computeLockedQuestIds(synced, user, ranksList);
-        let changed = false;
+        let resetProgress = false;
         synced = synced.map(q => {
           if (lockedIds.has(q.id) && q.goals?.some(g => (g.currentValue || 0) > 0 || (g.currentStreak || 0) > 0)) {
-            changed = true;
+            resetProgress = true;
             return {
               ...q,
               goals: q.goals.map(g => ({ ...g, currentValue: 0, currentStreak: 0 }))
@@ -160,17 +171,18 @@ export default function QuestBoard({
 
         setQuests(synced);
 
-        // Persiste o progresso zerado no servidor para que a missão comece do zero quando desbloquear
-        if (changed) {
-          try {
-            await safeFetchJson('/api/quests', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ quests: synced })
-            });
-          } catch (err) {
-            console.error('Error persisting zeroed locked quest progress:', err);
-          }
+        if (resetProgress) {
+          onUpdateUser({
+            ...user,
+            questProgress: {
+              ...user.questProgress,
+              ...Object.fromEntries(synced
+                .filter(q => lockedIds.has(q.id))
+                .map(q => [q.id, q.goals.map(({ id, currentValue, currentStreak }) => ({
+                  id, currentValue, currentStreak,
+                }))])),
+            },
+          });
         }
       }
     } catch (err) {
@@ -349,19 +361,9 @@ export default function QuestBoard({
       // Save user profile locally
       onUpdateUser(updatedUser);
 
-      // Save synced quests on server
+      // Completion is per-account; the global endpoint only stores quest definitions.
       const updatedQuestsList = quests.map(q => q.id === quest.id ? { ...q, completed: true } : q);
       setQuests(updatedQuestsList);
-
-      try {
-        await safeFetchJson('/api/quests', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quests: updatedQuestsList })
-        });
-      } catch (err) {
-        console.error('Error saving claimed quest on server:', err);
-      }
 
       setClaimedRewardId(null);
 

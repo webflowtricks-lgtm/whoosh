@@ -120,7 +120,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
     }
   };
 
-  const handleAddPngFrame = () => {
+  const handleAddPngFrame = async () => {
     playClickSound();
     if (!newFrameName.trim()) {
       showError('Informe um nome para a moldura PNG.');
@@ -140,28 +140,39 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
       isCustomUploaded: true
     };
 
-    const updated = addPngFrame(frameItem);
-    setPngFrames(updated);
-    setNewFrameCustomId(`frame-png-${Date.now().toString().slice(-4)}`);
-    setNewFrameName('');
-    setNewFrameDesc('');
-    setNewFrameUrl('');
-    showSuccess(`Moldura PNG "${frameItem.name}" adicionada ao acervo!`);
+    try {
+      const updated = await addPngFrame(frameItem);
+      setPngFrames(updated);
+      setNewFrameCustomId(`frame-png-${Date.now().toString().slice(-4)}`);
+      setNewFrameName('');
+      setNewFrameDesc('');
+      setNewFrameUrl('');
+      showSuccess(`Moldura PNG "${frameItem.name}" adicionada ao acervo!`);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar a moldura global.');
+    }
   };
 
-  const handleDeletePngFrame = (id: string) => {
+  const handleDeletePngFrame = async (id: string) => {
     playClickSound();
-    const updated = deletePngFrame(id);
-    setPngFrames(updated);
-    showSuccess('Moldura PNG removida da galeria.');
+    try {
+      setPngFrames(await deletePngFrame(id));
+      showSuccess('Moldura PNG removida da galeria.');
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao remover a moldura global.');
+    }
   };
 
-  const handleResetPngFrames = () => {
+  const handleResetPngFrames = async () => {
     playClickSound();
     if (confirm('Restaurar acervo de molduras PNG padrão?')) {
-      const defs = resetToDefaultPngFrames();
-      setPngFrames(defs);
-      showSuccess('Galeria de molduras restaurada para os padrões!');
+      try {
+        const defs = await resetToDefaultPngFrames();
+        setPngFrames(defs);
+        showSuccess('Galeria de molduras restaurada para os padrões!');
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao restaurar as molduras globais.');
+      }
     }
   };
 
@@ -179,7 +190,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
     }
   };
 
-  const handleAddOrUpdateCustomBanner = () => {
+  const handleAddOrUpdateCustomBanner = async () => {
     playClickSound();
     if (!newBannerName.trim()) {
       showError('Informe um nome para o banner do perfil.');
@@ -199,14 +210,18 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
       isCustomUploaded: true
     };
 
-    const updated = addCustomBanner(bannerItem);
-    setCustomBanners(updated);
-    setEditingBannerId(null);
-    setNewBannerCustomId(`banner-${Date.now().toString().slice(-4)}`);
-    setNewBannerName('');
-    setNewBannerDesc('');
-    setNewBannerUrl('');
-    showSuccess(editingBannerId ? `Banner "${bannerItem.name}" atualizado!` : `Banner "${bannerItem.name}" adicionado ao acervo!`);
+    try {
+      const updated = await addCustomBanner(bannerItem);
+      setCustomBanners(updated);
+      setEditingBannerId(null);
+      setNewBannerCustomId(`banner-${Date.now().toString().slice(-4)}`);
+      setNewBannerName('');
+      setNewBannerDesc('');
+      setNewBannerUrl('');
+      showSuccess(editingBannerId ? `Banner "${bannerItem.name}" atualizado!` : `Banner "${bannerItem.name}" adicionado ao acervo!`);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar o banner global.');
+    }
   };
 
   const handleEditBanner = (banner: CustomBannerItem) => {
@@ -228,22 +243,30 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
     setNewBannerUrl('');
   };
 
-  const handleDeleteCustomBanner = (id: string) => {
+  const handleDeleteCustomBanner = async (id: string) => {
     playClickSound();
-    const updated = deleteCustomBanner(id);
-    setCustomBanners(updated);
+    try {
+      setCustomBanners(await deleteCustomBanner(id));
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao remover o banner global.');
+      return;
+    }
     if (editingBannerId === id) {
       handleCancelEditBanner();
     }
     showSuccess('Banner removido da galeria.');
   };
 
-  const handleResetCustomBanners = () => {
+  const handleResetCustomBanners = async () => {
     playClickSound();
     if (confirm('Restaurar acervo de banners de perfil padrão?')) {
-      const defs = resetToDefaultCustomBanners();
-      setCustomBanners(defs);
-      showSuccess('Galeria de banners restaurada para os padrões!');
+      try {
+        const defs = await resetToDefaultCustomBanners();
+        setCustomBanners(defs);
+        showSuccess('Galeria de banners restaurada para os padrões!');
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao restaurar os banners globais.');
+      }
     }
   };
 
@@ -300,12 +323,16 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
         return char;
       });
 
-      setCharactersList(updatedChars);
-      await saveCharacters(updatedChars);
-      setEditingSkinInfo(null);
-      setNewSkinName('');
-      setNewSkinImage('');
-      showSuccess('Skin do personagem atualizada com sucesso!');
+      try {
+        await saveCharacters(updatedChars);
+        setCharactersList(updatedChars);
+        setEditingSkinInfo(null);
+        setNewSkinName('');
+        setNewSkinImage('');
+        showSuccess('Skin do personagem atualizada com sucesso!');
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao salvar a skin global.');
+      }
     } else {
       const targetChar = charactersList.find(c => c.id === newSkinCharId);
       const updatedChars = charactersList.map(char => {
@@ -321,11 +348,15 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
         return char;
       });
 
-      setCharactersList(updatedChars);
-      await saveCharacters(updatedChars);
-      setNewSkinName('');
-      setNewSkinImage('');
-      showSuccess(`Nova skin adicionada para ${targetChar?.name || 'Ninja'}!`);
+      try {
+        await saveCharacters(updatedChars);
+        setCharactersList(updatedChars);
+        setNewSkinName('');
+        setNewSkinImage('');
+        showSuccess(`Nova skin adicionada para ${targetChar?.name || 'Ninja'}!`);
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao adicionar a skin global.');
+      }
     }
   };
 
@@ -357,8 +388,13 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
       return char;
     });
 
-    setCharactersList(updatedChars);
-    await saveCharacters(updatedChars);
+    try {
+      await saveCharacters(updatedChars);
+      setCharactersList(updatedChars);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao remover a skin global.');
+      return;
+    }
     if (editingSkinInfo?.charId === charId && editingSkinInfo?.skinIdx === skinIdx) {
       handleCancelEditSkin();
     }
@@ -368,7 +404,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
   const totalSkinsCount = charactersList.reduce((acc, c) => acc + (c.skins?.length || 0), 0);
 
   // --- EVENT HANDLERS ---
-  const handleCreateNewEvent = () => {
+  const handleCreateNewEvent = async () => {
     playClickSound();
     const newId = `evento-ninja-${Date.now().toString().slice(-4)}`;
     const newEv: NinjaEvent = {
@@ -394,14 +430,19 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
     };
 
     const updated = [...events, newEv];
-    setEvents(updated);
-    saveEvents(updated);
+    try {
+      await saveEvents(updated);
+      setEvents(updated);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar a configuração global de eventos.');
+      return;
+    }
     setSelectedEventId(newId);
     setEditingEvent(newEv);
     showSuccess('Novo evento criado com sucesso!');
   };
 
-  const handleSaveEvent = () => {
+  const handleSaveEvent = async () => {
     if (!editingEvent) return;
     playClickSound();
 
@@ -416,20 +457,29 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
     }
 
     const updated = events.map(e => e.id === editingEvent.id ? editingEvent : e);
-    setEvents(updated);
-    saveEvents(updated);
-    showSuccess(`Evento "${editingEvent.title}" salvo com sucesso!`);
+    try {
+      await saveEvents(updated);
+      setEvents(updated);
+      showSuccess(`Evento "${editingEvent.title}" salvo com sucesso!`);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar os eventos globais.');
+    }
   };
 
-  const handleDeleteEvent = (eventId: string) => {
+  const handleDeleteEvent = async (eventId: string) => {
     playClickSound();
     const ev = events.find(e => e.id === eventId);
     if (!ev) return;
 
     if (confirm(`Tem certeza de que deseja excluir o evento "${ev.title}"?`)) {
       const updated = events.filter(e => e.id !== eventId);
-      setEvents(updated);
-      saveEvents(updated);
+      try {
+        await saveEvents(updated);
+        setEvents(updated);
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao remover o evento global.');
+        return;
+      }
 
       if (updated.length > 0) {
         setSelectedEventId(updated[0].id);
@@ -441,10 +491,16 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
     }
   };
 
-  const handleResetDefaults = () => {
+  const handleResetDefaults = async () => {
     playClickSound();
     if (confirm('Deseja restaurar os eventos para os padrões originais?')) {
-      const defaults = resetToDefaultEvents();
+      let defaults: NinjaEvent[];
+      try {
+        defaults = await resetToDefaultEvents();
+      } catch (error) {
+        showError(error instanceof Error ? error.message : 'Falha ao restaurar os eventos globais.');
+        return;
+      }
       setEvents(defaults);
       if (defaults.length > 0) {
         setSelectedEventId(defaults[0].id);

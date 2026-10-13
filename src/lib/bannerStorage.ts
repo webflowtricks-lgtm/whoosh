@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { safeFetchJson } from './api';
+import { safeFetchJson, saveGlobalConfig } from './api';
 
 export interface CustomBannerItem {
   id: string;
@@ -52,7 +52,7 @@ export function getCustomBanners(): CustomBannerItem[] {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     } catch (e) {
@@ -65,7 +65,7 @@ export function getCustomBanners(): CustomBannerItem[] {
 export async function fetchCustomBannersFromServer(): Promise<CustomBannerItem[]> {
   try {
     const data = await safeFetchJson<{ success?: boolean; banners?: CustomBannerItem[] }>('/api/banners');
-    if (data && data.success && Array.isArray(data.banners) && data.banners.length > 0) {
+    if (data && data.success && Array.isArray(data.banners)) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data.banners));
       } catch (e) {
@@ -79,20 +79,16 @@ export async function fetchCustomBannersFromServer(): Promise<CustomBannerItem[]
   return getCustomBanners();
 }
 
-export function saveCustomBanners(banners: CustomBannerItem[]): void {
+export async function saveCustomBanners(banners: CustomBannerItem[]): Promise<void> {
+  await saveGlobalConfig('/api/banners', { banners });
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(banners));
   } catch (e) {
     console.warn("Failed to save custom banners in localStorage:", e);
   }
-  fetch('/api/banners', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ banners }),
-  }).catch(err => console.error('Failed to sync banners to server:', err));
 }
 
-export function addCustomBanner(banner: CustomBannerItem): CustomBannerItem[] {
+export async function addCustomBanner(banner: CustomBannerItem): Promise<CustomBannerItem[]> {
   const banners = getCustomBanners();
   const existingIndex = banners.findIndex(b => b.id === banner.id);
   let updated: CustomBannerItem[];
@@ -102,27 +98,23 @@ export function addCustomBanner(banner: CustomBannerItem): CustomBannerItem[] {
   } else {
     updated = [...banners, banner];
   }
-  saveCustomBanners(updated);
+  await saveCustomBanners(updated);
   return updated;
 }
 
-export function deleteCustomBanner(bannerId: string): CustomBannerItem[] {
+export async function deleteCustomBanner(bannerId: string): Promise<CustomBannerItem[]> {
   const banners = getCustomBanners();
   const updated = banners.filter(b => b.id !== bannerId);
-  saveCustomBanners(updated);
+  await saveCustomBanners(updated);
   return updated;
 }
 
-export function resetToDefaultCustomBanners(): CustomBannerItem[] {
+export async function resetToDefaultCustomBanners(): Promise<CustomBannerItem[]> {
+  await saveGlobalConfig('/api/banners', { banners: DEFAULT_CUSTOM_BANNERS });
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CUSTOM_BANNERS));
   } catch (e) {
     console.warn("Failed to reset custom banners in localStorage:", e);
   }
-  fetch('/api/banners', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ banners: DEFAULT_CUSTOM_BANNERS }),
-  }).catch(err => console.error('Failed to reset banners on server:', err));
   return DEFAULT_CUSTOM_BANNERS;
 }

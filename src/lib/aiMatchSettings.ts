@@ -1,4 +1,4 @@
-import { safeFetchJson } from './api';
+import { safeFetchJson, saveGlobalConfig } from './api';
 
 export const DEFAULT_AI_ENEMY_CHARACTER_LIMIT = 69;
 
@@ -25,15 +25,7 @@ export async function fetchAiMatchSettings(): Promise<AiMatchSettings> {
 }
 
 export async function saveAiMatchSettings(settings: AiMatchSettings): Promise<void> {
-  const response = await fetch('/api/ai-settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      settings: [{ maxEnemyCharacterNumber: normalizeLimit(settings.maxEnemyCharacterNumber) }],
-    }),
+  await saveGlobalConfig('/api/ai-settings', {
+    settings: [{ maxEnemyCharacterNumber: normalizeLimit(settings.maxEnemyCharacterNumber) }],
   });
-  const result = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
-  if (!response.ok || !result?.success) {
-    throw new Error(result?.error || 'Não foi possível salvar as configurações de batalha contra IA.');
-  }
 }

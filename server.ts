@@ -695,6 +695,25 @@ async function startServer() {
       !!account &&
       account.activeTokenHash === hashSessionToken(sessionToken));
 
+  const globalConfigWritePaths = new Set([
+    "/api/characters", "/api/ranks", "/api/shop", "/api/events",
+    "/api/banners", "/api/frames", "/api/cards", "/api/cards/packs",
+    "/api/quests", "/api/ai-settings", "/api/config/import",
+  ]);
+  app.use((req, res, next) => {
+    if (req.method !== "POST" || !globalConfigWritePaths.has(req.path)) return next();
+    const username = req.get("X-Account-Username")?.trim().toLowerCase();
+    if (username !== "2") {
+      return res.status(username ? 403 : 401).json({
+        error: "Somente a conta administradora pode alterar as configurações globais.",
+      });
+    }
+    if (!hasActiveAccountSession(username, req.get("X-Account-Session"))) {
+      return res.status(401).json({ error: "A sessão da conta administradora está ausente ou foi revogada." });
+    }
+    next();
+  });
+
   const resolveAuthoritativeTeam = (submittedTeam: unknown) => {
     if (!isValidMatchTeam(submittedTeam)) return null;
     const characters = getAuthoritativeCharacters();
@@ -1470,7 +1489,7 @@ async function startServer() {
 
   app.post("/api/characters", (req, res) => {
     const { characters } = req.body;
-    if (!Array.isArray(characters)) {
+    if (!Array.isArray(characters) || characters.length === 0) {
       return res.status(400).json({ error: "Lista de personagens inválida." });
     }
 
@@ -1497,7 +1516,7 @@ async function startServer() {
 
   app.post("/api/ranks", (req, res) => {
     const { ranks } = req.body;
-    if (!Array.isArray(ranks)) {
+    if (!Array.isArray(ranks) || ranks.length === 0) {
       return res.status(400).json({ error: "Lista de ranks inválida." });
     }
     writeJSON(RANKS_FILE, ranks);
@@ -1884,6 +1903,10 @@ async function startServer() {
     const data = req.body;
     if (!data || typeof data !== "object") {
       return res.status(400).json({ error: "Arquivo de configuração JSON inválido." });
+    }
+    if ((Array.isArray(data.characters) && data.characters.length === 0) ||
+        (Array.isArray(data.ranks) && data.ranks.length === 0)) {
+      return res.status(400).json({ error: "O catálogo de personagens e a lista de ranks não podem ficar vazios." });
     }
 
     let countDetails: string[] = [];
