@@ -17,7 +17,7 @@ interface OnlineBattleHistoryRecord {
   players: [{ username: string; name: string }, { username: string; name: string }];
   winnerUsername: string;
   finishedAt: string;
-  reason: 'battle' | 'manual' | 'disconnect' | 'timeout';
+  reason: 'battle' | 'manual' | 'disconnect' | 'timeout' | 'inactivity';
 }
 
 /** Detecta mobile landscape (celular deitado) — mesmo critério do BattleBoard. */

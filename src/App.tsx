@@ -880,7 +880,12 @@ export default function App() {
     const checkSession = async () => {
       try {
         const claiming = !!sessionTicket;
-        const response = await fetch(`/api/auth/session/${claiming ? 'claim' : 'status'}`, {
+        const endpoint = claiming
+          ? 'claim'
+          : screenRef.current === 'battle'
+            ? 'heartbeat'
+            : 'status';
+        const response = await fetch(`/api/auth/session/${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -927,12 +932,20 @@ export default function App() {
     void checkSession();
     const interval = window.setInterval(() => {
       if (screenRef.current === 'battle') void checkSession();
-    }, 20000);
+    }, 60000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      if (screen === 'battle' && screenRef.current !== 'battle') {
+        fetch('/api/auth/session/unlock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: user.username, sessionToken }),
+          keepalive: true,
+        }).catch(error => console.error('Failed to release the battle session lease:', error));
+      }
     };
-  }, [user?.username, sessionToken, sessionTicket]);
+  }, [user?.username, sessionToken, sessionTicket, screen]);
 
   useEffect(() => {
     if (!user || sessionToken || user.username.trim().toLowerCase() === 'convidado') return;
@@ -1019,7 +1032,7 @@ export default function App() {
                   <div className="flex items-center justify-center gap-2">
                     <Swords className="w-6 h-6 text-orange-800 animate-pulse" />
                     <h2 className="text-xl font-black uppercase tracking-tight text-stone-950 font-sans">
-                      {reconnectChecking ? 'Verificando Sala...' : reconnectSurrender ? (reconnectSurrender.reason === 'timeout' ? (reconnectSurrender.isVictory ? 'Vitória por Inatividade!' : 'Derrota por Inatividade') : reconnectSurrender.reason === 'disconnect' ? (reconnectSurrender.isVictory ? 'Vitória por Desconexão!' : 'Derrota por Desconexão') : (reconnectSurrender.isVictory ? 'Vitória por Rendição!' : 'Derrota por Rendição')) : reconnectRoomLost ? 'Sala Perdida' : 'Combate Encontrado!'}
+                      {reconnectChecking ? 'Verificando Sala...' : reconnectSurrender ? (['timeout', 'inactivity'].includes(reconnectSurrender.reason) ? (reconnectSurrender.isVictory ? 'Vitória por Inatividade!' : 'Derrota por Inatividade') : reconnectSurrender.reason === 'disconnect' ? (reconnectSurrender.isVictory ? 'Vitória por Desconexão!' : 'Derrota por Desconexão') : (reconnectSurrender.isVictory ? 'Vitória por Rendição!' : 'Derrota por Rendição')) : reconnectRoomLost ? 'Sala Perdida' : 'Combate Encontrado!'}
                     </h2>
                   </div>
                   {reconnectChecking ? (
@@ -1028,7 +1041,7 @@ export default function App() {
                     </p>
                   ) : reconnectSurrender ? (
                     <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                      {reconnectSurrender.reason === 'timeout' ? (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} perdeu por falta de conexão (2 turnos offline)! Você venceu.` : `Você perdeu por falta de conexão (2 turnos sem jogar).`) : reconnectSurrender.reason === 'disconnect' ? (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} desconectou! Você venceu.` : `Você desconectou e perdeu.`) : (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} se rendeu! Você venceu por rendição.` : `Você se rendeu para ${reconnectSurrender.surrenderedBy}. Derrota por rendição.`)} A partida foi encerrada.
+                      {reconnectSurrender.reason === 'inactivity' ? (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} ficou 120 segundos sem interagir com a batalha. Você venceu!` : `Você perdeu por ficar 120 segundos sem interagir com a batalha.`) : reconnectSurrender.reason === 'timeout' ? (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} perdeu por falta de conexão (2 turnos offline)! Você venceu.` : `Você perdeu por falta de conexão (2 turnos sem jogar).`) : reconnectSurrender.reason === 'disconnect' ? (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} desconectou! Você venceu.` : `Você desconectou e perdeu.`) : (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} se rendeu! Você venceu por rendição.` : `Você se rendeu para ${reconnectSurrender.surrenderedBy}. Derrota por rendição.`)} A partida foi encerrada.
                     </p>
                   ) : reconnectRoomLost ? (
                     <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">

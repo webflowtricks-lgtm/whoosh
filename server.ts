@@ -7,6 +7,7 @@ import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { createServer as createViteServer } from "vite";
 import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
 import { firstSlotForTurn, isValidMatchTeam, submitTurnActions } from "./src/lib/matchProtocol";
+import { getInactiveMatchSlot, MATCH_INACTIVITY_TIMEOUT_MS } from "./src/lib/matchInactivity";
 
 const DATA_DIR = path.resolve(process.env.WHOOSH_DATA_DIR || path.join(process.cwd(), "src", "data"));
 const USERS_FILE = path.join(DATA_DIR, "users.json");
@@ -66,7 +67,9 @@ async function startServer() {
   type AccountSession = {
     activeTokenHash: string;
     pendingTokenHashes: string[];
+    lastActiveAt?: number;
   };
+  const sessionBattleLeaseMs = 180_000;
   const accountSessions = Object.assign(
     Object.create(null) as Record<string, AccountSession>,
     readJSON<Record<string, AccountSession>>(ACCOUNT_SESSIONS_FILE, {})
@@ -77,7 +80,7 @@ async function startServer() {
     players: [{ username: string; name: string }, { username: string; name: string }];
     winnerUsername: string;
     finishedAt: string;
-    reason: 'battle' | 'manual' | 'disconnect' | 'timeout';
+    reason: 'battle' | 'manual' | 'disconnect' | 'timeout' | 'inactivity';
   };
   const onlineBattleHistory = new Map(
     Object.entries(readJSON<Record<string, OnlineBattleHistoryRecord>>(ONLINE_BATTLE_HISTORY_FILE, {}))
@@ -313,7 +316,7 @@ async function startServer() {
     const tokenHash = hashSessionToken(sessionToken);
     let account = accountSessions[cleanUsername];
     if (!account) {
-      account = { activeTokenHash: tokenHash, pendingTokenHashes: [] };
+      account = { activeTokenHash: tokenHash, pendingTokenHashes: [], lastActiveAt: Date.now() };
       accountSessions[cleanUsername] = account;
       if (!saveAccountSessions()) {
         delete accountSessions[cleanUsername];
@@ -323,13 +326,34 @@ async function startServer() {
     }
 
     if (account.activeTokenHash === tokenHash) {
+      account.lastActiveAt = Date.now();
+      if (!saveAccountSessions()) {
+        return res.status(500).json({ error: "Não foi possível renovar a sessão da conta." });
+      }
       return res.json({ success: true, status: "active" });
     }
 
-    if (!account.pendingTokenHashes.includes(tokenHash)) {
-      account.pendingTokenHashes.push(tokenHash);
+    if (!Number.isFinite(account.lastActiveAt) || Date.now() - account.lastActiveAt! >= sessionBattleLeaseMs) {
+      const previousActiveTokenHash = account.activeTokenHash;
+      const previousPendingTokenHashes = account.pendingTokenHashes;
+      const previousLastActiveAt = account.lastActiveAt;
+      account.activeTokenHash = tokenHash;
+      account.pendingTokenHashes = [];
+      account.lastActiveAt = Date.now();
       if (!saveAccountSessions()) {
-        account.pendingTokenHashes.pop();
+        account.activeTokenHash = previousActiveTokenHash;
+        account.pendingTokenHashes = previousPendingTokenHashes;
+        account.lastActiveAt = previousLastActiveAt;
+        return res.status(500).json({ error: "Não foi possível recuperar a sessão inativa." });
+      }
+      return res.json({ success: true, status: "active" });
+    }
+
+    if (account.pendingTokenHashes.length !== 1 || account.pendingTokenHashes[0] !== tokenHash) {
+      const previousPendingTokenHashes = account.pendingTokenHashes;
+      account.pendingTokenHashes = [tokenHash];
+      if (!saveAccountSessions()) {
+        account.pendingTokenHashes = previousPendingTokenHashes;
         return res.status(500).json({ error: "Não foi possível salvar a solicitação de sessão." });
       }
     }
@@ -388,11 +412,14 @@ async function startServer() {
 
     const previousActiveTokenHash = account.activeTokenHash;
     const previousPendingTokenHashes = account.pendingTokenHashes;
+    const previousLastActiveAt = account.lastActiveAt;
     account.activeTokenHash = requestingTokenHash;
     account.pendingTokenHashes = [];
+    account.lastActiveAt = Date.now();
     if (!saveAccountSessions()) {
       account.activeTokenHash = previousActiveTokenHash;
       account.pendingTokenHashes = previousPendingTokenHashes;
+      account.lastActiveAt = previousLastActiveAt;
       return res.status(500).json({ error: "Não foi possível concluir a troca de aparelho." });
     }
     forfeitMatchesOnSessionTakeover(cleanUsername);
@@ -436,6 +463,45 @@ async function startServer() {
       if (!saveAccountSessions()) {
         accountSessions[cleanUsername] = account;
         return res.status(500).json({ error: "Não foi possível encerrar a sessão neste servidor." });
+      }
+    }
+    res.json({ success: true });
+  });
+
+  app.post("/api/auth/session/heartbeat", (req, res) => {
+    const { username, sessionToken } = req.body;
+    if (!validSessionInput(username, sessionToken)) {
+      return res.status(400).json({ error: "Dados da sessão inválidos." });
+    }
+    const account = accountSessions[username.trim().toLowerCase()];
+    if (!account || account.activeTokenHash !== hashSessionToken(sessionToken)) {
+      return res.json({ success: true, status: "revoked" });
+    }
+    const previousLastActiveAt = account.lastActiveAt;
+    account.lastActiveAt = Date.now();
+    if (!saveAccountSessions()) {
+      account.lastActiveAt = previousLastActiveAt;
+      return res.status(500).json({ error: "Não foi possível renovar a sessão durante a batalha." });
+    }
+    res.json({
+      success: true,
+      status: "active",
+      takeoverRequested: account.pendingTokenHashes.length > 0,
+    });
+  });
+
+  app.post("/api/auth/session/unlock", (req, res) => {
+    const { username, sessionToken } = req.body;
+    if (!validSessionInput(username, sessionToken)) {
+      return res.status(400).json({ error: "Dados da sessão inválidos." });
+    }
+    const account = accountSessions[username.trim().toLowerCase()];
+    if (account && account.activeTokenHash === hashSessionToken(sessionToken)) {
+      const previousLastActiveAt = account.lastActiveAt;
+      account.lastActiveAt = 0;
+      if (!saveAccountSessions()) {
+        account.lastActiveAt = previousLastActiveAt;
+        return res.status(500).json({ error: "Não foi possível liberar a sessão da batalha." });
       }
     }
     res.json({ success: true });
@@ -532,9 +598,10 @@ async function startServer() {
     surrenderedBy: string | null;
     winnerUsername?: string | null;
     pings: [number, number];
+    activityAt: [number, number];
     phaseDeadline: number;
     timeoutStreak: [number, number]; // turnos seguidos sem jogar (offline) - derrota apos 2
-    surrenderReason: string | null; // 'manual' | 'timeout' | 'disconnect'
+    surrenderReason: string | null; // 'manual' | 'timeout' | 'disconnect' | 'inactivity'
   }
 
   const waitingQueue: QueuePlayer[] = [];
@@ -640,6 +707,7 @@ async function startServer() {
             emojis: r.emojis || [],
             chatMessages: r.chatMessages || [],
             pings: [fresh, fresh],
+            activityAt: [fresh, fresh],
             lastActivity: fresh,
             phaseDeadline: typeof (r as any).phaseDeadline === "number" ? (r as any).phaseDeadline : fresh + 60000,
             timeoutStreak: Array.isArray((r as any).timeoutStreak) ? (r as any).timeoutStreak : [0, 0],
@@ -666,6 +734,27 @@ async function startServer() {
     if (room.players[0].username === username) return 0;
     if (room.players[1].username === username) return 1;
     return -1;
+  };
+  const touchPlayerActivity = (room: MatchRoom, slot: 0 | 1, now: number) => {
+    room.pings[slot] = now;
+    room.lastActivity = now;
+    if (now - room.activityAt[slot] >= 5000) room.activityAt[slot] = now;
+  };
+  const forfeitIfInactive = (room: MatchRoom, now: number): boolean => {
+    if (room.surrenderedBy || room.winnerUsername) return false;
+    const inactiveSlot = getInactiveMatchSlot(room.activityAt, now);
+    if (inactiveSlot === null) return false;
+    const loserUsername = room.players[inactiveSlot].username;
+    const winner = room.players[inactiveSlot === 0 ? 1 : 0];
+    room.surrenderedBy = loserUsername;
+    room.surrenderReason = "inactivity";
+    room.phaseDeadline = now + 60000;
+    if (!recordOnlineBattle(room, winner.username, "inactivity")) {
+      console.error(`[MATCH] Não foi possível registrar a vitória por inatividade da sala ${room.id}.`);
+    }
+    markRoomsDirty();
+    try { broadcastRoomState(room.id); } catch {}
+    return true;
   };
 
   function requireActiveMatchSession(req: express.Request, res: express.Response, next: express.NextFunction) {
@@ -852,6 +941,7 @@ async function startServer() {
         surrenderedBy: null,
         winnerUsername: null,
         pings: [Date.now(), Date.now()],
+        activityAt: [Date.now(), Date.now()],
         phaseDeadline: Date.now() + 60000,
         timeoutStreak: [0, 0],
         surrenderReason: null,
@@ -913,6 +1003,29 @@ async function startServer() {
     res.json({ status: "idle" });
   });
 
+  app.post("/api/match/activity", requireActiveMatchSession, (req, res) => {
+    const { roomId, username } = req.body;
+    if (typeof roomId !== "string" || typeof username !== "string") {
+      return res.status(400).json({ error: "Dados de atividade inválidos." });
+    }
+    const room = activeRooms[roomId];
+    if (!room) return res.status(404).json({ error: "Sala não encontrada ou partida finalizada." });
+    const slot = slotOf(room, username.trim().toLowerCase());
+    if (slot !== 0 && slot !== 1) return res.status(403).json({ error: "Você não faz parte desta sala." });
+    if (room.surrenderedBy || room.winnerUsername) {
+      return res.json({ success: true, alreadyFinished: true });
+    }
+    const now = Date.now();
+    if (forfeitIfInactive(room, now)) {
+      return res.json({ success: true, alreadyFinished: true });
+    }
+    if (now - room.activityAt[slot] >= 5000) {
+      touchPlayerActivity(room, slot, now);
+      markRoomsDirty();
+    }
+    return res.json({ success: true });
+  });
+
   // Submit Turn Actions
   app.post("/api/match/submit-turn", requireActiveMatchSession, (req, res) => {
     const { roomId, username, actions, turn } = req.body;
@@ -931,8 +1044,11 @@ async function startServer() {
       return res.status(403).json({ error: "Você não faz parte desta sala." });
     }
 
-    room.lastActivity = Date.now();
-    room.pings[idx] = Date.now();
+    const now = Date.now();
+    if (forfeitIfInactive(room, now)) {
+      return res.json({ success: true, room: lightRoomObject(room), alreadyFinished: true });
+    }
+    touchPlayerActivity(room, idx, now);
     const submission = submitTurnActions(room, idx, turn, actions);
     if (submission.status === "invalid") {
       return res.status(400).json({ error: submission.message });
@@ -1374,6 +1490,10 @@ async function startServer() {
     for (const id in activeRooms) {
       const room2 = activeRooms[id];
       if (room2.surrenderedBy) continue;
+      if (forfeitIfInactive(room2, now2)) {
+        console.log(`[INACTIVITY] Sala ${id} jogador ${room2.surrenderedBy} derrotado após 120s sem atividade.`);
+        continue;
+      }
       if (!room2.phaseDeadline || now2 <= room2.phaseDeadline) continue;
       // Deadline estourou - descobre de quem eh a vez neste turno/fase
       const curTurn = (room2.resolvedTurn ?? 0) + 1;
@@ -2035,6 +2155,18 @@ async function startServer() {
             if (idx !== -1) { room.pings[idx] = Date.now(); room.lastActivity = Date.now(); }
           }
           try { ws.send(JSON.stringify({ type: 'pong' })); } catch {}
+        } else if (msg.type === "activity" && joinedRoomId && joinedUsername) {
+          const room = activeRooms[joinedRoomId];
+          if (room) {
+            const idx = slotOf(room, joinedUsername);
+            const now = Date.now();
+            if (forfeitIfInactive(room, now)) return;
+            if ((idx === 0 || idx === 1) && !room.surrenderedBy && !room.winnerUsername &&
+              now - room.activityAt[idx] >= 5000) {
+              touchPlayerActivity(room, idx, now);
+              markRoomsDirty();
+            }
+          }
         }
       } catch {}
     });

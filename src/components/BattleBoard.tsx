@@ -2194,6 +2194,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const wsPushRef = useRef<((data: any) => void) | null>(null);
   const wsConnectedRef = useRef(false);
   const lastWsMsgAtRef = useRef(0);
+  const wsActivityRef = useRef<(() => boolean) | null>(null);
   const wsApplyReportRef = useRef<((username: string, report: { turn: number; units?: any; chakra?: any }) => void) | null>(null);
 
   // ── CHAT DESABILITADO: sem auto-scroll / sync de isChatOpenRef ──
@@ -12592,6 +12593,13 @@ splashOnlyTargets = splashPool.filter(c =>
             if (sReason === 'timeout') {
               reason = isSelf ? 'Você perdeu por falta de conexão (2 turnos sem jogar).' : `Oponente ${data.room.surrenderedBy} perdeu por falta de conexão (2 turnos offline)!`;
               logMsg = isSelf ? '🏳️ Você perdeu por inatividade (2 turnos offline). Derrota.' : `🏳️ ${data.room.surrenderedBy} perdeu por inatividade! Vitória!`;
+            } else if (sReason === 'inactivity') {
+              reason = isSelf
+                ? 'Você perdeu por ficar 120 segundos sem interagir com a batalha.'
+                : `Oponente ${data.room.surrenderedBy} ficou 120 segundos sem jogar. Você venceu!`;
+              logMsg = isSelf
+                ? '🏳️ Derrota por inatividade: 120 segundos sem interagir com a batalha.'
+                : `🏆 ${data.room.surrenderedBy} perdeu por inatividade após 120 segundos. Você venceu!`;
             } else if (sReason === 'disconnect') {
               reason = isSelf
                 ? 'Você foi derrotado por desconexão após sua conta ser acessada em outro aparelho.'
@@ -12936,6 +12944,7 @@ splashOnlyTargets = splashPool.filter(c =>
       }
       ws.onopen = () => {
         wsConnectedRef.current = true;
+        wsActivityRef.current = null;
         console.log('[WS] conectado:', wsUrl);
         try {
           let sessionToken: string | null = null;
@@ -12954,6 +12963,16 @@ splashOnlyTargets = splashPool.filter(c =>
           const msg = JSON.parse(ev.data);
           lastWsMsgAtRef.current = Date.now();
           if (msg && msg.type === 'room-state' && msg.room) {
+            wsActivityRef.current = () => {
+              if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+              try {
+                ws.send(JSON.stringify({ type: 'activity' }));
+                return true;
+              } catch (error) {
+                console.error('[WS] Falha ao sinalizar atividade na batalha:', error);
+                return false;
+              }
+            };
             wsPushRef.current?.({ success: true, room: msg.room });
           } else if (msg && msg.type === 'pong') {
             // keepalive OK — nada a fazer além da freshness acima
@@ -12968,6 +12987,7 @@ splashOnlyTargets = splashPool.filter(c =>
       };
       ws.onclose = () => {
         wsConnectedRef.current = false;
+        wsActivityRef.current = null;
         if (pingTimer) {
           clearInterval(pingTimer);
           pingTimer = null;
@@ -12985,8 +13005,39 @@ splashOnlyTargets = splashPool.filter(c =>
       if (pingTimer) clearInterval(pingTimer);
       try { ws?.close(); } catch {}
       wsConnectedRef.current = false;
+      wsActivityRef.current = null;
     };
   }, [onlineParams?.isOnline, onlineParams?.roomId, gameOver]);
+
+  useEffect(() => {
+    if (!onlineParams?.isOnline || gameOver) return;
+    let lastActivitySentAt = 0;
+    const signalActivity = () => {
+      const now = Date.now();
+      if (now - lastActivitySentAt < 10000) return;
+      lastActivitySentAt = now;
+      if (wsActivityRef.current?.()) return;
+      void matchFetch('/api/match/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: onlineParams.roomId, username: user.username }),
+      }).then(response => {
+        if (!response.ok) {
+          console.error(`[BattleBoard] Falha ao registrar atividade da partida: HTTP ${response.status}`);
+        }
+      }).catch(error => {
+        console.error('[BattleBoard] Falha ao registrar atividade da partida:', error);
+      });
+    };
+    document.addEventListener('pointerdown', signalActivity, { passive: true });
+    document.addEventListener('keydown', signalActivity);
+    document.addEventListener('wheel', signalActivity, { passive: true });
+    return () => {
+      document.removeEventListener('pointerdown', signalActivity);
+      document.removeEventListener('keydown', signalActivity);
+      document.removeEventListener('wheel', signalActivity);
+    };
+  }, [onlineParams?.isOnline, onlineParams?.roomId, user.username, gameOver]);
 
   // ⏱️ WATCHDOG ANTI-TRAVAMENTO (online): se finalizei meu turno e estou aguardando
   // o oponente há mais de ~20s sem nenhum progresso, resolvo a rodada LOCALMENTE

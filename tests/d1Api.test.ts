@@ -63,16 +63,37 @@ class MemoryStatement implements D1PreparedStatement {
           username,
           active_token_hash,
           pending_token_hashes_json: '[]',
+          updated_at: Date.now(),
         });
         return { success: true, meta: { changes: 1 } };
       }
       return { success: true, meta: { changes: 0 } };
     }
     if (q.startsWith('update account_sessions set pending_token_hashes_json')) {
-      const [pending, username, active] = this.values;
+      const [pending, username, active, previousPending, updatedAt] = this.values;
+      const row = this.db.sessions.get(String(username));
+      if (row?.active_token_hash === active &&
+          row.pending_token_hashes_json === previousPending &&
+          row.updated_at === updatedAt) {
+        row.pending_token_hashes_json = pending;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+    if (q.startsWith('update account_sessions set updated_at = current_timestamp')) {
+      const [username, active] = this.values;
       const row = this.db.sessions.get(String(username));
       if (row?.active_token_hash === active) {
-        row.pending_token_hashes_json = pending;
+        row.updated_at = Date.now();
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+    if (q.startsWith('update account_sessions set updated_at = datetime')) {
+      const [username, active] = this.values;
+      const row = this.db.sessions.get(String(username));
+      if (row?.active_token_hash === active) {
+        row.updated_at = Date.now() - 240_000;
         return { success: true, meta: { changes: 1 } };
       }
       return { success: true, meta: { changes: 0 } };
@@ -83,6 +104,7 @@ class MemoryStatement implements D1PreparedStatement {
       if (row?.active_token_hash === previous) {
         row.active_token_hash = active;
         row.pending_token_hashes_json = '[]';
+        row.updated_at = Date.now();
         return { success: true, meta: { changes: 1 } };
       }
       return { success: true, meta: { changes: 0 } };
@@ -175,6 +197,15 @@ class MemoryStatement implements D1PreparedStatement {
     }
     if (q.startsWith('select active_token_hash, pending_token_hashes_json from account_sessions')) {
       return (this.db.sessions.get(String(this.values[0])) as T) || null;
+    }
+    if (q.startsWith('select active_token_hash, pending_token_hashes_json, updated_at,')) {
+      const row = this.db.sessions.get(String(this.values[0]));
+      if (!row) return null;
+      const updatedAt = Number(row.updated_at);
+      return {
+        ...row,
+        lease_expired: Number.isFinite(updatedAt) && Date.now() - updatedAt >= 180_000 ? 1 : 0,
+      } as T;
     }
     if (q.startsWith('delete from session_tickets')) {
       const [ticket_hash, username, now] = this.values;
@@ -360,6 +391,49 @@ test('claims sessions, reports takeover, and revokes the prior device', async ()
   }), env);
   assert.equal((await responseBody(revokedStatus!)).status, 'revoked');
   assert.equal((await responseBody(activeNewStatus!)).status, 'active');
+
+  const activeLease = env.DB.sessions.get('session_user')?.updated_at;
+  const thirdLogin = await handleD1Request(request('/api/auth/login', 'POST', {
+    username: 'session_user',
+    password: 'password',
+  }), env);
+  const thirdToken = 'c'.repeat(64);
+  const thirdClaim = await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'session_user',
+    sessionToken: thirdToken,
+    sessionTicket: (await responseBody(thirdLogin!)).sessionTicket,
+  }), env);
+  assert.equal((await responseBody(thirdClaim!)).status, 'pending');
+  assert.equal(env.DB.sessions.get('session_user')?.updated_at, activeLease);
+
+  const sessionRow = env.DB.sessions.get('session_user')!;
+  sessionRow.updated_at = Date.now() - 180_001;
+  const fourthLogin = await handleD1Request(request('/api/auth/login', 'POST', {
+    username: 'session_user',
+    password: 'password',
+  }), env);
+  const fourthToken = 'f'.repeat(64);
+  const fourthClaim = await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'session_user',
+    sessionToken: fourthToken,
+    sessionTicket: (await responseBody(fourthLogin!)).sessionTicket,
+  }), env);
+  assert.equal((await responseBody(fourthClaim!)).status, 'active');
+  assert.equal(env.DB.sessions.get('session_user')?.pending_token_hashes_json, '[]');
+
+  const heartbeat = await handleD1Request(request('/api/auth/session/heartbeat', 'POST', {
+    username: 'session_user',
+    sessionToken: fourthToken,
+  }), env);
+  assert.equal((await responseBody(heartbeat!)).status, 'active');
+  assert.ok(Date.now() - Number(env.DB.sessions.get('session_user')?.updated_at) < 1000);
+
+  const unlock = await handleD1Request(request('/api/auth/session/unlock', 'POST', {
+    username: 'session_user',
+    sessionToken: fourthToken,
+  }), env);
+  assert.equal((await responseBody(unlock!)).status, 'active');
+  assert.ok(Date.now() - Number(env.DB.sessions.get('session_user')?.updated_at) >= 180_000);
 });
 
 test('only the active session for account 2 can publish global configuration', async () => {

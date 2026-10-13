@@ -19,6 +19,10 @@ import {
   resolveAuthoritativeTurn,
   validateAuthoritativeActions,
 } from './serverCombat';
+import {
+  getInactiveMatchSlot,
+  MATCH_INACTIVITY_TIMEOUT_MS,
+} from '../src/lib/matchInactivity';
 
 interface WorkerAssets {
   fetch(request: Request): Promise<Response>;
@@ -40,10 +44,11 @@ interface MatchRoomData {
   resolvedTurn: number;
   surrenderedBy: string | null;
   winnerUsername: string | null;
-  surrenderReason: 'manual' | 'disconnect' | 'timeout' | null;
+  surrenderReason: 'manual' | 'disconnect' | 'timeout' | 'inactivity' | null;
   phaseDeadline: number;
   finishedAt?: number | null;
   pings: [number, number];
+  activityAt?: [number, number];
   timeoutStreak: [number, number];
 }
 
@@ -74,7 +79,7 @@ interface HistoryRecord {
   players: [{ username: string; name: string }, { username: string; name: string }];
   winnerUsername: string;
   finishedAt: string;
-  reason: 'battle' | 'manual' | 'disconnect' | 'timeout';
+  reason: 'battle' | 'manual' | 'disconnect' | 'timeout' | 'inactivity';
 }
 
 interface MatchEnv {
@@ -334,6 +339,7 @@ export class MatchmakerDurableObject {
       phaseDeadline: createdAt + 60000,
       finishedAt: null,
       pings: [createdAt, createdAt],
+      activityAt: [createdAt, createdAt],
       timeoutStreak: [0, 0],
     };
     const roomStub = this.env.MATCH_ROOM.get(this.env.MATCH_ROOM.idFromName(roomId));
@@ -536,9 +542,30 @@ export class MatchRoomDurableObject {
         if (!current) return fail(404, 'Sala não encontrada ou partida finalizada.');
         const currentSlot = this.slotOf(current, username);
         if (currentSlot !== 0 && currentSlot !== 1) return fail(403, 'Você não faz parte desta sala.');
-        current.pings[currentSlot] = Date.now();
+        if (await this.forfeitIfInactive(current, Date.now())) {
+          return json({ success: true, room: this.roomPayload(this.readRoom() || current), alreadyFinished: true });
+        }
+        this.touchPlayerActivity(current, currentSlot, Date.now());
         await this.saveRoom(current);
         return this.submit(current, currentSlot, body!);
+      });
+    }
+    if (path === '/api/match/activity' && request.method === 'POST') {
+      return this.state.blockConcurrencyWhile(async () => {
+        const current = this.readRoom();
+        if (!current) return fail(404, 'Sala não encontrada ou partida finalizada.');
+        const currentSlot = this.slotOf(current, username);
+        if (currentSlot !== 0 && currentSlot !== 1) return fail(403, 'Você não faz parte desta sala.');
+        if (current.surrenderedBy || current.winnerUsername) {
+          return json({ success: true, alreadyFinished: true });
+        }
+        const now = Date.now();
+        if (await this.forfeitIfInactive(current, now)) {
+          return json({ success: true, alreadyFinished: true });
+        }
+        this.touchPlayerActivity(current, currentSlot, now);
+        await this.saveRoom(current);
+        return json({ success: true });
       });
     }
     room.pings[slot] = Date.now();
@@ -567,7 +594,7 @@ export class MatchRoomDurableObject {
     return fail(404, 'Rota de sala não encontrada.');
   }
 
-  private create(room: MatchRoomData): Response {
+  private async create(room: MatchRoomData): Promise<Response> {
     if (!room || typeof room.id !== 'string' || !Array.isArray(room.players) ||
       room.players.length !== 2 || room.players[0].username === room.players[1].username ||
       !Number.isSafeInteger(room.seed) || room.players.some(player => !isValidMatchTeam(player.team))) {
@@ -593,7 +620,7 @@ export class MatchRoomDurableObject {
     this.state.storage.sql.exec('DELETE FROM turn_submissions');
     this.state.storage.sql.exec('DELETE FROM emojis');
     this.state.storage.sql.exec('DELETE FROM chat_messages');
-    this.state.storage.setAlarm(room.phaseDeadline);
+    await this.scheduleAlarm(room);
     return json({ success: true });
   }
 
@@ -601,7 +628,16 @@ export class MatchRoomDurableObject {
     const row = this.state.storage.sql.exec<{ state_json: string }>(
       'SELECT state_json FROM room_state WHERE singleton = 1',
     ).toArray()[0];
-    return row ? JSON.parse(row.state_json) as MatchRoomData : null;
+    if (!row) return null;
+    const room = JSON.parse(row.state_json) as MatchRoomData;
+    if (!Array.isArray(room.activityAt) || room.activityAt.length !== 2 ||
+      room.activityAt.some(timestamp => !Number.isFinite(timestamp))) {
+      const now = Date.now();
+      room.activityAt = Array.isArray(room.pings) && room.pings.length === 2
+        ? [room.pings[0], room.pings[1]]
+        : [now, now];
+    }
+    return room;
   }
 
   private async saveRoom(room: MatchRoomData): Promise<void> {
@@ -609,7 +645,36 @@ export class MatchRoomDurableObject {
       'INSERT INTO room_state (singleton, state_json) VALUES (1, ?) ON CONFLICT(singleton) DO UPDATE SET state_json = excluded.state_json',
       JSON.stringify(room),
     );
-    await this.state.storage.setAlarm(room.phaseDeadline);
+    await this.scheduleAlarm(room);
+  }
+
+  private touchPlayerActivity(room: MatchRoomData, slot: 0 | 1, now: number): void {
+    room.pings[slot] = now;
+    if (!room.activityAt || now - room.activityAt[slot] >= 5000) {
+      room.activityAt = room.activityAt || [...room.pings];
+      room.activityAt[slot] = now;
+    }
+  }
+
+  private async scheduleAlarm(room: MatchRoomData): Promise<void> {
+    if (room.surrenderedBy || room.winnerUsername) {
+      await this.state.storage.setAlarm((room.finishedAt || Date.now()) + 600000);
+      return;
+    }
+    const activityAt = room.activityAt || room.pings;
+    await this.state.storage.setAlarm(Math.min(
+      room.phaseDeadline,
+      activityAt[0] + MATCH_INACTIVITY_TIMEOUT_MS,
+      activityAt[1] + MATCH_INACTIVITY_TIMEOUT_MS,
+    ));
+  }
+
+  private async forfeitIfInactive(room: MatchRoomData, now: number): Promise<boolean> {
+    if (room.surrenderedBy || room.winnerUsername) return false;
+    const inactiveSlot = getInactiveMatchSlot(room.activityAt || room.pings, now);
+    if (inactiveSlot === null) return false;
+    await this.forfeit(room, room.players[inactiveSlot].username, 'inactivity');
+    return true;
   }
 
   private slotOf(room: MatchRoomData, username: string): 0 | 1 | -1 {
@@ -760,6 +825,17 @@ export class MatchRoomDurableObject {
       return;
     }
     const username = this.socketUsername(socket);
+    if (message.type === 'activity' && username) {
+      room = this.readRoom();
+      const slot = room ? this.slotOf(room, username) : -1;
+      if (!room || (slot !== 0 && slot !== 1) ||
+        room.surrenderedBy || room.winnerUsername) return;
+      const now = Date.now();
+      if (await this.forfeitIfInactive(room, now)) return;
+      this.touchPlayerActivity(room, slot, now);
+      await this.saveRoom(room);
+      return;
+    }
     if (message.type === 'ping' && username) {
       room = this.readRoom();
       const slot = room ? this.slotOf(room, username) : -1;
@@ -854,7 +930,7 @@ export class MatchRoomDurableObject {
         JSON.stringify(room),
       );
     });
-    await this.state.storage.setAlarm(room.phaseDeadline);
+    await this.scheduleAlarm(room);
     if (winnerSlot !== null) await this.persistBattleHistory(room);
     this.broadcast(room, room.players[slot].username);
     return json({ success: true, resolvedTurn: room.resolvedTurn, room: this.roomPayload(room) });
@@ -936,7 +1012,7 @@ export class MatchRoomDurableObject {
   private async forfeit(
     room: MatchRoomData,
     loserUsername: string,
-    reason: 'manual' | 'disconnect' | 'timeout',
+    reason: 'manual' | 'disconnect' | 'timeout' | 'inactivity',
   ): Promise<void> {
     const loserSlot = this.slotOf(room, loserUsername);
     if (loserSlot < 0 || room.surrenderedBy || room.winnerUsername) return;
@@ -1067,11 +1143,12 @@ export class MatchRoomDurableObject {
         this.state.storage.sql.exec('DELETE FROM turn_submissions');
         return;
       }
-      await this.state.storage.setAlarm(now + 60000);
+      await this.scheduleAlarm(room);
       return;
     }
+    if (await this.forfeitIfInactive(room, now)) return;
     if (now <= room.phaseDeadline) {
-      await this.state.storage.setAlarm(room.phaseDeadline);
+      await this.scheduleAlarm(room);
       return;
     }
     const turns = this.submissions();
@@ -1086,7 +1163,8 @@ export class MatchRoomDurableObject {
           ? 0
           : null;
     if (activeSlot === null) {
-      await this.state.storage.setAlarm(now + 60000);
+      room.phaseDeadline = now + 60000;
+      await this.saveRoom(room);
       return;
     }
     const resolvedSlot: 0 | 1 = activeSlot === 0 ? 0 : 1;

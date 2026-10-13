@@ -33,6 +33,7 @@ interface AccountRow {
 const DEFAULT_AVATAR =
   'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
 const SESSION_TTL_MS = 120_000;
+const SESSION_BATTLE_LEASE_SECONDS = 180;
 interface FirebaseJwk extends JsonWebKey {
   kid?: string;
 }
@@ -365,9 +366,16 @@ async function sessionRoute(request: Request, env: D1Env, pathname: string): Pro
 
     let claimed = false;
     for (let attempt = 0; attempt < 4; attempt++) {
-      const existing = await env.DB.prepare(
-        'SELECT active_token_hash, pending_token_hashes_json FROM account_sessions WHERE username = ?',
-      ).bind(username).first<{ active_token_hash: string; pending_token_hashes_json: string }>();
+      const existing = await env.DB.prepare(`
+        SELECT active_token_hash, pending_token_hashes_json, updated_at,
+          updated_at <= datetime('now', '-${SESSION_BATTLE_LEASE_SECONDS} seconds') AS lease_expired
+        FROM account_sessions WHERE username = ?
+      `).bind(username).first<{
+        active_token_hash: string;
+        pending_token_hashes_json: string;
+        updated_at: string;
+        lease_expired: number;
+      }>();
       if (!existing) {
         const inserted = await env.DB.prepare(`
           INSERT INTO account_sessions (username, active_token_hash, pending_token_hashes_json)
@@ -380,19 +388,43 @@ async function sessionRoute(request: Request, env: D1Env, pathname: string): Pro
         continue;
       }
       if (existing.active_token_hash === tokenHash) {
+        await env.DB.prepare(`
+          UPDATE account_sessions SET updated_at = CURRENT_TIMESTAMP
+          WHERE username = ? AND active_token_hash = ?
+        `).bind(username, tokenHash).run();
         claimed = true;
         break;
+      }
+      if (existing.lease_expired) {
+        const reclaimed = await env.DB.prepare(`
+          UPDATE account_sessions
+          SET active_token_hash = ?, pending_token_hashes_json = '[]', updated_at = CURRENT_TIMESTAMP
+          WHERE username = ? AND active_token_hash = ? AND pending_token_hashes_json = ? AND updated_at = ?
+        `).bind(
+          tokenHash,
+          username,
+          existing.active_token_hash,
+          existing.pending_token_hashes_json,
+          existing.updated_at,
+        ).run();
+        if (reclaimed.meta?.changes === 1) {
+          claimed = true;
+          break;
+        }
+        continue;
       }
       const pending = JSON.parse(existing.pending_token_hashes_json) as string[];
-      if (pending.includes(tokenHash)) {
+      if (pending.length === 1 && pending[0] === tokenHash) {
         claimed = true;
         break;
       }
-      pending.push(tokenHash);
+      // A login request is not activity from the current device and must not
+      // extend its inactivity lease. Keep only the newest waiting device so a
+      // stale request cannot later take over in place of the current one.
       const updated = await env.DB.prepare(`
-        UPDATE account_sessions SET pending_token_hashes_json = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE username = ? AND active_token_hash = ? AND pending_token_hashes_json = ?
-      `).bind(JSON.stringify(pending), username, existing.active_token_hash, existing.pending_token_hashes_json).run();
+        UPDATE account_sessions SET pending_token_hashes_json = ?
+        WHERE username = ? AND active_token_hash = ? AND pending_token_hashes_json = ? AND updated_at = ?
+      `).bind(JSON.stringify([tokenHash]), username, existing.active_token_hash, existing.pending_token_hashes_json, existing.updated_at).run();
       if (updated.meta?.changes === 1) {
         claimed = true;
         break;
@@ -419,6 +451,12 @@ async function sessionRoute(request: Request, env: D1Env, pathname: string): Pro
       WHERE username = ? AND active_token_hash = ?
     `).bind(isActive ? requester : tokenHash, username, row.active_token_hash).run();
     if (updated.meta?.changes !== 1) return error(409, 'Outra solicitação concluiu a troca primeiro.');
+    if (isActive) {
+      await env.DB.prepare(`
+        UPDATE account_sessions SET updated_at = CURRENT_TIMESTAMP
+        WHERE username = ? AND active_token_hash = ?
+      `).bind(username, requester).run();
+    }
   } else if (pathname.endsWith('/cancel')) {
     const row = await env.DB.prepare(
       'SELECT active_token_hash, pending_token_hashes_json FROM account_sessions WHERE username = ?',
@@ -436,6 +474,17 @@ async function sessionRoute(request: Request, env: D1Env, pathname: string): Pro
       'DELETE FROM account_sessions WHERE username = ? AND active_token_hash = ?',
     ).bind(username, tokenHash).run();
     return json({ success: true });
+  } else if (pathname.endsWith('/heartbeat')) {
+    const updated = await env.DB.prepare(`
+      UPDATE account_sessions SET updated_at = CURRENT_TIMESTAMP
+      WHERE username = ? AND active_token_hash = ?
+    `).bind(username, tokenHash).run();
+    if (updated.meta?.changes !== 1) return json({ success: true, status: 'revoked' });
+  } else if (pathname.endsWith('/unlock')) {
+    await env.DB.prepare(`
+      UPDATE account_sessions SET updated_at = datetime('now', '-${SESSION_BATTLE_LEASE_SECONDS + 60} seconds')
+      WHERE username = ? AND active_token_hash = ?
+    `).bind(username, tokenHash).run();
   }
 
   const account = await env.DB.prepare(
