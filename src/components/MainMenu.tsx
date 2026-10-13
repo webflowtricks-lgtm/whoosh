@@ -19,6 +19,8 @@ import { getRankProgress } from '../lib/xpSystem';
 import { useLanguage } from '../lib/i18n';
 import { fetchCharactersFromServer, getCharacters } from '../lib/characterStorage';
 
+declare const __WHOOSH_BUILD_VERSION__: string;
+
 interface MainMenuProps {
   onStartGame: () => void;
   isMuted: boolean;
@@ -514,9 +516,19 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             'Naruto is property of Masashi Kishimoto, Pierrot Co. and Viz Media.'
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="self-end md:self-center flex items-center gap-4">
           <span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5 text-orange-500/60" /> {t('Anti-Cheat Verificado', 'Anti-Cheat Verified')}</span>
           <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5 text-blue-500/60" />Engine v1.0.0</span>
+          <span
+            className="self-end rounded border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-slate-400"
+            title={t(
+              'Versão do código deste deploy. +local indica alterações ainda não commitadas.',
+              'Code version in this deployment. +local indicates uncommitted changes.',
+            )}
+            aria-label={`${import.meta.env.DEV ? 'DEV' : 'PROD'} ${__WHOOSH_BUILD_VERSION__}`}
+          >
+            {import.meta.env.DEV ? 'DEV' : 'PROD'} · {__WHOOSH_BUILD_VERSION__}
+          </span>
         </div>
       </div>
     </div>
