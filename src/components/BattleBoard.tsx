@@ -2111,7 +2111,8 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const stateReportSentTurnRef = useRef(0);
   const passedPlayersRef = useRef<('player' | 'enemy')[]>([]);
   const isResolvingTurnEndRef = useRef(false);
-  // ⏱️ Cooldown de 5s antes de poder finalizar turno novamente (após transição de turno)
+  // ⏱️ Cooldown de 3s antes de poder finalizar turno novamente (após transição de turno)
+  const TURN_FINALIZE_COOLDOWN_MS = 3000;
   const turnCooldownUntilRef = useRef(0);
   const [turnCooldownRemaining, setTurnCooldownRemaining] = useState(0);
   const turnCooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -3699,7 +3700,7 @@ const handleTradeChakra = () => {
   const activePlannerRef = useRef<'player' | 'enemy'>('player');
   useEffect(() => { activePlannerRef.current = activePlanner; }, [activePlanner]);
   // ⏱️ COOLDOWN DE TURNO: quando o jogador se torna o planner (após a 1ª resolução),
-  // inicia um cooldown de 5s antes dele poder finalizar o turno novamente.
+  // inicia um cooldown de 3s antes dele poder finalizar o turno novamente.
   // No sandbox, o cooldown vale também para a fase do OPONENTE (que vc comanda manualmente).
   useEffect(() => {
     if (gameOver) return;
@@ -3710,8 +3711,8 @@ const handleTradeChakra = () => {
     }
     const plannerForCooldown = (activePlanner === 'player' || (isSandbox && activePlanner === 'enemy'));
     if (plannerForCooldown && battleStartedRef.current) {
-      turnCooldownUntilRef.current = Date.now() + 5000;
-      setTurnCooldownRemaining(5000);
+      turnCooldownUntilRef.current = Date.now() + TURN_FINALIZE_COOLDOWN_MS;
+      setTurnCooldownRemaining(TURN_FINALIZE_COOLDOWN_MS);
       turnCooldownIntervalRef.current = setInterval(() => {
         const remaining = Math.max(0, turnCooldownUntilRef.current - Date.now());
         setTurnCooldownRemaining(remaining);
@@ -11601,7 +11602,7 @@ splashOnlyTargets = splashPool.filter(c =>
         setShowNoInternetModal(true);
         return;
       }
-      // ⏱️ COOLDOWN DE 5s: proteção também aqui para todos os caminhos que chegam
+      // ⏱️ COOLDOWN DE 3s: proteção também aqui para todos os caminhos que chegam
       // direto no handleEndTurn (rand chakra modal, watchdog, etc.). skipActions=true
       // (auto-pass) continua liberado para garantir que o turno sempre avance.
       if (!skipActions && Date.now() < turnCooldownUntilRef.current) {
@@ -12202,7 +12203,7 @@ splashOnlyTargets = splashPool.filter(c =>
       console.warn(`[TURN] checkAndProceedWithEndTurn bloqueado por lock: active=${activePlanner} lock=${turnActionLockedRef.current} ending=${isEndingTurnRef.current} randLock=${randConfirmLockRef.current}`);
       return;
     }
-    // ⏱️ COOLDOWN DE 5s: bloco também neste caminho (confirm modal → handleEndTurn)
+    // ⏱️ COOLDOWN DE 3s: bloco também neste caminho (confirm modal → handleEndTurn)
     if (Date.now() < turnCooldownUntilRef.current) {
       console.log(`[TURN] checkAndProceedWithEndTurn bloqueado por cooldown: ${Math.ceil((turnCooldownUntilRef.current - Date.now()) / 1000)}s restantes`);
       return;
@@ -12326,7 +12327,7 @@ splashOnlyTargets = splashPool.filter(c =>
       console.log(`[TURN] click bloqueado por lock: active=${activePlanner} sandbox=${isSandbox} ending=${isEndingTurnRef.current || isEndingTurn} lock=${turnActionLockedRef.current}`);
       return;
     }
-    // ⏱️ COOLDOWN DE 5s: o jogador precisa aguardar antes de finalizar o turno novamente
+    // ⏱️ COOLDOWN DE 3s: o jogador precisa aguardar antes de finalizar o turno novamente
     if (Date.now() < turnCooldownUntilRef.current) {
       console.log(`[TURN] click bloqueado por cooldown: ${Math.ceil((turnCooldownUntilRef.current - Date.now()) / 1000)}s restantes`);
       return;
