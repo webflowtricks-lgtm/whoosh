@@ -393,7 +393,10 @@ export default function App() {
   }, [isMuted, screen]);
 
   useEffect(() => {
-    if (!isProcessing) return;
+    if (!isProcessing || screen === 'character-select') {
+      document.body.classList.remove('processing-cursor');
+      return;
+    }
     const handleMouseMove = (event: MouseEvent) => setCursorPosition({ x: event.clientX, y: event.clientY });
     document.addEventListener('mousemove', handleMouseMove);
     document.body.classList.add('processing-cursor');
@@ -401,7 +404,7 @@ export default function App() {
       document.removeEventListener('mousemove', handleMouseMove);
       document.body.classList.remove('processing-cursor');
     };
-  }, [isProcessing]);
+  }, [isProcessing, screen]);
 
   useEffect(() => {
     setEffectsVolumeMultiplier(audioSettings.effects * audioSettings.master);
@@ -989,7 +992,7 @@ export default function App() {
   return (
     <div className={`relative z-10 min-h-screen text-slate-100 flex flex-col justify-between selection:bg-orange-600 selection:text-white ${screen === 'battle' ? '' : 'bg-slate-950'}`}>
       {/* <RotateOverlay /> DESABILITADO temporariamente — reativar quando necessário */}
-      {isProcessing && (
+      {isProcessing && screen !== 'character-select' && (
         <div
           className="pointer-events-none fixed z-[1000000] -translate-x-1/2 -translate-y-1/2"
           style={{ left: cursorPosition.x, top: cursorPosition.y }}
