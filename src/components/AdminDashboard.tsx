@@ -226,7 +226,7 @@ const getEffectNameSuggestions = (): string[] => {
       setEditingChar(JSON.parse(JSON.stringify(loaded[0])));
     }
 
-    fetchCharactersFromServer().then(serverLoaded => {
+    fetchCharactersFromServer({ required: true }).then(serverLoaded => {
       if (serverLoaded && serverLoaded.length > 0) {
         setCharacters(serverLoaded);
         setSelectedCharacterId(prev => {
@@ -236,7 +236,10 @@ const getEffectNameSuggestions = (): string[] => {
           return found.id;
         });
       }
-    }).catch(() => {});
+    }).catch(error => {
+      console.error('Failed to load the authoritative character catalog for admin editing:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível carregar o catálogo global de personagens.');
+    });
 
     // Fetch quests for autocomplete
     safeFetchJson<{ success?: boolean; quests?: Quest[] }>('/api/quests')

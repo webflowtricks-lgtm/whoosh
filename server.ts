@@ -1599,6 +1599,7 @@ async function startServer() {
   });
 
   app.get("/api/characters", (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     let characters = readJSON<any[]>(CHARACTERS_FILE, []);
     if (!Array.isArray(characters) || characters.length === 0) {
       characters = DEFAULT_CHARACTERS;

@@ -6,13 +6,14 @@
 import { Character } from '../types';
 import { CHARACTERS as DEFAULT_CHARACTERS } from '../data/characters';
 import { preloadCharacters } from './imagePreloader';
-import { safeFetchJson, saveGlobalConfig } from './api';
+import { saveGlobalConfig } from './api';
 
 const STORAGE_KEY = 'naruto_combat_characters';
 
 // Cache em memória: garante que dados novos vindos do servidor sejam usados
 // mesmo quando o localStorage estoura a cota (QuotaExceededError) e não atualiza.
 let memoryCache: Character[] | null = null;
+let serverCatalogLoaded = false;
 
 // Mídia base64 grande não cabe na cota do localStorage (~5MB); o cache persiste
 // sem ela e o memoryCache mantém os dados completos.
@@ -70,12 +71,18 @@ export function getCharacters(): Character[] {
   return enrichCharacters(DEFAULT_CHARACTERS);
 }
 
-export async function fetchCharactersFromServer(): Promise<Character[]> {
+export async function fetchCharactersFromServer(options: { required?: boolean } = {}): Promise<Character[]> {
+  if (options.required) serverCatalogLoaded = false;
   try {
-    const data = await safeFetchJson<{ success?: boolean; characters?: Character[] }>('/api/characters');
+    const response = await fetch('/api/characters', { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Não foi possível carregar o catálogo global de personagens (HTTP ${response.status}).`);
+    }
+    const data = await response.json() as { success?: boolean; characters?: Character[] };
     if (data && data.success && Array.isArray(data.characters) && data.characters.length > 0) {
       const enriched = enrichCharacters(data.characters);
       memoryCache = enriched;
+      serverCatalogLoaded = true;
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(stripHeavyData(enriched)));
       } catch (e) {
@@ -83,16 +90,25 @@ export async function fetchCharactersFromServer(): Promise<Character[]> {
       }
       return enriched;
     }
+    throw new Error('O servidor não retornou um catálogo global válido de personagens.');
   } catch (error) {
-    // Network or server error - gracefully fallback to local storage
+    if (options.required) {
+      throw error instanceof Error
+        ? error
+        : new Error('Não foi possível confirmar o catálogo global de personagens no servidor.');
+    }
   }
   return getCharacters();
 }
 
 export async function saveCharacters(characters: Character[]): Promise<Character[]> {
+  if (!serverCatalogLoaded) {
+    throw new Error('Carregue e confirme o catálogo global do servidor antes de salvar alterações.');
+  }
   const enriched = enrichCharacters(characters);
   await saveGlobalConfig('/api/characters', { characters: enriched });
   memoryCache = enriched;
+  serverCatalogLoaded = true;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stripHeavyData(enriched)));
   } catch (e) {

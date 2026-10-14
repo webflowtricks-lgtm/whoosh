@@ -40,6 +40,9 @@ interface CharacterSelectProps {
 export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, playUahSound, playTargetSound, onProcessingChange, user, activeQuest, onBack }: CharacterSelectProps) {
   const { t, language } = useLanguage();
   const [charList, setCharList] = useState<Character[]>(() => getCharacters());
+  const [catalogStatus, setCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogReloadKey, setCatalogReloadKey] = useState(0);
   const [aiEnemyCharacterLimit, setAiEnemyCharacterLimit] = useState(DEFAULT_AI_ENEMY_CHARACTER_LIMIT);
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
     try {
@@ -163,10 +166,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   // Sync with server on mount
   useEffect(() => {
     let active = true;
-    fetchCharactersFromServer().then(updated => {
+    fetchCharactersFromServer({ required: true }).then(updated => {
       if (!active) return;
       if (updated && updated.length > 0) {
         setCharList(updated);
+        setCatalogStatus('ready');
+        setCatalogError('');
         // Set preview character if current preview isn't in list or as default
         setPreviewCharacter(prev => {
           if (prev) {
@@ -176,9 +181,14 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           return updated[0];
         });
       }
-    }).catch(() => {});
+    }).catch(error => {
+      if (!active) return;
+      console.error('Failed to load the authoritative character catalog:', error);
+      setCatalogError(error instanceof Error ? error.message : 'Não foi possível carregar os personagens oficiais.');
+      setCatalogStatus('error');
+    });
     return () => { active = false; };
-  }, []);
+  }, [catalogReloadKey]);
 
   // Matchmaking State
   const [isMatchmaking, setIsMatchmaking] = useState(false);
@@ -719,6 +729,53 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative selection:bg-orange-600 selection:text-white overflow-x-hidden">
+      {catalogStatus !== 'ready' && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/95 p-4 backdrop-blur-sm">
+          <div role="alert" aria-live="polite" className="w-full max-w-md rounded-2xl border border-orange-500/40 bg-slate-900 p-6 text-center shadow-2xl">
+            {catalogStatus === 'loading' ? (
+              <>
+                <Loader2 className="mx-auto h-10 w-10 animate-spin text-orange-400" />
+                <h2 className="mt-4 text-lg font-black text-amber-300">
+                  {t('Carregando personagens oficiais', 'Loading official characters')}
+                </h2>
+                <p className="mt-2 text-sm text-slate-300">
+                  {t('Aguarde enquanto confirmamos as configurações globais do jogo.', 'Please wait while we confirm the game-wide settings.')}
+                </p>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="mx-auto h-10 w-10 text-amber-400" />
+                <h2 className="mt-4 text-lg font-black text-amber-300">
+                  {t('Não foi possível carregar os personagens oficiais', 'Could not load official characters')}
+                </h2>
+                <p className="mt-2 text-sm text-slate-300">
+                  {catalogError || t('A seleção foi bloqueada para evitar usar habilidades desatualizadas.', 'Selection is blocked to prevent using outdated skills.')}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCatalogStatus('loading');
+                    setCatalogReloadKey(value => value + 1);
+                  }}
+                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-orange-700 px-4 py-3 text-sm font-bold text-white hover:bg-orange-600"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {t('Tentar novamente', 'Try again')}
+                </button>
+                {onBack && (
+                  <button
+                    type="button"
+                    onClick={onBack}
+                    className="mt-3 block w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-700"
+                  >
+                    {t('Voltar', 'Go back')}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {/* Background Image: choose team background */}
       <img 
         src="/static/img/bg/background_choose_team.webp" 

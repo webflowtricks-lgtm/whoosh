@@ -485,6 +485,11 @@ test('only the active session for account 2 can publish global configuration', a
   assert.equal(saved?.status, 200);
   assert.deepEqual(await getD1Config(env.DB, 'characters'), payload.characters);
 
+  const otherPlayerRead = await handleD1Request(request('/api/characters', 'GET'), env);
+  assert.equal(otherPlayerRead?.status, 200);
+  assert.equal(otherPlayerRead?.headers.get('Cache-Control'), 'no-store');
+  assert.deepEqual((await responseBody(otherPlayerRead!)).characters, payload.characters);
+
   const emptyCatalog = await handleD1Request(request('/api/characters', 'POST', {
     characters: [],
   }, {
