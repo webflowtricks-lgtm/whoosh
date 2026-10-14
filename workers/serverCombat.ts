@@ -285,6 +285,47 @@ export function validateAuthoritativeActions(
     : { status: result.status, code: result.code || 'invalid-action' };
 }
 
+export function resolveAuthoritativeActions(
+  state: CombatEngineState,
+  slot: 0 | 1,
+  actions: MatchProtocolAction[],
+): AuthoritativeTurnResult {
+  if (state.winnerSide) {
+    return {
+      status: 'rejected',
+      code: 'match-already-won',
+      state,
+      winnerSlot: state.winnerSide === 'player' ? 0 : 1,
+    };
+  }
+  const validation = validateAuthoritativeActions(state, slot, actions);
+  if (validation.status !== 'valid') {
+    return {
+      status: validation.status,
+      code: validation.code,
+      state,
+      winnerSlot: null,
+    };
+  }
+  return resolveActions(state, slot, actions, true);
+}
+
+export function advanceAuthoritativeTurn(
+  state: CombatEngineState,
+  seed: number,
+): AuthoritativeTurnResult {
+  if (state.winnerSide) {
+    return {
+      status: 'resolved',
+      state,
+      winnerSlot: state.winnerSide === 'player' ? 0 : 1,
+    };
+  }
+  const next = structuredClone(state);
+  nextTurn(next, seed);
+  return { status: 'resolved', state: next, winnerSlot: null };
+}
+
 export function resolveAuthoritativeTurn(
   state: CombatEngineState,
   seed: number,
@@ -309,10 +350,9 @@ export function resolveAuthoritativeTurn(
   const order: [0 | 1, 0 | 1] = [firstSlot, firstSlot === 0 ? 1 : 0];
   let next = state;
   for (const slot of order) {
-    const result = resolveActions(next, slot, actions[slot], true);
+    const result = resolveAuthoritativeActions(next, slot, actions[slot]);
     if (result.status !== 'resolved' || result.winnerSlot !== null) return result;
     next = result.state;
   }
-  nextTurn(next, seed);
-  return { status: 'resolved', state: next, winnerSlot: null };
+  return advanceAuthoritativeTurn(next, seed);
 }

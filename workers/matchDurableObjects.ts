@@ -15,9 +15,9 @@ import {
   type D1Env,
 } from './d1Api';
 import {
+  advanceAuthoritativeTurn,
   createServerCombatState,
-  resolveAuthoritativeTurn,
-  validateAuthoritativeActions,
+  resolveAuthoritativeActions,
 } from './serverCombat';
 import {
   getInactiveMatchSlot,
@@ -41,6 +41,8 @@ interface MatchRoomData {
   seed: number;
   players: [PlayerSlot, PlayerSlot];
   combatState?: CombatEngineState;
+  actionsAppliedTurn?: number;
+  appliedActionSlots?: (0 | 1)[];
   resolvedTurn: number;
   surrenderedBy: string | null;
   winnerUsername: string | null;
@@ -889,28 +891,45 @@ export class MatchRoomDurableObject {
     }
     const submittedTurn = body.turn as number;
     const submittedActions = turns[submittedTurn][slot]!;
-    const validation = validateAuthoritativeActions(room.combatState, slot, submittedActions);
-    if (validation.status !== 'valid') {
-      const status = validation.status === 'unsupported' ? 422 : 400;
-      return fail(status, `Ação recusada pelo motor autoritativo (${validation.code}).`);
-    }
-
     const bothSubmitted = turns[submittedTurn][0] !== null && turns[submittedTurn][1] !== null;
+    const firstSlot = firstSlotForTurn(room.seed, submittedTurn);
+    const actionOrder: (0 | 1)[] = bothSubmitted
+      ? [firstSlot, firstSlot === 0 ? 1 : 0]
+      : [slot];
+    const appliedSlots = new Set<0 | 1>(
+      room.actionsAppliedTurn === submittedTurn ? room.appliedActionSlots || [] : [],
+    );
     let nextCombatState = room.combatState;
     let winnerSlot: 0 | 1 | null = null;
-    if (bothSubmitted) {
-      const resolved = resolveAuthoritativeTurn(room.combatState, room.seed, submittedTurn, [
-        turns[submittedTurn][0]!,
-        turns[submittedTurn][1]!,
-      ]);
-      if (resolved.status !== 'resolved') {
-        const status = resolved.status === 'unsupported' ? 422 : 400;
-        return fail(status, `Turno recusado pelo motor autoritativo (${resolved.code || 'ação inválida'}).`);
+    for (const actionSlot of actionOrder) {
+      if (appliedSlots.has(actionSlot)) continue;
+      const applied = resolveAuthoritativeActions(
+        nextCombatState,
+        actionSlot,
+        turns[submittedTurn][actionSlot] || [],
+      );
+      if (applied.status !== 'resolved') {
+        const status = applied.status === 'unsupported' ? 422 : 400;
+        return fail(status, `Ação recusada pelo motor autoritativo (${applied.code || 'ação inválida'}).`);
       }
-      nextCombatState = resolved.state;
-      winnerSlot = resolved.winnerSlot;
-      room.resolvedTurn = submittedTurn;
+      nextCombatState = applied.state;
+      appliedSlots.add(actionSlot);
+      winnerSlot = applied.winnerSlot;
+      if (winnerSlot !== null) break;
     }
+    if (bothSubmitted) {
+      room.resolvedTurn = submittedTurn;
+      if (winnerSlot === null) {
+        const advanced = advanceAuthoritativeTurn(nextCombatState, room.seed);
+        if (advanced.status !== 'resolved') {
+          return fail(400, `Turno recusado pelo motor autoritativo (${advanced.code || 'estado inválido'}).`);
+        }
+        nextCombatState = advanced.state;
+        winnerSlot = advanced.winnerSlot;
+      }
+    }
+    room.actionsAppliedTurn = submittedTurn;
+    room.appliedActionSlots = [...appliedSlots];
     room.combatState = nextCombatState;
     room.phaseDeadline = Date.now() + 60000;
     room.timeoutStreak[slot] = 0;

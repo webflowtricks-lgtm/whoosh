@@ -4,7 +4,9 @@ import test from 'node:test';
 import type { Character } from '../src/types';
 import { firstSlotForTurn } from '../src/lib/matchProtocol';
 import {
+  advanceAuthoritativeTurn,
   createServerCombatState,
+  resolveAuthoritativeActions,
   resolveAuthoritativeTurn,
   validateAuthoritativeActions,
 } from '../workers/serverCombat';
@@ -77,6 +79,72 @@ test('resolves both player perspectives in initiative order without trusting rep
   assert.notEqual(resolved.state.player[0].health, 100);
   assert.equal(state.enemy[0].health, 100, 'the source canonical snapshot remains unchanged');
   assert.equal(state.player[0].health, 100, 'the source canonical snapshot remains unchanged');
+
+  const firstPhase = resolveAuthoritativeActions(state, firstSlot, submissions[firstSlot]);
+  const secondPhase = resolveAuthoritativeActions(
+    firstPhase.state,
+    firstSlot === 0 ? 1 : 0,
+    submissions[firstSlot === 0 ? 1 : 0],
+  );
+  const stagedResolved = advanceAuthoritativeTurn(secondPhase.state, seed);
+  assert.deepEqual(stagedResolved, resolved, 'staged online resolution matches the complete-turn result');
+});
+
+test('publishes the first online action before the responder submits', () => {
+  const seed = 8421;
+  const naruto = findCharacter('Naruto Uzumaki');
+  const state = createServerCombatState([
+    team(naruto),
+    team(findCharacter('Gaara of the Sand')),
+  ], seed);
+  state.playerChakra = { Tai: 10, Nin: 10, Gen: 10, Blood: 10 };
+  state.enemyChakra = { Tai: 10, Nin: 10, Gen: 10, Blood: 10 };
+  const leader = firstSlotForTurn(seed, 1);
+  const shadowClones = [{
+    sourceId: 'player-0',
+    skillIndex: findSkill(naruto, 'Shadow Clones'),
+    targetId: 'player-0',
+  }];
+
+  const partial = resolveAuthoritativeActions(state, leader, shadowClones);
+
+  assert.equal(partial.status, 'resolved');
+  assert.equal(partial.state.turn, 1, 'the turn stays open for the responder');
+  assert.ok(partial.state[leader === 0 ? 'player' : 'enemy'][0].activeEffects.some(effect =>
+    effect.sourceSkillName === 'Shadow Clones',
+  ), 'the submitted buff is already part of the canonical state');
+  assert.equal(state.player[0].activeEffects.some(effect =>
+    effect.sourceSkillName === 'Shadow Clones',
+  ), false, 'the original canonical snapshot is unchanged');
+
+  const response = resolveAuthoritativeActions(partial.state, leader === 0 ? 1 : 0, []);
+  assert.equal(response.status, 'resolved');
+  const completed = advanceAuthoritativeTurn(response.state, seed);
+  assert.equal(completed.state.turn, 2);
+});
+
+test('publishes submitted offensive damage while the online turn remains open', () => {
+  const seed = 8421;
+  const tenten = findCharacter('Tenten');
+  const state = createServerCombatState([
+    team(tenten),
+    team(findCharacter('Gaara of the Sand')),
+  ], seed);
+  state.playerChakra = { Tai: 10, Nin: 10, Gen: 10, Blood: 10 };
+  state.enemyChakra = { Tai: 10, Nin: 10, Gen: 10, Blood: 10 };
+  const leader = firstSlotForTurn(seed, 1);
+  const action = [{
+    sourceId: 'player-0',
+    skillIndex: findSkill(tenten, 'Jidanda'),
+    targetId: 'enemy-0',
+  }];
+
+  const partial = resolveAuthoritativeActions(state, leader, action);
+
+  assert.equal(partial.status, 'resolved');
+  assert.equal(partial.state.turn, 1);
+  const target = leader === 0 ? partial.state.enemy[0] : partial.state.player[0];
+  assert.ok(target.health < 100, 'server-calculated damage is visible after the first submission');
 });
 
 test('rejects unknown mechanics at server action validation', () => {

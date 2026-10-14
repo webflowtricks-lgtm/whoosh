@@ -268,7 +268,7 @@
           "Físico",
           "Corpo a Corpo"
         ],
-        "damage": 20,
+        "damage": 1000,
         "stunTurns": 1,
         "stunType": [
           "physical"
