@@ -739,6 +739,9 @@ export class MatchRoomDurableObject {
         hasRevived: combatant.hasRevived,
         skillUseCounts: combatant.skillUseCounts,
         skillCooldowns: combatant.character.skills.map(skill => skill.currentCooldown || 0),
+        ...(combatant.activeEffects.some(effect => effect.type === 'skill_copy')
+          ? { skillOverrides: combatant.character.skills }
+          : {}),
       })),
       enemy: room.combatState.enemy.map(combatant => ({
         id: combatant.id,
@@ -751,6 +754,9 @@ export class MatchRoomDurableObject {
         hasRevived: combatant.hasRevived,
         skillUseCounts: combatant.skillUseCounts,
         skillCooldowns: combatant.character.skills.map(skill => skill.currentCooldown || 0),
+        ...(combatant.activeEffects.some(effect => effect.type === 'skill_copy')
+          ? { skillOverrides: combatant.character.skills }
+          : {}),
       })),
       playerChakra: room.combatState.playerChakra,
       enemyChakra: room.combatState.enemyChakra,

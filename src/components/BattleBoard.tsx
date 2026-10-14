@@ -8191,7 +8191,9 @@ splashOnlyTargets = splashPool.filter(c =>
 
       // Cópia de Habilidades: substitui as skills do conjurador pelas do alvo por X turnos
       if (skill.skillCopyDuration && skill.skillCopyDuration > 0) {
-        const copyTargets = resolveEffectTargets(skill.skillCopyTarget || 'AnyLiving', target, source, sourceList, targetList, false);
+        const copyTargets = skill.skillCopyTarget === 'Enemy'
+          ? [target]
+          : resolveEffectTargets(skill.skillCopyTarget || 'AnyLiving', target, source, sourceList, targetList, false);
         copyTargets.forEach(t => {
           if (t.isDead || t.id === source.id || !t.character.skills || t.character.skills.length === 0) return;
           const existingCopy = source.activeEffects.find(e => e.type === 'skill_copy');
@@ -12573,6 +12575,19 @@ splashOnlyTargets = splashPool.filter(c =>
             processedServerCombatEventIdsRef.current.add(batch.id);
             for (const action of batch.actions || []) {
               for (const event of action.events || []) {
+                if (event.type === 'skill-copy' && typeof event.sourceId === 'string') {
+                  const sourceId = flipCombatantId(event.sourceId);
+                  const sourceIsPlayer = sourceId.startsWith('player-');
+                  const sourceTeam = sourceIsPlayer ? playerRef.current : enemyRef.current;
+                  const source = sourceTeam.find(combatant => combatant.id === sourceId);
+                  if (
+                    sourceIsPlayer &&
+                    source?.character.id === 'kakashi' &&
+                    event.skillName === 'Copied Sharingan'
+                  ) {
+                    playCustomSound('kakashi/kakashi_jutsucopiado');
+                  }
+                }
                 const targetId = typeof event.targetId === 'string'
                   ? flipCombatantId(event.targetId)
                   : '';
@@ -12615,11 +12630,18 @@ splashOnlyTargets = splashPool.filter(c =>
                 hasRevived?: boolean;
                 skillUseCounts?: Record<string, number>;
                 skillCooldowns: number[];
+                skillOverrides?: CombatCharacter['character']['skills'];
               }>,
             ) =>
               current.map((combatant, index) => {
                 const serverCombatant = authoritative?.[index];
                 if (!serverCombatant) return combatant;
+                const serverHasSkillCopy = serverCombatant.activeEffects.some(effect => effect.type === 'skill_copy');
+                const previousSkillCopy = combatant.activeEffects.find(effect => effect.type === 'skill_copy');
+                const restoredSkills = !serverHasSkillCopy && Array.isArray(previousSkillCopy?.storedSkills)
+                  ? previousSkillCopy.storedSkills
+                  : undefined;
+                const authoritativeSkills = serverCombatant.skillOverrides || restoredSkills || combatant.character.skills;
                 return {
                   ...combatant,
                   health: serverCombatant.health,
@@ -12634,7 +12656,7 @@ splashOnlyTargets = splashPool.filter(c =>
                     : undefined,
                   character: {
                     ...combatant.character,
-                    skills: combatant.character.skills.map((skill, skillIndex) => ({
+                    skills: authoritativeSkills.map((skill, skillIndex) => ({
                       ...skill,
                       currentCooldown: serverCombatant.skillCooldowns?.[skillIndex] ?? skill.currentCooldown,
                     })),

@@ -78,6 +78,37 @@ test('resolves catalog Tenten Jidanda base damage, cost, and cooldown', () => {
   assert.equal(state.enemy[0].health, 100, 'the input snapshot remains immutable');
 });
 
+test('Kakashi copies the selected enemy skill and emits an authoritative copy event', () => {
+  const state = createState({
+    playerCharacter: character('Kakashi Hatake'),
+    playerChakra: { Tai: 1, Nin: 1, Gen: 1, Blood: 1 },
+  });
+  const selectedTarget = character('Young Rin');
+  state.enemy.push(combatant('enemy-1', character('Tenten')));
+  state.enemy.push(combatant('enemy-2', selectedTarget));
+  const skillIndex = state.player[0].character.skills.findIndex(skill => skill.name === 'Copied Sharingan');
+  assert.notEqual(skillIndex, -1);
+
+  const result = resolveCombatIntent(state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex,
+    targetId: 'enemy-2',
+  });
+
+  assert.equal(result.status, 'applied');
+  if (result.status !== 'applied') return;
+  const copiedSkills = result.state.player[0].character.skills;
+  const expectedCopiedSkill = selectedTarget.skills[(state.turn + skillIndex) % selectedTarget.skills.length];
+  assert.equal(copiedSkills[skillIndex].name, expectedCopiedSkill.name);
+  const copyEvent = result.events.find(event => event.type === 'skill-copy');
+  assert.ok(copyEvent);
+  if (copyEvent?.type !== 'skill-copy') return;
+  assert.equal(copyEvent.sourceId, 'player-0');
+  assert.equal(copyEvent.targetId, 'enemy-2');
+  assert.equal(copyEvent.skillName, 'Copied Sharingan');
+});
+
 test('applies configured damage buffs and debuffs before subsequent attacks', () => {
   const state = createState({
     playerCharacter: character('Tenten'),

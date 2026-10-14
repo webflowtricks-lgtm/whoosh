@@ -44,6 +44,7 @@ export type CombatEngineEvent =
   | { type: 'friendly-effect-blocked'; targetId: string; effect: 'heal' }
   | { type: 'revive'; targetId: string; health: number }
   | { type: 'combat-text'; targetId: string; text: string; floatingType: 'effect' | 'stun' | 'invulnerable' }
+  | { type: 'skill-copy'; sourceId: string; targetId: string; skillName: string }
   | { type: 'match-ended'; winnerSide: 'player' | 'enemy' };
 
 export type CombatEngineResult =
@@ -1926,15 +1927,19 @@ export function resolveCombatIntent(
     }
   }
   if ((nextSkill.skillCopyDuration || 0) > 0) {
-    const copyTargets = effectTargets(
-      nextSkill.skillCopyTarget || 'AnyLiving',
-      nextSource,
-      nextTarget,
-      nextSourceTeam,
-      intent.side === 'player' ? nextState.enemy : nextState.player,
-      [...nextState.player, ...nextState.enemy],
-      nextSkill,
-    ).filter(combatant => combatant.id !== nextSource.id && combatant.character.skills.length > 0);
+    const copyTargets = nextSkill.skillCopyTarget === 'Enemy'
+      ? [nextTarget].filter(combatant =>
+        !combatant.isDead && combatant.id !== nextSource.id && combatant.character.skills.length > 0,
+      )
+      : effectTargets(
+        nextSkill.skillCopyTarget || 'AnyLiving',
+        nextSource,
+        nextTarget,
+        nextSourceTeam,
+        intent.side === 'player' ? nextState.enemy : nextState.player,
+        [...nextState.player, ...nextState.enemy],
+        nextSkill,
+      ).filter(combatant => combatant.id !== nextSource.id && combatant.character.skills.length > 0);
     const copyTarget = copyTargets[0];
     if (copyTarget) {
       const currentCopy = nextSource.activeEffects.find(effect => effect.type === 'skill_copy');
@@ -1960,6 +1965,12 @@ export function resolveCombatIntent(
         casterSide: intent.side,
         castTurn: nextState.turn,
         storedSkills: originalSkills,
+      });
+      events.push({
+        type: 'skill-copy',
+        sourceId: nextSource.id,
+        targetId: copyTarget.id,
+        skillName: nextSkill.name,
       });
     }
   }
