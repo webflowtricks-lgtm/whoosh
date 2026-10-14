@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo, SlidersHorizontal, Settings } from 'lucide-react';
+import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo, SlidersHorizontal, Settings, Eye } from 'lucide-react';
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, getEffectiveTargetType, getEffectiveCooldown, getSkillCombatTypes, Quest, QuestGoal } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
@@ -19776,7 +19776,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   </div>
 
                   {/* Paper 3: Alvo */}
-                  <div className="h-12 flex flex-col justify-center items-center text-center p-1.5 min-w-0 bg-amber-100/70 border border-amber-900/30 rounded-lg shadow-sm">
+                  <div className={`flex flex-col justify-center items-center text-center p-1.5 min-w-0 bg-amber-100/70 border border-amber-900/30 rounded-lg shadow-sm ${inspectedSkill.skill.invisible || (inspectedSkill.skill.invisibleDuration || 0) > 0 ? 'min-h-12 gap-1' : 'h-12'}`}>
                     <p className="flex items-center justify-center font-extrabold text-amber-950 text-[10.5px] leading-[1.1] whitespace-normal break-words text-center max-w-full px-0.5 uppercase">
                       {inspectedSkill.skill.targetType === 'Enemy' && <span>Inimigo<br />Único</span>}
                       {inspectedSkill.skill.targetType === 'Self' && 'Próprio'}
@@ -19786,6 +19786,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       {inspectedSkill.skill.targetType === 'AllAllies' && <span>Todos<br />Aliados</span>}
                       {inspectedSkill.skill.targetType === 'AnyLiving' && <span>Qualquer<br />Vivo</span>}
                     </p>
+                    {(inspectedSkill.skill.invisible || (inspectedSkill.skill.invisibleDuration || 0) > 0) && (
+                      <span className="inline-flex items-center justify-center gap-0.5 text-[7px] font-extrabold leading-tight text-violet-900">
+                        <Eye className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                        <span>Invisível para o oponente</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 

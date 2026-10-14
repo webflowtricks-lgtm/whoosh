@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, Loader2, AlertTriangle, Shirt, Lock, X, Eye } from 'lucide-react';
+import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, AlertTriangle, Shirt, Lock, X, Eye } from 'lucide-react';
 import { Character, ChakraType, UserProfile, Quest, Skill } from '../types';
 import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
 import {
@@ -206,6 +206,36 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const matchmakingPollRef = useRef<any | null>(null);
   const timeIntervalRef = useRef<any | null>(null);
   const countdownIntervalRef = useRef<any | null>(null);
+  const matchmakingLogoRef = useRef<HTMLImageElement | null>(null);
+  const matchmakingStopAnimationRef = useRef<Animation | null>(null);
+
+  useEffect(() => {
+    const logo = matchmakingLogoRef.current;
+    if (!logo) return;
+
+    if (matchmakingStatus === 'searching') {
+      matchmakingStopAnimationRef.current?.cancel();
+      matchmakingStopAnimationRef.current = null;
+      return;
+    }
+
+    const startTransform = window.getComputedStyle(logo).transform;
+    const matrix = new DOMMatrixReadOnly(startTransform === 'none' ? undefined : startTransform);
+    const currentAngle = (Math.atan2(matrix.b, matrix.a) * 180 / Math.PI + 360) % 360;
+
+    matchmakingStopAnimationRef.current?.cancel();
+    matchmakingStopAnimationRef.current = logo.animate(
+      [
+        { transform: startTransform },
+        { transform: `rotate(${currentAngle + 360}deg)` },
+      ],
+      {
+        duration: 1200,
+        easing: 'cubic-bezier(0.12, 0.72, 0.2, 1)',
+        fill: 'forwards',
+      },
+    );
+  }, [matchmakingStatus]);
 
   const tips = [
     'Dica: Acumule chakra de linhagem (Blood) para liberar os jutsus supremos.',
@@ -832,7 +862,17 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           <div role="alert" aria-live="polite" className="w-full max-w-md rounded-2xl border border-orange-500/40 bg-slate-900 p-6 text-center shadow-2xl">
             {catalogStatus === 'loading' ? (
               <>
-                <Loader2 className="mx-auto h-10 w-10 animate-spin text-orange-400" />
+                <img
+                  src="/static/img/icon/mangeky.svg"
+                  alt=""
+                  aria-hidden="true"
+                  className="mx-auto h-10 w-10 animate-spin object-contain"
+                  style={{
+                    animationDuration: '900ms',
+                    animationTimingFunction: 'linear',
+                    filter: 'hue-rotate(-25deg) saturate(2) brightness(1.1) drop-shadow(0 0 8px rgba(239, 68, 68, 0.8))',
+                  }}
+                />
                 <h2 className="mt-4 text-lg font-black text-amber-300">
                   {t('Carregando personagens oficiais', 'Loading official characters')}
                 </h2>
@@ -1663,7 +1703,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                               </div>
                             </div>
                               
-                            <div className="mt-1 flex items-center gap-3 border-t border-amber-900/20 pt-1 text-[9px] font-mono font-bold text-amber-900/90">
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-amber-900/20 pt-1 text-[9px] font-mono font-bold text-amber-900/90">
                               {skill.cooldown > 0 && (
                                 <span>
                                   <span className="text-amber-950">{t('Recarga', 'Cooldown')}:</span>{' '}
@@ -1674,6 +1714,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                                 <span className="text-amber-950">{t('Alvo', 'Target')}:</span>{' '}
                                 {translateTargetType(skill.targetType, language)}
                               </span>
+                              {(skill.invisible || (skill.invisibleDuration || 0) > 0) && (
+                                <span className="inline-flex items-center gap-1 text-violet-900">
+                                  <Eye className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                  {t('Invisível para o oponente', 'Invisible to the opponent')}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1786,7 +1832,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
             initial={false}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 select-none"
+            className="matchmaking-overlay fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 select-none"
           >
             {/* Ambient Red glow background */}
             <div className="absolute top-[25%] left-[25%] w-[50%] h-[50%] rounded-full bg-orange-600/10 blur-[150px] pointer-events-none" />
@@ -1795,7 +1841,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               {/* Spinning Logo / Matchmaking Status indicator */}
               <div className="relative w-28 h-28 mx-auto">
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <img src="/static/img/icon/mangeky.svg" alt="Processando" className="w-24 h-24 animate-spin" />
+                  <img
+                    ref={matchmakingLogoRef}
+                    src="/static/img/icon/mangeky.svg"
+                    alt="Processando"
+                    className="w-24 h-24 animate-spin"
+                  />
                 </div>
               </div>
 
