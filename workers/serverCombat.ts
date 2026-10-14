@@ -7,15 +7,24 @@ import {
 import {
   resolveCombatIntent,
   tickAuthoritativeCombatEffects,
+  type CombatEngineEvent,
   type CombatEngineResult,
   type CombatEngineState,
 } from '../src/lib/combatEngine';
+
+interface AuthoritativeActionEvents {
+  actionIndex: number;
+  sourceId: string;
+  skillIcon?: string;
+  events: CombatEngineEvent[];
+}
 
 export interface AuthoritativeTurnResult {
   status: 'resolved' | 'unsupported' | 'rejected';
   code?: string;
   state: CombatEngineState;
   winnerSlot: 0 | 1 | null;
+  actionEvents?: AuthoritativeActionEvents[];
 }
 
 function combatant(id: string, character: Character): CombatCharacter {
@@ -163,7 +172,7 @@ function mapAction(
   };
 }
 
-function decrementTurnState(state: CombatEngineState): void {
+function decrementTurnState(state: CombatEngineState, firstSlot: 0 | 1): void {
   const combatants = [...state.player, ...state.enemy];
   for (const character of combatants) {
     if (character.isDead) continue;
@@ -177,7 +186,13 @@ function decrementTurnState(state: CombatEngineState): void {
     }
     character.activeEffects = character.activeEffects.filter(effect => {
       if (effect.duration >= 99999) return true;
-      if (effect.castTurn === state.turn) return true;
+      if (effect.castTurn === state.turn) {
+        const casterSlot = effect.casterSide === 'player' ? 0 : 1;
+        const invulnerabilityWasAppliedAfterOpponentActed =
+          effect.type === 'invulnerable' && !!effect.casterSide && casterSlot !== firstSlot;
+        if (effect.type !== 'invulnerable' || effect.skipCastTurnDecrement ||
+          invulnerabilityWasAppliedAfterOpponentActed) return true;
+      }
       if (effect.type === 'skill_copy' && effect.duration <= 1 && effect.storedSkills) {
         character.character.skills = effect.storedSkills.map(skill => ({ ...skill }));
       }
@@ -198,7 +213,7 @@ function nextTurn(state: CombatEngineState, seed: number): void {
   }
   tickAuthoritativeCombatEffects(state, 'player');
   tickAuthoritativeCombatEffects(state, 'enemy');
-  decrementTurnState(state);
+  decrementTurnState(state, firstSlotForTurn(seed, state.turn));
   state.turn++;
   const firstSlot = firstSlotForTurn(seed, state.turn);
   state.activeSide = firstSlot === 0 ? 'player' : 'enemy';
@@ -224,7 +239,8 @@ function resolveActions(
   skipRuntimeRejections = false,
 ): AuthoritativeTurnResult {
   let state = initial;
-  for (const action of actions) {
+  const actionEvents: AuthoritativeActionEvents[] = [];
+  for (const [actionIndex, action] of actions.entries()) {
     const mapped = mapAction(action, slot);
     if (!mapped) return { status: 'rejected', code: 'invalid-action-target', state: initial, winnerSlot: null };
     const side = slot === 0 ? 'player' : 'enemy';
@@ -250,6 +266,13 @@ function resolveActions(
         winnerSlot: null,
       };
     }
+    const source = [...state.player, ...state.enemy].find(combatant => combatant.id === mapped.sourceId);
+    actionEvents.push({
+      actionIndex,
+      sourceId: mapped.sourceId,
+      skillIcon: source?.character.skills[mapped.skillIndex]?.icon,
+      events: result.events,
+    });
     gainStacksOnSkillUse(result.state, mapped.sourceId);
     const opposingBefore = (side === 'player' ? state.enemy : state.player)
       .reduce((sum, combatant) => sum + combatant.health + combatant.shield, 0);
@@ -268,10 +291,11 @@ function resolveActions(
         status: 'resolved',
         state,
         winnerSlot: state.winnerSide === 'player' ? 0 : 1,
+        actionEvents,
       };
     }
   }
-  return { status: 'resolved', state, winnerSlot: null };
+  return { status: 'resolved', state, winnerSlot: null, actionEvents };
 }
 
 export function validateAuthoritativeActions(

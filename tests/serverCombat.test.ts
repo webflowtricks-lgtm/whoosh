@@ -249,6 +249,111 @@ test('supports Tenten Twin Dragons Defense through the opposing action in the sa
   if (attack.status === 'rejected') assert.equal(attack.code, 'target-invulnerable');
 });
 
+test('expires one-turn invulnerability after the opponent completes the same round', () => {
+  const seed = 21;
+  const firstSlot = firstSlotForTurn(seed, 1);
+  const teams = [
+    team(findCharacter('Tenten')),
+    team(findCharacter('Tenten')),
+  ] as [Character[], Character[]];
+  const defender = teams[firstSlot][0];
+  const invulnerabilityIndex = findSkill(defender, 'Twin Dragons Defense');
+  defender.skills[invulnerabilityIndex].cost = [];
+  defender.skills[invulnerabilityIndex].currentCooldown = 0;
+  const attacker = teams[firstSlot === 0 ? 1 : 0][0];
+  const attackIndex = findSkill(attacker, 'Jidanda');
+  attacker.skills[attackIndex].cost = [];
+  attacker.skills[attackIndex].currentCooldown = 0;
+  const state = createServerCombatState(teams, seed);
+  const submissions: [Array<{ sourceId: string; skillIndex: number; targetId: string }>, Array<{ sourceId: string; skillIndex: number; targetId: string }>] = [[], []];
+  submissions[firstSlot].push({
+    sourceId: 'player-0',
+    skillIndex: invulnerabilityIndex,
+    targetId: 'player-0',
+  });
+  submissions[firstSlot === 0 ? 1 : 0].push({
+    sourceId: 'player-0',
+    skillIndex: attackIndex,
+    targetId: 'enemy-0',
+  });
+
+  const result = resolveAuthoritativeTurn(state, seed, 1, submissions);
+
+  assert.equal(result.status, 'resolved');
+  const protectedCombatant = firstSlot === 0 ? result.state.player[0] : result.state.enemy[0];
+  const attackerTarget = firstSlot === 0 ? result.state.enemy[0] : result.state.player[0];
+  assert.equal(attackerTarget.health, 100, 'the opposing action was blocked by invulnerability');
+  assert.equal(protectedCombatant.activeEffects.some(effect => effect.type === 'invulnerable'), false);
+});
+
+test('keeps responder invulnerability for the next opposing action, then expires it', () => {
+  const seed = 21;
+  const firstSlot = firstSlotForTurn(seed, 1);
+  const responderSlot: 0 | 1 = firstSlot === 0 ? 1 : 0;
+  const teams = [
+    team(findCharacter('Tenten')),
+    team(findCharacter('Tenten')),
+  ] as [Character[], Character[]];
+  const defender = teams[responderSlot][0];
+  const invulnerabilityIndex = findSkill(defender, 'Twin Dragons Defense');
+  defender.skills[invulnerabilityIndex].cost = [];
+  defender.skills[invulnerabilityIndex].currentCooldown = 0;
+  const attackIndex = findSkill(teams[firstSlot][0], 'Jidanda');
+  teams[firstSlot][0].skills[attackIndex].cost = [];
+  const state = createServerCombatState(teams, seed);
+  const turnOne: [Array<{ sourceId: string; skillIndex: number; targetId: string }>, Array<{ sourceId: string; skillIndex: number; targetId: string }>] = [[], []];
+  turnOne[responderSlot].push({
+    sourceId: 'player-0',
+    skillIndex: invulnerabilityIndex,
+    targetId: 'player-0',
+  });
+
+  const firstRound = resolveAuthoritativeTurn(state, seed, 1, turnOne);
+
+  assert.equal(firstRound.status, 'resolved');
+  const protectedCombatant = responderSlot === 0 ? firstRound.state.player[0] : firstRound.state.enemy[0];
+  assert.ok(protectedCombatant.activeEffects.some(effect =>
+    effect.type === 'invulnerable' && effect.duration === 1,
+  ));
+
+  const turnTwo: [Array<{ sourceId: string; skillIndex: number; targetId: string }>, Array<{ sourceId: string; skillIndex: number; targetId: string }>] = [[], []];
+  turnTwo[firstSlot].push({
+    sourceId: 'player-0',
+    skillIndex: attackIndex,
+    targetId: 'enemy-0',
+  });
+
+  const secondRound = resolveAuthoritativeTurn(firstRound.state, seed, 2, turnTwo);
+  const target = responderSlot === 0 ? secondRound.state.player[0] : secondRound.state.enemy[0];
+  assert.equal(target.health, 100, 'the next opposing action was blocked');
+  assert.equal(target.activeEffects.some(effect => effect.type === 'invulnerable'), false);
+});
+
+test('returns authoritative visual events for accepted combat actions', () => {
+  const state = createServerCombatState([
+    team(findCharacter('Tenten')),
+    team(findCharacter('Tenten')),
+  ], 21);
+  const skillIndex = findSkill(state.player[0].character, 'Jidanda');
+  state.player[0].character.skills[skillIndex].cost = [];
+  state.player[0].character.skills[skillIndex].stunTurns = 1;
+
+  const result = resolveAuthoritativeActions(state, 0, [{
+    sourceId: 'player-0',
+    skillIndex,
+    targetId: 'enemy-0',
+  }]);
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.actionEvents?.[0]?.skillIcon, state.player[0].character.skills[skillIndex].icon);
+  assert.ok(result.actionEvents?.[0]?.events.some(event =>
+    event.type === 'damage' && event.amount > 0,
+  ));
+  assert.ok(result.actionEvents?.[0]?.events.some(event =>
+    event.type === 'combat-text' && event.floatingType === 'stun' && event.targetId === 'enemy-0',
+  ));
+});
+
 test('derives a battle winner from server-calculated team deaths', () => {
   const tenten = findCharacter('Tenten');
   const teamA = [tenten, structuredClone(tenten), structuredClone(tenten)];

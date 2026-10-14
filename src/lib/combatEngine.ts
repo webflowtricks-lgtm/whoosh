@@ -38,11 +38,12 @@ export interface CombatActionIntent {
 
 export type CombatEngineEvent =
   | { type: 'chakra-spent'; side: 'player' | 'enemy'; chakra: ChakraPool }
-  | { type: 'damage'; targetId: string; health: number; shield: number; damageType: 'damage' | 'direct_damage' }
+  | { type: 'damage'; targetId: string; health: number; shield: number; amount: number; damageType: 'damage' | 'direct_damage' }
   | { type: 'heal'; targetId: string; health: number; healed: number }
   | { type: 'shield'; targetId: string; shield: number; added: number; expiresTurn?: number }
   | { type: 'friendly-effect-blocked'; targetId: string; effect: 'heal' }
   | { type: 'revive'; targetId: string; health: number }
+  | { type: 'combat-text'; targetId: string; text: string; floatingType: 'effect' | 'stun' | 'invulnerable' }
   | { type: 'match-ended'; winnerSide: 'player' | 'enemy' };
 
 export type CombatEngineResult =
@@ -737,7 +738,8 @@ function applyConfiguredEffects(
   allies: CombatCharacter[],
   enemies: CombatCharacter[],
   everyone: CombatCharacter[],
-): void {
+): CombatEngineEvent[] {
+  const events: CombatEngineEvent[] = [];
   const addEffect = (
     targetSelector: string | undefined,
     type: CombatCharacter['activeEffects'][number]['type'],
@@ -754,6 +756,14 @@ function applyConfiguredEffects(
           effect.stackType === rule.stackType && (effect.stacks || 0) > 0,
         ),
       )?.durationOverride || duration;
+      if (!skill.invisible && !(skill.invisibleDuration || 0)) {
+        const visual = type === 'stun'
+          ? { text: `STUN (${effectiveDuration}T)`, floatingType: 'stun' as const }
+          : type === 'invulnerable'
+            ? { text: `INVULNERÁVEL (${effectiveDuration}T)`, floatingType: 'invulnerable' as const }
+            : { text: `${type.replaceAll('_', ' ').toUpperCase()} (${effectiveDuration}T)`, floatingType: 'effect' as const };
+        events.push({ type: 'combat-text', targetId: target.id, ...visual });
+      }
       const current = target.activeEffects.find(effect =>
         effect.type === type && effect.sourceSkillName === skill.name,
       );
@@ -1047,6 +1057,7 @@ function applyConfiguredEffects(
     selected.shield = 0;
     selected.shieldExpiresTurn = undefined;
   }
+  return events;
 }
 
 function addChakra(
@@ -1111,6 +1122,7 @@ function applyDamage(
   turn: number,
   source?: CombatCharacter,
 ): CombatEngineEvent[] {
+  const beforeTotal = target.health + target.shield;
   const direct = (skill.directDamage || 0) > 0;
   const damageType = direct ? 'direct_damage' : 'damage';
   const incomingTypes = direct
@@ -1196,6 +1208,7 @@ function applyDamage(
     if (hasImmortalEffect(target)) target.health = Math.max(1, target.health);
     if (target.health === 0) target.isDead = true;
   }
+  const appliedDamage = Math.max(0, beforeTotal - target.health - target.shield);
 
   if (target.isDead && !hasNegateFriendlyEffects(target)) {
     const revive = target.activeEffects.find(effect => effect.type === 'revive_on_death');
@@ -1208,7 +1221,7 @@ function applyDamage(
       if (stacks > 0) revive.stacks = stacks;
       else target.activeEffects = target.activeEffects.filter(effect => effect !== revive);
       return [
-        { type: 'damage', targetId: target.id, health: 0, shield: target.shield, damageType },
+        { type: 'damage', targetId: target.id, health: 0, shield: target.shield, amount: appliedDamage, damageType },
         { type: 'revive', targetId: target.id, health: reviveHealth },
       ];
     }
@@ -1220,6 +1233,7 @@ function applyDamage(
     targetId: target.id,
     health: target.health,
     shield: target.shield,
+    amount: appliedDamage,
     damageType,
   }];
 }
@@ -1843,6 +1857,14 @@ export function resolveCombatIntent(
         castTurn: nextState.turn,
         sourceSkillName: skill.name,
       });
+      if (!skill.invisible && !(skill.invisibleDuration || 0)) {
+        events.push({
+          type: 'combat-text',
+          targetId: guardTarget.id,
+          text: `GUARD (-${skill.damageReductionVal})`,
+          floatingType: 'effect',
+        });
+      }
     }
   }
 
@@ -1870,7 +1892,7 @@ export function resolveCombatIntent(
       rule.damageType === 'dot' && rule.ignoreBaseDamage,
     ) ? 0 : nextSkill.dotVal,
   };
-  applyConfiguredEffects(
+  events.push(...applyConfiguredEffects(
     nextSource,
     nextTarget,
     configuredSkill,
@@ -1879,7 +1901,7 @@ export function resolveCombatIntent(
     nextSourceTeam.filter(combatant => !combatant.isDead),
     (intent.side === 'player' ? nextState.enemy : nextState.player).filter(combatant => !combatant.isDead),
     [...nextState.player, ...nextState.enemy].filter(combatant => !combatant.isDead),
-  );
+  ));
   if (isOffensiveTarget) {
     nextSource.activeEffects = nextSource.activeEffects.filter(effect =>
       effect.opponentSkillUseTriggered !== true,
@@ -2314,6 +2336,7 @@ export function tickAuthoritativeCombatEffects(
           casterSide: effect.casterSide,
           sourceSkillName: effect.sourceSkillName,
           castTurn: state.turn,
+          skipCastTurnDecrement: true,
         });
         continue;
       }

@@ -1021,6 +1021,7 @@ export interface ActiveEffect {
   casterId?: string;
   casterSide?: 'player' | 'enemy';
   isInvisible?: boolean;
+  skipCastTurnDecrement?: boolean;
   description?: string;
   targetId?: string;
   reflectMode?: 'Caster' | 'RandomAlly';

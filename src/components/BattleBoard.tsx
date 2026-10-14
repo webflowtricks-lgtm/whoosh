@@ -2103,6 +2103,8 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   const isEndingTurnRef = useRef(false);
   const turnActionLockedRef = useRef(false);
   const processedOpponentTurnsRef = useRef<Set<number>>(new Set());
+  const processedServerCombatEventIdsRef = useRef<Set<string>>(new Set());
+  const serverCombatEventsInitializedRef = useRef(false);
   const lastAppliedOppReportTurnRef = useRef(0);
   const stateReportSentTurnRef = useRef(0);
   const passedPlayersRef = useRef<('player' | 'enemy')[]>([]);
@@ -10771,6 +10773,7 @@ splashOnlyTargets = splashPool.filter(c =>
               casterId: pend.casterId,
               casterSide: pend.casterSide,
               castTurn: turn,
+              skipCastTurnDecrement: true,
             });
             newLogs.push({
               id: Math.random().toString(), turn,
@@ -10829,13 +10832,8 @@ splashOnlyTargets = splashPool.filter(c =>
         //  - marcadores 'custom' (stacks, stacks pendentes, liberação atrasada, reflexão por stack, etc.)
         //  - efeitos permanentes (duration >= 99999) e stack Raikiri congelada
         const KEEP_CAST_ROUND_SKIP = new Set([
-          'stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'custom', 'invulnerable',
-          // Invulnerabilidade precisa sobreviver à resolução em que foi aplicada para proteger a próxima ação.
-          // 🛡️ Proteções reativas: "anula a primeira skill por 1 turno" precisa sobreviver à rodada
-          // em que foi lançada — se eu sou RESPONDENTE, a skill inimiga que deve ser anulada vem na
-          // MESMA rodada ou na seguinte. Sem o skip, duração 1 morria na resolução da própria rodada
-          // ("aparece e some em segundos antes do inimigo agir"). O trigger em modo 'first' consome
-          // o efeito ao anular, então nada fica eterno.
+          'stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'custom',
+          // Proteções reativas permanecem até poderem anular a primeira habilidade que as aciona.
           'counter_attack', 'invisible',
           // 🚫 NOTA: incapacidades (cannot_reduce_damage, cannot_be_invulnerable, cannot_receive_friendly,
           // negate_friendly_effects) NÃO estão no skip. Elas decrementam normalmente: duração 1 = ativas
@@ -10853,7 +10851,12 @@ splashOnlyTargets = splashPool.filter(c =>
               return eff;
             }
             // Tipos que mantêm o skip antigo: não decrementam na MESMA rodada em que foram aplicados.
-            if (eff.castTurn === turn && KEEP_CAST_ROUND_SKIP.has(eff.type)) {
+            const invulnerabilityWasAppliedAfterOpponentActed =
+              eff.type === 'invulnerable' && !!eff.casterSide &&
+              eff.casterSide !== matchStarterRef.current;
+            if (eff.castTurn === turn &&
+              (eff.skipCastTurnDecrement || KEEP_CAST_ROUND_SKIP.has(eff.type) ||
+                invulnerabilityWasAppliedAfterOpponentActed)) {
               return eff;
             }
             return { ...eff, duration: eff.duration - 1 };
@@ -12527,6 +12530,49 @@ splashOnlyTargets = splashPool.filter(c =>
             pollFailureStreakRef.current = 0;
             showRoomLostModalRef.current = false;
             setShowRoomLostModal(false);
+          }
+          const combatEventBatches = Array.isArray(data.room.combatEventBatches)
+            ? data.room.combatEventBatches
+            : [];
+          const initializingCombatEvents = !serverCombatEventsInitializedRef.current;
+          serverCombatEventsInitializedRef.current = true;
+          const eventViewerSlot = onlineParams.playerIndex === 1 ? 1 : 0;
+          const flipCombatantId = (id: string) => eventViewerSlot === 1
+            ? id.startsWith('player-') ? id.replace('player-', 'enemy-') : id.replace('enemy-', 'player-')
+            : id;
+          for (const batch of combatEventBatches) {
+            if (typeof batch.id !== 'string' || processedServerCombatEventIdsRef.current.has(batch.id)) continue;
+            if (initializingCombatEvents && Number(batch.turn) < turn) {
+              processedServerCombatEventIdsRef.current.add(batch.id);
+              continue;
+            }
+            processedServerCombatEventIdsRef.current.add(batch.id);
+            for (const action of batch.actions || []) {
+              for (const event of action.events || []) {
+                const targetId = typeof event.targetId === 'string'
+                  ? flipCombatantId(event.targetId)
+                  : '';
+                if (!targetId) continue;
+                const skillIcon = typeof action.skillIcon === 'string' ? action.skillIcon : '';
+                if (event.type === 'damage' && event.amount > 0) {
+                  addFloatingText(targetId, `-${event.amount} HP`, 'damage', skillIcon);
+                } else if (event.type === 'heal' && event.healed > 0) {
+                  addFloatingText(targetId, `+${event.healed} HP`, 'heal', skillIcon);
+                } else if (event.type === 'shield' && event.added > 0) {
+                  addFloatingText(targetId, `+${event.added} ESCUDO`, 'shield', skillIcon);
+                } else if (event.type === 'revive') {
+                  addFloatingText(targetId, `REVIVE (+${event.health} HP)`, 'heal', skillIcon);
+                } else if (event.type === 'friendly-effect-blocked') {
+                  addFloatingText(targetId, 'CURA BLOQUEADA', 'stun', skillIcon);
+                } else if (event.type === 'combat-text') {
+                  addFloatingText(targetId, event.text, event.floatingType, skillIcon);
+                }
+              }
+            }
+            if (processedServerCombatEventIdsRef.current.size > 128) {
+              const oldest = processedServerCombatEventIdsRef.current.values().next().value;
+              if (oldest) processedServerCombatEventIdsRef.current.delete(oldest);
+            }
           }
           const canonicalCombat = data.room.combatState;
           if (canonicalCombat) {

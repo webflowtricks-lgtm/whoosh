@@ -5,7 +5,7 @@ import {
   type MatchProtocolAction,
 } from '../src/lib/matchProtocol';
 import type { Character } from '../src/types';
-import type { CombatEngineState } from '../src/lib/combatEngine';
+import type { CombatEngineEvent, CombatEngineState } from '../src/lib/combatEngine';
 import {
   getD1AccountProfile,
   getD1Config,
@@ -43,6 +43,17 @@ interface MatchRoomData {
   combatState?: CombatEngineState;
   actionsAppliedTurn?: number;
   appliedActionSlots?: (0 | 1)[];
+  combatEventBatches?: Array<{
+    id: string;
+    turn: number;
+    slot: 0 | 1;
+    actions: Array<{
+      actionIndex: number;
+      sourceId: string;
+      skillIcon?: string;
+      events: CombatEngineEvent[];
+    }>;
+  }>;
   resolvedTurn: number;
   surrenderedBy: string | null;
   winnerUsername: string | null;
@@ -755,6 +766,7 @@ export class MatchRoomDurableObject {
       turnActions,
       resolvedTurn: room.resolvedTurn,
       combatState,
+      combatEventBatches: room.combatEventBatches || [],
       surrenderedBy: room.surrenderedBy,
       winnerUsername: room.winnerUsername,
       surrenderReason: room.surrenderReason,
@@ -919,6 +931,17 @@ export class MatchRoomDurableObject {
         return fail(status, `Ação recusada pelo motor autoritativo (${applied.code || 'ação inválida'}).`);
       }
       nextCombatState = applied.state;
+      if (applied.actionEvents?.length) {
+        room.combatEventBatches = [
+          ...(room.combatEventBatches || []),
+          {
+            id: `${submittedTurn}:${actionSlot}`,
+            turn: submittedTurn,
+            slot: actionSlot,
+            actions: applied.actionEvents,
+          },
+        ].slice(-8);
+      }
       appliedSlots.add(actionSlot);
       winnerSlot = applied.winnerSlot;
       if (winnerSlot !== null) break;
