@@ -7705,23 +7705,23 @@ splashOnlyTargets = splashPool.filter(c =>
       }
 
       // 2. HEALING (with heal rule boost)
-      if (healAmt > 0) {
-        let healRuleBoost = 0;
-        if (skill.healRules && skill.healRules.length > 0) {
-          for (const rule of skill.healRules) {
-            if (rule.healBoost > 0 && rule.activeSkillName) {
-              const targetNameLower = rule.activeSkillName.trim().toLowerCase();
-              const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
-              const hasActive = allActiveEffects.some(e => {
-                if (!e.name) return false;
-                const eNameLower = e.name.toLowerCase();
-                return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
-              });
-              if (hasActive) healRuleBoost += rule.healBoost;
-            }
-          }
-        }
-        const totalHeal = healAmt + healRuleBoost;
+      let healRuleBoost = 0;
+      for (const rule of skill.healRules || []) {
+        if (!(rule.healBoost > 0) || !rule.activeSkillName) continue;
+        const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+        const hasActive = allCombatants.some(combatant =>
+          combatant.activeEffects.some(effect => {
+            if (!effect.name) return false;
+            const effectNameLower = effect.name.toLowerCase();
+            return effectNameLower === targetNameLower ||
+              effectNameLower.includes(targetNameLower) ||
+              targetNameLower.includes(effectNameLower);
+          }),
+        );
+        if (hasActive) healRuleBoost += rule.healBoost;
+      }
+      const totalHeal = healAmt + healRuleBoost;
+      if (totalHeal > 0) {
         const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
@@ -7768,13 +7768,31 @@ splashOnlyTargets = splashPool.filter(c =>
           if (totalHeal > 0 || actualHealed > 0) {
             checkAndGrantOrigamiLotusGathering(t, totalHeal || actualHealed, newLogs, [...updatedPlayer, ...updatedEnemy]);
           }
+          if (skill.healDuration && skill.healDuration > 1) {
+            pushActiveEffect(t, {
+              name: `Cura Contínua (${skill.name})`,
+              type: 'heal',
+              value: totalHeal,
+              duration: skill.healDuration - 1,
+              icon: skill.icon,
+              irremovable: !!skill.healIrremovable,
+              sourceSkillName: skill.name,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+              castTurn: turn,
+            });
+          }
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💚 ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}.${healRuleBoost > 0 ? ` (+${healRuleBoost} bônus)` : ''}`,
+            message: skill.healDuration && skill.healDuration > 1
+              ? `💚 ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}, mantendo cura contínua por mais ${skill.healDuration - 1} turnos.${healRuleBoost > 0 ? ` (+${healRuleBoost} bônus)` : ''}`
+              : `💚 ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}.${healRuleBoost > 0 ? ` (+${healRuleBoost} bônus)` : ''}`,
             type: 'heal',
           });
-          addFloatingText(t.id, `+${totalHeal} HP`, 'heal');
+          addFloatingText(t.id, skill.healDuration && skill.healDuration > 1
+            ? `+${totalHeal} HP · REGEN ${skill.healDuration - 1}T`
+            : `+${totalHeal} HP`, 'heal');
           cleanseTargetEffects(t, skill.healRemoveType);
         });
       }
@@ -17451,6 +17469,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         targetLabel: getTargetLabel(skill.afflictionTarget, 'Alvo Principal')
       });
     }
+    if (skill.afflictionInstant && skill.afflictionInstant > 0) {
+      effects.push({
+        label: 'Aflição Instantânea',
+        value: `Sofre ${skill.afflictionInstant} de dano de aflição ao usar`,
+        color: 'text-purple-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.afflictionTarget, skill.targetType === 'Self' ? 'Conjurador (Mim)' : 'Alvo Principal')
+      });
+    }
 
     // Informação: Vínculo de Morte (Death Link)
     if ((skill.deathLinkDuration || 0) > 0) {
@@ -17683,11 +17709,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
     if ((skill.immortalDuration && skill.immortalDuration > 0) || (skill.immortalHpThreshold && skill.immortalHpThreshold > 0)) {
       const conditionStr = skill.immortalHpThreshold && skill.immortalHpThreshold > 0
-        ? (skill.immortalImmediate ? `Ao usar ou se HP ≤ ${skill.immortalHpThreshold}` : `Se HP ≤ ${skill.immortalHpThreshold}`)
+        ? (skill.immortalImmediate ? `ao usar ou quando tiver ${skill.immortalHpThreshold} ou menos de vida` : `quando tiver ${skill.immortalHpThreshold} ou menos de vida`)
         : 'Ao usar a habilidade';
       effects.push({
-        label: 'Imortalidade',
-        value: `Fica imortal por ${skill.permanent ? 'tempo indeterminado (Permanente)' : fmtDur(skill.immortalDuration || 3)} (${conditionStr})`,
+        label: 'Imortalidade Condicional',
+        value: `Fica imortal por ${fmtDur(skill.immortalDuration || 3)} ${conditionStr}`,
         color: 'text-green-950 font-extrabold',
         targetLabel: getTargetLabel(skill.shieldTarget, 'Conjurador (Mim)')
       });
@@ -19777,7 +19803,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   )}
 
                   {/* Protection & Immunity Tags */}
-                  {(inspectedSkill.skill.cannotBeCountered || inspectedSkill.skill.cannotBeReflected || inspectedSkill.skill.doNotApplyIfActive) && (
+                  {(inspectedSkill.skill.cannotBeCountered || inspectedSkill.skill.cannotBeReflected) && (
                     <div className="flex flex-wrap gap-1">
                       {inspectedSkill.skill.cannotBeCountered && (
                         <span className="text-[9px] font-mono bg-red-900/20 text-red-950 px-2 py-0.5 rounded border border-red-900/30 font-bold uppercase">
@@ -19787,11 +19813,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       {inspectedSkill.skill.cannotBeReflected && (
                         <span className="text-[9px] font-mono bg-cyan-900/20 text-cyan-950 px-2 py-0.5 rounded border border-cyan-900/30 font-bold uppercase">
                           🚫 Irrefletível
-                        </span>
-                      )}
-                      {inspectedSkill.skill.doNotApplyIfActive && (
-                        <span className="text-[9px] font-mono bg-amber-900/20 text-amber-950 px-2 py-0.5 rounded border border-amber-900/30 font-bold uppercase">
-                          🚫 Não Re-aplicável
                         </span>
                       )}
                     </div>

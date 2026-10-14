@@ -627,7 +627,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   const getSkillAttributeEffects = (skill: Skill) => {
     const effects: { label: string; value: string; target?: string }[] = [];
-    const duration = (turns?: number) => turns && turns >= 99999 ? '∞' : `${turns || 1} ${t('turno(s)', 'turn(s)')}`;
+    const duration = (turns?: number) => {
+      const value = turns || 1;
+      if (value >= 99999) return '∞';
+      return `${value} ${value === 1 ? t('turno', 'turn') : t('turnos', 'turns')}`;
+    };
     const addEffect = (label: string, value: string, target?: string) => effects.push({ label, value, target });
 
     if (skill.damage && skill.damage > 0) addEffect(t('Dano', 'Damage'), `${skill.damage} ${t('de dano', 'damage')}`, skill.damageTarget || 'Target');
@@ -637,6 +641,23 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         ? `${skill.heal} ${t('de cura por turno durante', 'healing per turn for')} ${duration(skill.healDuration)}`
         : `${skill.heal} ${t('de cura', 'healing')}`;
       addEffect(t(skill.healDuration && skill.healDuration > 1 ? 'Cura Contínua' : 'Cura', skill.healDuration && skill.healDuration > 1 ? 'Healing over Time' : 'Heal'), healing, skill.healTarget || 'Target');
+    }
+    if (skill.afflictionInstant && skill.afflictionInstant > 0) {
+      addEffect(
+        t('Aflição Instantânea', 'Instant Affliction'),
+        t(`Sofre ${skill.afflictionInstant} de dano de aflição ao usar`, `Takes ${skill.afflictionInstant} affliction damage when used`),
+        skill.afflictionTarget || (skill.targetType === 'Self' ? 'Self' : 'Target'),
+      );
+    }
+    if ((skill.immortalDuration || 0) > 0 || (skill.immortalHpThreshold || 0) > 0) {
+      const condition = skill.immortalHpThreshold && skill.immortalHpThreshold > 0
+        ? t(`quando tiver ${skill.immortalHpThreshold} ou menos de vida`, `when at ${skill.immortalHpThreshold} HP or less`)
+        : t('ao usar a habilidade', 'when the skill is used');
+      addEffect(
+        t('Imortalidade', 'Immortality'),
+        t(`Fica imortal por ${duration(skill.immortalDuration)} ${condition}`, `Becomes immortal for ${duration(skill.immortalDuration)} ${condition}`),
+        skill.shieldTarget || 'Self',
+      );
     }
     const cleanseTypeLabels: Record<string, string> = {
       affliction: t('Aflição', 'Affliction'),

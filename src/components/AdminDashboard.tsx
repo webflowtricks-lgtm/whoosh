@@ -336,11 +336,14 @@ const getEffectNameSuggestions = (): string[] => {
         a.download = `naruto-config-backup-${new Date().toISOString().slice(0, 10)}.json`;
         document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+        window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
         triggerSuccess('Backup das configurações exportado com sucesso!');
       } else {
-        triggerError('Falha ao exportar arquivo de configuração do servidor.');
+        const result = await res.json().catch(() => null) as { error?: unknown } | null;
+        triggerError(typeof result?.error === 'string'
+          ? result.error
+          : 'Falha ao exportar arquivo de configuração do servidor.');
       }
     } catch (err) {
       triggerError('Erro de conexão ao exportar configurações.');
