@@ -2231,7 +2231,11 @@ export function resolveCombatIntent(
     }
   }
 
-  if (nextSkill.cleanseDebuffs || nextSkill.cleanseBuffs) {
+  const cleansesDebuffs = nextSkill.cleanseDebuffs === true ||
+    (nextSkill.cleanseDebuffTypes?.length || 0) > 0;
+  const cleansesBuffs = nextSkill.cleanseBuffs === true ||
+    (nextSkill.cleanseBuffTypes?.length || 0) > 0;
+  if (cleansesDebuffs || cleansesBuffs) {
     const cleanseTargets = effectTargets(
       nextSkill.cleanseDebuffTarget || nextSkill.cleanseBuffTarget || 'Target',
       nextSource,
@@ -2248,9 +2252,9 @@ export function resolveCombatIntent(
         const isDebuff = ['damage_debuff', 'stun', 'dot', 'bleeding', 'affliction',
           'damage_vulnerability', 'blocks_offensive_skills', 'cannot_be_invulnerable',
           'cannot_receive_friendly', 'negate_friendly_effects', 'paralyze_cooldown'].includes(effect.type);
-        const removeBuff = nextSkill.cleanseBuffs && isBuff &&
+        const removeBuff = cleansesBuffs && isBuff &&
           (!nextSkill.cleanseBuffTypes?.length || nextSkill.cleanseBuffTypes.includes(effect.type));
-        const removeDebuff = nextSkill.cleanseDebuffs && isDebuff &&
+        const removeDebuff = cleansesDebuffs && isDebuff &&
           (!nextSkill.cleanseDebuffTypes?.length || nextSkill.cleanseDebuffTypes.includes(effect.type));
         return !(removeBuff || removeDebuff) || effect.irremovable === true;
       });

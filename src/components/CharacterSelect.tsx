@@ -632,7 +632,84 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
     if (skill.damage && skill.damage > 0) addEffect(t('Dano', 'Damage'), `${skill.damage} ${t('de dano', 'damage')}`, skill.damageTarget || 'Target');
     if (skill.directDamage && skill.directDamage > 0) addEffect(t('Dano Direto', 'Direct Damage'), `${skill.directDamage} ${t('de dano direto', 'direct damage')}`, skill.directDamageTarget || 'Target');
-    if (skill.heal && skill.heal > 0) addEffect(t('Cura', 'Heal'), `${skill.heal} ${t('de cura', 'healing')}`, skill.healTarget || 'Target');
+    if (skill.heal && skill.heal > 0) {
+      const healing = skill.healDuration && skill.healDuration > 1
+        ? `${skill.heal} ${t('de cura por turno durante', 'healing per turn for')} ${duration(skill.healDuration)}`
+        : `${skill.heal} ${t('de cura', 'healing')}`;
+      addEffect(t(skill.healDuration && skill.healDuration > 1 ? 'Cura Contínua' : 'Cura', skill.healDuration && skill.healDuration > 1 ? 'Healing over Time' : 'Heal'), healing, skill.healTarget || 'Target');
+    }
+    const cleanseTypeLabels: Record<string, string> = {
+      affliction: t('Aflição', 'Affliction'),
+      dot: t('Queimadura', 'Burn'),
+      bleeding: t('Sangramento', 'Bleeding'),
+      stun: t('Atordoamento', 'Stun'),
+      damage_debuff: t('Redução de dano causado', 'Damage debuff'),
+      damage_vulnerability: t('Vulnerabilidade', 'Vulnerability'),
+      cannot_be_invulnerable: t('Incapaz de ficar invulnerável', 'Cannot become invulnerable'),
+      cannot_receive_friendly: t('Bloqueio de efeitos amigáveis', 'Friendly effects blocked'),
+      damage_buff: t('Aumento de dano', 'Damage boost'),
+      damage_reduction: t('Redução de dano recebido', 'Damage reduction'),
+      shield: t('Escudo', 'Shield'),
+      invulnerable: t('Invulnerabilidade', 'Invulnerability'),
+      invisible: t('Invisibilidade', 'Invisibility'),
+      heal_over_time: t('Cura por turno', 'Healing over time'),
+      counter_attack: t('Contra-ataque', 'Counterattack'),
+      reflect: t('Reflexão', 'Reflection'),
+      retaliate_damage: t('Retaliação', 'Retaliation'),
+      stack: t('Stacks', 'Stacks'),
+      all_debuffs: t('todos os debuffs', 'all debuffs'),
+      all_buffs: t('todos os buffs', 'all buffs'),
+    };
+    const formatCleanseTypes = (types: string[] | undefined, fallback: string) =>
+      types?.length
+        ? types.map(type => cleanseTypeLabels[type] || type).join(', ')
+        : fallback;
+    if (skill.cleanseDebuffs || (skill.cleanseDebuffTypes?.length || 0) > 0) {
+      addEffect(
+        t('Limpeza de Debuffs', 'Debuff Cleanse'),
+        t(
+          `Remove ${formatCleanseTypes(skill.cleanseDebuffTypes, 'todos os debuffs')} do alvo`,
+          `Removes ${formatCleanseTypes(skill.cleanseDebuffTypes, 'all debuffs')} from the target`,
+        ),
+        skill.cleanseDebuffTarget || 'Target',
+      );
+    }
+    if (skill.cleanseBuffs || (skill.cleanseBuffTypes?.length || 0) > 0) {
+      addEffect(
+        t('Limpeza de Buffs', 'Buff Cleanse'),
+        t(
+          `Remove ${formatCleanseTypes(skill.cleanseBuffTypes, 'todos os buffs')} do alvo`,
+          `Removes ${formatCleanseTypes(skill.cleanseBuffTypes, 'all buffs')} from the target`,
+        ),
+        skill.cleanseBuffTarget || 'Target',
+      );
+    }
+    if (skill.healRemoveType) {
+      addEffect(
+        t('Limpeza ao Curar', 'Cleanse on Heal'),
+        t(
+          `Remove ${cleanseTypeLabels[skill.healRemoveType] || skill.healRemoveType} do alvo curado`,
+          `Removes ${cleanseTypeLabels[skill.healRemoveType] || skill.healRemoveType} from the healed target`,
+        ),
+        skill.healTarget || 'Target',
+      );
+    }
+    if (skill.retaliateDamage && (skill.retaliateDamageVal || 0) > 0) {
+      const retaliateDuration = skill.retaliateDamagePermanent
+        ? t('permanentemente', 'permanently')
+        : `${t('por', 'for')} ${duration(skill.retaliateDamageDuration)}`;
+      const damageType = skill.retaliateDamageType === 'direct_damage' || skill.retaliateDamageType === 'piercing'
+        ? t('dano direto', 'direct damage')
+        : t('dano', 'damage');
+      addEffect(
+        t('Retaliação', 'Retaliation'),
+        t(
+          `Devolve ${skill.retaliateDamageVal} de ${damageType} a quem atacar ${retaliateDuration}${skill.stackable ? t(' (o efeito acumula por stack)', ' (stacks increase this effect)') : ''}`,
+          `Deals ${skill.retaliateDamageVal} ${damageType} to attackers ${retaliateDuration}${skill.stackable ? ' (stacks increase this effect)' : ''}`,
+        ),
+        skill.retaliateDamageTarget || 'Self',
+      );
+    }
     if (skill.shieldVal && skill.shieldVal > 0) addEffect(t('Escudo', 'Shield'), `+${skill.shieldVal} ${t('de escudo por', 'shield for')} ${duration(skill.shieldDuration)}`, skill.shieldTarget || 'Self');
     if (skill.damageReductionVal && skill.damageReductionVal > 0) {
       addEffect(t('Redução de Dano', 'Damage Reduction'), `-${skill.damageReductionVal} ${t('de dano recebido por', 'damage received for')} ${duration(skill.damageReductionDuration)}`, skill.shieldTarget || 'Self');

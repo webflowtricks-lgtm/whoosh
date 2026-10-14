@@ -900,6 +900,9 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
     case 'heal':
       rawPt = val > 0 ? `Regenera ${val} de vida por turno por ${durText}` : `Efeito de cura por ${durText}`;
       break;
+    case 'heal_over_time':
+      rawPt = val > 0 ? `Regenera ${val} de vida por turno por ${durText}` : `Efeito de cura por turno por ${durText}`;
+      break;
     case 'invulnerable': {
       const summary = formatInvulnerableSummary(effect.invulnerableTypes);
       const invClasses = effect.invulnerableClasses;
@@ -10505,7 +10508,7 @@ splashOnlyTargets = splashPool.filter(c =>
         // CONJURADOR passa o turno (não no fim da rodada). Ver handleEndTurn.
 
         // Apply dynamic Healing over time
-        const activeHealEffects = c.activeEffects.filter(e => e.type === 'heal');
+        const activeHealEffects = c.activeEffects.filter(e => e.type === 'heal' && e.castTurn !== turn);
         activeHealEffects.forEach(hl => {
           // 🚑 Portador de efeito com bloqueio de curas não regenera vida
           if (c.activeEffects.some(e => e.blocksHeals)) {
@@ -10832,7 +10835,7 @@ splashOnlyTargets = splashPool.filter(c =>
         //  - marcadores 'custom' (stacks, stacks pendentes, liberação atrasada, reflexão por stack, etc.)
         //  - efeitos permanentes (duration >= 99999) e stack Raikiri congelada
         const KEEP_CAST_ROUND_SKIP = new Set([
-          'stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'custom',
+          'stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'heal', 'custom',
           // Proteções reativas permanecem até poderem anular a primeira habilidade que as aciona.
           'counter_attack', 'invisible',
           // 🚫 NOTA: incapacidades (cannot_reduce_damage, cannot_be_invulnerable, cannot_receive_friendly,
@@ -15127,46 +15130,25 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
       }
 
       // 2. APPLY HEALING
-      if (skill.healDuration && skill.healDuration > 1) {
-        const duration = skill.healDuration;
-        const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
-        healTargets.forEach(t => {
-          if (t.isDead) return;
-          pushActiveEffect(t, {
-            name: `Cura Contínua (${skill.name})`,
-            type: 'heal',
-            value: skill.heal,
-            duration,
-            icon: skill.icon,
-            irremovable: !!skill.healIrremovable,
-          });
-          newLogs.push({
-            id: Math.random().toString(),
-            turn,
-            message: `💚 ${t.character.name} recebeu regeneração de [${skill.name}] restaurando ${skill.heal} de vida por turno por ${duration} turnos.`,
-            type: 'heal',
-          });
-          addFloatingText(t.id, `REGEN CONTÍNUA (+${skill.heal} HP)`, 'heal');
-          cleanseTargetEffects(t, skill.healRemoveType);
-        });
-      } else if (healAmt > 0) {
-        let healRuleBoost = 0;
-        if (skill.healRules && skill.healRules.length > 0) {
-          for (const rule of skill.healRules) {
-            if (rule.healBoost > 0 && rule.activeSkillName) {
-              const targetNameLower = rule.activeSkillName.trim().toLowerCase();
-              const allActiveEffects = allCombatants.flatMap(c => c.activeEffects);
-              const hasActive = allActiveEffects.some(e => {
-                if (!e.name) return false;
-                const eNameLower = e.name.toLowerCase();
-                return eNameLower === targetNameLower || eNameLower.includes(targetNameLower) || targetNameLower.includes(eNameLower);
-              });
-              if (hasActive) healRuleBoost += rule.healBoost;
-            }
-          }
-        }
-        const totalHeal = healAmt + healRuleBoost;
-        const healTargets = resolveEffectTargets(skill.healTarget, target, source, sourceList, targetList, true);
+      let healRuleBoost = 0;
+      for (const rule of skill.healRules || []) {
+        if (!(rule.healBoost > 0) || !rule.activeSkillName) continue;
+        const targetNameLower = rule.activeSkillName.trim().toLowerCase();
+        const hasActive = allCombatants.some(combatant =>
+          combatant.activeEffects.some(effect => {
+            if (!effect.name) return false;
+            const effectNameLower = effect.name.toLowerCase();
+            return effectNameLower === targetNameLower ||
+              effectNameLower.includes(targetNameLower) ||
+              targetNameLower.includes(effectNameLower);
+          }),
+        );
+        if (hasActive) healRuleBoost += rule.healBoost;
+      }
+      const totalHeal = healAmt + healRuleBoost;
+      if (totalHeal > 0) {
+        const healTarget = skill.healTarget || (skill.targetType === 'Self' ? 'Self' : undefined);
+        const healTargets = resolveEffectTargets(healTarget, target, source, sourceList, targetList, true);
         healTargets.forEach(t => {
           if (t.isDead) return;
           if (t.activeEffects.some(e => e.type === 'cannot_receive_friendly')) {
@@ -15174,6 +15156,17 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
               id: Math.random().toString(),
               turn,
               message: `🚫 ${t.character.name} não pôde ser curado por [${skill.name}] por estar impossibilitado de receber habilidades amigáveis!`,
+              type: 'stun',
+            });
+            addFloatingText(t.id, 'CURA BLOQUEADA', 'stun');
+            return;
+          }
+          if (t.activeEffects.some(e => e.blocksHeals) || hasNegateFriendlyEffects(t) ||
+            isInvulnToFriendlyEffects(t, skill)) {
+            newLogs.push({
+              id: Math.random().toString(),
+              turn,
+              message: `🚫 ${t.character.name} não pôde ser curado por [${skill.name}] devido a um efeito que bloqueia curas amigáveis.`,
               type: 'stun',
             });
             addFloatingText(t.id, 'CURA BLOQUEADA', 'stun');
@@ -15188,16 +15181,34 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
           if (totalHeal > 0 || actualHealed > 0) {
             checkAndGrantOrigamiLotusGathering(t, totalHeal || actualHealed, newLogs, [...updatedPlayer, ...updatedEnemy]);
           }
+          if (skill.healDuration && skill.healDuration > 1) {
+            pushActiveEffect(t, {
+              name: `Cura Contínua (${skill.name})`,
+              type: 'heal',
+              value: totalHeal,
+              duration: skill.healDuration - 1,
+              icon: skill.icon,
+              irremovable: !!skill.healIrremovable,
+              sourceSkillName: skill.name,
+              castTurn: turn,
+              casterId: source.id,
+              casterSide: action.isPlayer ? 'player' : 'enemy',
+            });
+          }
           newLogs.push({
             id: Math.random().toString(),
             turn,
-            message: `💚 ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}.${healRuleBoost > 0 ? ` (+${healRuleBoost} bônus)` : ''}`,
+            message: skill.healDuration && skill.healDuration > 1
+              ? `💚 ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}, mantendo cura contínua por mais ${skill.healDuration - 1} turnos.${healRuleBoost > 0 ? ` (+${healRuleBoost} bônus)` : ''}`
+              : `💚 ${source.character.name} usou [${skill.name}] e restaurou ${totalHeal} de vida de ${t.character.name}.${healRuleBoost > 0 ? ` (+${healRuleBoost} bônus)` : ''}`,
             type: 'heal',
           });
-          addFloatingText(t.id, `+${totalHeal} HP`, 'heal');
+          addFloatingText(t.id, skill.healDuration && skill.healDuration > 1
+            ? `+${totalHeal} HP · REGEN ${skill.healDuration - 1}T`
+            : `+${totalHeal} HP`, 'heal');
           cleanseTargetEffects(t, skill.healRemoveType);
         });
-}
+      }
 
       // 💣 Contagem Regressiva (Bomba): aplica o timer no alvo; quando o tempo acabar, ele recebe o dano
       if (skill.countdownDamageRules && skill.countdownDamageRules.length > 0) {
@@ -17194,11 +17205,76 @@ if (skill.redirectOffensiveToCaster) {
       });
     }
     if (skill.heal && skill.heal > 0) {
+      const healingValue = skill.healDuration && skill.healDuration > 1
+        ? `${skill.heal} de Cura por turno durante ${fmtDur(skill.healDuration)}`
+        : `${skill.heal} de Cura`;
       effects.push({
-        label: 'Cura',
-        value: `${skill.heal} de Cura`,
+        label: skill.healDuration && skill.healDuration > 1 ? 'Cura Contínua' : 'Cura',
+        value: healingValue,
         color: 'text-emerald-950 font-extrabold',
         targetLabel: getTargetLabel(skill.healTarget, 'Alvo Principal')
+      });
+    }
+    const cleanseTypeLabels: Record<string, string> = {
+      affliction: 'Aflição',
+      dot: 'Queimadura',
+      bleeding: 'Sangramento',
+      stun: 'Atordoamento',
+      damage_debuff: 'Redução de Dano Causado',
+      damage_vulnerability: 'Vulnerabilidade',
+      cannot_be_invulnerable: 'Incapaz de Ficar Invulnerável',
+      cannot_receive_friendly: 'Bloqueio de Efeitos Amigáveis',
+      damage_buff: 'Aumento de Dano',
+      damage_reduction: 'Redução de Dano Recebido',
+      shield: 'Escudo',
+      invulnerable: 'Invulnerabilidade',
+      invisible: 'Invisibilidade',
+      heal_over_time: 'Cura por Turno',
+      counter_attack: 'Contra-Ataque',
+      reflect: 'Reflexão',
+      retaliate_damage: 'Retaliação',
+      stack: 'Stacks',
+      all_debuffs: 'todos os debuffs',
+      all_buffs: 'todos os buffs',
+    };
+    const formatCleanseTypes = (types: string[] | undefined, fallback: string) =>
+      types?.length ? types.map(type => cleanseTypeLabels[type] || type).join(', ') : fallback;
+    if (skill.cleanseDebuffs || (skill.cleanseDebuffTypes?.length || 0) > 0) {
+      effects.push({
+        label: 'Limpeza de Debuffs',
+        value: `Remove ${formatCleanseTypes(skill.cleanseDebuffTypes, 'todos os debuffs')} do alvo`,
+        color: 'text-emerald-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.cleanseDebuffTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.cleanseBuffs || (skill.cleanseBuffTypes?.length || 0) > 0) {
+      effects.push({
+        label: 'Limpeza de Buffs',
+        value: `Remove ${formatCleanseTypes(skill.cleanseBuffTypes, 'todos os buffs')} do alvo`,
+        color: 'text-amber-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.cleanseBuffTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.healRemoveType) {
+      effects.push({
+        label: 'Limpeza ao Curar',
+        value: `Remove ${cleanseTypeLabels[skill.healRemoveType] || skill.healRemoveType} do alvo curado`,
+        color: 'text-emerald-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.healTarget, 'Alvo Principal')
+      });
+    }
+    if (skill.retaliateDamage && (skill.retaliateDamageVal || 0) > 0) {
+      const duration = skill.retaliateDamagePermanent
+        ? 'permanentemente'
+        : `por ${fmtDur(skill.retaliateDamageDuration)}`;
+      const damageType = skill.retaliateDamageType === 'direct_damage' || skill.retaliateDamageType === 'piercing'
+        ? 'dano direto'
+        : 'dano';
+      effects.push({
+        label: 'Retaliação',
+        value: `Devolve ${skill.retaliateDamageVal} de ${damageType} a quem atacar ${duration}${skill.stackable ? ' (acumula por stack)' : ''}`,
+        color: 'text-rose-950 font-extrabold',
+        targetLabel: getTargetLabel(skill.retaliateDamageTarget, 'Conjurador (Mim)')
       });
     }
     if (skill.blocksOffensiveSkills) {

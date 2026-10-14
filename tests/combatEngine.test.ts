@@ -4,6 +4,7 @@ import test from 'node:test';
 import type { Character, CombatCharacter } from '../src/types';
 import {
   resolveCombatIntent,
+  tickAuthoritativeCombatEffects,
   type CombatEngineState,
 } from '../src/lib/combatEngine';
 
@@ -598,6 +599,97 @@ test('applies Sasuke Sharingan Guard to its configured self target', () => {
   assert.equal(result.state.enemy[0].activeEffects.some(effect =>
     effect.type === 'damage_reduction' && effect.sourceSkillName === 'Sharingan',
   ), false);
+});
+
+test('Naruto Chackra Boost applies its conditional heal while Shadow Clones is active', () => {
+  const naruto = character('Naruto Uzumaki');
+  const state = createState({
+    playerCharacter: naruto,
+    playerChakra: { Tai: 1, Nin: 1, Gen: 0, Blood: 0 },
+  });
+  state.player[0].health = 55;
+  state.player[0].activeEffects.push({
+    name: 'Shadow Clones (Redução de Dano)',
+    type: 'damage_reduction',
+    value: 15,
+    duration: 3,
+    casterId: 'player-0',
+    casterSide: 'player',
+  });
+  const skillIndex = state.player[0].character.skills.findIndex(skill => skill.name === 'Chackra Boost');
+  assert.notEqual(skillIndex, -1);
+
+  const result = resolveCombatIntent(state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex,
+    targetId: 'player-0',
+  });
+
+  assert.equal(result.status, 'applied');
+  if (result.status !== 'applied') return;
+  assert.equal(result.state.player[0].health, 70);
+  assert.ok(result.events.some(event => event.type === 'heal' && event.healed === 15));
+});
+
+test('Young Rin Medical Kit keeps healing its chosen ally over the configured duration', () => {
+  const state = createState({
+    playerCharacter: character('Young Rin'),
+    playerAllies: [character('Tenten')],
+    playerChakra: { Tai: 1, Nin: 1, Gen: 0, Blood: 0 },
+  });
+  state.player[1].health = 60;
+  const skillIndex = state.player[0].character.skills.findIndex(skill => skill.name === 'Medical Kit');
+  assert.notEqual(skillIndex, -1);
+
+  const result = resolveCombatIntent(state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex,
+    targetId: 'player-1',
+  });
+
+  assert.equal(result.status, 'applied');
+  if (result.status !== 'applied') return;
+  const target = result.state.player[1];
+  assert.equal(target.health, 70, 'the first 10 HP heal is applied immediately');
+  assert.ok(target.activeEffects.some(effect =>
+    effect.type === 'heal_over_time' && effect.value === 10 && effect.duration === 2,
+  ));
+
+  result.state.turn = 2;
+  tickAuthoritativeCombatEffects(result.state, 'player');
+  assert.equal(target.health, 80);
+  result.state.turn = 3;
+  tickAuthoritativeCombatEffects(result.state, 'player');
+  assert.equal(target.health, 90);
+});
+
+test('applies a cleanse configured by debuff types without requiring the boolean flag', () => {
+  const sakura = character('Sakura Haruno');
+  const healingTechnique = sakura.skills.find(skill => skill.name === 'Healing Technique');
+  assert.ok(healingTechnique, 'Sakura has Healing Technique');
+  healingTechnique.cleanseDebuffTypes = ['affliction'];
+  const state = createState({
+    playerCharacter: sakura,
+    playerAllies: [character('Tenten')],
+  });
+  state.player[1].activeEffects.push(
+    { name: 'Poison', type: 'affliction', value: 5, duration: 2 },
+    { name: 'Burn', type: 'dot', value: 5, duration: 2 },
+  );
+
+  const result = resolveCombatIntent(state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex: state.player[0].character.skills.findIndex(skill => skill.name === 'Healing Technique'),
+    targetId: 'player-1',
+  });
+
+  assert.equal(result.status, 'applied');
+  if (result.status !== 'applied') return;
+  assert.equal(result.state.player[1].activeEffects.some(effect => effect.type === 'affliction'), false);
+  assert.equal(result.state.player[1].activeEffects.some(effect => effect.type === 'dot'), true);
 });
 
 test('refuses to partially apply a skill with multiple damage channels', () => {
