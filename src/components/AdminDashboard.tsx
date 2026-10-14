@@ -363,7 +363,7 @@ const getEffectNameSuggestions = (): string[] => {
       if (res.ok && result.success) {
         // Sync client-side local cache & states immediately
         if (Array.isArray(importedConfigData.characters)) {
-          setCharacters(await fetchCharactersFromServer());
+          setCharacters(await fetchCharactersFromServer({ required: true }));
         }
         if (Array.isArray(importedConfigData.ranks)) {
           setRanksList(await fetchRanksFromServer());
@@ -373,14 +373,15 @@ const getEffectNameSuggestions = (): string[] => {
           setAiEnemyCharacterLimit(importedConfigData.aiSettings[0].maxEnemyCharacterNumber);
         }
 
-        triggerSuccess(result.message || 'Configurações importadas e aplicadas neste ambiente com sucesso!');
+        triggerSuccess(result.message || 'Configurações importadas globalmente para todos os jogadores.');
         setImportedConfigData(null);
         setImportFileName('');
       } else {
         triggerError(result.error || 'Erro ao importar configurações no servidor.');
       }
     } catch (err) {
-      triggerError('Erro de comunicação com o servidor ao importar dados.');
+      const reason = err instanceof Error ? err.message : 'falha desconhecida';
+      triggerError(`Não foi possível confirmar a importação no servidor: ${reason}`);
     } finally {
       setIsImporting(false);
     }
@@ -1652,7 +1653,7 @@ const newSkill: Skill = {
                   2. Importar & Sincronizar (.JSON)
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                  Selecione um arquivo de backup para aplicar instantaneamente todas as missões, personagens, habilidades e ranks neste ambiente de testes sem precisar recriá-los do zero.
+                  O backup será salvo na configuração global do servidor ativo. Personagens, habilidades, missões e ranks importados serão usados por todos os jogadores, não apenas por esta conta.
                 </p>
 
                 {/* Upload Input Area */}
@@ -1701,7 +1702,7 @@ const newSkill: Skill = {
                 }`}
               >
                 <Server className="w-4 h-4" />
-                {isImporting ? 'Sincronizando com o Servidor...' : 'Sincronizar e Aplicar neste Ambiente'}
+                {isImporting ? 'Sincronizando com o Servidor...' : 'Sincronizar no Servidor para Todos'}
               </button>
             </div>
           </div>
@@ -1710,9 +1711,9 @@ const newSkill: Skill = {
           <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-start gap-3">
             <Server className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div className="text-xs text-slate-300 space-y-1">
-              <span className="font-bold text-white block">Dica para Múltiplos Ambientes de Teste:</span>
+              <span className="font-bold text-white block">Configuração Global do Servidor:</span>
               <p className="text-slate-400 leading-relaxed">
-                Ao implantar a aplicação em um novo servidor ou rodar uma nova instância backend, navegue até esta aba e importe seu arquivo de backup. Todas as tabelas de dados do servidor (<code className="text-amber-400 font-mono">custom_characters.json</code>, <code className="text-amber-400 font-mono">quests.json</code>, <code className="text-amber-400 font-mono">ranks.json</code>, etc.) serão sobrescritas e atualizadas instantaneamente.
+                Ao importar o backup, os conjuntos presentes no arquivo são gravados no armazenamento global do servidor ativo e compartilhados por todos os jogadores. As telas carregam esses dados do servidor; uma conta não mantém uma cópia exclusiva.
               </p>
             </div>
           </div>

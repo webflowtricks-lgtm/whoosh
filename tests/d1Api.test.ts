@@ -16,6 +16,7 @@ class MemoryD1 implements D1Database {
   sessions = new Map<string, Row>();
   configHeads = new Map<string, Row>();
   configItems: Row[] = [];
+  configWriteLocks = new Map<string, Row>();
   rewardClaims = new Set<string>();
   lastChanges = 0;
   profileUpdateCount = 0;
@@ -157,6 +158,33 @@ class MemoryStatement implements D1PreparedStatement {
         row.profile_json = JSON.stringify(profile);
       }
       this.db.lastChanges = changes;
+      return { success: true, meta: { changes } };
+    }
+    if (q.startsWith('insert into game_config_write_locks')) {
+      const [config_key, owner_token, expires_at, now] = this.values;
+      const current = this.db.configWriteLocks.get(String(config_key));
+      if (!current || Number(current.expires_at) <= Number(now)) {
+        this.db.configWriteLocks.set(String(config_key), {
+          config_key, owner_token, expires_at,
+        });
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+    if (q.startsWith('update game_config_write_locks')) {
+      const [expires_at, config_key, owner_token] = this.values;
+      const current = this.db.configWriteLocks.get(String(config_key));
+      if (current?.owner_token === owner_token) {
+        current.expires_at = expires_at;
+        return { success: true, meta: { changes: 1 } };
+      }
+      return { success: true, meta: { changes: 0 } };
+    }
+    if (q.startsWith('delete from game_config_write_locks')) {
+      const [config_key, owner_token] = this.values;
+      const current = this.db.configWriteLocks.get(String(config_key));
+      const changes = current?.owner_token === owner_token ? 1 : 0;
+      if (changes) this.db.configWriteLocks.delete(String(config_key));
       return { success: true, meta: { changes } };
     }
     if (q.startsWith('insert into game_config_items')) {
@@ -505,6 +533,32 @@ test('only the active session for account 2 can publish global configuration', a
     'X-Account-Session': userToken,
   }), env);
   assert.equal(deniedImport?.status, 403);
+
+  const importedCatalog = [{ id: 'backup-character', skills: [{ name: 'Updated by backup' }] }];
+  const imported = await handleD1Request(request('/api/config/import', 'POST', {
+    characters: importedCatalog,
+  }, {
+    'X-Account-Username': '2',
+    'X-Account-Session': adminToken,
+  }), env);
+  assert.equal(imported?.status, 200);
+
+  const playerOneRead = await handleD1Request(request('/api/characters', 'GET'), env);
+  const playerTwoRead = await handleD1Request(request('/api/characters', 'GET'), env);
+  assert.deepEqual((await responseBody(playerOneRead!)).characters, importedCatalog);
+  assert.deepEqual((await responseBody(playerTwoRead!)).characters, importedCatalog);
+
+  env.DB.configWriteLocks.set('characters', {
+    owner_token: 'another-write',
+    expires_at: Date.now() + 60_000,
+  });
+  const concurrentSave = await handleD1Request(request('/api/characters', 'POST', payload, {
+    'X-Account-Username': '2',
+    'X-Account-Session': adminToken,
+  }), env);
+  assert.equal(concurrentSave?.status, 409);
+  const unchangedRead = await handleD1Request(request('/api/characters', 'GET'), env);
+  assert.deepEqual((await responseBody(unchangedRead!)).characters, importedCatalog);
 });
 
 test('rejects a D1 configuration with missing chunks instead of parsing partial catalog data', async () => {

@@ -34,6 +34,14 @@ const DEFAULT_AVATAR =
   'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg';
 const SESSION_TTL_MS = 120_000;
 const SESSION_BATTLE_LEASE_SECONDS = 180;
+const CONFIG_WRITE_LOCK_TTL_MS = 5 * 60 * 1000;
+
+class ConfigWriteBusyError extends Error {
+  constructor(key: string) {
+    super(`Outra atualização da configuração ${key} ainda está em andamento.`);
+  }
+}
+
 interface FirebaseJwk extends JsonWebKey {
   kid?: string;
 }
@@ -740,9 +748,13 @@ export async function awardD1MatchRewards(
 async function writeConfig(db: D1Database, key: string, values: unknown[]): Promise<void> {
   if (values.length > 20_000) throw new Error(`Configuração ${key} excede o limite de registros.`);
   const version = randomHex(16);
+  const lockOwner = randomHex(16);
   const statements: D1PreparedStatement[] = [];
   for (let index = 0; index < values.length; index++) {
     const serialized = JSON.stringify(values[index]);
+    if (typeof serialized !== 'string') {
+      throw new Error(`Registro ${index} da configuração ${key} não pode ser serializado.`);
+    }
     for (let offset = 0, chunkNumber = 0; offset < serialized.length; chunkNumber++) {
       let end = Math.min(offset + 10_000, serialized.length);
       if (end < serialized.length &&
@@ -757,21 +769,58 @@ async function writeConfig(db: D1Database, key: string, values: unknown[]): Prom
       offset = end;
     }
   }
-  for (let index = 0; index < statements.length; index += 100) {
-    const result = await db.batch(statements.slice(index, index + 100));
-    if (result.some(batch => !batch.success)) throw new Error(`Falha ao gravar configuração ${key} no D1.`);
-  }
-  await db.prepare(`
-    INSERT INTO game_config_versions (config_key, version_id, item_count)
+  const now = Date.now();
+  const acquired = await db.prepare(`
+    INSERT INTO game_config_write_locks (config_key, owner_token, expires_at)
     VALUES (?, ?, ?)
     ON CONFLICT(config_key) DO UPDATE SET
-      version_id = excluded.version_id,
-      item_count = excluded.item_count,
-      updated_at = CURRENT_TIMESTAMP
-  `).bind(key, version, values.length).run();
-  await db.prepare('DELETE FROM game_config_items WHERE config_key = ? AND version_id != ?')
-    .bind(key, version).run();
-  await db.prepare('DELETE FROM game_config WHERE config_key = ?').bind(key).run();
+      owner_token = excluded.owner_token,
+      expires_at = excluded.expires_at
+    WHERE game_config_write_locks.expires_at <= ?
+  `).bind(key, lockOwner, now + CONFIG_WRITE_LOCK_TTL_MS, now).run();
+  if (!acquired.success) throw new Error(`Falha ao bloquear a configuração ${key} no D1.`);
+  if (acquired.meta?.changes !== 1) throw new ConfigWriteBusyError(key);
+
+  try {
+    for (let index = 0; index < statements.length; index += 100) {
+      const result = await db.batch(statements.slice(index, index + 100));
+      if (result.some(batch => !batch.success)) {
+        throw new Error(`Falha ao gravar configuração ${key} no D1.`);
+      }
+      const renewed = await db.prepare(`
+        UPDATE game_config_write_locks
+        SET expires_at = ?
+        WHERE config_key = ? AND owner_token = ?
+      `).bind(Date.now() + CONFIG_WRITE_LOCK_TTL_MS, key, lockOwner).run();
+      if (!renewed.success || renewed.meta?.changes !== 1) {
+        throw new Error(`O bloqueio da configuração ${key} foi perdido durante a gravação.`);
+      }
+    }
+
+    const committed = await db.batch([
+      db.prepare(`
+        INSERT INTO game_config_versions (config_key, version_id, item_count)
+        VALUES (?, ?, ?)
+        ON CONFLICT(config_key) DO UPDATE SET
+          version_id = excluded.version_id,
+          item_count = excluded.item_count,
+          updated_at = CURRENT_TIMESTAMP
+      `).bind(key, version, values.length),
+      db.prepare('DELETE FROM game_config_items WHERE config_key = ? AND version_id != ?')
+        .bind(key, version),
+      db.prepare('DELETE FROM game_config WHERE config_key = ?').bind(key),
+    ]);
+    if (committed.some(result => !result.success)) {
+      throw new Error(`Falha ao publicar configuração ${key} no D1.`);
+    }
+  } finally {
+    const released = await db.prepare(`
+      DELETE FROM game_config_write_locks WHERE config_key = ? AND owner_token = ?
+    `).bind(key, lockOwner).run();
+    if (!released.success || released.meta?.changes !== 1) {
+      throw new Error(`Falha ao liberar o bloqueio da configuração ${key} no D1.`);
+    }
+  }
 }
 
 async function getConfig(
@@ -818,6 +867,7 @@ async function saveConfig(
   try {
     await writeConfig(env.DB, config.key, body[config.field] as unknown[]);
   } catch (cause) {
+    if (cause instanceof ConfigWriteBusyError) return error(409, cause.message);
     console.error(`[d1-config] Falha ao salvar configuração ${config.key}.`, cause);
     return error(500, `Não foi possível salvar ${config.key} no D1.`);
   }
@@ -881,7 +931,14 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
           return error(400, 'Configuração de batalha contra IA inválida.');
         }
       }
-      await writeConfig(env.DB, key, body[input] as unknown[]);
+      try {
+        await writeConfig(env.DB, key, body[input] as unknown[]);
+      } catch (cause) {
+        if (cause instanceof ConfigWriteBusyError) {
+          return error(409, `${cause.message} A importação pode ter aplicado os conjuntos anteriores; tente novamente.`);
+        }
+        throw cause;
+      }
     }
     return json({ success: true, message: `Configurações importadas para D1 (${datasets.length} conjuntos).` });
   }

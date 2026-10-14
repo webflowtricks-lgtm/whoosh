@@ -12922,7 +12922,7 @@ splashOnlyTargets = splashPool.filter(c =>
     // Vercel API rewrites do not proxy WebSocket upgrades, so connect to the Worker directly.
     const isVercel = window.location.hostname.endsWith('.vercel.app');
     const wsBase = envUrl || (isVercel
-      ? 'wss://naruto-infinity-beta.robertosouzasouza999.workers.dev/ws'
+      ? 'wss://whoosh.robertosouzasouza999.workers.dev/ws'
       : `${proto}//${window.location.host}/ws`);
     const wsUrl = `${wsBase}${wsBase.includes('?') ? '&' : '?'}roomId=${encodeURIComponent(onlineParams.roomId)}`;
 
