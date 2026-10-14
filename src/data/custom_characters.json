@@ -268,15 +268,17 @@
           "Físico",
           "Corpo a Corpo"
         ],
-        "damage": 1000,
+        "damage": 20,
         "stunTurns": 1,
         "stunType": [
           "physical"
         ],
-        "targetActiveSkillDamageRules": [
+        "damageRules": [
           {
             "activeSkillName": "Inner Sakura",
-            "damage": 15
+            "damageBoost": 10,
+            "damageType": "damage",
+            "ignoreBaseDamage": false
           }
         ]
       },
@@ -293,7 +295,11 @@
         "classes": [
           "Chakra"
         ],
-        "heal": 25
+        "heal": 25,
+        "cleanseDebuffTypes": [
+          "affliction"
+        ],
+        "cleanseDebuffTarget": "Target"
       },
       {
         "name": "Inner Sakura",
@@ -325,8 +331,9 @@
         "classes": [
           "Chakra"
         ],
-        "totalInvulnerableDuration": 1,
-        "totalInvulnerableTarget": "Self"
+        "totalInvulnerableDuration": 0,
+        "totalInvulnerableTarget": "Self",
+        "invulnerableDuration": 1
       }
     ],
     "skins": [
@@ -521,7 +528,8 @@
           "Chakra"
         ],
         "shieldVal": 25,
-        "shieldIrremovable": true
+        "shieldIrremovable": true,
+        "shieldTarget": "AllAllies"
       },
       {
         "name": "Insect Clone",
@@ -530,7 +538,7 @@
         "cost": [
           "Rand"
         ],
-        "cooldown": 3,
+        "cooldown": 4,
         "currentCooldown": 0,
         "targetType": "Self",
         "classes": [
@@ -1828,7 +1836,13 @@
           "dot",
           "bleeding"
         ],
-        "cleanseDebuffTarget": "Target"
+        "cleanseDebuffTarget": "Target",
+        "healRules": [
+          {
+            "activeSkillName": "Medical Kit",
+            "healBoost": 10
+          }
+        ]
       },
       {
         "name": "Medical Kit",

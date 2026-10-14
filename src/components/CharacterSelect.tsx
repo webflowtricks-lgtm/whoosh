@@ -19,6 +19,8 @@ import { matchFetch } from '../lib/matchFetch';
 import MangekyoLoader from './MangekyoLoader';
 import SkinMedia from './SkinMedia';
 
+const MATCHMAKING_TIMEOUT_MS = 90_000;
+
 interface CharacterSelectProps {
   onConfirmTeams: (
     playerTeam: Character[],
@@ -42,6 +44,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const [charList, setCharList] = useState<Character[]>(() => getCharacters());
   const [catalogStatus, setCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [catalogError, setCatalogError] = useState('');
+  const [catalogProgress, setCatalogProgress] = useState<number | null>(null);
   const [catalogReloadKey, setCatalogReloadKey] = useState(0);
   const [aiEnemyCharacterLimit, setAiEnemyCharacterLimit] = useState(DEFAULT_AI_ENEMY_CHARACTER_LIMIT);
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
@@ -166,7 +169,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   // Sync with server on mount
   useEffect(() => {
     let active = true;
-    fetchCharactersFromServer({ required: true }).then(updated => {
+    setCatalogProgress(null);
+    fetchCharactersFromServer({
+      required: true,
+      onProgress: progress => {
+        if (active) setCatalogProgress(progress);
+      },
+    }).then(updated => {
       if (!active) return;
       if (updated && updated.length > 0) {
         setCharList(updated);
@@ -205,7 +214,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   const matchmakingPollRef = useRef<any | null>(null);
   const timeIntervalRef = useRef<any | null>(null);
+  const matchmakingTimeoutRef = useRef<any | null>(null);
   const countdownIntervalRef = useRef<any | null>(null);
+  const matchmakingAttemptActiveRef = useRef(false);
   const matchmakingLogoRef = useRef<HTMLImageElement | null>(null);
   const matchmakingStopAnimationRef = useRef<Animation | null>(null);
 
@@ -440,11 +451,26 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     setMatchmakingTime(0);
     setCountdown(5);
     setOpponent(null);
+    matchmakingAttemptActiveRef.current = true;
 
     // Increment searching timer
     timeIntervalRef.current = setInterval(() => {
       setMatchmakingTime(prev => prev + 1);
     }, 1000);
+    matchmakingTimeoutRef.current = setTimeout(() => {
+      if (!matchmakingAttemptActiveRef.current) return;
+      matchmakingAttemptActiveRef.current = false;
+      if (matchmakingPollRef.current) clearInterval(matchmakingPollRef.current);
+      if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+      setMatchmakingTime(90);
+      setMatchmakingError('Não encontramos uma partida em 90 segundos. Tente novamente.');
+      setMatchmakingStatus('error');
+      matchFetch('/api/matchmaking/quit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username })
+      }).catch(err => console.error('Error leaving matchmaking queue after timeout:', err));
+    }, MATCHMAKING_TIMEOUT_MS);
 
     try {
       // Join matchmaking queue
@@ -460,8 +486,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         })
       });
 
+      if (!matchmakingAttemptActiveRef.current) return;
       if (!joinRes.ok) {
         const errData = await joinRes.json().catch(() => ({}));
+        if (!matchmakingAttemptActiveRef.current) return;
+        matchmakingAttemptActiveRef.current = false;
+        if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+        if (matchmakingTimeoutRef.current) clearTimeout(matchmakingTimeoutRef.current);
         console.error('Join queue error:', errData);
         setMatchmakingError(typeof errData.error === 'string' ? errData.error : 'Não foi possível encontrar um oponente. Tente novamente.');
         setMatchmakingStatus('error');
@@ -469,6 +500,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       }
 
       const joinData = await joinRes.json();
+      if (!matchmakingAttemptActiveRef.current) return;
 
       if (joinData.status === 'matched') {
         handleMatchFound(joinData.roomId, joinData.myIndex, joinData.seed, joinData.opponent, playerTeam);
@@ -476,6 +508,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       }
 
       if (joinData.status !== 'searching') {
+        matchmakingAttemptActiveRef.current = false;
+        if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+        if (matchmakingTimeoutRef.current) clearTimeout(matchmakingTimeoutRef.current);
         console.error('Unexpected join response:', joinData);
         setMatchmakingStatus('error');
         return;
@@ -485,16 +520,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       const pollInterval = 3000;
       let pollCount = 0;
       matchmakingPollRef.current = setInterval(async () => {
+        if (!matchmakingAttemptActiveRef.current) return;
         try {
           pollCount++;
           const statusRes = await matchFetch(`/api/matchmaking/status?username=${encodeURIComponent(user.username)}`);
-          if (!statusRes.ok) {
-            if (pollCount > 60) { // 90 seconds timeout
-              setMatchmakingStatus('error');
-            }
-            return;
-          }
+          if (!matchmakingAttemptActiveRef.current || !statusRes.ok) return;
           const statusData = await statusRes.json();
+          if (!matchmakingAttemptActiveRef.current) return;
 
           if (statusData.status === 'matched') {
             handleMatchFound(statusData.roomId, statusData.myIndex, statusData.seed, statusData.opponent, playerTeam);
@@ -514,11 +546,14 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           }
         } catch (err) {
           console.error('Error polling matchmaking status:', err);
-          if (pollCount > 60) setMatchmakingStatus('error');
         }
       }, pollInterval);
 
     } catch (err) {
+      if (!matchmakingAttemptActiveRef.current) return;
+      matchmakingAttemptActiveRef.current = false;
+      if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+      if (matchmakingTimeoutRef.current) clearTimeout(matchmakingTimeoutRef.current);
       console.error('Error joining matchmaking queue:', err);
       setMatchmakingStatus('error');
     }
@@ -526,11 +561,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   const handleMatchFound = (roomId: string, myIndex: number, seed: number, opponentData: any, playerTeam: Character[]) => {
     // Prevent double-trigger (both the join response and a poll tick can fire)
-    if (matchmakingStatus === 'matched') return;
+    if (!matchmakingAttemptActiveRef.current) return;
+    matchmakingAttemptActiveRef.current = false;
 
     // Clear queue timers
     if (matchmakingPollRef.current) clearInterval(matchmakingPollRef.current);
     if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+    if (matchmakingTimeoutRef.current) clearTimeout(matchmakingTimeoutRef.current);
 
     setMatchmakingStatus('matched');
     setOpponent(opponentData);
@@ -566,10 +603,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   const handleCancelMatchmaking = async () => {
     playClickSound();
+    matchmakingAttemptActiveRef.current = false;
     
     // Clear all interval timers
     if (matchmakingPollRef.current) clearInterval(matchmakingPollRef.current);
     if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+    if (matchmakingTimeoutRef.current) clearTimeout(matchmakingTimeoutRef.current);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
 
     setIsMatchmaking(false);
@@ -588,8 +627,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   // Clean up on unmount
   useEffect(() => {
     return () => {
+      matchmakingAttemptActiveRef.current = false;
       if (matchmakingPollRef.current) clearInterval(matchmakingPollRef.current);
       if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+      if (matchmakingTimeoutRef.current) clearTimeout(matchmakingTimeoutRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, []);
@@ -879,6 +920,35 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 <p className="mt-2 text-sm text-slate-300">
                   {t('Aguarde enquanto confirmamos as configurações globais do jogo.', 'Please wait while we confirm the game-wide settings.')}
                 </p>
+                {catalogProgress !== null ? (
+                  <div className="mt-5">
+                    <div
+                      className="mb-2 flex items-center justify-between text-xs font-bold text-orange-300"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <span>{t('Progresso do carregamento', 'Loading progress')}</span>
+                      <span>{catalogProgress}%</span>
+                    </div>
+                    <div
+                      className="h-2 overflow-hidden rounded-full bg-slate-800"
+                      role="progressbar"
+                      aria-label={t('Progresso do carregamento dos personagens', 'Character loading progress')}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={catalogProgress}
+                    >
+                      <div
+                        className="h-full rounded-full bg-orange-500 transition-[width] duration-150"
+                        style={{ width: `${catalogProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-4 text-xs text-slate-500">
+                    {t('Preparando o carregamento...', 'Preparing to load...')}
+                  </p>
+                )}
               </>
             ) : (
               <>
@@ -893,6 +963,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   type="button"
                   onClick={() => {
                     setCatalogStatus('loading');
+                    setCatalogProgress(null);
                     setCatalogReloadKey(value => value + 1);
                   }}
                   className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-orange-700 px-4 py-3 text-sm font-bold text-white hover:bg-orange-600"

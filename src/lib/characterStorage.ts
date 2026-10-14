@@ -71,14 +71,43 @@ export function getCharacters(): Character[] {
   return enrichCharacters(DEFAULT_CHARACTERS);
 }
 
-export async function fetchCharactersFromServer(options: { required?: boolean } = {}): Promise<Character[]> {
+export async function fetchCharactersFromServer(options: {
+  required?: boolean;
+  onProgress?: (progress: number) => void;
+} = {}): Promise<Character[]> {
   if (options.required) serverCatalogLoaded = false;
   try {
     const response = await fetch('/api/characters', { cache: 'no-store' });
     if (!response.ok) {
       throw new Error(`Não foi possível carregar o catálogo global de personagens (HTTP ${response.status}).`);
     }
-    const data = await response.json() as { success?: boolean; characters?: Character[] };
+    const contentLength = Number(response.headers.get('content-length'));
+    let data: { success?: boolean; characters?: Character[] };
+    if (response.body && Number.isFinite(contentLength) && contentLength > 0) {
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let receivedLength = 0;
+      options.onProgress?.(0);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        receivedLength += value.length;
+        options.onProgress?.(Math.min(99, Math.floor(receivedLength / contentLength * 100)));
+      }
+
+      const responseBytes = new Uint8Array(receivedLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        responseBytes.set(chunk, offset);
+        offset += chunk.length;
+      }
+      data = JSON.parse(new TextDecoder().decode(responseBytes)) as { success?: boolean; characters?: Character[] };
+    } else {
+      data = await response.json() as { success?: boolean; characters?: Character[] };
+    }
+
     if (data && data.success && Array.isArray(data.characters) && data.characters.length > 0) {
       const enriched = enrichCharacters(data.characters);
       memoryCache = enriched;
@@ -88,6 +117,7 @@ export async function fetchCharactersFromServer(options: { required?: boolean } 
       } catch (e) {
         console.warn("Failed to update localStorage cache from server data:", e);
       }
+      options.onProgress?.(100);
       return enriched;
     }
     throw new Error('O servidor não retornou um catálogo global válido de personagens.');
