@@ -445,8 +445,14 @@ export class MatchmakerDurableObject {
     const username = canonicalUsername(rawUsername);
     if (!username) return fail(400, 'Nome de usuário é obrigatório.');
     const rows = this.state.storage.sql.exec<{ record_json: string }>(
-      "SELECT record_json FROM online_battle_history WHERE record_json LIKE ? ORDER BY finished_at DESC LIMIT 100",
-      `%"username":"${username}"%`,
+      `SELECT record_json FROM online_battle_history
+       WHERE EXISTS (
+         SELECT 1 FROM json_each(online_battle_history.record_json, '$.players')
+         WHERE lower(json_extract(value, '$.username')) = ?
+       )
+       ORDER BY finished_at DESC
+       LIMIT 5`,
+      username,
     ).toArray();
     const matches = rows
       .map(row => JSON.parse(row.record_json) as HistoryRecord)

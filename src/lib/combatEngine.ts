@@ -1822,17 +1822,28 @@ export function resolveCombatIntent(
   }
 
   if ((skill.damageReductionVal || 0) > 0) {
-    nextTarget.activeEffects.push({
-      name: `${skill.name} (Redução de Dano)`,
-      type: 'damage_reduction',
-      value: skill.damageReductionVal,
-      duration: skill.damageReductionDuration || 1,
-      icon: skill.icon,
-      casterId: nextSource.id,
-      casterSide: intent.side,
-      castTurn: nextState.turn,
-      sourceSkillName: skill.name,
-    });
+    const guardTargets = effectTargets(
+      skill.shieldTarget || 'Self',
+      nextSource,
+      nextTarget,
+      nextSourceTeam.filter(combatant => !combatant.isDead),
+      (intent.side === 'player' ? nextState.enemy : nextState.player).filter(combatant => !combatant.isDead),
+      [...nextState.player, ...nextState.enemy].filter(combatant => !combatant.isDead),
+      nextSkill,
+    );
+    for (const guardTarget of guardTargets) {
+      guardTarget.activeEffects.push({
+        name: `${skill.name} (Redução de Dano)`,
+        type: 'damage_reduction',
+        value: skill.damageReductionVal,
+        duration: skill.damageReductionDuration || 1,
+        icon: skill.icon,
+        casterId: nextSource.id,
+        casterSide: intent.side,
+        castTurn: nextState.turn,
+        sourceSkillName: skill.name,
+      });
+    }
   }
 
   const activeDamageRules = (nextSkill.damageRules || []).filter(rule =>

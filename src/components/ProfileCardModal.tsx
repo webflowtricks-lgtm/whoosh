@@ -276,7 +276,10 @@ export default function ProfileCardModal({
         if (!response.ok || !data?.success || !Array.isArray(data.matches)) {
           throw new Error(data?.error || 'Não foi possível carregar o histórico de batalhas online.');
         }
-        setOnlineBattleHistory(data.matches);
+        setOnlineBattleHistory(data.matches
+          .sort((a: OnlineBattleHistoryRecord, b: OnlineBattleHistoryRecord) =>
+            Date.parse(b.finishedAt) - Date.parse(a.finishedAt))
+          .slice(0, 5));
       })
       .catch(error => {
         if (controller.signal.aborted) return;
@@ -382,7 +385,7 @@ export default function ProfileCardModal({
         <p className="text-[11px] font-mono text-slate-500">{t('Nenhuma batalha online registrada.', 'No online battles recorded.')}</p>
       ) : (
         <ol className="max-h-40 space-y-2 overflow-y-auto pr-1">
-          {onlineBattleHistory.map(record => {
+          {onlineBattleHistory.slice(0, 5).map(record => {
             const ownPlayer = record.players.find(player => player.username === profile.username.toLowerCase());
             const opponent = record.players.find(player => player.username !== profile.username.toLowerCase());
             const winner = record.players.find(player => player.username === record.winnerUsername);

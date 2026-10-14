@@ -119,7 +119,14 @@ test('routes WebSockets to the room Durable Object named by roomId', async () =>
 });
 
 test('routes online battle history through the Durable Object store', async () => {
-  const matchmaker = namespace();
+  const matches = Array.from({ length: 7 }, (_, index) => ({
+    roomId: `room-${index}`,
+    players: [{ username: 'ninja', name: 'Ninja' }, { username: 'opponent', name: 'Opponent' }],
+    winnerUsername: 'ninja',
+    finishedAt: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
+    reason: 'battle',
+  }));
+  const matchmaker = namespace(Response.json({ success: true, matches }));
   const env = {
     ASSETS: { async fetch() { throw new Error('History reached assets'); } },
     DB: database(),
@@ -131,4 +138,6 @@ test('routes online battle history through the Durable Object store', async () =
   ), env);
   assert.equal(response.status, 200);
   assert.equal(matchmaker.requestedId, 'global-matchmaker');
+  const body = await response.json() as { matches: Array<{ roomId: string }> };
+  assert.deepEqual(body.matches.map(match => match.roomId), ['room-6', 'room-5', 'room-4', 'room-3', 'room-2']);
 });

@@ -81,7 +81,7 @@ export default {
           success: true,
           matches: [...matches.values()].sort(
             (left, right) => Date.parse(String(right.finishedAt)) - Date.parse(String(left.finishedAt)),
-          ),
+          ).slice(0, 5),
         }, { headers: { 'Cache-Control': 'no-store' } });
       } catch (error) {
         console.error('[edge-gateway] Falha ao combinar histórico D1 e Durable Object.', error);

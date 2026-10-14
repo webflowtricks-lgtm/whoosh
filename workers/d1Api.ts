@@ -337,6 +337,7 @@ export async function getD1ArchivedHistory(
       WHERE lower(json_extract(value, '$.username')) = lower(?)
     )
     ORDER BY finished_at DESC
+    LIMIT 5
   `).bind(username).all<{
     room_id: string;
     players_json: string;

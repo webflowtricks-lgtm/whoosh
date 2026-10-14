@@ -1301,7 +1301,8 @@ async function startServer() {
     }
     const matches = Array.from(onlineBattleHistory.values())
       .filter(record => record.players.some(player => player.username === username))
-      .sort((a, b) => Date.parse(b.finishedAt) - Date.parse(a.finishedAt));
+      .sort((a, b) => Date.parse(b.finishedAt) - Date.parse(a.finishedAt))
+      .slice(0, 5);
     res.json({ success: true, matches });
   });
 

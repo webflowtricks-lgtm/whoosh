@@ -577,6 +577,29 @@ test('uses catalog damage immunity and damage reduction without trusting client 
   assert.equal(immune.state.enemy[0].activeEffects.length, 0);
 });
 
+test('applies Sasuke Sharingan Guard to its configured self target', () => {
+  const sasuke = character('Sasuke Uchiha');
+  const sharingan = sasuke.skills.find(skill => skill.name === 'Sharingan');
+  assert.ok(sharingan, 'Sasuke has the Sharingan skill');
+  sharingan.shieldTarget = 'Self';
+  const state = createState({
+    playerCharacter: sasuke,
+    playerChakra: { Tai: 2, Nin: 2, Gen: 2, Blood: 2 },
+  });
+  const { intent: action } = intent('Sharingan', state);
+
+  const result = resolveCombatIntent(state, action);
+
+  assert.equal(result.status, 'applied');
+  if (result.status !== 'applied') return;
+  assert.ok(result.state.player[0].activeEffects.some(effect =>
+    effect.type === 'damage_reduction' && effect.sourceSkillName === 'Sharingan',
+  ));
+  assert.equal(result.state.enemy[0].activeEffects.some(effect =>
+    effect.type === 'damage_reduction' && effect.sourceSkillName === 'Sharingan',
+  ), false);
+});
+
 test('refuses to partially apply a skill with multiple damage channels', () => {
   const state = createState({ playerCharacter: character('Tenten') });
   const { intent: action } = intent('Jidanda', state);
