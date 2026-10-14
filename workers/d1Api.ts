@@ -829,7 +829,20 @@ async function getConfig(
   config: { key: string; field: string },
 ): Promise<Response> {
   const stored = await readConfig(env.DB, config.key);
-  if (stored !== null) return json({ success: true, [config.field]: stored });
+  if (stored !== null) {
+    const body = { success: true, [config.field]: stored };
+    if (config.key === 'characters') {
+      const serialized = JSON.stringify(body);
+      return new Response(serialized, {
+        headers: {
+          'Cache-Control': 'no-store',
+          'Content-Type': 'application/json; charset=utf-8',
+          'X-Progress-Content-Length': String(new TextEncoder().encode(serialized).byteLength),
+        },
+      });
+    }
+    return json(body);
+  }
   if (config.key === 'aiSettings') {
     return json({
       success: true,

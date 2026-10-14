@@ -81,7 +81,9 @@ export async function fetchCharactersFromServer(options: {
     if (!response.ok) {
       throw new Error(`Não foi possível carregar o catálogo global de personagens (HTTP ${response.status}).`);
     }
-    const contentLength = Number(response.headers.get('content-length'));
+    const contentLength = Number(
+      response.headers.get('x-progress-content-length') || response.headers.get('content-length'),
+    );
     let data: { success?: boolean; characters?: Character[] };
     if (response.body && Number.isFinite(contentLength) && contentLength > 0) {
       const reader = response.body.getReader();
