@@ -259,5 +259,11 @@
     "password": "4",
     "name": "4",
     "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg"
+  },
+  {
+    "username": "abce",
+    "password": "abce",
+    "name": "abce",
+    "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kakashi-hatake/icon.jpg"
   }
 ]

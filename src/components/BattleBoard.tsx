@@ -8204,7 +8204,7 @@ splashOnlyTargets = splashPool.filter(c =>
             addFloatingText(source.id, 'BLOQUEADO (SKILL AMIGÁVEL)', 'stun');
             return;
           }
-          const copyDur = skill.permanent ? 99999 : (Math.max(1, skill.skillCopyDuration || 3));
+          const copyDur = skill.permanent ? 99999 : Math.max(1, skill.skillCopyDuration ?? 0);
           const originalSkills = existingCopy && Array.isArray(existingCopy.storedSkills)
             ? existingCopy.storedSkills
             : JSON.parse(JSON.stringify(source.character.skills || []));
@@ -8213,6 +8213,7 @@ splashOnlyTargets = splashPool.filter(c =>
             existingCopy.name = `${skill.name} (Cópia: ${t.character.name})`;
             existingCopy.icon = skill.icon;
             existingCopy.sourceSkillName = skill.name;
+            existingCopy.castTurn = turn;
           } else {
             pushActiveEffect(source, {
               name: `${skill.name} (Cópia: ${t.character.name})`,
@@ -8225,6 +8226,7 @@ splashOnlyTargets = splashPool.filter(c =>
               casterSide: action.isPlayer ? 'player' : 'enemy',
               irremovable: true,
               storedSkills: originalSkills,
+              castTurn: turn,
             });
           }
           if (skill.skillCopyRandom) {
@@ -8240,6 +8242,9 @@ splashOnlyTargets = splashPool.filter(c =>
                 newSkills.push(copiedSkill);
               }
               source.character.skills = newSkills;
+              if (action.isPlayer && source.character.id === 'kakashi' && skill.name === 'Copied Sharingan') {
+                playCustomSound('kakashi/kakashi_jutsucopiado');
+              }
               newLogs.push({
                 id: Math.random().toString(), turn,
                 message: `🪞 ${source.character.name} COPIOU a habilidade [${copiedSkill.name}] de ${t.character.name} por ${copyDur} ${copyDur === 1 ? 'turno' : 'turnos'}!`,
@@ -10851,7 +10856,7 @@ splashOnlyTargets = splashPool.filter(c =>
         //  - marcadores 'custom' (stacks, stacks pendentes, liberação atrasada, reflexão por stack, etc.)
         //  - efeitos permanentes (duration >= 99999) e stack Raikiri congelada
         const KEEP_CAST_ROUND_SKIP = new Set([
-          'stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'heal', 'custom',
+          'stun', 'dot', 'bleeding', 'affliction', 'damage', 'direct_damage', 'life_steal', 'heal', 'custom', 'skill_copy',
           // Proteções reativas permanecem até poderem anular a primeira habilidade que as aciona.
           'counter_attack', 'invisible',
           // 🚫 NOTA: incapacidades (cannot_reduce_damage, cannot_be_invulnerable, cannot_receive_friendly,

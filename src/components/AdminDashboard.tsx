@@ -577,6 +577,7 @@ const newSkill: Skill = {
   currentCooldown: 0,
   targetType: 'Enemy',
   classes: ['Chakra', 'À Distância'],
+  skillCopyDuration: 0,
   blocksOffensiveSkills: false,
   stackable: false,
   stackType: '',
@@ -8226,14 +8227,14 @@ const newSkill: Skill = {
                               <div className="flex items-center gap-2">
                                 <input
                                   type="number"
-                                  min={1}
+                                  min={0}
                                   max={99}
-                                  value={editingSkill.skillCopyDuration || 0}
+                                  value={editingSkill.skillCopyDuration ?? 0}
                                   onChange={(e) => handleUpdateSkillField('skillCopyDuration', parseInt(e.target.value) || 0)}
                                   placeholder="Turnos"
                                   className="w-16 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs font-mono text-white"
                                 />
-                                <span className="text-[9px] text-slate-500 font-mono">Turnos de duração</span>
+                                <span className="text-[9px] text-slate-500 font-mono">Turnos (0 = desativado)</span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="text-[9px] text-slate-400 font-mono uppercase font-bold">🎯 Copiar de:</span>
