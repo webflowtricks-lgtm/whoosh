@@ -2034,8 +2034,7 @@ const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
   // simultaneamente em TODOS os alvos, depois somem e o próximo grupo aparece.
   // O buffer acumula textos durante uma resolução; o flush agrupa por texto e exibe em sequência.
   const floatingBufferRef = useRef<Array<{ id: string; targetId: string; text: string; type: FloatingText['type']; skillIcon?: string }>>([]);
-  const floatingFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const FLOATING_BATCH_WINDOW = 0;    // ms — janela de silêncio p/ considerar o lote completo (0 = flush imediato após o tick síncrono: primeiro tooltip na hora)
+  const floatingFlushQueuedRef = useRef(false);
   const FLOATING_STEP_DELAY = 2000;  // ms — atraso entre cada grupo de textos idênticos (próximo aparece 2s após o anterior)
   const FLOATING_BASE_LIFE = 3000;   // ms — vida útil de cada texto no DOM
 
@@ -2995,9 +2994,12 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
   const addFloatingText = (targetId: string, text: string, type: FloatingText['type'], skillIcon = currentSkillRef.current?.icon) => {
     const id = Math.random().toString();
     floatingBufferRef.current.push({ id, targetId, text, type, skillIcon });
-    // Reinicia o timer: flush só acontece quando nenhum texto novo chegar por BATCH_WINDOW
-    if (floatingFlushTimerRef.current) clearTimeout(floatingFlushTimerRef.current);
-    floatingFlushTimerRef.current = setTimeout(flushFloatingBatch, FLOATING_BATCH_WINDOW);
+    if (floatingFlushQueuedRef.current) return;
+    floatingFlushQueuedRef.current = true;
+    queueMicrotask(() => {
+      floatingFlushQueuedRef.current = false;
+      flushFloatingBatch();
+    });
   };
 
   const flushFloatingBatch = () => {
@@ -3028,7 +3030,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
     groupOrder.forEach((_text, groupIdx) => {
       const entries = groups.get(groupOrder[groupIdx])!;
       const delay = groupIdx * FLOATING_STEP_DELAY;
-      setTimeout(() => {
+      const showGroup = () => {
         const newFloats: FloatingText[] = entries.map(e => ({
           id: e.id, targetId: e.targetId, text: e.text, type: e.type, skillIcon: e.skillIcon, order: groupIdx,
         }));
@@ -3038,16 +3040,11 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
           const ids = new Set(entries.map(e => e.id));
           setFloatingTexts(prev => prev.filter(t => !ids.has(t.id)));
         }, FLOATING_BASE_LIFE);
-      }, delay);
+      };
+      if (delay === 0) showGroup();
+      else setTimeout(showGroup, delay);
     });
   };
-
-  // Cleanup do flush timer ao desmontar
-  useEffect(() => {
-    return () => {
-      if (floatingFlushTimerRef.current) clearTimeout(floatingFlushTimerRef.current);
-    };
-  }, []);
 
   // Calculate simulated remaining chakra pool after deducting cued actions
   const getSimulatedRemainingChakra = (pool: ChakraPool, actions: CuedAction[], isForEnemy: boolean = false): ChakraPool => {
