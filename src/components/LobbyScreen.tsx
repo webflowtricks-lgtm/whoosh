@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Award,
   ArrowLeft,
@@ -82,6 +82,9 @@ export default function LobbyScreen({
   const [rosterSearch, setRosterSearch] = useState('');
   const [rosterTag, setRosterTag] = useState('');
   const [detailsCharacter, setDetailsCharacter] = useState<Character | null>(null);
+  const [activeEventIndex, setActiveEventIndex] = useState(0);
+  const eventSwipeStartX = useRef<number | null>(null);
+  const suppressEventClick = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -110,7 +113,24 @@ export default function LobbyScreen({
 
   const ranks = getRanks();
   const rank = getRankProgress(user?.xp || 0, ranks).currentRank;
-  const featuredEvent = events.find(event => event.featured) || events[0];
+  const carouselEvents = useMemo(
+    () => [...events].sort((a, b) => Number(b.featured) - Number(a.featured)),
+    [events],
+  );
+  const featuredEvent = carouselEvents[activeEventIndex];
+  useEffect(() => {
+    if (activeEventIndex >= carouselEvents.length) setActiveEventIndex(0);
+  }, [activeEventIndex, carouselEvents.length]);
+  useEffect(() => {
+    if (carouselEvents.length < 2) return;
+    const timer = window.setInterval(() => {
+      setActiveEventIndex(index => (index + 1) % carouselEvents.length);
+    }, 6000);
+    return () => window.clearInterval(timer);
+  }, [carouselEvents.length]);
+  const showEvent = (offset: number) => {
+    setActiveEventIndex(index => (index + offset + carouselEvents.length) % carouselEvents.length);
+  };
   const orderedCharacters = useMemo(() => {
     return [...characters].sort((a, b) =>
       Number(isCharacterUnlocked(b, user, quests)) - Number(isCharacterUnlocked(a, user, quests)),
@@ -338,22 +358,67 @@ export default function LobbyScreen({
       </section>
 
       {featuredEvent && (
-        <button type="button" className="lobby-event-banner" onClick={() => openAuthenticated('events')}>
-          <img src={featuredEvent.bannerUrl} alt="" />
-          <span className="lobby-event-overlay" />
-          <span className="lobby-event-copy">
-            <small>{featuredEvent.badge || t('EVENTO', 'EVENT')}</small>
-            <strong>{featuredEvent.title}</strong>
-            <span>{featuredEvent.timeLeft}</span>
-          </span>
-          <span className="lobby-event-cta">{t('Ver evento', 'View event')}</span>
-        </button>
+        <section
+          className="lobby-event-carousel"
+          aria-label={t('Eventos em destaque', 'Featured events')}
+          onPointerDown={event => {
+            eventSwipeStartX.current = event.clientX;
+            suppressEventClick.current = false;
+          }}
+          onPointerUp={event => {
+            if (eventSwipeStartX.current === null || carouselEvents.length < 2) return;
+            const delta = event.clientX - eventSwipeStartX.current;
+            eventSwipeStartX.current = null;
+            if (Math.abs(delta) < 40) return;
+            suppressEventClick.current = true;
+            showEvent(delta < 0 ? 1 : -1);
+            window.setTimeout(() => { suppressEventClick.current = false; }, 0);
+          }}
+          onPointerCancel={() => { eventSwipeStartX.current = null; }}
+        >
+          <button
+            type="button"
+            className="lobby-event-banner"
+            onClick={() => {
+              if (suppressEventClick.current) return;
+              openAuthenticated('events');
+            }}
+            aria-label={`${featuredEvent.title} — ${t('Ver evento', 'View event')}`}
+          >
+            <img src={featuredEvent.bannerUrl} alt="" draggable={false} />
+            <span className="lobby-event-overlay" />
+            <span className="lobby-event-copy">
+              <small>{featuredEvent.badge || t('EVENTO', 'EVENT')}</small>
+              <strong>{featuredEvent.title}</strong>
+              <span>{featuredEvent.timeLeft}</span>
+            </span>
+            <span className="lobby-event-cta">{t('Ver evento', 'View event')}</span>
+          </button>
+          {carouselEvents.length > 1 && (
+            <div className="lobby-event-controls">
+              <div className="lobby-event-dots" aria-label={`${activeEventIndex + 1} / ${carouselEvents.length}`}>
+                {carouselEvents.map((event, index) => (
+                  <button
+                    type="button"
+                    key={event.id}
+                    className={index === activeEventIndex ? 'is-active' : ''}
+                    onClick={() => setActiveEventIndex(index)}
+                    aria-label={t(`Ver evento ${index + 1}: ${event.title}`, `View event ${index + 1}: ${event.title}`)}
+                    aria-current={index === activeEventIndex ? 'true' : undefined}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
       )}
 
       <nav className="lobby-footer" aria-label={t('Navegação principal', 'Main navigation')}>
         {footerItems.map(({ label, icon: Icon, action, primary }) => (
           <button type="button" key={label} onClick={action} className={primary ? 'lobby-nav-item lobby-nav-primary' : 'lobby-nav-item'}>
-            <Icon aria-hidden="true" />
+            {label === t('Shinobis', 'Shinobis')
+              ? <img src="/static/img/icon/ninjas-icon-convertido-de-png.webp" alt="" />
+              : <Icon aria-hidden="true" />}
             <span>{label}</span>
           </button>
         ))}
