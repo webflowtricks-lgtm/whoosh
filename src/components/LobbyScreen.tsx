@@ -420,6 +420,10 @@ export default function LobbyScreen({
               <img className="lobby-footer-icon" src="/static/img/icon/ninjas-icon-convertido-de-png.webp" alt="" />
             ) : label === t('Clã', 'Clan') ? (
               <img className="lobby-footer-icon" src="/static/img/icon/guild.webp" alt="" />
+            ) : label === t('Loja', 'Shop') ? (
+              <img className="lobby-footer-icon" src="/static/img/icon/shop.webp" alt="" />
+            ) : label === t('Eventos', 'Events') ? (
+              <img className="lobby-footer-icon" src="/static/img/icon/event.webp" alt="" />
             ) : primary ? (
               <img className="lobby-footer-icon" src="/static/img/icon/kunai-icon.webp" alt="" />
             ) : (
