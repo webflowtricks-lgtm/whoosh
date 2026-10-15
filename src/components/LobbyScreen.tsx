@@ -416,11 +416,15 @@ export default function LobbyScreen({
       <nav className="lobby-footer" aria-label={t('Navegação principal', 'Main navigation')}>
         {footerItems.map(({ label, icon: Icon, action, primary }) => (
           <button type="button" key={label} onClick={action} className={primary ? 'lobby-nav-item lobby-nav-primary' : 'lobby-nav-item'}>
-            {label === t('Shinobis', 'Shinobis')
-              ? <img className="lobby-footer-icon" src="/static/img/icon/ninjas-icon-convertido-de-png.webp" alt="" />
-              : primary
-                ? <img className="lobby-footer-icon" src="/static/img/icon/kunai-icon.webp" alt="" />
-              : <Icon className="lobby-footer-icon" aria-hidden="true" />}
+            {label === t('Shinobis', 'Shinobis') ? (
+              <img className="lobby-footer-icon" src="/static/img/icon/ninjas-icon-convertido-de-png.webp" alt="" />
+            ) : label === t('Clã', 'Clan') ? (
+              <img className="lobby-footer-icon" src="/static/img/icon/guild.webp" alt="" />
+            ) : primary ? (
+              <img className="lobby-footer-icon" src="/static/img/icon/kunai-icon.webp" alt="" />
+            ) : (
+              <Icon className="lobby-footer-icon" aria-hidden="true" />
+            )}
             <span>{label}</span>
           </button>
         ))}
