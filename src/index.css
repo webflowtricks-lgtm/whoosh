@@ -521,21 +521,29 @@ body.processing-cursor * {
 }
 
 .lobby-mission-button--unlock {
+  position: relative;
   width: max-content;
   gap: .08rem;
 }
 
 .lobby-mission-button--unlock .lobby-mission-label {
+  position: absolute;
+  z-index: 1;
+  bottom: -1rem;
+  left: 50%;
   width: max-content;
   max-width: none;
   padding-right: .35rem;
   padding-left: .35rem;
   white-space: nowrap;
+  transform: translateX(-50%);
 }
 
 .lobby-mission-unlock-label {
   border-color: rgba(240, 165, 79, .82);
   font-size: .62rem;
+  margin-top: -10px;
+  margin-left: 5px;
 }
 
 .lobby-mission-icon {
