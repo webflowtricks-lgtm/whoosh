@@ -1,14 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Award,
+  ArrowLeft,
   CalendarDays,
+  ChevronDown,
   CircleHelp,
   Coins,
   Gem,
+  Filter,
   Images,
   LockKeyhole,
   LogOut,
   Settings,
+  Search,
   Shield,
   ShoppingBag,
   Sparkles,
@@ -18,7 +22,7 @@ import {
   VolumeX,
   X,
 } from 'lucide-react';
-import { Character, NinjaEvent, Quest, UserProfile } from '../types';
+import { Character, ChakraType, NinjaEvent, Quest, Skill, UserProfile } from '../types';
 import { fetchCharactersFromServer, getCharacters } from '../lib/characterStorage';
 import { fetchEventsFromServer, getEvents } from '../lib/eventStorage';
 import { safeFetchJson } from '../lib/api';
@@ -74,6 +78,10 @@ export default function LobbyScreen({
   const [quests, setQuests] = useState<Quest[]>([]);
   const [events, setEvents] = useState<NinjaEvent[]>(() => getEvents());
   const [clanMessage, setClanMessage] = useState(false);
+  const [showRosterFilters, setShowRosterFilters] = useState(false);
+  const [rosterSearch, setRosterSearch] = useState('');
+  const [rosterTag, setRosterTag] = useState('');
+  const [detailsCharacter, setDetailsCharacter] = useState<Character | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -104,12 +112,126 @@ export default function LobbyScreen({
   const rank = getRankProgress(user?.xp || 0, ranks).currentRank;
   const featuredEvent = events.find(event => event.featured) || events[0];
   const orderedCharacters = useMemo(() => {
-    return [...characters].sort((a, b) => {
-      const aUnlocked = isCharacterUnlocked(a, user, quests);
-      const bUnlocked = isCharacterUnlocked(b, user, quests);
-      return Number(bUnlocked) - Number(aUnlocked) || a.name.localeCompare(b.name);
-    });
+    return [...characters].sort((a, b) =>
+      Number(isCharacterUnlocked(b, user, quests)) - Number(isCharacterUnlocked(a, user, quests)),
+    );
   }, [characters, quests, user]);
+  const rosterTags = useMemo(
+    () => Array.from(new Set(characters.flatMap(character => character.tags || []))).sort((a, b) => a.localeCompare(b)),
+    [characters],
+  );
+  const filteredCharacters = useMemo(() => {
+    const query = rosterSearch.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    return orderedCharacters.filter(character => {
+      const matchesQuery = !query || [
+        character.name,
+        character.folder,
+        character.description,
+        ...(character.tags || []),
+      ].some(value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(query));
+      const matchesTag = !rosterTag || (character.tags || []).includes(rosterTag);
+      return matchesQuery && matchesTag;
+    });
+  }, [orderedCharacters, rosterSearch, rosterTag]);
+  const chakraLabels: Record<ChakraType, string> = {
+    Tai: t('Taijutsu', 'Taijutsu'),
+    Nin: t('Ninjutsu', 'Ninjutsu'),
+    Gen: t('Genjutsu', 'Genjutsu'),
+    Blood: t('Linhagem', 'Bloodline'),
+    Rand: t('Aleatório', 'Random'),
+  };
+  const targetLabels: Record<string, string> = {
+    Enemy: t('Inimigo Único', 'Single Enemy'),
+    Target: t('Alvo Principal', 'Main Target'),
+    Ally: t('Aliado', 'Ally'),
+    Self: t('Conjurador (Mim)', 'Caster (Me)'),
+    SelfAndAlly: t('Mim e um Aliado', 'Me and One Ally'),
+    AllEnemies: t('Todos os Inimigos', 'All Enemies'),
+    AllAllies: t('Todos os Aliados', 'All Allies'),
+    AnyLiving: t('Qualquer Personagem Vivo', 'Any Living Character'),
+    AllLiving: t('Todos os Personagens Vivos', 'All Living Characters'),
+    Both: t('Mim e Alvo', 'Me and Target'),
+  };
+  const getSkillEffects = (skill: Skill) => {
+    const effects: { label: string; value: string; target: string }[] = [];
+    const duration = (turns?: number) => !turns || turns >= 99999
+      ? '∞'
+      : `${turns} ${turns === 1 ? t('turno', 'turn') : t('turnos', 'turns')}`;
+    const addEffect = (label: string, value: string, target = 'Target') => {
+      effects.push({ label, value, target: targetLabels[target] || target });
+    };
+
+    if (skill.damage && skill.damage > 0) {
+      addEffect(t('Dano', 'Damage'), `${skill.damage} ${t('de dano', 'damage')}`, skill.damageTarget);
+    }
+    if (skill.directDamage && skill.directDamage > 0) {
+      addEffect(t('Dano Direto', 'Direct Damage'), `${skill.directDamage} ${t('de dano direto', 'direct damage')}`, skill.directDamageTarget);
+    }
+    skill.damageRules?.forEach(rule => {
+      if (rule.damageBoost > 0) {
+        const kind = rule.damageType === 'direct_damage'
+          ? t('de dano direto', 'direct damage')
+          : t('de dano', 'damage');
+        addEffect(
+          `${t('Dano Condicional', 'Conditional Damage')} (${rule.activeSkillName})`,
+          `+${rule.damageBoost} ${kind} ${t('quando', 'when')} [${rule.activeSkillName}] ${t('estiver ativo', 'is active')}`,
+          skill.damageTarget,
+        );
+      }
+    });
+    if (skill.delayedDamage && skill.delayedDamage > 0) {
+      addEffect(t('Dano Atrasado', 'Delayed Damage'), `${skill.delayedDamage} ${t('de dano em', 'damage in')} ${duration(skill.delayedDamageTurns)}`, skill.damageTarget);
+    }
+    if (skill.delayedDirectDamage && skill.delayedDirectDamage > 0) {
+      addEffect(t('Dano Direto Atrasado', 'Delayed Direct Damage'), `${skill.delayedDirectDamage} ${t('de dano direto em', 'direct damage in')} ${duration(skill.delayedDirectDamageTurns)}`, skill.directDamageTarget);
+    }
+    if (skill.heal && skill.heal > 0) {
+      addEffect(
+        skill.healDuration && skill.healDuration > 1 ? t('Cura Contínua', 'Healing over Time') : t('Cura', 'Heal'),
+        skill.healDuration && skill.healDuration > 1
+          ? `${skill.heal} ${t('de cura por turno durante', 'healing per turn for')} ${duration(skill.healDuration)}`
+          : `${skill.heal} ${t('de cura', 'healing')}`,
+        skill.healTarget,
+      );
+    }
+    if (skill.shieldVal && skill.shieldVal > 0) {
+      addEffect(t('Escudo', 'Shield'), `+${skill.shieldVal} ${t('de escudo por', 'shield for')} ${duration(skill.shieldDuration)}`, skill.shieldTarget || 'Self');
+    }
+    if (skill.stunTurns && skill.stunTurns > 0) {
+      addEffect(t('Atordoamento', 'Stun'), `${t('Bloqueia habilidades por', 'Blocks skills for')} ${duration(skill.stunTurns)}`, skill.stunTarget);
+    }
+    if (skill.dotVal && skill.dotVal > 0) {
+      addEffect(t('Queimadura', 'Burn'), `${skill.dotVal} ${t('de dano por turno durante', 'damage per turn for')} ${duration(skill.dotDuration)}`, skill.dotTarget);
+    }
+    if (skill.bleedingVal && skill.bleedingVal > 0) {
+      addEffect(t('Sangramento', 'Bleeding'), `${skill.bleedingVal} ${t('de dano por turno durante', 'damage per turn for')} ${duration(skill.bleedingDuration)}`, skill.bleedingTarget);
+    }
+    if (skill.afflictionVal && skill.afflictionVal > 0) {
+      addEffect(t('Aflição', 'Affliction'), `${skill.afflictionVal} ${t('de dano por turno durante', 'damage per turn for')} ${duration(skill.afflictionDuration)}`, skill.afflictionTarget);
+    }
+    if (skill.damageBuffVal && skill.damageBuffVal > 0) {
+      addEffect(t('Aumento de Dano', 'Damage Boost'), `+${skill.damageBuffVal} ${t('de dano causado durante', 'damage dealt for')} ${duration(skill.damageBuffDuration)}`, skill.damageBuffTarget || 'Self');
+    }
+    if (skill.damageReductionVal && skill.damageReductionVal > 0) {
+      addEffect(t('Redução de Dano', 'Damage Reduction'), `-${skill.damageReductionVal} ${t('de dano recebido durante', 'damage received for')} ${duration(skill.damageReductionDuration)}`, 'Self');
+    }
+    if (skill.damageDebuffVal && skill.damageDebuffVal > 0) {
+      addEffect(t('Dano Condicional', 'Conditional Damage'), `-${skill.damageDebuffVal} ${t('de dano causado durante', 'damage dealt for')} ${duration(skill.damageDebuffDuration)}`, skill.damageDebuffTarget);
+    }
+    if (skill.damageVulnerabilityVal && skill.damageVulnerabilityVal > 0) {
+      addEffect(t('Vulnerabilidade', 'Vulnerability'), `+${skill.damageVulnerabilityVal} ${t('de dano recebido durante', 'damage received for')} ${duration(skill.damageVulnerabilityDuration)}`, skill.damageVulnerabilityTarget);
+    }
+    if (skill.gainChakra && skill.gainChakra > 0) {
+      addEffect(t('Ganho de Chakra', 'Chakra Gain'), `+${skill.gainChakra} ${t('chakra', 'chakra')}`, skill.gainChakraTarget || 'Self');
+    }
+    if (skill.drainChakra && skill.drainChakra > 0) {
+      addEffect(t('Dreno de Chakra', 'Chakra Drain'), `-${skill.drainChakra} ${t('chakra', 'chakra')}`, skill.drainChakraTarget);
+    }
+    if (skill.stealChakra && skill.stealChakra > 0) {
+      addEffect(t('Roubo de Chakra', 'Chakra Steal'), `${skill.stealChakra} ${t('chakra', 'chakra')}`, skill.stealChakraTarget);
+    }
+    return effects;
+  };
 
   const openAuthenticated = (next: LobbyModal) => {
     playClickSound();
@@ -137,7 +259,7 @@ export default function LobbyScreen({
   const updateUser = (updated: UserProfile) => onUpdateUser(updated);
   const footerItems = [
     { label: t('Loja', 'Shop'), icon: ShoppingBag, action: () => openAuthenticated('shop') },
-    { label: t('Shinobi', 'Shinobi'), icon: Users, action: () => { playClickSound(); setModal('characters'); } },
+    { label: t('Shinobis', 'Shinobis'), icon: Users, action: () => { playClickSound(); setModal('characters'); } },
     { label: t('Batalha', 'Battle'), icon: Swords, action: handleBattle, primary: true },
     { label: t('Clã', 'Clan'), icon: Shield, action: () => { playClickSound(); setClanMessage(true); } },
     { label: t('Eventos', 'Events'), icon: CalendarDays, action: () => openAuthenticated('events') },
@@ -255,16 +377,57 @@ export default function LobbyScreen({
           <section className="lobby-roster-modal" role="dialog" aria-modal="true" aria-labelledby="lobby-roster-title" onClick={event => event.stopPropagation()}>
             <header>
               <div>
-                <h2 id="lobby-roster-title">{t('Shinobis', 'Shinobi')}</h2>
+                <h2 id="lobby-roster-title">{t('Shinobis', 'Shinobis')}</h2>
                 <p>{t('Personagens desbloqueados primeiro', 'Unlocked characters first')}</p>
               </div>
-              <button type="button" onClick={() => setModal(null)} aria-label={t('Fechar', 'Close')}><X /></button>
+              <button
+                type="button"
+                className="lobby-roster-filter-toggle"
+                aria-expanded={showRosterFilters}
+                aria-controls="lobby-roster-filters"
+                onClick={() => setShowRosterFilters(open => !open)}
+              >
+                <Filter aria-hidden="true" />
+                <span>{t('Filtrar', 'Filter')}</span>
+                <ChevronDown className={showRosterFilters ? 'is-expanded' : ''} aria-hidden="true" />
+              </button>
             </header>
+            {showRosterFilters && (
+              <div className="lobby-roster-filters" id="lobby-roster-filters">
+                <label className="lobby-roster-search">
+                  <Search aria-hidden="true" />
+                  <input
+                    type="search"
+                    value={rosterSearch}
+                    onChange={event => setRosterSearch(event.target.value)}
+                    placeholder={t('Nome, vila ou categoria...', 'Name, village or category...')}
+                    aria-label={t('Buscar por nome, vila ou categoria', 'Search by name, village or category')}
+                  />
+                </label>
+                <label className="lobby-roster-tag-select">
+                  <span>{t('Vila / categoria', 'Village / category')}</span>
+                  <select value={rosterTag} onChange={event => setRosterTag(event.target.value)}>
+                    <option value="">{t('Todas', 'All')}</option>
+                    {rosterTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                  </select>
+                </label>
+              </div>
+            )}
             <div className="lobby-roster-grid">
-              {orderedCharacters.map(character => {
+              {filteredCharacters.map(character => {
                 const unlocked = isCharacterUnlocked(character, user, quests);
                 return (
-                  <article className={`lobby-roster-character${unlocked ? '' : ' is-locked'}`} key={character.id} title={!unlocked ? t('Bloqueado por missão', 'Locked by a mission') : character.name}>
+                  <button
+                    type="button"
+                    className={`lobby-roster-character${unlocked ? '' : ' is-locked'}`}
+                    key={character.id}
+                    title={!unlocked ? t('Bloqueado por missão', 'Locked by a mission') : character.name}
+                    aria-label={t(`Ver habilidades e detalhes de ${character.name}`, `View ${character.name} skills and details`)}
+                    onClick={() => {
+                      playClickSound();
+                      setDetailsCharacter(character);
+                    }}
+                  >
                     <img
                       src={character.portrait || `/static/img/ninja/${character.folder}/icon.jpg`}
                       alt=""
@@ -285,12 +448,133 @@ export default function LobbyScreen({
                       </span>
                     )}
                     <span>{character.name}</span>
-                  </article>
+                  </button>
                 );
               })}
+              {filteredCharacters.length === 0 && (
+                <p className="lobby-roster-empty">{t('Nenhum shinobi encontrado.', 'No shinobi found.')}</p>
+              )}
             </div>
           </section>
         </div>
+      )}
+      {detailsCharacter && (
+        <div
+          className="lobby-modal-backdrop lobby-character-details-backdrop"
+          role="presentation"
+          onClick={() => setDetailsCharacter(null)}
+        >
+          <section
+            className="lobby-character-details"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lobby-character-details-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <header className="lobby-character-details-header">
+              <img
+                src={detailsCharacter.portrait || `/static/img/ninja/${detailsCharacter.folder}/icon.jpg`}
+                alt=""
+                onError={event => {
+                  const image = event.currentTarget;
+                  if (!image.dataset.fallback) {
+                    image.dataset.fallback = 'true';
+                    image.src = `/static/img/ninja/${detailsCharacter.folder}/icon.jpg`;
+                  } else {
+                    image.style.visibility = 'hidden';
+                  }
+                }}
+              />
+              <div>
+                <h2 id="lobby-character-details-title">{detailsCharacter.name}</h2>
+                <p>{detailsCharacter.description || t('Sem descrição cadastrada.', 'No description available.')}</p>
+              </div>
+            </header>
+            {!!detailsCharacter.tags?.length && (
+              <div className="lobby-character-detail-tags" aria-label={t('Características', 'Attributes')}>
+                {detailsCharacter.tags.map(tag => <span key={tag}>{tag}</span>)}
+              </div>
+            )}
+            <h3>{t('Habilidades', 'Skills')}</h3>
+            <div className="lobby-character-skills">
+              {(detailsCharacter.skills || []).map((skill, index) => {
+                const effects = getSkillEffects(skill);
+                return (
+                  <article className="lobby-character-skill" key={`${skill.name}-${index}`}>
+                    <header className="lobby-character-skill-header">
+                      <h4>{skill.name}</h4>
+                      <div className="lobby-character-skill-cost" aria-label={t('Custo de chakra', 'Chakra cost')}>
+                        {(skill.cost || []).map((type, costIndex) => (
+                          <span
+                            className={`lobby-chakra-orb lobby-chakra-${type.toLowerCase()}`}
+                            key={`${type}-${costIndex}`}
+                            title={chakraLabels[type]}
+                          />
+                        ))}
+                      </div>
+                    </header>
+                    <div className="lobby-character-skill-body">
+                      {skill.icon && (
+                        <img
+                          className="lobby-character-skill-icon"
+                          src={skill.icon}
+                          alt=""
+                          onError={event => { event.currentTarget.style.visibility = 'hidden'; }}
+                        />
+                      )}
+                      <div className="lobby-character-skill-effects">
+                        {effects.map((effect, effectIndex) => (
+                          <article className="lobby-character-skill-effect" key={`${effect.label}-${effectIndex}`}>
+                            <strong>{effect.label}</strong>
+                            <p>{effect.value}</p>
+                            <span className="lobby-character-skill-effect-target">
+                              <span aria-hidden="true">🎯</span> {effect.target}
+                            </span>
+                          </article>
+                        ))}
+                        {effects.length === 0 && (
+                          <article className="lobby-character-skill-effect">
+                            <strong>{t('Habilidade', 'Skill')}</strong>
+                            <p>{skill.desc || t('Sem efeitos especificados.', 'No effects specified.')}</p>
+                            <span className="lobby-character-skill-effect-target">
+                              {targetLabels[skill.targetType] || skill.targetType}
+                            </span>
+                          </article>
+                        )}
+                      </div>
+                    </div>
+                    <p className="lobby-character-skill-target">
+                      <b>{t('Alvo', 'Target')}:</b> {targetLabels[skill.targetType] || skill.targetType}
+                    </p>
+                  </article>
+                );
+              })}
+              {!(detailsCharacter.skills || []).length && (
+                <p className="lobby-roster-empty">{t('Nenhuma habilidade cadastrada.', 'No skills available.')}</p>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+      {detailsCharacter && (
+        <button
+          type="button"
+          className="lobby-character-details-back"
+          onClick={() => setDetailsCharacter(null)}
+          aria-label={t('Voltar para shinobis', 'Back to shinobi')}
+        >
+          <ArrowLeft aria-hidden="true" />
+        </button>
+      )}
+      {modal === 'characters' && (
+        <button
+          type="button"
+          className="lobby-roster-close"
+          onClick={() => setModal(null)}
+          aria-label={t('Fechar shinobis', 'Close shinobi')}
+        >
+          <X aria-hidden="true" />
+        </button>
       )}
 
       {clanMessage && (
