@@ -49,12 +49,12 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
       }
 
       if (item.currency === 'ryos' && ryos < item.price) {
-        setPurchaseToast('Ryos insuficientes!');
+        setPurchaseToast('Moedas insuficientes!');
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
       if (item.currency === 'gems' && gems < item.price) {
-        setPurchaseToast('Gemas insuficientes!');
+        setPurchaseToast('Ryos insuficientes!');
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
@@ -88,12 +88,12 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
       }
 
       if (item.currency === 'ryos' && ryos < item.price) {
-        setPurchaseToast('Ryos insuficientes!');
+        setPurchaseToast('Moedas insuficientes!');
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
       if (item.currency === 'gems' && gems < item.price) {
-        setPurchaseToast('Gemas insuficientes!');
+        setPurchaseToast('Ryos insuficientes!');
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
@@ -125,12 +125,12 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
       }
 
       if (item.currency === 'ryos' && ryos < item.price) {
-        setPurchaseToast('Ryos insuficientes!');
+        setPurchaseToast('Moedas insuficientes!');
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
       if (item.currency === 'gems' && gems < item.price) {
-        setPurchaseToast('Gemas insuficientes!');
+        setPurchaseToast('Ryos insuficientes!');
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
@@ -151,7 +151,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
       setTimeout(() => setPurchaseToast(null), 3000);
     } else if (item.category === 'bundle' && item.bundleGrant) {
       if (item.currency === 'gems' && gems < item.price) {
-        setPurchaseToast('Gemas insuficientes!');
+        setPurchaseToast('Ryos insuficientes!');
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
@@ -165,7 +165,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         gems: newGems
       });
 
-      setPurchaseToast(`Comprado com sucesso: +${item.bundleGrant.amount} Ryos!`);
+      setPurchaseToast(`Comprado com sucesso: +${item.bundleGrant.amount} moedas!`);
       setTimeout(() => setPurchaseToast(null), 3000);
     }
   };
@@ -199,11 +199,13 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800 shadow-inner">
               <span className="text-xs font-mono text-amber-400 font-extrabold flex items-center gap-1.5">
-                🪙 {ryos.toLocaleString()} <span className="text-[10px] text-slate-400">Ryos</span>
+                <img src="/static/img/icon/gold.webp" alt="" className="h-4 w-4 object-contain" />
+                {ryos.toLocaleString()} <span className="text-[10px] text-slate-400">Moedas</span>
               </span>
               <div className="h-4 w-px bg-slate-800" />
               <span className="text-xs font-mono text-cyan-400 font-extrabold flex items-center gap-1.5">
-                💎 {gems.toLocaleString()} <span className="text-[10px] text-slate-400">Gemas</span>
+                <img src="/static/img/icon/ryo.webp" alt="" className="h-4 w-4 object-contain" />
+                {gems.toLocaleString()} <span className="text-[10px] text-slate-400">Ryos</span>
               </span>
             </div>
 
@@ -352,7 +354,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                             <CircleDollarSign className="mx-auto h-8 w-8 text-cyan-400 sm:h-10 sm:w-10" />
                           )}
                           <p className="text-[8px] font-mono font-bold text-cyan-300 sm:text-xs">
-                            +{item.bundleGrant?.amount} Ryos
+                            +{item.bundleGrant?.amount} moedas
                           </p>
                         </div>
                       )}
@@ -366,8 +368,12 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                   </div>
 
                   <div className="mt-1.5 flex items-center justify-between gap-1 border-t border-slate-800/80 pt-1.5 sm:mt-2 sm:pt-2">
-                    <span className="flex min-w-0 items-center gap-0.5 whitespace-nowrap text-[8px] font-mono font-bold text-amber-300 sm:gap-1 sm:text-xs">
-                      <span aria-hidden="true">{item.currency === 'ryos' ? '🪙' : '💎'}</span>
+                    <span className="flex min-w-0 items-center gap-1 whitespace-nowrap text-xs font-mono font-extrabold text-amber-300 sm:gap-1.5 sm:text-sm">
+                      <img
+                        src={item.currency === 'ryos' ? '/static/img/icon/gold.webp' : '/static/img/icon/ryo.webp'}
+                        alt=""
+                        className="h-[18px] w-[18px] shrink-0 object-contain sm:h-5 sm:w-5"
+                      />
                       <span className="truncate">{item.price.toLocaleString()}</span>
                     </span>
                     {isEquipped ? (
@@ -427,8 +433,13 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                 Você tem certeza que
                 <br />
                 deseja gastar{' '}
-                <span className="whitespace-nowrap font-black text-orange-700">
-                  {pendingPurchase.price.toLocaleString()} {pendingPurchase.currency === 'ryos' ? '🪙' : '💎'}
+                <span className="inline-flex items-center gap-1 whitespace-nowrap font-black text-orange-700">
+                  <img
+                    src={pendingPurchase.currency === 'ryos' ? '/static/img/icon/gold.webp' : '/static/img/icon/ryo.webp'}
+                    alt=""
+                    className="h-5 w-5 object-contain"
+                  />
+                  {pendingPurchase.price.toLocaleString()}
                 </span>
                 {' '}em
               </p>

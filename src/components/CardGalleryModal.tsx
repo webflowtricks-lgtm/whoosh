@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Images, Lock, Star, Package, Gem, Sparkles, Check } from 'lucide-react';
+import { X, Images, Lock, Star, Package, Sparkles, Check } from 'lucide-react';
 import { UserProfile, NinjaCard, CardRarity } from '../types';
 import { getCards, fetchCardsFromServer, CARD_RARITY_META, RARITY_ORDER, getPacks, fetchPacksFromServer, rarityFx } from '../lib/cardStorage';
 import { NinjaPack } from '../types';
@@ -56,7 +56,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
   const handleOpenPack = (pack: NinjaPack) => {
     playClickSound();
     if (gems < pack.price) {
-      setPackToast(t('Gemas insuficientes!', 'Not enough gems!'));
+      setPackToast(t('Ryos insuficientes!', 'Not enough Ryos!'));
       setTimeout(() => setPackToast(null), 3000);
       return;
     }
@@ -131,7 +131,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
               >
                 <Package className="w-4 h-4" />
                 <span>{t('Pacote', 'Pack')}</span>
-                <span className="flex items-center gap-0.5"><Gem className="w-3 h-3" />{selectedPack ? selectedPack.price : PACK_COST}</span>
+                <span className="flex items-center gap-0.5"><img src="/static/img/icon/ryo.webp" alt="" className="h-3.5 w-3.5 object-contain" />{selectedPack ? selectedPack.price : PACK_COST}</span>
               </button>
 
               {showPackPicker && (
@@ -168,7 +168,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-slate-100 truncate">{pack.name}</p>
                           <p className="text-[10px] font-mono text-slate-400">
-                            💎 {pack.price} • {pack.cardsPerPack} {t('cards', 'cards')} • {(pack.allowedRarities || []).length > 0 ? pack.allowedRarities.map(r => CARD_RARITY_META[r].label).join(', ') : t('qualquer', 'any')}
+                            <span className="inline-flex items-center gap-1"><img src="/static/img/icon/ryo.webp" alt="" className="h-3.5 w-3.5 object-contain" />{pack.price}</span> • {pack.cardsPerPack} {t('cards', 'cards')} • {(pack.allowedRarities || []).length > 0 ? pack.allowedRarities.map(r => CARD_RARITY_META[r].label).join(', ') : t('qualquer', 'any')}
                           </p>
                         </div>
                       </button>
@@ -225,7 +225,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
               {totalPoints} pts
             </div>
             <div className="flex items-center gap-1 text-cyan-400 text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
-              <Gem className="w-3.5 h-3.5" />
+              <img src="/static/img/icon/ryo.webp" alt="" className="h-4 w-4 object-contain" />
               {gems}
             </div>
           </div>

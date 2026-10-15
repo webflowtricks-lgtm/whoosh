@@ -176,7 +176,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
 
   return (
     <div
-        className={`fixed inset-0 z-50 flex items-center justify-center ${isLandscape ? 'p-2' : 'p-4'} overflow-y-auto custom-scrollbar`}
+        className={`fixed inset-0 z-[60] flex items-center justify-center ${isLandscape ? 'p-2' : 'p-4'} overflow-y-auto custom-scrollbar`}
         onClick={() => { playClickSound(); onClose(); }}
       >
       {/* Background Image */}

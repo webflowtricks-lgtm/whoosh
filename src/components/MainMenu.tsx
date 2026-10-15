@@ -406,7 +406,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
             onOpenEditModal={() => {
-              playScrollSound();
+              setShowProfileCardModal(false);
               setShowProfileModal(true);
             }}
           />

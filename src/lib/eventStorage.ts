@@ -26,7 +26,7 @@ export const DEFAULT_NINJA_EVENTS: NinjaEvent[] = [
         target: 3,
         rewardType: 'ryos',
         rewardValue: 500,
-        rewardLabel: '500 Ryos'
+        rewardLabel: '500 moedas'
       },
       {
         id: 'gn1-obj2',
@@ -35,7 +35,7 @@ export const DEFAULT_NINJA_EVENTS: NinjaEvent[] = [
         target: 1500,
         rewardType: 'gems',
         rewardValue: 50,
-        rewardLabel: '50 Gemas Ninja'
+        rewardLabel: '50 Ryos'
       },
       {
         id: 'gn1-obj3',
@@ -61,7 +61,7 @@ export const DEFAULT_NINJA_EVENTS: NinjaEvent[] = [
     id: 'festival-folha-2026',
     title: 'Festival da Folha - Konoha',
     subtitle: 'Comemoração de Outono',
-    description: 'Celebre a paz em Konohagakure! Ganhe bônus de Ryos ao jogar partidas diárias e complete desafios de suporte e cura.',
+    description: 'Celebre a paz em Konohagakure! Ganhe bônus de moedas ao jogar partidas diárias e complete desafios de suporte e cura.',
     bannerUrl: 'https://images.unsplash.com/photo-1528164344705-47542687990d?w=800&auto=format&fit=crop&q=80',
     badge: 'FESTIVAL',
     timeLeft: '11 dias',
@@ -74,7 +74,7 @@ export const DEFAULT_NINJA_EVENTS: NinjaEvent[] = [
         target: 800,
         rewardType: 'ryos',
         rewardValue: 300,
-        rewardLabel: '300 Ryos'
+        rewardLabel: '300 moedas'
       },
       {
         id: 'ff-obj2',
@@ -83,7 +83,7 @@ export const DEFAULT_NINJA_EVENTS: NinjaEvent[] = [
         target: 1,
         rewardType: 'gems',
         rewardValue: 30,
-        rewardLabel: '30 Gemas'
+        rewardLabel: '30 Ryos'
       }
     ]
   },
@@ -113,7 +113,7 @@ export const DEFAULT_NINJA_EVENTS: NinjaEvent[] = [
         target: 600,
         rewardType: 'gems',
         rewardValue: 40,
-        rewardLabel: '40 Gemas Ninja'
+        rewardLabel: '40 Ryos'
       }
     ]
   }

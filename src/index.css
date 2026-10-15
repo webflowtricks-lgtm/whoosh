@@ -284,7 +284,7 @@ body.processing-cursor * {
   position: relative;
   display: flex;
   width: 10.4rem;
-  height: 3.5rem;
+  height: 4.5rem;
   align-items: center;
   left: -1rem;
   top: 0px;
@@ -341,27 +341,27 @@ body.processing-cursor * {
 
 .lobby-currencies {
   display: flex;
-  gap: .45rem;
+  gap: .55rem;
 }
 
 .lobby-currencies > span {
   display: inline-flex;
   align-items: center;
-  gap: .3rem;
-  padding: .35rem .55rem;
-  border: 1px solid rgba(79, 177, 231, .78);
+  gap: .4rem;
+  padding: .45rem .7rem;
+  border: 1.5px solid rgba(249, 115, 22, .9);
   border-radius: 1rem;
   background: linear-gradient(180deg, rgba(16, 59, 92, .96), rgba(8, 35, 60, .96));
   box-shadow: 0 2px 8px #0008, inset 0 1px 0 #ffffff30;
   color: #fff2d1;
-  font-size: .72rem;
+  font-size: .78rem;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
 }
 
 .lobby-currency-icon {
-  width: 1rem;
-  height: 1rem;
+  width: 1.2rem;
+  height: 1.2rem;
   object-fit: contain;
 }
 
@@ -378,13 +378,13 @@ body.processing-cursor * {
   position: relative;
   display: flex;
   width: 100%;
-  min-height: 4.15rem;
+  min-height: 4.6rem;
   align-items: center;
   justify-content: flex-start;
   gap: .75rem;
   overflow: hidden;
-  padding: .45rem .7rem;
-  border: 2px solid #ff9f35;
+  padding: .6rem .7rem;
+  border: 1px solid rgba(83, 178, 235, .55);
   border-radius: .55rem;
   background: linear-gradient(115deg, #174b72, #0a2947 60%, #102c43);
   box-shadow: 0 3px 10px #000a, inset 0 0 0 1px rgba(139, 210, 255, .25);
@@ -584,7 +584,7 @@ body.processing-cursor * {
   position: absolute;
   z-index: 2;
   right: max(.55rem, env(safe-area-inset-right));
-  bottom: calc(114px + env(safe-area-inset-bottom));
+  bottom: calc(130px + env(safe-area-inset-bottom));
   left: max(.55rem, env(safe-area-inset-left));
   height: clamp(5.7rem, 13vh, 8.25rem);
   touch-action: pan-y;

@@ -692,7 +692,7 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
                         <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400">
                           <span className="uppercase text-purple-400 font-bold">{pack.badge || 'pacote'}</span>
                           <span>•</span>
-                          <span>💎 {pack.price}</span>
+                          <span className="inline-flex items-center gap-1"><img src="/static/img/icon/ryo.webp" alt="" className="h-3.5 w-3.5 object-contain" />{pack.price}</span>
                           <span>•</span>
                           <span>{pack.cardsPerPack} cards</span>
                         </div>
@@ -756,7 +756,7 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Preço (💎 Gemas)</label>
+                    <label className="mb-1 flex items-center gap-1 text-[10px] font-mono font-bold uppercase text-slate-400"><span>Preço</span><img src="/static/img/icon/ryo.webp" alt="" className="h-3.5 w-3.5 object-contain" /><span>Ryos</span></label>
                     <input
                       type="number"
                       value={editingPack.price}
@@ -853,7 +853,7 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
                     <div className="min-w-0">
                       <p className="text-sm font-extrabold text-slate-100">{editingPack.name}</p>
                       <p className="text-[10px] text-slate-400 leading-snug line-clamp-2">{editingPack.description}</p>
-                      <p className="text-[10px] font-mono font-bold text-purple-300 mt-1">💎 {editingPack.price} • {editingPack.cardsPerPack} cards</p>
+                      <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-mono font-bold text-purple-300"><img src="/static/img/icon/ryo.webp" alt="" className="h-3.5 w-3.5 object-contain" />{editingPack.price} • {editingPack.cardsPerPack} cards</p>
                     </div>
                   </div>
                 </div>

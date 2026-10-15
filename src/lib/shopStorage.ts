@@ -117,9 +117,9 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
   // Pacotes e Vouchers (Bundles)
   {
     id: 'bundle-ryos-p',
-    name: 'Bolsa de Ryos',
+    name: 'Bolsa de Moedas',
     category: 'bundle',
-    description: 'Bolsa contendo 1.000 Ryos para desbloqueios e compras na loja.',
+    description: 'Bolsa contendo 1.000 moedas para desbloqueios e compras na loja.',
     currency: 'gems',
     price: 20,
     bundleGrant: { type: 'ryos', amount: 1000 },
@@ -129,7 +129,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     id: 'bundle-ryos-g',
     name: 'Baú do Tesouro Ninja',
     category: 'bundle',
-    description: 'Grande baú com 3.000 Ryos para expansão rápida do seu império ninja.',
+    description: 'Grande baú com 3.000 moedas para expansão rápida do seu império ninja.',
     currency: 'gems',
     price: 50,
     bundleGrant: { type: 'ryos', amount: 3000 },

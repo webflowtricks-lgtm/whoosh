@@ -251,6 +251,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
           {activeTab === 'login' ? (
             <motion.form
               key="login"
+              autoComplete="on"
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
@@ -265,6 +266,8 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
                     type="text"
+                    name="username"
+                    autoComplete="username"
                     value={loginUser}
                     onChange={(e) => setLoginUser(e.target.value)}
                     placeholder={t('Digite seu username', 'Enter your username')}
@@ -281,6 +284,8 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
                     type="password"
+                    name="password"
+                    autoComplete="current-password"
                     value={loginPass}
                     onChange={(e) => setLoginPass(e.target.value)}
                     placeholder={t('Sua senha secreta', 'Your secret password')}
@@ -305,8 +310,14 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
                   }}
                   className="h-4 w-4 accent-orange-500"
                 />
-                {t('Lembrar de mim', 'Remember me')}
+                {t('Lembrar meu usuário', 'Remember my username')}
               </label>
+              <p className="text-[10px] leading-relaxed text-slate-500">
+                {t(
+                  'Para salvar a senha, aceite a sugestão do gerenciador de senhas do navegador.',
+                  'To save your password, accept your browser password manager prompt.'
+                )}
+              </p>
 
               <button
                 type="submit"

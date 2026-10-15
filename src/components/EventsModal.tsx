@@ -84,7 +84,7 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
     };
 
     onUpdateUser(updatedUser);
-    setClaimToast(`Recompensa Resgatada: ${obj.rewardLabel}!`);
+    setClaimToast('Recompensa resgatada!');
     setTimeout(() => setClaimToast(null), 3000);
   };
 
@@ -284,7 +284,22 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
 
                         <div className="flex items-center gap-2 text-xs text-slate-400">
                           <Gift className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Recompensa: <strong className="text-amber-300 font-semibold">{obj.rewardLabel}</strong></span>
+                          <span className="inline-flex items-center gap-1">
+                            Recompensa:
+                            {obj.rewardType === 'ryos' ? (
+                              <>
+                                <img src="/static/img/icon/gold.webp" alt="Moedas" className="h-4 w-4 object-contain" />
+                                <strong className="font-semibold text-amber-300">{Number(obj.rewardValue).toLocaleString()}</strong>
+                              </>
+                            ) : obj.rewardType === 'gems' ? (
+                              <>
+                                <img src="/static/img/icon/ryo.webp" alt="Ryos" className="h-4 w-4 object-contain" />
+                                <strong className="font-semibold text-amber-300">{Number(obj.rewardValue).toLocaleString()}</strong>
+                              </>
+                            ) : (
+                              <strong className="font-semibold text-amber-300">{obj.rewardLabel}</strong>
+                            )}
+                          </span>
                         </div>
                       </div>
 

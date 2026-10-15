@@ -262,7 +262,10 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                     <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400">
                       <span className="uppercase text-amber-400 font-bold">{item.category}</span>
                       <span>•</span>
-                      <span>{item.currency === 'ryos' ? '🪙' : '💎'} {item.price}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <img src={item.currency === 'ryos' ? '/static/img/icon/gold.webp' : '/static/img/icon/ryo.webp'} alt="" className="h-3.5 w-3.5 object-contain" />
+                        {item.price}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -371,8 +374,8 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                   onChange={e => setEditingItem({ ...editingItem, currency: e.target.value as any })}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none"
                 >
-                  <option value="ryos">🪙 Ryos (Moeda Comum)</option>
-                  <option value="gems">💎 Gemas (Moeda Premium)</option>
+                  <option value="ryos">Moedas (Moeda Comum)</option>
+                  <option value="gems">Ryos (Moeda Premium)</option>
                 </select>
               </div>
 
@@ -448,8 +451,8 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                       })}
                       className="w-full px-3 py-2 bg-slate-950 border border-cyan-500/40 text-slate-100 rounded-xl text-xs outline-none"
                     >
-                      <option value="ryos">🪙 Ryos</option>
-                      <option value="gems">💎 Gemas</option>
+                      <option value="ryos">Moedas</option>
+                      <option value="gems">Ryos</option>
                     </select>
                   </div>
 
@@ -512,7 +515,7 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                     <div className="text-center space-y-1">
                       <CircleDollarSign className="w-10 h-10 text-cyan-400 mx-auto" />
                       <p className="text-xs font-mono font-bold text-cyan-300">
-                        +{editingItem.bundleGrant?.amount || 0} {editingItem.bundleGrant?.type === 'gems' ? 'Gemas' : 'Ryos'}
+                        +{editingItem.bundleGrant?.amount || 0} {editingItem.bundleGrant?.type === 'gems' ? 'Ryos' : 'moedas'}
                       </p>
                     </div>
                   )}
@@ -526,7 +529,10 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                 <div className="pt-2 border-t border-slate-800/80">
                   <div className="w-full py-2 px-3 rounded-xl bg-amber-500 text-slate-950 font-mono font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5">
                     <span>Comprar por</span>
-                    <span>{editingItem.currency === 'ryos' ? '🪙' : '💎'} {editingItem.price}</span>
+                    <span className="inline-flex items-center gap-1">
+                      <img src={editingItem.currency === 'ryos' ? '/static/img/icon/gold.webp' : '/static/img/icon/ryo.webp'} alt="" className="h-4 w-4 object-contain" />
+                      {editingItem.price}
+                    </span>
                   </div>
                 </div>
               </div>

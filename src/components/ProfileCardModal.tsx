@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Heart, Shield, Sparkles, User, Swords, Trophy, Flame, CheckCircle2, Calendar, ChevronLeft, ChevronRight, Images } from 'lucide-react';
+import { X, Shield, Sparkles, User, Swords, Trophy, Flame, CheckCircle2, Calendar, ChevronLeft, ChevronRight, Images } from 'lucide-react';
 import { UserProfile, NinjaCard } from '../types';
 import { getCards, fetchCardsFromServer, CARD_RARITY_META, rarityFx, RARITY_ORDER } from '../lib/cardStorage';
 import { getRanks } from '../lib/rankStorage';
@@ -184,17 +184,14 @@ export interface ProfileCardData {
   wins?: number;
   losses?: number;
   village?: string;
-  likes?: number;
   collectedCardIds?: string[];
 }
 
 interface ProfileCardModalProps {
   profile: ProfileCardData;
   isSelf?: boolean;
-  hideLikeButton?: boolean;
   onClose: () => void;
   playClickSound?: () => void;
-  playUahSound?: () => void;
   playScrollSound?: () => void;
   onOpenEditModal?: () => void;
 }
@@ -211,10 +208,8 @@ const PRESET_STYLED_FRAMES: Record<string, string> = {
 export default function ProfileCardModal({
   profile,
   isSelf = false,
-  hideLikeButton = false,
   onClose,
   playClickSound,
-  playUahSound,
   playScrollSound,
   onOpenEditModal,
 }: ProfileCardModalProps) {
@@ -225,32 +220,6 @@ export default function ProfileCardModal({
   const { t } = useLanguage();
   const isLandscape = useIsMobileLandscape();
   const isMobilePortrait = useIsMobilePortrait();
-  const profileKey = (profile.username || profile.name || 'ninja').toLowerCase().replace(/[^a-z0-9]/g, '_');
-  const likesStorageKey = `naruto_profile_real_likes_${profileKey}`;
-  const lastLikeDateStorageKey = `naruto_profile_last_like_${profileKey}`;
-
-  const getTodayStr = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
-
-  // Real likes counter: everyone starts at 0, storing real likes from user actions
-  const [likes, setLikes] = useState<number>(() => {
-    const saved = localStorage.getItem(likesStorageKey);
-    if (saved !== null) {
-      const parsed = parseInt(saved, 10);
-      return isNaN(parsed) ? 0 : Math.max(0, parsed);
-    }
-    return 0; // Every account starts with 0 likes
-  });
-
-  const [hasLikedToday, setHasLikedToday] = useState<boolean>(() => {
-    const lastDate = localStorage.getItem(lastLikeDateStorageKey);
-    return lastDate === getTodayStr();
-  });
-
-  const [likeFeedback, setLikeFeedback] = useState<string | null>(null);
-  const [showHeartBurst, setShowHeartBurst] = useState<boolean>(false);
   const [bannerHover, setBannerHover] = useState<boolean>(false);
   const [onlineBattleHistory, setOnlineBattleHistory] = useState<OnlineBattleHistoryRecord[]>([]);
   const [onlineHistoryLoading, setOnlineHistoryLoading] = useState(true);
@@ -293,35 +262,6 @@ export default function ProfileCardModal({
   }, [profile.username]);
 
   const frameStyle = profile.equippedFrame ? (PRESET_STYLED_FRAMES[profile.equippedFrame] || 'border-2 border-orange-400') : 'border-2 border-orange-400';
-
-  const handleLike = () => {
-    if (playUahSound) playUahSound();
-
-    const today = getTodayStr();
-
-    if (hasLikedToday) {
-      setLikeFeedback(t('Você já curtiu este perfil hoje! Volte amanhã. ❤️', 'You already liked this profile today! Come back tomorrow. ❤️'));
-      setTimeout(() => setLikeFeedback(null), 3500);
-      return;
-    }
-
-    const newLikes = likes + 1;
-    setLikes(newLikes);
-    setHasLikedToday(true);
-    try {
-      localStorage.setItem(likesStorageKey, String(newLikes));
-      localStorage.setItem(lastLikeDateStorageKey, today);
-    } catch (e) {
-      console.warn("Failed to save likes to localStorage:", e);
-    }
-
-    // Trigger visual heart burst effect
-    setShowHeartBurst(true);
-    setTimeout(() => setShowHeartBurst(false), 1200);
-
-    setLikeFeedback(t('Curtida enviada com sucesso! ❤️ (+1 Curtida)', 'Like sent successfully! ❤️ (+1 Like)'));
-    setTimeout(() => setLikeFeedback(null), 3500);
-  };
 
   const level = profile.level || 15;
   const wins = profile.wins !== undefined ? profile.wins : 24;
@@ -536,62 +476,6 @@ export default function ProfileCardModal({
               {/* LEFT COLUMN: STATS & DETAILS */}
               <div className={`${isLandscape ? 'space-y-2' : 'space-y-3.5'} flex-1 z-10`}>
                 
-                {/* 1. CURTIDAS (Likes) CARD */}
-                <div className={`${isLandscape ? 'p-2.5 space-y-2' : 'p-4 space-y-3'} bg-slate-950/90 border border-slate-800/90 rounded-2xl shadow-inner relative overflow-hidden`}>
-                  {/* Floating Hearts Effect */}
-                  {showHeartBurst && (
-                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
-                      <motion.div
-                        initial={{ scale: 0.5, opacity: 1, y: 0 }}
-                        animate={{ scale: 2.5, opacity: 0, y: -40 }}
-                        transition={{ duration: 1 }}
-                        className="text-3xl"
-                      >
-                        💖 ❤️ 💕
-                      </motion.div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-base font-black text-white font-mono">{likes}</span>
-                          <span className="text-xs font-black text-rose-400 uppercase tracking-wide">{t('CURTIDAS', 'LIKES')}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-mono leading-tight">
-                          {hasLikedToday ? t('Você curtiu este perfil hoje!', 'You liked this profile today!') : t('Envie seu reconhecimento ninja (1 por dia)', 'Send your ninja recognition (1 per day)')}
-                        </p>
-                      </div>
-                    </div>
-
-                    {!hideLikeButton && (
-                      <button
-                        onClick={handleLike}
-                        data-sound="uah"
-                        className={`px-3.5 py-2 rounded-xl font-mono text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow flex-shrink-0 ${
-                          hasLikedToday
-                            ? 'bg-slate-800 text-rose-300 border border-rose-500/30 hover:bg-slate-700/80'
-                            : 'bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-400 hover:to-red-500 text-white hover:scale-105 active:scale-95 shadow-rose-950/50'
-                        }`}
-                      >
-                        <Heart className={`w-3.5 h-3.5 ${hasLikedToday ? 'fill-rose-300' : 'fill-white'}`} />
-                        {hasLikedToday ? t('Curtido', 'Liked') : t('Curtir', 'Like')}
-                      </button>
-                    )}
-                  </div>
-
-                  {!hideLikeButton && likeFeedback && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="text-[10px] font-mono font-bold text-amber-300 bg-amber-950/60 p-2 rounded-lg border border-amber-600/40"
-                    >
-                      {likeFeedback}
-                    </motion.div>
-                  )}
-                </div>
-
                 {isMobilePortrait && (
                   <>
                     {arenaHistoryBlock}
@@ -669,7 +553,7 @@ export default function ProfileCardModal({
                 {isSelf && onOpenEditModal && (
                   <button
                     onClick={() => {
-                      closeModal();
+                      if (playScrollSound) playScrollSound();
                       onOpenEditModal();
                     }}
                     data-sound="Scroll"

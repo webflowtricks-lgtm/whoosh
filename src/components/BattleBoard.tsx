@@ -20012,7 +20012,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               });
             }}
             className="mv-profile-card mv-opponent-profile-card relative z-10 overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer"
-            title="Clique para ver o Card do Perfil do Oponente & Curtir"
+            title="Clique para ver o perfil do oponente"
           >
             {/* Profile Banner Background */}
             {onlineParams?.isOnline && onlineParams.opponentProfile?.equippedBannerUrl && (
@@ -21712,7 +21712,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           isSelf={viewingProfile.isSelf}
           onClose={() => setViewingProfile(null)}
           playClickSound={playClickSound}
-          playUahSound={playUahSound}
           playScrollSound={playScrollSound}
         />
       )}

@@ -60,11 +60,11 @@ Online battle results are persisted in `src/data/online_battle_history.json`. `P
 
 ## 🃏 Ninja Cards & Pacotes (Figuras Colecionáveis)
 - **Owner/admin**: `src/components/CardAdmin.tsx` (new "Cards & Pacotes" tab in AdminDashboard) — CRUD de figuras (`NinjaCard`) e de pacotes (`NinjaPack`).
-- **Types**: `src/types.ts` — `NinjaCard` (com `packs?: string[]` = ids dos pacotes dos quais o card pode sair) e `NinjaPack` (nome, preço em gemas, `cardsPerPack`, `allowedRarities?: CardRarity[]`, badge, imageUrl).
+- **Types**: `src/types.ts` — `NinjaCard` (com `packs?: string[]` = ids dos pacotes dos quais o card pode sair) e `NinjaPack` (nome, preço em Ryos, `cardsPerPack`, `allowedRarities?: CardRarity[]`, badge, imageUrl).
 - **Storage**: `src/lib/cardStorage.ts` — `getCards/saveCards/fetchCardsFromServer` (key `naruto_cards`) + `getPacks/savePacks/fetchPacksFromServer` (key `naruto_card_packs`, defaults `DEFAULT_PACKS`).
 - **Server** (`server.ts`): `GET/POST /api/cards` e `GET/POST /api/cards/packs`, persistidos em `cards.json`/`card_packs.json`; incluídos em `/api/config/export` e `/api/config/import`.
 - **Abertura de pacote**: `src/lib/collection.ts` `useCollection().openPack` agora aceita `options.pack?: NinjaPack`. Filtra candidatos por `card.packs.includes(pack.id)` OU (se o pack tiver `allowedRarities`) por raridade; `rollPackRarity(allowed)` pondera pelas raridades permitidas do pack.
-- **Galeria**: `src/components/CardGalleryModal.tsx` — botão "Pacote" abre um picker com os pacotes salvos (cada um com seu preço/cards/raridades), em vez do antigo pacote fixo de 20 gemas/3 cards.
+- **Galeria**: `src/components/CardGalleryModal.tsx` — botão "Pacote" abre um picker com os pacotes salvos (cada um com seu preço/cards/raridades), em vez do antigo pacote fixo de 20 Ryos/3 cards.
 - **Recompensa de missão**: `QuestReward.type` aceita `'card'` (types.ts). No QuestAdmin, recompensa "🃏 Figura Colecionável" tem autocomplete das figuras existentes (busca por personagem/título/id/variante) e campo de **ID editável**; ao resgatar a missão, o QuestBoard adiciona `r.value` (id do card) em `user.collectedCardIds`.
 
 ## Conventions & Notes

@@ -50,7 +50,7 @@ interface LobbyScreenProps {
   onUpdateAudioSetting: (key: 'master' | 'effects' | 'music', value: number) => void;
 }
 
-type LobbyModal = 'characters' | 'clan' | 'shop' | 'events' | 'profile' | 'profile-edit' | 'cards' | 'audio' | 'help' | null;
+type LobbyModal = 'characters' | 'clan' | 'shop' | 'events' | 'profile' | 'cards' | 'audio' | 'help' | null;
 
 export default function LobbyScreen({
   onStartGame,
@@ -70,6 +70,7 @@ export default function LobbyScreen({
 }: LobbyScreenProps) {
   const { t } = useLanguage();
   const [modal, setModal] = useState<LobbyModal>(null);
+  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [characters, setCharacters] = useState<Character[]>(() => getCharacters());
   const [quests, setQuests] = useState<Quest[]>([]);
@@ -668,7 +669,7 @@ export default function LobbyScreen({
           <section className="lobby-simple-modal" role="dialog" aria-modal="true" onClick={event => event.stopPropagation()}>
             <button type="button" className="lobby-modal-close" onClick={() => setClanMessage(false)} aria-label={t('Fechar', 'Close')}><X /></button>
             <Shield aria-hidden="true" />
-            <h2>{t('Clãs shinobi', 'Shinobi clans')}</h2>
+            <h2>{t('Clãs', 'Clans')}</h2>
             <p>{t('A área de clãs estará disponível em breve.', 'The clan area will be available soon.')}</p>
           </section>
         </div>
@@ -717,14 +718,14 @@ export default function LobbyScreen({
             collectedCardIds: user.collectedCardIds || [],
           }}
           isSelf
-          onClose={() => setModal(null)}
+          onClose={() => { setProfileEditorOpen(false); setModal(null); }}
           playClickSound={playClickSound}
           playScrollSound={playScrollSound}
-          onOpenEditModal={() => { setModal('profile-edit'); playScrollSound(); }}
+          onOpenEditModal={() => setProfileEditorOpen(true)}
         />
       )}
-      {user && modal === 'profile-edit' && (
-        <ProfileModal user={user} onClose={() => setModal('profile')} onUpdateUser={updateUser} playClickSound={playClickSound} playUahSound={playUahSound} playScrollSound={playScrollSound} />
+      {user && profileEditorOpen && (
+        <ProfileModal user={user} onClose={() => setProfileEditorOpen(false)} onUpdateUser={updateUser} playClickSound={playClickSound} playUahSound={playUahSound} playScrollSound={playScrollSound} />
       )}
       {user && modal === 'cards' && (
         <CardGalleryModal user={user} onClose={() => setModal(null)} onUpdateUser={updateUser} playClickSound={playClickSound} />

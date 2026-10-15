@@ -424,7 +424,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
           target: 1,
           rewardType: 'ryos',
           rewardValue: 500,
-          rewardLabel: '500 Ryos'
+          rewardLabel: '500 moedas'
         }
       ]
     };
@@ -522,7 +522,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
       target: 5,
       rewardType: 'gems',
       rewardValue: 50,
-      rewardLabel: '50 Gemas Ninja'
+      rewardLabel: '50 Ryos'
     };
 
     const newObjectives = [...editingEvent.objectives, newObj];
@@ -1232,7 +1232,17 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                               <span>•</span>
                               <span className="flex items-center gap-1 text-amber-300">
                                 <Gift className="w-3 h-3 text-amber-400" />
-                                {obj.rewardLabel}
+                                {obj.rewardType === 'ryos' ? (
+                                  <>
+                                    <img src="/static/img/icon/gold.webp" alt="Moedas" className="h-3.5 w-3.5 object-contain" />
+                                    {Number(obj.rewardValue).toLocaleString()}
+                                  </>
+                                ) : obj.rewardType === 'gems' ? (
+                                  <>
+                                    <img src="/static/img/icon/ryo.webp" alt="Ryos" className="h-3.5 w-3.5 object-contain" />
+                                    {Number(obj.rewardValue).toLocaleString()}
+                                  </>
+                                ) : obj.rewardLabel}
                               </span>
                             </div>
                           </div>
@@ -1321,8 +1331,8 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                             onChange={e => setEditingObjective({ ...editingObjective, rewardType: e.target.value as any })}
                             className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
                           >
-                            <option value="ryos">🪙 Ryos (Moeda)</option>
-                            <option value="gems">💎 Gemas (Moeda Premium)</option>
+                            <option value="ryos">Moedas</option>
+                            <option value="gems">Ryos</option>
                             <option value="frame">🛡️ Moldura PNG do Evento</option>
                             <option value="banner">🖼️ Banner do Perfil (Fundo)</option>
                             <option value="title">🎖️ Título Shinobi</option>
@@ -1411,7 +1421,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                             type="text"
                             value={editingObjective.rewardLabel}
                             onChange={e => setEditingObjective({ ...editingObjective, rewardLabel: e.target.value })}
-                            placeholder='Ex: Moldura "Nuvens da Akatsuki", 500 Ryos...'
+                            placeholder='Ex: Moldura "Nuvens da Akatsuki", 500 moedas...'
                             className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
                           />
                         </div>

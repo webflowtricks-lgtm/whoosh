@@ -1219,7 +1219,7 @@ export interface NinjaPack {
   name: string;           // ex: "Pacote Lendário"
   description: string;
   currency: 'gems';
-  price: number;          // custo em gemas para abrir
+  price: number;          // custo em Ryos para abrir
   cardsPerPack: number;   // quantos cards ao abrir
   allowedRarities?: CardRarity[]; // raridades permitidas (se definido, filtro por raridade)
   badge?: string;
