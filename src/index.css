@@ -759,10 +759,23 @@ body.processing-cursor * {
   right: max(.5rem, env(safe-area-inset-right));
   display: flex;
   flex-direction: column;
-  gap: .25rem;
+  align-items: flex-end;
 }
 
-.lobby-quick-actions button {
+.lobby-quick-actions-menu {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  margin-top: .25rem;
+  padding: .3rem;
+  border: 1px solid rgba(105, 189, 233, .55);
+  border-radius: .7rem;
+  background: rgba(5, 30, 52, .92);
+  box-shadow: 0 4px 12px #0008;
+}
+
+.lobby-quick-actions > button,
+.lobby-quick-actions-menu button {
   display: grid;
   width: 2rem;
   height: 2rem;
@@ -774,7 +787,8 @@ body.processing-cursor * {
   cursor: pointer;
 }
 
-.lobby-quick-actions svg {
+.lobby-quick-actions > button svg,
+.lobby-quick-actions-menu button svg {
   width: 1rem;
   height: 1rem;
 }
@@ -3350,10 +3364,6 @@ e-squad-name {
     font-weight: 800;
     text-transform: uppercase;
     cursor: pointer;
-  }
-
-  .mv-chakra-roll-banner {
-    top: calc(env(safe-area-inset-top, 0px) + 0.35rem) !important;
   }
 
   .mv-chakra-roll-icon-frame {

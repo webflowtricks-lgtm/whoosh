@@ -74,6 +74,7 @@ export default function LobbyScreen({
 }: LobbyScreenProps) {
   const { t } = useLanguage();
   const [modal, setModal] = useState<LobbyModal>(null);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [characters, setCharacters] = useState<Character[]>(() => getCharacters());
   const [quests, setQuests] = useState<Quest[]>([]);
   const [events, setEvents] = useState<NinjaEvent[]>(() => getEvents());
@@ -435,16 +436,30 @@ export default function LobbyScreen({
       </nav>
 
       <div className="lobby-quick-actions">
-        {user?.username.trim().toLowerCase() === '2' && (
-          <button type="button" onClick={onOpenAdmin} aria-label={t('Painel administrativo', 'Admin panel')}><Award /></button>
-        )}
-        <button type="button" onClick={() => { playClickSound(); setModal('help'); }} aria-label={t('Como jogar', 'How to play')}><CircleHelp /></button>
-        <button type="button" onClick={() => { playClickSound(); onToggleMute(); }} aria-label={isMuted ? t('Ativar som', 'Unmute') : t('Silenciar', 'Mute')}>
-          {isMuted ? <VolumeX /> : <Volume2 />}
+        <button
+          type="button"
+          className="lobby-quick-actions-toggle"
+          onClick={() => { playClickSound(); setQuickActionsOpen(open => !open); }}
+          aria-label={t('Abrir atalhos', 'Open shortcuts')}
+          aria-expanded={quickActionsOpen}
+          aria-controls="lobby-quick-actions-menu"
+        >
+          <Settings />
         </button>
-        <button type="button" onClick={() => { playClickSound(); setModal('cards'); }} aria-label={t('Galeria de cards', 'Card gallery')}><Images /></button>
-        <button type="button" onClick={() => { playClickSound(); setModal('audio'); }} aria-label={t('Configurações', 'Settings')}><Settings /></button>
-        {user && <button type="button" onClick={onLogout} aria-label={t('Sair da conta', 'Log out')}><LogOut /></button>}
+        {quickActionsOpen && (
+          <div id="lobby-quick-actions-menu" className="lobby-quick-actions-menu">
+            {user?.username.trim().toLowerCase() === '2' && (
+              <button type="button" onClick={() => { setQuickActionsOpen(false); onOpenAdmin(); }} aria-label={t('Painel administrativo', 'Admin panel')}><Award /></button>
+            )}
+            <button type="button" onClick={() => { playClickSound(); setQuickActionsOpen(false); setModal('help'); }} aria-label={t('Como jogar', 'How to play')}><CircleHelp /></button>
+            <button type="button" onClick={() => { playClickSound(); onToggleMute(); }} aria-label={isMuted ? t('Ativar som', 'Unmute') : t('Silenciar', 'Mute')}>
+              {isMuted ? <VolumeX /> : <Volume2 />}
+            </button>
+            <button type="button" onClick={() => { playClickSound(); setQuickActionsOpen(false); setModal('cards'); }} aria-label={t('Galeria de cards', 'Card gallery')}><Images /></button>
+            <button type="button" onClick={() => { playClickSound(); setQuickActionsOpen(false); setModal('audio'); }} aria-label={t('Configurações de áudio', 'Audio settings')}><Volume2 /></button>
+            {user && <button type="button" onClick={() => { setQuickActionsOpen(false); onLogout(); }} aria-label={t('Sair da conta', 'Log out')}><LogOut /></button>}
+          </div>
+        )}
       </div>
 
       {modal === 'characters' && (

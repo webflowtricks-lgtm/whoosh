@@ -18387,27 +18387,29 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       {/* Dynamic Chakra Roll Banner notification */}
       <AnimatePresence>
         {showRollBanner && (
-          <motion.div
-            initial={{ opacity: 0, y: -50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="mv-chakra-roll-banner fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900/95 border border-orange-500/50 rounded-2xl px-8 py-4 flex items-center gap-4 shadow-2xl shadow-orange-600/20 backdrop-blur"
-          >
-            <div className="mv-chakra-roll-icon-frame bg-orange-600/10 p-2 rounded-lg border border-orange-500/30">
-              <img src="/static/img/icon/star.svg" alt="Loading" className="mv-chakra-roll-icon w-5 h-5 animate-spin object-contain" />
-            </div>
-            <div>
-              <p className="text-[10px] font-mono text-orange-400 font-bold uppercase tracking-wider">Giro de Chakra - Turno {turn}</p>
-              <div className="flex items-center gap-2 mt-1">
-                {lastChakraRoll.map((r, idx) => (
-                  <div key={idx} className="flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                    {renderChakraIcon(r as keyof ChakraPool)}
-                    <span className="text-xs font-mono font-bold text-slate-300">{r}</span>
-                  </div>
-                ))}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <motion.div
+              initial={{ opacity: 0, y: -24, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.95 }}
+              className="mv-chakra-roll-banner bg-slate-900/95 border border-orange-500/50 rounded-2xl px-8 py-4 flex items-center gap-4 shadow-2xl shadow-orange-600/20 backdrop-blur"
+            >
+              <div className="mv-chakra-roll-icon-frame bg-orange-600/10 p-2 rounded-lg border border-orange-500/30">
+                <img src="/static/img/icon/star.svg" alt="Loading" className="mv-chakra-roll-icon w-5 h-5 animate-spin object-contain" />
               </div>
-            </div>
-          </motion.div>
+              <div>
+                <p className="text-[10px] font-mono text-orange-400 font-bold uppercase tracking-wider">Giro de Chakra - Turno {turn}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  {lastChakraRoll.map((r, idx) => (
+                    <div key={idx} className="flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                      {renderChakraIcon(r as keyof ChakraPool)}
+                      <span className="text-xs font-mono font-bold text-slate-300">{r}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
