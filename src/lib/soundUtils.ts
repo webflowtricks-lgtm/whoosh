@@ -121,6 +121,11 @@ export const bindGlobalClickSound = (enabled: () => boolean) => {
       }
     }
 
+    const actionLabel = el?.getAttribute?.('aria-label')?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() || '';
+    if (/\b(close|fechar|back|voltar|retornar)\b/.test(actionLabel)) {
+      customSound = 'Click';
+    }
+
     playGlobalSound(customSound || 'Click');
   });
 };

@@ -255,9 +255,12 @@ body.processing-cursor * {
 .lobby-bandana {
   position: relative;
   display: flex;
-  width: 9.4rem;
-  height: 3.25rem;
+  width: 10.4rem;
+  height: 3.5rem;
   align-items: center;
+  left: -1rem;
+  top: 0px;
+ 
 }
 
 .lobby-bandana > img {

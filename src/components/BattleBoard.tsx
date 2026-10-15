@@ -1698,7 +1698,12 @@ function GameOverOverlay({
           </div>
 
           <div className="relative z-10 w-full flex justify-center" >
-            <button onClick={handleQuit} data-sound="uah" className="btn-red-image">
+            <button
+              onClick={handleQuit}
+              data-sound="Click"
+              aria-label={t('Voltar à seleção', 'Back to selection')}
+              className="btn-red-image"
+            >
               {/* Ícone shuriken girando com glow dourado */}
               <img src="/static/img/ui/gold-shuriken.webp" alt="" className="btn-shuriken" />
               <span className="font-brush text-[13px] sm:text-[15px]">{t("Voltar ao Menu", "Back to Selection")}</span>
@@ -11838,11 +11843,11 @@ splashOnlyTargets = splashPool.filter(c =>
           }
         });
 
-        // 2. TACTICAL MULTI-SKILL ACTION SELECTION ENGINE:
+        // 2. Select the single highest-value skill for this turn:
         let actionAdded = true;
         let loopSafety = 0;
 
-        while (actionAdded && loopSafety < 10) {
+        while (actionAdded && aiActions.length === 0 && loopSafety < 10) {
           actionAdded = false;
           loopSafety++;
 
@@ -11860,9 +11865,6 @@ splashOnlyTargets = splashPool.filter(c =>
           const primaryTarget = sortedPlayersByHp[0];
 
           for (const aiChar of aliveAllies) {
-            const alreadyCuedCount = aiActions.filter(a => a.sourceId === aiChar.id).length;
-            if (alreadyCuedCount >= 2) continue; // max 2 skills per ninja per turn
-
             const usableSkills = aiChar.character.skills
               .map((skill, idx) => ({ skill, idx }))
               .filter(({ skill, idx }) => {
@@ -11906,7 +11908,6 @@ splashOnlyTargets = splashPool.filter(c =>
                   if (!hasValidTarget) return false;
                 }
                 
-                if (aiActions.some(a => a.sourceId === aiChar.id && a.skillIndex === idx)) return false;
                 return true;
               });
 
@@ -12087,6 +12088,7 @@ splashOnlyTargets = splashPool.filter(c =>
               const highestElement = sorted[0];
               if (tempAiChakra[highestElement] > 0) tempAiChakra[highestElement]--;
             }
+            break;
           }
         }
 
@@ -12113,7 +12115,7 @@ splashOnlyTargets = splashPool.filter(c =>
             {
               id: Math.random().toString(),
               turn,
-              message: `🤖 Oponente executou ${aiActions.length} habilidade(s).`,
+              message: '🤖 Oponente executou 1 habilidade.',
               type: 'system',
             }
           ]);
@@ -12137,7 +12139,7 @@ splashOnlyTargets = splashPool.filter(c =>
             {
               id: Math.random().toString(),
               turn,
-              message: `⚔️ OPONENTE EXECUTOU AS HABILIDADES! Sua vez de jogar em resposta.`,
+              message: `⚔️ OPONENTE EXECUTOU ${aiActions.length === 1 ? 'A HABILIDADE' : 'AS HABILIDADES'}! Sua vez de jogar em resposta.`,
               type: 'system',
             }
           ]);

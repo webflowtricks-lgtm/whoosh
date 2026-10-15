@@ -380,7 +380,6 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   };
 
   const handleBackToPlayerSelect = () => {
-    playUahSound();
     if (sandboxPlayerTeam) {
       setSelectedIds(sandboxPlayerTeam.map(c => c.id));
       setSandboxPlayerTeam(null);
@@ -953,12 +952,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       )}
       {/* Background Image: choose team background */}
       <img 
-        src="/static/img/bg/background_choose_team.webp" 
+        src="/static/img/bg/bg-battle.webp"
         alt="Background Choose Team" 
         className="fixed inset-0 w-full h-full object-cover z-0 pointer-events-none filter brightness-100"
-        onError={(e) => {
-          e.currentTarget.src = '/static/img/bg/background-battle.webp';
-        }}
       />
       {/* Visual background accents and subtle transparent overlay */}
       <div className="fixed inset-0 bg-transparent pointer-events-none z-0" />
@@ -1038,7 +1034,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   <>
                     <button
                       onClick={handleBackToPlayerSelect}
-                      data-sound="uah"
+                      data-sound="Click"
+                      aria-label={t("Voltar para seleção do Time A", "Back to Team A selection")}
                       className="mv-back-bottom-left px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md shadow-black/20 font-mono"
                     >
                       <ChevronLeft className="w-4 h-4" />
@@ -1064,10 +1061,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     {onBack && (
                       <button
                         onClick={() => {
-                          playUahSound();
                           onBack();
                         }}
-                        data-sound="uah"
+                        data-sound="Click"
+                        aria-label={t("Voltar", "Back")}
                         className="mv-back-bottom-left px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md shadow-black/20 font-mono"
                       >
                         <ChevronLeft className="w-4 h-4" />
@@ -1838,9 +1835,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           type="button"
           onClick={event => {
             event.stopPropagation();
-            playScrollSound();
             setShowCharacterDetails(false);
           }}
+          data-sound="Click"
           className="character-select-details-close"
           aria-label={t('Fechar detalhes', 'Close details')}
         >

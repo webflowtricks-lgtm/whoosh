@@ -513,7 +513,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if ((screen === 'quests' || screen === 'character-select') && !isMuted) {
+    if ((screen === 'lobby' || screen === 'quests' || screen === 'character-select') && !isMuted) {
       if (!characterSelectMusicRef.current) startCharacterSelectMusic();
     } else {
       stopCharacterSelectMusic();
