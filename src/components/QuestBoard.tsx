@@ -12,6 +12,7 @@ import {
   CheckCircle, 
   Play, 
   ArrowLeft, 
+  Filter,
   Search,
   User, 
   Star, 
@@ -87,6 +88,7 @@ export default function QuestBoard({
   const [activeTab, setActiveTab] = useState<'available' | 'completed' | 'all'>('available');
   const [rankFilter, setRankFilter] = useState<string>('');
   const [questSearch, setQuestSearch] = useState('');
+  const [showQuestFilters, setShowQuestFilters] = useState(false);
   const [claimedRewardId, setClaimedRewardId] = useState<string | null>(null);
 
   // Modals state
@@ -687,7 +689,8 @@ export default function QuestBoard({
       {/* Main Tab View 1: MISSÕES */}
       {mainTab === 'missoes' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-2 rounded-2xl border border-slate-700/80 bg-slate-900/85 p-3 shadow-xl backdrop-blur sm:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] sm:items-center">
+          {showQuestFilters && (
+          <div id="quest-filter-panel" className="grid grid-cols-1 gap-2 rounded-2xl border border-slate-700/80 bg-slate-900/85 p-3 shadow-xl backdrop-blur sm:grid-cols-[minmax(0,1fr)_10rem_10rem] sm:items-center">
             <label className="relative block min-w-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
@@ -735,6 +738,7 @@ export default function QuestBoard({
             </label>
 
           </div>
+          )}
 
           {/* Quests Listing */}
           {loading ? (
@@ -745,7 +749,7 @@ export default function QuestBoard({
 ) : filteredQuests.length > 0 ? (
             <>
               <div
-                className="quest-carousel flex gap-4 overflow-x-auto overflow-y-hidden pb-4"
+                className="quest-carousel flex gap-4 overflow-x-auto overflow-y-hidden"
                 role="region"
                 aria-label={t('Missões — deslize horizontalmente para navegar', 'Missions — swipe horizontally to browse')}
                 tabIndex={0}
@@ -1190,6 +1194,21 @@ export default function QuestBoard({
       )}
 
       </div>
+      {mainTab === 'missoes' && (
+        <button
+          type="button"
+          onClick={() => {
+            playClickSound();
+            setShowQuestFilters(open => !open);
+          }}
+          className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-40 grid h-12 w-12 -translate-x-1/2 place-items-center rounded-full border border-sky-300/70 bg-slate-950/90 text-sky-200 shadow-xl shadow-slate-950/60 backdrop-blur transition hover:scale-105 hover:bg-slate-900 hover:text-white"
+          aria-label={showQuestFilters ? t('Ocultar filtros', 'Hide filters') : t('Mostrar filtros', 'Show filters')}
+          aria-expanded={showQuestFilters}
+          aria-controls="quest-filter-panel"
+        >
+          <Filter className="h-5 w-5" />
+        </button>
+      )}
       <button
         type="button"
         onClick={onBack}

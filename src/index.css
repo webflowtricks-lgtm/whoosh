@@ -88,33 +88,16 @@ body.processing-cursor * {
   scroll-snap-type: x mandatory;
   overscroll-behavior-x: contain;
   touch-action: pan-x pan-y;
-  scrollbar-width: thin;
-  scrollbar-color: #e9a23b rgba(10, 27, 42, .72);
+  scrollbar-width: none;
 }
 
 .quest-carousel::-webkit-scrollbar {
-  height: 8px;
-}
-
-.quest-carousel::-webkit-scrollbar-track {
-  border: 1px solid rgba(232, 163, 77, .22);
-  border-radius: 999px;
-  background: rgba(10, 27, 42, .72);
-}
-
-.quest-carousel::-webkit-scrollbar-thumb {
-  min-width: 2.5rem;
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #b85b22, #f2b65f, #d98232) padding-box;
-}
-
-.quest-carousel::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(90deg, #d97728, #ffd28a, #efa04a) padding-box;
+  display: none;
 }
 
 .quest-carousel-card {
-  flex: 0 0 min(86vw, 390px);
+  flex: 0 0 min(78vw, 350px);
+  zoom: .92;
   scroll-snap-align: start;
 }
 
@@ -520,16 +503,15 @@ body.processing-cursor * {
   font-size: .52rem;
 }
 
-.lobby-mission-button--unlock {
+.lobby-mission-button--image-label {
   position: relative;
   width: max-content;
-  gap: .08rem;
 }
 
-.lobby-mission-button--unlock .lobby-mission-label {
+.lobby-mission-button--image-label .lobby-mission-label {
   position: absolute;
   z-index: 1;
-  bottom: -1rem;
+  bottom: .1rem;
   left: 50%;
   width: max-content;
   max-width: none;
@@ -540,10 +522,8 @@ body.processing-cursor * {
 }
 
 .lobby-mission-unlock-label {
-  border-color: rgba(240, 165, 79, .82);
+  border-color: #69bde9a0;
   font-size: .62rem;
-  margin-top: -10px;
-  margin-left: 5px;
 }
 
 .lobby-mission-icon {
@@ -551,13 +531,6 @@ body.processing-cursor * {
   width: 4.4rem;
   height: 4.4rem;
   object-fit: contain;
-  filter: drop-shadow(0 2px 3px #000a);
-}
-
-.lobby-mission-sparkle {
-  width: 2.2rem;
-  height: 2.2rem;
-  color: #ffbd55;
   filter: drop-shadow(0 2px 3px #000a);
 }
 
@@ -1490,7 +1463,7 @@ body.processing-cursor * {
     width: 7rem;
   }
 
-  .lobby-mission-button--unlock {
+  .lobby-mission-button--image-label {
     width: max-content;
   }
 

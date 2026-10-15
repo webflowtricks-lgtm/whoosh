@@ -14,7 +14,6 @@ import {
   Search,
   Shield,
   ShoppingBag,
-  Sparkles,
   Swords,
   Users,
   Volume2,
@@ -339,11 +338,11 @@ export default function LobbyScreen({
       </section>
 
       <aside className="lobby-missions" aria-label={t('Missões', 'Missions')}>
-        <button type="button" onClick={openQuests} className="lobby-mission-button">
-          <Sparkles className="lobby-mission-sparkle" aria-hidden="true" />
+        <button type="button" onClick={openQuests} className="lobby-mission-button lobby-mission-button--image-label">
+          <img className="lobby-mission-icon" src="/static/img/icon/novato.webp" alt="" />
           <span className="lobby-mission-label">{t('Missões de novato', 'Novice missions')}</span>
         </button>
-        <button type="button" onClick={openQuests} className="lobby-mission-button lobby-mission-button--unlock">
+        <button type="button" onClick={openQuests} className="lobby-mission-button lobby-mission-button--image-label">
           <img className="lobby-mission-icon" src="/static/img/icon/missao.webp" alt="" />
           <span className="lobby-mission-label lobby-mission-unlock-label">{t('Missões', 'Missions')}</span>
         </button>
