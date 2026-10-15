@@ -14,6 +14,8 @@ const AVATAR_PRESETS = [
   { name: 'Gaara', url: 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/gaara/icon.jpg' },
 ];
 
+const REMEMBERED_USERNAME_KEY = 'naruto_remembered_username';
+
 interface AuthScreenProps {
   onLoginSuccess: (user: UserProfile, sessionTicket?: string) => void;
   playClickSound: () => void;
@@ -26,7 +28,15 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   
   // Login fields
-  const [loginUser, setLoginUser] = useState('');
+  const [loginUser, setLoginUser] = useState(() => {
+    try {
+      return localStorage.getItem(REMEMBERED_USERNAME_KEY) || '';
+    } catch (error) {
+      console.error('Failed to load remembered username:', error);
+      return '';
+    }
+  });
+  const [rememberMe, setRememberMe] = useState(() => Boolean(loginUser));
   const [loginPass, setLoginPass] = useState('');
   
   // Register fields
@@ -65,6 +75,16 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
       }
       if (typeof data.sessionTicket !== 'string') {
         throw new Error(t('Não foi possível iniciar uma sessão segura.', 'Could not start a secure session.'));
+      }
+
+      try {
+        if (rememberMe) {
+          localStorage.setItem(REMEMBERED_USERNAME_KEY, loginUser.trim());
+        } else {
+          localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+        }
+      } catch (error) {
+        console.error('Failed to save remembered username preference:', error);
       }
 
       setSuccess(t('Conectando ao servidor...', 'Connecting to server...'));
@@ -268,6 +288,25 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
                   />
                 </div>
               </div>
+
+              <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => {
+                    setRememberMe(e.target.checked);
+                    if (!e.target.checked) {
+                      try {
+                        localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+                      } catch (error) {
+                        console.error('Failed to clear remembered username:', error);
+                      }
+                    }
+                  }}
+                  className="h-4 w-4 accent-orange-500"
+                />
+                {t('Lembrar de mim', 'Remember me')}
+              </label>
 
               <button
                 type="submit"
