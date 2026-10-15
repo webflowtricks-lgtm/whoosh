@@ -650,13 +650,15 @@ body.processing-cursor * {
 }
 
 .lobby-footer {
+  --lobby-footer-height: 94px;
+  --lobby-footer-icon-size: 3.6rem;
   position: absolute;
   z-index: 3;
   right: 0;
   bottom: 0;
   left: 0;
   display: grid;
-  height: calc(82px + env(safe-area-inset-bottom));
+  height: calc(var(--lobby-footer-height) + env(safe-area-inset-bottom));
   grid-template-columns: repeat(5, minmax(0, 1fr));
   padding: .25rem max(.25rem, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(.25rem, env(safe-area-inset-left));
   border-top: 2px solid #ff9f35;
@@ -681,15 +683,10 @@ body.processing-cursor * {
   text-shadow: 0 1px 2px #000;
 }
 
-.lobby-nav-item svg {
-  width: 1.8rem;
-  height: 1.8rem;
+.lobby-nav-item .lobby-footer-icon {
+  width: var(--lobby-footer-icon-size);
+  height: var(--lobby-footer-icon-size);
   color: #ffb24c;
-}
-
-.lobby-nav-item > img {
-  width: 1.9rem;
-  height: 1.9rem;
   object-fit: contain;
 }
 

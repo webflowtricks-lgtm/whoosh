@@ -417,8 +417,8 @@ export default function LobbyScreen({
         {footerItems.map(({ label, icon: Icon, action, primary }) => (
           <button type="button" key={label} onClick={action} className={primary ? 'lobby-nav-item lobby-nav-primary' : 'lobby-nav-item'}>
             {label === t('Shinobis', 'Shinobis')
-              ? <img src="/static/img/icon/ninjas-icon-convertido-de-png.webp" alt="" />
-              : <Icon aria-hidden="true" />}
+              ? <img className="lobby-footer-icon" src="/static/img/icon/ninjas-icon-convertido-de-png.webp" alt="" />
+              : <Icon className="lobby-footer-icon" aria-hidden="true" />}
             <span>{label}</span>
           </button>
         ))}
