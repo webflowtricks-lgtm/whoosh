@@ -20,7 +20,6 @@ import {
   Compass, 
   BookOpen, 
   Sparkles,
-  RefreshCw,
   TrendingUp,
   ShieldAlert,
   Swords,
@@ -735,15 +734,6 @@ export default function QuestBoard({
               </select>
             </label>
 
-            <button
-              type="button"
-              onClick={fetchQuests}
-              className="flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 text-xs font-bold text-slate-300 transition hover:border-orange-500 hover:text-orange-300 sm:self-end"
-              title={t('Sincronizar missões', 'Refresh missions')}
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>{t('Atualizar', 'Refresh')}</span>
-            </button>
           </div>
 
           {/* Quests Listing */}
@@ -754,7 +744,12 @@ export default function QuestBoard({
             </div>
 ) : filteredQuests.length > 0 ? (
             <>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div
+                className="quest-carousel flex gap-4 overflow-x-auto overflow-y-hidden pb-4"
+                role="region"
+                aria-label={t('Missões — deslize horizontalmente para navegar', 'Missions — swipe horizontally to browse')}
+                tabIndex={0}
+              >
                 <AnimatePresence>
                   {paginatedQuests.map((quest) => {
                     const lockCheck = isQuestLocked(quest);
@@ -772,7 +767,7 @@ export default function QuestBoard({
                       onClick={() => {
                         if (isCompleted) handleViewCompletedRewards(quest);
                       }}
-                      className={`bg-slate-900/80 rounded-2xl border flex flex-col justify-between relative shadow-xl backdrop-blur-md ${
+                      className={`quest-carousel-card bg-slate-900/80 rounded-2xl border flex flex-col justify-between relative shadow-xl backdrop-blur-md ${
                         isCompleted
                           ? 'border-emerald-500/30 shadow-emerald-950/10 cursor-pointer hover:border-emerald-500/70 hover:shadow-emerald-500/10 transition-all duration-300'
                           : lockCheck.locked

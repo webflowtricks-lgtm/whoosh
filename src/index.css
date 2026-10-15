@@ -84,6 +84,40 @@ body.processing-cursor * {
   max-width: 280px;
 }
 
+.quest-carousel {
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: #e9a23b rgba(10, 27, 42, .72);
+}
+
+.quest-carousel::-webkit-scrollbar {
+  height: 8px;
+}
+
+.quest-carousel::-webkit-scrollbar-track {
+  border: 1px solid rgba(232, 163, 77, .22);
+  border-radius: 999px;
+  background: rgba(10, 27, 42, .72);
+}
+
+.quest-carousel::-webkit-scrollbar-thumb {
+  min-width: 2.5rem;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #b85b22, #f2b65f, #d98232) padding-box;
+}
+
+.quest-carousel::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #d97728, #ffd28a, #efa04a) padding-box;
+}
+
+.quest-carousel-card {
+  flex: 0 0 min(86vw, 390px);
+  scroll-snap-align: start;
+}
+
 .btn-end-turn {
   margin-right: 120px;
 }
@@ -458,39 +492,65 @@ body.processing-cursor * {
 
 .lobby-mission-button {
   display: flex;
-  width: 4.15rem;
-  min-height: 4.35rem;
+  width: 6.4rem;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: .22rem;
-  padding: .3rem;
-  border: 2px solid #ff9f35;
-  border-radius: .65rem;
-  background: linear-gradient(145deg, rgba(16, 74, 114, .97), rgba(8, 35, 62, .97));
-  box-shadow: 0 3px 9px #0009, inset 0 0 0 1px #91d4ff44;
+  gap: .35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #eff9ff;
   cursor: pointer;
-  font-size: .52rem;
   font-weight: 900;
   line-height: 1.1;
   text-align: center;
   text-shadow: 0 1px 2px #000;
 }
 
-.lobby-mission-icon {
-  display: grid;
-  width: 1.85rem;
-  height: 1.85rem;
-  place-items: center;
-  border-radius: 50%;
-  background: rgba(247, 143, 42, .22);
-  color: #ffad43;
+.lobby-mission-label {
+  display: block;
+  width: 100%;
+  padding: .28rem .24rem;
+  border: 1px solid #69bde9a0;
+  border-radius: .45rem;
+  background: linear-gradient(145deg, rgba(16, 74, 114, .97), rgba(8, 35, 62, .97));
+  box-shadow: 0 2px 6px #0008, inset 0 0 0 1px #91d4ff33;
+  color: #eff9ff;
+  font-size: .52rem;
 }
 
-.lobby-mission-icon svg {
-  width: 1.2rem;
-  height: 1.2rem;
+.lobby-mission-button--unlock {
+  width: max-content;
+  gap: .08rem;
+}
+
+.lobby-mission-button--unlock .lobby-mission-label {
+  width: max-content;
+  max-width: none;
+  padding-right: .35rem;
+  padding-left: .35rem;
+  white-space: nowrap;
+}
+
+.lobby-mission-unlock-label {
+  border-color: rgba(240, 165, 79, .82);
+  font-size: .62rem;
+}
+
+.lobby-mission-icon {
+  display: block;
+  width: 4.4rem;
+  height: 4.4rem;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 3px #000a);
+}
+
+.lobby-mission-sparkle {
+  width: 2.2rem;
+  height: 2.2rem;
+  color: #ffbd55;
+  filter: drop-shadow(0 2px 3px #000a);
 }
 
 .lobby-center {
@@ -1419,9 +1479,24 @@ body.processing-cursor * {
   }
 
   .lobby-mission-button {
-    width: 5.6rem;
-    min-height: 5.6rem;
+    width: 7rem;
+  }
+
+  .lobby-mission-button--unlock {
+    width: max-content;
+  }
+
+  .lobby-mission-label {
     font-size: .65rem;
+  }
+
+  .lobby-mission-unlock-label {
+    font-size: .74rem;
+  }
+
+  .lobby-mission-icon {
+    width: 5rem;
+    height: 5rem;
   }
 
   .lobby-center {
@@ -2688,7 +2763,7 @@ html, body {
 }
 
 .quest-div-pai {
-  background-image: url('/static/img/bg/background-quest.jpg');
+  background-image: url('/static/img/ui/game-intro.webp');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

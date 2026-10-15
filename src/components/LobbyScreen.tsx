@@ -9,7 +9,6 @@ import {
   Gem,
   Filter,
   Images,
-  LockKeyhole,
   LogOut,
   Settings,
   Search,
@@ -341,12 +340,12 @@ export default function LobbyScreen({
 
       <aside className="lobby-missions" aria-label={t('Missões', 'Missions')}>
         <button type="button" onClick={openQuests} className="lobby-mission-button">
-          <span className="lobby-mission-icon"><Sparkles aria-hidden="true" /></span>
-          <span>{t('Missões de novato', 'Novice missions')}</span>
+          <Sparkles className="lobby-mission-sparkle" aria-hidden="true" />
+          <span className="lobby-mission-label">{t('Missões de novato', 'Novice missions')}</span>
         </button>
-        <button type="button" onClick={openQuests} className="lobby-mission-button">
-          <span className="lobby-mission-icon"><LockKeyhole aria-hidden="true" /></span>
-          <span>{t('Desbloquear personagens', 'Unlock characters')}</span>
+        <button type="button" onClick={openQuests} className="lobby-mission-button lobby-mission-button--unlock">
+          <img className="lobby-mission-icon" src="/static/img/icon/missao.webp" alt="" />
+          <span className="lobby-mission-label lobby-mission-unlock-label">{t('Missões', 'Missions')}</span>
         </button>
       </aside>
 
