@@ -1268,7 +1268,7 @@ export interface NinjaEvent {
   objectives: NinjaEventObjective[];
 }
 
-export type GameScreen = 'main-menu' | 'character-select' | 'battle' | 'victory' | 'defeat' | 'admin' | 'quests';
+export type GameScreen = 'main-menu' | 'lobby' | 'character-select' | 'battle' | 'victory' | 'defeat' | 'admin' | 'quests';
 
 export interface QuestGoal {
   id: string;

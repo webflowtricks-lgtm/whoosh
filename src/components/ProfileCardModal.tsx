@@ -439,13 +439,6 @@ export default function ProfileCardModal({
           <img src="/static/img/ui/folha.webp" className="leaf leaf5" alt="" loading="lazy" decoding="async" />
           <img src="/static/img/ui/folha.webp" className="leaf leaf6" alt="" loading="lazy" decoding="async" />
         </div>
-        {/* Pergaminho decorativo flutuando atrás do modal */}
-        <img
-          src="/static/img/ui/pergaminho-profile-modal.webp"
-          alt=""
-          aria-hidden="true"
-          className="pergaminho-profile-modal"
-        />
         <div className={`${isLandscape ? 'max-h-[80vh] my-auto gap-2' : 'gap-3'} ml-profile-card-wrap flex items-stretch max-h-[92vh] relative z-10`} onClick={(e) => e.stopPropagation()}>
         <motion.div
           initial={false}

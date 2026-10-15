@@ -12,6 +12,7 @@ import {
   CheckCircle, 
   Play, 
   ArrowLeft, 
+  Search,
   User, 
   Star, 
   ChevronRight, 
@@ -23,8 +24,6 @@ import {
   TrendingUp,
   ShieldAlert,
   Swords,
-  Calendar,
-  ShoppingBag,
   Shield,
   X,
   Zap
@@ -32,12 +31,8 @@ import {
 import { Quest, UserProfile, Character, QuestReward } from '../types';
 import SkinMedia from './SkinMedia';
 import { getGoalDescription } from '../lib/questUtils';
-import EventsModal from './EventsModal';
-import ShopModal from './ShopModal';
-import ProfileModal from './ProfileModal';
 import MangekyoLoader from './MangekyoLoader';
 import { RankConfig, getRanks, getUserRankFromConfig, fetchRanksFromServer } from '../lib/rankStorage';
-import { getRankProgress } from '../lib/xpSystem';
 import { getCharacters } from '../lib/characterStorage';
 import { getCards } from '../lib/cardStorage';
 import { useLanguage } from '../lib/i18n';
@@ -46,7 +41,6 @@ interface QuestBoardProps {
   user: UserProfile;
   onUpdateUser: (updated: UserProfile) => void;
   onSelectQuest: (quest: Quest) => void;
-  onGoToBattle: () => void;
   onBack: () => void;
   playClickSound: () => void;
   playScrollSound: () => void;
@@ -80,7 +74,6 @@ export default function QuestBoard({
   user,
   onUpdateUser,
   onSelectQuest,
-  onGoToBattle,
   onBack,
   playClickSound,
   playScrollSound,
@@ -94,14 +87,12 @@ export default function QuestBoard({
   const [mainTab, setMainTab] = useState<'missoes' | 'perfil'>('missoes');
   const [activeTab, setActiveTab] = useState<'available' | 'completed' | 'all'>('available');
   const [rankFilter, setRankFilter] = useState<string>('');
+  const [questSearch, setQuestSearch] = useState('');
   const [claimedRewardId, setClaimedRewardId] = useState<string | null>(null);
 
   // Modals state
   const [expandedDesc, setExpandedDesc] = useState<Record<string, boolean>>({});
   const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
-  const [showEventsModal, setShowEventsModal] = useState(false);
-  const [showShopModal, setShowShopModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [rewardModalData, setRewardModalData] = useState<{
     questTitle: string;
     unlockedCharacters: Character[];
@@ -448,6 +439,10 @@ export default function QuestBoard({
   }).filter(quest => {
     if (!rankFilter) return true;
     return (quest.minRank || '').toLowerCase() === rankFilter.toLowerCase();
+  }).filter(quest => {
+    const normalizedTitle = quest.title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const normalizedSearch = questSearch.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    return normalizedTitle.includes(normalizedSearch);
   });
 
   const totalPages = Math.ceil(filteredQuests.length / ITEMS_PER_PAGE);
@@ -687,244 +682,68 @@ export default function QuestBoard({
           </div>
         )}
 
-        {showProfileModal && (
-          <ProfileModal
-            user={user}
-            onClose={() => setShowProfileModal(false)}
-            onUpdateUser={onUpdateUser}
-            playClickSound={playClickSound}
-            playUahSound={playUahSound}
-            playScrollSound={playScrollSound}
-          />
-        )}
-
-        {showShopModal && (
-          <ShopModal
-            user={user}
-            onClose={() => setShowShopModal(false)}
-            onUpdateUser={onUpdateUser}
-            playClickSound={playClickSound}
-            playScrollSound={playScrollSound}
-          />
-        )}
       </AnimatePresence>
 
-      <div className="relative z-10 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
-      
-      {/* Main Hub Header & Navigation Bar */}
-      <div className="flex flex-col lg:flex-row justify-between items-center bg-slate-900/90 backdrop-blur-md p-3 px-4 rounded-2xl border border-slate-800 shadow-2xl gap-4">
-        {/* Left: Brand / Title */}
-        <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-tr from-orange-600 to-amber-500 p-2.5 rounded-xl border border-orange-400/30 shadow-lg shadow-orange-500/20 flex-shrink-0">
-            <Compass className="w-5 h-5 text-slate-950 stroke-[2.5]" />
-          </div>
-          <div>
-            <h1 className="text-lg font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-300 to-orange-500 font-sans uppercase leading-none">
-              Quartel Shinobi
-            </h1>
-            <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest pt-1">
-              Centro de Comando
-            </p>
-          </div>
-        </div>
-
-        {/* Center: User Quick Profile & Wallet Widget */}
-        {(() => {
-          const ranks = ranksList;
-          const userXp = Math.max(0, user.xp || 0);
-          const rankProgress = getRankProgress(userXp, ranks);
-
-          return (
-            <button
-              onClick={() => {
-                playClickSound();
-                playScrollSound();
-                setShowProfileModal(true);
-              }}
-              className="flex items-center gap-3 bg-slate-950/80 hover:bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-800 hover:border-orange-500/60 transition cursor-pointer group"
-              title="Clique para abrir Perfil e Trocar Moldura"
-            >
-              {/* Avatar with Frame */}
-              <div className="relative w-9 h-9 flex-shrink-0">
-                <div className="w-full h-full rounded-full overflow-hidden bg-slate-900 border border-orange-500/50">
-                  <img
-                    src={user.photoUrl || null}
-                    alt={user.name}
-                    className="w-full h-full object-cover rounded-full"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                {user.equippedFrameUrl && (
-                  <img
-                    src={user.equippedFrameUrl || null}
-                    alt="Moldura"
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[125%] h-[125%] max-w-none pointer-events-none object-contain z-10"
-                  />
-                )}
-              </div>
-
-              <div className="text-left leading-tight">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-xs font-black text-slate-200 group-hover:text-orange-400">{user.name}</span>
-                  {(() => {
-                    const r = rankProgress.currentRank;
-                    const isNone = !r.color || r.color === 'none';
-                    const bgClass = isNone
-                      ? ''
-                      : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
-                    return (
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-extrabold uppercase shadow flex items-center gap-1 overflow-hidden relative ${bgClass}`}
-                        style={{
-                          ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
-                          color: r.fontColor || '#ffffff'
-                        }}
-                      >
-                        {r.imageUrl && (
-                          <img src={r.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
-                        )}
-                        {r.iconUrl ? (
-                          <img src={r.iconUrl} alt="" className="w-2.5 h-2.5 object-contain relative z-10" />
-                        ) : (
-                          <Award className="w-2.5 h-2.5 relative z-10" />
-                        )}
-                        <span className="relative z-10">{r.name}</span>
-                      </span>
-                    );
-                  })()}
-                  <span className="text-[9px] font-mono font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 shadow-sm flex items-center gap-0.5">
-                    <Sparkles className="w-2.5 h-2.5 text-amber-300 inline" />
-                    {userXp.toLocaleString()} XP
-                  </span>
-                  {user.title && (
-                    <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-500/10 px-1 rounded border border-amber-500/20">
-                      {user.title}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[10px] font-mono font-bold text-orange-400/90 mt-0.5">
-                  🪙 {(user.ryos ?? 1500).toLocaleString()} | 💎 {user.gems ?? 120}
-                </p>
-              </div>
-            </button>
-          );
-        })()}
-
-        {/* Right: Actions and Modals Toolbar (LOJA | PERFIL & MOLDURAS | BATALHA | MENU) */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800 w-full lg:w-auto justify-center">
-          {/* LOJA */}
-          <button
-            onClick={() => {
-              playClickSound();
-              playScrollSound();
-              setShowShopModal(true);
-            }}
-            className="px-3.5 py-2 rounded-lg text-xs font-extrabold uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
-            title={t('Loja Shinobi', 'Shinobi Shop')}
-          >
-            <ShoppingBag className="w-4 h-4 text-amber-400" />
-            <span>{t('Loja', 'Shop')}</span>
-          </button>
-
-          {/* EVENTOS BOTÃO DESATIVADO TEMPORARIAMENTE (CÓDIGO PRESERVADO)
-          <button
-            onClick={() => {
-              playClickSound();
-              setShowEventsModal(true);
-            }}
-            className="px-3 py-2 rounded-lg text-xs font-extrabold uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 text-orange-400 hover:bg-orange-500/10 hover:text-orange-300 relative"
-            title="Eventos Ativos"
-          >
-            <Calendar className="w-4 h-4 text-orange-400" />
-            <span>Eventos</span>
-            <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping absolute top-1 right-1" />
-          </button>
-          */}
-
-          {/* BATALHA ACTION */}
-          <button
-            onClick={() => {
-              playClickSound();
-              onGoToBattle();
-            }}
-            className="px-3.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:brightness-110 shadow-md shadow-amber-500/10"
-          >
-            <Swords className="w-4 h-4 text-slate-950" />
-            <span>{t('Batalha', 'Battle')}</span>
-          </button>
-
-          {/* MENU BACK BUTTON */}
-          <button
-            onClick={onBack}
-            className="px-3 py-2 text-xs text-slate-400 hover:text-orange-400 transition cursor-pointer font-bold uppercase tracking-wider font-mono hover:bg-slate-900 rounded-lg"
-            title={t('Voltar ao Menu Inicial', 'Back to Main Menu')}
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
+      <div className="relative z-10 max-w-7xl w-full mx-auto p-4 pb-20 sm:p-6 sm:pb-24 space-y-5">
       {/* Main Tab View 1: MISSÕES */}
       {mainTab === 'missoes' && (
         <div className="space-y-6">
-          {/* Sub-Filters Bar for Quests */}
-          <div className="bg-slate-900/60 backdrop-blur-md p-2 rounded-xl border border-slate-800/80 space-y-2">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                {[
-                  { id: 'available', pt: 'Disponíveis', en: 'Available' },
-                  { id: 'completed', pt: 'Concluídas', en: 'Completed' },
-                  { id: 'all', pt: 'Todas', en: 'All' }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      playScrollSound();
-                      setActiveTab(tab.id as any);
-                      setCurrentPage(1);
-                    }}
-                    className={`relative px-4 py-2 text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
-                      activeTab === tab.id
-                        ? 'text-amber-950 brightness-110'
-                        : 'text-stone-800 opacity-70 hover:opacity-100'
-                    }`}
-                  >
-                    <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
-                    <span className="relative z-10 font-brush text-[13px] tracking-wider drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
-                      {t(tab.pt, tab.en)}
-                    </span>
-                  </button>
-                ))}
-              </div>
+          <div className="grid grid-cols-1 gap-2 rounded-2xl border border-slate-700/80 bg-slate-900/85 p-3 shadow-xl backdrop-blur sm:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] sm:items-center">
+            <label className="relative block min-w-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={questSearch}
+                onChange={event => {
+                  setQuestSearch(event.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder={t('Pesquisar missão pelo nome...', 'Search missions by name...')}
+                aria-label={t('Pesquisar missão pelo nome', 'Search missions by name')}
+                className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/80 pl-10 pr-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+              />
+            </label>
 
-              <button
-                onClick={fetchQuests}
-                className="p-2 text-slate-400 hover:text-orange-400 hover:bg-slate-800 rounded-lg transition cursor-pointer flex items-center gap-1.5 text-xs font-mono"
-                title="Sincronizar Missões"
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{t('Status', 'Status')}</span>
+              <select
+                value={activeTab}
+                onChange={event => {
+                  setActiveTab(event.target.value as 'available' | 'completed' | 'all');
+                  setCurrentPage(1);
+                }}
+                className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 text-xs font-semibold text-slate-100 outline-none focus:border-orange-500"
               >
-                <img src="/static/img/icon/star.svg" alt="Loading" className={`w-3.5 h-3.5 object-contain ${loading ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Sincronizar</span>
-              </button>
-            </div>
+                <option value="available">{t('Disponíveis', 'Available')}</option>
+                <option value="completed">{t('Concluídas', 'Completed')}</option>
+                <option value="all">{t('Todas', 'All')}</option>
+              </select>
+            </label>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {RANK_LIST.map(rank => (
-                <button
-                  key={rank}
-                  onClick={() => {
-                    setRankFilter(rankFilter === rank ? '' : rank);
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition cursor-pointer ${
-                    rankFilter === rank
-                      ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-black shadow-md shadow-orange-600/10'
-                      : 'text-slate-500 hover:text-slate-200 hover:bg-slate-800/60'
-                  }`}
-                >
-                  {rank}
-                </button>
-              ))}
-            </div>
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{t('Rank', 'Rank')}</span>
+              <select
+                value={rankFilter}
+                onChange={event => {
+                  setRankFilter(event.target.value);
+                  setCurrentPage(1);
+                }}
+                className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 text-xs font-semibold text-slate-100 outline-none focus:border-orange-500"
+              >
+                <option value="">{t('Todos os ranks', 'All ranks')}</option>
+                {RANK_LIST.map(rank => <option key={rank} value={rank}>{rank}</option>)}
+              </select>
+            </label>
+
+            <button
+              type="button"
+              onClick={fetchQuests}
+              className="flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 text-xs font-bold text-slate-300 transition hover:border-orange-500 hover:text-orange-300 sm:self-end"
+              title={t('Sincronizar missões', 'Refresh missions')}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>{t('Atualizar', 'Refresh')}</span>
+            </button>
           </div>
 
           {/* Quests Listing */}
@@ -970,7 +789,7 @@ export default function QuestBoard({
                           alt={quest.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-slate-950/10 to-transparent" />
                         
                         {/* Status badge top right */}
                         <div className="absolute top-3 right-3">
@@ -1376,6 +1195,14 @@ export default function QuestBoard({
       )}
 
       </div>
+      <button
+        type="button"
+        onClick={onBack}
+        className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] z-40 grid h-12 w-12 place-items-center rounded-full border border-orange-400/70 bg-slate-950/90 text-orange-300 shadow-xl shadow-slate-950/60 backdrop-blur transition hover:scale-105 hover:bg-slate-900 hover:text-orange-200"
+        aria-label={t('Voltar ao lobby', 'Back to lobby')}
+      >
+        <ArrowLeft className="h-5 w-5" />
+      </button>
     </div> 
   );
 }

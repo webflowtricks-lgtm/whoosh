@@ -195,13 +195,6 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
         <img src="/static/img/ui/folha.webp" className="leaf leaf5" alt="" loading="lazy" decoding="async" />
         <img src="/static/img/ui/folha.webp" className="leaf leaf6" alt="" loading="lazy" decoding="async" />
       </div>
-      {/* Pergaminho decorativo flutuando atrás do modal */}
-      <img
-        src="/static/img/ui/pergaminho-profile-modal.webp"
-        alt=""
-        aria-hidden="true"
-        className="pergaminho-profile-modal"
-      />
       <motion.div
         initial={false}
         animate={{ scale: 1, opacity: 1 }}

@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage, translateGameText, translateSkillName, translateTargetType } from '../lib/i18n';
 import { playGlobalSound } from '../lib/soundUtils';
 import { matchFetch } from '../lib/matchFetch';
+import { getCharacterLockReason, isCharacterUnlocked } from '../lib/characterUnlocks';
 import MangekyoLoader from './MangekyoLoader';
 import SkinMedia from './SkinMedia';
 
@@ -129,42 +130,6 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       })
       .catch(() => {});
   }, []);
-
-  // Helper to check if a character is locked based on missing quest requirements
-  const checkCharacterLocked = (char: Character): { isLocked: boolean; reason?: string } => {
-    if (!char.requiredQuestIds || char.requiredQuestIds.length === 0) {
-      return { isLocked: false };
-    }
-    // Check if explicitly unlocked for user profile
-    if (user?.unlockedCharacterNames?.some(n => n.toLowerCase() === char.name.toLowerCase() || n.toLowerCase() === char.id.toLowerCase())) {
-      return { isLocked: false };
-    }
-    
-    const completed = user?.completedQuestIds || [];
-    const missing: string[] = [];
-
-    for (const req of char.requiredQuestIds) {
-      const isDone = completed.some(cid => {
-        if (cid.toLowerCase() === req.toLowerCase()) return true;
-        const q = questsList.find(quest => quest.id === cid);
-        if (q && q.title.toLowerCase() === req.toLowerCase()) return true;
-        return false;
-      });
-
-      if (!isDone) {
-        const q = questsList.find(quest => quest.id === req);
-        missing.push(q ? q.title : req);
-      }
-    }
-
-    if (missing.length > 0) {
-      return {
-        isLocked: true,
-        reason: `Bloqueado! Requer a missão "${missing.join(', ')}"`
-      };
-    }
-    return { isLocked: false };
-  };
 
   // Sync with server on mount
   useEffect(() => {
@@ -307,7 +272,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     setPreviewCharacter(character);
     setPreviewSkillsPage(0);
 
-    const { isLocked, reason } = checkCharacterLocked(character);
+    const isLocked = !isCharacterUnlocked(character, user, questsList);
+    const reason = getCharacterLockReason(character, user, questsList);
     if (isLocked) {
       setLockedNotice(reason || 'Este personagem está bloqueado!');
       setTimeout(() => setLockedNotice(null), 3500);
@@ -1286,7 +1252,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               {paginatedCharacters.map(char => {
                 const isSelected = selectedIds.includes(char.id);
                 const isFull = selectedIds.length >= 3 && !isSelected;
-                const { isLocked, reason } = checkCharacterLocked(char);
+                const isLocked = !isCharacterUnlocked(char, user, questsList);
+                const reason = getCharacterLockReason(char, user, questsList);
                 const villageTag = char.tags.find(t => t.includes('Vila')) || char.tags[0];
 
                 return (

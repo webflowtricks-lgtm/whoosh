@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Swords, Flag, Smartphone, ShieldAlert, LogOut } from 'lucide-react';
 
 import MainMenu from './components/MainMenu';
+import LobbyScreen from './components/LobbyScreen';
 import CharacterSelect from './components/CharacterSelect';
 import BattleBoard from './components/BattleBoard';
 import ArenaLoading from './components/ArenaLoading';
@@ -219,6 +220,12 @@ export default function App() {
     }
     return null;
   });
+
+  useEffect(() => {
+    if (user && screen === 'main-menu') {
+      setScreen('lobby');
+    }
+  }, [user, screen]);
 
   // Sync all configurations (characters, ranks, shop, events, banners, frames) from server on startup
   useEffect(() => {
@@ -533,11 +540,7 @@ export default function App() {
       setShowAuth(true);
       return;
     }
-    // DESATIVADO TEMPORARIAMENTE (preload/download de tudo antes da arena):
-    // entra direto na seleção de time sem a tela de download.
-    // Reativar: troque a linha abaixo por setShowArenaLoading(true);
-    startCharacterSelectMusic();
-    setScreen('character-select');
+    setScreen('lobby');
   };
 
   const handleSelectQuest = (quest: Quest) => {
@@ -758,6 +761,7 @@ export default function App() {
     setSessionRevoked(false);
     setSessionTakeoverResult(false);
     setUser(safeProfile);
+    setScreen('lobby');
     try {
       localStorage.setItem('naruto_user_profile', JSON.stringify(safeProfile));
     } catch {}
@@ -1127,9 +1131,38 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {(screen === 'main-menu' || (screen === 'admin' && user?.username.trim().toLowerCase() !== '2')) && (
+        {screen === 'main-menu' && (
           <MainMenu
             onStartGame={handleStartGame}
+            isMuted={isMuted}
+            onToggleMute={() => setIsMuted(!isMuted)}
+            playClickSound={playClickSound}
+            playScrollSound={playScrollSound}
+            playUahSound={playUahSound}
+            onOpenAdmin={() => {
+              if (user?.username.trim().toLowerCase() === '2') setScreen('admin');
+            }}
+            user={user}
+            onLogout={handleLogout}
+            audioSettings={audioSettings}
+            onUpdateAudioSetting={updateAudioSetting}
+            onUpdateUser={(updated) => {
+              const safe = { ...updated, xp: Math.max(0, updated.xp ?? 0) };
+              setUser(safe);
+              localStorage.setItem('naruto_user_profile', JSON.stringify(safe));
+            }}
+          />
+        )}
+
+        {(screen === 'lobby' || (screen === 'admin' && user?.username.trim().toLowerCase() !== '2')) && (
+          <LobbyScreen
+            onStartGame={handleStartGame}
+            onBattle={() => {
+              setActiveQuest(null);
+              startCharacterSelectMusic();
+              setScreen('character-select');
+            }}
+            onOpenQuests={() => setScreen('quests')}
             isMuted={isMuted}
             onToggleMute={() => setIsMuted(!isMuted)}
             playClickSound={playClickSound}
@@ -1159,11 +1192,7 @@ export default function App() {
               localStorage.setItem('naruto_user_profile', JSON.stringify(safe));
             }}
             onSelectQuest={handleSelectQuest}
-            onGoToBattle={() => {
-              startCharacterSelectMusic();
-              setScreen('character-select');
-            }}
-            onBack={() => setScreen('main-menu')}
+            onBack={() => setScreen('lobby')}
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
             playUahSound={playUahSound}
@@ -1181,7 +1210,7 @@ export default function App() {
             onProcessingChange={setIsProcessing}
             user={user}
             activeQuest={activeQuest}
-            onBack={() => setScreen('quests')}
+            onBack={() => setScreen(activeQuest ? 'quests' : 'lobby')}
           />
         )}
 
@@ -1217,7 +1246,7 @@ export default function App() {
 
         {screen === 'admin' && user?.username.trim().toLowerCase() === '2' && (
           <AdminDashboard
-            onBack={() => setScreen('main-menu')}
+            onBack={() => setScreen('lobby')}
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
           />
