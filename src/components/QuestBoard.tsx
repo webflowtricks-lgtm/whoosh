@@ -688,7 +688,7 @@ export default function QuestBoard({
       <div className="relative z-10 max-w-7xl w-full mx-auto p-4 pb-20 sm:p-6 sm:pb-24 space-y-5">
       {/* Main Tab View 1: MISSÕES */}
       {mainTab === 'missoes' && (
-        <div className="space-y-6">
+        <div className="space-y-3">
           {showQuestFilters && (
           <div id="quest-filter-panel" className="grid grid-cols-1 gap-2 rounded-2xl border border-slate-700/80 bg-slate-900/85 p-3 shadow-xl backdrop-blur sm:grid-cols-[minmax(0,1fr)_10rem_10rem] sm:items-center">
             <label className="relative block min-w-0">
@@ -782,7 +782,7 @@ export default function QuestBoard({
                       }`}
                     >
                       {/* Quest Cover Image */}
-                      <div className="h-40 w-full relative overflow-hidden group">
+                      <div className="h-40 w-full relative overflow-hidden rounded-t-2xl group">
                         <img
                           src={quest.coverUrl || '/static/img/ui/pergaminho.webp'}
                           alt={quest.title}
@@ -997,7 +997,7 @@ export default function QuestBoard({
 
               {/* Pagination Controls */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-6">
+                <div className="flex items-center justify-center gap-2 mt-2">
                   <button
                     onClick={() => {
                       playScrollSound();

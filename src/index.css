@@ -85,7 +85,11 @@ body.processing-cursor * {
 }
 
 .quest-carousel {
+  align-items: flex-start;
+  margin-inline: -1rem;
+  padding-inline: 1rem;
   scroll-snap-type: x mandatory;
+  scroll-padding-inline: 1rem;
   overscroll-behavior-x: contain;
   touch-action: pan-x pan-y;
   scrollbar-width: none;
@@ -96,9 +100,16 @@ body.processing-cursor * {
 }
 
 .quest-carousel-card {
-  flex: 0 0 min(78vw, 350px);
-  zoom: .92;
+  flex: 0 0 min(68vw, 350px);
   scroll-snap-align: start;
+}
+
+@media (min-width: 640px) {
+  .quest-carousel {
+    margin-inline: -1.5rem;
+    padding-inline: 1.5rem;
+    scroll-padding-inline: 1.5rem;
+  }
 }
 
 .btn-end-turn {
@@ -523,7 +534,6 @@ body.processing-cursor * {
 
 .lobby-mission-unlock-label {
   border-color: #69bde9a0;
-  font-size: .62rem;
 }
 
 .lobby-mission-icon {
@@ -1469,10 +1479,6 @@ body.processing-cursor * {
 
   .lobby-mission-label {
     font-size: .65rem;
-  }
-
-  .lobby-mission-unlock-label {
-    font-size: .74rem;
   }
 
   .lobby-mission-icon {

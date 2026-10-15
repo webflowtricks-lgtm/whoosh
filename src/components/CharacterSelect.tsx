@@ -966,8 +966,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         <div className="w-full relative overflow-hidden flex items-center border-b border-amber-950/40">
           {/* Topbar Parchment Background */}
           <img 
-            src="/static/img/topbar.webp" 
-            alt="Topbar Pergaminho" 
+            src="/static/img/tronco.png"
+            alt="Topbar"
             className="mv-pergaminho-top-bar absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
             onError={(e) => {
               e.currentTarget.src = '/static/img/filtro_pergaminho.webp';
