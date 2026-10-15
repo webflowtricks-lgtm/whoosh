@@ -13,6 +13,7 @@ const STORAGE_KEY = 'naruto_combat_characters';
 // Cache em memória: garante que dados novos vindos do servidor sejam usados
 // mesmo quando o localStorage estoura a cota (QuotaExceededError) e não atualiza.
 let memoryCache: Character[] | null = null;
+let memoryCacheETag: string | null = null;
 let serverCatalogLoaded = false;
 
 // Mídia base64 grande não cabe na cota do localStorage (~5MB); o cache persiste
@@ -75,9 +76,18 @@ export async function fetchCharactersFromServer(options: {
   required?: boolean;
   onProgress?: (progress: number) => void;
 } = {}): Promise<Character[]> {
-  if (options.required) serverCatalogLoaded = false;
   try {
-    const response = await fetch('/api/characters', { cache: 'no-store' });
+    const canValidateMemoryCache = !!memoryCache?.length && !!memoryCacheETag;
+    const knownETag = canValidateMemoryCache ? memoryCacheETag : null;
+    const response = await fetch('/api/characters', {
+      cache: canValidateMemoryCache ? 'no-store' : 'no-cache',
+      headers: knownETag ? { 'If-None-Match': knownETag } : undefined,
+    });
+    if (response.status === 304 && canValidateMemoryCache) {
+      serverCatalogLoaded = true;
+      options.onProgress?.(100);
+      return memoryCache!;
+    }
     if (!response.ok) {
       throw new Error(`Não foi possível carregar o catálogo global de personagens (HTTP ${response.status}).`);
     }
@@ -113,6 +123,7 @@ export async function fetchCharactersFromServer(options: {
     if (data && data.success && Array.isArray(data.characters) && data.characters.length > 0) {
       const enriched = enrichCharacters(data.characters);
       memoryCache = enriched;
+      memoryCacheETag = response.headers.get('ETag');
       serverCatalogLoaded = true;
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(stripHeavyData(enriched)));
@@ -125,6 +136,7 @@ export async function fetchCharactersFromServer(options: {
     throw new Error('O servidor não retornou um catálogo global válido de personagens.');
   } catch (error) {
     if (options.required) {
+      serverCatalogLoaded = false;
       throw error instanceof Error
         ? error
         : new Error('Não foi possível confirmar o catálogo global de personagens no servidor.');
@@ -140,6 +152,7 @@ export async function saveCharacters(characters: Character[]): Promise<Character
   const enriched = enrichCharacters(characters);
   await saveGlobalConfig('/api/characters', { characters: enriched });
   memoryCache = enriched;
+  memoryCacheETag = null;
   serverCatalogLoaded = true;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stripHeavyData(enriched)));
@@ -153,6 +166,7 @@ export async function resetToDefaultCharacters(): Promise<Character[]> {
   const enriched = enrichCharacters(DEFAULT_CHARACTERS);
   await saveGlobalConfig('/api/characters', { characters: enriched });
   memoryCache = enriched;
+  memoryCacheETag = null;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stripHeavyData(enriched)));
   } catch (e) {

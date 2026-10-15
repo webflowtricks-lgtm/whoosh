@@ -248,6 +248,10 @@ class MemoryStatement implements D1PreparedStatement {
       const row = this.db.configHeads.get(String(this.values[0]));
       return row ? { version_id: row.version_id, item_count: row.item_count } as T : null;
     }
+    if (q.startsWith('select version_id from game_config_versions')) {
+      const row = this.db.configHeads.get(String(this.values[0]));
+      return row ? { version_id: row.version_id } as T : null;
+    }
     if (q.startsWith('select value_json from game_config where')) return null;
     throw new Error(`Unhandled mock D1 first: ${q.slice(0, 90)}`);
   }
@@ -515,13 +519,21 @@ test('only the active session for account 2 can publish global configuration', a
 
   const otherPlayerRead = await handleD1Request(request('/api/characters', 'GET'), env);
   assert.equal(otherPlayerRead?.status, 200);
-  assert.equal(otherPlayerRead?.headers.get('Cache-Control'), 'no-store');
+  assert.equal(otherPlayerRead?.headers.get('Cache-Control'), 'private, no-cache, must-revalidate');
   const characterResponseText = await otherPlayerRead!.text();
+  const catalogEtag = otherPlayerRead!.headers.get('ETag');
+  assert.ok(catalogEtag);
   assert.equal(
     Number(otherPlayerRead!.headers.get('X-Progress-Content-Length')),
     new TextEncoder().encode(characterResponseText).byteLength,
   );
   assert.deepEqual(JSON.parse(characterResponseText).characters, payload.characters);
+  const unchangedCatalogRead = await handleD1Request(request('/api/characters', 'GET', undefined, {
+    'If-None-Match': catalogEtag!,
+  }), env);
+  assert.equal(unchangedCatalogRead?.status, 304);
+  assert.equal(await unchangedCatalogRead?.text(), '');
+  assert.equal(unchangedCatalogRead?.headers.get('ETag'), catalogEtag);
 
   const emptyCatalog = await handleD1Request(request('/api/characters', 'POST', {
     characters: [],

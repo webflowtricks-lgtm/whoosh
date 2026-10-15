@@ -823,6 +823,7 @@ async function startServer() {
   };
 
   let authoritativeCharactersCache: any[] | null = null;
+  let authoritativeCharactersRevision = 0;
   function getAuthoritativeCharacters() {
     if (authoritativeCharactersCache) return authoritativeCharactersCache;
     const configuredCharacters = readJSON<any[]>(CHARACTERS_FILE, []);
@@ -1600,12 +1601,24 @@ async function startServer() {
   });
 
   app.get("/api/characters", (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    let characters = readJSON<any[]>(CHARACTERS_FILE, []);
-    if (!Array.isArray(characters) || characters.length === 0) {
-      characters = DEFAULT_CHARACTERS;
-      writeJSON(CHARACTERS_FILE, DEFAULT_CHARACTERS);
+    let characters = getAuthoritativeCharacters();
+    let fileStats: fs.Stats;
+    try {
+      if (!fs.existsSync(CHARACTERS_FILE)) {
+        characters = DEFAULT_CHARACTERS;
+        writeJSON(CHARACTERS_FILE, characters);
+        authoritativeCharactersCache = characters;
+        authoritativeCharactersRevision++;
+      }
+      fileStats = fs.statSync(CHARACTERS_FILE);
+    } catch (error) {
+      console.error("Error checking the character catalog version:", error);
+      return res.status(500).json({ error: "Não foi possível verificar a versão do catálogo de personagens." });
     }
+    const etag = `W/"characters-${fileStats.size}-${fileStats.mtimeMs}-${authoritativeCharactersRevision}"`;
+    res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
+    res.setHeader("ETag", etag);
+    if (req.fresh) return res.status(304).end();
     res.json({ success: true, characters });
   });
 
@@ -1617,6 +1630,7 @@ async function startServer() {
 
     writeJSON(CHARACTERS_FILE, characters);
     authoritativeCharactersCache = characters;
+    authoritativeCharactersRevision++;
     res.json({ success: true, message: "Personagens atualizados no banco de dados com sucesso!" });
   });
 
@@ -2036,6 +2050,7 @@ async function startServer() {
     if (Array.isArray(data.characters)) {
       writeJSON(CHARACTERS_FILE, data.characters);
       authoritativeCharactersCache = data.characters;
+      authoritativeCharactersRevision++;
       countDetails.push(`${data.characters.length} Personagens`);
     }
     if (Array.isArray(data.quests)) {

@@ -359,14 +359,10 @@ body.processing-cursor * {
   font-variant-numeric: tabular-nums;
 }
 
-.lobby-currencies svg {
+.lobby-currency-icon {
   width: 1rem;
   height: 1rem;
-  color: #ffad34;
-}
-
-.lobby-currencies > span:first-child svg {
-  color: #74e7ff;
+  object-fit: contain;
 }
 
 .lobby-profile-wrap {
@@ -3345,6 +3341,30 @@ e-squad-name {
 }
 
 @media (orientation: portrait) and (max-width: 500px) {
+  .character-select-mobile-topbar-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    display: block;
+    width: 100vw;
+    height: 160px;
+    object-fit: fill;
+  }
+
+  .mv-pergaminho-top-bar {
+    display: none !important;
+  }
+
+  .character-select-main {
+    position: relative;
+    z-index: 2;
+  }
+
+  .character-select-main.character-select-filter-closed {
+    padding-top: 145px !important;
+  }
+
   .character-select-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -3354,6 +3374,9 @@ e-squad-name {
     z-index: 100;
     transform: none !important;
     scale: none !important;
+  }
+
+  .character-select-main {
     transition: none !important;
   }
 
@@ -3365,12 +3388,12 @@ e-squad-name {
     position: fixed !important;
     inset: 0 !important;
     z-index: 60 !important;
-    display: flex;
-    align-items: flex-start;
+    display: grid;
+    align-items: center;
     justify-content: center;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: max(3.5rem, env(safe-area-inset-top)) 0.5rem max(0.75rem, env(safe-area-inset-bottom));
+    padding: max(0.75rem, env(safe-area-inset-top)) 0.5rem max(0.75rem, env(safe-area-inset-bottom));
     background: rgba(2, 6, 23, 0.88);
     backdrop-filter: none;
     animation: none !important;
@@ -3381,6 +3404,9 @@ e-squad-name {
     width: 100%;
     max-width: 36rem;
     flex: 0 0 auto;
+    max-height: calc(100dvh - 1.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 1rem !important;
     animation: none !important;
     transition: none !important;
@@ -3392,7 +3418,7 @@ e-squad-name {
     right: auto;
     bottom: max(0.8rem, env(safe-area-inset-bottom));
     left: 50%;
-    z-index: 80;
+    z-index: 120;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3409,14 +3435,14 @@ e-squad-name {
   .character-select-details-trigger {
     position: fixed;
     right: 0.75rem;
-    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    bottom: max(0.9rem, env(safe-area-inset-bottom));
     z-index: 40;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     max-width: calc(100vw - 6rem);
     padding: 0.65rem 0.9rem;
-    border: 1px solid rgba(217, 119, 6, 0.8);
+    border: 1px solid rgba(236, 228, 204, 0.75);
     border-radius: 0.75rem;
     background: linear-gradient(135deg, #78350f, #92400e);
     color: #ffedd5;
@@ -3425,6 +3451,103 @@ e-squad-name {
     font-size: 0.75rem;
     font-weight: 800;
     text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .character-select-filter-open {
+    position: relative;
+    z-index: 40;
+  }
+
+  .mv-filtro {
+    display: none !important;
+    margin-top: 64px !important;
+  }
+
+  .character-select-filter-open .mv-filtro {
+    display: flex !important;
+  }
+
+  .character-select-filter-trigger {
+    position: fixed;
+    left: calc(50% - 0.5rem);
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    z-index: 90;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    transform: none;
+    border: 1px solid rgba(236, 228, 204, 0.75);
+    border-radius: 9999px;
+    background: rgba(120, 53, 15, 0.95);
+    color: #ece4cc;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+  }
+
+  .character-select-favorites-trigger {
+    position: fixed;
+    left: calc(50% - 4.5rem);
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    z-index: 90;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border: 1px solid rgba(236, 228, 204, 0.75);
+    border-radius: 9999px;
+    background: rgba(120, 53, 15, 0.95);
+    color: #ece4cc;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+  }
+
+  .character-select-favorites-trigger.is-active,
+  .character-select-favorite-action.is-favorite {
+    color: #facc15;
+    border-color: rgba(250, 204, 21, 0.85);
+  }
+
+  .character-select-favorite-action {
+    position: fixed;
+    left: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    z-index: 120;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 3rem;
+    padding: 0 0.85rem;
+    border: 1px solid rgba(236, 228, 204, 0.75);
+    border-radius: 9999px;
+    background: rgba(120, 53, 15, 0.95);
+    color: #ece4cc;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .character-select-mobile-back {
+    position: fixed;
+    left: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    z-index: 90;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border: 1px solid rgba(236, 228, 204, 0.75);
+    border-radius: 9999px;
+    background: rgba(120, 53, 15, 0.95);
+    color: #ece4cc;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
     cursor: pointer;
   }
 
@@ -4070,14 +4193,56 @@ e-squad-name {
   }
 
   .mv-pergaminho-top-bar {
-     width: 155vw;
-  max-width: none;
-  margin-left: -74px;
+    margin: 0 !important;
   }
 
   
   .mv-personagens-btns {
     margin-top: -15px;
+  }
+
+  .top-items-battle {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.5rem;
+    row-gap: 0.5rem;
+    transform: translateY(8px);
+  }
+
+  .top-items-battle > div:first-child {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    text-align: left;
+  }
+
+  .top-items-battle .main-title-teams {
+    width: 100%;
+    font-size: clamp(15px, 5vw, 21px);
+    line-height: 1;
+    text-align: left;
+  }
+
+  .top-items-battle .mv-personagens-btns {
+    display: contents;
+  }
+
+  .top-items-battle .mv-personagens-btns > div:first-child {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .top-items-battle .mv-personagens-btns > div:last-child {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: center;
+  }
+
+  .mv-footer-actions {
+    column-gap: 0.75rem !important;
+    row-gap: 0.75rem !important;
   }
 
   .mv-filtro {
@@ -4109,15 +4274,6 @@ e-squad-name {
   /* 🔒 Remove o botão Sandbox (CharacterSelect) APENAS no mobile vertical */
   .mv-hide-sandbox {
     display: none !important;
-  }
-
-  /* 🔙 Botão Voltar (CharacterSelect): fixo no canto INFERIOR ESQUERDO
-     da tela no mobile vertical (fora da linha de botões do topo) */
-  .mv-back-bottom-left {
-    position: fixed !important;
-    bottom: 12px !important;
-    left: 12px !important;
-    z-index: 40 !important;
   }
 
   /* 🃏 Roster (CharacterSelect): 4 colunas por linha no mobile vertical — REMOVIDO (voltou ao padrão 3 colunas) */

@@ -827,7 +827,36 @@ async function writeConfig(db: D1Database, key: string, values: unknown[]): Prom
 async function getConfig(
   env: D1Env,
   config: { key: string; field: string },
+  request: Request,
 ): Promise<Response> {
+  if (config.key === 'characters') {
+    const head = await env.DB.prepare(
+      'SELECT version_id FROM game_config_versions WHERE config_key = ?',
+    ).bind(config.key).first<{ version_id: string }>();
+    if (head) {
+      const etag = `"characters-${head.version_id}"`;
+      const headers = {
+        'Cache-Control': 'private, no-cache, must-revalidate',
+        ETag: etag,
+      };
+      const requestedEtags = request.headers.get('If-None-Match')
+        ?.split(',')
+        .map(value => value.trim());
+      if (requestedEtags?.includes('*') || requestedEtags?.includes(etag)) {
+        return new Response(null, { status: 304, headers });
+      }
+      const stored = await readConfig(env.DB, config.key);
+      if (stored === null) throw new Error('Catálogo de personagens desapareceu durante a leitura.');
+      const body = JSON.stringify({ success: true, [config.field]: stored });
+      return new Response(body, {
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json; charset=utf-8',
+          'X-Progress-Content-Length': String(new TextEncoder().encode(body).byteLength),
+        },
+      });
+    }
+  }
   const stored = await readConfig(env.DB, config.key);
   if (stored !== null) {
     const body = { success: true, [config.field]: stored };
@@ -835,7 +864,7 @@ async function getConfig(
       const serialized = JSON.stringify(body);
       return new Response(serialized, {
         headers: {
-          'Cache-Control': 'no-store',
+          'Cache-Control': 'private, no-cache, must-revalidate',
           'Content-Type': 'application/json; charset=utf-8',
           'X-Progress-Content-Length': String(new TextEncoder().encode(serialized).byteLength),
         },
@@ -958,7 +987,7 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
   }
   const config = CONFIGS[pathname];
   if (!config) return null;
-  if (request.method === 'GET') return getConfig(env, config);
+  if (request.method === 'GET') return getConfig(env, config, request);
   if (request.method === 'POST') return saveConfig(request, env, config);
   return null;
 }

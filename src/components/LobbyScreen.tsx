@@ -5,8 +5,6 @@ import {
   CalendarDays,
   ChevronDown,
   CircleHelp,
-  Coins,
-  Gem,
   Filter,
   Images,
   LogOut,
@@ -303,8 +301,8 @@ export default function LobbyScreen({
           )}
         </div>
         <div className="lobby-currencies" aria-label={t('Moedas', 'Currencies')}>
-          <span><Gem aria-hidden="true" />{(user?.gems ?? 120).toLocaleString()}</span>
-          <span><Coins aria-hidden="true" />{(user?.ryos ?? 1500).toLocaleString()}</span>
+          <span><img className="lobby-currency-icon" src="/static/img/icon/ryo.webp" alt="" />{(user?.gems ?? 120).toLocaleString()}</span>
+          <span><img className="lobby-currency-icon" src="/static/img/icon/gold.webp" alt="" />{(user?.ryos ?? 1500).toLocaleString()}</span>
         </div>
       </header>
 

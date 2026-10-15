@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Shield, ChevronLeft, ChevronRight, Swords, RefreshCw, Sparkles, Search, Filter, AlertTriangle, Shirt, Lock, X, Eye } from 'lucide-react';
+import { Shield, ChevronLeft, ChevronRight, ArrowLeft, Swords, RefreshCw, Sparkles, Search, Filter, Star, AlertTriangle, Shirt, Lock, X, Eye } from 'lucide-react';
 import { Character, ChakraType, UserProfile, Quest, Skill } from '../types';
 import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
 import {
@@ -83,6 +83,20 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     typeof window !== 'undefined' && window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches
   );
   const [showCharacterDetails, setShowCharacterDetails] = useState(false);
+  const [showCharacterFilters, setShowCharacterFilters] = useState(false);
+  const [favoriteCharacterIds, setFavoriteCharacterIds] = useState<string[]>(() => {
+    try {
+      const savedFavorites = localStorage.getItem('naruto_favorite_characters');
+      const parsedFavorites: unknown = savedFavorites ? JSON.parse(savedFavorites) : [];
+      return Array.isArray(parsedFavorites)
+        ? parsedFavorites.filter((id): id is string => typeof id === 'string')
+        : [];
+    } catch (error) {
+      console.error('Failed to load favorite characters:', error);
+      return [];
+    }
+  });
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [previewSkillsPage, setPreviewSkillsPage] = useState(0);
   const skillEffectSwipeStartRef = useRef<number | null>(null);
   const characterPageSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -248,6 +262,20 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     setCurrentPage(1);
   };
 
+  const toggleFavoriteCharacter = () => {
+    if (!previewCharacter) return;
+    const nextFavorites = favoriteCharacterIds.includes(previewCharacter.id)
+      ? favoriteCharacterIds.filter(id => id !== previewCharacter.id)
+      : [...favoriteCharacterIds, previewCharacter.id];
+    try {
+      localStorage.setItem('naruto_favorite_characters', JSON.stringify(nextFavorites));
+      setFavoriteCharacterIds(nextFavorites);
+      setCurrentPage(1);
+    } catch (error) {
+      console.error('Failed to save favorite characters:', error);
+    }
+  };
+
   // Tag list for filtering
   const FILTER_TAGS = ['Todos', 'Clássico', 'Shippuden', 'Reencarnado', 'Akatsuki', 'Vila da Folha', 'Vila da Areia', 'Vila da Névoa', 'Vila da Nuvem', 'Vila da Pedra'];
 
@@ -256,7 +284,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     const matchesSearch = char.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           char.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTag = selectedTag === 'Todos' || char.tags.includes(selectedTag);
-    return matchesSearch && matchesTag;
+    const matchesFavorites = !showFavoritesOnly || favoriteCharacterIds.includes(char.id);
+    return matchesSearch && matchesTag && matchesFavorites;
   });
 
   const ITEMS_PER_PAGE = isMobilePortrait ? 20 : 18;
@@ -880,7 +909,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   }}
                 />
                 <h2 className="mt-4 text-lg font-black text-amber-300">
-                  {t('Carregando personagens oficiais', 'Loading official characters')}
+                  {t('Carregando personagens', 'Loading characters')}
                 </h2>
                 <p className="mt-2 text-sm text-slate-300">
                   {t('Aguarde enquanto confirmamos as configurações globais do jogo.', 'Please wait while we confirm the game-wide settings.')}
@@ -960,13 +989,19 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       <div className="fixed inset-0 bg-transparent pointer-events-none z-0" />
       <div className="absolute top-[10%] right-[10%] w-[40%] h-[40%] rounded-full bg-orange-500/5 blur-[120px] pointer-events-none z-0" />
       <div className="absolute bottom-[15%] left-[5%] w-[40%] h-[40%] rounded-full bg-blue-500/5 blur-[120px] pointer-events-none z-0" />
+      <img
+        src="/static/img/tronco.webp"
+        alt=""
+        aria-hidden="true"
+        className="character-select-mobile-topbar-bg pointer-events-none"
+      />
 
       {/* Draft Status Header in Parchment Scroll (Fixed at top, full width) */}
       <header className="fixed top-0 left-0 right-0 z-30 w-full shadow-2xl">
-        <div className="w-full relative overflow-hidden flex items-center border-b border-amber-950/40">
+        <div className="character-select-topbar w-full relative overflow-hidden flex items-center border-b border-amber-950/40">
           {/* Topbar Parchment Background */}
           <img 
-            src="/static/img/tronco.png"
+            src="/static/img/tronco.webp"
             alt="Topbar"
             className="mv-pergaminho-top-bar absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
             onError={(e) => {
@@ -978,7 +1013,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           <div className="top-items-battle relative z-10 w-full max-w-7xl mx-auto flex flex-col md:flex-row justify-center items-center gap-4 md:gap-10 px-4 sm:px-8 py-2.5">
             <div className="text-center md:text-left shrink-0">
         
-              <h2 className="main-title-teams text-xl sm:text-2xl font-brush tracking-tight text-[#823500] drop-shadow-[0_1px_1px_rgba(255,255,255,0.6)] uppercase">
+              <h2 className="main-title-teams text-xl sm:text-2xl font-brush tracking-tight text-[#ece4cc] uppercase">
                 {sandboxPlayerTeam ? t("ESCOLHA O ESQUADRÃO ADVERSÁRIO", "CHOOSE OPPONENT SQUAD") : t("ESCOLHA SEU ESQUADRÃO", "CHOOSE YOUR SQUAD")}
               </h2>
             </div>
@@ -994,18 +1029,21 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => {
-                        if (char) {
-                          playClickSound();
-                          setSelectedIds(prev => prev.filter(id => id !== char.id));
-                        }
+                      onClick={event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (!char) return;
+                        playClickSound();
+                        pendingCharacterClickRef.current = null;
+                        setSelectedIds(prev => prev.filter((_, slotIndex) => slotIndex !== idx));
                       }}
                       data-sound={char ? 'uah' : undefined}
                       title={char ? `${char.name} (${t("Clique para remover", "Click to remove")})` : `Slot ${idx + 1}`}
+                      aria-label={char ? t(`Remover ${char.name} do time`, `Remove ${char.name} from team`) : `Slot ${idx + 1}`}
                       className={`group relative w-12 h-12 sm:w-14 sm:h-14 rounded-lg border-2 overflow-hidden flex items-center justify-center transition-all ${
                         char
-                          ? 'border-amber-800 bg-amber-950/30 shadow-md ring-1 ring-amber-700/50 cursor-pointer hover:border-red-500 hover:ring-2 hover:ring-red-500/80 active:scale-95'
-                          : 'border-dashed border-amber-900/40 bg-amber-950/10 cursor-default'
+                          ? 'border-[#ece4cc] bg-amber-950/30 shadow-md ring-1 ring-[#ece4cc]/50 cursor-pointer hover:border-red-500 hover:ring-2 hover:ring-red-500/80 active:scale-95'
+                          : 'border-dashed border-[#ece4cc]/50 bg-amber-950/10 cursor-default'
                       }`}
                     >
                       {char ? (
@@ -1022,25 +1060,26 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           </div>
                         </>
                       ) : (
-                        <span className="text-amber-900/60 text-[10px] sm:text-xs font-bold font-mono">Slot</span>
+                        <span className="text-[#ece4cc]/60 text-[10px] sm:text-xs font-bold font-mono">Slot</span>
                       )}
                     </button>
                   );
                 })}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+              <div className="mv-footer-actions flex flex-wrap items-center gap-2 sm:gap-2.5">
                 {sandboxPlayerTeam ? (
                   <>
-                    <button
-                      onClick={handleBackToPlayerSelect}
-                      data-sound="Click"
-                      aria-label={t("Voltar para seleção do Time A", "Back to Team A selection")}
-                      className="mv-back-bottom-left px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md shadow-black/20 font-mono"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      {t("Voltar (Time A)", "Back (Team A)")}
-                    </button>
+                    {!isMobilePortrait && (
+                      <button
+                        onClick={handleBackToPlayerSelect}
+                        data-sound="Click"
+                        aria-label={t("Voltar para seleção do Time A", "Back to Team A selection")}
+                        className="flex h-12 w-12 items-center justify-center rounded-full border border-amber-700 bg-amber-900/80 text-amber-100 shadow-md shadow-black/20 transition-all hover:bg-amber-800 active:scale-95 cursor-pointer"
+                      >
+                        <ArrowLeft className="h-5 w-5" />
+                      </button>
+                    )}
 
                     <button
                       onClick={handleConfirmSandboxMatch}
@@ -1058,17 +1097,16 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   </>
                 ) : (
                   <>
-                    {onBack && (
+                    {onBack && !isMobilePortrait && (
                       <button
                         onClick={() => {
                           onBack();
                         }}
                         data-sound="Click"
                         aria-label={t("Voltar", "Back")}
-                        className="mv-back-bottom-left px-3.5 py-2.5 rounded-lg font-black flex items-center gap-1.5 tracking-wide text-xs uppercase cursor-pointer border select-none active:scale-95 transition-all bg-amber-900/80 hover:bg-amber-800 text-amber-100 border-amber-700 shadow-md shadow-black/20 font-mono"
+                        className="flex h-12 w-12 items-center justify-center rounded-full border border-amber-700 bg-amber-900/80 text-amber-100 shadow-md shadow-black/20 transition-all hover:bg-amber-800 active:scale-95 cursor-pointer"
                       >
-                        <ChevronLeft className="w-4 h-4" />
-                        {t("Voltar", "Back")}
+                        <ArrowLeft className="h-5 w-5" />
                       </button>
                     )}
 
@@ -1130,7 +1168,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       </header>
 
       {/* Main Draft Area */}
-      <main className="max-w-[1400px] w-full mx-auto px-0 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform">
+      <main className={`character-select-main max-w-[1400px] w-full mx-auto px-0 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform ${showCharacterFilters ? 'character-select-filter-open' : 'character-select-filter-closed'}`}>
         {/* Roster Grid (Left Side) */}
         <div className="lg:col-span-6 space-y-6">
           <div className="mv-filtro flex flex-col gap-4">
@@ -1586,7 +1624,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 </p>
               )}
 
-              {/* Section HABILIDADES - Individual Parchment Scrolls per Skill */}
+              {!showSkinsTab && (
+              /* Section HABILIDADES - Individual Parchment Scrolls per Skill */
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-xs font-mono font-bold uppercase tracking-wider text-amber-950 px-1">
                   <span className="flex items-center gap-1.5 text-amber-950 font-black">
@@ -1825,10 +1864,44 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   );
                 })()}
               </div>
+              )}
             </div>
           </div>
         </div>
       </main>
+
+      {isMobilePortrait && !showCharacterDetails && (sandboxPlayerTeam || onBack) && (
+        <button
+          type="button"
+          onClick={() => {
+            if (sandboxPlayerTeam) handleBackToPlayerSelect();
+            else onBack?.();
+          }}
+          data-sound="Click"
+          aria-label={sandboxPlayerTeam ? t("Voltar para seleção do Time A", "Back to Team A selection") : t("Voltar", "Back")}
+          className="character-select-mobile-back"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+      )}
+
+      {isMobilePortrait && showCharacterDetails && (
+        <button
+          type="button"
+          onClick={event => {
+            event.stopPropagation();
+            playClickSound();
+            toggleFavoriteCharacter();
+          }}
+          data-sound="Click"
+          className={`character-select-favorite-action ${favoriteCharacterIds.includes(previewCharacter.id) ? 'is-favorite' : ''}`}
+          aria-label={favoriteCharacterIds.includes(previewCharacter.id) ? t('Remover dos favoritos', 'Remove from favorites') : t('Favoritar', 'Add to favorites')}
+          aria-pressed={favoriteCharacterIds.includes(previewCharacter.id)}
+        >
+          <Star className="h-4 w-4" fill={favoriteCharacterIds.includes(previewCharacter.id) ? 'currentColor' : 'none'} />
+          <span>{favoriteCharacterIds.includes(previewCharacter.id) ? t('Favoritado', 'Favorited') : t('Favoritar', 'Favorite')}</span>
+        </button>
+      )}
 
       {isMobilePortrait && showCharacterDetails && (
         <button
@@ -1845,7 +1918,23 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         </button>
       )}
 
-      {isMobilePortrait && (
+      {isMobilePortrait && !showCharacterDetails && (
+        <button
+          type="button"
+          onClick={() => {
+            playScrollSound();
+            setShowFavoritesOnly(showing => !showing);
+            setCurrentPage(1);
+          }}
+          className={`character-select-favorites-trigger ${showFavoritesOnly ? 'is-active' : ''}`}
+          aria-label={showFavoritesOnly ? t('Mostrar todos os personagens', 'Show all characters') : t('Mostrar personagens favoritados', 'Show favorite characters')}
+          aria-pressed={showFavoritesOnly}
+        >
+          <Star className="h-5 w-5" fill={showFavoritesOnly ? 'currentColor' : 'none'} />
+        </button>
+      )}
+
+      {isMobilePortrait && !showCharacterDetails && (
         <button
           type="button"
           onClick={() => {
@@ -1857,6 +1946,21 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         >
           <Eye className="h-4 w-4 shrink-0" />
           <span className="truncate">{previewCharacter.name}</span>
+        </button>
+      )}
+
+      {isMobilePortrait && !showCharacterDetails && (
+        <button
+          type="button"
+          onClick={() => {
+            playScrollSound();
+            setShowCharacterFilters(open => !open);
+          }}
+          className="character-select-filter-trigger"
+          aria-label={showCharacterFilters ? t('Ocultar filtros', 'Hide filters') : t('Mostrar filtros', 'Show filters')}
+          aria-expanded={showCharacterFilters}
+        >
+          <Filter className="h-5 w-5" />
         </button>
       )}
 

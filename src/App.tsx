@@ -735,6 +735,11 @@ export default function App() {
     setScreen('character-select'); // Return directly to character selection!
   };
 
+  const createAccountSessionToken = () => {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  };
+
   const handleLoginSuccess = (profile: UserProfile, ticket?: string) => {
     const isGuest = !ticket && profile.username.trim().toLowerCase() === 'convidado';
     if (!ticket && !isGuest) {
@@ -745,7 +750,7 @@ export default function App() {
       ...profile,
       xp: Math.max(0, profile.xp ?? 0),
     };
-    const token = ticket ? crypto.randomUUID() : null;
+    const token = ticket ? createAccountSessionToken() : null;
     if (token) {
       try {
         sessionStorage.setItem('naruto_account_session_token', token);
