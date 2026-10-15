@@ -418,6 +418,8 @@ export default function LobbyScreen({
           <button type="button" key={label} onClick={action} className={primary ? 'lobby-nav-item lobby-nav-primary' : 'lobby-nav-item'}>
             {label === t('Shinobis', 'Shinobis')
               ? <img className="lobby-footer-icon" src="/static/img/icon/ninjas-icon-convertido-de-png.webp" alt="" />
+              : primary
+                ? <img className="lobby-footer-icon" src="/static/img/icon/kunai-icon.webp" alt="" />
               : <Icon className="lobby-footer-icon" aria-hidden="true" />}
             <span>{label}</span>
           </button>
