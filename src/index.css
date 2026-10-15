@@ -534,7 +534,7 @@ body.processing-cursor * {
   position: absolute;
   z-index: 2;
   right: max(.55rem, env(safe-area-inset-right));
-  bottom: calc(108px + env(safe-area-inset-bottom));
+  bottom: calc(114px + env(safe-area-inset-bottom));
   left: max(.55rem, env(safe-area-inset-left));
   height: clamp(5.7rem, 13vh, 8.25rem);
   touch-action: pan-y;
@@ -650,8 +650,8 @@ body.processing-cursor * {
 }
 
 .lobby-footer {
-  --lobby-footer-height: 94px;
-  --lobby-footer-icon-size: 3.6rem;
+  --lobby-footer-height: 107px;
+  --lobby-footer-icon-size: 3.9rem;
   position: absolute;
   z-index: 3;
   right: 0;
