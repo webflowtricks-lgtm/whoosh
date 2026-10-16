@@ -3,7 +3,7 @@ import http from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import path from "path";
 import fs from "fs";
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, createPublicKey, randomBytes, timingSafeEqual, verify as verifySignature } from "crypto";
 import { createServer as createViteServer } from "vite";
 import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
 import { firstSlotForTurn, isValidMatchTeam, submitTurnActions } from "./src/lib/matchProtocol";
@@ -25,6 +25,106 @@ const AI_SETTINGS_FILE = path.join(DATA_DIR, "ai_settings.json");
 const MATCH_ROOMS_FILE = path.join(DATA_DIR, "match_rooms.json");
 const ACCOUNT_SESSIONS_FILE = path.join(DATA_DIR, "account_sessions.json");
 const ONLINE_BATTLE_HISTORY_FILE = path.join(DATA_DIR, "online_battle_history.json");
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || (() => {
+  try {
+    const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8")) as { projectId?: unknown };
+    return typeof config.projectId === "string" ? config.projectId : "";
+  } catch (error) {
+    console.error("[AUTH] Não foi possível carregar o projeto Firebase:", error);
+    return "";
+  }
+})();
+
+type FirebaseJwk = { kid: string; kty: string; n: string; e: string };
+type FirebaseIdClaims = {
+  aud?: string;
+  sub?: string;
+  email?: string;
+  email_verified?: boolean;
+  name?: string;
+  picture?: string;
+  iss?: string;
+  exp?: number;
+  iat?: number;
+  auth_time?: number;
+};
+
+let firebaseJwksCache: { keys: FirebaseJwk[]; expiresAt: number } | null = null;
+
+async function getFirebaseJwks(forceRefresh = false): Promise<FirebaseJwk[]> {
+  if (!forceRefresh && firebaseJwksCache && firebaseJwksCache.expiresAt > Date.now()) {
+    return firebaseJwksCache.keys;
+  }
+
+  const response = await fetch("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com");
+  if (!response.ok) {
+    throw new Error(`Firebase public key endpoint returned ${response.status}.`);
+  }
+  const result = await response.json() as { keys?: FirebaseJwk[] };
+  if (!Array.isArray(result.keys) || result.keys.length === 0) {
+    throw new Error("Firebase public key response is empty.");
+  }
+  const maxAge = Number(response.headers.get("Cache-Control")?.match(/max-age=(\d+)/i)?.[1] || 3600);
+  firebaseJwksCache = { keys: result.keys, expiresAt: Date.now() + maxAge * 1000 };
+  return result.keys;
+}
+
+async function verifyFirebaseIdToken(idToken: string): Promise<FirebaseIdClaims | null> {
+  if (!FIREBASE_PROJECT_ID) {
+    throw new Error("FIREBASE_PROJECT_ID não está configurado.");
+  }
+  if (idToken.length > 8192) return null;
+
+  const parts = idToken.split(".");
+  if (parts.length !== 3 || parts.some(part => !part)) return null;
+
+  let header: { alg?: string; kid?: string };
+  let claims: FirebaseIdClaims;
+  try {
+    header = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf-8"));
+    claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf-8"));
+  } catch {
+    return null;
+  }
+  if (header.alg !== "RS256" || !header.kid) return null;
+
+  let keys = await getFirebaseJwks();
+  let jwk = keys.find(key => key.kid === header.kid);
+  if (!jwk) {
+    keys = await getFirebaseJwks(true);
+    jwk = keys.find(key => key.kid === header.kid);
+  }
+  if (!jwk || jwk.kty !== "RSA") return null;
+
+  const validSignature = verifySignature(
+    "RSA-SHA256",
+    Buffer.from(`${parts[0]}.${parts[1]}`),
+    createPublicKey({ key: jwk, format: "jwk" }),
+    Buffer.from(parts[2], "base64url"),
+  );
+  if (!validSignature) return null;
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (
+    claims.iss !== `https://securetoken.google.com/${FIREBASE_PROJECT_ID}` ||
+    claims.aud !== FIREBASE_PROJECT_ID ||
+    !claims.sub ||
+    claims.sub.length > 128 ||
+    !claims.email ||
+    claims.email_verified !== true ||
+    typeof claims.exp !== "number" ||
+    claims.exp <= nowSeconds ||
+    typeof claims.iat !== "number" ||
+    claims.iat > nowSeconds + 60 ||
+    typeof claims.auth_time !== "number" ||
+    claims.auth_time > nowSeconds ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(claims.email)
+  ) {
+    return null;
+  }
+  return claims;
+}
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -265,38 +365,64 @@ async function startServer() {
     });
   });
 
-  app.post("/api/auth/google", (req, res) => {
-    const { googleId, email, name, photoUrl } = req.body;
-    if (!googleId && !email) {
-      return res.status(400).json({ error: "Dados do Google inválidos." });
+  app.post("/api/auth/google", async (req, res) => {
+    const { idToken } = req.body || {};
+    if (typeof idToken !== "string" || !idToken) {
+      return res.status(400).json({ error: "Token de identidade Google inválido." });
     }
 
-    const users = readJSON<any[]>(USERS_FILE, []);
-    let rawUsername = email ? email.split("@")[0] : `google_${googleId}`;
-    let cleanUsername = rawUsername.toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    let claims: FirebaseIdClaims | null;
+    try {
+      claims = await verifyFirebaseIdToken(idToken);
+    } catch (error) {
+      console.error("[AUTH] Não foi possível validar a identidade Google:", error);
+      return res.status(502).json({ error: "Não foi possível validar a identidade Google." });
+    }
+    if (!claims?.sub || !claims.email) {
+      return res.status(401).json({ error: "A identidade Google não pôde ser confirmada." });
+    }
 
-    let user = users.find((u) => u.googleId === googleId || u.username === cleanUsername || (email && u.email === email));
+    const users = readJSON<Array<{
+      username: string;
+      password?: string;
+      googleId?: string;
+      email?: string;
+      name?: string;
+      photoUrl?: string;
+    }>>(USERS_FILE, []);
+    let user = users.find(account => account.googleId === claims.sub) ||
+      users.find(account => account.email?.toLowerCase() === claims.email?.toLowerCase());
 
     if (!user) {
+      const baseUsername = claims.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 80) || "google_user";
+      let username = baseUsername;
+      let suffix = 1;
+      while (users.some(account => account.username === username)) {
+        const suffixText = `_${suffix++}`;
+        username = `${baseUsername.slice(0, 80 - suffixText.length)}${suffixText}`;
+      }
       user = {
-        username: cleanUsername,
+        username,
         password: "",
-        googleId: googleId,
-        email: email,
-        name: name || cleanUsername,
-        photoUrl: photoUrl || "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+        googleId: claims.sub,
+        email: claims.email,
+        name: claims.name?.slice(0, 100) || username,
+        photoUrl: claims.picture?.slice(0, 2048) || "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
       };
       users.push(user);
-      writeJSON(USERS_FILE, users);
     } else {
-      if (name) user.name = name;
-      if (photoUrl) user.photoUrl = photoUrl;
-      if (googleId) user.googleId = googleId;
-      if (email) user.email = email;
-      writeJSON(USERS_FILE, users);
+      user.googleId = claims.sub;
+      user.email = claims.email;
+      if (claims.name) user.name = claims.name.slice(0, 100);
+      if (claims.picture) user.photoUrl = claims.picture.slice(0, 2048);
     }
+    writeJSON(USERS_FILE, users);
 
-    res.json({ success: true, sessionTicket: createSessionTicket(user.username), user });
+    res.json({
+      success: true,
+      sessionTicket: createSessionTicket(user.username),
+      user: { username: user.username, name: user.name, photoUrl: user.photoUrl },
+    });
   });
 
   app.post("/api/auth/session/claim", (req, res) => {

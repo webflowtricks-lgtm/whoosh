@@ -3,6 +3,7 @@ import { User, Lock, Mail, Shield, Sparkles, UserPlus, LogIn, Swords } from 'luc
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import { useLanguage } from '../lib/i18n';
+import { signInWithGoogle } from '../lib/firebase';
 import LanguageSelector from './LanguageSelector';
 
 const AVATAR_PRESETS = [
@@ -136,6 +137,39 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
       }, 1000);
     } catch (err: any) {
       setError(err.message || t('Falha de rede.', 'Network failure.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    playClickSound();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      const googleUser = await signInWithGoogle();
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: googleUser.idToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || t('Erro ao entrar com Google.', 'Error signing in with Google.'));
+      }
+      if (typeof data.sessionTicket !== 'string') {
+        throw new Error(t('Não foi possível iniciar uma sessão segura.', 'Could not start a secure session.'));
+      }
+
+      setSuccess(t('Conectando ao servidor...', 'Connecting to server...'));
+      setTimeout(() => {
+        onLoginSuccess(data.user, data.sessionTicket);
+      }, 800);
+    } catch (err: unknown) {
+      console.error('Google login failed:', err);
+      setError(err instanceof Error ? err.message : t('Falha ao entrar com Google.', 'Google sign-in failed.'));
     } finally {
       setLoading(false);
     }
@@ -325,6 +359,20 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
                 className="w-full py-3 bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 hover:brightness-110 active:scale-[0.98] transition text-slate-950 text-xs font-bold uppercase tracking-widest rounded-xl mt-6 flex items-center justify-center gap-2 shadow-lg shadow-orange-600/15 cursor-pointer"
               >
                 {loading ? t('Entrando...', 'Logging in...') : t('Entrar na Arena', 'Enter the Arena')}
+              </button>
+              <div className="flex items-center gap-3 text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                <span className="h-px flex-1 bg-slate-800" />
+                {t('ou', 'or')}
+                <span className="h-px flex-1 bg-slate-800" />
+              </div>
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className="w-full rounded-xl border border-white bg-white py-3 text-xs font-bold uppercase tracking-widest text-slate-900 transition hover:bg-slate-100 hover:border-slate-200 disabled:cursor-wait disabled:opacity-60 flex items-center justify-center gap-3"
+              >
+                <img src="/static/img/icon/g-google.svg" alt="" aria-hidden="true" className="h-5 w-5 object-contain" />
+                {loading ? t('Conectando...', 'Connecting...') : t('Entrar com Google', 'Continue with Google')}
               </button>
             </motion.form>
           ) : (
