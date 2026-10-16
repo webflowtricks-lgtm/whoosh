@@ -209,15 +209,6 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
               </span>
             </div>
 
-            <button
-              onClick={() => {
-                playClickSound();
-                onClose();
-              }}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer border border-slate-700"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
         </div>
 
@@ -409,6 +400,19 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
           </div>
         </div>
       </motion.div>
+
+      <button
+        type="button"
+        onClick={() => {
+          playClickSound();
+          onClose();
+        }}
+        className="fixed bottom-4 left-4 z-[55] rounded-xl border border-slate-700 bg-slate-800 p-3 text-slate-300 shadow-xl transition hover:bg-slate-700 hover:text-white"
+        aria-label="Fechar loja"
+        title="Fechar"
+      >
+        <X className="h-5 w-5" />
+      </button>
 
       {pendingPurchase && (
         <div

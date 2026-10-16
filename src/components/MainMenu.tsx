@@ -283,7 +283,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               setShowGalleryModal(true);
             }}
             className="main-menu-cards-button px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-fuchsia-500 hover:bg-slate-950 hover:text-fuchsia-400 transition-all cursor-pointer text-slate-400 font-mono text-xs flex items-center gap-2 uppercase tracking-wider font-semibold shadow"
-            title={t('Galeria Ninja Cards (Figuras Colecionáveis)', 'Ninja Cards Gallery (Collectible Figures)')}
+            title={t('Ninja Cards (Figuras Colecionáveis)', 'Ninja Cards (Collectible Figures)')}
           >
             <Images className="w-4 h-4 text-fuchsia-500" />
             <span>{t('Cards', 'Cards')}</span>

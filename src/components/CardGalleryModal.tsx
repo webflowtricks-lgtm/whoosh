@@ -105,7 +105,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
             </div>
             <div>
               <h2 className="text-lg sm:text-xl font-extrabold font-display uppercase tracking-wider text-slate-100 flex items-center gap-2">
-                {t('Galeria Ninja Cards', 'Ninja Cards Gallery')}
+                {t('Ninja Cards', 'Ninja Cards')}
                 <span className="text-[10px] font-mono bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 px-2 py-0.5 rounded-full font-bold">
                   COLECIONÁVEIS
                 </span>
@@ -177,15 +177,6 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
                 </motion.div>
               )}
             </div>
-            <button
-              onClick={() => {
-                playClickSound();
-                onClose();
-              }}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer border border-slate-700"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
         </div>
 
@@ -370,6 +361,18 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
 
         {/* Detail Modal (card flip) */}
         <AnimatePresence>
+          <button
+            type="button"
+            onClick={() => {
+              playClickSound();
+              onClose();
+            }}
+            className="fixed bottom-4 left-4 z-[55] rounded-xl border border-slate-700 bg-slate-800 p-3 text-slate-300 shadow-xl transition hover:bg-slate-700 hover:text-white"
+            aria-label={t('Fechar álbum', 'Close album')}
+            title={t('Fechar', 'Close')}
+          >
+            <X className="h-5 w-5" />
+          </button>
           {selectedCard && (
             <motion.div
               initial={false}
