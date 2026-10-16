@@ -52,7 +52,7 @@ export const CARD_RARITY_META: Record<CardRarity, {
     chip: 'bg-amber-500/15 text-amber-300 border-amber-400/40',
   },
   secreto: {
-    label: 'Secreto',
+    label: 'Mítico',
     points: 50,
     border: 'border-red-500',
     glow: 'shadow-red-500/40',

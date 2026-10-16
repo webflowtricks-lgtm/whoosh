@@ -71,6 +71,7 @@ export default function LobbyScreen({
 }: LobbyScreenProps) {
   const { t } = useLanguage();
   const [modal, setModal] = useState<LobbyModal>(null);
+  const [shopInitialTab, setShopInitialTab] = useState<'all' | 'bundle'>('all');
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [characters, setCharacters] = useState<Character[]>(() => getCharacters());
@@ -258,6 +259,7 @@ export default function LobbyScreen({
       onStartGame();
       return;
     }
+    if (next === 'shop') setShopInitialTab('all');
     setModal(next);
   };
 
@@ -727,7 +729,7 @@ export default function LobbyScreen({
       )}
 
       <GameManualModal isOpen={modal === 'help'} onClose={() => setModal(null)} playClickSound={playClickSound} />
-      {user && modal === 'shop' && <ShopModal user={user} onClose={() => setModal(null)} onUpdateUser={updateUser} playClickSound={playClickSound} playScrollSound={playScrollSound} />}
+      {user && modal === 'shop' && <ShopModal user={user} initialTab={shopInitialTab} onClose={() => { setShopInitialTab('all'); setModal(null); }} onUpdateUser={updateUser} playClickSound={playClickSound} playScrollSound={playScrollSound} />}
       {user && modal === 'events' && <EventsModal user={user} onClose={() => setModal(null)} onUpdateUser={updateUser} playClickSound={playClickSound} />}
       {user && modal === 'profile' && (
         <ProfileCardModal
@@ -760,7 +762,15 @@ export default function LobbyScreen({
         <ProfileModal user={user} onClose={() => setProfileEditorOpen(false)} onUpdateUser={updateUser} playClickSound={playClickSound} playUahSound={playUahSound} playScrollSound={playScrollSound} />
       )}
       {user && modal === 'cards' && (
-        <CardGalleryModal user={user} onClose={() => setModal(null)} onUpdateUser={updateUser} playClickSound={playClickSound} />
+        <CardGalleryModal
+          user={user}
+          onClose={() => setModal(null)}
+          playClickSound={playClickSound}
+          onOpenShopPacks={() => {
+            setShopInitialTab('bundle');
+            setModal('shop');
+          }}
+        />
       )}
     </main>
   );

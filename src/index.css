@@ -3220,6 +3220,15 @@ e-squad-name {
   display: none;
 }
 
+.shop-modal-tabs {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.shop-modal-tabs::-webkit-scrollbar {
+  display: none;
+}
+
 /* =========================================================
    📱 MOBILE VERTICAL (RETRATO) — grid mais compacto
    =========================================================

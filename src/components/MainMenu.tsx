@@ -428,8 +428,21 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
           <CardGalleryModal
             user={user}
             onClose={() => setShowGalleryModal(false)}
+            playClickSound={playClickSound}
+            onOpenShopPacks={() => {
+              setShowGalleryModal(false);
+              setShowShopModal(true);
+            }}
+          />
+        )}
+        {user && showShopModal && (
+          <ShopModal
+            user={user}
+            initialTab="bundle"
+            onClose={() => setShowShopModal(false)}
             onUpdateUser={handleUserUpdate}
             playClickSound={playClickSound}
+            playScrollSound={playScrollSound}
           />
         )}
       </AnimatePresence>

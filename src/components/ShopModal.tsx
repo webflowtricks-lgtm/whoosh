@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ShoppingBag, ShoppingCart, Sparkles, Check, Award, Shield, CircleDollarSign, UserCheck, Shirt } from 'lucide-react';
 import { UserProfile, ShopItem } from '../types';
@@ -15,13 +15,27 @@ interface ShopModalProps {
   onUpdateUser: (updatedUser: UserProfile) => void;
   playClickSound: () => void;
   playScrollSound: () => void;
+  initialTab?: 'all' | 'skin' | 'title' | 'frame' | 'bundle';
 }
 
-export default function ShopModal({ user, onClose, onUpdateUser, playClickSound, playScrollSound }: ShopModalProps) {
+export default function ShopModal({ user, onClose, onUpdateUser, playClickSound, playScrollSound, initialTab = 'all' }: ShopModalProps) {
   const [items, setItems] = useState<ShopItem[]>(() => getShopItems());
-  const [activeTab, setActiveTab] = useState<'all' | 'skin' | 'title' | 'frame' | 'bundle'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'skin' | 'title' | 'frame' | 'bundle'>(initialTab);
   const [purchaseToast, setPurchaseToast] = useState<string | null>(null);
   const [pendingPurchase, setPendingPurchase] = useState<ShopItem | null>(null);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+
+  const selectTab = (tab: typeof activeTab, button: HTMLButtonElement) => {
+    playScrollSound();
+    setActiveTab(tab);
+    const tabsContainer = tabsContainerRef.current;
+    if (!tabsContainer) return;
+    const containerRect = tabsContainer.getBoundingClientRect();
+    const buttonRect = button.getBoundingClientRect();
+    const centeredScrollLeft = tabsContainer.scrollLeft +
+      buttonRect.left - containerRect.left - (containerRect.width - buttonRect.width) / 2;
+    tabsContainer.scrollTo({ left: centeredScrollLeft, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     fetchShopItemsFromServer().then(setItems);
@@ -176,36 +190,36 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         initial={false}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="relative w-full max-w-5xl h-[88vh] max-h-[800px] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100"
+        className="relative w-full max-w-5xl h-[88vh] max-h-[800px] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-800"
       >
         {/* Top Header Bar with Currencies */}
-        <div className="p-4 sm:p-5 bg-slate-950/90 border-b border-slate-800 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 z-10">
+        <div className="p-4 sm:p-5 bg-white border-b border-slate-200 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 z-10">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+            <div className="p-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-600">
               <ShoppingBag className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-extrabold font-display uppercase tracking-wider text-slate-100 flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-extrabold font-display uppercase tracking-wider text-slate-900 flex items-center gap-2">
                 Loja Shinobi
-                <span className="text-[10px] font-mono bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                <span className="text-[10px] font-mono bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full font-bold">
                   SHOP
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">Adquira molduras de perfil, títulos honrosos e pacotes de moedas!</p>
+              <p className="text-xs text-slate-500">Adquira molduras de perfil, títulos honrosos e pacotes de moedas!</p>
             </div>
           </div>
 
           {/* User Balance Pills & Close */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800 shadow-inner">
-              <span className="text-xs font-mono text-amber-400 font-extrabold flex items-center gap-1.5">
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+              <span className="text-xs font-mono text-orange-700 font-extrabold flex items-center gap-1.5">
                 <img src="/static/img/icon/gold.webp" alt="" className="h-4 w-4 object-contain" />
-                {ryos.toLocaleString()} <span className="text-[10px] text-slate-400">Moedas</span>
+                {ryos.toLocaleString()} <span className="text-[10px] text-slate-500">Moedas</span>
               </span>
-              <div className="h-4 w-px bg-slate-800" />
-              <span className="text-xs font-mono text-cyan-400 font-extrabold flex items-center gap-1.5">
+              <div className="h-4 w-px bg-slate-200" />
+              <span className="text-xs font-mono text-blue-700 font-extrabold flex items-center gap-1.5">
                 <img src="/static/img/icon/ryo.webp" alt="" className="h-4 w-4 object-contain" />
-                {gems.toLocaleString()} <span className="text-[10px] text-slate-400">Ryos</span>
+                {gems.toLocaleString()} <span className="text-[10px] text-slate-500">Ryos</span>
               </span>
             </div>
 
@@ -219,16 +233,16 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xl border border-amber-400/40 flex items-center gap-2"
+              className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-blue-600 to-orange-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xl border border-blue-300/60 flex items-center gap-2"
             >
-              <Sparkles className="w-4 h-4 text-yellow-300" />
+              <Sparkles className="w-4 h-4 text-white" />
               <span>{purchaseToast}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Categories Tab Navigation */}
-        <div className="p-3 border-b border-slate-800/80 flex items-center gap-3 overflow-x-auto">
+        <div ref={tabsContainerRef} className="shop-modal-tabs p-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2 overflow-x-auto">
           {[
             { id: 'all', label: 'Todos os Itens', icon: ShoppingBag },
             { id: 'title', label: 'Títulos', icon: Award },
@@ -241,19 +255,15 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
             return (
               <button
                 key={tab.id}
-                onClick={() => {
-                  playScrollSound();
-                  setActiveTab(tab.id as any);
-                }}
+                onClick={event => selectTab(tab.id as typeof activeTab, event.currentTarget)}
                 data-sound="Scroll"
-                className={`relative px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+                className={`flex-shrink-0 px-3 sm:px-4 py-2 rounded-xl border text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
                   isActive
-                    ? 'text-amber-950 brightness-110'
-                    : 'text-stone-800 opacity-70 hover:opacity-100'
+                    ? 'bg-blue-600 border-blue-700 text-white shadow-md shadow-blue-600/20'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700'
                 }`}
               >
-                <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
-                <span className="relative z-10 font-brush text-[13px] tracking-wider flex items-center gap-2 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+                <span className="flex items-center gap-2">
                   <Icon className="w-4 h-4" />
                   <span>{tab.label}</span>
                 </span>
@@ -263,7 +273,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         </div>
 
         {/* Shop Items Grid */}
-        <div className="flex-1 p-2.5 sm:p-4 overflow-y-auto">
+        <div className="flex-1 bg-slate-50/70 p-2.5 sm:p-4 overflow-y-auto">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {filteredItems.map(item => {
               const isUnlockedFrame = item.category === 'frame' && unlockedFrames.includes(item.name);
@@ -277,11 +287,11 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
               return (
                 <div
                   key={item.id}
-                  className="relative min-w-0 rounded-xl border border-slate-800 bg-slate-900/80 p-1.5 shadow-xl transition-colors hover:border-slate-700 hover:bg-slate-900 sm:rounded-2xl sm:p-3"
+                  className="relative min-w-0 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-900/10 sm:rounded-2xl sm:p-3"
                 >
-                  <div className="relative aspect-square overflow-hidden rounded-lg border border-slate-800/80 bg-slate-950/80 sm:rounded-xl">
+                  <div className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:rounded-xl">
                     {item.badge && (
-                      <span className="absolute left-1 top-1 z-10 max-w-[80%] truncate rounded bg-slate-950/80 px-1 py-0.5 text-[7px] font-mono font-bold uppercase text-orange-300 sm:text-[9px]">
+                      <span className="absolute left-1 top-1 z-10 max-w-[80%] truncate rounded border border-orange-200 bg-orange-50 px-1 py-0.5 text-[7px] font-mono font-bold uppercase text-orange-700 sm:text-[9px]">
                         {item.badge}
                       </span>
                     )}
@@ -295,10 +305,10 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                               className="h-full w-full rounded-lg object-cover"
                             />
                           ) : (
-                            <Shirt className="h-8 w-8 text-orange-400 sm:h-10 sm:w-10" />
+                            <Shirt className="h-8 w-8 text-blue-500 sm:h-10 sm:w-10" />
                           )}
                           {item.characterName && (
-                            <span className="absolute bottom-0.5 left-0.5 max-w-full truncate rounded border border-slate-800 bg-slate-950/80 px-1 py-0.5 font-mono text-[7px] font-bold text-orange-300 sm:bottom-1 sm:left-1 sm:px-1.5 sm:text-[9px]">
+                            <span className="absolute bottom-0.5 left-0.5 max-w-full truncate rounded border border-blue-200 bg-white/95 px-1 py-0.5 font-mono text-[7px] font-bold text-blue-700 sm:bottom-1 sm:left-1 sm:px-1.5 sm:text-[9px]">
                               {item.characterName}
                             </span>
                           )}
@@ -306,7 +316,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                       )}
 
                       {item.category === 'frame' && (
-                        <div className={`relative h-12 w-12 rounded-full p-1 sm:h-16 sm:w-16 ${item.frameStyle || 'border-2 border-orange-500'}`}>
+                        <div className={`relative h-12 w-12 rounded-full p-1 sm:h-16 sm:w-16 ${item.frameStyle || 'border-2 border-blue-500'}`}>
                           {item.frameImageUrl ? (
                             <img
                               src={item.frameImageUrl}
@@ -329,9 +339,9 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                           {item.icon ? (
                             <img src={item.icon} alt="" className="mx-auto h-10 w-10 object-contain sm:h-12 sm:w-12" />
                           ) : (
-                            <Award className="mx-auto h-7 w-7 text-amber-400 sm:h-8 sm:w-8" />
+                            <Award className="mx-auto h-7 w-7 text-orange-500 sm:h-8 sm:w-8" />
                           )}
-                          <p className="line-clamp-2 rounded border border-amber-500/20 bg-amber-500/10 px-1 py-0.5 text-[8px] font-mono font-black uppercase tracking-wider text-amber-300 sm:px-2 sm:py-1 sm:text-xs">
+                          <p className="line-clamp-2 rounded border border-orange-200 bg-orange-50 px-1 py-0.5 text-[8px] font-mono font-black uppercase tracking-wider text-orange-700 sm:px-2 sm:py-1 sm:text-xs">
                             {item.name}
                           </p>
                         </div>
@@ -342,9 +352,9 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                           {item.icon ? (
                             <img src={item.icon} alt="" className="mx-auto h-10 w-10 object-contain sm:h-12 sm:w-12" />
                           ) : (
-                            <CircleDollarSign className="mx-auto h-8 w-8 text-cyan-400 sm:h-10 sm:w-10" />
+                            <CircleDollarSign className="mx-auto h-8 w-8 text-blue-500 sm:h-10 sm:w-10" />
                           )}
-                          <p className="text-[8px] font-mono font-bold text-cyan-300 sm:text-xs">
+                          <p className="text-[8px] font-mono font-bold text-blue-700 sm:text-xs">
                             +{item.bundleGrant?.amount} moedas
                           </p>
                         </div>
@@ -353,13 +363,13 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                   </div>
 
                   <div className="mt-1 min-w-0">
-                    <h3 className="truncate text-[9px] font-extrabold tracking-tight text-slate-100 sm:text-sm" title={item.name}>
+                    <h3 className="truncate text-[9px] font-extrabold tracking-tight text-slate-800 sm:text-sm" title={item.name}>
                       {item.name}
                     </h3>
                   </div>
 
-                  <div className="mt-1.5 flex items-center justify-between gap-1 border-t border-slate-800/80 pt-1.5 sm:mt-2 sm:pt-2">
-                    <span className="flex min-w-0 items-center gap-1 whitespace-nowrap text-xs font-mono font-extrabold text-amber-300 sm:gap-1.5 sm:text-sm">
+                  <div className="mt-1.5 flex items-center justify-between gap-1 border-t border-slate-200 pt-1.5 sm:mt-2 sm:pt-2">
+                    <span className={`flex min-w-0 items-center gap-1 whitespace-nowrap text-xs font-mono font-extrabold sm:gap-1.5 sm:text-sm ${item.currency === 'ryos' ? 'text-orange-700' : 'text-blue-700'}`}>
                       <img
                         src={item.currency === 'ryos' ? '/static/img/icon/gold.webp' : '/static/img/icon/ryo.webp'}
                         alt=""
@@ -376,7 +386,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                         onClick={() => handleBuyOrEquip(item)}
                         aria-label={`Equipar ${item.name}`}
                         title="Equipar"
-                        className="rounded-lg border border-slate-600 bg-slate-800 p-1 text-slate-200 transition hover:bg-slate-700"
+                        className="rounded-lg border border-blue-200 bg-blue-50 p-1 text-blue-700 transition hover:bg-blue-100"
                       >
                         <UserCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </button>
@@ -388,7 +398,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                         }}
                         aria-label={`Comprar ${item.name}`}
                         title="Comprar"
-                        className="rounded-lg border border-amber-400/50 bg-gradient-to-br from-amber-500 to-orange-600 p-1 text-slate-950 shadow-md shadow-orange-600/20 transition hover:from-amber-400 hover:to-orange-500 active:scale-95"
+                        className="rounded-lg border border-blue-700 bg-blue-600 p-1 text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 active:scale-95"
                       >
                         <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </button>
@@ -407,7 +417,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
           playClickSound();
           onClose();
         }}
-        className="fixed bottom-4 left-4 z-[55] rounded-xl border border-slate-700 bg-slate-800 p-3 text-slate-300 shadow-xl transition hover:bg-slate-700 hover:text-white"
+        className="fixed bottom-4 left-4 z-[55] rounded-xl border border-slate-200 bg-white p-3 text-slate-600 shadow-xl transition hover:bg-slate-100 hover:text-slate-900"
         aria-label="Fechar loja"
         title="Fechar"
       >
@@ -416,7 +426,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
 
       {pendingPurchase && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/75 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
           role="presentation"
           onClick={() => setPendingPurchase(null)}
         >
@@ -447,7 +457,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                 </span>
                 {' '}em
               </p>
-              <h3 id="shop-purchase-title" className="max-w-full break-words text-2xl font-black leading-tight text-orange-700 drop-shadow-sm sm:text-3xl">
+              <h3 id="shop-purchase-title" className="max-w-full break-words text-2xl font-black leading-tight text-orange-700 sm:text-3xl">
                 {pendingPurchase.name}?
               </h3>
               <div className="mt-1 flex w-full justify-center gap-3">
@@ -457,7 +467,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                     playClickSound();
                     setPendingPurchase(null);
                   }}
-                  className="rounded-lg border border-red-900/60 bg-red-800/90 px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-md transition hover:bg-red-700 sm:text-sm"
+                  className="rounded-lg border border-orange-600 bg-white px-4 py-2 text-xs font-black uppercase tracking-wide text-orange-700 transition hover:bg-orange-50 sm:text-sm"
                 >
                   Cancelar
                 </button>
@@ -467,7 +477,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                     handleBuyOrEquip(pendingPurchase);
                     setPendingPurchase(null);
                   }}
-                  className="rounded-lg border border-emerald-900/50 bg-emerald-700/95 px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-md transition hover:bg-emerald-600 sm:text-sm"
+                  className="rounded-lg border border-blue-700 bg-blue-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 sm:text-sm"
                 >
                   Confirmar
                 </button>

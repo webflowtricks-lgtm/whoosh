@@ -5,10 +5,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Images, Lock, Star, Package, Sparkles, Check } from 'lucide-react';
+import { X, Images, Lock, Star, ShoppingBag, Check } from 'lucide-react';
 import { UserProfile, NinjaCard, CardRarity } from '../types';
-import { getCards, fetchCardsFromServer, CARD_RARITY_META, RARITY_ORDER, getPacks, fetchPacksFromServer, rarityFx } from '../lib/cardStorage';
-import { NinjaPack } from '../types';
+import { getCards, fetchCardsFromServer, CARD_RARITY_META, RARITY_ORDER, rarityFx } from '../lib/cardStorage';
 import { useCollection } from '../lib/collection';
 import { useLanguage } from '../lib/i18n';
 
@@ -17,6 +16,7 @@ interface CardGalleryModalProps {
   onClose: () => void;
   onUpdateUser?: (updatedUser: UserProfile) => void;
   playClickSound: () => void;
+  onOpenShopPacks: () => void;
 }
 
 function cardImage(card: NinjaCard): string {
@@ -24,53 +24,19 @@ function cardImage(card: NinjaCard): string {
   return `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${card.slug}/icon.jpg`;
 }
 
-const PACK_COST = 20;
-
-export default function CardGalleryModal({ user, onClose, onUpdateUser, playClickSound }: CardGalleryModalProps) {
+export default function CardGalleryModal({ user, onClose, playClickSound, onOpenShopPacks }: CardGalleryModalProps) {
   const { t } = useLanguage();
   const [cards, setCards] = useState<NinjaCard[]>(() => getCards());
-  const [packs, setPacks] = useState<NinjaPack[]>(() => getPacks());
-  const [selectedPackId, setSelectedPackId] = useState<string>(() => (getPacks()[0]?.id || ''));
-  const [showPackPicker, setShowPackPicker] = useState(false);
   const [rarityFilter, setRarityFilter] = useState<CardRarity | 'todas'>('todas');
   const [ownedOnly, setOwnedOnly] = useState(false);
   const [selectedCard, setSelectedCard] = useState<NinjaCard | null>(null);
-  const [packToast, setPackToast] = useState<string | null>(null);
 
-  const { owned, openPack } = useCollection(user, onUpdateUser, cards);
+  const { owned } = useCollection(user, undefined, cards);
   const gems = user.gems ?? 0;
 
   useEffect(() => {
     fetchCardsFromServer().then(setCards);
-    fetchPacksFromServer().then(loadedPacks => {
-      setPacks(loadedPacks);
-      if (!loadedPacks.some(p => p.id === selectedPackId)) {
-        setSelectedPackId(loadedPacks[0]?.id || '');
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const selectedPack = packs.find(p => p.id === selectedPackId) || packs[0];
-
-  const handleOpenPack = (pack: NinjaPack) => {
-    playClickSound();
-    if (gems < pack.price) {
-      setPackToast(t('Ryos insuficientes!', 'Not enough Ryos!'));
-      setTimeout(() => setPackToast(null), 3000);
-      return;
-    }
-    if (!onUpdateUser) {
-      setPackToast(t('Faça login para abrir pacotes.', 'Log in to open packs.'));
-      setTimeout(() => setPackToast(null), 3000);
-      return;
-    }
-    const result = openPack(cards, { count: pack.cardsPerPack, gemsCost: pack.price, pack });
-    const labels = result.granted.map(c => `${CARD_RARITY_META[c.rarity].label} · ${c.characterName}`).join(' | ');
-    setPackToast(labels ? t('Pacote aberto: ', 'Pack opened: ') + labels : t('Pacote aberto (sem novidades).', 'Pack opened (nothing new).'));
-    setShowPackPicker(false);
-    setTimeout(() => setPackToast(null), 5000);
-  };
 
   const filtered = cards.filter(card => {
     if (rarityFilter !== 'todas' && card.rarity !== rarityFilter) return false;
@@ -81,7 +47,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
   const ownedCount = cards.filter(c => owned.has(c.id)).length;
   const totalCount = cards.length;
   const completionPct = totalCount === 0 ? 0 : Math.round((ownedCount / totalCount) * 100);
-  const totalPoints = cards.reduce((acc, c) => acc + (owned.has(c.id) ? c.points : 0), 0);
+  const cardNumber = (id: string) => (cards.findIndex(card => card.id === id) + 1).toString().padStart(3, '0');
 
   const byRarity = RARITY_ORDER.map(r => {
     const total = cards.filter(c => c.rarity === r).length;
@@ -90,181 +56,97 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
   });
 
   return (
-    <div className="fixed inset-0 bg-slate-950/90 z-50 flex items-center justify-center backdrop-blur-md p-3 sm:p-6 select-none gpu-accelerated" data-no-uah>
+    <div className="fixed inset-0 bg-slate-950/55 z-50 flex items-center justify-center backdrop-blur-md p-3 sm:p-6 select-none gpu-accelerated" data-no-uah>
       <motion.div
         initial={false}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="relative w-full max-w-5xl h-[88vh] max-h-[800px] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100"
+        className="relative w-full max-w-5xl h-[88vh] max-h-[800px] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-800"
       >
         {/* Top Header Bar */}
-        <div className="p-4 sm:p-5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between gap-4 z-10">
+        <div className="p-4 sm:p-5 bg-white border-b border-slate-200 flex items-center justify-between gap-4 z-10">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/30 text-fuchsia-400">
-              <Images className="w-6 h-6" />
-            </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-extrabold font-display uppercase tracking-wider text-slate-100 flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-extrabold font-display uppercase tracking-wider text-slate-900 flex items-center gap-2">
                 {t('Ninja Cards', 'Ninja Cards')}
-                <span className="text-[10px] font-mono bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 px-2 py-0.5 rounded-full font-bold">
-                  COLECIONÁVEIS
-                </span>
               </h2>
-              <p className="text-xs text-slate-400">
-                {t('Figuras estéticas de seus ninjas favoritos. Sem poder — apenas coleção.', 'Aesthetic figures of your favorite ninjas. No power — just collection.')}
-              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Pack button */}
-            <div className="relative">
-              <button
-                onClick={() => { playClickSound(); setShowPackPicker(v => !v); }}
-                disabled={!onUpdateUser}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer border ${
-                  !onUpdateUser
-                    ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 border-fuchsia-400/50 text-white shadow-lg shadow-fuchsia-600/20 active:scale-95'
-                }`}
-                title={t('Abrir pacote de figuras', 'Open figure pack')}
-              >
-                <Package className="w-4 h-4" />
-                <span>{t('Pacote', 'Pack')}</span>
-                <span className="flex items-center gap-0.5"><img src="/static/img/icon/ryo.webp" alt="" className="h-3.5 w-3.5 object-contain" />{selectedPack ? selectedPack.price : PACK_COST}</span>
-              </button>
-
-              {showPackPicker && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  className="absolute right-0 top-full mt-2 w-64 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-2 space-y-1 z-50"
-                >
-                  {packs.length === 0 && (
-                    <div className="p-3 text-[11px] text-slate-500 font-mono">{t('Nenhum pacote disponível.', 'No packs available.')}</div>
-                  )}
-                  {packs.map(pack => {
-                    const active = pack.id === selectedPackId;
-                    return (
-                      <button
-                        key={pack.id}
-                        onClick={() => {
-                          playClickSound();
-                          setSelectedPackId(pack.id);
-                          handleOpenPack(pack);
-                        }}
-                        className={`w-full text-left p-2.5 rounded-xl border transition flex items-center gap-2.5 ${
-                          active ? 'bg-fuchsia-500/10 border-fuchsia-500/40' : 'bg-slate-950/60 border-slate-800 hover:border-slate-600'
-                        }`}
-                      >
-                        <div className="w-9 h-9 rounded-lg overflow-hidden border border-slate-700 flex items-center justify-center bg-slate-800 flex-shrink-0">
-                          {pack.imageUrl ? (
-                            <img src={pack.imageUrl} alt={pack.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <Package className="w-4 h-4 text-purple-400" />
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-100 truncate">{pack.name}</p>
-                          <p className="text-[10px] font-mono text-slate-400">
-                            <span className="inline-flex items-center gap-1"><img src="/static/img/icon/ryo.webp" alt="" className="h-3.5 w-3.5 object-contain" />{pack.price}</span> • {pack.cardsPerPack} {t('cards', 'cards')} • {(pack.allowedRarities || []).length > 0 ? pack.allowedRarities.map(r => CARD_RARITY_META[r].label).join(', ') : t('qualquer', 'any')}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </motion.div>
-              )}
-            </div>
+            <button
+              onClick={() => { playClickSound(); onOpenShopPacks(); }}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer border bg-blue-600 hover:bg-blue-700 border-blue-700 text-white shadow-md shadow-blue-600/20 active:scale-95"
+              title={t('Ver pacotes na loja', 'View packs in the shop')}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>{t('Pacotes', 'Packs')}</span>
+            </button>
           </div>
         </div>
 
-        {/* Pack reveal toast */}
-        <AnimatePresence>
-          {packToast && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xl border border-fuchsia-400/40 flex items-center gap-2 max-w-[90%] flex-wrap"
-            >
-              <Sparkles className="w-4 h-4 text-yellow-200 flex-shrink-0" />
-              <span>{packToast}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Collection Overview */}
-        <div className="bg-slate-950/60 p-4 border-b border-slate-800/80 space-y-3">
+        <div className="bg-slate-50 p-4 border-b border-slate-200 space-y-3">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">{t('Coleção', 'Collection')}</span>
-              <span className="text-lg font-black text-amber-300 font-mono">{ownedCount}<span className="text-slate-500 text-sm font-semibold">/{totalCount}</span></span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">{t('Coleção', 'Collection')}</span>
+              <span className="text-lg font-black text-slate-900 font-mono">{ownedCount}<span className="text-slate-400 text-sm font-semibold">/{totalCount}</span></span>
             </div>
             <div className="flex-1 min-w-[120px]">
-              <div className="h-2.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+              <div className="h-2.5 w-full bg-white rounded-full overflow-hidden border border-slate-200">
                 <div
                   className="h-full bg-gradient-to-r from-fuchsia-500 via-purple-500 to-amber-400 transition-all duration-500"
                   style={{ width: `${completionPct}%` }}
                 />
               </div>
-              <div className="text-[9px] font-mono text-slate-400 mt-1">{completionPct}% {t('concluída', 'complete')}</div>
+              <div className="text-[9px] font-mono text-slate-500 mt-1">{completionPct}% {t('concluída', 'complete')}</div>
             </div>
-            <div className="flex items-center gap-1 text-amber-400 text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
-              <Star className="w-3.5 h-3.5" />
-              {totalPoints} pts
-            </div>
-            <div className="flex items-center gap-1 text-cyan-400 text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+            <div className="flex items-center gap-1 text-cyan-700 text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-cyan-50 border border-cyan-200">
               <img src="/static/img/icon/ryo.webp" alt="" className="h-4 w-4 object-contain" />
               {gems}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {byRarity.map(({ rarity, total, owned: ownedN }) => {
-              const meta = CARD_RARITY_META[rarity];
-              return (
-                <span key={rarity} className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold border ${meta.chip} flex items-center gap-1`}>
-                  {ownedN}/{total}
-                  <span className={meta.text}>◆ {meta.label}</span>
-                </span>
-              );
-            })}
-          </div>
         </div>
 
         {/* Filters */}
-        <div className="p-3 border-b border-slate-800/80 flex items-center gap-3 overflow-x-auto flex-wrap">
+        <div className="p-3 bg-white border-b border-slate-200 flex items-center gap-3 overflow-x-auto flex-wrap">
           <button
             onClick={() => { playClickSound(); setRarityFilter('todas'); }}
-            className={`relative px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer whitespace-nowrap ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer whitespace-nowrap ${
               rarityFilter === 'todas'
-                ? 'text-amber-950 brightness-110'
-                : 'text-stone-800 opacity-70 hover:opacity-100'
+                ? 'bg-slate-900 border-slate-900 text-white shadow-sm'
+                : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800'
             }`}
           >
-            <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
-            <span className="relative z-10 font-brush text-[12px] tracking-wider drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+            <span>
               {t('Todas', 'All')}
             </span>
+            <span className={`text-[10px] font-mono font-bold ${rarityFilter === 'todas' ? 'text-blue-300' : 'text-blue-600'}`}>
+              {ownedCount}/{totalCount}
+            </span>
           </button>
-          {RARITY_ORDER.map(r => {
-            const meta = CARD_RARITY_META[r];
-            const isActive = rarityFilter === r;
+          {byRarity.map(({ rarity, total, owned: rarityOwned }) => {
+            const meta = CARD_RARITY_META[rarity];
+            const isActive = rarityFilter === rarity;
+            const rarityFilterColors: Record<CardRarity, string> = {
+              comum: isActive ? 'bg-slate-600 border-slate-600 text-white' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200',
+              raro: isActive ? 'bg-sky-600 border-sky-600 text-white' : 'bg-sky-100 border-sky-300 text-sky-800 hover:bg-sky-200',
+              epico: isActive ? 'bg-fuchsia-600 border-fuchsia-600 text-white' : 'bg-fuchsia-100 border-fuchsia-300 text-fuchsia-800 hover:bg-fuchsia-200',
+              lendario: isActive ? 'bg-amber-500 border-amber-500 text-white' : 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200',
+              secreto: isActive ? 'bg-red-600 border-red-600 text-white' : 'bg-red-100 border-red-300 text-red-800 hover:bg-red-200',
+            };
             return (
               <button
-                key={r}
-                onClick={() => { playClickSound(); setRarityFilter(r); }}
-                className={`relative px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer whitespace-nowrap ${
-                  isActive
-                    ? 'text-amber-950 brightness-110'
-                    : 'text-stone-800 opacity-70 hover:opacity-100'
-                }`}
+                key={rarity}
+                onClick={() => { playClickSound(); setRarityFilter(rarity); }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer whitespace-nowrap ${rarityFilterColors[rarity]}`}
               >
-                <img src="/static/img/ui/tab-wood.webp" alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-fill pointer-events-none" />
-                <span className="relative z-10 font-brush text-[12px] tracking-wider flex items-center gap-1.5 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]">
+                <span className="flex items-center gap-1.5">
                   {meta.label}
                   {isActive && <Check className="w-3 h-3" />}
+                </span>
+                <span className={`text-[10px] font-mono font-bold ${isActive ? 'text-blue-300' : 'text-blue-600'}`}>
+                  {rarityOwned}/{total}
                 </span>
               </button>
             );
@@ -274,8 +156,8 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
               onClick={() => { playClickSound(); setOwnedOnly(v => !v); }}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer whitespace-nowrap border flex items-center gap-1.5 ${
                 ownedOnly
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-md shadow-emerald-600/25'
+                  : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800'
               }`}
             >
               <Star className="w-3 h-3" />
@@ -288,7 +170,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
         <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
           {filtered.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-500 font-mono text-sm">
-              <Images className="w-12 h-12 text-slate-700 mb-3" />
+              <Images className="w-12 h-12 text-slate-300 mb-3" />
               <p>{t('Nenhuma figura nesse filtro.', 'No figures match this filter.')}</p>
             </div>
           ) : (
@@ -346,7 +228,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
                       </p>
                       {isOwned ? (
                         <p className={`text-[8px] font-mono font-bold uppercase tracking-wider ${meta.text}`}>
-                          {card.title}
+                          #{cardNumber(card.id)}
                         </p>
                       ) : (
                         <p className="text-[8px] font-mono text-slate-600 uppercase tracking-wider">{t('Não coletada', 'Not collected')}</p>
@@ -367,7 +249,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
               playClickSound();
               onClose();
             }}
-            className="fixed bottom-4 left-4 z-[55] rounded-xl border border-slate-700 bg-slate-800 p-3 text-slate-300 shadow-xl transition hover:bg-slate-700 hover:text-white"
+            className="fixed bottom-4 left-4 z-[55] rounded-xl border border-slate-200 bg-white p-3 text-slate-600 shadow-xl transition hover:bg-slate-100 hover:text-slate-900"
             aria-label={t('Fechar álbum', 'Close album')}
             title={t('Fechar', 'Close')}
           >
@@ -402,7 +284,7 @@ export default function CardGalleryModal({ user, onClose, onUpdateUser, playClic
                     </div>
                     <div className="absolute bottom-0 inset-x-0 p-4 space-y-2">
                       <p className={`text-xs font-mono font-bold uppercase tracking-wider ${CARD_RARITY_META[selectedCard.rarity].text}`}>
-                        {selectedCard.title}
+                        #{cardNumber(selectedCard.id)}
                       </p>
                       <h3 className="text-xl font-black text-white leading-tight">{selectedCard.characterName}</h3>
                       {selectedCard.variant && (

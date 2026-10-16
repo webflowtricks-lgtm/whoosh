@@ -609,7 +609,7 @@ export default function ProfileCardModal({
                         #{String(num).padStart(3, '0')}
                       </span>
                       <span className={`absolute bottom-0.5 right-0.5 text-[5px] font-mono font-black uppercase px-1 py-px rounded ${CARD_RARITY_META[c.rarity].chip}`}>
-                        {c.rarity}
+                        {CARD_RARITY_META[c.rarity].label}
                       </span>
                     </>
                   );
@@ -690,7 +690,7 @@ export default function ProfileCardModal({
                   <div className={`relative ${isLandscape ? 'w-50 sm:w-55' : 'w-56 sm:w-64'} aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
                     <img src={cardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
                     <span className={`absolute top-2 right-2 text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
-                      {lightboxCard.rarity}
+                      {CARD_RARITY_META[lightboxCard.rarity].label}
                     </span>
                   </div>
                 </Tilt3D>
@@ -698,7 +698,7 @@ export default function ProfileCardModal({
                 <div className={`relative ${isLandscape ? 'w-50 sm:w-55' : 'w-56 sm:w-64'} aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
                   <img src={cardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
                   <span className={`absolute top-2 right-2 text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
-                    {lightboxCard.rarity}
+                    {CARD_RARITY_META[lightboxCard.rarity].label}
                   </span>
                 </div>
               )}
@@ -706,7 +706,7 @@ export default function ProfileCardModal({
               {/* Informações da figurinha (fora da imagem) */}
               <div className={`${isLandscape ? 'text-left max-w-[190px] mt-0' : 'mt-3 text-center max-w-xs'} flex-shrink-0`}>
                 <span className={`inline-block text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded mb-1 ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
-                  #{(ownedCards.findIndex(x => x.id === lightboxCard.id) + 1).toString().padStart(3, '0')} • {lightboxCard.rarity}
+                  #{(ownedCards.findIndex(x => x.id === lightboxCard.id) + 1).toString().padStart(3, '0')} • {CARD_RARITY_META[lightboxCard.rarity].label}
                 </span>
                 {lightboxCard.title && (
                   <p className="text-white text-sm font-extrabold leading-tight">{lightboxCard.title}</p>

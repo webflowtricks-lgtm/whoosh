@@ -209,7 +209,9 @@
       "itachi-genjutsu-supremo"
     ],
     "ryos": 6500,
-    "gems": 5020
+    "gems": 5020,
+    "village": "kumogakure",
+    "villageChangeCount": 0
   },
   {
     "username": "111",
@@ -246,7 +248,9 @@
     "collectedCardIds": [],
     "ryos": 0,
     "gems": 120,
-    "title": "Lenda dos Sannin"
+    "title": "Lenda dos Sannin",
+    "village": "kumogakure",
+    "villageChangeCount": 0
   },
   {
     "username": "444",

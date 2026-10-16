@@ -634,7 +634,7 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
                     <img src={cardImage(editingCard)} alt={editingCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
                     {(() => { const fx = rarityFx(editingCard.rarity); return fx ? <span className={fx.sweep} /> : null; })()}
                     <span className={`absolute top-1.5 right-1.5 text-[8px] font-mono font-black uppercase px-1.5 py-0.5 rounded ${CARD_RARITY_META[editingCard.rarity].chip}`}>
-                      {editingCard.rarity === 'secreto' ? '??? ' : ''}{editingCard.rarity}
+                      {CARD_RARITY_META[editingCard.rarity].label}
                     </span>
                   </div>
                   <div className="mt-2 text-center">
