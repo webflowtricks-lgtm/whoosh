@@ -5227,3 +5227,68 @@ e-squad-name {
   95% { opacity: .8; }
   100% { transform: translateX(-120vw) translateY(-10px) rotate(540deg); opacity: 0; }
 }
+.auth-sharingan-crop {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+  overflow: hidden;
+}
+
+.auth-sharingan-rotor {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: center;
+}
+
+.auth-sharingan-image {
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  width: 54px;
+  height: 67.5px;
+  max-width: none;
+  opacity: 0.55;
+  filter: brightness(0) saturate(100%) invert(58%) sepia(92%) saturate(2062%) hue-rotate(359deg) brightness(103%) contrast(103%);
+  transition: opacity 180ms ease;
+}
+
+.auth-seal-icon {
+  filter: brightness(0) saturate(100%) invert(58%) sepia(92%) saturate(2062%) hue-rotate(359deg) brightness(103%) contrast(103%);
+}
+
+.auth-field-icon {
+  object-fit: cover;
+  object-position: top;
+  filter: brightness(0) saturate(100%) invert(58%) sepia(92%) saturate(2062%) hue-rotate(359deg) brightness(103%) contrast(103%);
+}
+
+.auth-sharingan-active {
+  opacity: 1;
+}
+
+@keyframes auth-sharingan-spin-forward {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes auth-sharingan-spin-reverse {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+.auth-sharingan-spin-forward {
+  animation: auth-sharingan-spin-forward 450ms linear both;
+}
+
+.auth-sharingan-spin-reverse {
+  animation: auth-sharingan-spin-reverse 450ms linear both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-sharingan-spin-forward,
+  .auth-sharingan-spin-reverse {
+    animation-duration: 1ms;
+  }
+}

@@ -295,6 +295,13 @@ async function googleLogin(request: Request, env: D1Env): Promise<Response> {
     }
   }
   if (!account) return error(500, 'Não foi possível carregar a conta Google.');
+  const profile = JSON.parse(account.profile_json) as Record<string, unknown>;
+  if (typeof claims.name === 'string') profile.name = claims.name.slice(0, 100);
+  if (typeof claims.picture === 'string') profile.photoUrl = claims.picture.slice(0, 2048);
+  const refreshedProfile = JSON.stringify(profile);
+  await env.DB.prepare('UPDATE accounts SET profile_json = ? WHERE username = ?')
+    .bind(refreshedProfile, account.username).run();
+  account = { ...account, profile_json: refreshedProfile };
   await env.DB.prepare(`
     INSERT INTO account_google_identities (google_subject, username, email)
     VALUES (?, ?, ?)
