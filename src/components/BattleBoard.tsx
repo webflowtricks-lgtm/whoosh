@@ -22,6 +22,7 @@ import { RichText } from '../lib/richText';
 import { playGlobalSound } from '../lib/soundUtils';
 import { matchFetch } from '../lib/matchFetch';
 import { firstSlotForTurn } from '../lib/matchProtocol';
+import { getCurrentVillageId } from '../lib/villages';
 import {
   checkCombatantInvulnerable,
   hasConditionalInvulnerabilityBypass as hasConditionalInvulnBypass,
@@ -1351,7 +1352,7 @@ function GameOverOverlay({
                     rank: user.rank,
                     wins: user.wins || 0,
                     losses: user.losses || 0,
-                    village: 'Vila da Folha (Konoha)',
+                    village: getCurrentVillageId(user.village),
                     collectedCardIds: user.collectedCardIds || [],
                   }, true);
                 }
@@ -18700,7 +18701,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     rank: user.rank,
                     wins: user.wins || 0,
                     losses: user.losses || 0,
-                    village: 'Vila da Folha (Konoha)',
+                    village: getCurrentVillageId(user.village),
                     collectedCardIds: user.collectedCardIds || [],
                   },
                   isSelf: true,

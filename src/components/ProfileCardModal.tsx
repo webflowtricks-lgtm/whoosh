@@ -10,6 +10,7 @@ import { getCards, fetchCardsFromServer, CARD_RARITY_META, rarityFx, RARITY_ORDE
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { getLanguage, useLanguage } from '../lib/i18n';
+import { getVillageById } from '../lib/villages';
 import MangekyoLoader from './MangekyoLoader';
 
 interface OnlineBattleHistoryRecord {
@@ -268,7 +269,11 @@ export default function ProfileCardModal({
   const losses = profile.losses !== undefined ? profile.losses : 5;
   const totalBattles = wins + losses;
   const winRate = totalBattles > 0 ? Math.round((wins / totalBattles) * 100) : 100;
-  const village = profile.village || t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)');
+  const selectedVillage = getVillageById(profile.village);
+  const village = selectedVillage
+    ? t(selectedVillage.name, selectedVillage.englishName)
+    : profile.village || t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)');
+  const villageIcon = selectedVillage?.icon || '/static/img/icon/vilas/Konohagakure_Symbol.webp';
 
   // Rank do jogador (para badge genin)
   const rankRanks = getRanks();
@@ -294,12 +299,14 @@ export default function ProfileCardModal({
   // - demais orientações → na barra do FECHAR (rodapé)
   const arenaHistoryBlock = (
     <div className={`mv-arena-history-card ${isLandscape ? 'px-2.5 py-1.5 gap-2' : 'px-3.5 py-2 gap-3.5'} bg-slate-950/90 border border-slate-800/90 rounded-xl shadow-inner flex items-center flex-shrink-0`}>
-      <div className={`${isLandscape ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 flex-shrink-0`}>
-        <Swords className={`${isLandscape ? 'w-3 h-3' : 'w-4 h-4'}`} />
+    <div className="flex min-w-0 shrink items-center gap-2">
+      <div className={`${isLandscape ? 'w-8 h-8' : 'w-10 h-10'} rounded-lg bg-orange-500/15 border border-orange-500/30 flex items-center justify-center flex-shrink-0`}>
+        <img src={villageIcon} alt="" aria-hidden="true" className="auth-village-icon h-6 w-6 object-contain" />
       </div>
+      <span className="min-w-0 truncate text-sm sm:text-base font-black text-orange-300">{village}</span>
+    </div>
       <div className="mv-arena-history-details min-w-0">
         <div className="mv-arena-history-heading flex items-center gap-2">
-          <span className="text-[9px] text-slate-400 font-mono uppercase tracking-wider">{t('HISTÓRICO DA ARENA', 'ARENA HISTORY')}</span>
           <span className="text-[9px] text-cyan-300 font-mono font-bold whitespace-nowrap">{winRate}% {t('Vitórias', 'Win Rate')}</span>
         </div>
         <div className="mv-arena-history-results flex items-center gap-2.5 text-[11px] font-black font-mono">
@@ -408,18 +415,6 @@ export default function ProfileCardModal({
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
             )}
 
-            {/* Close button (X) top right matching screenshot */}
-            <button
-              onClick={() => {
-                closeModal();
-              }}
-              data-sound="Scroll"
-              className={`absolute top-4 right-4 p-2 rounded-full text-white transition cursor-pointer z-30 shadow-lg ${bannerHover ? 'bg-slate-950/70 hover:bg-slate-950/90' : 'bg-slate-950/50 hover:bg-slate-950/90'}`}
-              title={t('Fechar Card', 'Close Card')}
-            >
-              <X className="w-5 h-5" />
-            </button>
-
             <div className={`${isLandscape ? 'gap-2' : 'gap-4'} flex items-center relative z-10 transition-opacity duration-500 ${bannerHover ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
               {/* Avatar Container with Equipped Frame */}
               <div className="relative group flex-shrink-0">
@@ -483,7 +478,6 @@ export default function ProfileCardModal({
                   </>
                 )}
 
-                {/* HISTÓRICO DA ARENA — mobile landscape: abaixo das curtidas do perfil */}
                 {isLandscape && (
                   <>
                     {arenaHistoryBlock}
@@ -501,8 +495,6 @@ export default function ProfileCardModal({
                     <span className="text-xs font-black text-white font-mono truncate block mt-0.5">{village}</span>
                   </div>
                 </div>
-
-                {/* HISTÓRICO DA ARENA — movido para a barra do FECHAR (rodapé) */}
 
               </div>
 
@@ -569,6 +561,19 @@ export default function ProfileCardModal({
           </div>
         </motion.div>
 
+        <button
+          type="button"
+          onClick={event => {
+            event.stopPropagation();
+            closeModal();
+          }}
+          data-sound="Scroll"
+          className="fixed bottom-4 left-4 z-[70] flex h-12 w-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-950/90 text-white shadow-xl transition hover:border-orange-400 hover:bg-slate-900"
+          title={t('Voltar', 'Back')}
+          aria-label={t('Voltar', 'Back')}
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
         {/* PAINEL LATERAL — FIGURINHAS COLECIONÁVEIS */}
         <motion.div
           initial={false}

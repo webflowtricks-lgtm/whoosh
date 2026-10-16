@@ -3222,6 +3222,15 @@ e-squad-name {
   }
 }
 
+.profile-modal-tabs {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.profile-modal-tabs::-webkit-scrollbar {
+  display: none;
+}
+
 /* =========================================================
    📱 MOBILE VERTICAL (RETRATO) — grid mais compacto
    =========================================================
@@ -5261,6 +5270,10 @@ e-squad-name {
 .auth-field-icon {
   object-fit: cover;
   object-position: top;
+  filter: brightness(0) saturate(100%) invert(58%) sepia(92%) saturate(2062%) hue-rotate(359deg) brightness(103%) contrast(103%);
+}
+
+.auth-village-icon {
   filter: brightness(0) saturate(100%) invert(58%) sepia(92%) saturate(2062%) hue-rotate(359deg) brightness(103%) contrast(103%);
 }
 

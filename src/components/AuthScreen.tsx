@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import { useLanguage } from '../lib/i18n';
 import { signInWithGoogle } from '../lib/firebase';
+import { VillageId, VILLAGES } from '../lib/villages';
 import LanguageSelector from './LanguageSelector';
 
 const AVATAR_PRESETS = [
@@ -30,8 +31,12 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [onboardingStep, setOnboardingStep] = useState<'auth' | 'village' | 'welcome'>('auth');
   const [isAkatsuki, setIsAkatsuki] = useState(false);
-  const [selectedVillage, setSelectedVillage] = useState<'konoha' | 'akatsuki' | null>(null);
-  const [pendingAccount, setPendingAccount] = useState<{ profile: UserProfile; ticket: string } | null>(null);
+  const [selectedVillage, setSelectedVillage] = useState<VillageId | null>(null);
+  const [pendingAccount, setPendingAccount] = useState<{
+    profile: UserProfile;
+    ticket: string;
+    source: 'google' | 'register';
+  } | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [sharinganSpinKey, setSharinganSpinKey] = useState(0);
   const [sharinganSpinDirection, setSharinganSpinDirection] = useState<'forward' | 'reverse' | null>(null);
@@ -71,23 +76,34 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const beginOnboarding = (profile: UserProfile, ticket: string) => {
-    setPendingAccount({ profile, ticket });
+  const beginOnboarding = (profile: UserProfile, ticket: string, source: 'google' | 'register') => {
+    setPendingAccount({ profile, ticket, source });
     setIsAkatsuki(false);
     setSelectedVillage(null);
     setOnboardingStep('village');
   };
 
-  const continueFromVillage = () => {
-    if (!selectedVillage) return;
+  const continueFromVillage = (village: VillageId | null = selectedVillage) => {
+    if (!village) return;
     try {
-      localStorage.setItem(AFFILIATION_STORAGE_KEY, selectedVillage);
+      localStorage.setItem(AFFILIATION_STORAGE_KEY, village);
     } catch (storageError) {
       console.error('Failed to save selected ninja affiliation:', storageError);
       setError(t('Não foi possível salvar sua vila. Tente novamente.', 'Could not save your village. Please try again.'));
       return;
     }
+    if (pendingAccount?.source === 'google') {
+      onLoginSuccess({ ...pendingAccount.profile, village }, pendingAccount.ticket);
+      return;
+    }
     setOnboardingStep('welcome');
+  };
+
+  const selectVillage = (village: VillageId) => {
+    playScrollSound();
+    setSelectedVillage(village);
+    setIsAkatsuki(village === 'akatsuki');
+    if (pendingAccount?.source === 'google') continueFromVillage(village);
   };
 
   const finishOnboarding = () => {
@@ -96,7 +112,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
       setOnboardingStep('auth');
       return;
     }
-    onLoginSuccess(pendingAccount.profile, pendingAccount.ticket);
+    onLoginSuccess({ ...pendingAccount.profile, village: selectedVillage || undefined }, pendingAccount.ticket);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -179,7 +195,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
         throw new Error(t('Não foi possível iniciar uma sessão segura.', 'Could not start a secure session.'));
       }
 
-      beginOnboarding(data.user, data.sessionTicket);
+      beginOnboarding(data.user, data.sessionTicket, 'register');
     } catch (err: any) {
       setError(err.message || t('Falha de rede.', 'Network failure.'));
     } finally {
@@ -211,7 +227,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
       beginOnboarding({
         ...data.user,
         photoUrl: googleUser.photoUrl || data.user.photoUrl,
-      }, data.sessionTicket);
+      }, data.sessionTicket, 'google');
     } catch (err: unknown) {
       console.error('Google login failed:', err);
       setError(err instanceof Error ? err.message : t('Falha ao entrar com Google.', 'Google sign-in failed.'));
@@ -221,9 +237,9 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
   };
 
   if (onboardingStep !== 'auth') {
-    const villageName = isAkatsuki ? 'Akatsuki' : 'Konoha';
+    const villageName = VILLAGES.find(village => village.id === selectedVillage)?.name || '';
     return (
-      <div className={`relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-16 font-sans text-white ${
+      <div className={`relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-4 py-16 font-sans text-white ${
         isAkatsuki
           ? 'bg-[radial-gradient(circle_at_top,#2d0507_0%,#120305_65%,#050203_100%)]'
           : 'bg-[radial-gradient(circle_at_top,#2c1810_0%,#0f0e17_65%,#050508_100%)]'
@@ -239,16 +255,11 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`relative z-10 w-full max-w-md rounded-2xl border-2 bg-[rgba(18,18,24,0.92)] p-7 text-center shadow-2xl backdrop-blur-xl ${
+          className={`relative z-10 w-full max-w-2xl rounded-2xl border-2 bg-[rgba(18,18,24,0.92)] p-7 text-center shadow-2xl backdrop-blur-xl ${
             isAkatsuki ? 'border-[#8b0000] shadow-red-950/60' : 'border-[#ffb800] shadow-orange-950/60'
           }`}
         >
           <div className="mb-5">
-            <div className={`mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full border-2 bg-gradient-to-b from-gray-700 to-gray-950 ${
-              isAkatsuki ? 'border-red-500' : 'border-amber-400'
-            }`}>
-              {isAkatsuki ? <Cloud className="h-8 w-8 text-red-400" /> : <Leaf className="h-8 w-8 text-orange-400" />}
-            </div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
               {t('Etapa 2 de 2', 'Step 2 of 2')}
             </p>
@@ -260,33 +271,34 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => { playScrollSound(); setIsAkatsuki(false); setSelectedVillage('konoha'); }}
-              aria-pressed={selectedVillage === 'konoha'}
-              className={`flex min-h-28 flex-col items-center justify-center gap-3 rounded-xl border p-4 transition ${
-                selectedVillage === 'konoha'
-                  ? 'border-orange-400 bg-orange-500/15 text-orange-200 shadow-lg shadow-orange-950/40'
-                  : 'border-white/10 bg-black/30 text-gray-300 hover:border-orange-400/60'
-              }`}
-            >
-              <Leaf className="h-8 w-8 text-orange-400" />
-              <span className="text-sm font-bold">{t('Konoha', 'Konoha (Leaf)')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { playScrollSound(); setIsAkatsuki(true); setSelectedVillage('akatsuki'); }}
-              aria-pressed={selectedVillage === 'akatsuki'}
-              className={`flex min-h-28 flex-col items-center justify-center gap-3 rounded-xl border p-4 transition ${
-                selectedVillage === 'akatsuki'
-                  ? 'border-red-500 bg-red-600/15 text-red-200 shadow-lg shadow-red-950/40'
-                  : 'border-white/10 bg-black/30 text-gray-300 hover:border-red-500/60'
-              }`}
-            >
-              <Cloud className="h-8 w-8 text-red-400" />
-              <span className="text-sm font-bold">Akatsuki</span>
-            </button>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {VILLAGES.map(village => {
+              const selected = selectedVillage === village.id;
+              const isAkatsukiVillage = village.id === 'akatsuki';
+              return (
+                <button
+                  key={village.id}
+                  type="button"
+                  onClick={() => selectVillage(village.id)}
+                  aria-pressed={selected}
+                  className={`flex min-h-36 flex-col items-center justify-center gap-2 rounded-xl border p-3 transition ${
+                    selected
+                      ? isAkatsukiVillage
+                        ? 'border-red-500 bg-red-600/15 text-red-200 shadow-lg shadow-red-950/40'
+                        : 'border-orange-400 bg-orange-500/15 text-orange-200 shadow-lg shadow-orange-950/40'
+                      : `border-white/10 bg-black/30 text-gray-300 ${isAkatsukiVillage ? 'hover:border-red-500/60' : 'hover:border-orange-400/60'}`
+                  }`}
+                >
+                  <img
+                    src={village.icon}
+                    alt=""
+                    aria-hidden="true"
+                    className="auth-village-icon h-17 w-17 object-contain"
+                  />
+                  <span className="text-sm font-bold">{t(village.name, village.englishName)}</span>
+                </button>
+              );
+            })}
           </div>
 
           {error && <p role="alert" className="mt-4 text-sm text-red-300">{error}</p>}
@@ -596,7 +608,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
                     : 'bg-gradient-to-r from-orange-600 to-amber-500 shadow-[0_0_20px_rgba(255,107,0,0.45)]'
                 }`}
               >
-                <img src="/static/img/icon/sasuke-seal.svg" alt="" aria-hidden="true" className="auth-seal-icon h-6 w-6 object-contain" />
+                <img src="/static/img/icon/sasuke-seal.svg" alt="" aria-hidden="true" className="auth-seal-icon h-10 w-10 object-contain" />
                 {loading ? t('Entrando...', 'Logging in...') : t('Entrar na Arena', 'Enter the Arena')}
               </button>
               <div className="mt-5 flex items-center gap-3 text-[10px] font-mono uppercase tracking-wider text-gray-400">
@@ -641,7 +653,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold tracking-wide text-gray-300">
-                  {t('Nome de exibição', 'Display name')}
+                  {t('Nome De Exibição', 'Display name')}
                 </label>
                 <div className="relative">
                   <img
@@ -742,7 +754,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
                   isAkatsuki ? 'bg-gradient-to-r from-red-600 to-red-950 shadow-lg shadow-red-600/30' : 'bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 shadow-lg shadow-orange-600/30'
                 }`}
               >
-                <img src="/static/img/icon/sasuke-seal.svg" alt="" aria-hidden="true" className="auth-seal-icon h-6 w-6 object-contain" />
+                <img src="/static/img/icon/sasuke-seal.svg" alt="" aria-hidden="true" className="auth-seal-icon h-10 w-10 object-contain" />
                 {loading ? t('Criando conta...', 'Creating account...') : t('Criar Conta', 'Create Account')}
               </button>
               <div className="flex items-center gap-3 pt-3 text-[10px] font-mono uppercase tracking-wider text-gray-400">

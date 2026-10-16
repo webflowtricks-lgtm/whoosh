@@ -125,14 +125,15 @@ class MemoryStatement implements D1PreparedStatement {
       return { success: true, meta: { changes } };
     }
     if (q.startsWith('update accounts set profile_json = ?')) {
-      const [profile_json, username] = this.values;
+      const [profile_json, username, expectedProfile] = this.values;
       const row = this.db.accounts.get(String(username));
-      if (row) {
+      const matches = !!row && (expectedProfile === undefined || row.profile_json === expectedProfile);
+      if (matches && row) {
         row.profile_json = profile_json;
         this.db.profileUpdateCount++;
       }
-      this.db.lastChanges = row ? 1 : 0;
-      return { success: true, meta: { changes: row ? 1 : 0 } };
+      this.db.lastChanges = matches ? 1 : 0;
+      return { success: true, meta: { changes: matches ? 1 : 0 } };
     }
     if (q.startsWith('update accounts set profile_json = json_set(profile_json,')) {
       const [rankJson, username, expectedXp] = this.values;
@@ -386,8 +387,13 @@ test('claims sessions, reports takeover, and revokes the prior device', async ()
     username: 'session_user',
     sessionToken: firstToken,
     sessionTicket: firstTicket,
+    initialVillageId: 'konoha',
   }), env);
   assert.equal((await responseBody(firstClaim!)).status, 'active');
+  const firstProfile = JSON.parse(String(env.DB.accounts.get('session_user')?.profile_json));
+  assert.equal(firstProfile.village, 'konoha');
+  assert.equal(firstProfile.villageChangeCount, 0);
+  assert.equal(firstProfile.ryos, 1500);
 
   const secondLogin = await handleD1Request(request('/api/auth/login', 'POST', {
     username: 'session_user',
@@ -617,16 +623,20 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
     wins: 100,
     gems: 999999,
     collectedCardIds: ['forged-card'],
+    village: 'takumi',
+    villageChangeCount: 999,
   }, headers), env);
   assert.equal(progressionUpdate?.status, 200);
   assert.deepEqual((await responseBody(progressionUpdate!)).ignoredFields, [
-    'xp', 'wins', 'gems', 'collectedCardIds',
+    'xp', 'wins', 'gems', 'collectedCardIds', 'village', 'villageChangeCount',
   ]);
   const progressedProfile = JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json));
   assert.equal(progressedProfile.xp, undefined);
   assert.equal(progressedProfile.wins, undefined);
   assert.equal(progressedProfile.gems, undefined);
   assert.equal(progressedProfile.collectedCardIds, undefined);
+  assert.equal(progressedProfile.village, undefined);
+  assert.equal(progressedProfile.villageChangeCount, undefined);
   assert.equal(env.DB.profileUpdateCount, 0);
 
   const cosmeticUpdate = await handleD1Request(request('/api/user/profile', 'PUT', {
@@ -648,6 +658,67 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
   }, headers), env);
   assert.equal(unchangedCosmetics?.status, 200);
   assert.equal(env.DB.profileUpdateCount, 1);
+});
+
+test('changes villages with one free change and server-authoritative 100 Ryos charges', async () => {
+  const env = { DB: new MemoryD1() };
+  const signup = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: 'village_user',
+    password: 'password',
+    name: 'Village User',
+  }), env);
+  const token = 'd'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'village_user',
+    sessionToken: token,
+    sessionTicket: (await responseBody(signup!)).sessionTicket,
+    initialVillageId: 'konoha',
+  }), env);
+  const headers = { 'X-Account-Session': token };
+
+  const firstChange = await handleD1Request(request('/api/user/village/change', 'POST', {
+    username: 'village_user',
+    village: 'takumi',
+  }, headers), env);
+  assert.equal(firstChange?.status, 200);
+  assert.equal((await responseBody(firstChange!)).charged, 0);
+  let profile = JSON.parse(String(env.DB.accounts.get('village_user')?.profile_json));
+  assert.equal(profile.village, 'takumi');
+  assert.equal(profile.villageChangeCount, 1);
+  assert.equal(profile.ryos, 1500);
+
+  const secondChange = await handleD1Request(request('/api/user/village/change', 'POST', {
+    username: 'village_user',
+    village: 'amegakure',
+  }, headers), env);
+  assert.equal(secondChange?.status, 200);
+  assert.equal((await responseBody(secondChange!)).charged, 100);
+  profile = JSON.parse(String(env.DB.accounts.get('village_user')?.profile_json));
+  assert.equal(profile.village, 'amegakure');
+  assert.equal(profile.villageChangeCount, 2);
+  assert.equal(profile.ryos, 1400);
+
+  const sameVillage = await handleD1Request(request('/api/user/village/change', 'POST', {
+    username: 'village_user',
+    village: 'amegakure',
+  }, headers), env);
+  assert.equal((await responseBody(sameVillage!)).changed, false);
+  assert.equal(JSON.parse(String(env.DB.accounts.get('village_user')?.profile_json)).ryos, 1400);
+
+  profile.ryos = 50;
+  env.DB.accounts.get('village_user')!.profile_json = JSON.stringify(profile);
+  const insufficient = await handleD1Request(request('/api/user/village/change', 'POST', {
+    username: 'village_user',
+    village: 'kirigakure',
+  }, headers), env);
+  assert.equal(insufficient?.status, 409);
+  assert.equal(JSON.parse(String(env.DB.accounts.get('village_user')?.profile_json)).village, 'amegakure');
+
+  const invalidVillage = await handleD1Request(request('/api/user/village/change', 'POST', {
+    username: 'village_user',
+    village: 'unknown',
+  }, headers), env);
+  assert.equal(invalidVillage?.status, 400);
 });
 
 test('rejects an unimported configuration without contacting the legacy API', async () => {

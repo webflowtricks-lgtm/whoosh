@@ -17,6 +17,7 @@ import { fetchPngFramesFromServer } from './lib/frameStorage';
 import { calculateBattleXp } from './lib/xpSystem';
 import { getRanks, getUserRankFromConfig } from './lib/rankStorage';
 import { preloadCommonUI, preloadCharacters } from './lib/imagePreloader';
+import { isVillageId } from './lib/villages';
 import { playGlobalSound, bindGlobalClickSound, bindGlobalModalSound, preloadGlobalSounds, setEffectsVolumeMultiplier } from './lib/soundUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Swords, Flag, Smartphone, ShieldAlert, LogOut } from 'lucide-react';
@@ -192,6 +193,14 @@ export default function App() {
     try { return sessionStorage.getItem('naruto_account_session_token'); } catch { return null; }
   });
   const [sessionTicket, setSessionTicket] = useState<string | null>(null);
+  const sessionClaimPromiseRef = useRef<{
+    ticket: string;
+    promise: Promise<{
+      ok: boolean;
+      status: number;
+      data: { status?: string; takeoverRequested?: boolean; error?: string };
+    }>;
+  } | null>(null);
   const [sessionStatus, setSessionStatus] = useState<'idle' | 'initializing' | 'active' | 'pending' | 'requested' | 'revoked' | 'error'>('idle');
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [sessionBusy, setSessionBusy] = useState(false);
@@ -892,38 +901,76 @@ export default function App() {
     const checkSession = async () => {
       try {
         const claiming = !!sessionTicket;
+        let initialVillageId = isVillageId(user.village) ? user.village : undefined;
+        if (claiming && !initialVillageId) {
+          try {
+            const savedVillage = localStorage.getItem('naruto_ninja_affiliation');
+            if (isVillageId(savedVillage)) initialVillageId = savedVillage;
+          } catch (error) {
+            console.error('Could not read the initial village for this account:', error);
+          }
+        }
         const endpoint = claiming
           ? 'claim'
           : screenRef.current === 'battle'
             ? 'heartbeat'
             : 'status';
-        const response = await fetch(`/api/auth/session/${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: user.username,
-            sessionToken,
-            ...(claiming ? { sessionTicket } : {}),
-          }),
+        const requestBody = JSON.stringify({
+          username: user.username,
+          sessionToken,
+          ...(claiming ? { sessionTicket, ...(initialVillageId ? { initialVillageId } : {}) } : {}),
         });
-        const data = await response.json();
+        const readResponse = async (response: Response) => ({
+          ok: response.ok,
+          status: response.status,
+          data: await response.json() as {
+            status?: string;
+            takeoverRequested?: boolean;
+            error?: string;
+          },
+        });
+        let result: Awaited<ReturnType<typeof readResponse>>;
+        if (claiming && sessionTicket) {
+          let claimRequest = sessionClaimPromiseRef.current;
+          if (!claimRequest || claimRequest.ticket !== sessionTicket) {
+            claimRequest = {
+              ticket: sessionTicket,
+              promise: fetch(`/api/auth/session/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: requestBody,
+              }).then(readResponse),
+            };
+            sessionClaimPromiseRef.current = claimRequest;
+          }
+          result = await claimRequest.promise;
+        } else {
+          result = await readResponse(await fetch(`/api/auth/session/${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: requestBody,
+          }));
+        }
         if (cancelled) return;
+        if (claiming && sessionClaimPromiseRef.current?.ticket === sessionTicket) {
+          sessionClaimPromiseRef.current = null;
+        }
 
-        if (!response.ok) {
-          if (claiming && response.status === 401) {
+        if (!result.ok) {
+          if (claiming && result.status === 401) {
             setSessionTicket(null);
             return;
           }
-          throw new Error(data.error || 'Falha ao verificar a sessão da conta.');
+          throw new Error(result.data.error || 'Falha ao verificar a sessão da conta.');
         }
 
         if (claiming) setSessionTicket(null);
         setSessionError(null);
-        if (data.status === 'active') {
-          setSessionStatus(data.takeoverRequested ? 'requested' : 'active');
-        } else if (data.status === 'pending') {
+        if (result.data.status === 'active') {
+          setSessionStatus(result.data.takeoverRequested ? 'requested' : 'active');
+        } else if (result.data.status === 'pending') {
           setSessionStatus('pending');
-        } else if (data.status === 'revoked') {
+        } else if (result.data.status === 'revoked') {
           setSessionStatus('revoked');
           if (screenRef.current === 'battle') {
             setSessionRevoked(true);

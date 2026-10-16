@@ -3,13 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, User, Award, Sparkles, Check, Image as ImageIcon, Camera, Upload, Save, RefreshCw, Move, ArrowUpDown, ArrowLeftRight } from 'lucide-react';
+import { X, ArrowLeft, User, Award, Sparkles, Check, Image as ImageIcon, Camera, Upload, Save, RefreshCw, Move, ArrowUpDown, ArrowLeftRight } from 'lucide-react';
 import { UserProfile, Character } from '../types';
 import { getPngFrames, PngFrameItem, fetchPngFramesFromServer } from '../lib/frameStorage';
 import { getCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
 import { getCharacters } from '../lib/characterStorage';
+import { configFetch } from '../lib/api';
+import { getCurrentVillageId, getVillageById, VILLAGES } from '../lib/villages';
 import { useLanguage } from '../lib/i18n';
 import MangekyoLoader from './MangekyoLoader';
 import SkinMedia from './SkinMedia';
@@ -62,12 +64,31 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
   const [equippedBannerPositionY, setEquippedBannerPositionY] = useState<number>(user.equippedBannerPositionY ?? 50);
   const [equippedBannerPositionX, setEquippedBannerPositionX] = useState<number>(user.equippedBannerPositionX ?? 50);
   const [equippedShowcaseSkinUrl, setEquippedShowcaseSkinUrl] = useState<string | undefined>(user.equippedShowcaseSkinUrl);
+  const [village, setVillage] = useState(getCurrentVillageId(user.village));
+  const [villagePickerOpen, setVillagePickerOpen] = useState(false);
+  const [villageToConfirm, setVillageToConfirm] = useState<string | null>(null);
+  const [villageChangeError, setVillageChangeError] = useState('');
+  const [villageChangeLoading, setVillageChangeLoading] = useState(false);
 
   const [pngFrames, setPngFrames] = useState<PngFrameItem[]>([]);
   const [customBanners, setCustomBanners] = useState<CustomBannerItem[]>([]);
   const [allCharacters, setAllCharacters] = useState<Character[]>([]);
   const [activeTab, setActiveTab] = useState<'profile' | 'frames' | 'banners' | 'showcase'>('banners');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+
+  const selectTab = (tab: typeof activeTab, button: HTMLButtonElement) => {
+    playClickSound();
+    playScrollSound();
+    setActiveTab(tab);
+    const tabsContainer = tabsContainerRef.current;
+    if (!tabsContainer) return;
+    const containerRect = tabsContainer.getBoundingClientRect();
+    const buttonRect = button.getBoundingClientRect();
+    const centeredScrollLeft = tabsContainer.scrollLeft +
+      buttonRect.left - containerRect.left - (containerRect.width - buttonRect.width) / 2;
+    tabsContainer.scrollTo({ left: centeredScrollLeft, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     fetchPngFramesFromServer().then(setPngFrames);
@@ -171,8 +192,47 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
     setTimeout(() => setSaveSuccess(false), 2500);
   };
 
+  const handleVillageChange = async () => {
+    if (!villageToConfirm || villageChangeLoading) return;
+    playUahSound();
+    setVillageChangeLoading(true);
+    setVillageChangeError('');
+    try {
+      const response = await configFetch('/api/user/village/change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username, village: villageToConfirm }),
+      });
+      const result = await response.json() as {
+        success?: boolean;
+        error?: string;
+        user?: UserProfile;
+      };
+      if (!response.ok || !result.success || !result.user) {
+        throw new Error(result.error || t('Não foi possível trocar de vila.', 'Could not change village.'));
+      }
+
+      setVillage(result.user.village || villageToConfirm);
+      onUpdateUser({ ...user, ...result.user });
+      setVillageToConfirm(null);
+      setVillagePickerOpen(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+    } catch (error) {
+      console.error('Failed to change account village:', error);
+      setVillageChangeError(error instanceof Error
+        ? error.message
+        : t('Não foi possível trocar de vila.', 'Could not change village.'));
+    } finally {
+      setVillageChangeLoading(false);
+    }
+  };
+
   // Find style or URL for active preview frame
   const currentPreset = PRESET_STYLED_FRAMES.find(f => f.name === equippedFrame);
+  const selectedVillage = getVillageById(village);
+  const confirmedVillage = getVillageById(villageToConfirm || undefined);
+  const freeVillageChange = (user.villageChangeCount ?? 0) === 0;
 
   return (
     <div
@@ -195,6 +255,19 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
         <img src="/static/img/ui/folha.webp" className="leaf leaf5" alt="" loading="lazy" decoding="async" />
         <img src="/static/img/ui/folha.webp" className="leaf leaf6" alt="" loading="lazy" decoding="async" />
       </div>
+      <button
+        type="button"
+        onClick={event => {
+          event.stopPropagation();
+          playClickSound();
+          onClose();
+        }}
+        className="fixed bottom-4 left-4 z-[70] flex h-12 w-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-950/90 text-white shadow-xl transition hover:border-orange-400 hover:bg-slate-900"
+        aria-label={t('Fechar edição de perfil', 'Close profile editor')}
+        title={t('Voltar', 'Back')}
+      >
+        <ArrowLeft className="h-5 w-5" />
+      </button>
       <motion.div
         initial={false}
         animate={{ scale: 1, opacity: 1 }}
@@ -222,16 +295,6 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
           ) : (
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
           )}
-
-          <button
-            onClick={() => {
-              playClickSound();
-              onClose();
-            }}
-            className="absolute top-4 right-4 p-2 rounded-full bg-slate-950/40 hover:bg-slate-950/80 text-white transition cursor-pointer z-30"
-          >
-            <X className="w-5 h-5" />
-          </button>
 
           <div className="flex items-center gap-4 relative z-10">
             {/* Avatar Preview with Equipped Frame */}
@@ -274,13 +337,9 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
         </div>
 
         {/* Modal Navigation Tabs */}
-        <div className="p-3 border-b border-slate-800 flex items-center gap-3 px-6 flex-shrink-0 overflow-x-auto custom-scrollbar">
+        <div ref={tabsContainerRef} className="profile-modal-tabs p-3 border-b border-slate-800 flex items-center gap-3 px-6 flex-shrink-0 overflow-x-auto">
           <button
-            onClick={() => {
-              playClickSound();
-              playScrollSound();
-              setActiveTab('banners');
-            }}
+            onClick={event => selectTab('banners', event.currentTarget)}
             className={`relative px-4 py-2 text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
               activeTab === 'banners'
                 ? 'text-amber-950 brightness-110'
@@ -295,11 +354,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
           </button>
 
           <button
-            onClick={() => {
-              playClickSound();
-              playScrollSound();
-              setActiveTab('showcase');
-            }}
+            onClick={event => selectTab('showcase', event.currentTarget)}
             className={`relative px-4 py-2 text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
               activeTab === 'showcase'
                 ? 'text-amber-950 brightness-110'
@@ -321,11 +376,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
           </button>
 
           <button
-            onClick={() => {
-              playClickSound();
-              playScrollSound();
-              setActiveTab('frames');
-            }}
+            onClick={event => selectTab('frames', event.currentTarget)}
             className={`relative px-4 py-2 text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
               activeTab === 'frames'
                 ? 'text-amber-950 brightness-110'
@@ -372,11 +423,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
           </button>
 
           <button
-            onClick={() => {
-              playClickSound();
-              playScrollSound();
-              setActiveTab('profile');
-            }}
+            onClick={event => selectTab('profile', event.currentTarget)}
             className={`relative px-4 py-2 text-xs font-mono font-extrabold uppercase tracking-wider transition flex items-center gap-2 cursor-pointer flex-shrink-0 ${
               activeTab === 'profile'
                 ? 'text-amber-950 brightness-110'
@@ -888,6 +935,77 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
                 </select>
               </div>
 
+              {user.username.trim().toLowerCase() !== 'convidado' && (
+                <div className="rounded-xl border border-slate-700 bg-slate-950/70 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <label className="block text-xs font-mono uppercase font-bold text-slate-400 mb-1">
+                        {t('Vila', 'Village')}
+                      </label>
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-100">
+                        {selectedVillage && (
+                          <img src={selectedVillage.icon} alt="" className="h-7 w-7 object-contain" />
+                        )}
+                        <span>{selectedVillage ? t(selectedVillage.name, selectedVillage.englishName) : village}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playClickSound();
+                        setVillageChangeError('');
+                        setVillagePickerOpen(open => !open);
+                      }}
+                      disabled={villageChangeLoading}
+                      className="rounded-lg border border-orange-500/50 bg-orange-500/10 px-3 py-2 text-xs font-bold text-orange-200 transition hover:bg-orange-500/20 disabled:opacity-50"
+                    >
+                      {t('Trocar vila', 'Change village')}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-400">
+                    {freeVillageChange
+                      ? t('Sua primeira troca de vila é gratuita. As próximas custam 100 Ryos.', 'Your first village change is free. Each later change costs 100 Ryos.')
+                      : t('Cada troca de vila custa 100 Ryos.', 'Each village change costs 100 Ryos.')}
+                  </p>
+
+                  {villagePickerOpen && (
+                    <div className="mt-4 border-t border-slate-800 pt-4">
+                      <p className="mb-3 text-xs font-bold text-slate-300">
+                        {t('Escolha sua vila. A alteração será salva automaticamente após a confirmação.', 'Choose your village. It will be saved automatically after confirmation.')}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {VILLAGES.map(option => {
+                          const isSelected = option.id === village;
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) return;
+                                setVillageToConfirm(option.id);
+                                setVillageChangeError('');
+                              }}
+                              disabled={villageChangeLoading || isSelected}
+                              className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition ${
+                                isSelected
+                                  ? 'border-orange-400 bg-orange-500/15 text-orange-200'
+                                  : 'border-slate-700 bg-slate-900 text-slate-200 hover:border-orange-400/70 hover:bg-slate-800'
+                              } disabled:cursor-default`}
+                            >
+                              <img src={option.icon} alt="" className="h-8 w-8 shrink-0 object-contain" />
+                              <span className="text-xs font-bold">{t(option.name, option.englishName)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {villageChangeError && (
+                    <p role="alert" className="mt-3 text-xs font-bold text-red-300">{villageChangeError}</p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-mono uppercase font-bold text-slate-400 mb-1">URL da Foto de Perfil</label>
                 <div className="flex gap-2">
@@ -909,29 +1027,85 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="p-4 bg-slate-950/90 border-t border-slate-800 flex items-center justify-between px-6 flex-shrink-0">
-          <span className="text-xs font-mono text-slate-400">
-            {saveSuccess ? (
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                <Check className="w-4 h-4" /> Perfil e Moldura atualizados com sucesso!
-              </span>
-            ) : (
-              'Altere e clique em Salvar para aplicar as mudanças'
-            )}
-          </span>
-
+        <div className="fixed bottom-4 right-4 z-[70]">
           <button
             onClick={handleSaveProfile}
             data-sound="uah"
             className="btn-wood-image"
+            aria-live="polite"
           >
-            <Save
-              className="w-4 h-4"
-              style={{ filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5))', marginBottom: 7 }}
-            />
-            <span className="salvar-font font-brush text-[13px] sm:text-[15px]">Salvar Alterações</span>
+            {saveSuccess ? (
+              <Check
+                className="w-4 h-4"
+                style={{ filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5))', marginBottom: 7 }}
+              />
+            ) : (
+              <Save
+                className="w-4 h-4"
+                style={{ filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5))', marginBottom: 7 }}
+              />
+            )}
+            <span className="salvar-font font-brush text-[13px] sm:text-[15px]">
+              {saveSuccess ? t('Salvo', 'Saved') : t('Salvar', 'Save')}
+            </span>
           </button>
         </div>
+        {villageToConfirm && (
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/85 p-4"
+            onClick={() => {
+              if (!villageChangeLoading) setVillageToConfirm(null);
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="village-change-confirm-title"
+              className="w-full max-w-md rounded-2xl border border-orange-500/40 bg-slate-900 p-5 shadow-2xl"
+              onClick={event => event.stopPropagation()}
+            >
+              <h3 id="village-change-confirm-title" className="text-lg font-black text-slate-100">
+                {t('Confirmar troca de vila', 'Confirm village change')}
+              </h3>
+              {confirmedVillage && (
+                <div className="mt-4 flex items-center gap-3 rounded-xl bg-slate-950 p-3">
+                  <img src={confirmedVillage.icon} alt="" className="h-12 w-12 object-contain" />
+                  <span className="font-bold text-orange-200">
+                    {t(confirmedVillage.name, confirmedVillage.englishName)}
+                  </span>
+                </div>
+              )}
+              <p className="mt-4 text-sm text-slate-300">
+                {freeVillageChange
+                  ? t('Esta é sua primeira troca e será gratuita.', 'This is your first change and it will be free.')
+                  : t('Esta troca custará 100 Ryos.', 'This change will cost 100 Ryos.')}
+              </p>
+              {villageChangeError && (
+                <p role="alert" className="mt-3 text-sm font-bold text-red-300">{villageChangeError}</p>
+              )}
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVillageToConfirm(null)}
+                  disabled={villageChangeLoading}
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {t('Cancelar', 'Cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleVillageChange}
+                  disabled={villageChangeLoading}
+                  className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-black text-slate-950 hover:bg-orange-400 disabled:opacity-50"
+                >
+                  {villageChangeLoading
+                    ? t('Salvando...', 'Saving...')
+                    : t('Confirmar troca', 'Confirm change')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );

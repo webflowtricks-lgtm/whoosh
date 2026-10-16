@@ -22,6 +22,7 @@ import { Character, ChakraType, NinjaEvent, Quest, Skill, UserProfile } from '..
 import { fetchCharactersFromServer, getCharacters } from '../lib/characterStorage';
 import { fetchEventsFromServer, getEvents } from '../lib/eventStorage';
 import { safeFetchJson } from '../lib/api';
+import { getCurrentVillageId } from '../lib/villages';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { isCharacterUnlocked } from '../lib/characterUnlocks';
@@ -714,7 +715,7 @@ export default function LobbyScreen({
             rank: rank.name,
             wins: user.wins || 0,
             losses: user.losses || 0,
-            village: t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)'),
+            village: getCurrentVillageId(user.village),
             collectedCardIds: user.collectedCardIds || [],
           }}
           isSelf

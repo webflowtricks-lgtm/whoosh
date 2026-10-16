@@ -16,6 +16,7 @@ import MangekyoLoader from './MangekyoLoader';
 import GameManualModal from './GameManualModal';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
+import { getCurrentVillageId } from '../lib/villages';
 import { useLanguage } from '../lib/i18n';
 import { fetchCharactersFromServer, getCharacters } from '../lib/characterStorage';
 
@@ -398,7 +399,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               rank: rankProgress.currentRank.name,
               wins: user.wins || 0,
               losses: user.losses || 0,
-              village: t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)'),
+              village: getCurrentVillageId(user.village),
               collectedCardIds: user.collectedCardIds || [],
             }}
             isSelf={true}

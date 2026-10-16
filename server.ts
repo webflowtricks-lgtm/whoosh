@@ -8,6 +8,7 @@ import { createServer as createViteServer } from "vite";
 import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
 import { firstSlotForTurn, isValidMatchTeam, submitTurnActions } from "./src/lib/matchProtocol";
 import { getInactiveMatchSlot, MATCH_INACTIVITY_TIMEOUT_MS } from "./src/lib/matchInactivity";
+import { isVillageId } from "./src/lib/villages";
 
 const DATA_DIR = path.resolve(process.env.WHOOSH_DATA_DIR || path.join(process.cwd(), "src", "data"));
 const USERS_FILE = path.join(DATA_DIR, "users.json");
@@ -151,6 +152,16 @@ function writeJSON<T>(filePath: string, data: T): void {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
   } catch (error) {
     console.error(`Error writing file ${filePath}:`, error);
+  }
+}
+
+function persistAccountUsers(users: unknown[]): boolean {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+    return true;
+  } catch (error) {
+    console.error("Error writing account profiles:", error);
+    return false;
   }
 }
 
@@ -426,9 +437,12 @@ async function startServer() {
   });
 
   app.post("/api/auth/session/claim", (req, res) => {
-    const { username, sessionToken, sessionTicket } = req.body;
+    const { username, sessionToken, sessionTicket, initialVillageId } = req.body;
     if (!validSessionInput(username, sessionToken) || typeof sessionTicket !== "string") {
       return res.status(400).json({ error: "Dados da sessão inválidos." });
+    }
+    if (initialVillageId !== undefined && !isVillageId(initialVillageId)) {
+      return res.status(400).json({ error: "Vila inicial inválida." });
     }
 
     const cleanUsername = username.trim().toLowerCase();
@@ -436,6 +450,29 @@ async function startServer() {
     if (!ticket || ticket.username !== cleanUsername || ticket.expiresAt <= Date.now()) {
       sessionTickets.delete(sessionTicket);
       return res.status(401).json({ error: "A autenticação expirou. Entre novamente." });
+    }
+    if (isVillageId(initialVillageId)) {
+      const users = readJSON<any[]>(USERS_FILE, []);
+      const profile = users.find(user => user.username?.toLowerCase() === cleanUsername);
+      if (profile) {
+        let changed = false;
+        const hasSavedVillage = typeof profile.village === "string" && profile.village.trim().length > 0;
+        if (!hasSavedVillage) {
+          profile.village = initialVillageId;
+          profile.villageChangeCount = 0;
+          changed = true;
+        } else if (!Number.isInteger(profile.villageChangeCount) || profile.villageChangeCount < 0) {
+          profile.villageChangeCount = 0;
+          changed = true;
+        }
+        if (typeof profile.ryos !== "number" || !Number.isFinite(profile.ryos)) {
+          profile.ryos = 1500;
+          changed = true;
+        }
+        if (changed && !persistAccountUsers(users)) {
+          return res.status(500).json({ error: "Não foi possível salvar a vila inicial neste servidor." });
+        }
+      }
     }
     sessionTickets.delete(sessionTicket);
 
@@ -633,8 +670,45 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  app.post("/api/user/village/change", requireActiveMatchSession, (req, res) => {
+    const { username, village } = req.body;
+    if (typeof username !== "string" || !isVillageId(village)) {
+      return res.status(400).json({ error: "Vila inválida." });
+    }
+    const cleanUsername = username.trim().toLowerCase();
+    if (cleanUsername === "convidado") {
+      return res.status(403).json({ error: "Entre em uma conta para trocar de vila." });
+    }
+    const users = readJSON<any[]>(USERS_FILE, []);
+    const profile = users.find(user => user.username?.toLowerCase() === cleanUsername);
+    if (!profile) return res.status(404).json({ error: "Usuário não encontrado." });
+    if (profile.village === village) {
+      const { password: _password, googleId: _googleId, email: _email, ...publicProfile } = profile;
+      return res.json({ success: true, changed: false, charged: 0, user: publicProfile });
+    }
+
+    const currentCount = Number.isInteger(profile.villageChangeCount) && profile.villageChangeCount >= 0
+      ? profile.villageChangeCount
+      : 0;
+    const isInitialVillage = typeof profile.village !== "string" || profile.village.trim().length === 0;
+    const charged = isInitialVillage || currentCount === 0 ? 0 : 100;
+    const ryos = typeof profile.ryos === "number" && Number.isFinite(profile.ryos)
+      ? profile.ryos
+      : 1500;
+    if (ryos < charged) return res.status(409).json({ error: "Você não tem Ryos suficientes para trocar de vila." });
+
+    profile.village = village;
+    profile.villageChangeCount = currentCount + 1;
+    profile.ryos = ryos - charged;
+    if (!persistAccountUsers(users)) {
+      return res.status(500).json({ error: "Não foi possível salvar a troca de vila." });
+    }
+    const { password: _password, googleId: _googleId, email: _email, ...publicProfile } = profile;
+    res.json({ success: true, changed: true, charged, user: publicProfile });
+  });
+
   app.put("/api/user/profile", requireActiveMatchSession, (req, res) => {
-    const { username, name, photoUrl, xp, rank, wins, losses, ryos, gems, title, equippedFrame, equippedFrameUrl, equippedBannerUrl } = req.body;
+    const { username, name, photoUrl, xp, rank, wins, losses, gems, title, equippedFrame, equippedFrameUrl, equippedBannerUrl } = req.body;
     if (!username) {
       return res.status(400).json({ error: "Nome de usuário é obrigatório." });
     }
@@ -653,7 +727,6 @@ async function startServer() {
     if (rank) users[userIdx].rank = rank;
     if (typeof wins === 'number') users[userIdx].wins = wins;
     if (typeof losses === 'number') users[userIdx].losses = losses;
-    if (typeof ryos === 'number') users[userIdx].ryos = ryos;
     if (typeof gems === 'number') users[userIdx].gems = gems;
     if (title) users[userIdx].title = title;
     if (equippedFrame) users[userIdx].equippedFrame = equippedFrame;

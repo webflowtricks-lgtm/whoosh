@@ -1174,6 +1174,8 @@ export interface UserProfile {
   rank?: string;
   wins?: number;
   losses?: number;
+  village?: string;
+  villageChangeCount?: number;
   completedQuestIds?: string[];
   questProgress?: Record<string, Array<Pick<QuestGoal, 'id' | 'currentValue' | 'currentStreak'>>>;
   unlockedCharacterNames?: string[];

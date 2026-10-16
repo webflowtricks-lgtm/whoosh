@@ -1,4 +1,5 @@
 import { calculateBattleXp } from '../src/lib/battleRewards';
+import { isVillageId } from '../src/lib/villages';
 
 interface D1Result<T = Record<string, unknown>> {
   results?: T[];
@@ -49,8 +50,9 @@ const ACCOUNT_FIELDS = new Set([
   'name', 'photoUrl', 'title', 'equippedFrame', 'equippedFrameUrl', 'equippedBannerUrl',
 ]);
 const SERVER_OWNED_PROFILE_FIELDS = new Set([
-  'xp', 'rank', 'wins', 'losses', 'ryos', 'gems', 'collectedCardIds',
+  'xp', 'rank', 'wins', 'losses', 'ryos', 'gems', 'collectedCardIds', 'village', 'villageChangeCount',
 ]);
+const VILLAGE_CHANGE_COST = 100;
 let firebaseJwksCache: { keys: FirebaseJwk[]; expiresAt: number } | null = null;
 
 const json = (body: unknown, status = 200): Response => Response.json(body, {
@@ -368,6 +370,9 @@ async function sessionRoute(request: Request, env: D1Env, pathname: string): Pro
   if (!body || !validSessionInput(body.username, body.sessionToken)) {
     return error(400, 'Dados da sessão inválidos.');
   }
+  if (pathname.endsWith('/claim') && body.initialVillageId !== undefined && !isVillageId(body.initialVillageId)) {
+    return error(400, 'Vila inicial inválida.');
+  }
   const sessionToken = body.sessionToken as string;
   const tokenHash = await digestHex(sessionToken);
 
@@ -447,6 +452,33 @@ async function sessionRoute(request: Request, env: D1Env, pathname: string): Pro
       }
     }
     if (!claimed) return error(409, 'Outra sessão foi registrada ao mesmo tempo; tente novamente.');
+    if (isVillageId(body.initialVillageId)) {
+      const accountRow = await env.DB.prepare(
+        'SELECT profile_json FROM accounts WHERE username = ?',
+      ).bind(username).first<{ profile_json: string }>();
+      if (!accountRow) return error(404, 'Usuário não encontrado.');
+      const profile = JSON.parse(accountRow.profile_json) as Record<string, unknown>;
+      let profileChanged = false;
+      const hasSavedVillage = typeof profile.village === 'string' && profile.village.trim().length > 0;
+      if (!hasSavedVillage) {
+        profile.village = body.initialVillageId;
+        profile.villageChangeCount = 0;
+        profileChanged = true;
+      } else if (!Number.isInteger(profile.villageChangeCount) || Number(profile.villageChangeCount) < 0) {
+        profile.villageChangeCount = 0;
+        profileChanged = true;
+      }
+      if (typeof profile.ryos !== 'number' || !Number.isFinite(profile.ryos)) {
+        profile.ryos = 1500;
+        profileChanged = true;
+      }
+      if (profileChanged) {
+        const updated = await env.DB.prepare(
+          'UPDATE accounts SET profile_json = ? WHERE username = ? AND profile_json = ?',
+        ).bind(JSON.stringify(profile), username, accountRow.profile_json).run();
+        if (updated.meta?.changes !== 1) return error(409, 'O perfil foi alterado ao mesmo tempo; entre novamente.');
+      }
+    }
   } else if (pathname.endsWith('/takeover')) {
     const row = await env.DB.prepare(
       'SELECT active_token_hash, pending_token_hashes_json FROM account_sessions WHERE username = ?',
@@ -516,6 +548,44 @@ async function sessionRoute(request: Request, env: D1Env, pathname: string): Pro
 
 async function profileRoute(request: Request, env: D1Env, pathname: string): Promise<Response | null> {
   const url = new URL(request.url);
+  if (pathname === '/api/user/village/change' && request.method === 'POST') {
+    const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+    const username = normalizedUsername(body?.username);
+    if (!body || !username || !isVillageId(body.village)) return error(400, 'Vila inválida.');
+    const token = request.headers.get('X-Account-Session') || '';
+    if (!await isD1SessionActive(env, username, token)) return error(401, 'Sessão inválida ou revogada.');
+
+    const row = await env.DB.prepare(
+      'SELECT profile_json FROM accounts WHERE username = ?',
+    ).bind(username).first<{ profile_json: string }>();
+    if (!row) return error(404, 'Usuário não encontrado.');
+    const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+    if (profile.village === body.village) {
+      return json({ success: true, changed: false, charged: 0, user: profile });
+    }
+
+    const currentCount = Number.isInteger(profile.villageChangeCount) && Number(profile.villageChangeCount) >= 0
+      ? Number(profile.villageChangeCount)
+      : 0;
+    const isInitialVillage = typeof profile.village !== 'string' || profile.village.trim().length === 0;
+    const charged = isInitialVillage || currentCount === 0 ? 0 : VILLAGE_CHANGE_COST;
+    const ryos = typeof profile.ryos === 'number' && Number.isFinite(profile.ryos)
+      ? profile.ryos
+      : 1500;
+    if (ryos < charged) return error(409, 'Você não tem Ryos suficientes para trocar de vila.');
+
+    const updatedProfile = {
+      ...profile,
+      village: body.village,
+      villageChangeCount: currentCount + 1,
+      ryos: ryos - charged,
+    };
+    const updated = await env.DB.prepare(
+      'UPDATE accounts SET profile_json = ? WHERE username = ? AND profile_json = ?',
+    ).bind(JSON.stringify(updatedProfile), username, row.profile_json).run();
+    if (updated.meta?.changes !== 1) return error(409, 'O perfil mudou durante a troca. Tente novamente.');
+    return json({ success: true, changed: true, charged, user: updatedProfile });
+  }
   if (pathname === '/api/user/profile' && request.method === 'GET') {
     const username = normalizedUsername(url.searchParams.get('username'));
     if (!username) return error(400, 'Nome de usuário é obrigatório.');
