@@ -5,8 +5,8 @@ import {
   CalendarDays,
   ChevronDown,
   CircleHelp,
+  Diamond,
   Filter,
-  Images,
   LogOut,
   Settings,
   Search,
@@ -276,6 +276,13 @@ export default function LobbyScreen({
   };
 
   const updateUser = (updated: UserProfile) => onUpdateUser(updated);
+  const claimedEventRewardIds = user?.claimedEventRewardIds || [];
+  const availableEventRewardCount = events.reduce(
+    (total, event) => total + event.objectives.filter(objective =>
+      objective.current >= objective.target && !claimedEventRewardIds.includes(objective.id),
+    ).length,
+    0,
+  );
   const footerItems = [
     { label: t('Loja', 'Shop'), icon: ShoppingBag, action: () => openAuthenticated('shop') },
     { label: t('Shinobis', 'Shinobis'), icon: Users, action: () => { playClickSound(); setModal('characters'); } },
@@ -338,23 +345,33 @@ export default function LobbyScreen({
       </section>
 
       <aside className="lobby-missions" aria-label={t('Missões', 'Missions')}>
-        <button type="button" onClick={openQuests} className="lobby-mission-button lobby-mission-button--image-label">
+        <button
+          type="button"
+          onClick={openQuests}
+          className="lobby-mission-button"
+          aria-label={t('Missões de novato', 'Novice missions')}
+        >
           <img className="lobby-mission-icon" src="/static/img/icon/novato.webp" alt="" />
-          <span className="lobby-mission-label">{t('Missões de novato', 'Novice missions')}</span>
         </button>
-        <button type="button" onClick={openQuests} className="lobby-mission-button lobby-mission-button--image-label">
+        <button
+          type="button"
+          onClick={openQuests}
+          className="lobby-mission-button"
+          aria-label={t('Missões', 'Missions')}
+        >
           <img className="lobby-mission-icon" src="/static/img/icon/missao.webp" alt="" />
-          <span className="lobby-mission-label lobby-mission-unlock-label">{t('Missões', 'Missions')}</span>
         </button>
+        {user && (
+          <button
+            type="button"
+            onClick={() => { playClickSound(); setModal('cards'); }}
+            className="lobby-mission-button"
+            aria-label={t('Abrir álbum de figurinhas', 'Open sticker album')}
+          >
+            <img className="lobby-mission-icon" src="/static/img/icon/album.webp" alt="" />
+          </button>
+        )}
       </aside>
-
-      <section className="lobby-center">
-        <button type="button" className="lobby-battle-button" onClick={handleBattle}>
-          <Swords aria-hidden="true" />
-          <span>{t('BATALHAR!', 'BATTLE!')}</span>
-          <Swords aria-hidden="true" />
-        </button>
-      </section>
 
       {featuredEvent && (
         <section
@@ -414,7 +431,22 @@ export default function LobbyScreen({
 
       <nav className="lobby-footer" aria-label={t('Navegação principal', 'Main navigation')}>
         {footerItems.map(({ label, icon: Icon, action, primary }) => (
-          <button type="button" key={label} onClick={action} className={primary ? 'lobby-nav-item lobby-nav-primary' : 'lobby-nav-item'}>
+          <button
+            type="button"
+            key={label}
+            onClick={action}
+            className={`lobby-nav-item${primary ? ' lobby-nav-primary' : ''}${label === t('Eventos', 'Events') ? ' lobby-nav-events' : ''}`}
+          >
+            {label === t('Eventos', 'Events') && availableEventRewardCount > 0 && (
+              <span
+                className="lobby-events-mission-count"
+                aria-label={t(`${availableEventRewardCount} recompensas de evento para resgatar`, `${availableEventRewardCount} event rewards to claim`)}
+              >
+                <span className="lobby-events-mission-diamond">
+                  <Diamond aria-hidden="true" />
+                </span>
+              </span>
+            )}
             {label === t('Shinobis', 'Shinobis') ? (
               <img className="lobby-footer-icon" src="/static/img/icon/ninjas-icon-convertido-de-png.webp" alt="" />
             ) : label === t('Clã', 'Clan') ? (
@@ -453,7 +485,6 @@ export default function LobbyScreen({
             <button type="button" onClick={() => { playClickSound(); onToggleMute(); }} aria-label={isMuted ? t('Ativar som', 'Unmute') : t('Silenciar', 'Mute')}>
               {isMuted ? <VolumeX /> : <Volume2 />}
             </button>
-            <button type="button" onClick={() => { playClickSound(); setQuickActionsOpen(false); setModal('cards'); }} aria-label={t('Galeria de cards', 'Card gallery')}><Images /></button>
             <button type="button" onClick={() => { playClickSound(); setQuickActionsOpen(false); setModal('audio'); }} aria-label={t('Configurações de áudio', 'Audio settings')}><Volume2 /></button>
             {user && <button type="button" onClick={() => { setQuickActionsOpen(false); onLogout(); }} aria-label={t('Sair da conta', 'Log out')}><LogOut /></button>}
           </div>
