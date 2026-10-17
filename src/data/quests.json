@@ -30,15 +30,6 @@
         "currentValue": 1,
         "singleMatch": false,
         "currentStreak": 0
-      },
-      {
-        "id": "goal_1792241320192_3",
-        "type": "win_battles_with_chars",
-        "targetCharacters": [],
-        "targetSkill": "",
-        "targetValue": 5,
-        "currentValue": 0,
-        "singleMatch": false
       }
     ],
     "rewards": [

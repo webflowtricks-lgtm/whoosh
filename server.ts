@@ -10,12 +10,13 @@ import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
 import { firstSlotForTurn, isValidMatchTeam, submitTurnActions } from "./src/lib/matchProtocol";
 import { getInactiveMatchSlot, MATCH_INACTIVITY_TIMEOUT_MS } from "./src/lib/matchInactivity";
 import { isVillageId } from "./src/lib/villages";
+import { evaluateAuthoritativeQuestGoal, sanitizeQuestBattleStats } from "./src/lib/questProgress";
 import {
   grantQuestMaintenanceRewards,
   reconcileQuestMaintenanceProfile,
   type QuestDefinition,
 } from "./src/lib/questMaintenance";
-import type { QuestMaintenanceMail, QuestReward } from "./src/types";
+import type { Quest, QuestMaintenanceMail, QuestReward } from "./src/types";
 
 const DATA_DIR = path.resolve(process.env.WHOOSH_DATA_DIR || path.join(process.cwd(), "src", "data"));
 const USERS_FILE = path.join(DATA_DIR, "users.json");
@@ -2102,6 +2103,77 @@ async function startServer() {
   });
 
   // Quests API
+  app.post("/api/quests/ai-progress", requireActiveMatchSession, (req, res) => {
+    const username = typeof req.body?.username === "string" ? req.body.username.trim().toLowerCase() : "";
+    const questId = typeof req.body?.questId === "string" ? req.body.questId : "";
+    const battleId = typeof req.body?.battleId === "string" ? req.body.battleId : "";
+    const stats = sanitizeQuestBattleStats(req.body?.stats);
+    if (!username || username === "convidado" || !questId || questId.length > 160 ||
+        !/^[a-zA-Z0-9_-]{8,128}$/.test(battleId) || typeof req.body?.victory !== "boolean" || !stats) {
+      return res.status(400).json({ error: "Dados inválidos para registrar a missão contra IA." });
+    }
+
+    const quests = readJSON<Quest[]>(QUESTS_FILE, []);
+    const quest = quests.find(item => item.id === questId);
+    if (!quest || !Array.isArray(quest.goals) || !quest.goals.length) {
+      return res.status(404).json({ error: "Missão não encontrada." });
+    }
+    const users = readJSON<Array<Record<string, any>>>(USERS_FILE, []);
+    const profile = users.find(item => item.username === username);
+    if (!profile) return res.status(404).json({ error: "Usuário não encontrado." });
+
+    const processedBattleIds = Array.isArray(profile.questAiBattleIds)
+      ? profile.questAiBattleIds.filter((id: unknown): id is string => typeof id === "string")
+      : [];
+    if ((profile.completedQuestIds || []).includes(questId)) {
+      const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+      return res.json({ success: true, alreadyCompleted: true, user: publicUser });
+    }
+    if (processedBattleIds.includes(battleId)) {
+      const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+      return res.json({ success: true, alreadyProcessed: true, user: publicUser });
+    }
+
+    const completedQuestIds: string[] = Array.isArray(profile.completedQuestIds) ? profile.completedQuestIds : [];
+    if (Array.isArray(quest.requiredQuestIds) && !quest.requiredQuestIds.every(id => completedQuestIds.includes(id))) {
+      return res.status(409).json({ error: "Conclua as missões anteriores antes de avançar nesta missão." });
+    }
+    const ranks = readJSON<Array<{ name: string; requiredXp: number }>>(RANKS_FILE, []);
+    const sortedRanks = ranks.slice().sort((left, right) => left.requiredXp - right.requiredXp);
+    const requiredRank = quest.minRank ? sortedRanks.find(rank => rank.name === quest.minRank) : undefined;
+    const xp = Math.max(0, Number(profile.xp) || 0);
+    const currentRank = sortedRanks.slice().reverse().find(rank => xp >= rank.requiredXp);
+    if (quest.minRank && !requiredRank) {
+      return res.status(409).json({ error: "A patente exigida por esta missão não está configurada." });
+    }
+    if (requiredRank && (!currentRank || currentRank.requiredXp < requiredRank.requiredXp)) {
+      return res.status(409).json({ error: "Seu rank ainda não permite avançar nesta missão." });
+    }
+
+    const savedProgress = profile.questProgress && typeof profile.questProgress === "object"
+      ? profile.questProgress as Record<string, Array<{ id: string; currentValue: number; currentStreak?: number }>>
+      : {};
+    const oldGoals = new Map((savedProgress[questId] || []).map(goal => [goal.id, goal]));
+    profile.questProgress = {
+      ...savedProgress,
+      [questId]: quest.goals.map(goal => {
+        const previous = oldGoals.get(goal.id);
+        const result = evaluateAuthoritativeQuestGoal({
+          ...goal,
+          currentValue: Math.max(0, Math.min(goal.targetValue, Number(previous?.currentValue) || 0)),
+          currentStreak: Math.max(0, Number(previous?.currentStreak) || 0),
+        }, req.body.victory, stats);
+        return { id: goal.id, currentValue: result.nextValue, currentStreak: result.nextStreak };
+      }),
+    };
+    profile.questAiBattleIds = [...processedBattleIds.slice(-999), battleId];
+    if (!persistAccountUsers(users)) {
+      return res.status(500).json({ error: "Não foi possível salvar o progresso da missão contra IA." });
+    }
+    const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+    return res.json({ success: true, user: publicUser });
+  });
+
   app.get("/api/quests", (req, res) => {
     // Default seed quests if the file is empty or missing
     const defaultQuests = [

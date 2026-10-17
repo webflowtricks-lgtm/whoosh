@@ -365,6 +365,76 @@ function seedD1Config(db: MemoryD1, key: string, items: unknown[]): void {
   });
 }
 
+test('records authenticated AI battle quest progress once per battle', async () => {
+  const env = { DB: new MemoryD1() };
+  const registration = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: 'ai_quest_user',
+    password: 'correct horse',
+    name: 'AI Quest User',
+  }), env);
+  const token = 'a'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'ai_quest_user',
+    sessionToken: token,
+    sessionTicket: (await responseBody(registration!)).sessionTicket,
+  }), env);
+  seedD1Config(env.DB, 'quests', [{
+    id: 'ai-quest',
+    title: 'Missão IA',
+    minRank: '',
+    requiredQuestIds: [],
+    goals: [{
+      id: 'use-rasengan',
+      type: 'use_skill',
+      targetSkill: 'Rasengan',
+      targetValue: 2,
+      currentValue: 0,
+      currentStreak: 0,
+    }],
+    rewards: [],
+  }]);
+  const stats = {
+    damageDealt: 0,
+    damageReceived: 0,
+    healingDone: 0,
+    shieldGenerated: 0,
+    stunsApplied: 0,
+    skillsUsed: { Rasengan: 2 },
+    killsWithSkill: {},
+    playerCharactersUsed: ['Uzumaki Naruto'],
+    playerTeamCharacters: [{ name: 'Uzumaki Naruto', tags: ['Folha'] }],
+    damageDealtRecords: [],
+    damageReceivedRecords: [],
+    healingDoneRecords: [],
+    shieldGeneratedRecords: [],
+    killRecords: [],
+    counterRecords: [],
+    skillUseRecords: [
+      { charName: 'Uzumaki Naruto', tags: ['Folha'], skillName: 'Rasengan' },
+      { charName: 'Uzumaki Naruto', tags: ['Folha'], skillName: 'Rasengan' },
+    ],
+  };
+  const report = () => handleD1Request(request('/api/quests/ai-progress', 'POST', {
+    username: 'ai_quest_user',
+    questId: 'ai-quest',
+    battleId: 'battle-ai-0001',
+    victory: true,
+    stats,
+  }, { 'X-Account-Session': token }), env);
+
+  const first = await report();
+  assert.equal(first?.status, 200);
+  const firstBody = await responseBody(first!);
+  assert.equal((firstBody.user as Row).questProgress instanceof Object, true);
+  assert.equal(((firstBody.user as Row).questProgress as Row)['ai-quest'] instanceof Array, true);
+  assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[0].currentValue, 2);
+
+  const duplicate = await report();
+  assert.equal(duplicate?.status, 200);
+  assert.equal((await responseBody(duplicate!)).alreadyProcessed, true);
+  assert.equal(env.DB.profileUpdateCount, 1);
+});
+
 test('registers accounts with hashed passwords, rejects duplicates, and verifies login', async () => {
   const env = { DB: new MemoryD1() };
   const registration = await handleD1Request(request('/api/auth/register', 'POST', {

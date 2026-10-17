@@ -1,5 +1,9 @@
 import { calculateBattleXp } from '../src/lib/battleRewards';
-import { evaluateAuthoritativeQuestGoal, type QuestBattleStats } from '../src/lib/questProgress';
+import {
+  evaluateAuthoritativeQuestGoal,
+  sanitizeQuestBattleStats,
+  type QuestBattleStats,
+} from '../src/lib/questProgress';
 import {
   grantQuestMaintenanceRewards,
   reconcileQuestMaintenanceProfile,
@@ -58,6 +62,7 @@ const ACCOUNT_FIELDS = new Set([
 const SERVER_OWNED_PROFILE_FIELDS = new Set([
   'xp', 'rank', 'wins', 'losses', 'ryos', 'gems', 'collectedCardIds', 'village', 'villageChangeCount',
   'completedQuestIds', 'questProgress', 'questRewardSnapshots', 'questMaintenanceInbox',
+  'questAiBattleIds',
 ]);
 const VILLAGE_CHANGE_COST = 100;
 let firebaseJwksCache: { keys: FirebaseJwk[]; expiresAt: number } | null = null;
@@ -900,7 +905,7 @@ async function claimQuestReward(
     const savedGoals = new Map((progress[questId] || []).map(goal => [goal.id, goal]));
     if (quest.goals.length === 0 || !quest.goals.every(goal =>
       Number(savedGoals.get(goal.id)?.currentValue) >= Number(goal.targetValue),
-    )) return error(409, 'Conclua todos os objetivos em partidas online validadas antes de resgatar.');
+    )) return error(409, 'Conclua todos os objetivos em partidas online ou contra IA antes de resgatar.');
     const completed = new Set(completedQuestIds);
     if (Array.isArray(quest.requiredQuestIds) && !quest.requiredQuestIds.every(id => completed.has(id))) {
       return error(409, 'Conclua as missões anteriores antes de resgatar esta recompensa.');
@@ -945,6 +950,93 @@ async function claimQuestReward(
     if (attempt === 2) return error(409, 'O perfil mudou durante o resgate. Tente novamente.');
   }
   return error(409, 'Não foi possível confirmar o resgate da missão.');
+}
+
+async function recordAiQuestProgress(request: Request, env: D1Env): Promise<Response> {
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const username = normalizedUsername(body?.username);
+  const questId = typeof body?.questId === 'string' ? body.questId : '';
+  const battleId = typeof body?.battleId === 'string' ? body.battleId : '';
+  const stats = sanitizeQuestBattleStats(body?.stats);
+  if (!username || username === 'convidado' || !questId || questId.length > 160 ||
+      !/^[a-zA-Z0-9_-]{8,128}$/.test(battleId) || typeof body?.victory !== 'boolean' || !stats) {
+    return error(400, 'Dados inválidos para registrar a missão contra IA.');
+  }
+  if (!await isD1SessionActive(env, username, request.headers.get('X-Account-Session') || '')) {
+    return error(401, 'Sessão inválida ou revogada. Entre novamente.');
+  }
+
+  const [quests, ranks] = await Promise.all([
+    getD1Config(env.DB, 'quests'),
+    getD1Config(env.DB, 'ranks'),
+  ]);
+  if (!quests) return error(503, 'As missões ainda não estão disponíveis no servidor.');
+  const quest = quests.find(item =>
+    !!item && typeof item === 'object' && (item as Quest).id === questId,
+  ) as Quest | undefined;
+  if (!quest || !Array.isArray(quest.goals) || !quest.goals.length) {
+    return error(404, 'Missão não encontrada.');
+  }
+
+  const rankList = (ranks || []).filter((rank): rank is Record<string, unknown> =>
+    !!rank && typeof rank === 'object' && typeof (rank as Record<string, unknown>).name === 'string' &&
+    typeof (rank as Record<string, unknown>).requiredXp === 'number',
+  ).sort((left, right) => Number(left.requiredXp) - Number(right.requiredXp));
+  if (quest.minRank && !ranks) return error(503, 'As patentes ainda não estão disponíveis no servidor.');
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const row = await env.DB.prepare(
+      'SELECT profile_json FROM accounts WHERE username = ?',
+    ).bind(username).first<{ profile_json: string }>();
+    if (!row) return error(404, 'Usuário não encontrado.');
+    const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+    const completedQuestIds = Array.isArray(profile.completedQuestIds)
+      ? profile.completedQuestIds.filter((id): id is string => typeof id === 'string')
+      : [];
+    if (completedQuestIds.includes(questId)) return json({ success: true, alreadyCompleted: true, user: profile });
+
+    const processedBattleIds = Array.isArray(profile.questAiBattleIds)
+      ? profile.questAiBattleIds.filter((id): id is string => typeof id === 'string')
+      : [];
+    if (processedBattleIds.includes(battleId)) return json({ success: true, alreadyProcessed: true, user: profile });
+
+    const completed = new Set(completedQuestIds);
+    if (Array.isArray(quest.requiredQuestIds) && !quest.requiredQuestIds.every(id => completed.has(id))) {
+      return error(409, 'Conclua as missões anteriores antes de avançar nesta missão.');
+    }
+    const requiredRank = quest.minRank ? rankList.find(rank => rank.name === quest.minRank) : undefined;
+    const xp = Math.max(0, Number(profile.xp) || 0);
+    const currentRank = [...rankList].reverse().find(rank => xp >= Number(rank.requiredXp));
+    if (quest.minRank && !requiredRank) return error(409, 'A patente exigida por esta missão não está configurada.');
+    if (requiredRank && (!currentRank || Number(currentRank.requiredXp) < Number(requiredRank.requiredXp))) {
+      return error(409, 'Seu rank ainda não permite avançar nesta missão.');
+    }
+
+    const savedProgress = profile.questProgress && typeof profile.questProgress === 'object'
+      ? profile.questProgress as Record<string, Array<{ id: string; currentValue: number; currentStreak?: number }>>
+      : {};
+    const oldGoals = new Map((savedProgress[questId] || []).map(goal => [goal.id, goal]));
+    const updatedGoals = quest.goals.map(goal => {
+      const previous = oldGoals.get(goal.id);
+      const currentGoal = {
+        ...goal,
+        currentValue: Math.max(0, Math.min(goal.targetValue, Number(previous?.currentValue) || 0)),
+        currentStreak: Math.max(0, Number(previous?.currentStreak) || 0),
+      };
+      const result = evaluateAuthoritativeQuestGoal(currentGoal, body.victory as boolean, stats);
+      return { id: goal.id, currentValue: result.nextValue, currentStreak: result.nextStreak };
+    });
+    profile.questProgress = { ...savedProgress, [questId]: updatedGoals };
+    profile.questAiBattleIds = [...processedBattleIds.slice(-999), battleId];
+
+    const updated = await env.DB.prepare(`
+      UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE username = ? AND profile_json = ?
+    `).bind(JSON.stringify(profile), username, row.profile_json).run();
+    if (updated.meta?.changes === 1) return json({ success: true, user: profile });
+    if (attempt === 2) return error(409, 'O perfil mudou durante o registro. Tente novamente.');
+  }
+  return error(409, 'Não foi possível confirmar o progresso da missão contra IA.');
 }
 
 function isMaintenanceReward(value: unknown): value is QuestReward {
@@ -1478,6 +1570,9 @@ export async function handleD1Request(request: Request, env: D1Env): Promise<Res
   }
   if (pathname === '/api/quests/claim' && request.method === 'POST') {
     return claimQuestReward(request, env);
+  }
+  if (pathname === '/api/quests/ai-progress' && request.method === 'POST') {
+    return recordAiQuestProgress(request, env);
   }
   if (pathname === '/api/quests/maintenance-inbox' && request.method === 'GET') {
     return maintenanceInboxRoute(request, env, false);

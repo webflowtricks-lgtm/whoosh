@@ -14,6 +14,7 @@ import { fetchEventsFromServer } from './lib/eventStorage';
 import { fetchCustomBannersFromServer } from './lib/bannerStorage';
 import { fetchPngFramesFromServer } from './lib/frameStorage';
 import { calculateBattleXp } from './lib/xpSystem';
+import type { QuestBattleStats } from './lib/questProgress';
 import { getRanks, getUserRankFromConfig } from './lib/rankStorage';
 import { preloadCommonUI, preloadCharacters } from './lib/imagePreloader';
 import { isVillageId } from './lib/villages';
@@ -574,7 +575,11 @@ export default function App() {
     setScreen('battle');
   };
 
-  const handleBattleEnd = async (victory: boolean, stats: any, earnedXp?: number) => {
+  const handleBattleEnd = async (
+    victory: boolean,
+    stats: QuestBattleStats & { turn?: number; alivePlayerCount?: number; questBattleId?: string },
+    earnedXp?: number,
+  ) => {
     if (!user) return;
 
     let updatedUser: UserProfile;
@@ -610,12 +615,44 @@ export default function App() {
         wins: victory ? (user.wins || 0) + 1 : (user.wins || 0),
         losses: !victory ? (user.losses || 0) + 1 : (user.losses || 0),
       };
+
+      if (activeQuest && !isSandbox && user.username.trim().toLowerCase() !== 'convidado') {
+        if (!stats.questBattleId) {
+          throw new Error('Não foi possível identificar a batalha contra IA para registrar a missão.');
+        }
+        const response = await matchFetch('/api/quests/ai-progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            questId: activeQuest.id,
+            battleId: stats.questBattleId,
+            victory,
+            stats: {
+              ...stats,
+              playerTeamCharacters: stats.playerTeamCharacters.map(({ name, tags }) => ({ name, tags })),
+            },
+          }),
+        });
+        const result = await response.json().catch(() => null) as {
+          error?: string;
+          user?: UserProfile;
+        } | null;
+        if (!response.ok || !result?.user) {
+          throw new Error(result?.error || `Falha ao registrar progresso da missão contra IA (HTTP ${response.status}).`);
+        }
+        updatedUser = {
+          ...updatedUser,
+          questProgress: result.user.questProgress,
+          completedQuestIds: result.user.completedQuestIds,
+        };
+      }
     }
 
     setUser(updatedUser);
     localStorage.setItem('naruto_user_profile', JSON.stringify(updatedUser));
 
-    if (activeQuest && onlineParams?.isOnline) {
+    if (activeQuest && (onlineParams?.isOnline || !isSandbox)) {
       const savedGoals = updatedUser.questProgress?.[activeQuest.id];
       if (savedGoals) {
         const savedById = new Map(savedGoals.map(goal => [goal.id, goal]));

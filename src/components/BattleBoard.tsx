@@ -23,6 +23,7 @@ import { playGlobalSound } from '../lib/soundUtils';
 import { matchFetch } from '../lib/matchFetch';
 import { firstSlotForTurn } from '../lib/matchProtocol';
 import { getCurrentVillageId } from '../lib/villages';
+import type { QuestBattleStats } from '../lib/questProgress';
 import {
   checkCombatantInvulnerable,
   hasConditionalInvulnerabilityBypass as hasConditionalInvulnBypass,
@@ -76,16 +77,10 @@ interface BattleBoardProps {
     processedOpponentTurns?: number[];
     passedPlayersThisTurn?: ('player' | 'enemy')[];
     sandboxPauseChakraGen?: boolean;
+    questBattleId?: string;
+    questStats?: QuestBattleStats;
   } | null;
-  onBattleEnd?: (victory: boolean, stats: {
-    damageDealt: number;
-    damageReceived: number;
-    healingDone: number;
-    shieldGenerated: number;
-    stunsApplied: number;
-    skillsUsed: { [skillName: string]: number };
-    killsWithSkill: { [skillName: string]: number };
-    playerCharactersUsed: string[];
+  onBattleEnd?: (victory: boolean, stats: QuestBattleStats & {
     turn?: number;
     alivePlayerCount?: number;
   }, gainedXp?: number) => void;
@@ -1899,6 +1894,12 @@ export default function BattleBoard({
   const [allQuests, setAllQuests] = useState<Quest[]>([]);
   const [loadingQuests, setLoadingQuests] = useState(false);
   const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
+  const questBattleIdRef = useRef(
+    restoredState?.questBattleId ||
+    (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`),
+  );
 
   const skillOwnerMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -1937,7 +1938,15 @@ export default function BattleBoard({
     }
   }, [isQuestModalOpen, user?.completedQuestIds]);
   // Stats tracking for Quests
-  const matchStatsRef = useRef({
+  const matchStatsRef = useRef<QuestBattleStats & { questBattleId: string }>(restoredState?.questStats
+    ? {
+        ...restoredState.questStats,
+        questBattleId: questBattleIdRef.current,
+        chakraGenerated: restoredState.questStats.chakraGenerated || 0,
+        chakraStolen: restoredState.questStats.chakraStolen || 0,
+      }
+    : {
+    questBattleId: questBattleIdRef.current,
     damageDealt: 0,
     damageReceived: 0,
     healingDone: 0,
@@ -13291,6 +13300,11 @@ splashOnlyTargets = splashPool.filter(c =>
         playerChakra,
         enemyChakra,
         onlineParams,
+        questBattleId: questBattleIdRef.current,
+        questStats: {
+          ...matchStatsRef.current,
+          playerTeamCharacters: matchStatsRef.current.playerTeamCharacters.map(({ name, tags }) => ({ name, tags })),
+        },
         isSandbox,
         sandboxPauseChakraGen: chakraGenPaused,
         processedOpponentTurns: Array.from(processedOpponentTurnsRef.current),
