@@ -458,7 +458,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
         </div>
 
         {/* Quests scrollable selection list */}
-        <div className="flex-1 overflow-y-auto space-y-2 max-h-[350px] md:max-h-[600px] pr-1">
+        <div className="flex-1 overflow-y-auto space-y-2 max-h-[35vh] md:max-h-[600px] pr-1">
           {quests.map(q => {
             const isSelected = q.id === selectedQuestId;
             return (
@@ -498,8 +498,8 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
         {/* Banner effects */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex justify-between items-center pb-3 border-b border-slate-800 z-10">
-          <div>
+        <div className="flex flex-wrap justify-between items-center gap-3 pb-3 border-b border-slate-800 z-10">
+          <div className="min-w-0 flex-1">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-orange-500" /> 
               {editingQuest ? `Editando: ${editingQuest.title}` : 'Selecione uma missão'}
@@ -510,7 +510,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
             <div className="flex gap-2">
               <button
                 onClick={handleSaveChanges}
-                className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 shadow transition cursor-pointer"
+                className="min-h-11 px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 shadow transition cursor-pointer"
               >
                 <Save className="w-4 h-4" /> Salvar Missão
               </button>
@@ -538,7 +538,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
         )}
 
         {editingQuest ? (
-          <div className="space-y-6 overflow-y-auto max-h-[600px] pr-2 z-10">
+          <div className="space-y-6 overflow-y-visible md:overflow-y-auto max-h-none md:max-h-[600px] pr-0 md:pr-2 z-10">
             {/* 1. BASIC INFORMATION */}
             <div className="bg-slate-950/50 p-4 border border-slate-800/80 rounded-xl space-y-4">
               <h3 className="text-xs font-bold font-mono uppercase tracking-widest text-slate-400 flex items-center gap-2">

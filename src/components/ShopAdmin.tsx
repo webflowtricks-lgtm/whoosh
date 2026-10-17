@@ -237,7 +237,7 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
         </div>
 
         {/* Item List */}
-        <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+        <div className="space-y-2 max-h-[35vh] lg:max-h-[480px] overflow-y-auto pr-1">
           {filteredList.map(item => {
             const isSelected = item.id === selectedItemId;
             return (

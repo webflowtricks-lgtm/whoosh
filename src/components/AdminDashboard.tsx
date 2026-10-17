@@ -811,30 +811,50 @@ const newSkill: Skill = {
 
   // Dashboard layout
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between font-sans selection:bg-orange-600 selection:text-white">
+    <div className="admin-dashboard min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between font-sans selection:bg-orange-600 selection:text-white">
       {/* Top persistent action bar */}
-      <header className="bg-slate-900 border-b border-slate-800/80 px-6 py-4 sticky top-0 z-40 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
+      <header className="admin-dashboard-header bg-slate-900 border-b border-slate-800/80 px-3 sm:px-6 py-3 sm:py-4 static lg:sticky lg:top-0 z-40 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto w-full flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 lg:gap-4">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               onClick={onBack}
-              className="p-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 hover:text-white hover:border-slate-700 transition-all cursor-pointer"
+              className="min-h-11 min-w-11 shrink-0 p-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 hover:text-white hover:border-slate-700 transition-all cursor-pointer"
               title={t("Voltar ao Menu Principal", "Back to Main Menu")}
+              aria-label={t("Voltar ao Menu Principal", "Back to Main Menu")}
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-orange-400" />
-                <h1 className="text-lg font-black uppercase tracking-tight text-white">{t("Central do Desenvolvedor", "Developer Dashboard")}</h1>
+                <Shield className="w-4 h-4 shrink-0 text-orange-400" />
+                <h1 className="truncate text-base sm:text-lg font-black uppercase tracking-tight text-white">{t("Central do Desenvolvedor", "Developer Dashboard")}</h1>
               </div>
-              <p className="text-[10px] text-slate-500 font-mono">{t("Customize habilidades, regras e crie novos ninjas", "Customize skills, rules and create new ninjas")}</p>
+              <p className="hidden sm:block text-[10px] text-slate-500 font-mono">{t("Customize habilidades, regras e crie novos ninjas", "Customize skills, rules and create new ninjas")}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="w-full min-w-0 sm:w-auto">
             {/* TAB SWITCH */}
-            <div className="flex bg-slate-950 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto">
+            <label className="sr-only" htmlFor="admin-mobile-tab">{t("Seção do painel", "Dashboard section")}</label>
+            <select
+              id="admin-mobile-tab"
+              value={activeTab}
+              onChange={event => {
+                playClickSound();
+                setActiveTab(event.target.value as typeof activeTab);
+              }}
+              className="admin-dashboard-mobile-tabs min-h-11 w-full rounded-xl border border-blue-400/40 bg-slate-950 px-3 text-sm font-bold text-white outline-none focus:border-orange-400 lg:hidden"
+            >
+              <option value="ninjas">{t('Ninjas', 'Ninjas')}</option>
+              <option value="quests">{t('Missões', 'Quests')}</option>
+              <option value="shop">{t('Loja', 'Shop')}</option>
+              <option value="events">{t('Eventos', 'Events')}</option>
+              <option value="ranks">{t('Ranks & XP', 'Ranks & XP')}</option>
+              <option value="ai">{t('Batalha contra IA', 'AI Battle')}</option>
+              <option value="cards">{t('Cards & Pacotes', 'Cards & Packs')}</option>
+              <option value="backup">{t('Backup & Ambientes', 'Backup & Environments')}</option>
+            </select>
+            <div className="hidden lg:flex bg-slate-950 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto">
               <button
                 onClick={() => { playClickSound(); setActiveTab('ninjas'); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
@@ -920,21 +940,21 @@ const newSkill: Skill = {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center sm:gap-3">
             <button
               onClick={handleResetDefaults}
-              className="px-3.5 py-2 rounded-lg border border-red-950/80 bg-red-950/20 text-red-400 hover:bg-red-950/40 hover:border-red-500/40 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+              className="min-h-11 justify-center px-2 sm:px-3.5 py-2 rounded-lg border border-red-950/80 bg-red-950/20 text-red-300 hover:bg-red-950/40 hover:border-red-500/40 text-[10px] sm:text-xs font-bold uppercase tracking-wide sm:tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
               title="Apagar customizações e voltar ao padrão do jogo"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Resetar Padrões
+              <RefreshCw className="w-4 h-4 shrink-0" />
+              {t("Resetar Padrões", "Reset Defaults")}
             </button>
 
             <button
               onClick={onBack}
-              className="px-4 py-2 bg-slate-950 border border-slate-800 hover:border-slate-600 text-slate-300 font-bold rounded-lg text-xs uppercase tracking-wider transition-all cursor-pointer"
+              className="min-h-11 justify-center px-2 sm:px-4 py-2 bg-slate-950 border border-slate-800 hover:border-slate-600 text-slate-200 font-bold rounded-lg text-[10px] sm:text-xs uppercase tracking-wide sm:tracking-wider transition-all cursor-pointer"
             >
-              Sair do Painel
+              {t("Sair do Painel", "Exit Dashboard")}
             </button>
           </div>
         </div>
@@ -1814,7 +1834,7 @@ const newSkill: Skill = {
             </div>
           )}
 
-          <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1 scrollbar-thin">
+          <div className="space-y-2 max-h-[35vh] lg:max-h-[450px] overflow-y-auto pr-1 scrollbar-thin">
             {characters.filter(char =>
               char.name.toLowerCase().includes(charSearch.toLowerCase()) ||
               char.tags?.some(t => t.toLowerCase().includes(charSearch.toLowerCase()))

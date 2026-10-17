@@ -5479,3 +5479,28 @@ e-squad-name {
     animation-duration: 1ms;
   }
 }
+
+@media (max-width: 767px) {
+  .admin-dashboard input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  .admin-dashboard select,
+  .admin-dashboard textarea {
+    min-height: 44px;
+    font-size: 16px !important;
+  }
+
+  .admin-dashboard input[type="checkbox"],
+  .admin-dashboard input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    min-height: 0;
+  }
+
+  .admin-dashboard-mobile-tabs {
+    color-scheme: dark;
+  }
+
+  .admin-dashboard [class*="overflow-x-auto"] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+}
