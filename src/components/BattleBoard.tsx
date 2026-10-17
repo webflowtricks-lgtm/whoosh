@@ -83,7 +83,7 @@ interface BattleBoardProps {
   onBattleEnd?: (victory: boolean, stats: QuestBattleStats & {
     turn?: number;
     alivePlayerCount?: number;
-  }, gainedXp?: number) => void;
+  }, gainedXp?: number) => void | Promise<void>;
   sessionRevoked?: boolean;
   onSessionRevoked?: (stats: any) => void;
   activeQuest?: Quest | null;
@@ -1894,6 +1894,9 @@ export default function BattleBoard({
   const [allQuests, setAllQuests] = useState<Quest[]>([]);
   const [loadingQuests, setLoadingQuests] = useState(false);
   const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
+  const [questSyncError, setQuestSyncError] = useState<string | null>(null);
+  const battleEndSyncPromiseRef = useRef<Promise<void> | null>(null);
+  const battleEndSyncedRef = useRef(false);
   const questBattleIdRef = useRef(
     restoredState?.questBattleId ||
     (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -1968,18 +1971,35 @@ export default function BattleBoard({
     skillUseRecords: [] as Array<{ charName: string; tags: string[]; skillName: string }>,
   });
 
+  const syncBattleEnd = async () => {
+    if (!gameOver || !onBattleEnd || sessionRevoked || battleEndSyncedRef.current) return;
+    if (battleEndSyncPromiseRef.current) return battleEndSyncPromiseRef.current;
+    const isVictory = gameOver === 'victory';
+    const alivePlayerCount = playerCombatants.filter(combatant => !combatant.isDead).length;
+    const gainedXp = calculateBattleXp(isVictory, turn, alivePlayerCount, matchStatsRef.current.damageDealt || 0);
+    const syncPromise = Promise.resolve(
+      onBattleEnd(isVictory, { ...matchStatsRef.current, turn, alivePlayerCount }, gainedXp),
+    );
+    battleEndSyncPromiseRef.current = syncPromise;
+    try {
+      await syncPromise;
+      battleEndSyncedRef.current = true;
+      setQuestSyncError(null);
+    } catch (error) {
+      setQuestSyncError(error instanceof Error ? error.message : 'Falha ao sincronizar o resultado e a missão.');
+      throw error;
+    } finally {
+      battleEndSyncPromiseRef.current = null;
+    }
+  };
+
   const handleQuit = async () => {
     console.log('handleQuit gameOver:', gameOver, 'has onBattleEnd:', !!onBattleEnd, 'playerChars:', matchStatsRef.current.playerCharactersUsed);
     if (gameOver && onBattleEnd && !sessionRevoked) {
-      const isVictory = gameOver === 'victory';
-      const alivePlayerCount = playerCombatants.filter((p) => !p.isDead).length;
-      const damageDealt = matchStatsRef.current.damageDealt || 0;
-      const gainedXp = calculateBattleXp(isVictory, turn, alivePlayerCount, damageDealt);
-
       // 🛡️ A sincronização NUNCA pode bloquear a saída: se onBattleEnd falhar/lançar
       // erro, o jogador ficava preso eternamente na tela de batalha ("looping").
       try {
-        await onBattleEnd(isVictory, { ...matchStatsRef.current, turn, alivePlayerCount }, gainedXp);
+        await syncBattleEnd();
       } catch (err) {
         console.error('[BattleBoard] Erro ao sincronizar fim de batalha (saída continua):', err);
       }
@@ -2939,6 +2959,13 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       playLoseSound();
     }
   }, [gameOver, onBattleFinished, playWinSound, playLoseSound]);
+
+  useEffect(() => {
+    if (!gameOver || !activeQuest || onlineParams?.isOnline || isSandbox || sessionRevoked) return;
+    void syncBattleEnd().catch(error => {
+      console.error('[BattleBoard] Falha ao sincronizar missão da batalha contra IA:', error);
+    });
+  }, [gameOver, activeQuest?.id, onlineParams?.isOnline, isSandbox, sessionRevoked]);
 
   useEffect(() => {
     if (!gameOver || !onlineParams?.isOnline || !onlineParams.roomId || sessionRevoked || surrenderReason) return;
@@ -18379,6 +18406,19 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
   <div
     className="min-h-screen text-slate-100 flex flex-col font-sans relative select-none"
   >
+      {questSyncError && gameOver && (
+        <div role="alert" className="fixed left-1/2 top-4 z-[100] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 rounded-xl border border-red-400/50 bg-red-950/95 p-4 text-sm text-red-100 shadow-2xl">
+          <p className="font-bold">Não foi possível salvar o progresso da missão.</p>
+          <p className="mt-1 text-xs">{questSyncError}</p>
+          <button
+            type="button"
+            onClick={() => { void syncBattleEnd().catch(error => console.error('[BattleBoard] Nova tentativa de sincronização falhou:', error)); }}
+            className="mt-3 min-h-10 rounded-lg bg-red-700 px-4 py-2 text-xs font-bold text-white hover:bg-red-600"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
      <div
   className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
   style={{

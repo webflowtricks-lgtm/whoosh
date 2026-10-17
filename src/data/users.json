@@ -326,5 +326,14 @@
     "village": "konoha",
     "villageChangeCount": 0,
     "ryos": 1500
+  },
+  {
+    "username": "5",
+    "password": "5",
+    "name": "5",
+    "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kakashi-hatake/icon.jpg",
+    "village": "hoshigakure",
+    "villageChangeCount": 0,
+    "ryos": 1500
   }
 ]

@@ -390,6 +390,18 @@ test('records authenticated AI battle quest progress once per battle', async () 
       targetValue: 2,
       currentValue: 0,
       currentStreak: 0,
+    }, {
+      id: 'win-with-naruto',
+      type: 'win_battles_with_chars',
+      targetCharacters: ['Naruto Uzumaki'],
+      targetValue: 1,
+      currentValue: 0,
+    }, {
+      id: 'win-with-sasuke',
+      type: 'win_battles_with_chars',
+      targetCharacters: ['Sasuke Uchiha'],
+      targetValue: 1,
+      currentValue: 0,
     }],
     rewards: [],
   }]);
@@ -401,8 +413,11 @@ test('records authenticated AI battle quest progress once per battle', async () 
     stunsApplied: 0,
     skillsUsed: { Rasengan: 2 },
     killsWithSkill: {},
-    playerCharactersUsed: ['Uzumaki Naruto'],
-    playerTeamCharacters: [{ name: 'Uzumaki Naruto', tags: ['Folha'] }],
+    playerCharactersUsed: ['Naruto Uzumaki', 'Sasuke Uchiha'],
+    playerTeamCharacters: [
+      { name: 'Naruto Uzumaki', tags: ['Folha'] },
+      { name: 'Sasuke Uchiha', tags: ['Folha'] },
+    ],
     damageDealtRecords: [],
     damageReceivedRecords: [],
     healingDoneRecords: [],
@@ -428,6 +443,8 @@ test('records authenticated AI battle quest progress once per battle', async () 
   assert.equal((firstBody.user as Row).questProgress instanceof Object, true);
   assert.equal(((firstBody.user as Row).questProgress as Row)['ai-quest'] instanceof Array, true);
   assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[0].currentValue, 2);
+  assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[1].currentValue, 1);
+  assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[2].currentValue, 1);
 
   const duplicate = await report();
   assert.equal(duplicate?.status, 200);
