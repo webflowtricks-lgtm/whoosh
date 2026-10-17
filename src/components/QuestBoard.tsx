@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { safeFetchJson } from '../lib/api';
 import { 
@@ -30,14 +30,15 @@ import {
   Shield,
   X,
   Zap,
+  Eye,
 } from 'lucide-react';
-import { Quest, UserProfile, Character, QuestReward, QuestGoal } from '../types';
+import { Quest, UserProfile, Character, QuestReward, QuestGoal, NinjaCard } from '../types';
 import SkinMedia from './SkinMedia';
 import { getGoalDescription } from '../lib/questUtils';
 import MangekyoLoader from './MangekyoLoader';
 import { RankConfig, getRanks, getUserRankFromConfig, fetchRanksFromServer } from '../lib/rankStorage';
 import { getCharacters } from '../lib/characterStorage';
-import { CARD_RARITY_META, getCards, rarityFx } from '../lib/cardStorage';
+import { CARD_RARITY_META, fetchCardsFromServer, getCards } from '../lib/cardStorage';
 import { useLanguage } from '../lib/i18n';
 
 function renderHighlightedGoalDescription(goal: QuestGoal) {
@@ -104,6 +105,7 @@ export default function QuestBoard({
 }: QuestBoardProps) {
   const { t } = useLanguage();
   const [quests, setQuests] = useState<Quest[]>([]);
+  const [allCards, setAllCards] = useState<NinjaCard[]>(() => getCards());
   const [ranksList, setRanksList] = useState<RankConfig[]>(getRanks());
   const [loading, setLoading] = useState(true);
   const [mainTab, setMainTab] = useState<'missoes' | 'perfil'>('missoes');
@@ -112,6 +114,7 @@ export default function QuestBoard({
   const [questSearch, setQuestSearch] = useState('');
   const [showQuestFilters, setShowQuestFilters] = useState(false);
   const [claimedRewardId, setClaimedRewardId] = useState<string | null>(null);
+  const rewardCarouselRef = useRef<HTMLDivElement>(null);
 
   // Modals state
   const [expandedDesc, setExpandedDesc] = useState<Record<string, boolean>>({});
@@ -142,7 +145,12 @@ export default function QuestBoard({
   useEffect(() => {
     fetchQuests();
     fetchRanksFromServer().then(r => setRanksList(r));
+    fetchCardsFromServer().then(setAllCards);
   }, []);
+
+  useEffect(() => {
+    if (rewardModalData) rewardCarouselRef.current?.scrollTo({ left: 0 });
+  }, [rewardModalData]);
 
   const fetchQuests = async () => {
     try {
@@ -519,10 +527,11 @@ export default function QuestBoard({
               animate={{ scale: 1, opacity: 1, y: 0, rotate: 0 }}
               exit={{ scale: 0.2, opacity: 0, y: 50, rotate: 7 }}
               transition={{ type: "spring", damping: 14, stiffness: 125, bounce: 0.35 }}
-              className="relative flex w-full max-w-[calc(100vw-2rem)] max-h-[calc(100vh-3rem)] flex-row flex-nowrap items-stretch justify-start gap-3 overflow-x-auto overflow-y-auto z-10 my-auto"
+              ref={rewardCarouselRef}
+              className="relative flex w-full max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-6rem)] flex-row flex-nowrap snap-x snap-mandatory items-stretch justify-start gap-3 overflow-x-auto overflow-y-auto z-10 my-auto"
             >
               {/* Character Reward Card */}
-              <div className="quest-reward-card relative shrink-0 bg-white border-2 border-sky-200 rounded-3xl p-3.5 sm:p-4 shadow-[0_0_70px_rgba(37,99,235,0.22)] flex flex-col items-center text-center space-y-2.5">
+              <div className="quest-reward-card relative shrink-0 snap-start bg-white border-2 border-sky-200 rounded-3xl p-3.5 sm:p-4 shadow-[0_0_70px_rgba(37,99,235,0.22)] flex flex-col items-center text-center space-y-2.5">
               {/* Outer Pulsing Glow Aura */}
               <div className="absolute -inset-1 rounded-[26px] bg-gradient-to-r from-blue-500 via-sky-400 to-orange-400 opacity-30 blur-lg -z-10 animate-pulse" />
 
@@ -658,7 +667,6 @@ export default function QuestBoard({
                 </div>
               )}
 
-              {/* Confirm Button */}
               <div className="w-full pt-1">
                 <button
                   onClick={() => {
@@ -675,59 +683,91 @@ export default function QuestBoard({
 
               {/* Other Rewards Card (do lado do card do personagem) */}
               {modalCollectibleRewards.map((reward, rewardIndex) => {
-                const allCards = getCards();
-                const cardIndex = allCards.findIndex(item => item.id === reward.value);
+                const cardIndexById = allCards.findIndex(item => item.id === reward.value);
+                const cardIndexByImage = reward.imageUrl
+                  ? allCards.findIndex(item => item.imageUrl === reward.imageUrl)
+                  : -1;
+                const cardIndex = cardIndexById >= 0 ? cardIndexById : cardIndexByImage;
                 const card = cardIndex >= 0 ? allCards[cardIndex] : undefined;
                 const artUrl = card?.imageUrl || reward.imageUrl ||
                   (card ? `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${card.slug}/icon.jpg` : '');
-                const rarityMeta = card ? CARD_RARITY_META[card.rarity] : undefined;
-                const cardFx = card ? rarityFx(card.rarity) : null;
-                const hasAnimatedRarity = card?.rarity === 'lendario' || card?.rarity === 'secreto';
-                const rarityEdgeColor = card?.rarity === 'secreto' ? '#ef4444' : '#facc15';
+                const rarity = card?.rarity || reward.rarity;
+                const rarityMeta = rarity ? CARD_RARITY_META[rarity] : undefined;
+                const hasAnimatedRarity = rarity === 'lendario' || rarity === 'secreto';
 
                 return (
-                  <div key={`${reward.value}-${rewardIndex}`} className="flex shrink-0 flex-col items-center gap-2 text-center">
-                    <div className={`relative h-[min(50vh,320px)] w-[240px] overflow-hidden rounded-xl ${card && rarityMeta ? `${rarityMeta.border} ${rarityMeta.glow}` : ''}`}>
+                  <div key={`${reward.value}-${rewardIndex}`} className="flex h-full w-[min(280px,calc(100vw-2rem))] shrink-0 snap-start flex-col items-center self-stretch text-center">
+                    <div className="relative flex min-h-0 w-full flex-1 overflow-hidden rounded-xl">
                       {artUrl ? (
                         <img
                           src={artUrl}
                           alt={`${card?.characterName || 'Figura colecionável'}${card?.title ? ` — ${card.title}` : ''}`}
-                          className="absolute inset-0 h-full w-full object-contain"
+                          className="h-full w-full object-contain"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <img src="/static/img/icon/ninja-card-icon.svg" alt="Figura colecionável" className="h-20 w-20 object-contain" />
                         </div>
                       )}
-                      {cardFx && <span className={cardFx.sweep} />}
+                      {rarity === 'secreto' && (
+                        <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+                          {Array.from({ length: 10 }, (_, particleIndex) => (
+                            <motion.span
+                              key={particleIndex}
+                              className="absolute bottom-0 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.9)]"
+                              style={{
+                                left: `${8 + ((particleIndex * 37) % 84)}%`,
+                                width: particleIndex % 3 === 0 ? 4 : 3,
+                                height: particleIndex % 3 === 0 ? 4 : 3,
+                              }}
+                              initial={{ y: 0, opacity: 0, scale: 0.6 }}
+                              animate={{ y: -260, opacity: [0, 0.9, 0.75, 0], scale: [0.6, 1.1, 0.8] }}
+                              transition={{
+                                duration: 2.8 + (particleIndex % 4) * 0.35,
+                                delay: particleIndex * 0.32,
+                                ease: 'easeOut',
+                                repeat: Infinity,
+                                repeatDelay: 0.2,
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                       {hasAnimatedRarity && (
                         <motion.div
                           aria-hidden="true"
-                          className="pointer-events-none absolute inset-0 z-10 rounded-xl p-[2px]"
+                          className="pointer-events-none absolute -inset-y-1/4 left-0 z-30 w-3/4"
+                          initial={{ x: '-140%', rotate: -18 }}
+                          animate={{ x: '200%', rotate: -18 }}
+                          transition={{ duration: 2.4, ease: 'easeInOut', repeat: Infinity, repeatDelay: 0 }}
                           style={{
-                            background: `conic-gradient(from 0deg, transparent 0deg 275deg, ${rarityEdgeColor} 325deg, transparent 360deg)`,
-                            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-                            WebkitMaskComposite: 'xor',
-                            maskComposite: 'exclude',
+                            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.26) 42%, rgba(255,255,255,0.68) 50%, rgba(255,255,255,0.26) 58%, rgba(255,255,255,0.06) 75%, transparent 100%)',
+                            filter: 'blur(3px) drop-shadow(0 0 12px rgba(255,255,255,0.65))',
+                            mixBlendMode: 'screen',
                           }}
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 3, ease: 'linear', repeat: Infinity }}
                         />
                       )}
                       <div className="absolute inset-x-0 bottom-0 z-20 h-20 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent" />
-                      {card && rarityMeta && (
-                        <span className={`absolute left-2 top-2 z-30 rounded-md border px-1.5 py-0.5 text-[9px] font-mono font-black uppercase tracking-wider ${rarityMeta.chip}`}>
-                          ◆ {rarityMeta.label}
-                        </span>
-                      )}
-                      <div className="absolute bottom-2 left-2 right-2 z-30 text-left">
-                        <p className={`text-[9px] font-mono font-black uppercase tracking-wider ${rarityMeta?.text || 'text-sky-200'}`}>
-                          #{cardIndex >= 0 ? String(cardIndex + 1).padStart(3, '0') : '???'}
-                        </p>
+                      <motion.span
+                        animate={rarity === 'secreto'
+                          ? { scale: [1, 1.04, 1], boxShadow: ['0 0 0px rgba(239,68,68,0.25)', '0 0 10px rgba(239,68,68,0.8)', '0 0 0px rgba(239,68,68,0.25)'] }
+                          : undefined}
+                        transition={rarity === 'secreto' ? { duration: 1.8, ease: 'easeInOut', repeat: Infinity } : undefined}
+                        className={`absolute left-2 top-2 z-50 rounded-md border px-1.5 py-0.5 text-[9px] font-mono font-black uppercase tracking-wider ${
+                          rarity === 'secreto'
+                            ? 'border-red-300 bg-red-600/95 text-white'
+                            : rarityMeta?.chip || 'border-sky-300/60 bg-slate-950/65 text-sky-100'
+                        }`}
+                      >
+                        ◆ {rarityMeta?.label || 'Figura'}
+                      </motion.span>
+                      <div className="absolute bottom-2 left-2 right-2 z-50 text-center">
                         <p className="truncate text-sm font-black text-white">
                           {card?.characterName || 'Figura colecionável'}
                         </p>
-                        {card?.title && <p className="truncate text-[10px] font-semibold text-sky-100">{card.title}</p>}
+                        <p className={`text-sm font-mono font-black uppercase tracking-wider ${rarityMeta?.text || 'text-sky-200'}`}>
+                          #{cardIndex >= 0 ? String(cardIndex + 1).padStart(3, '0') : 'NOVA'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -735,7 +775,7 @@ export default function QuestBoard({
               })}
 
               {modalOtherRewards.length > 0 && (
-                <div className="relative w-full max-w-[280px] shrink-0 self-stretch overflow-hidden rounded-3xl border-2 border-sky-200 bg-white p-4 shadow-[0_12px_35px_rgba(37,99,235,0.16)] flex flex-col gap-4">
+                <div className="relative w-full max-w-[280px] shrink-0 snap-start self-stretch overflow-hidden rounded-3xl border-2 border-sky-200 bg-white p-4 shadow-[0_12px_35px_rgba(37,99,235,0.16)] flex flex-col gap-4">
                   <div className="flex items-center gap-3 border-b border-sky-100 pb-3 text-left">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
                       <Award className="h-5 w-5" />
@@ -751,7 +791,7 @@ export default function QuestBoard({
                   </div>
                   <div className="flex w-full flex-col gap-2">
                     {modalOtherRewards.map((r, rIdx) => {
-                      const foundCard = r.type === 'card' ? getCards().find(c => c.id === r.value) : undefined;
+                      const foundCard = r.type === 'card' ? allCards.find(c => c.id === r.value) : undefined;
                       const rewardName = r.type === 'title' ? 'Título' :
                         r.type === 'banner' ? 'Banner' :
                         r.type === 'card' ? 'Figura colecionável' : 'Moldura';
@@ -774,9 +814,17 @@ export default function QuestBoard({
                             <p className="text-[9px] font-black uppercase tracking-widest text-blue-500">
                               {rewardName}
                             </p>
-                            <p className="break-words text-xs font-bold leading-snug text-blue-950">
-                              {rewardValue || 'Recompensa desbloqueada'}
-                            </p>
+                            {r.type === 'banner' && r.imageUrl ? (
+                              <img
+                                src={r.imageUrl}
+                                alt={r.value || 'Banner da recompensa'}
+                                className="mt-1 h-10 w-full max-w-36 rounded-md border border-sky-200 object-cover"
+                              />
+                            ) : (
+                              <p className="break-words text-xs font-bold leading-snug text-blue-950">
+                                {rewardValue || 'Recompensa desbloqueada'}
+                              </p>
+                            )}
                           </div>
                         </div>
                       );
@@ -785,6 +833,16 @@ export default function QuestBoard({
                 </div>
               )}
             </motion.div>
+            <button
+              onClick={() => {
+                playClickSound();
+                setRewardModalData(null);
+              }}
+              className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[60] flex w-[min(280px,calc(100vw-2rem))] -translate-x-1/2 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-700 via-sky-600 to-blue-700 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-xl shadow-blue-500/25 transition hover:brightness-110 active:scale-95 cursor-pointer"
+            >
+              <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-6 w-6 object-contain" />
+              <span>RESGATAR</span>
+            </button>
           </div>
         )}
 
@@ -1083,9 +1141,9 @@ export default function QuestBoard({
                           {isCompleted ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleViewCompletedRewards(quest); }}
-                              className="w-full py-2.5 bg-emerald-950/30 border border-emerald-500/40 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/50 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans uppercase tracking-wider transition cursor-pointer active:scale-95"
+                              className="w-full py-2.5 bg-emerald-600 border border-emerald-400 text-white hover:bg-emerald-500 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans uppercase tracking-wider shadow-md shadow-emerald-950/20 transition cursor-pointer active:scale-95"
                             >
-                              <CheckCircle className="w-4 h-4" />
+                              <Eye className="w-4 h-4" />
                               <span>Missão Concluída</span>
                             </button>
                           ) : lockCheck.locked ? (

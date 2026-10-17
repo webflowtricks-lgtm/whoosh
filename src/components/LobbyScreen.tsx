@@ -285,6 +285,11 @@ export default function LobbyScreen({
     ).length,
     0,
   );
+  const missionNotificationCount = quests.filter(quest => {
+    const isCompleted = user?.completedQuestIds?.includes(quest.id) || quest.completed;
+    if (isCompleted) return false;
+    return (quest.goals || []).every(goal => (goal.currentValue ?? 0) >= (goal.targetValue ?? 0));
+  }).length;
   const footerItems = [
     { label: t('Loja', 'Shop'), icon: ShoppingBag, action: () => openAuthenticated('shop') },
     { label: t('Shinobis', 'Shinobis'), icon: Users, action: () => { playClickSound(); setModal('characters'); } },
@@ -361,6 +366,16 @@ export default function LobbyScreen({
           className="lobby-mission-button"
           aria-label={t('Missões', 'Missions')}
         >
+          {missionNotificationCount > 0 && (
+            <span
+              className="lobby-events-mission-count"
+              aria-label={t(`${missionNotificationCount} missões prontas para resgatar`, `${missionNotificationCount} quests ready to claim`)}
+            >
+              <span className="lobby-events-mission-diamond">
+                <Diamond aria-hidden="true" />
+              </span>
+            </span>
+          )}
           <img className="lobby-mission-icon" src="/static/img/icon/missao.webp" alt="" />
         </button>
         {user && (

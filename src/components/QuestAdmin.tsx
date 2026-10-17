@@ -231,11 +231,10 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
 
   // Update field of current quest
   const updateQuestField = (field: keyof Quest, value: any) => {
-    if (!editingQuest) return;
-    setEditingQuest({
-      ...editingQuest,
+    setEditingQuest(current => current ? {
+      ...current,
       [field]: value
-    });
+    } : current);
   };
 
   // Add a goal to current editing quest
@@ -403,12 +402,34 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
 
   // Update reward fields
   const updateRewardField = (index: number, field: keyof QuestReward, value: any) => {
-    if (!editingQuest) return;
-    const updatedRewards = editingQuest.rewards.map((r, idx) => {
-      if (idx !== index) return r;
-      return { ...r, [field]: value };
+    setEditingQuest(current => {
+      if (!current) return current;
+      return {
+        ...current,
+        rewards: current.rewards.map((reward, rewardIndex) => {
+          if (rewardIndex !== index) return reward;
+          return { ...reward, [field]: value };
+        })
+      };
     });
-    updateQuestField('rewards', updatedRewards);
+  };
+
+  const selectRewardCard = (rewardIndex: number, card: NinjaCard) => {
+    setEditingQuest(current => {
+      if (!current) return current;
+      return {
+        ...current,
+        rewards: current.rewards.map((reward, index) => index === rewardIndex
+          ? { ...reward, value: card.id, imageUrl: card.imageUrl || '', rarity: card.rarity }
+          : reward)
+      };
+    });
+    setShowRewardCardSuggestions(false);
+  };
+
+  const cardNumber = (cardId: string) => {
+    const index = allCards.findIndex(card => card.id === cardId);
+    return index >= 0 ? String(index + 1).padStart(3, '0') : '---';
   };
 
   return (
@@ -930,6 +951,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
 
               <div className="space-y-3">
                 {editingQuest.rewards.map((r, rIdx) => {
+                  const selectedRewardCard = r.type === 'card' ? allCards.find(card => card.id === r.value) : undefined;
                   return (
                     <div key={rIdx} className="bg-slate-900 p-3.5 border border-slate-800 rounded-lg flex items-center gap-4 relative">
                       <div className="grid md:grid-cols-2 gap-4 flex-1">
@@ -1144,11 +1166,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                                       .map(card => (
                                         <div
                                           key={card.id}
-                                          onClick={() => {
-                                            updateRewardField(rIdx, 'value', card.id);
-                                            updateRewardField(rIdx, 'imageUrl', card.imageUrl || '');
-                                            setShowRewardCardSuggestions(false);
-                                          }}
+                                          onClick={() => selectRewardCard(rIdx, card)}
                                           className="px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white cursor-pointer border-b border-slate-900/60 flex items-center gap-2"
                                         >
                                           <div className={`w-7 h-7 rounded overflow-hidden border flex-shrink-0 ${CARD_RARITY_META[card.rarity].border}`}>
@@ -1157,13 +1175,19 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                                           <div className="min-w-0">
                                             <span className="block truncate">{card.characterName} — {card.title}</span>
                                             <span className={`text-[9px] font-mono uppercase font-bold ${CARD_RARITY_META[card.rarity].text}`}>
-                                              {CARD_RARITY_META[card.rarity].label} • {card.id}
+                                              #{cardNumber(card.id)} • {CARD_RARITY_META[card.rarity].label} • {card.id}
                                             </span>
                                           </div>
                                         </div>
                                       ))}
                                     {allCards.length === 0 && (
                                       <div className="px-3 py-2 text-[11px] text-slate-500 font-mono">Nenhuma figura cadastrada.</div>
+                                    )}
+                                    {allCards.length > 0 && allCards.filter(c => {
+                                      const q = (r.value || '').toLowerCase();
+                                      return c.characterName.toLowerCase().includes(q) || c.title.toLowerCase().includes(q) || c.id.toLowerCase().includes(q) || (c.variant || '').toLowerCase().includes(q);
+                                    }).length === 0 && (
+                                      <div className="px-3 py-2 text-[11px] text-slate-500 font-mono">Nenhuma figura corresponde à busca.</div>
                                     )}
                                   </div>
                                 )}
@@ -1203,9 +1227,13 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                                 </div>
                                 <div className="text-[10px] text-slate-300 truncate font-mono">
                                   <span className="text-fuchsia-300 font-bold block truncate">
-                                    {allCards.find(c => c.id === r.value)?.characterName || 'Selecione uma figura'}
+                                    {selectedRewardCard?.characterName || 'Selecione uma figura'}
                                   </span>
-                                  <span className="text-slate-500">{r.value || 'sem id'}</span>
+                                  <span className={`block ${selectedRewardCard ? CARD_RARITY_META[selectedRewardCard.rarity].text : 'text-slate-500'}`}>
+                                    {selectedRewardCard
+                                      ? `#${cardNumber(selectedRewardCard.id)} • ${CARD_RARITY_META[selectedRewardCard.rarity].label} • ${selectedRewardCard.id}`
+                                      : r.value || 'sem ID selecionado'}
+                                  </span>
                                 </div>
                               </div>
                             </div>

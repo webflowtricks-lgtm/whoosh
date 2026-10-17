@@ -1301,6 +1301,7 @@ export interface QuestReward {
   type: 'title' | 'unlock_character' | 'frame' | 'banner' | 'card';
   value: string; // Título, nome do personagem, nome/descrição da moldura ou banner, ou ID do card
   imageUrl?: string; // URL da imagem da moldura ou banner de fundo do perfil (ou imagem do card)
+  rarity?: CardRarity;
 }
 
 export interface Quest {
