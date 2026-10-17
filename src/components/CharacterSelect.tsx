@@ -895,8 +895,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative selection:bg-orange-600 selection:text-white overflow-x-hidden">
       {catalogStatus !== 'ready' && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/95 p-4 backdrop-blur-sm">
-          <div role="alert" aria-live="polite" className="w-full max-w-md rounded-2xl border border-orange-500/40 bg-slate-900 p-6 text-center shadow-2xl">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-[#061b35]/90 p-4 backdrop-blur-sm">
+          <div role="alert" aria-live="polite" className="w-full max-w-md overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br from-[#123f70] via-[#0a2a4d] to-[#071b33] p-6 text-center text-white shadow-[0_24px_80px_rgba(0,0,0,0.65)]">
             {catalogStatus === 'loading' ? (
               <>
                 <img
@@ -907,19 +907,19 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   style={{
                     animationDuration: '900ms',
                     animationTimingFunction: 'linear',
-                    filter: 'hue-rotate(-25deg) saturate(2) brightness(1.1) drop-shadow(0 0 8px rgba(239, 68, 68, 0.8))',
+                    filter: 'hue-rotate(155deg) saturate(1.35) brightness(1.2) drop-shadow(0 0 9px rgba(59, 130, 246, 0.8))',
                   }}
                 />
-                <h2 className="mt-4 text-lg font-black text-amber-300">
+                <h2 className="mt-4 text-lg font-black text-white">
                   {t('Carregando personagens', 'Loading characters')}
                 </h2>
-                <p className="mt-2 text-sm text-slate-300">
+                <p className="mt-2 text-sm leading-relaxed text-blue-100">
                   {t('Aguarde enquanto confirmamos as configurações globais do jogo.', 'Please wait while we confirm the game-wide settings.')}
                 </p>
                 {catalogProgress !== null ? (
                   <div className="mt-5">
                     <div
-                      className="mb-2 flex items-center justify-between text-xs font-bold text-orange-300"
+                      className="mb-2 flex items-center justify-between text-xs font-bold text-orange-200"
                       role="status"
                       aria-live="polite"
                     >
@@ -927,7 +927,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       <span>{catalogProgress}%</span>
                     </div>
                     <div
-                      className="h-2 overflow-hidden rounded-full bg-slate-800"
+                      className="h-2 overflow-hidden rounded-full border border-white/25 bg-[#06172d]"
                       role="progressbar"
                       aria-label={t('Progresso do carregamento dos personagens', 'Character loading progress')}
                       aria-valuemin={0}
@@ -935,24 +935,24 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       aria-valuenow={catalogProgress}
                     >
                       <div
-                        className="h-full rounded-full bg-orange-500 transition-[width] duration-150"
+                        className="h-full rounded-full bg-gradient-to-r from-blue-300 to-blue-600 shadow-[0_0_12px_rgba(59,130,246,0.45)] transition-[width] duration-150"
                         style={{ width: `${catalogProgress}%` }}
                       />
                     </div>
                   </div>
                 ) : (
-                  <p className="mt-4 text-xs text-slate-500">
+                  <p className="mt-4 text-xs text-blue-200">
                     {t('Preparando o carregamento...', 'Preparing to load...')}
                   </p>
                 )}
               </>
             ) : (
               <>
-                <AlertTriangle className="mx-auto h-10 w-10 text-amber-400" />
-                <h2 className="mt-4 text-lg font-black text-amber-300">
+                <AlertTriangle className="mx-auto h-10 w-10 text-orange-300" />
+                <h2 className="mt-4 text-lg font-black text-white">
                   {t('Não foi possível carregar os personagens oficiais', 'Could not load official characters')}
                 </h2>
-                <p className="mt-2 text-sm text-slate-300">
+                <p className="mt-2 text-sm text-blue-100">
                   {catalogError || t('A seleção foi bloqueada para evitar usar habilidades desatualizadas.', 'Selection is blocked to prevent using outdated skills.')}
                 </p>
                 <button
@@ -962,7 +962,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     setCatalogProgress(null);
                     setCatalogReloadKey(value => value + 1);
                   }}
-                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-orange-700 px-4 py-3 text-sm font-bold text-white hover:bg-orange-600"
+                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl border border-white/70 bg-gradient-to-r from-blue-700 to-orange-600 px-4 py-3 text-sm font-bold text-white hover:from-blue-600 hover:to-orange-500"
                 >
                   <RefreshCw className="h-4 w-4" />
                   {t('Tentar novamente', 'Try again')}
@@ -971,7 +971,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   <button
                     type="button"
                     onClick={onBack}
-                    className="mt-3 block w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-700"
+                    className="mt-3 block w-full rounded-xl border border-white/40 bg-white/10 px-4 py-3 text-sm font-bold text-white hover:bg-white/20"
                   >
                     {t('Voltar', 'Go back')}
                   </button>

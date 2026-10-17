@@ -3,6 +3,7 @@ import http from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import path from "path";
 import fs from "fs";
+import { networkInterfaces } from "os";
 import { createHash, createPublicKey, randomBytes, timingSafeEqual, verify as verifySignature } from "crypto";
 import { createServer as createViteServer } from "vite";
 import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
@@ -2587,6 +2588,17 @@ async function startServer() {
 
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT} (HTTP+WebSocket /ws)`);
+    const lanAddresses = [...new Set(Object.values(networkInterfaces())
+      .flatMap(addresses => addresses || [])
+      .filter(address =>
+        address.family === "IPv4" &&
+        !address.internal &&
+        !address.address.startsWith("169.254."),
+      )
+      .map(address => address.address))];
+    for (const address of lanAddresses) {
+      console.log(`LAN access: http://${address}:${PORT}/`);
+    }
   });
 }
 
