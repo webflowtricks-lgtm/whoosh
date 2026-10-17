@@ -10,7 +10,11 @@ import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
 import { firstSlotForTurn, isValidMatchTeam, submitTurnActions } from "./src/lib/matchProtocol";
 import { getInactiveMatchSlot, MATCH_INACTIVITY_TIMEOUT_MS } from "./src/lib/matchInactivity";
 import { isVillageId } from "./src/lib/villages";
-import { evaluateAuthoritativeQuestGoal, sanitizeQuestBattleStats } from "./src/lib/questProgress";
+import {
+  evaluateAuthoritativeQuestGoal,
+  resolveQuestRequiredRank,
+  sanitizeQuestBattleStats,
+} from "./src/lib/questProgress";
 import {
   grantQuestMaintenanceRewards,
   reconcileQuestMaintenanceProfile,
@@ -172,6 +176,98 @@ function persistAccountUsers(users: unknown[]): boolean {
     console.error("Error writing account profiles:", error);
     return false;
   }
+}
+
+interface QuestRewardSnapshot {
+  ryos: number;
+  gems: number;
+  items: string[];
+}
+
+function questRewardCurrencyTotals(rewards: QuestReward[], questId: string): Pick<QuestRewardSnapshot, 'ryos' | 'gems'> {
+  const totals = { ryos: 0, gems: 0 };
+  for (const reward of rewards) {
+    if (reward.type !== 'ryos' && reward.type !== 'gems') continue;
+    const amount = Number(reward.value);
+    if (!Number.isSafeInteger(amount) || amount < 0 || !Number.isSafeInteger(totals[reward.type] + amount)) {
+      throw new Error(`Recompensa inválida na missão ${questId}.`);
+    }
+    totals[reward.type] += amount;
+  }
+  return totals;
+}
+
+function addUniqueQuestReward(profile: Record<string, unknown>, field: string, value: string): boolean {
+  const values = Array.isArray(profile[field])
+    ? (profile[field] as unknown[]).filter((item): item is string => typeof item === 'string')
+    : [];
+  if (values.includes(value)) return false;
+  profile[field] = [...values, value];
+  return true;
+}
+
+function grantQuestRewards(
+  profile: Record<string, unknown>,
+  rewards: QuestReward[],
+  snapshot: QuestRewardSnapshot,
+): QuestReward[] {
+  const granted: QuestReward[] = [];
+  for (const reward of rewards) {
+    if (!reward || typeof reward.value !== 'string') {
+      throw new Error('A missão contém uma recompensa inválida.');
+    }
+    if (reward.type === 'ryos' || reward.type === 'gems') {
+      const amount = Number(reward.value);
+      if (!Number.isSafeInteger(amount) || amount < 0) {
+        throw new Error(`Recompensa inválida para a missão: ${reward.type}.`);
+      }
+      if (amount === 0) continue;
+      const current = Number(profile[reward.type]);
+      const balance = Number.isSafeInteger(current) && current >= 0
+        ? current
+        : reward.type === 'ryos' ? 1500 : 120;
+      if (!Number.isSafeInteger(balance + amount)) {
+        throw new Error(`Saldo excede o limite seguro para a recompensa: ${reward.type}.`);
+      }
+      profile[reward.type] = balance + amount;
+      snapshot[reward.type] += amount;
+      granted.push(reward);
+      continue;
+    }
+
+    const token = ['title', 'unlock_character', 'frame', 'banner', 'card'].includes(reward.type)
+      ? `${reward.type}:${reward.value}`
+      : null;
+    if (!token) throw new Error(`Tipo de recompensa não suportado: ${reward.type}.`);
+    if (snapshot.items.includes(token)) continue;
+
+    let newlyGranted = false;
+    if (reward.type === 'title') {
+      newlyGranted = addUniqueQuestReward(profile, 'unlockedTitles', reward.value);
+    } else if (reward.type === 'unlock_character') {
+      newlyGranted = addUniqueQuestReward(profile, 'unlockedCharacterNames', reward.value);
+    } else if (reward.type === 'frame') {
+      newlyGranted = addUniqueQuestReward(profile, 'unlockedFrames', reward.value);
+      if (newlyGranted && reward.imageUrl) {
+        addUniqueQuestReward(profile, 'unlockedFrameUrls', reward.imageUrl);
+        if (!profile.equippedFrameUrl) {
+          profile.equippedFrame = reward.value;
+          profile.equippedFrameUrl = reward.imageUrl;
+        }
+      }
+    } else if (reward.type === 'banner') {
+      newlyGranted = addUniqueQuestReward(profile, 'unlockedBanners', reward.value);
+      if (newlyGranted && reward.imageUrl) {
+        addUniqueQuestReward(profile, 'unlockedBannerUrls', reward.imageUrl);
+        if (!profile.equippedBannerUrl) profile.equippedBannerUrl = reward.imageUrl;
+      }
+    } else if (reward.type === 'card') {
+      newlyGranted = addUniqueQuestReward(profile, 'collectedCardIds', reward.value);
+    }
+    snapshot.items.push(token);
+    if (newlyGranted) granted.push(reward);
+  }
+  return granted;
 }
 
 function reconcileLegacyQuestRewards(
@@ -2103,21 +2199,96 @@ async function startServer() {
   });
 
   // Quests API
-  app.post("/api/quests/ai-progress", requireActiveMatchSession, (req, res) => {
+  app.post("/api/quests/claim", requireActiveMatchSession, (req, res) => {
     const username = typeof req.body?.username === "string" ? req.body.username.trim().toLowerCase() : "";
     const questId = typeof req.body?.questId === "string" ? req.body.questId : "";
+    if (!username || username === "convidado" || !questId || questId.length > 160) {
+      return res.status(400).json({ error: "Conta e missão válidas são necessárias para resgatar a recompensa." });
+    }
+
+    const quests = readJSON<Quest[]>(QUESTS_FILE, []);
+    const quest = quests.find(item => item.id === questId);
+    if (!quest || !Array.isArray(quest.goals) || !Array.isArray(quest.rewards)) {
+      return res.status(404).json({ error: "Missão não encontrada." });
+    }
+
+    const users = readJSON<Array<Record<string, unknown>>>(USERS_FILE, []);
+    const profile = users.find(item => item.username === username);
+    if (!profile) return res.status(404).json({ error: "Usuário não encontrado." });
+    const completedQuestIds = Array.isArray(profile.completedQuestIds)
+      ? profile.completedQuestIds.filter((id): id is string => typeof id === "string")
+      : [];
+    if (completedQuestIds.includes(questId)) {
+      const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+      return res.json({ success: true, alreadyClaimed: true, user: publicUser, grantedRewards: [] });
+    }
+
+    const savedProgress = profile.questProgress && typeof profile.questProgress === "object"
+      ? profile.questProgress as Record<string, Array<{ id: string; currentValue: number }>>
+      : {};
+    const savedGoals = new Map((savedProgress[questId] || []).map(goal => [goal.id, goal]));
+    if (!quest.goals.length || !quest.goals.every(goal =>
+      Number(savedGoals.get(goal.id)?.currentValue) >= Number(goal.targetValue),
+    )) {
+      return res.status(409).json({ error: "Conclua todos os objetivos em partidas online ou contra IA antes de resgatar." });
+    }
+
+    if (Array.isArray(quest.requiredQuestIds) &&
+        !quest.requiredQuestIds.every(id => completedQuestIds.includes(id))) {
+      return res.status(409).json({ error: "Conclua as missões anteriores antes de resgatar esta recompensa." });
+    }
+
+    const ranks = readJSON<Array<{ name: string; requiredXp: number }>>(RANKS_FILE, []);
+    const sortedRanks = ranks.filter(rank =>
+      !!rank && typeof rank.name === "string" && typeof rank.requiredXp === "number",
+    ).sort((left, right) => left.requiredXp - right.requiredXp);
+    const requiredRank = resolveQuestRequiredRank(quest.minRank, sortedRanks);
+    const xp = Math.max(0, Number(profile.xp) || 0);
+    const currentRank = sortedRanks.slice().reverse().find(rank => xp >= rank.requiredXp);
+    if (requiredRank && (!currentRank || currentRank.requiredXp < requiredRank.requiredXp)) {
+      return res.status(409).json({ error: "Seu rank ainda não permite resgatar esta missão." });
+    }
+
+    const snapshots = profile.questRewardSnapshots && typeof profile.questRewardSnapshots === "object"
+      ? profile.questRewardSnapshots as Record<string, Partial<QuestRewardSnapshot>>
+      : {};
+    try {
+      questRewardCurrencyTotals(quest.rewards, quest.id);
+    } catch (error) {
+      console.error("[QUESTS] Recompensa inválida no resgate:", error);
+      return res.status(409).json({ error: "A missão contém uma recompensa inválida." });
+    }
+    const snapshot: QuestRewardSnapshot = { ryos: 0, gems: 0, items: [] };
+    let grantedRewards: QuestReward[];
+    try {
+      grantedRewards = grantQuestRewards(profile, quest.rewards, snapshot);
+    } catch (error) {
+      console.error("[QUESTS] Falha ao conceder recompensa de missão:", error);
+      return res.status(409).json({ error: "Não foi possível validar as recompensas desta missão." });
+    }
+    profile.completedQuestIds = [...completedQuestIds, questId];
+    profile.questRewardSnapshots = { ...snapshots, [questId]: snapshot };
+    if (!persistAccountUsers(users)) {
+      return res.status(500).json({ error: "Não foi possível salvar o resgate da recompensa." });
+    }
+
+    const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+    return res.json({ success: true, user: publicUser, grantedRewards });
+  });
+
+  app.post("/api/quests/ai-progress", requireActiveMatchSession, (req, res) => {
+    const username = typeof req.body?.username === "string" ? req.body.username.trim().toLowerCase() : "";
     const battleId = typeof req.body?.battleId === "string" ? req.body.battleId : "";
     const stats = sanitizeQuestBattleStats(req.body?.stats);
-    if (!username || username === "convidado" || !questId || questId.length > 160 ||
+    if (!username || username === "convidado" ||
         !/^[a-zA-Z0-9_-]{8,128}$/.test(battleId) || typeof req.body?.victory !== "boolean" || !stats) {
       return res.status(400).json({ error: "Dados inválidos para registrar a missão contra IA." });
     }
 
     const quests = readJSON<Quest[]>(QUESTS_FILE, []);
-    const quest = quests.find(item => item.id === questId);
-    if (!quest || !Array.isArray(quest.goals) || !quest.goals.length) {
-      return res.status(404).json({ error: "Missão não encontrada." });
-    }
+    const eligibleQuests = quests.filter(quest =>
+      !!quest && typeof quest.id === "string" && Array.isArray(quest.goals) && quest.goals.length > 0,
+    );
     const users = readJSON<Array<Record<string, any>>>(USERS_FILE, []);
     const profile = users.find(item => item.username === username);
     if (!profile) return res.status(404).json({ error: "Usuário não encontrado." });
@@ -2125,38 +2296,31 @@ async function startServer() {
     const processedBattleIds = Array.isArray(profile.questAiBattleIds)
       ? profile.questAiBattleIds.filter((id: unknown): id is string => typeof id === "string")
       : [];
-    if ((profile.completedQuestIds || []).includes(questId)) {
-      const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
-      return res.json({ success: true, alreadyCompleted: true, user: publicUser });
-    }
     if (processedBattleIds.includes(battleId)) {
       const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
       return res.json({ success: true, alreadyProcessed: true, user: publicUser });
     }
 
     const completedQuestIds: string[] = Array.isArray(profile.completedQuestIds) ? profile.completedQuestIds : [];
-    if (Array.isArray(quest.requiredQuestIds) && !quest.requiredQuestIds.every(id => completedQuestIds.includes(id))) {
-      return res.status(409).json({ error: "Conclua as missões anteriores antes de avançar nesta missão." });
-    }
     const ranks = readJSON<Array<{ name: string; requiredXp: number }>>(RANKS_FILE, []);
     const sortedRanks = ranks.slice().sort((left, right) => left.requiredXp - right.requiredXp);
-    const requiredRank = quest.minRank ? sortedRanks.find(rank => rank.name === quest.minRank) : undefined;
     const xp = Math.max(0, Number(profile.xp) || 0);
     const currentRank = sortedRanks.slice().reverse().find(rank => xp >= rank.requiredXp);
-    if (quest.minRank && !requiredRank) {
-      return res.status(409).json({ error: "A patente exigida por esta missão não está configurada." });
-    }
-    if (requiredRank && (!currentRank || currentRank.requiredXp < requiredRank.requiredXp)) {
-      return res.status(409).json({ error: "Seu rank ainda não permite avançar nesta missão." });
-    }
 
     const savedProgress = profile.questProgress && typeof profile.questProgress === "object"
       ? profile.questProgress as Record<string, Array<{ id: string; currentValue: number; currentStreak?: number }>>
       : {};
-    const oldGoals = new Map((savedProgress[questId] || []).map(goal => [goal.id, goal]));
-    profile.questProgress = {
-      ...savedProgress,
-      [questId]: quest.goals.map(goal => {
+    const completed = new Set(completedQuestIds);
+    const progressedQuestIds: string[] = [];
+    const updatedProgress = { ...savedProgress };
+    for (const quest of eligibleQuests) {
+      if (completed.has(quest.id) ||
+          Array.isArray(quest.requiredQuestIds) && !quest.requiredQuestIds.every(id => completed.has(id))) continue;
+      const requiredRank = resolveQuestRequiredRank(quest.minRank, sortedRanks);
+      if (requiredRank && (!currentRank || currentRank.requiredXp < requiredRank.requiredXp)) continue;
+
+      const oldGoals = new Map((savedProgress[quest.id] || []).map(goal => [goal.id, goal]));
+      const updatedGoals = quest.goals.map(goal => {
         const previous = oldGoals.get(goal.id);
         const result = evaluateAuthoritativeQuestGoal({
           ...goal,
@@ -2164,14 +2328,21 @@ async function startServer() {
           currentStreak: Math.max(0, Number(previous?.currentStreak) || 0),
         }, req.body.victory, stats);
         return { id: goal.id, currentValue: result.nextValue, currentStreak: result.nextStreak };
-      }),
-    };
+      });
+      updatedProgress[quest.id] = updatedGoals;
+      if (updatedGoals.some(goal => {
+        const previous = oldGoals.get(goal.id);
+        return goal.currentValue !== Number(previous?.currentValue || 0) ||
+          goal.currentStreak !== Number(previous?.currentStreak || 0);
+      })) progressedQuestIds.push(quest.id);
+    }
+    profile.questProgress = updatedProgress;
     profile.questAiBattleIds = [...processedBattleIds.slice(-999), battleId];
     if (!persistAccountUsers(users)) {
       return res.status(500).json({ error: "Não foi possível salvar o progresso da missão contra IA." });
     }
     const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
-    return res.json({ success: true, user: publicUser });
+    return res.json({ success: true, progressedQuestIds, user: publicUser });
   });
 
   app.get("/api/quests", (req, res) => {

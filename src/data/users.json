@@ -334,6 +334,143 @@
     "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kakashi-hatake/icon.jpg",
     "village": "hoshigakure",
     "villageChangeCount": 0,
-    "ryos": 1500
+    "ryos": 26501,
+    "questProgress": {
+      "quest_1784869393005": [
+        {
+          "id": "goal_1784869393005_1",
+          "currentValue": 1,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040155794_2",
+          "currentValue": 1,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786039551209": [
+        {
+          "id": "goal_1786039551209_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786039716489_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786040199522": [
+        {
+          "id": "goal_1786040199522_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040464755_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040480786_3",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040518996_4",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040662748_5",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040694186_6",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786041548484": [
+        {
+          "id": "goal_1786041548484_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786041652644_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786041662283_3",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786041796915": [
+        {
+          "id": "goal_1786041796915_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ]
+    },
+    "questAiBattleIds": [
+      "1aec69ac-0b15-4ba8-ad7d-8c4111cbe47e"
+    ],
+    "unlockedCharacterNames": [
+      "Haku"
+    ],
+    "unlockedTitles": [
+      "Novo Título"
+    ],
+    "collectedCardIds": [
+      "naruto-base"
+    ],
+    "unlockedBanners": [
+      "Banne"
+    ],
+    "unlockedBannerUrls": [
+      "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1200&auto=format&fit=crop"
+    ],
+    "equippedBannerUrl": "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1200&auto=format&fit=crop",
+    "gems": 25120,
+    "completedQuestIds": [
+      "quest_1784869393005"
+    ],
+    "questRewardSnapshots": {
+      "quest_1784869393005": {
+        "ryos": 25001,
+        "gems": 25000,
+        "items": [
+          "unlock_character:Haku",
+          "title:Novo Título",
+          "card:naruto-base",
+          "banner:Banne"
+        ]
+      }
+    },
+    "questMaintenanceInbox": [
+      {
+        "id": "486d14e1d2cbe92c9b225e2c472cdd19",
+        "questId": "quest_1784869393005",
+        "subject": "Recompensa de manutenção de missão",
+        "message": "A missão \"O Último Espelho de Gelo\" teve suas recompensas atualizadas. Resgate os itens e as moedas disponíveis nesta mensagem.",
+        "createdAt": "2026-10-17T15:14:09.574Z",
+        "rewards": [
+          {
+            "type": "ryos",
+            "value": "24751"
+          },
+          {
+            "type": "gems",
+            "value": "24750"
+          }
+        ],
+        "claimedAt": "2026-10-17T15:14:55.623Z"
+      }
+    ]
   }
 ]

@@ -365,7 +365,7 @@ function seedD1Config(db: MemoryD1, key: string, items: unknown[]): void {
   });
 }
 
-test('records authenticated AI battle quest progress once per battle', async () => {
+test('records authenticated AI battle progress across eligible quests once per battle', async () => {
   const env = { DB: new MemoryD1() };
   const registration = await handleD1Request(request('/api/auth/register', 'POST', {
     username: 'ai_quest_user',
@@ -381,7 +381,7 @@ test('records authenticated AI battle quest progress once per battle', async () 
   seedD1Config(env.DB, 'quests', [{
     id: 'ai-quest',
     title: 'Missão IA',
-    minRank: '',
+    minRank: 'Estudante de Academia',
     requiredQuestIds: [],
     goals: [{
       id: 'use-rasengan',
@@ -404,6 +404,26 @@ test('records authenticated AI battle quest progress once per battle', async () 
       currentValue: 0,
     }],
     rewards: [],
+  }, {
+    id: 'ai-quest-follow-up',
+    title: 'Outra missão IA',
+    minRank: 'Estudante',
+    requiredQuestIds: [],
+    goals: [{
+      id: 'win-with-naruto-too',
+      type: 'win_battles_with_chars',
+      targetCharacters: ['Naruto Uzumaki'],
+      targetValue: 1,
+      currentValue: 0,
+    }],
+    rewards: [],
+  }]);
+  seedD1Config(env.DB, 'ranks', [{
+    name: 'Estudante',
+    requiredXp: 0,
+  }, {
+    name: 'Genin',
+    requiredXp: 1000,
   }]);
   const stats = {
     damageDealt: 0,
@@ -413,10 +433,10 @@ test('records authenticated AI battle quest progress once per battle', async () 
     stunsApplied: 0,
     skillsUsed: { Rasengan: 2 },
     killsWithSkill: {},
-    playerCharactersUsed: ['Naruto Uzumaki', 'Sasuke Uchiha'],
+    playerCharactersUsed: ['Naruto Uzumaki (S)', 'Sasuke Uchiha (S)'],
     playerTeamCharacters: [
-      { name: 'Naruto Uzumaki', tags: ['Folha'] },
-      { name: 'Sasuke Uchiha', tags: ['Folha'] },
+      { name: 'Naruto Uzumaki (S)', tags: ['Folha'] },
+      { name: 'Sasuke Uchiha (S)', tags: ['Folha'] },
     ],
     damageDealtRecords: [],
     damageReceivedRecords: [],
@@ -431,7 +451,6 @@ test('records authenticated AI battle quest progress once per battle', async () 
   };
   const report = () => handleD1Request(request('/api/quests/ai-progress', 'POST', {
     username: 'ai_quest_user',
-    questId: 'ai-quest',
     battleId: 'battle-ai-0001',
     victory: true,
     stats,
@@ -445,11 +464,70 @@ test('records authenticated AI battle quest progress once per battle', async () 
   assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[0].currentValue, 2);
   assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[1].currentValue, 1);
   assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[2].currentValue, 1);
+  assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest-follow-up'] as Row[])[0].currentValue, 1);
+  assert.deepEqual(firstBody.progressedQuestIds, ['ai-quest', 'ai-quest-follow-up']);
 
   const duplicate = await report();
   assert.equal(duplicate?.status, 200);
   assert.equal((await responseBody(duplicate!)).alreadyProcessed, true);
   assert.equal(env.DB.profileUpdateCount, 1);
+});
+
+test('claims completed quest rewards once and does not duplicate owned item rewards', async () => {
+  const env = { DB: new MemoryD1() };
+  const registration = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: 'quest_claim_user',
+    password: 'correct horse',
+    name: 'Quest Claim User',
+  }), env);
+  const token = 'b'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'quest_claim_user',
+    sessionToken: token,
+    sessionTicket: (await responseBody(registration!)).sessionTicket,
+  }), env);
+  seedD1Config(env.DB, 'quests', [{
+    id: 'claimable-quest',
+    title: 'Missão resgatável',
+    minRank: 'Estudante de Academia',
+    requiredQuestIds: [],
+    goals: [{ id: 'win-with-naruto', type: 'win_battles_with_chars', targetValue: 1 }],
+    rewards: [
+      { type: 'ryos', value: '250' },
+      { type: 'title', value: 'Herói de Konoha' },
+      { type: 'card', value: 'card-001' },
+    ],
+  }]);
+  seedD1Config(env.DB, 'ranks', [{ name: 'Estudante', requiredXp: 0 }]);
+  const row = env.DB.accounts.get('quest_claim_user')!;
+  const profile = JSON.parse(String(row.profile_json)) as Row;
+  profile.questProgress = {
+    'claimable-quest': [{ id: 'win-with-naruto', currentValue: 1, currentStreak: 0 }],
+  };
+  profile.collectedCardIds = ['card-001'];
+  row.profile_json = JSON.stringify(profile);
+
+  const claim = () => handleD1Request(request('/api/quests/claim', 'POST', {
+    username: 'quest_claim_user',
+    questId: 'claimable-quest',
+  }, { 'X-Account-Session': token }), env);
+  const first = await claim();
+  assert.equal(first?.status, 200);
+  const firstBody = await responseBody(first!);
+  const updatedUser = firstBody.user as Row;
+  assert.deepEqual(updatedUser.completedQuestIds, ['claimable-quest']);
+  assert.equal(updatedUser.ryos, 1750);
+  assert.deepEqual(updatedUser.unlockedTitles, ['Herói de Konoha']);
+  assert.deepEqual(updatedUser.collectedCardIds, ['card-001']);
+  assert.deepEqual(firstBody.grantedRewards, [
+    { type: 'ryos', value: '250' },
+    { type: 'title', value: 'Herói de Konoha' },
+  ]);
+
+  const duplicate = await claim();
+  assert.equal(duplicate?.status, 200);
+  assert.equal((await responseBody(duplicate!)).alreadyClaimed, true);
+  assert.equal(JSON.parse(String(env.DB.accounts.get('quest_claim_user')!.profile_json)).ryos, 1750);
 });
 
 test('registers accounts with hashed passwords, rejects duplicates, and verifies login', async () => {

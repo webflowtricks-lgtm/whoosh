@@ -22,10 +22,32 @@ export interface QuestBattleStats {
   skillUseRecords: Array<{ charName: string; tags: string[]; skillName: string }>;
 }
 
+export function resolveQuestRequiredRank<T extends { name: string }>(
+  minRank: string | undefined,
+  ranks: readonly T[],
+): T | undefined {
+  const requestedRank = minRank?.trim().toLocaleLowerCase();
+  if (!requestedRank) return undefined;
+  const aliases: Record<string, string> = {
+    'estudante de academia': 'estudante',
+  };
+  const normalizedRank = aliases[requestedRank] || requestedRank;
+  return ranks.find(rank => rank.name.trim().toLocaleLowerCase() === normalizedRank);
+}
+
 function boundedString(value: unknown, maxLength: number): string | null {
   return typeof value === 'string' && value.trim().length > 0
     ? value.trim().slice(0, maxLength)
     : null;
+}
+
+function normalizeQuestCharacterName(name: string): string {
+  return name.trim().toLocaleLowerCase().replace(/\s+\(s\)$/i, '');
+}
+
+function hasQuestCharacter(names: string[], target: string): boolean {
+  const normalizedTarget = normalizeQuestCharacterName(target);
+  return names.some(name => normalizeQuestCharacterName(name) === normalizedTarget);
 }
 
 function sanitizeRecords<T extends object>(
@@ -169,7 +191,9 @@ export function evaluateAuthoritativeQuestGoal(
   let currentValue = goal.singleMatch ? 0 : goal.currentValue;
 
   const matchesCharacter = (name: string) =>
-    !goal.targetCharacters?.length || goal.targetCharacters.includes(name);
+    !goal.targetCharacters?.length || goal.targetCharacters.some(target =>
+      normalizeQuestCharacterName(target) === normalizeQuestCharacterName(name),
+    );
   const matchesSkill = (name: string) =>
     !goal.targetSkill?.trim() || name.toLowerCase() === goal.targetSkill.trim().toLowerCase();
   const matchesTags = (tags: string[]) =>
@@ -181,7 +205,7 @@ export function evaluateAuthoritativeQuestGoal(
     case 'win_battles_with_chars': {
       if (victory &&
           (!goal.targetCharacters?.length || goal.targetCharacters.every(name =>
-            stats.playerCharactersUsed.includes(name),
+            hasQuestCharacter(stats.playerCharactersUsed, name),
           )) &&
           (!goal.targetTags?.length || stats.playerTeamCharacters.some(character =>
             character.tags.some(tag => goal.targetTags!.some(target => tag.toLowerCase() === target.toLowerCase())),
@@ -192,7 +216,7 @@ export function evaluateAuthoritativeQuestGoal(
     }
     case 'win_consecutive_battles_with_chars': {
       const matchesCharacters = !goal.targetCharacters?.length ||
-        goal.targetCharacters.every(name => stats.playerCharactersUsed.includes(name));
+        goal.targetCharacters.every(name => hasQuestCharacter(stats.playerCharactersUsed, name));
       const matchesTeamTags = !goal.targetTags?.length ||
         stats.playerTeamCharacters.some(character =>
           character.tags.some(tag => goal.targetTags!.some(target => tag.toLowerCase() === target.toLowerCase())),

@@ -999,13 +999,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       />
 
       {/* Draft Status Header in Parchment Scroll (Fixed at top, full width) */}
-      <header className="fixed top-0 left-0 right-0 z-30 w-full shadow-2xl">
-        <div className="character-select-topbar w-full relative overflow-hidden flex items-center border-b border-amber-950/40">
+      <header className="fixed top-0 left-0 right-0 z-30 w-full">
+        <div className="character-select-topbar w-full relative overflow-hidden flex items-center">
           {/* Topbar Parchment Background */}
           <img 
             src="/static/img/tronco.webp"
             alt="Topbar"
-            className="mv-pergaminho-top-bar absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
+            className="mv-pergaminho-top-bar absolute inset-0 w-full h-full object-fill z-0 pointer-events-none"
             onError={(e) => {
               e.currentTarget.src = '/static/img/filtro_pergaminho.webp';
             }}

@@ -58,11 +58,11 @@
       },
       {
         "type": "ryos",
-        "value": "250"
+        "value": "25001"
       },
       {
         "type": "gems",
-        "value": "250"
+        "value": "25000"
       }
     ],
     "completed": false

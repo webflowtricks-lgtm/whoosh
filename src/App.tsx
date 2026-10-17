@@ -616,7 +616,7 @@ export default function App() {
         losses: !victory ? (user.losses || 0) + 1 : (user.losses || 0),
       };
 
-      if (activeQuest && !isSandbox && user.username.trim().toLowerCase() !== 'convidado') {
+      if (!isSandbox && user.username.trim().toLowerCase() !== 'convidado') {
         if (!stats.questBattleId) {
           throw new Error('Não foi possível identificar a batalha contra IA para registrar a missão.');
         }
@@ -625,7 +625,6 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: user.username,
-            questId: activeQuest.id,
             battleId: stats.questBattleId,
             victory,
             stats: {

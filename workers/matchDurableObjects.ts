@@ -6,6 +6,7 @@ import {
 } from '../src/lib/matchProtocol';
 import type { Character } from '../src/types';
 import type { QuestBattleStats } from '../src/lib/questProgress';
+import { resolveQuestRequiredRank } from '../src/lib/questProgress';
 import type { CombatEngineEvent, CombatEngineState } from '../src/lib/combatEngine';
 import {
   getD1AccountProfile,
@@ -387,8 +388,11 @@ export class MatchmakerDurableObject {
       const playerXp = Math.max(0, Number(storedProfile.xp) || 0);
       const currentRank = [...sortedRanks].reverse().find(rank => playerXp >= Number(rank.requiredXp));
       const minRank = typeof quest?.minRank === 'string' ? quest.minRank : '';
-      const requiredRank = minRank ? sortedRanks.find(rank => rank.name === minRank) : undefined;
-      const rankEligible = !minRank || !!ranks?.length && !!requiredRank && !!currentRank &&
+      const requiredRank = resolveQuestRequiredRank(minRank, sortedRanks as Array<{
+        name: string;
+        requiredXp: number;
+      }>);
+      const rankEligible = !minRank || !requiredRank || !!ranks?.length && !!currentRank &&
         Number(currentRank.requiredXp) >= Number(requiredRank.requiredXp);
       if (quest && Array.isArray(quest.goals) && !completedQuestIds.includes(raw.activeQuestId) &&
           (!Array.isArray(quest.requiredQuestIds) ||

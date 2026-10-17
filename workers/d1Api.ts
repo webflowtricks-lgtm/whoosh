@@ -1,6 +1,7 @@
 import { calculateBattleXp } from '../src/lib/battleRewards';
 import {
   evaluateAuthoritativeQuestGoal,
+  resolveQuestRequiredRank,
   sanitizeQuestBattleStats,
   type QuestBattleStats,
 } from '../src/lib/questProgress';
@@ -914,16 +915,16 @@ async function claimQuestReward(
     if (quest.minRank && !ranks) {
       return error(503, 'As patentes ainda não estão disponíveis no servidor.');
     }
-    const sortedRanks = (ranks || []).filter((rank): rank is Record<string, unknown> =>
+    const sortedRanks = (ranks || []).filter((rank): rank is Record<string, unknown> & {
+      name: string;
+      requiredXp: number;
+    } =>
       !!rank && typeof rank === 'object' && typeof (rank as Record<string, unknown>).name === 'string' &&
       typeof (rank as Record<string, unknown>).requiredXp === 'number',
     ).sort((left, right) => Number(left.requiredXp) - Number(right.requiredXp));
     const xp = Math.max(0, Number(profile.xp) || 0);
     const currentRank = [...sortedRanks].reverse().find(rank => xp >= Number(rank.requiredXp));
-    const requiredRank = sortedRanks.find(rank => rank.name === quest.minRank);
-    if (quest.minRank && !requiredRank) {
-      return error(409, 'A patente exigida por esta missão não está configurada.');
-    }
+    const requiredRank = resolveQuestRequiredRank(quest.minRank, sortedRanks);
     if (requiredRank && (!currentRank || Number(currentRank.requiredXp) < Number(requiredRank.requiredXp))) {
       return error(409, 'Seu rank ainda não permite resgatar esta missão.');
     }
@@ -955,10 +956,9 @@ async function claimQuestReward(
 async function recordAiQuestProgress(request: Request, env: D1Env): Promise<Response> {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const username = normalizedUsername(body?.username);
-  const questId = typeof body?.questId === 'string' ? body.questId : '';
   const battleId = typeof body?.battleId === 'string' ? body.battleId : '';
   const stats = sanitizeQuestBattleStats(body?.stats);
-  if (!username || username === 'convidado' || !questId || questId.length > 160 ||
+  if (!username || username === 'convidado' ||
       !/^[a-zA-Z0-9_-]{8,128}$/.test(battleId) || typeof body?.victory !== 'boolean' || !stats) {
     return error(400, 'Dados inválidos para registrar a missão contra IA.');
   }
@@ -971,18 +971,21 @@ async function recordAiQuestProgress(request: Request, env: D1Env): Promise<Resp
     getD1Config(env.DB, 'ranks'),
   ]);
   if (!quests) return error(503, 'As missões ainda não estão disponíveis no servidor.');
-  const quest = quests.find(item =>
-    !!item && typeof item === 'object' && (item as Quest).id === questId,
-  ) as Quest | undefined;
-  if (!quest || !Array.isArray(quest.goals) || !quest.goals.length) {
-    return error(404, 'Missão não encontrada.');
-  }
+  const eligibleQuests = quests.filter((item): item is Quest =>
+    !!item && typeof item === 'object' && typeof (item as Quest).id === 'string' &&
+    Array.isArray((item as Quest).goals) && (item as Quest).goals.length > 0,
+  );
 
-  const rankList = (ranks || []).filter((rank): rank is Record<string, unknown> =>
+  const rankList = (ranks || []).filter((rank): rank is Record<string, unknown> & {
+    name: string;
+    requiredXp: number;
+  } =>
     !!rank && typeof rank === 'object' && typeof (rank as Record<string, unknown>).name === 'string' &&
     typeof (rank as Record<string, unknown>).requiredXp === 'number',
   ).sort((left, right) => Number(left.requiredXp) - Number(right.requiredXp));
-  if (quest.minRank && !ranks) return error(503, 'As patentes ainda não estão disponíveis no servidor.');
+  if (!ranks && eligibleQuests.some(quest => !!quest.minRank)) {
+    return error(503, 'As patentes ainda não estão disponíveis no servidor.');
+  }
 
   for (let attempt = 0; attempt < 3; attempt++) {
     const row = await env.DB.prepare(
@@ -993,47 +996,52 @@ async function recordAiQuestProgress(request: Request, env: D1Env): Promise<Resp
     const completedQuestIds = Array.isArray(profile.completedQuestIds)
       ? profile.completedQuestIds.filter((id): id is string => typeof id === 'string')
       : [];
-    if (completedQuestIds.includes(questId)) return json({ success: true, alreadyCompleted: true, user: profile });
 
     const processedBattleIds = Array.isArray(profile.questAiBattleIds)
       ? profile.questAiBattleIds.filter((id): id is string => typeof id === 'string')
       : [];
     if (processedBattleIds.includes(battleId)) return json({ success: true, alreadyProcessed: true, user: profile });
 
-    const completed = new Set(completedQuestIds);
-    if (Array.isArray(quest.requiredQuestIds) && !quest.requiredQuestIds.every(id => completed.has(id))) {
-      return error(409, 'Conclua as missões anteriores antes de avançar nesta missão.');
-    }
-    const requiredRank = quest.minRank ? rankList.find(rank => rank.name === quest.minRank) : undefined;
     const xp = Math.max(0, Number(profile.xp) || 0);
     const currentRank = [...rankList].reverse().find(rank => xp >= Number(rank.requiredXp));
-    if (quest.minRank && !requiredRank) return error(409, 'A patente exigida por esta missão não está configurada.');
-    if (requiredRank && (!currentRank || Number(currentRank.requiredXp) < Number(requiredRank.requiredXp))) {
-      return error(409, 'Seu rank ainda não permite avançar nesta missão.');
-    }
-
     const savedProgress = profile.questProgress && typeof profile.questProgress === 'object'
       ? profile.questProgress as Record<string, Array<{ id: string; currentValue: number; currentStreak?: number }>>
       : {};
-    const oldGoals = new Map((savedProgress[questId] || []).map(goal => [goal.id, goal]));
-    const updatedGoals = quest.goals.map(goal => {
-      const previous = oldGoals.get(goal.id);
-      const currentGoal = {
-        ...goal,
-        currentValue: Math.max(0, Math.min(goal.targetValue, Number(previous?.currentValue) || 0)),
-        currentStreak: Math.max(0, Number(previous?.currentStreak) || 0),
-      };
-      const result = evaluateAuthoritativeQuestGoal(currentGoal, body.victory as boolean, stats);
-      return { id: goal.id, currentValue: result.nextValue, currentStreak: result.nextStreak };
-    });
-    profile.questProgress = { ...savedProgress, [questId]: updatedGoals };
+    const completed = new Set(completedQuestIds);
+    const progressedQuestIds: string[] = [];
+    const updatedProgress = { ...savedProgress };
+    for (const quest of eligibleQuests) {
+      if (completed.has(quest.id) ||
+          Array.isArray(quest.requiredQuestIds) && !quest.requiredQuestIds.every(id => completed.has(id))) continue;
+      const requiredRank = resolveQuestRequiredRank(quest.minRank, rankList);
+      if (requiredRank && (!currentRank || Number(currentRank.requiredXp) < Number(requiredRank.requiredXp))) continue;
+
+      const oldGoals = new Map((savedProgress[quest.id] || []).map(goal => [goal.id, goal]));
+      const updatedGoals = quest.goals.map(goal => {
+        const previous = oldGoals.get(goal.id);
+        const currentGoal = {
+          ...goal,
+          currentValue: Math.max(0, Math.min(goal.targetValue, Number(previous?.currentValue) || 0)),
+          currentStreak: Math.max(0, Number(previous?.currentStreak) || 0),
+        };
+        const result = evaluateAuthoritativeQuestGoal(currentGoal, body.victory as boolean, stats);
+        return { id: goal.id, currentValue: result.nextValue, currentStreak: result.nextStreak };
+      });
+      updatedProgress[quest.id] = updatedGoals;
+      if (updatedGoals.some(goal => {
+        const previous = oldGoals.get(goal.id);
+        return goal.currentValue !== Number(previous?.currentValue || 0) ||
+          goal.currentStreak !== Number(previous?.currentStreak || 0);
+      })) progressedQuestIds.push(quest.id);
+    }
+    profile.questProgress = updatedProgress;
     profile.questAiBattleIds = [...processedBattleIds.slice(-999), battleId];
 
     const updated = await env.DB.prepare(`
       UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP
       WHERE username = ? AND profile_json = ?
     `).bind(JSON.stringify(profile), username, row.profile_json).run();
-    if (updated.meta?.changes === 1) return json({ success: true, user: profile });
+    if (updated.meta?.changes === 1) return json({ success: true, progressedQuestIds, user: profile });
     if (attempt === 2) return error(409, 'O perfil mudou durante o registro. Tente novamente.');
   }
   return error(409, 'Não foi possível confirmar o progresso da missão contra IA.');
