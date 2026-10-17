@@ -1096,11 +1096,11 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
                   type="button"
                   onClick={handleVillageChange}
                   disabled={villageChangeLoading}
-                  className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-black text-slate-950 hover:bg-orange-400 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-black text-slate-950 hover:bg-orange-400 disabled:opacity-50"
                 >
                   {villageChangeLoading
                     ? t('Salvando...', 'Saving...')
-                    : t('Confirmar troca', 'Confirm change')}
+                    : <><img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />{t('Confirmar troca', 'Confirm change')}</>}
                 </button>
               </div>
             </div>

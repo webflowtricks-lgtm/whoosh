@@ -477,8 +477,9 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                     handleBuyOrEquip(pendingPurchase);
                     setPendingPurchase(null);
                   }}
-                  className="rounded-lg border border-blue-700 bg-blue-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 sm:text-sm"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-700 bg-blue-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 sm:text-sm"
                 >
+                  <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
                   Confirmar
                 </button>
               </div>

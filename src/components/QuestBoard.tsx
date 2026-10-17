@@ -16,26 +16,48 @@ import {
   Search,
   User, 
   Star, 
+  ChevronDown,
+  ChevronUp,
   ChevronRight, 
   ChevronLeft,
   Compass, 
   BookOpen, 
+  Image,
   Sparkles,
   TrendingUp,
   ShieldAlert,
   Swords,
   Shield,
   X,
-  Zap
+  Zap,
 } from 'lucide-react';
-import { Quest, UserProfile, Character, QuestReward } from '../types';
+import { Quest, UserProfile, Character, QuestReward, QuestGoal } from '../types';
 import SkinMedia from './SkinMedia';
 import { getGoalDescription } from '../lib/questUtils';
 import MangekyoLoader from './MangekyoLoader';
 import { RankConfig, getRanks, getUserRankFromConfig, fetchRanksFromServer } from '../lib/rankStorage';
 import { getCharacters } from '../lib/characterStorage';
-import { getCards } from '../lib/cardStorage';
+import { CARD_RARITY_META, getCards, rarityFx } from '../lib/cardStorage';
 import { useLanguage } from '../lib/i18n';
+
+function renderHighlightedGoalDescription(goal: QuestGoal) {
+  const description = getGoalDescription(goal);
+  const terms = [...new Set([...(goal.targetCharacters || []), goal.targetSkill || '']
+    .map(term => term.trim())
+    .filter(Boolean))]
+    .sort((a, b) => b.length - a.length);
+
+  if (terms.length === 0) return description;
+
+  const escapedTerms = terms.map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const parts = description.split(new RegExp(`(${escapedTerms.join('|')})`, 'gi'));
+
+  return parts.map((part, index) =>
+    terms.some(term => term.toLocaleLowerCase() === part.toLocaleLowerCase())
+      ? <span key={index} className="font-bold text-orange-600">{part}</span>
+      : part
+  );
+}
 
 interface QuestBoardProps {
   user: UserProfile;
@@ -450,6 +472,8 @@ export default function QuestBoard({
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedQuests = filteredQuests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const modalCollectibleRewards = rewardModalData?.otherRewards.filter(reward => reward.type === 'card') || [];
+  const modalOtherRewards = rewardModalData?.otherRewards.filter(reward => reward.type !== 'card') || [];
 
   return (
     <div className="quest-div-pai min-h-screen w-full relative">
@@ -458,9 +482,9 @@ export default function QuestBoard({
       {/* Interactive Modals inside the Arena/Quartel Shinobi Hub */}
       <AnimatePresence>
         {rewardModalData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/90 backdrop-blur-xl overflow-y-auto select-none">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-blue-950/75 backdrop-blur-xl overflow-y-auto select-none">
             {/* Ambient Background Rays & Glow */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/25 via-orange-600/10 to-transparent pointer-events-none animate-pulse" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-sky-400/20 via-blue-600/10 to-transparent pointer-events-none animate-pulse" />
 
             {/* Floating Sparkles Particles */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -484,7 +508,7 @@ export default function QuestBoard({
                     ease: "easeOut",
                     delay: Math.random() * 2
                   }}
-                  className="absolute w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-amber-300 via-yellow-400 to-orange-500 shadow-md shadow-amber-400/60"
+                  className="absolute w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-sky-300 via-blue-400 to-orange-400 shadow-md shadow-sky-400/60"
                 />
               ))}
             </div>
@@ -495,12 +519,12 @@ export default function QuestBoard({
               animate={{ scale: 1, opacity: 1, y: 0, rotate: 0 }}
               exit={{ scale: 0.2, opacity: 0, y: 50, rotate: 7 }}
               transition={{ type: "spring", damping: 14, stiffness: 125, bounce: 0.35 }}
-              className="relative flex flex-col sm:flex-row items-center sm:items-stretch justify-center gap-3 z-10 my-auto"
+              className="relative flex w-full max-w-[calc(100vw-2rem)] max-h-[calc(100vh-3rem)] flex-row flex-nowrap items-stretch justify-start gap-3 overflow-x-auto overflow-y-auto z-10 my-auto"
             >
               {/* Character Reward Card */}
-              <div className="quest-reward-card relative bg-slate-900/95 border-2 border-amber-400/90 rounded-3xl p-3.5 sm:p-4 shadow-[0_0_70px_rgba(245,158,11,0.4)] flex flex-col items-center text-center space-y-2.5">
+              <div className="quest-reward-card relative shrink-0 bg-white border-2 border-sky-200 rounded-3xl p-3.5 sm:p-4 shadow-[0_0_70px_rgba(37,99,235,0.22)] flex flex-col items-center text-center space-y-2.5">
               {/* Outer Pulsing Glow Aura */}
-              <div className="absolute -inset-1 rounded-[26px] bg-gradient-to-r from-amber-500 via-orange-500 to-amber-300 opacity-40 blur-lg -z-10 animate-pulse" />
+              <div className="absolute -inset-1 rounded-[26px] bg-gradient-to-r from-blue-500 via-sky-400 to-orange-400 opacity-30 blur-lg -z-10 animate-pulse" />
 
               {/* Close button top right */}
               <button
@@ -508,16 +532,16 @@ export default function QuestBoard({
                   playClickSound();
                   setRewardModalData(null);
                 }}
-                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-full transition cursor-pointer z-20"
+                className="absolute top-4 right-4 p-2 text-blue-500 hover:text-orange-600 hover:bg-sky-50 rounded-full transition cursor-pointer z-20"
                 title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
 
               {/* Top Badge */}
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/30 to-amber-500/20 border border-amber-400/70 shadow-lg shadow-amber-500/20">
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-sky-50 via-blue-50 to-orange-50 border border-sky-200 shadow-lg shadow-blue-500/10">
                 <img src="/static/img/icon/star.svg" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 font-sans">
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 font-sans">
                   {rewardModalData.unlockedCharacters.length > 0
                     ? 'NOVO PERSONAGEM'
                     : 'RECOMPENSA RESGATADA!'}
@@ -535,12 +559,12 @@ export default function QuestBoard({
                     return (
                       <div key={char.id} className="flex flex-col items-center space-y-2">
                         {/* BIG PHOTO / ARTWORK FRAME (Foto bem grande) */}
-                        <div className="relative w-full h-36 sm:h-40 max-w-[240px] mx-auto rounded-2xl overflow-hidden border-2 border-amber-400/90 shadow-[0_10px_35px_rgba(245,158,11,0.35)] bg-slate-950 flex items-center justify-center group">
+                        <div                         className="relative w-full h-36 sm:h-40 max-w-[240px] mx-auto rounded-2xl overflow-hidden border-2 border-sky-300 shadow-[0_10px_35px_rgba(37,99,235,0.25)] bg-blue-950 flex items-center justify-center group">
                           {/* Inner Radial Aura */}
-                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/35 via-orange-600/15 to-slate-950 z-0" />
+                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-sky-400/35 via-blue-700/25 to-blue-950 z-0" />
                           
                           {/* Animated Lighting Rays inside Card */}
-                          <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/10 via-transparent to-amber-300/10 opacity-70 animate-pulse pointer-events-none z-10" />
+                          <div className="absolute inset-0 bg-gradient-to-tr from-sky-400/10 via-transparent to-orange-300/10 opacity-70 animate-pulse pointer-events-none z-10" />
 
                           {/* Large Floating Character Image */}
                           <motion.div
@@ -556,7 +580,7 @@ export default function QuestBoard({
                             <SkinMedia
                               src={displayImg}
                               alt={char.name}
-                              className="w-full h-full object-contain p-2 filter drop-shadow-[0_12px_28px_rgba(245,158,11,0.5)]"
+                              className="w-full h-full object-contain p-2 filter drop-shadow-[0_12px_28px_rgba(37,99,235,0.45)]"
                               autoPlay
                               onImageError={e => {
                                 if (e.currentTarget.src !== char.portrait) e.currentTarget.src = char.portrait;
@@ -569,7 +593,7 @@ export default function QuestBoard({
 
                           {/* Character Name Label over Image */}
                           <div className="absolute bottom-2 left-0 right-0 z-40 px-2 text-center">
-                            <h2 className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-100 to-orange-400 font-sans tracking-wider uppercase drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)]">
+                            <h2 className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-sky-100 to-orange-300 font-sans tracking-wider uppercase drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)]">
                               {char.name}
                             </h2>
                           </div>
@@ -581,7 +605,7 @@ export default function QuestBoard({
                             {char.tags.map((tag, tIdx) => (
                               <span
                                 key={tIdx}
-                                className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 uppercase tracking-wider shadow-sm"
+                                className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-50 text-blue-700 border border-sky-200 uppercase tracking-wider shadow-sm"
                               >
                                 {tag}
                               </span>
@@ -590,15 +614,15 @@ export default function QuestBoard({
                         )}
 
                         {/* Character Description */}
-                        <p className="text-xs text-slate-300 leading-relaxed max-w-md font-sans line-clamp-3">
+                        <p className="text-xs text-blue-950 leading-relaxed max-w-md font-sans line-clamp-3">
                           {char.description}
                         </p>
 
                         {/* Skills Showcase */}
                         {char.skills && char.skills.length > 0 && (
-                          <div className="w-full bg-slate-950/90 p-2.5 rounded-xl border border-amber-500/30 space-y-1.5 text-left">
-                            <div className="text-[9px] font-mono uppercase tracking-widest text-amber-400 font-bold flex items-center gap-1 justify-center">
-                              <Zap className="w-3 h-3 text-amber-400" />
+                          <div className="w-full bg-sky-50 p-2.5 rounded-xl border border-sky-200 space-y-1.5 text-left">
+                            <div className="text-[9px] font-mono uppercase tracking-widest text-blue-700 font-bold flex items-center gap-1 justify-center">
+                              <Zap className="w-3 h-3 text-orange-500" />
                               <span>Habilidades</span>
                             </div>
                             <div className="grid grid-cols-4 gap-1.5">
@@ -607,7 +631,7 @@ export default function QuestBoard({
                                   key={skIdx}
                                   src={sk.icon || null}
                                   alt={sk.name}
-                                  className="w-full aspect-square rounded-lg object-cover border border-amber-500/40 bg-slate-900"
+                                  className="w-full aspect-square rounded-lg object-cover border border-sky-200 bg-white"
                                 />
                               ))}
                             </div>
@@ -620,15 +644,15 @@ export default function QuestBoard({
               ) : (
                 /* Fallback if no character unlocked */
                 <div className="py-4 space-y-3">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 p-1 shadow-2xl shadow-amber-500/30 flex items-center justify-center">
-                    <div className="w-full h-full bg-slate-950 rounded-full flex items-center justify-center">
-                      <Award className="w-8 h-8 text-amber-400" />
+                  <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-blue-600 to-sky-400 p-1 shadow-2xl shadow-blue-500/25 flex items-center justify-center">
+                    <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
+                      <Award className="w-8 h-8 text-orange-500" />
                     </div>
                   </div>
-                  <h2 className="text-lg font-black text-amber-300 uppercase font-sans">
+                  <h2 className="text-lg font-black text-blue-800 uppercase font-sans">
                     Recompensas Obtidas
                   </h2>
-                  <p className="text-[11px] text-slate-300">
+                  <p className="text-[11px] text-blue-900">
                     Parabéns por completar os objetivos da missão!
                   </p>
                 </div>
@@ -641,41 +665,122 @@ export default function QuestBoard({
                     playClickSound();
                     setRewardModalData(null);
                   }}
-                  className="w-full py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 hover:brightness-110 active:scale-95 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider shadow-xl shadow-orange-500/30 transition cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-gradient-to-r from-blue-700 via-sky-600 to-blue-700 hover:brightness-110 active:scale-95 text-white font-black rounded-xl text-xs uppercase tracking-wider shadow-xl shadow-blue-500/25 transition cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <Sparkles className="w-4 h-4 text-slate-950 fill-slate-950" />
+                  <img src="/static/img/icon/confirm-cloud.svg" alt="" className="w-6 h-6 object-contain" />
                   <span>INCRÍVEL! EXCELENTE</span>
                 </button>
               </div>
               </div>
 
               {/* Other Rewards Card (do lado do card do personagem) */}
-              {rewardModalData.otherRewards && rewardModalData.otherRewards.length > 0 && (
-                <div className="relative w-full max-w-[220px] bg-slate-900/95 border-2 border-amber-400/90 rounded-3xl p-3.5 sm:p-4 shadow-[0_0_70px_rgba(245,158,11,0.4)] flex flex-col items-center text-center space-y-2.5">
-                  {/* Top Badge */}
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/30 to-amber-500/20 border border-amber-400/70 shadow-lg shadow-amber-500/20">
-                    <img src="/static/img/icon/star.svg" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 font-sans">
-                      OUTRAS RECOMPENSAS
-                    </span>
-                    <img src="/static/img/icon/star.svg" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
-                  </div>
-                  <div className="flex flex-col gap-2 w-full">
-                    {rewardModalData.otherRewards.map((r, rIdx) => (
-                      <div
-                        key={rIdx}
-                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1.5"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                        {r.type === 'title' ? `Título: « ${r.value} »` :
-                         r.type === 'banner' ? `Banner: ${r.value}` :
-                         r.type === 'card' ? (() => {
-                           const found = getCards().find(c => c.id === r.value);
-                           return `🃏 Figura: ${found ? found.characterName + ' — ' + found.title : r.value}`;
-                         })() :
-                         `Moldura: ${r.value}`}
+              {modalCollectibleRewards.map((reward, rewardIndex) => {
+                const allCards = getCards();
+                const cardIndex = allCards.findIndex(item => item.id === reward.value);
+                const card = cardIndex >= 0 ? allCards[cardIndex] : undefined;
+                const artUrl = card?.imageUrl || reward.imageUrl ||
+                  (card ? `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${card.slug}/icon.jpg` : '');
+                const rarityMeta = card ? CARD_RARITY_META[card.rarity] : undefined;
+                const cardFx = card ? rarityFx(card.rarity) : null;
+                const hasAnimatedRarity = card?.rarity === 'lendario' || card?.rarity === 'secreto';
+                const rarityEdgeColor = card?.rarity === 'secreto' ? '#ef4444' : '#facc15';
+
+                return (
+                  <div key={`${reward.value}-${rewardIndex}`} className="flex shrink-0 flex-col items-center gap-2 text-center">
+                    <div className={`relative h-[min(50vh,320px)] w-[240px] overflow-hidden rounded-xl ${card && rarityMeta ? `${rarityMeta.border} ${rarityMeta.glow}` : ''}`}>
+                      {artUrl ? (
+                        <img
+                          src={artUrl}
+                          alt={`${card?.characterName || 'Figura colecionável'}${card?.title ? ` — ${card.title}` : ''}`}
+                          className="absolute inset-0 h-full w-full object-contain"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <img src="/static/img/icon/ninja-card-icon.svg" alt="Figura colecionável" className="h-20 w-20 object-contain" />
+                        </div>
+                      )}
+                      {cardFx && <span className={cardFx.sweep} />}
+                      {hasAnimatedRarity && (
+                        <motion.div
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-0 z-10 rounded-xl p-[2px]"
+                          style={{
+                            background: `conic-gradient(from 0deg, transparent 0deg 275deg, ${rarityEdgeColor} 325deg, transparent 360deg)`,
+                            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                            WebkitMaskComposite: 'xor',
+                            maskComposite: 'exclude',
+                          }}
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 3, ease: 'linear', repeat: Infinity }}
+                        />
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 z-20 h-20 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent" />
+                      {card && rarityMeta && (
+                        <span className={`absolute left-2 top-2 z-30 rounded-md border px-1.5 py-0.5 text-[9px] font-mono font-black uppercase tracking-wider ${rarityMeta.chip}`}>
+                          ◆ {rarityMeta.label}
+                        </span>
+                      )}
+                      <div className="absolute bottom-2 left-2 right-2 z-30 text-left">
+                        <p className={`text-[9px] font-mono font-black uppercase tracking-wider ${rarityMeta?.text || 'text-sky-200'}`}>
+                          #{cardIndex >= 0 ? String(cardIndex + 1).padStart(3, '0') : '???'}
+                        </p>
+                        <p className="truncate text-sm font-black text-white">
+                          {card?.characterName || 'Figura colecionável'}
+                        </p>
+                        {card?.title && <p className="truncate text-[10px] font-semibold text-sky-100">{card.title}</p>}
                       </div>
-                    ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {modalOtherRewards.length > 0 && (
+                <div className="relative w-full max-w-[280px] shrink-0 self-stretch overflow-hidden rounded-3xl border-2 border-sky-200 bg-white p-4 shadow-[0_12px_35px_rgba(37,99,235,0.16)] flex flex-col gap-4">
+                  <div className="flex items-center gap-3 border-b border-sky-100 pb-3 text-left">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
+                      <Award className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-xs font-black uppercase tracking-wider text-blue-800">
+                        Outras recompensas
+                      </h3>
+                      <p className="mt-0.5 text-[10px] font-medium text-blue-500">
+                        {modalOtherRewards.length} item{modalOtherRewards.length === 1 ? '' : 's'} desbloqueado{modalOtherRewards.length === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex w-full flex-col gap-2">
+                    {modalOtherRewards.map((r, rIdx) => {
+                      const foundCard = r.type === 'card' ? getCards().find(c => c.id === r.value) : undefined;
+                      const rewardName = r.type === 'title' ? 'Título' :
+                        r.type === 'banner' ? 'Banner' :
+                        r.type === 'card' ? 'Figura colecionável' : 'Moldura';
+                      const rewardValue = r.type === 'card' && foundCard
+                        ? `${foundCard.characterName} — ${foundCard.title}`
+                        : r.value;
+
+                      return (
+                        <div
+                          key={rIdx}
+                          className="flex min-w-0 items-center gap-3 rounded-2xl border border-sky-100 border-l-4 border-l-orange-400 bg-sky-50/80 px-3 py-2.5 text-left"
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm ring-1 ring-sky-100">
+                            {r.type === 'title' ? <Award className="h-4 w-4" /> :
+                             r.type === 'banner' ? <Image className="h-4 w-4" /> :
+                             r.type === 'card' ? <img src="/static/img/icon/ninja-card-icon.svg" alt="" className="h-5 w-5 object-contain" /> :
+                             <Shield className="h-4 w-4" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-blue-500">
+                              {rewardName}
+                            </p>
+                            <p className="break-words text-xs font-bold leading-snug text-blue-950">
+                              {rewardValue || 'Recompensa desbloqueada'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -872,7 +977,7 @@ export default function QuestBoard({
                                 <div key={goal.id} className="space-y-1.5">
                                   <div className="flex justify-between items-start text-xs">
                                     <span className="text-blue-950 font-medium">
-                                      {getGoalDescription(goal)}
+                                      {renderHighlightedGoalDescription(goal)}
                                     </span>
                                     <span className={`font-mono font-bold text-[11px] ${met ? 'text-blue-700' : 'text-orange-600'}`}>
                                       {goal.currentValue} / {goal.targetValue}
@@ -896,9 +1001,19 @@ export default function QuestBoard({
                             {quest.goals.length > 3 && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setExpandedGoals(prev => ({ ...prev, [quest.id]: !prev[quest.id] })); }}
-                                className="text-[10px] font-mono uppercase tracking-wider text-orange-600 hover:text-orange-700 transition-colors cursor-pointer"
+                                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-sky-100 bg-sky-50/70 py-2 text-[10px] font-bold uppercase tracking-wider text-orange-600 transition-colors hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 cursor-pointer"
                               >
-                                {expandedGoals[quest.id] ? 'Ver menos' : `Ver todas (${quest.goals.length})`}
+                                {expandedGoals[quest.id] ? (
+                                  <>
+                                    <ChevronUp className="h-3.5 w-3.5" />
+                                    <span>Mostrar menos metas</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                    <span>Ver todas as metas ({quest.goals.length})</span>
+                                  </>
+                                )}
                               </button>
                             )}
                           </div>
@@ -909,42 +1024,56 @@ export default function QuestBoard({
                               <div className="text-[10px] font-mono uppercase tracking-wider text-blue-700">
                                 Recompensas
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                {quest.rewards.map((r, rIdx) => (
-                                  <div 
-                                    key={rIdx} 
-                                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1.5 shadow-sm ${
-                                      r.type === 'unlock_character'
-                                        ? 'border-orange-200 bg-orange-50 text-orange-800'
-                                        : 'border-sky-100 bg-sky-50 text-blue-800'
-                                    }`}
-                                  >
-                                    {r.type === 'unlock_character' ? (
-                                      (() => {
-                                        const allChars = getCharacters();
-                                        const ch = allChars.find(c => c.name === r.value || c.id === r.value);
-                                        return ch ? (
-                                          <div className=" electric-border relative w-10 h-10 overflow-hidden  flex-shrink-0 bg-blue-50 rounded-md">
-                                            <MangekyoLoader src={ch.portrait} alt={r.value} className="w-full h-full" imgClassName="electric-content" iconScale={0.55} />
+                              {quest.rewards.some(reward => reward.type === 'unlock_character') && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  {quest.rewards.map((r, rIdx) => {
+                                    if (r.type !== 'unlock_character') return null;
+                                    const ch = getCharacters().find(c => c.name === r.value || c.id === r.value);
+                                    const characterName = ch?.name || r.value;
+
+                                    return (
+                                      <div
+                                        key={rIdx}
+                                        title={characterName}
+                                        className="min-w-0 px-2.5 py-1 rounded-lg border border-orange-200 bg-orange-50 text-orange-800 text-[11px] font-bold flex items-center gap-1.5 shadow-sm"
+                                      >
+                                        {ch ? (
+                                          <div className="electric-border relative w-10 h-10 overflow-hidden flex-shrink-0 bg-blue-50 rounded-md">
+                                            <MangekyoLoader src={ch.portrait} alt={characterName} className="w-full h-full" imgClassName="electric-content" iconScale={0.55} />
                                           </div>
-                                        ) : <Award className="w-3.5 h-3.5 text-orange-600 flex-shrink-0" />;
-                                      })()
-                                    ) : (
-                                      <Award className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
-                                    )}
-                                    <span>
-                                      {r.type === 'title' ? `Título: « ${r.value} »` : 
-                                       r.type === 'unlock_character' ? r.value :
-                                       r.type === 'banner' ? `🖼️ Banner: ${r.value}` :
-                                       r.type === 'card' ? (() => {
-                                         const fc = getCards().find(c => c.id === r.value);
-                                         return `🃏 ${fc ? fc.characterName + ' — ' + fc.title : r.value}`;
-                                       })() :
-                                       `🖼️ Moldura: ${r.value}`}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
+                                        ) : (
+                                          <Award className="w-3.5 h-3.5 text-orange-600 flex-shrink-0" />
+                                        )}
+                                        <span className="min-w-0 truncate">{characterName}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              {quest.rewards.some(reward => reward.type !== 'unlock_character') && (
+                                <div className="flex flex-col gap-2">
+                                  {quest.rewards.map((r, rIdx) => r.type === 'unlock_character' ? null : (
+                                    <div
+                                      key={rIdx}
+                                      className="w-full min-w-0 px-2.5 py-1 rounded-lg border border-sky-100 bg-sky-50 text-blue-800 text-[11px] font-bold flex items-center gap-1.5 shadow-sm"
+                                    >
+                                      {r.type === 'banner' ? (
+                                        <Image className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                                      ) : r.type === 'card' ? (
+                                        <img src="/static/img/icon/ninja-card-icon.svg" alt="" className="w-3.5 h-3.5 flex-shrink-0" />
+                                      ) : (
+                                        <Award className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                                      )}
+                                      <span className="min-w-0 truncate">
+                                        {r.type === 'title' ? `Título: « ${r.value} »` :
+                                          r.type === 'banner' ? 'Banner' :
+                                            r.type === 'card' ? 'Figura colecionável' :
+                                              `🖼️ Moldura: ${r.value}`}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                )}
                             </div>
                           )}
                         </div>
@@ -983,7 +1112,7 @@ export default function QuestBoard({
                               onClick={() => handleStartQuest(quest)}
                               className="w-full py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 active:scale-95 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer font-sans uppercase tracking-wider shadow-lg shadow-orange-500/20"
                             >
-                              <Play className="w-4 h-4 fill-white text-white" />
+                              <img src="/static/img/icon/cloud.svg" alt="" className="w-7 h-7 brightness-0 invert" />
                               <span>Iniciar Missão</span>
                             </button>
                           )}

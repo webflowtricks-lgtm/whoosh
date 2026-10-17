@@ -21144,8 +21144,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   <button
                     onClick={handleTradeChakra}
                     data-sound="uah"
-                    className="flex-1 py-2 px-3 bg-gradient-to-r from-green-800 to-emerald-700 hover:from-green-700 hover:to-emerald-600 text-green-50 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-green-950/40 border border-green-500/50 transition cursor-pointer active:scale-95"
+                    className="flex flex-1 items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-green-800 to-emerald-700 hover:from-green-700 hover:to-emerald-600 text-green-50 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-green-950/40 border border-green-500/50 transition cursor-pointer active:scale-95"
                   >
+                    <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
                     Confirmar
                   </button>
                 </div>
@@ -21215,8 +21216,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   <button
                     onClick={confirmSurrender}
                     data-sound="uah"
-                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95"
+                    className="inline-flex w-full items-center justify-center gap-2 sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95"
                   >
+                    <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
                     Sim, Render-me
                   </button>
                   <button
@@ -21271,8 +21273,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   <button
                     onClick={confirmReloadBattle}
                     data-sound="uah"
-                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-slate-950/40 border border-slate-500/50 transition cursor-pointer active:scale-95"
+                    className="inline-flex w-full items-center justify-center gap-2 sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-slate-950/40 border border-slate-500/50 transition cursor-pointer active:scale-95"
                   >
+                    <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
                     Sim, Recarregar
                   </button>
                   <button
@@ -21385,12 +21388,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     setShowSandboxConfirmModal(false);
                     checkAndProceedWithEndTurn();
                   }}
-                  className={`flex-1 py-2 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-amber-100 shadow-md transition active:scale-95 cursor-pointer border disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`flex flex-1 items-center justify-center gap-2 py-2 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-amber-100 shadow-md transition active:scale-95 cursor-pointer border disabled:opacity-50 disabled:cursor-not-allowed ${
                     activePlanner === 'player'
                       ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 border-orange-600/50'
                       : 'bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 border-red-600/50'
                   }`}
                 >
+                  <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
                   Passar Turno
                 </button>
               </div>
@@ -21653,8 +21657,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     handleEndTurn(randAllocation);
                   }}
                   data-sound="Click"
-                  className="flex-1 py-2.5 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-amber-100 bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 border border-orange-600/50 shadow-md transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex flex-1 items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-amber-100 bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 border border-orange-600/50 shadow-md transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
+                  <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
                   Confirmar e Finalizar
                 </button>
               </div>

@@ -11730,8 +11730,9 @@ value={editingSkill.stackDuration === 99999 ? 0 : (editingSkill.stackDuration ??
                       playClickSound();
                       confirmModal.onConfirm();
                     }}
-                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 inline-flex items-center justify-center gap-2"
                   >
+                    <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
                     Confirmar
                   </button>
                 </div>
