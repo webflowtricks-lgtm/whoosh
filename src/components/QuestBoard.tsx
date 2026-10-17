@@ -771,14 +771,14 @@ export default function QuestBoard({
                       onClick={() => {
                         if (isCompleted) handleViewCompletedRewards(quest);
                       }}
-                      className={`quest-carousel-card bg-slate-900/80 rounded-2xl border flex flex-col justify-between relative shadow-xl backdrop-blur-md ${
+                      className={`quest-carousel-card bg-white rounded-2xl border flex flex-col justify-between relative shadow-xl ${
                         isCompleted
-                          ? 'border-emerald-500/30 shadow-emerald-950/10 cursor-pointer hover:border-emerald-500/70 hover:shadow-emerald-500/10 transition-all duration-300'
+                          ? 'border-sky-200 shadow-sky-950/10 cursor-pointer hover:border-sky-400 hover:shadow-sky-500/20 transition-all duration-300'
                           : lockCheck.locked
-                            ? 'border-slate-800/80 brightness-[0.7]'
+                            ? 'border-blue-100 opacity-65'
                             : allGoalsMet
-                              ? 'border-amber-500/80 shadow-amber-500/10 animate-[pulse_3s_infinite]'
-                              : 'border-slate-800 hover:border-orange-500/50 hover:shadow-2xl hover:shadow-orange-500/5 transition-all duration-300'
+                              ? 'border-orange-400 shadow-orange-500/20 animate-[pulse_3s_infinite]'
+                              : 'border-blue-100 hover:border-sky-300 hover:shadow-2xl hover:shadow-sky-900/10 transition-all duration-300'
                       }`}
                     >
                       {/* Quest Cover Image */}
@@ -788,18 +788,18 @@ export default function QuestBoard({
                           alt={quest.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-slate-950/10 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-blue-950/80 via-blue-950/20 to-transparent" />
                         
                         {/* Status badge top right */}
                         <div className="absolute top-3 right-3">
                           {isCompleted ? (
-                            <div className="flex items-center gap-1 bg-emerald-950/90 border border-emerald-500/50 text-emerald-400 px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono uppercase shadow-md">
+                            <div className="flex items-center gap-1 bg-white/95 border border-sky-200 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono uppercase shadow-md">
                               <CheckCircle className="w-3.5 h-3.5" />
                               <span>Concluída</span>
                             </div>
                           ) : lockCheck.locked ? (
-                            <div className="flex items-center gap-1 bg-slate-950/90 border border-slate-800 text-slate-400 px-2.5 py-1 rounded-lg text-[10px] font-mono shadow-md">
-                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                            <div className="flex items-center gap-1 bg-white/95 border border-blue-100 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] font-mono shadow-md">
+                              <Lock className="w-3.5 h-3.5 text-blue-500" />
                               <span>Bloqueada</span>
                             </div>
                           ) : null}
@@ -807,7 +807,7 @@ export default function QuestBoard({
 
                         {/* Quest Title over cover */}
                         <div className="absolute bottom-3 left-4 right-4">
-                          <h3 className="font-extrabold text-lg text-slate-100 leading-snug drop-shadow-md">
+                          <h3 className="font-extrabold text-lg text-white leading-snug drop-shadow-md">
                             {quest.title}
                           </h3>
                         </div>
@@ -817,13 +817,13 @@ export default function QuestBoard({
                       <div className="p-4 space-y-4 flex-1 flex flex-col justify-between">
                         <div className="space-y-4">
                           <div>
-                            <p className={`text-xs text-slate-400 leading-relaxed font-sans ${!expandedDesc[quest.id] ? 'line-clamp-2' : ''}`}>
+                            <p className={`text-xs text-blue-950 leading-relaxed font-sans ${!expandedDesc[quest.id] ? 'line-clamp-2' : ''}`}>
                               {quest.desc}
                             </p>
                             {quest.desc.length > 200 && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setExpandedDesc(prev => ({ ...prev, [quest.id]: !prev[quest.id] })); }}
-                                className="text-[10px] font-mono uppercase tracking-wider text-orange-400 hover:text-orange-300 transition-colors cursor-pointer -mt-0.5"
+                                className="text-[10px] font-mono uppercase tracking-wider text-orange-600 hover:text-orange-700 transition-colors cursor-pointer -mt-0.5"
                               >
                                 {expandedDesc[quest.id] ? 'Ver menos' : 'Ler tudo'}
                               </button>
@@ -832,7 +832,7 @@ export default function QuestBoard({
 
                           {/* Goals Checklist */}
                           <div className="space-y-3">
-                            <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold border-b border-slate-800 pb-1.5 flex justify-between items-center">
+                            <div className="text-[10px] font-mono uppercase tracking-wider text-blue-700 font-bold border-b border-sky-100 pb-1.5 flex justify-between items-center">
                               <span>Metas da Missão</span>
                               {(() => {
                                 if (!quest.minRank) return null;
@@ -871,21 +871,21 @@ export default function QuestBoard({
                               return (
                                 <div key={goal.id} className="space-y-1.5">
                                   <div className="flex justify-between items-start text-xs">
-                                    <span className="text-slate-300 font-medium">
+                                    <span className="text-blue-950 font-medium">
                                       {getGoalDescription(goal)}
                                     </span>
-                                    <span className={`font-mono font-bold text-[11px] ${met ? 'text-emerald-400' : 'text-orange-400'}`}>
+                                    <span className={`font-mono font-bold text-[11px] ${met ? 'text-blue-700' : 'text-orange-600'}`}>
                                       {goal.currentValue} / {goal.targetValue}
                                     </span>
                                   </div>
 
                                   {/* Progress bar */}
-                                  <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
+                                  <div className="h-1.5 w-full bg-sky-50 rounded-full overflow-hidden border border-sky-100">
                                     <div 
                                       className={`h-full rounded-full transition-all duration-500 ${
                                         met 
-                                          ? 'bg-emerald-500' 
-                                          : 'bg-gradient-to-r from-orange-600 to-amber-500'
+                                          ? 'bg-blue-600'
+                                          : 'bg-gradient-to-r from-orange-500 to-amber-400'
                                       }`}
                                       style={{ width: `${pct}%` }}
                                     />
@@ -896,7 +896,7 @@ export default function QuestBoard({
                             {quest.goals.length > 3 && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setExpandedGoals(prev => ({ ...prev, [quest.id]: !prev[quest.id] })); }}
-                                className="text-[10px] font-mono uppercase tracking-wider text-orange-400 hover:text-orange-300 transition-colors cursor-pointer"
+                                className="text-[10px] font-mono uppercase tracking-wider text-orange-600 hover:text-orange-700 transition-colors cursor-pointer"
                               >
                                 {expandedGoals[quest.id] ? 'Ver menos' : `Ver todas (${quest.goals.length})`}
                               </button>
@@ -905,18 +905,18 @@ export default function QuestBoard({
 
                           {/* Rewards */}
                           {quest.rewards && quest.rewards.length > 0 && (
-                            <div className="space-y-2 pt-2 border-t border-slate-800/60">
-                              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                            <div className="space-y-2 pt-2 border-t border-sky-100">
+                              <div className="text-[10px] font-mono uppercase tracking-wider text-blue-700">
                                 Recompensas
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 {quest.rewards.map((r, rIdx) => (
                                   <div 
                                     key={rIdx} 
-                                    className={`px-2.5 py-1 text-[11px] font-bold flex items-center gap-1.5 shadow-sm ${
+                                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1.5 shadow-sm ${
                                       r.type === 'unlock_character'
-                                        ? 'border-amber-400/80 text-amber-300'
-                                        : 'border-slate-800 text-amber-400'
+                                        ? 'border-orange-200 bg-orange-50 text-orange-800'
+                                        : 'border-sky-100 bg-sky-50 text-blue-800'
                                     }`}
                                   >
                                     {r.type === 'unlock_character' ? (
@@ -924,13 +924,13 @@ export default function QuestBoard({
                                         const allChars = getCharacters();
                                         const ch = allChars.find(c => c.name === r.value || c.id === r.value);
                                         return ch ? (
-                                          <div className=" electric-border relative w-10 h-10 overflow-hidden  flex-shrink-0 bg-slate-900 rounded-md">
+                                          <div className=" electric-border relative w-10 h-10 overflow-hidden  flex-shrink-0 bg-blue-50 rounded-md">
                                             <MangekyoLoader src={ch.portrait} alt={r.value} className="w-full h-full" imgClassName="electric-content" iconScale={0.55} />
                                           </div>
-                                        ) : <Award className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />;
+                                        ) : <Award className="w-3.5 h-3.5 text-orange-600 flex-shrink-0" />;
                                       })()
                                     ) : (
-                                      <Award className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                                      <Award className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
                                     )}
                                     <span>
                                       {r.type === 'title' ? `Título: « ${r.value} »` : 
@@ -969,21 +969,21 @@ export default function QuestBoard({
                               onClick={() => handleClaimReward(quest)}
                               disabled={claimedRewardId === quest.id}
                               data-sound="uah"
-                              className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 active:scale-95 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer font-sans uppercase tracking-wider shadow-lg shadow-emerald-500/20"
+                              className="w-full py-2.5 bg-gradient-to-r from-blue-700 to-sky-500 hover:brightness-110 active:scale-95 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer font-sans uppercase tracking-wider shadow-lg shadow-blue-500/20"
                             >
                               {claimedRewardId === quest.id ? (
                                 <img src="/static/img/icon/star.svg" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
                               ) : (
-                                <Sparkles className="w-4 h-4 fill-slate-950 text-slate-950" />
+                                <Sparkles className="w-4 h-4 fill-white text-white" />
                               )}
                               <span>Resgatar Recompensa</span>
                             </button>
                           ) : (
                             <button
                               onClick={() => handleStartQuest(quest)}
-                              className="w-full py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 active:scale-95 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer font-sans uppercase tracking-wider shadow-lg shadow-orange-500/20"
+                              className="w-full py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 active:scale-95 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer font-sans uppercase tracking-wider shadow-lg shadow-orange-500/20"
                             >
-                              <Play className="w-4 h-4 fill-slate-950 text-slate-950" />
+                              <Play className="w-4 h-4 fill-white text-white" />
                               <span>Iniciar Missão</span>
                             </button>
                           )}
@@ -1005,7 +1005,7 @@ export default function QuestBoard({
                     }}
                     data-sound="Scroll"
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-white hover:bg-sky-50 text-blue-800 border border-sky-200"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -1019,8 +1019,8 @@ export default function QuestBoard({
                       data-sound="Scroll"
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
                         page === currentPage
-                          ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 font-black shadow-md shadow-orange-600/10'
-                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                          ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-white font-black shadow-md shadow-orange-600/10'
+                          : 'bg-white hover:bg-sky-50 text-blue-800 border border-sky-200'
                       }`}
                     >
                       {page}
@@ -1033,7 +1033,7 @@ export default function QuestBoard({
                     }}
                     data-sound="Scroll"
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-white hover:bg-sky-50 text-blue-800 border border-sky-200"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
