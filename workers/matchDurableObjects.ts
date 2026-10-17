@@ -5,6 +5,7 @@ import {
   type MatchProtocolAction,
 } from '../src/lib/matchProtocol';
 import type { Character } from '../src/types';
+import type { QuestBattleStats } from '../src/lib/questProgress';
 import type { CombatEngineEvent, CombatEngineState } from '../src/lib/combatEngine';
 import {
   getD1AccountProfile,
@@ -34,6 +35,8 @@ interface PlayerSlot {
   photoUrl: string;
   profile: Record<string, unknown>;
   team: Character[];
+  activeQuestId?: string;
+  questStats: QuestBattleStats;
 }
 
 interface MatchRoomData {
@@ -50,7 +53,9 @@ interface MatchRoomData {
     actions: Array<{
       actionIndex: number;
       sourceId: string;
+      skillName: string;
       skillIcon?: string;
+      killedTargets: string[];
       events: CombatEngineEvent[];
     }>;
   }>;
@@ -69,6 +74,111 @@ interface TurnRow {
   turn: number;
   slot: number;
   actions_json: string;
+}
+
+function emptyQuestStats(team: Character[]): QuestBattleStats {
+  return {
+    damageDealt: 0,
+    damageReceived: 0,
+    healingDone: 0,
+    shieldGenerated: 0,
+    stunsApplied: 0,
+    countersReflects: 0,
+    skillsUsed: {},
+    killsWithSkill: {},
+    playerCharactersUsed: team.map(character => character.name),
+    playerTeamCharacters: team.map(character => ({
+      name: character.name,
+      tags: character.tags || [],
+    })),
+    damageDealtRecords: [],
+    damageReceivedRecords: [],
+    healingDoneRecords: [],
+    shieldGeneratedRecords: [],
+    killRecords: [],
+    counterRecords: [],
+    skillUseRecords: [],
+  };
+}
+
+function recordQuestActionEvents(
+  players: [PlayerSlot, PlayerSlot],
+  sourceSlot: 0 | 1,
+  before: CombatEngineState,
+  actions: Array<{
+    sourceId: string;
+    skillName: string;
+    events: CombatEngineEvent[];
+    killedTargets: string[];
+  }>,
+): void {
+  const sourceStats = players[sourceSlot].questStats;
+  if (!sourceStats) return;
+  for (const action of actions) {
+    const actor = [...before.player, ...before.enemy].find(combatant => combatant.id === action.sourceId);
+    if (!actor) continue;
+    const actorName = actor.character.name;
+    const actorTags = actor.character.tags || [];
+    sourceStats.skillUseRecords.push({ charName: actorName, tags: actorTags, skillName: action.skillName });
+    sourceStats.skillsUsed[action.skillName] = (sourceStats.skillsUsed[action.skillName] || 0) + 1;
+
+    for (const event of action.events) {
+      if (event.type === 'damage') {
+        const targetSlot: 0 | 1 | null = before.player.some(combatant => combatant.id === event.targetId)
+          ? 0
+          : before.enemy.some(combatant => combatant.id === event.targetId) ? 1 : null;
+        const target = [...before.player, ...before.enemy].find(combatant => combatant.id === event.targetId);
+        if (target && targetSlot !== null) {
+          players[targetSlot].questStats.damageReceived += event.amount;
+          players[targetSlot].questStats.damageReceivedRecords.push({
+            charName: target.character.name,
+            tags: target.character.tags || [],
+            amount: event.amount,
+          });
+          if (targetSlot !== sourceSlot) {
+            sourceStats.damageDealt += event.amount;
+            sourceStats.damageDealtRecords.push({
+              charName: actorName,
+              tags: actorTags,
+              skillName: action.skillName,
+              amount: event.amount,
+            });
+          }
+        }
+      } else if (event.type === 'heal') {
+        sourceStats.healingDone += event.healed;
+        sourceStats.healingDoneRecords.push({
+          charName: actorName,
+          tags: actorTags,
+          skillName: action.skillName,
+          amount: event.healed,
+        });
+      } else if (event.type === 'shield') {
+        sourceStats.shieldGenerated += event.added;
+        sourceStats.shieldGeneratedRecords.push({
+          charName: actorName,
+          tags: actorTags,
+          skillName: action.skillName,
+          amount: event.added,
+        });
+      } else if (event.type === 'combat-text' && event.floatingType === 'stun') {
+        const targetSlot = before.player.some(combatant => combatant.id === event.targetId)
+          ? 0
+          : before.enemy.some(combatant => combatant.id === event.targetId) ? 1 : null;
+        if (targetSlot !== null && targetSlot !== sourceSlot) sourceStats.stunsApplied += 1;
+      }
+    }
+    for (const targetId of action.killedTargets || []) {
+      const targetSlot = before.player.some(combatant => combatant.id === targetId)
+        ? 0
+        : before.enemy.some(combatant => combatant.id === targetId) ? 1 : null;
+      const target = [...before.player, ...before.enemy].find(combatant => combatant.id === targetId);
+      if (target && targetSlot !== null && targetSlot !== sourceSlot) {
+        sourceStats.killRecords.push({ charName: actorName, tags: actorTags, skillName: action.skillName });
+        sourceStats.killsWithSkill[action.skillName] = (sourceStats.killsWithSkill[action.skillName] || 0) + 1;
+      }
+    }
+  }
 }
 
 interface EmojiRow {
@@ -258,6 +368,36 @@ export class MatchmakerDurableObject {
     });
     if (team.some(character => !character)) return null;
 
+    let activeQuestId: string | undefined;
+    if (typeof raw.activeQuestId === 'string' && raw.activeQuestId.length <= 160 && storedProfile) {
+      const [quests, ranks] = await Promise.all([
+        getD1Config(this.env.DB, 'quests'),
+        getD1Config(this.env.DB, 'ranks'),
+      ]);
+      const quest = quests?.find(item =>
+        !!item && typeof item === 'object' && (item as Record<string, unknown>).id === raw.activeQuestId,
+      ) as Record<string, unknown> | undefined;
+      const completedQuestIds = Array.isArray(storedProfile.completedQuestIds)
+        ? storedProfile.completedQuestIds
+        : [];
+      const sortedRanks = (ranks || []).filter((item): item is Record<string, unknown> =>
+        !!item && typeof item === 'object' && typeof (item as Record<string, unknown>).name === 'string' &&
+        typeof (item as Record<string, unknown>).requiredXp === 'number',
+      ).sort((left, right) => Number(left.requiredXp) - Number(right.requiredXp));
+      const playerXp = Math.max(0, Number(storedProfile.xp) || 0);
+      const currentRank = [...sortedRanks].reverse().find(rank => playerXp >= Number(rank.requiredXp));
+      const minRank = typeof quest?.minRank === 'string' ? quest.minRank : '';
+      const requiredRank = minRank ? sortedRanks.find(rank => rank.name === minRank) : undefined;
+      const rankEligible = !minRank || !!ranks?.length && !!requiredRank && !!currentRank &&
+        Number(currentRank.requiredXp) >= Number(requiredRank.requiredXp);
+      if (quest && Array.isArray(quest.goals) && !completedQuestIds.includes(raw.activeQuestId) &&
+          (!Array.isArray(quest.requiredQuestIds) ||
+            quest.requiredQuestIds.every(id => completedQuestIds.includes(id))) &&
+          rankEligible) {
+        activeQuestId = raw.activeQuestId;
+      }
+    }
+
     const guestProfile = cleanPublicProfile(raw.profile, username, username);
     const profile = storedProfile || guestProfile;
     const displayName = typeof profile.name === 'string' && profile.name.trim()
@@ -269,6 +409,8 @@ export class MatchmakerDurableObject {
       photoUrl: typeof profile.photoUrl === 'string' ? profile.photoUrl.slice(0, 2048) : '',
       profile: cleanPublicProfile(profile, username, displayName),
       team: team as Character[],
+      activeQuestId,
+      questStats: emptyQuestStats(team as Character[]),
     };
   }
 
@@ -936,6 +1078,9 @@ export class MatchRoomDurableObject {
         const status = applied.status === 'unsupported' ? 422 : 400;
         return fail(status, `Ação recusada pelo motor autoritativo (${applied.code || 'ação inválida'}).`);
       }
+      if (applied.actionEvents?.length) {
+        recordQuestActionEvents(room.players, actionSlot, nextCombatState, applied.actionEvents);
+      }
       nextCombatState = applied.state;
       if (applied.actionEvents?.length) {
         room.combatEventBatches = [
@@ -1028,6 +1173,8 @@ export class MatchRoomDurableObject {
         aliveCount: (slot === 0 ? room.combatState!.player : room.combatState!.enemy)
           .filter(combatant => !combatant.isDead).length,
         damageDealt: room.combatState!.damageDealt?.[slot === 0 ? 'player' : 'enemy'] || 0,
+        activeQuestId: player.activeQuestId,
+        questStats: player.questStats,
       })),
     });
   }

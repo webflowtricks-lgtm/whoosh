@@ -1,4 +1,10 @@
 import { calculateBattleXp } from '../src/lib/battleRewards';
+import { evaluateAuthoritativeQuestGoal, type QuestBattleStats } from '../src/lib/questProgress';
+import {
+  grantQuestMaintenanceRewards,
+  reconcileQuestMaintenanceProfile,
+} from '../src/lib/questMaintenance';
+import type { Quest, QuestMaintenanceMail, QuestReward } from '../src/types';
 import { isVillageId } from '../src/lib/villages';
 
 interface D1Result<T = Record<string, unknown>> {
@@ -51,6 +57,7 @@ const ACCOUNT_FIELDS = new Set([
 ]);
 const SERVER_OWNED_PROFILE_FIELDS = new Set([
   'xp', 'rank', 'wins', 'losses', 'ryos', 'gems', 'collectedCardIds', 'village', 'villageChangeCount',
+  'completedQuestIds', 'questProgress', 'questRewardSnapshots', 'questMaintenanceInbox',
 ]);
 const VILLAGE_CHANGE_COST = 100;
 let firebaseJwksCache: { keys: FirebaseJwk[]; expiresAt: number } | null = null;
@@ -716,6 +723,297 @@ export async function getD1AccountProfile(
   return row ? publicAccount(row) : null;
 }
 
+interface QuestRewardSnapshot {
+  ryos: number;
+  gems: number;
+  items: string[];
+}
+
+function questRewardCurrencyTotals(rewards: QuestReward[], questId: string): Pick<QuestRewardSnapshot, 'ryos' | 'gems'> {
+  const totals = { ryos: 0, gems: 0 };
+  for (const reward of rewards) {
+    if (reward.type !== 'ryos' && reward.type !== 'gems') continue;
+    const amount = Number(reward.value);
+    if (!Number.isSafeInteger(amount) || amount < 0 || !Number.isSafeInteger(totals[reward.type] + amount)) {
+      throw new Error(`Recompensa inválida na missão ${questId}.`);
+    }
+    totals[reward.type] += amount;
+  }
+  return totals;
+}
+
+function questItemToken(reward: QuestReward): string | null {
+  return ['title', 'unlock_character', 'frame', 'banner', 'card'].includes(reward.type)
+    ? `${reward.type}:${reward.value}`
+    : null;
+}
+
+function addUnique(profile: Record<string, unknown>, field: string, value: string): boolean {
+  const values = Array.isArray(profile[field])
+    ? (profile[field] as unknown[]).filter((item): item is string => typeof item === 'string')
+    : [];
+  if (values.includes(value)) return false;
+  profile[field] = [...values, value];
+  return true;
+}
+
+function grantQuestRewards(
+  profile: Record<string, unknown>,
+  rewards: QuestReward[],
+  snapshot: QuestRewardSnapshot,
+): QuestReward[] {
+  const newlyGranted: QuestReward[] = [];
+  for (const reward of rewards) {
+    if (!reward || typeof reward.value !== 'string') continue;
+    if (reward.type === 'ryos' || reward.type === 'gems') {
+      const amount = Number(reward.value);
+      if (!Number.isSafeInteger(amount) || amount < 0) {
+        throw new Error(`Recompensa inválida para a missão: ${reward.type}.`);
+      }
+      if (amount === 0) continue;
+      const field = reward.type;
+      const currentBalance = Number(profile[field]);
+      const initialBalance = Number.isSafeInteger(currentBalance) && currentBalance >= 0
+        ? currentBalance
+        : field === 'ryos' ? 1500 : 120;
+      if (!Number.isSafeInteger(initialBalance + amount)) {
+        throw new Error(`Saldo excede o limite seguro para a recompensa: ${reward.type}.`);
+      }
+      profile[field] = initialBalance + amount;
+      snapshot[field] += amount;
+      newlyGranted.push(reward);
+      continue;
+    }
+
+    const token = questItemToken(reward);
+    if (token && snapshot.items.includes(token)) continue;
+    let granted = false;
+    if (reward.type === 'title') {
+      granted = addUnique(profile, 'unlockedTitles', reward.value);
+    } else if (reward.type === 'unlock_character') {
+      granted = addUnique(profile, 'unlockedCharacterNames', reward.value);
+    } else if (reward.type === 'frame') {
+      granted = addUnique(profile, 'unlockedFrames', reward.value);
+      if (granted && reward.imageUrl) addUnique(profile, 'unlockedFrameUrls', reward.imageUrl);
+      if (granted && !profile.equippedFrameUrl && reward.imageUrl) {
+        profile.equippedFrame = reward.value;
+        profile.equippedFrameUrl = reward.imageUrl;
+      }
+    } else if (reward.type === 'banner') {
+      granted = addUnique(profile, 'unlockedBanners', reward.value);
+      if (granted && reward.imageUrl) addUnique(profile, 'unlockedBannerUrls', reward.imageUrl);
+      if (granted && !profile.equippedBannerUrl && reward.imageUrl) profile.equippedBannerUrl = reward.imageUrl;
+    } else if (reward.type === 'card') {
+      granted = addUnique(profile, 'collectedCardIds', reward.value);
+    }
+    if (token && !snapshot.items.includes(token)) snapshot.items.push(token);
+    if (granted) newlyGranted.push(reward);
+  }
+  return newlyGranted;
+}
+
+async function reconcileQuestRewards(
+  db: D1Database,
+  previousQuests: unknown[],
+  quests: unknown[],
+): Promise<void> {
+  const accountRows = await db.prepare(
+    'SELECT username, profile_json FROM accounts',
+  ).all<{ username: string; profile_json: string }>();
+  if (!accountRows.success || !accountRows.results) {
+    throw new Error('Não foi possível carregar as contas para reconciliar recompensas de missões.');
+  }
+  const validQuests = (values: unknown[]): Quest[] => values
+    .filter((quest): quest is Quest =>
+      !!quest && typeof quest === 'object' && typeof (quest as Quest).id === 'string' &&
+      typeof (quest as Quest).title === 'string' && Array.isArray((quest as Quest).rewards),
+    );
+  const previousDefinitions = validQuests(previousQuests);
+  const definitions = validQuests(quests);
+
+  for (const account of accountRows.results) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const profile = JSON.parse(account.profile_json) as Record<string, unknown>;
+      const changed = reconcileQuestMaintenanceProfile(
+        profile,
+        previousDefinitions,
+        definitions,
+        () => randomHex(16),
+      );
+      if (!changed) break;
+      const updated = await db.prepare(`
+        UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE username = ? AND profile_json = ?
+      `).bind(JSON.stringify(profile), account.username, account.profile_json).run();
+      if (updated.meta?.changes === 1) {
+        account.profile_json = JSON.stringify(profile);
+        break;
+      }
+      const fresh = await db.prepare(
+        'SELECT profile_json FROM accounts WHERE username = ?',
+      ).bind(account.username).first<{ profile_json: string }>();
+      if (!fresh) throw new Error(`Conta ausente durante reconciliação: ${account.username}.`);
+      account.profile_json = fresh.profile_json;
+      if (attempt === 2) throw new Error(`Não foi possível reconciliar as recompensas de ${account.username}.`);
+    }
+  }
+}
+
+async function claimQuestReward(
+  request: Request,
+  env: D1Env,
+): Promise<Response> {
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const username = normalizedUsername(body?.username);
+  const questId = typeof body?.questId === 'string' ? body.questId : '';
+  if (!username || username === 'convidado' || !questId || questId.length > 160) {
+    return error(400, 'Conta e missão válidas são necessárias para resgatar a recompensa.');
+  }
+  const token = request.headers.get('X-Account-Session') || '';
+  if (!await isD1SessionActive(env, username, token)) {
+    return error(401, 'Sessão inválida ou revogada. Entre novamente.');
+  }
+  const quests = await getD1Config(env.DB, 'quests');
+  if (!quests) return error(503, 'As missões ainda não estão disponíveis no servidor.');
+  const quest = quests.find(item =>
+    !!item && typeof item === 'object' && (item as Quest).id === questId,
+  ) as Quest | undefined;
+  if (!quest || !Array.isArray(quest.goals) || !Array.isArray(quest.rewards)) {
+    return error(404, 'Missão não encontrada.');
+  }
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const row = await env.DB.prepare(
+      'SELECT profile_json FROM accounts WHERE username = ?',
+    ).bind(username).first<{ profile_json: string }>();
+    if (!row) return error(404, 'Usuário não encontrado.');
+    const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+    const completedQuestIds = Array.isArray(profile.completedQuestIds)
+      ? profile.completedQuestIds.filter((id): id is string => typeof id === 'string')
+      : [];
+    if (completedQuestIds.includes(questId)) {
+      return json({ success: true, alreadyClaimed: true, user: profile, grantedRewards: [] });
+    }
+    const progress = profile.questProgress && typeof profile.questProgress === 'object'
+      ? profile.questProgress as Record<string, Array<{ id: string; currentValue: number }>>
+      : {};
+    const savedGoals = new Map((progress[questId] || []).map(goal => [goal.id, goal]));
+    if (quest.goals.length === 0 || !quest.goals.every(goal =>
+      Number(savedGoals.get(goal.id)?.currentValue) >= Number(goal.targetValue),
+    )) return error(409, 'Conclua todos os objetivos em partidas online validadas antes de resgatar.');
+    const completed = new Set(completedQuestIds);
+    if (Array.isArray(quest.requiredQuestIds) && !quest.requiredQuestIds.every(id => completed.has(id))) {
+      return error(409, 'Conclua as missões anteriores antes de resgatar esta recompensa.');
+    }
+    const ranks = await getD1Config(env.DB, 'ranks');
+    if (quest.minRank && !ranks) {
+      return error(503, 'As patentes ainda não estão disponíveis no servidor.');
+    }
+    const sortedRanks = (ranks || []).filter((rank): rank is Record<string, unknown> =>
+      !!rank && typeof rank === 'object' && typeof (rank as Record<string, unknown>).name === 'string' &&
+      typeof (rank as Record<string, unknown>).requiredXp === 'number',
+    ).sort((left, right) => Number(left.requiredXp) - Number(right.requiredXp));
+    const xp = Math.max(0, Number(profile.xp) || 0);
+    const currentRank = [...sortedRanks].reverse().find(rank => xp >= Number(rank.requiredXp));
+    const requiredRank = sortedRanks.find(rank => rank.name === quest.minRank);
+    if (quest.minRank && !requiredRank) {
+      return error(409, 'A patente exigida por esta missão não está configurada.');
+    }
+    if (requiredRank && (!currentRank || Number(currentRank.requiredXp) < Number(requiredRank.requiredXp))) {
+      return error(409, 'Seu rank ainda não permite resgatar esta missão.');
+    }
+
+    const rawSnapshots = profile.questRewardSnapshots && typeof profile.questRewardSnapshots === 'object'
+      ? profile.questRewardSnapshots as Record<string, Partial<QuestRewardSnapshot>>
+      : {};
+    questRewardCurrencyTotals(quest.rewards, quest.id);
+    const snapshot: QuestRewardSnapshot = {
+      ryos: 0,
+      gems: 0,
+      items: [],
+    };
+    const grantedRewards = grantQuestRewards(profile, quest.rewards, snapshot);
+    profile.completedQuestIds = [...completedQuestIds, questId];
+    profile.questRewardSnapshots = { ...rawSnapshots, [questId]: snapshot };
+    const updated = await env.DB.prepare(`
+      UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE username = ? AND profile_json = ?
+    `).bind(JSON.stringify(profile), username, row.profile_json).run();
+    if (updated.meta?.changes === 1) {
+      return json({ success: true, user: profile, grantedRewards });
+    }
+    if (attempt === 2) return error(409, 'O perfil mudou durante o resgate. Tente novamente.');
+  }
+  return error(409, 'Não foi possível confirmar o resgate da missão.');
+}
+
+function isMaintenanceReward(value: unknown): value is QuestReward {
+  if (!value || typeof value !== 'object') return false;
+  const reward = value as Record<string, unknown>;
+  if (!['title', 'unlock_character', 'frame', 'banner', 'card', 'ryos', 'gems'].includes(String(reward.type)) ||
+      typeof reward.value !== 'string' || reward.value.length > 2048) return false;
+  if ((reward.type === 'ryos' || reward.type === 'gems') &&
+      (!Number.isSafeInteger(Number(reward.value)) || Number(reward.value) <= 0)) return false;
+  return reward.imageUrl === undefined || typeof reward.imageUrl === 'string' && reward.imageUrl.length <= 2048;
+}
+
+async function maintenanceInboxRoute(
+  request: Request,
+  env: D1Env,
+  claim: boolean,
+): Promise<Response> {
+  const body = request.method === 'POST'
+    ? await request.json().catch(() => null) as Record<string, unknown> | null
+    : null;
+  const url = new URL(request.url);
+  const username = normalizedUsername(body?.username ?? url.searchParams.get('username'));
+  if (!username || username === 'convidado') {
+    return error(400, 'Entre em uma conta para acessar as mensagens de manutenção.');
+  }
+  if (!await isD1SessionActive(env, username, request.headers.get('X-Account-Session') || '')) {
+    return error(401, 'Sessão inválida ou revogada. Entre novamente.');
+  }
+  const mailId = typeof body?.mailId === 'string' ? body.mailId : '';
+  if (claim && (!mailId || mailId.length > 128)) return error(400, 'Mensagem inválida para resgate.');
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const row = await env.DB.prepare(
+      'SELECT profile_json FROM accounts WHERE username = ?',
+    ).bind(username).first<{ profile_json: string }>();
+    if (!row) return error(404, 'Usuário não encontrado.');
+    const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+    const inbox = Array.isArray(profile.questMaintenanceInbox)
+      ? profile.questMaintenanceInbox as QuestMaintenanceMail[]
+      : [];
+    if (!claim) {
+      return json({
+        success: true,
+        messages: inbox.filter(mail => mail && typeof mail.id === 'string'),
+      });
+    }
+    const mail = inbox.find(item => item?.id === mailId);
+    if (!mail) return error(404, 'Mensagem não encontrada.');
+    if (mail.claimedAt) {
+      return json({ success: true, alreadyClaimed: true, user: profile });
+    }
+    if (!Array.isArray(mail.rewards) || !mail.rewards.every(isMaintenanceReward)) {
+      return error(409, 'A mensagem contém recompensas inválidas e não pode ser resgatada.');
+    }
+    const grantedRewards = grantQuestMaintenanceRewards(profile, mail.rewards);
+    mail.claimedAt = new Date().toISOString();
+    profile.questMaintenanceInbox = inbox;
+    const updated = await env.DB.prepare(`
+      UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE username = ? AND profile_json = ?
+    `).bind(JSON.stringify(profile), username, row.profile_json).run();
+    if (updated.meta?.changes === 1) {
+      return json({ success: true, user: profile, grantedRewards });
+    }
+    if (attempt === 2) return error(409, 'O perfil mudou durante o resgate. Tente novamente.');
+  }
+  return error(409, 'Não foi possível confirmar o resgate da mensagem.');
+}
+
 export interface AuthoritativeMatchRewardInput {
   roomId: string;
   winnerUsername: string;
@@ -724,6 +1022,9 @@ export interface AuthoritativeMatchRewardInput {
     username: string;
     aliveCount: number;
     damageDealt: number;
+    activeQuestId?: string;
+    questStats?: QuestBattleStats;
+    playerTeamCharacters?: QuestBattleStats['playerTeamCharacters'];
   }>;
 }
 
@@ -751,7 +1052,16 @@ export async function awardD1MatchRewards(
     .sort((left, right) => Number(left.requiredXp) - Number(right.requiredXp));
   if (!sortedRanks.length) throw new Error('A configuração de patentes no D1 é inválida.');
 
+  const questIds = new Set(match.players
+    .map(player => player.activeQuestId)
+    .filter((questId): questId is string => !!questId));
+  const questDefinitions = questIds.size ? await getD1Config(env.DB, 'quests') : [];
+  if (questIds.size && !questDefinitions) {
+    throw new Error('A configuração de missões no D1 é necessária para registrar o progresso.');
+  }
+
   const statements: D1PreparedStatement[] = [];
+  const progressByUsername = new Map<string, string>();
   const rewards: AuthoritativeMatchReward[] = match.players.map(player => ({
     username: player.username.trim().toLowerCase(),
     xpGained: calculateBattleXp(
@@ -763,6 +1073,46 @@ export async function awardD1MatchRewards(
     user: null,
   }));
 
+  for (const player of match.players) {
+    const questId = player.activeQuestId;
+    if (!questId || !player.questStats || player.username.trim().toLowerCase() === 'convidado') continue;
+    const definition = (questDefinitions || []).find((item): item is Quest =>
+      !!item && typeof item === 'object' && (item as Quest).id === questId,
+    );
+    if (!definition || !Array.isArray(definition.goals) || definition.goals.length === 0) continue;
+
+    const username = player.username.trim().toLowerCase();
+    const row = await env.DB.prepare(
+      'SELECT profile_json FROM accounts WHERE username = ?',
+    ).bind(username).first<{ profile_json: string }>();
+    if (!row) throw new Error(`Conta ausente ao registrar progresso de missão: ${username}.`);
+    const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+    const completedQuestIds = Array.isArray(profile.completedQuestIds)
+      ? profile.completedQuestIds.filter((id): id is string => typeof id === 'string')
+      : [];
+    if (completedQuestIds.includes(questId)) continue;
+
+    const savedProgress = profile.questProgress && typeof profile.questProgress === 'object'
+      ? profile.questProgress as Record<string, Array<{ id: string; currentValue: number; currentStreak?: number }>>
+      : {};
+    const oldGoals = new Map((savedProgress[questId] || []).map(goal => [goal.id, goal]));
+    const victory = username === match.winnerUsername.trim().toLowerCase();
+    const updatedGoals = definition.goals.map(goal => {
+      const previous = oldGoals.get(goal.id);
+      const currentGoal = {
+        ...goal,
+        currentValue: Math.max(0, Math.min(goal.targetValue, Number(previous?.currentValue) || 0)),
+        currentStreak: Math.max(0, Number(previous?.currentStreak) || 0),
+      };
+      const result = evaluateAuthoritativeQuestGoal(currentGoal, victory, player.questStats!);
+      return { id: goal.id, currentValue: result.nextValue, currentStreak: result.nextStreak };
+    });
+    progressByUsername.set(username, JSON.stringify({
+      ...savedProgress,
+      [questId]: updatedGoals,
+    }));
+  }
+
   for (const reward of rewards) {
     if (reward.username === 'convidado') continue;
     const victory = reward.username === match.winnerUsername.trim().toLowerCase();
@@ -770,6 +1120,15 @@ export async function awardD1MatchRewards(
       INSERT OR IGNORE INTO online_battle_rewards (room_id, username, xp_delta)
       VALUES (?, ?, ?)
     `).bind(match.roomId, reward.username, reward.xpGained));
+    const progressJson = progressByUsername.get(reward.username);
+    const progressClause = progressJson ? `, '$.questProgress', json(?)` : '';
+    const values: unknown[] = [
+      reward.xpGained,
+      victory ? 1 : 0,
+      victory ? 0 : 1,
+    ];
+    if (progressJson) values.push(progressJson);
+    values.push(reward.username);
     statements.push(env.DB.prepare(`
       UPDATE accounts
       SET profile_json = json_set(
@@ -777,9 +1136,10 @@ export async function awardD1MatchRewards(
         '$.xp', MAX(0, CAST(COALESCE(json_extract(profile_json, '$.xp'), 0) AS INTEGER) + ?),
         '$.wins', CAST(COALESCE(json_extract(profile_json, '$.wins'), 0) AS INTEGER) + ?,
         '$.losses', CAST(COALESCE(json_extract(profile_json, '$.losses'), 0) AS INTEGER) + ?
+        ${progressClause}
       ), updated_at = CURRENT_TIMESTAMP
       WHERE username = ? AND changes() = 1
-    `).bind(reward.xpGained, victory ? 1 : 0, victory ? 0 : 1, reward.username));
+    `).bind(...values));
   }
 
   if (statements.length) {
@@ -985,11 +1345,29 @@ async function saveConfig(
     body.settings = [{ maxEnemyCharacterNumber: Number(limit) }];
   }
   try {
+    const previousQuests = config.key === 'quests'
+      ? await getD1Config(env.DB, 'quests')
+      : null;
+    const storedBaseline = config.key === 'quests'
+      ? await getD1Config(env.DB, 'questRewardBaseline')
+      : null;
+    const reconciliationBaseline = config.key === 'quests'
+      ? storedBaseline ?? previousQuests ?? []
+      : [];
+    if (config.key === 'quests' && storedBaseline === null) {
+      await writeConfig(env.DB, 'questRewardBaseline', reconciliationBaseline);
+    }
     await writeConfig(env.DB, config.key, body[config.field] as unknown[]);
+    if (config.key === 'quests') {
+      await reconcileQuestRewards(env.DB, reconciliationBaseline, body[config.field] as unknown[]);
+      await writeConfig(env.DB, 'questRewardBaseline', body[config.field] as unknown[]);
+    }
   } catch (cause) {
     if (cause instanceof ConfigWriteBusyError) return error(409, cause.message);
     console.error(`[d1-config] Falha ao salvar configuração ${config.key}.`, cause);
-    return error(500, `Não foi possível salvar ${config.key} no D1.`);
+    return error(500, config.key === 'quests'
+      ? 'As missões foram salvas, mas não foi possível reconciliar todas as recompensas. Salve novamente para tentar de novo.'
+      : `Não foi possível salvar ${config.key} no D1.`);
   }
   const labels: Record<string, string> = {
     characters: 'Personagens', ranks: 'Ranks atualizados', items: 'Loja atualizada',
@@ -1052,7 +1430,23 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
         }
       }
       try {
+        const previousQuests = key === 'quests'
+          ? await getD1Config(env.DB, 'quests')
+          : null;
+        const storedBaseline = key === 'quests'
+          ? await getD1Config(env.DB, 'questRewardBaseline')
+          : null;
+        const reconciliationBaseline = key === 'quests'
+          ? storedBaseline ?? previousQuests ?? []
+          : [];
+        if (key === 'quests' && storedBaseline === null) {
+          await writeConfig(env.DB, 'questRewardBaseline', reconciliationBaseline);
+        }
         await writeConfig(env.DB, key, body[input] as unknown[]);
+        if (key === 'quests') {
+          await reconcileQuestRewards(env.DB, reconciliationBaseline, body[input] as unknown[]);
+          await writeConfig(env.DB, 'questRewardBaseline', body[input] as unknown[]);
+        }
       } catch (cause) {
         if (cause instanceof ConfigWriteBusyError) {
           return error(409, `${cause.message} A importação pode ter aplicado os conjuntos anteriores; tente novamente.`);
@@ -1081,6 +1475,15 @@ export async function handleD1Request(request: Request, env: D1Env): Promise<Res
     const username = normalizedUsername(new URL(request.url).searchParams.get('username'));
     if (!username) return error(400, 'Nome de usuário é obrigatório.');
     return json({ success: true, matches: await getD1ArchivedHistory(env, username) });
+  }
+  if (pathname === '/api/quests/claim' && request.method === 'POST') {
+    return claimQuestReward(request, env);
+  }
+  if (pathname === '/api/quests/maintenance-inbox' && request.method === 'GET') {
+    return maintenanceInboxRoute(request, env, false);
+  }
+  if (pathname === '/api/quests/maintenance-inbox/claim' && request.method === 'POST') {
+    return maintenanceInboxRoute(request, env, true);
   }
   const profile = await profileRoute(request, env, pathname);
   if (profile) return profile;

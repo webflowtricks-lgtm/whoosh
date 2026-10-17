@@ -216,6 +216,15 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
       return;
     }
 
+    const invalidCurrencyReward = editingQuest.rewards.some(reward =>
+      (reward.type === 'ryos' || reward.type === 'gems') &&
+      (!Number.isSafeInteger(Number(reward.value)) || Number(reward.value) <= 0)
+    );
+    if (invalidCurrencyReward) {
+      triggerError('As recompensas de Moedas e Ryos precisam ter uma quantidade inteira maior que zero.');
+      return;
+    }
+
     // Strip character name from targetSkill (e.g. "Rasengan (Naruto)" -> "Rasengan")
     const cleaned = {
       ...editingQuest,
@@ -960,7 +969,22 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                           <select
                             value={r.type}
                             onChange={(e) => {
-                              const newType = e.target.value as any;
+                              const newType = e.target.value as QuestReward['type'];
+                              if (newType === 'ryos' || newType === 'gems') {
+                                setEditingQuest(current => current ? {
+                                  ...current,
+                                  rewards: current.rewards.map((reward, index) => {
+                                    if (index !== rIdx) return reward;
+                                    const amount = Number(reward.value);
+                                    return {
+                                      ...reward,
+                                      type: newType,
+                                      value: Number.isSafeInteger(amount) && amount > 0 ? reward.value : '100',
+                                    };
+                                  })
+                                } : current);
+                                return;
+                              }
                               updateRewardField(rIdx, 'type', newType);
                               if (newType === 'banner' && !r.imageUrl) {
                                 updateRewardField(rIdx, 'value', r.value || 'Banner Épico de Missão');
@@ -977,6 +1001,8 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                             <option value="banner">🖼️ Banner do Perfil (Fundo do Card)</option>
                             <option value="frame">🖼️ Moldura (Frame da Foto)</option>
                             <option value="card">🃏 Figura Colecionável (Card)</option>
+                            <option value="ryos">🪙 Moedas</option>
+                            <option value="gems">💠 Ryos</option>
                           </select>
                         </div>
 
@@ -1139,6 +1165,24 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                                   </div>
                                 </div>
                               )}
+                            </div>
+                          ) : r.type === 'ryos' || r.type === 'gems' ? (
+                            <div>
+                              <label className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block mb-1">
+                                Quantidade de {r.type === 'ryos' ? 'Moedas' : 'Ryos'}
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={r.value}
+                                onChange={event => updateRewardField(rIdx, 'value', event.target.value)}
+                                className="w-full bg-slate-950 border border-amber-500/40 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                                placeholder="Ex: 500"
+                              />
+                              <p className="mt-1 text-[9px] text-slate-500">
+                                {r.type === 'ryos' ? 'Moeda comum' : 'Moeda premium'}
+                              </p>
                             </div>
                           ) : r.type === 'card' ? (
                             <div className="space-y-2">

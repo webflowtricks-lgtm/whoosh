@@ -1,1 +1,41 @@
-[]
+[
+  {
+    "id": "pack-basico",
+    "name": "Pacote B?sico",
+    "description": "Figuras comuns e raras de todos os ninjas. ?timo para completar a cole??o.",
+    "currency": "gems",
+    "price": 1350,
+    "cardsPerPack": 3,
+    "allowedRarities": [
+      "comum",
+      "raro"
+    ],
+    "badge": "B?SICO"
+  },
+  {
+    "id": "pack-epico",
+    "name": "Pacote ?pico",
+    "description": "Maiores chances de figuras ?picas e lend?rias.",
+    "currency": "gems",
+    "price": 3900,
+    "cardsPerPack": 3,
+    "allowedRarities": [
+      "epico",
+      "lendario"
+    ],
+    "badge": "?PICO"
+  },
+  {
+    "id": "pack-lendario",
+    "name": "Pacote Lend?rio",
+    "description": "Garante figuras lend?rias e secretas ? o ?pice da cole??o.",
+    "currency": "gems",
+    "price": 9000,
+    "cardsPerPack": 2,
+    "allowedRarities": [
+      "lendario",
+      "secreto"
+    ],
+    "badge": "LEND?RIO"
+  }
+]

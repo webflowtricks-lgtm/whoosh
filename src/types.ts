@@ -1196,6 +1196,17 @@ export interface UserProfile {
   equippedShowcaseSkinUrl?: string;
   claimedEventRewardIds?: string[];
   collectedCardIds?: string[];
+  questMaintenanceInbox?: QuestMaintenanceMail[];
+}
+
+export interface QuestMaintenanceMail {
+  id: string;
+  questId: string;
+  subject: string;
+  message: string;
+  createdAt: string;
+  rewards: QuestReward[];
+  claimedAt?: string;
 }
 
 // 🃏 Ninja Cards — Figuras colecionáveis (puramente estéticas, sem poder de combate)
@@ -1298,7 +1309,7 @@ export interface QuestGoal {
 }
 
 export interface QuestReward {
-  type: 'title' | 'unlock_character' | 'frame' | 'banner' | 'card';
+  type: 'title' | 'unlock_character' | 'frame' | 'banner' | 'card' | 'ryos' | 'gems';
   value: string; // Título, nome do personagem, nome/descrição da moldura ou banner, ou ID do card
   imageUrl?: string; // URL da imagem da moldura ou banner de fundo do perfil (ou imagem do card)
   rarity?: CardRarity;

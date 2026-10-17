@@ -105,6 +105,16 @@ export default function AdminDashboard({ onBack, playClickSound, playScrollSound
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events' | 'ranks' | 'ai' | 'cards' | 'backup'>('ninjas');
 
+  useEffect(() => {
+    if (!['quests', 'events', 'ranks'].includes(activeTab)) return;
+    const frame = requestAnimationFrame(() => {
+      const content = document.getElementById(`admin-tab-${activeTab}`);
+      const target = content?.querySelector('h1, h2, h3') || content;
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab]);
+
   // Character list state loaded from storage
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string>('');
@@ -932,15 +942,19 @@ const newSkill: Skill = {
 
       {/* Main dashboard work area */}
       {activeTab === 'quests' ? (
-        <QuestAdmin onBack={onBack} playClickSound={playClickSound} />
+        <div id="admin-tab-quests">
+          <QuestAdmin onBack={onBack} playClickSound={playClickSound} />
+        </div>
       ) : activeTab === 'shop' ? (
         <ShopAdmin playClickSound={playClickSound} />
       ) : activeTab === 'events' ? (
-        <EventAdmin playClickSound={playClickSound} playScrollSound={playScrollSound} />
+        <div id="admin-tab-events">
+          <EventAdmin playClickSound={playClickSound} playScrollSound={playScrollSound} />
+        </div>
       ) : activeTab === 'cards' ? (
         <CardAdmin playClickSound={playClickSound} playScrollSound={playScrollSound} />
       ) : activeTab === 'ai' ? (
-        <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 z-10 space-y-6">
+        <main id="admin-tab-ranks" className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 z-10 space-y-6">
           <section className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-5 h-5 text-amber-400" />

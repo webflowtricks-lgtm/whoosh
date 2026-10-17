@@ -317,5 +317,14 @@
     "password": "xads",
     "name": "axd",
     "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg"
+  },
+  {
+    "username": "8",
+    "password": "8",
+    "name": "8",
+    "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+    "village": "konoha",
+    "villageChangeCount": 0,
+    "ryos": 1500
   }
 ]

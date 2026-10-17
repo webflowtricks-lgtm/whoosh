@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { GameScreen, Character, UserProfile, Quest } from './types';
-import { evaluateQuestGoal } from './lib/questUtils';
 import { safeFetchJson } from './lib/api';
 import { matchFetch } from './lib/matchFetch';
 import { fetchCharactersFromServer } from './lib/characterStorage';
@@ -616,43 +615,20 @@ export default function App() {
     setUser(updatedUser);
     localStorage.setItem('naruto_user_profile', JSON.stringify(updatedUser));
 
-    // Process quests if active
-    if (activeQuest) {
-      const updatedGoals = activeQuest.goals.map((goal) => {
-        const { nextValue, nextStreak } = evaluateQuestGoal(goal, victory, stats);
-        return {
+    if (activeQuest && onlineParams?.isOnline) {
+      const savedGoals = updatedUser.questProgress?.[activeQuest.id];
+      if (savedGoals) {
+        const savedById = new Map(savedGoals.map(goal => [goal.id, goal]));
+        const updatedGoals = activeQuest.goals.map(goal => ({
           ...goal,
-          currentValue: nextValue,
-          currentStreak: nextStreak
-        };
-      });
-
-      const isNowFinished = updatedGoals.every((g) => g.currentValue >= g.targetValue);
-
-      const updatedQuest: Quest = {
-        ...activeQuest,
-        goals: updatedGoals,
-        completed: isNowFinished ? true : activeQuest.completed
-      };
-
-      setActiveQuest(updatedQuest);
-      if (user) {
-        const updatedUser = {
-          ...user,
-          questProgress: {
-            ...user.questProgress,
-            [updatedQuest.id]: updatedGoals.map(({ id, currentValue, currentStreak }) => ({
-              id,
-              currentValue,
-              currentStreak,
-            })),
-          },
-        };
-        setUser(updatedUser);
-        localStorage.setItem('naruto_user_profile', JSON.stringify(updatedUser));
+          ...savedById.get(goal.id),
+        }));
+        setActiveQuest({
+          ...activeQuest,
+          goals: updatedGoals,
+          completed: updatedGoals.every(goal => goal.currentValue >= goal.targetValue),
+        });
       }
-
-      // Quest progress is account data, not a global quest-definition update.
     }
   };
 

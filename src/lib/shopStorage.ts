@@ -16,7 +16,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     category: 'title',
     description: 'Título exclusivo de prestígio reconhecido por todos os países ninjas.',
     currency: 'ryos',
-    price: 1500,
+    price: 142500,
     badge: 'TÍTULO'
   },
   {
@@ -25,7 +25,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     category: 'title',
     description: 'Título para aqueles que trilham o caminho da névoa e das sombras.',
     currency: 'gems',
-    price: 60,
+    price: 3750,
     badge: 'TÍTULO'
   },
   {
@@ -34,7 +34,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     category: 'title',
     description: 'Título honroso concedido a guerreiros que dominam a força do Taijutsu.',
     currency: 'ryos',
-    price: 900,
+    price: 97500,
     badge: 'TÍTULO'
   },
   {
@@ -43,7 +43,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     category: 'title',
     description: 'O mais alto título do mundo ninja, gravado nos monumentos da arena.',
     currency: 'gems',
-    price: 120,
+    price: 6750,
     badge: 'MÍTICO'
   },
 
@@ -55,7 +55,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     characterName: 'Naruto Uzumaki',
     description: 'Visual lendário de Naruto vestindo a capa vermelha do Modo Sábio de Senjutsu.',
     currency: 'gems',
-    price: 150,
+    price: 8250,
     skinImageUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
     badge: 'LENDÁRIO'
   },
@@ -66,7 +66,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     characterName: 'Sasuke Uchiha',
     description: 'Visual de Sasuke durante a formação do esquadrão Hebi na caça a Itachi.',
     currency: 'ryos',
-    price: 2500,
+    price: 330000,
     skinImageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80',
     badge: 'RARO'
   },
@@ -77,7 +77,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     characterName: 'Kakashi Hatake',
     description: 'Traje operacional sombrio das Forças Especiais ANBU de Konoha.',
     currency: 'gems',
-    price: 100,
+    price: 6000,
     skinImageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=800&auto=format&fit=crop&q=80',
     badge: 'ANBU'
   },
@@ -89,7 +89,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     category: 'frame',
     description: 'Moldura reluzente inspirada no fogo e determinação dos ninjas de Konoha.',
     currency: 'ryos',
-    price: 800,
+    price: 67500,
     frameStyle: 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] bg-gradient-to-tr from-amber-500 to-red-500',
     badge: 'POPULAR'
   },
@@ -99,7 +99,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     category: 'frame',
     description: 'Moldura com áurea rubra misteriosa inspirada no lendário Dōjutsu do Clã Uchiha.',
     currency: 'gems',
-    price: 50,
+    price: 3300,
     frameStyle: 'border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.7)] bg-gradient-to-tr from-red-600 to-rose-950',
     badge: 'LENDÁRIO'
   },
@@ -109,7 +109,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     category: 'frame',
     description: 'Moldura prateada elegante reservada para ninjas das forças especiais de esquadrão.',
     currency: 'ryos',
-    price: 1200,
+    price: 105000,
     frameStyle: 'border-slate-300 shadow-[0_0_15px_rgba(203,213,225,0.5)] bg-gradient-to-tr from-slate-200 to-slate-500',
     badge: 'ANBU'
   },
@@ -121,7 +121,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     category: 'bundle',
     description: 'Bolsa contendo 1.000 moedas para desbloqueios e compras na loja.',
     currency: 'gems',
-    price: 20,
+    price: 2700,
     bundleGrant: { type: 'ryos', amount: 1000 },
     badge: 'PACOTE'
   },
@@ -131,7 +131,7 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     category: 'bundle',
     description: 'Grande baú com 3.000 moedas para expansão rápida do seu império ninja.',
     currency: 'gems',
-    price: 50,
+    price: 7200,
     bundleGrant: { type: 'ryos', amount: 3000 },
     badge: 'OFERTA'
   }

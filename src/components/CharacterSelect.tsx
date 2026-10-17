@@ -476,7 +476,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           name: user.name,
           photoUrl: user.photoUrl,
           profile: user,
-          team: playerTeam
+          team: playerTeam,
+          activeQuestId: activeQuest?.id
         })
       });
 
@@ -534,7 +535,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 name: user.name,
                 photoUrl: user.photoUrl,
                 profile: user,
-                team: playerTeam
+                team: playerTeam,
+                activeQuestId: activeQuest?.id
               })
             }).catch(() => {});
           }

@@ -6,6 +6,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { safeFetchJson } from '../lib/api';
+import { matchFetch } from '../lib/matchFetch';
 import { 
   Award, 
   Lock, 
@@ -114,6 +115,7 @@ export default function QuestBoard({
   const [questSearch, setQuestSearch] = useState('');
   const [showQuestFilters, setShowQuestFilters] = useState(false);
   const [claimedRewardId, setClaimedRewardId] = useState<string | null>(null);
+  const [rewardError, setRewardError] = useState('');
   const rewardCarouselRef = useRef<HTMLDivElement>(null);
 
   // Modals state
@@ -280,122 +282,68 @@ export default function QuestBoard({
   // Claim reward once all goals are completed
   const handleClaimReward = async (quest: Quest) => {
     playUahSound();
-    
-    // Check if goals are fully completed
     const allGoalsMet = quest.goals.every(g => g.currentValue >= g.targetValue);
     if (!allGoalsMet) return;
-
-    // Trigger visual feedback
     setClaimedRewardId(quest.id);
     playWinSound();
 
     setTimeout(async () => {
-      const updatedCompletedIds = [...(user.completedQuestIds || []), quest.id];
-      const updatedUnlockedChars = [...(user.unlockedCharacterNames || [])];
-      const updatedUnlockedTitles = [...(user.unlockedTitles || [])];
-      const updatedUnlockedFrames = [...(user.unlockedFrames || [])];
-      const updatedUnlockedFrameUrls = [...(user.unlockedFrameUrls || [])];
-      const updatedUnlockedBanners = [...(user.unlockedBanners || [])];
-      const updatedUnlockedBannerUrls = [...(user.unlockedBannerUrls || [])];
-      const updatedCollectedCards = [...(user.collectedCardIds || [])];
-
-      let equippedFrame = user.equippedFrame;
-      let equippedFrameUrl = user.equippedFrameUrl;
-      let equippedBannerUrl = user.equippedBannerUrl;
-
-      const allChars = getCharacters();
-      const unlockedChars: Character[] = [];
-      const otherRewardsList: QuestReward[] = [];
-
-      // Process rewards
-      quest.rewards.forEach(r => {
-        if (r.type === 'title' && !updatedUnlockedTitles.includes(r.value)) {
-          updatedUnlockedTitles.push(r.value);
-          otherRewardsList.push(r);
-        } else if (r.type === 'unlock_character') {
-          if (!updatedUnlockedChars.includes(r.value)) {
-            updatedUnlockedChars.push(r.value);
-          }
-          const found = allChars.find(c => 
-            c.name.toLowerCase() === r.value.toLowerCase() || 
-            c.id.toLowerCase() === r.value.toLowerCase() ||
-            c.folder.toLowerCase() === r.value.toLowerCase()
-          );
-          if (found) {
-            unlockedChars.push(found);
-          } else {
-            unlockedChars.push({
-              id: r.value,
-              name: r.value,
-              description: 'Novo Shinobi desbloqueado para batalhas!',
-              tags: ['Vila da Folha', 'Shinobi Desbloqueado'],
-              skills: [],
-              portrait: '/static/img/icon/default.jpg',
-              folder: r.value
-            });
-          }
-        } else if (r.type === 'frame') {
-          if (!updatedUnlockedFrames.includes(r.value)) {
-            updatedUnlockedFrames.push(r.value);
-          }
-          if (r.imageUrl && !updatedUnlockedFrameUrls.includes(r.imageUrl)) {
-            updatedUnlockedFrameUrls.push(r.imageUrl);
-          }
-          if (!equippedFrameUrl && r.imageUrl) {
-            equippedFrame = r.value;
-            equippedFrameUrl = r.imageUrl;
-          }
-          otherRewardsList.push(r);
-        } else if (r.type === 'banner') {
-          if (!updatedUnlockedBanners.includes(r.value)) {
-            updatedUnlockedBanners.push(r.value);
-          }
-          if (r.imageUrl && !updatedUnlockedBannerUrls.includes(r.imageUrl)) {
-            updatedUnlockedBannerUrls.push(r.imageUrl);
-          }
-          if (!equippedBannerUrl && r.imageUrl) {
-            equippedBannerUrl = r.imageUrl;
-          }
-          otherRewardsList.push(r);
-        } else if (r.type === 'card') {
-          if (r.value && !updatedCollectedCards.includes(r.value)) {
-            updatedCollectedCards.push(r.value);
-          }
-          otherRewardsList.push(r);
+      try {
+        const response = await matchFetch('/api/quests/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: user.username, questId: quest.id }),
+        });
+        const result = await response.json().catch(() => ({})) as {
+          error?: string;
+          user?: UserProfile;
+          grantedRewards?: QuestReward[];
+        };
+        if (!response.ok || !result.user) {
+          throw new Error(result.error || `Falha ao resgatar recompensa (HTTP ${response.status}).`);
         }
-      });
 
-      const updatedUser: UserProfile = {
-        ...user,
-        completedQuestIds: updatedCompletedIds,
-        unlockedCharacterNames: updatedUnlockedChars,
-        unlockedTitles: updatedUnlockedTitles,
-        unlockedFrames: updatedUnlockedFrames,
-        unlockedFrameUrls: updatedUnlockedFrameUrls,
-        unlockedBanners: updatedUnlockedBanners,
-        unlockedBannerUrls: updatedUnlockedBannerUrls,
-        collectedCardIds: updatedCollectedCards,
-        equippedFrame,
-        equippedFrameUrl,
-        equippedBannerUrl,
-      };
+        onUpdateUser({ ...user, ...result.user });
+        setQuests(current => current.map(item =>
+          item.id === quest.id ? { ...item, completed: true } : item,
+        ));
 
-      // Save user profile locally
-      onUpdateUser(updatedUser);
-
-      // Completion is per-account; the global endpoint only stores quest definitions.
-      const updatedQuestsList = quests.map(q => q.id === quest.id ? { ...q, completed: true } : q);
-      setQuests(updatedQuestsList);
-
-      setClaimedRewardId(null);
-
-      // Open character reward card modal
-      setRewardModalData({
-        questTitle: quest.title,
-        unlockedCharacters: unlockedChars,
-        otherRewards: otherRewardsList
-      });
-      playScrollSound();
+        const allChars = getCharacters();
+        const unlockedCharacters: Character[] = [];
+        const otherRewards: QuestReward[] = [];
+        for (const reward of result.grantedRewards || []) {
+          if (reward.type !== 'unlock_character') {
+            otherRewards.push(reward);
+            continue;
+          }
+          const character = allChars.find(item =>
+            item.name.toLowerCase() === reward.value.toLowerCase() ||
+            item.id.toLowerCase() === reward.value.toLowerCase() ||
+            item.folder.toLowerCase() === reward.value.toLowerCase(),
+          );
+          unlockedCharacters.push(character || {
+            id: reward.value,
+            name: reward.value,
+            description: 'Novo Shinobi desbloqueado para batalhas!',
+            tags: ['Vila da Folha', 'Shinobi Desbloqueado'],
+            skills: [],
+            portrait: '/static/img/icon/default.jpg',
+            folder: reward.value,
+          });
+        }
+        setRewardModalData({
+          questTitle: quest.title,
+          unlockedCharacters,
+          otherRewards,
+        });
+        playScrollSound();
+      } catch (error) {
+        console.error('Falha ao resgatar recompensa de missão:', error);
+        setRewardError(error instanceof Error ? error.message : 'Não foi possível resgatar a recompensa.');
+        window.setTimeout(() => setRewardError(''), 5000);
+      } finally {
+        setClaimedRewardId(null);
+      }
     }, 800);
   };
 
@@ -440,7 +388,7 @@ export default function QuestBoard({
             folder: r.value
           });
         }
-      } else if (r.type === 'frame' || r.type === 'banner' || r.type === 'card') {
+      } else if (r.type === 'frame' || r.type === 'banner' || r.type === 'card' || r.type === 'ryos' || r.type === 'gems') {
         otherRewardsList.push(r);
       }
     });
@@ -486,6 +434,19 @@ export default function QuestBoard({
   return (
     <div className="quest-div-pai min-h-screen w-full relative">
       <div className="absolute inset-0 pointer-events-none z-0" />
+      <AnimatePresence>
+        {rewardError && (
+          <motion.div
+            role="alert"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="fixed left-1/2 top-4 z-[70] -translate-x-1/2 rounded-xl border border-red-400/50 bg-red-950/95 px-4 py-3 text-center text-xs font-bold text-red-100 shadow-xl"
+          >
+            {rewardError}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Interactive Modals inside the Arena/Quartel Shinobi Hub */}
       <AnimatePresence>
@@ -794,10 +755,14 @@ export default function QuestBoard({
                       const foundCard = r.type === 'card' ? allCards.find(c => c.id === r.value) : undefined;
                       const rewardName = r.type === 'title' ? 'Título' :
                         r.type === 'banner' ? 'Banner' :
-                        r.type === 'card' ? 'Figura colecionável' : 'Moldura';
+                        r.type === 'card' ? 'Figura colecionável' :
+                        r.type === 'ryos' ? 'Moedas' :
+                        r.type === 'gems' ? 'Ryos' : 'Moldura';
                       const rewardValue = r.type === 'card' && foundCard
                         ? `${foundCard.characterName} — ${foundCard.title}`
-                        : r.value;
+                        : r.type === 'ryos' || r.type === 'gems'
+                          ? `${Number(r.value).toLocaleString('pt-BR')} ${rewardName}`
+                          : r.value;
 
                       return (
                         <div
@@ -808,6 +773,8 @@ export default function QuestBoard({
                             {r.type === 'title' ? <Award className="h-4 w-4" /> :
                              r.type === 'banner' ? <Image className="h-4 w-4" /> :
                              r.type === 'card' ? <img src="/static/img/icon/ninja-card-icon.svg" alt="" className="h-5 w-5 object-contain" /> :
+                             r.type === 'ryos' ? <img src="/static/img/icon/gold.webp" alt="" className="h-5 w-5 object-contain" /> :
+                             r.type === 'gems' ? <img src="/static/img/icon/ryo.webp" alt="" className="h-5 w-5 object-contain" /> :
                              <Shield className="h-4 w-4" />}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -1108,9 +1075,39 @@ export default function QuestBoard({
                                   })}
                                 </div>
                               )}
-                              {quest.rewards.some(reward => reward.type !== 'unlock_character') && (
+                              {quest.rewards.some(reward => reward.type === 'ryos' || reward.type === 'gems') && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(['gems', 'ryos'] as const).flatMap(type =>
+                                    quest.rewards
+                                      .map((reward, index) => ({ reward, index }))
+                                      .filter(({ reward }) => reward.type === type)
+                                      .map(({ reward, index }) => (
+                                        <div
+                                          key={`${type}-${index}`}
+                                          title={type === 'gems' ? 'Ryos' : 'Moedas'}
+                                          aria-label={`${type === 'gems' ? 'Ryos' : 'Moedas'}: ${Number(reward.value).toLocaleString('pt-BR')}`}
+                                          className={`flex min-h-12 min-w-0 items-center gap-2 rounded-lg border px-2 py-2 shadow-sm ${
+                                            type === 'gems'
+                                              ? 'border-violet-200 bg-violet-50 text-violet-950'
+                                              : 'border-amber-200 bg-amber-50 text-amber-950'
+                                          }`}
+                                        >
+                                          <img
+                                            src={type === 'gems' ? '/static/img/icon/ryo.webp' : '/static/img/icon/gold.webp'}
+                                            alt=""
+                                            className="h-8 w-8 flex-shrink-0 object-contain drop-shadow-sm"
+                                          />
+                                          <span className="text-sm font-black tabular-nums">
+                                            {Number(reward.value).toLocaleString('pt-BR')}
+                                          </span>
+                                        </div>
+                                      ))
+                                  )}
+                                </div>
+                              )}
+                              {quest.rewards.some(reward => reward.type !== 'unlock_character' && reward.type !== 'ryos' && reward.type !== 'gems') && (
                                 <div className="flex flex-col gap-2">
-                                  {quest.rewards.map((r, rIdx) => r.type === 'unlock_character' ? null : (
+                                  {quest.rewards.map((r, rIdx) => r.type === 'unlock_character' || r.type === 'ryos' || r.type === 'gems' ? null : (
                                     <div
                                       key={rIdx}
                                       className="w-full min-w-0 px-2.5 py-1 rounded-lg border border-sky-100 bg-sky-50 text-blue-800 text-[11px] font-bold flex items-center gap-1.5 shadow-sm"
@@ -1126,7 +1123,8 @@ export default function QuestBoard({
                                         {r.type === 'title' ? `Título: « ${r.value} »` :
                                           r.type === 'banner' ? 'Banner' :
                                             r.type === 'card' ? 'Figura colecionável' :
-                                              `🖼️ Moldura: ${r.value}`}
+                                              r.type === 'frame' ? `Moldura: ${r.value}` :
+                                                `Recompensa: ${r.value}`}
                                       </span>
                                     </div>
                                   ))}

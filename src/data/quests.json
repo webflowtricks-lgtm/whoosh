@@ -30,6 +30,15 @@
         "currentValue": 1,
         "singleMatch": false,
         "currentStreak": 0
+      },
+      {
+        "id": "goal_1792241320192_3",
+        "type": "win_battles_with_chars",
+        "targetCharacters": [],
+        "targetSkill": "",
+        "targetValue": 5,
+        "currentValue": 0,
+        "singleMatch": false
       }
     ],
     "rewards": [
@@ -51,6 +60,18 @@
         "type": "banner",
         "value": "Banne",
         "imageUrl": "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1200&auto=format&fit=crop"
+      },
+      {
+        "type": "title",
+        "value": "Novo Título"
+      },
+      {
+        "type": "ryos",
+        "value": "2500000"
+      },
+      {
+        "type": "gems",
+        "value": "2500000"
       }
     ],
     "completed": false
@@ -88,6 +109,10 @@
       {
         "type": "unlock_character",
         "value": "Hyuga Hanabi"
+      },
+      {
+        "type": "ryos",
+        "value": "400"
       }
     ],
     "completed": false
@@ -168,6 +193,10 @@
       {
         "type": "unlock_character",
         "value": "Kankuro"
+      },
+      {
+        "type": "ryos",
+        "value": "850"
       }
     ],
     "completed": false
@@ -224,6 +253,10 @@
       {
         "type": "unlock_character",
         "value": "Kin Tsuchi"
+      },
+      {
+        "type": "ryos",
+        "value": "650"
       }
     ],
     "completed": false
@@ -247,6 +280,10 @@
       {
         "type": "unlock_character",
         "value": "Young Karin"
+      },
+      {
+        "type": "ryos",
+        "value": "300"
       }
     ],
     "completed": false
@@ -270,6 +307,10 @@
       {
         "type": "unlock_character",
         "value": "Iruka Umino"
+      },
+      {
+        "type": "ryos",
+        "value": "1500"
       }
     ],
     "completed": false
@@ -308,6 +349,10 @@
       {
         "type": "unlock_character",
         "value": "Waraji & Zori"
+      },
+      {
+        "type": "ryos",
+        "value": "2200"
       }
     ],
     "completed": false
@@ -366,6 +411,10 @@
       {
         "type": "unlock_character",
         "value": "Kagari"
+      },
+      {
+        "type": "ryos",
+        "value": "4000"
       }
     ],
     "completed": false
@@ -401,6 +450,10 @@
       {
         "type": "unlock_character",
         "value": "Shigure"
+      },
+      {
+        "type": "ryos",
+        "value": "1800"
       }
     ],
     "completed": false
@@ -435,6 +488,10 @@
       {
         "type": "unlock_character",
         "value": "Yoroi Akado"
+      },
+      {
+        "type": "ryos",
+        "value": "2800"
       }
     ],
     "completed": false
@@ -469,6 +526,10 @@
       {
         "type": "unlock_character",
         "value": "Misumi Tsurugi"
+      },
+      {
+        "type": "ryos",
+        "value": "3400"
       }
     ],
     "completed": false
@@ -556,6 +617,10 @@
       {
         "type": "unlock_character",
         "value": "Ebisu"
+      },
+      {
+        "type": "ryos",
+        "value": "4600"
       }
     ],
     "completed": false
@@ -660,6 +725,10 @@
       {
         "type": "title",
         "value": "The 4 Seals of the Sound"
+      },
+      {
+        "type": "ryos",
+        "value": "7000"
       }
     ],
     "completed": false
@@ -703,6 +772,10 @@
       {
         "type": "title",
         "value": "The Prodigal Son Returns"
+      },
+      {
+        "type": "ryos",
+        "value": "5200"
       }
     ],
     "completed": false
@@ -748,6 +821,10 @@
       {
         "type": "title",
         "value": "A Girl Grown Up"
+      },
+      {
+        "type": "ryos",
+        "value": "5800"
       }
     ],
     "completed": false
@@ -783,6 +860,10 @@
       {
         "type": "title",
         "value": "Orochimaru's Spy"
+      },
+      {
+        "type": "ryos",
+        "value": "8000"
       }
     ],
     "completed": false
@@ -819,6 +900,10 @@
       {
         "type": "unlock_character",
         "value": "Mizuki"
+      },
+      {
+        "type": "ryos",
+        "value": "10000"
       }
     ],
     "completed": false

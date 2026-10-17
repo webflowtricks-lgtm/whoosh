@@ -7,6 +7,7 @@ import {
   CircleHelp,
   Diamond,
   Filter,
+  Mail,
   LogOut,
   Settings,
   Search,
@@ -18,10 +19,11 @@ import {
   VolumeX,
   X,
 } from 'lucide-react';
-import { Character, ChakraType, NinjaEvent, Quest, Skill, UserProfile } from '../types';
+import { Character, ChakraType, NinjaEvent, Quest, QuestMaintenanceMail, QuestReward, Skill, UserProfile } from '../types';
 import { fetchCharactersFromServer, getCharacters } from '../lib/characterStorage';
 import { fetchEventsFromServer, getEvents } from '../lib/eventStorage';
 import { safeFetchJson } from '../lib/api';
+import { matchFetch } from '../lib/matchFetch';
 import { getCurrentVillageId } from '../lib/villages';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
@@ -51,7 +53,7 @@ interface LobbyScreenProps {
   onUpdateAudioSetting: (key: 'master' | 'effects' | 'music', value: number) => void;
 }
 
-type LobbyModal = 'characters' | 'clan' | 'shop' | 'events' | 'profile' | 'cards' | 'audio' | 'help' | null;
+type LobbyModal = 'characters' | 'clan' | 'shop' | 'events' | 'profile' | 'cards' | 'audio' | 'help' | 'mail' | null;
 
 export default function LobbyScreen({
   onStartGame,
@@ -83,6 +85,9 @@ export default function LobbyScreen({
   const [rosterTag, setRosterTag] = useState('');
   const [detailsCharacter, setDetailsCharacter] = useState<Character | null>(null);
   const [activeEventIndex, setActiveEventIndex] = useState(0);
+  const [maintenanceMessages, setMaintenanceMessages] = useState<QuestMaintenanceMail[]>([]);
+  const [claimingMailId, setClaimingMailId] = useState<string | null>(null);
+  const [maintenanceMailError, setMaintenanceMailError] = useState('');
   const eventSwipeStartX = useRef<number | null>(null);
   const suppressEventClick = useRef(false);
 
@@ -110,6 +115,41 @@ export default function LobbyScreen({
       .catch(error => console.error('Failed to load lobby events:', error));
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!user?.username) {
+      setMaintenanceMessages([]);
+      return;
+    }
+    let active = true;
+    const loadInbox = async () => {
+      try {
+        const response = await matchFetch(
+          `/api/quests/maintenance-inbox?username=${encodeURIComponent(user.username)}`,
+        );
+        const result = await response.json().catch(() => ({})) as {
+          success?: boolean;
+          messages?: QuestMaintenanceMail[];
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(result.error || `Falha ao carregar mensagens (HTTP ${response.status}).`);
+        }
+        if (!result.success || !Array.isArray(result.messages)) {
+          throw new Error(result.error || 'O servidor retornou um formato inválido para a caixa de entrada.');
+        }
+        if (active) setMaintenanceMessages(result.messages);
+      } catch (error) {
+        if (active) console.error('Falha ao carregar a caixa de entrada de manutenção:', error);
+      }
+    };
+    void loadInbox();
+    const interval = window.setInterval(() => { void loadInbox(); }, 30_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [user?.username]);
 
   const ranks = getRanks();
   const rank = getRankProgress(user?.xp || 0, ranks).currentRank;
@@ -278,6 +318,46 @@ export default function LobbyScreen({
   };
 
   const updateUser = (updated: UserProfile) => onUpdateUser(updated);
+  const pendingMaintenanceCount = maintenanceMessages.filter(message => !message.claimedAt).length;
+  const claimMaintenanceMessage = async (message: QuestMaintenanceMail) => {
+    if (!user || message.claimedAt || claimingMailId) return;
+    setClaimingMailId(message.id);
+    setMaintenanceMailError('');
+    try {
+      const response = await matchFetch('/api/quests/maintenance-inbox/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username, mailId: message.id }),
+      });
+      const result = await response.json().catch(() => ({})) as {
+        success?: boolean;
+        error?: string;
+        user?: UserProfile;
+      };
+      if (!response.ok) {
+        throw new Error(result.error || `Falha ao resgatar mensagem (HTTP ${response.status}).`);
+      }
+      if (!result.success || !result.user) {
+        throw new Error(result.error || 'O servidor retornou um formato inválido ao resgatar a mensagem.');
+      }
+      onUpdateUser({ ...user, ...result.user });
+      setMaintenanceMessages(result.user.questMaintenanceInbox || []);
+    } catch (error) {
+      console.error('Falha ao resgatar mensagem de manutenção:', error);
+      setMaintenanceMailError(error instanceof Error ? error.message : t('Não foi possível resgatar a mensagem.', 'Could not claim this message.'));
+    } finally {
+      setClaimingMailId(null);
+    }
+  };
+  const maintenanceRewardLabel = (reward: QuestReward) => {
+    if (reward.type === 'ryos') return `${reward.value} ${t('Moedas', 'Coins')}`;
+    if (reward.type === 'gems') return `${reward.value} ${t('Ryos', 'Ryos')}`;
+    if (reward.type === 'unlock_character') return `${t('Personagem', 'Character')}: ${reward.value}`;
+    if (reward.type === 'title') return `${t('Título', 'Title')}: ${reward.value}`;
+    if (reward.type === 'frame') return `${t('Moldura', 'Frame')}: ${reward.value}`;
+    if (reward.type === 'banner') return `${t('Banner', 'Banner')}: ${reward.value}`;
+    return `${t('Figura', 'Card')}: ${reward.value}`;
+  };
   const claimedEventRewardIds = user?.claimedEventRewardIds || [];
   const availableEventRewardCount = events.reduce(
     (total, event) => total + event.objectives.filter(objective =>
@@ -378,6 +458,21 @@ export default function LobbyScreen({
           )}
           <img className="lobby-mission-icon" src="/static/img/icon/missao.webp" alt="" />
         </button>
+        {user && (
+          <button
+            type="button"
+            onClick={() => { playClickSound(); setMaintenanceMailError(''); setModal('mail'); }}
+            className="lobby-mission-button lobby-mail-button"
+            aria-label={t(`Caixa de entrada${pendingMaintenanceCount ? `, ${pendingMaintenanceCount} mensagens não resgatadas` : ''}`, `Inbox${pendingMaintenanceCount ? `, ${pendingMaintenanceCount} unclaimed messages` : ''}`)}
+          >
+            <Mail className="lobby-mail-icon" aria-hidden="true" />
+            {pendingMaintenanceCount > 0 && (
+              <span className="lobby-mail-count" aria-hidden="true">
+                {pendingMaintenanceCount > 99 ? '99+' : pendingMaintenanceCount}
+              </span>
+            )}
+          </button>
+        )}
         {user && (
           <button
             type="button"
@@ -720,6 +815,67 @@ export default function LobbyScreen({
             <Shield aria-hidden="true" />
             <h2>{t('Clãs', 'Clans')}</h2>
             <p>{t('A área de clãs estará disponível em breve.', 'The clan area will be available soon.')}</p>
+          </section>
+        </div>
+      )}
+
+      {modal === 'mail' && (
+        <div className="lobby-modal-backdrop" role="presentation" onClick={() => setModal(null)}>
+          <section className="lobby-mail-modal" role="dialog" aria-modal="true" aria-labelledby="lobby-mail-title" onClick={event => event.stopPropagation()}>
+            <header>
+              <div className="lobby-mail-heading">
+                <Mail aria-hidden="true" />
+                <div>
+                  <h2 id="lobby-mail-title">{t('Caixa de entrada', 'Inbox')}</h2>
+                  <p>{t('Recompensas e avisos da sua conta', 'Rewards and account notices')}</p>
+                </div>
+              </div>
+              <button type="button" className="lobby-modal-close" onClick={() => setModal(null)} aria-label={t('Fechar', 'Close')}><X /></button>
+            </header>
+            {maintenanceMailError && <p className="lobby-mail-error" role="alert">{maintenanceMailError}</p>}
+            <div className="lobby-mail-list">
+              {maintenanceMessages.length === 0 ? (
+                <p className="lobby-mail-empty">{t('Sua caixa de entrada está vazia.', 'Your inbox is empty.')}</p>
+              ) : [...maintenanceMessages].sort((left, right) =>
+                Number(!!left.claimedAt) - Number(!!right.claimedAt) ||
+                right.createdAt.localeCompare(left.createdAt),
+              ).map(message => (
+                <article className={`lobby-mail-message${message.claimedAt ? ' is-claimed' : ''}`} key={message.id}>
+                  <div className="lobby-mail-message-header">
+                    <strong>{message.subject}</strong>
+                    <time dateTime={message.createdAt}>
+                      {new Date(message.createdAt).toLocaleDateString()}
+                    </time>
+                  </div>
+                  <p>{message.message}</p>
+                  <ul>
+                    {message.rewards.map((reward, index) => (
+                      <li key={`${reward.type}:${reward.value}:${index}`}>
+                        {(reward.type === 'ryos' || reward.type === 'gems') && (
+                          <img
+                            src={reward.type === 'ryos' ? '/static/img/icon/gold.webp' : '/static/img/icon/ryo.webp'}
+                            alt=""
+                          />
+                        )}
+                        <span>{maintenanceRewardLabel(reward)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className="lobby-mail-claim"
+                    disabled={!!message.claimedAt || !!claimingMailId}
+                    onClick={() => { void claimMaintenanceMessage(message); }}
+                  >
+                    {message.claimedAt
+                      ? t('Resgatada', 'Claimed')
+                      : claimingMailId === message.id
+                        ? t('Resgatando...', 'Claiming...')
+                        : t('Resgatar recompensa', 'Claim reward')}
+                  </button>
+                </article>
+              ))}
+            </div>
           </section>
         </div>
       )}

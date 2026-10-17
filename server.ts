@@ -9,12 +9,19 @@ import { CHARACTERS as DEFAULT_CHARACTERS } from "./src/data/characters";
 import { firstSlotForTurn, isValidMatchTeam, submitTurnActions } from "./src/lib/matchProtocol";
 import { getInactiveMatchSlot, MATCH_INACTIVITY_TIMEOUT_MS } from "./src/lib/matchInactivity";
 import { isVillageId } from "./src/lib/villages";
+import {
+  grantQuestMaintenanceRewards,
+  reconcileQuestMaintenanceProfile,
+  type QuestDefinition,
+} from "./src/lib/questMaintenance";
+import type { QuestMaintenanceMail, QuestReward } from "./src/types";
 
 const DATA_DIR = path.resolve(process.env.WHOOSH_DATA_DIR || path.join(process.cwd(), "src", "data"));
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const CHARACTERS_FILE = path.join(DATA_DIR, "custom_characters.json");
 
 const QUESTS_FILE = path.join(DATA_DIR, "quests.json");
+const QUEST_REWARD_BASELINE_FILE = path.join(DATA_DIR, "quest_reward_baseline.json");
 const RANKS_FILE = path.join(DATA_DIR, "ranks.json");
 const SHOP_FILE = path.join(DATA_DIR, "shop.json");
 const EVENTS_FILE = path.join(DATA_DIR, "events.json");
@@ -163,6 +170,80 @@ function persistAccountUsers(users: unknown[]): boolean {
     console.error("Error writing account profiles:", error);
     return false;
   }
+}
+
+function reconcileLegacyQuestRewards(
+  previousQuests: QuestDefinition[],
+  updatedQuests: QuestDefinition[],
+): void {
+  const users = readQuestMaintenanceAccounts();
+  let changed = false;
+  for (const profile of users) {
+    changed = reconcileQuestMaintenanceProfile(
+      profile,
+      previousQuests,
+      updatedQuests,
+      () => randomBytes(16).toString("hex"),
+    ) || changed;
+  }
+  if (changed && !persistAccountUsers(users)) {
+    throw new Error("Não foi possível salvar as caixas de entrada de manutenção das contas.");
+  }
+}
+
+function readQuestMaintenanceAccounts(): Array<Record<string, unknown>> {
+  if (!fs.existsSync(USERS_FILE)) return [];
+  const value = JSON.parse(fs.readFileSync(USERS_FILE, "utf-8")) as unknown;
+  if (!Array.isArray(value) || value.some(user =>
+    !user || typeof user !== "object" || typeof (user as Record<string, unknown>).username !== "string",
+  )) {
+    throw new Error("A lista de contas do servidor está inválida; nenhuma recompensa foi reconciliada.");
+  }
+  return value as Array<Record<string, unknown>>;
+}
+
+function loadQuestRewardBaseline(fallback: QuestDefinition[]): QuestDefinition[] {
+  if (!fs.existsSync(QUEST_REWARD_BASELINE_FILE)) return fallback;
+  const baseline = JSON.parse(fs.readFileSync(QUEST_REWARD_BASELINE_FILE, "utf-8")) as unknown;
+  if (!Array.isArray(baseline)) throw new Error("O histórico base de recompensas de missões está inválido.");
+  return baseline as QuestDefinition[];
+}
+
+function persistQuestRewardBaseline(quests: QuestDefinition[]): boolean {
+  try {
+    fs.writeFileSync(QUEST_REWARD_BASELINE_FILE, JSON.stringify(quests, null, 2));
+    return true;
+  } catch (error) {
+    console.error("[QUESTS] Erro ao salvar histórico base de recompensas:", error);
+    return false;
+  }
+}
+
+function validQuestDefinitions(values: unknown[]): QuestDefinition[] {
+  return values.filter((quest): quest is QuestDefinition =>
+    !!quest && typeof quest === "object" && typeof (quest as QuestDefinition).id === "string" &&
+    typeof (quest as QuestDefinition).title === "string" && Array.isArray((quest as QuestDefinition).rewards),
+  );
+}
+
+function persistJsonFile<T>(filePath: string, data: T): boolean {
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error(`Error writing file ${filePath}:`, error);
+    return false;
+  }
+}
+
+function isQuestMaintenanceReward(value: unknown): value is QuestReward {
+  if (!value || typeof value !== "object") return false;
+  const reward = value as Record<string, unknown>;
+  if (!["title", "unlock_character", "frame", "banner", "card", "ryos", "gems"].includes(String(reward.type)) ||
+      typeof reward.value !== "string" || reward.value.length > 2048) return false;
+  if ((reward.type === "ryos" || reward.type === "gems") &&
+      (!Number.isSafeInteger(Number(reward.value)) || Number(reward.value) <= 0)) return false;
+  return reward.imageUrl === undefined || typeof reward.imageUrl === "string" && reward.imageUrl.length <= 2048;
 }
 
 async function startServer() {
@@ -1861,18 +1942,18 @@ async function startServer() {
   // Shop API
   app.get("/api/shop", (req, res) => {
     const defaultShop = [
-      { id: 'title-sabio-sannin', name: 'Lenda dos Sannin', category: 'title', description: 'Título exclusivo de prestígio reconhecido por todos os países ninjas.', currency: 'ryos', price: 1500, badge: 'TÍTULO' },
-      { id: 'title-akatsuki-renegado', name: 'Akatsuki Renegado', category: 'title', description: 'Título para aqueles que trilham o caminho da névoa e das sombras.', currency: 'gems', price: 60, badge: 'TÍTULO' },
-      { id: 'title-mestre-taijutsu', name: 'Mestre dos Oito Portões', category: 'title', description: 'Título honroso concedido a guerreiros que dominam a força do Taijutsu.', currency: 'ryos', price: 900, badge: 'TÍTULO' },
-      { id: 'title-deus-shinobi', name: 'Deus dos Shinobis', category: 'title', description: 'O mais alto título do mundo ninja, gravado nos monumentos da arena.', currency: 'gems', price: 120, badge: 'MÍTICO' },
-      { id: 'skin-naruto-sage', name: 'Naruto Modo Sábio', category: 'skin', characterName: 'Naruto Uzumaki', description: 'Visual lendário de Naruto vestindo a capa vermelha do Modo Sábio de Senjutsu.', currency: 'gems', price: 150, skinImageUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80', badge: 'LENDÁRIO' },
-      { id: 'skin-sasuke-hebi', name: 'Sasuke Traje Hebi', category: 'skin', characterName: 'Sasuke Uchiha', description: 'Visual de Sasuke durante a formação do esquadrão Hebi na caça a Itachi.', currency: 'ryos', price: 2500, skinImageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80', badge: 'RARO' },
-      { id: 'skin-kakashi-anbu', name: 'Kakashi Capitão ANBU', category: 'skin', characterName: 'Kakashi Hatake', description: 'Traje operacional sombrio das Forças Especiais ANBU de Konoha.', currency: 'gems', price: 100, skinImageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=800&auto=format&fit=crop&q=80', badge: 'ANBU' },
-      { id: 'frame-chama-vontade', name: 'Fogo da Vontade', category: 'frame', description: 'Moldura reluzente inspirada no fogo e determinação dos ninjas de Konoha.', currency: 'ryos', price: 800, frameStyle: 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] bg-gradient-to-tr from-amber-500 to-red-500', badge: 'POPULAR' },
-      { id: 'frame-sharingan-crimson', name: 'Sharingan Carmesim', category: 'frame', description: 'Moldura com áurea rubra misteriosa inspirada no lendário Dōjutsu do Clã Uchiha.', currency: 'gems', price: 50, frameStyle: 'border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.7)] bg-gradient-to-tr from-red-600 to-rose-950', badge: 'LENDÁRIO' },
-      { id: 'frame-anbu-operativo', name: 'Operativo ANBU', category: 'frame', description: 'Moldura prateada elegante reservada para ninjas das forças especiais de esquadrão.', currency: 'ryos', price: 1200, frameStyle: 'border-slate-300 shadow-[0_0_15px_rgba(203,213,225,0.5)] bg-gradient-to-tr from-slate-200 to-slate-500', badge: 'ANBU' },
-      { id: 'bundle-ryos-p', name: 'Bolsa de Moedas', category: 'bundle', description: 'Bolsa contendo 1.000 moedas para desbloqueios e compras na loja.', currency: 'gems', price: 20, bundleGrant: { type: 'ryos', amount: 1000 }, badge: 'PACOTE' },
-      { id: 'bundle-ryos-g', name: 'Baú do Tesouro Ninja', category: 'bundle', description: 'Grande baú com 3.000 moedas para expansão rápida do seu império ninja.', currency: 'gems', price: 50, bundleGrant: { type: 'ryos', amount: 3000 }, badge: 'OFERTA' }
+      { id: 'title-sabio-sannin', name: 'Lenda dos Sannin', category: 'title', description: 'Título exclusivo de prestígio reconhecido por todos os países ninjas.', currency: 'ryos', price: 142500, badge: 'TÍTULO' },
+      { id: 'title-akatsuki-renegado', name: 'Akatsuki Renegado', category: 'title', description: 'Título para aqueles que trilham o caminho da névoa e das sombras.', currency: 'gems', price: 3750, badge: 'TÍTULO' },
+      { id: 'title-mestre-taijutsu', name: 'Mestre dos Oito Portões', category: 'title', description: 'Título honroso concedido a guerreiros que dominam a força do Taijutsu.', currency: 'ryos', price: 97500, badge: 'TÍTULO' },
+      { id: 'title-deus-shinobi', name: 'Deus dos Shinobis', category: 'title', description: 'O mais alto título do mundo ninja, gravado nos monumentos da arena.', currency: 'gems', price: 6750, badge: 'MÍTICO' },
+      { id: 'skin-naruto-sage', name: 'Naruto Modo Sábio', category: 'skin', characterName: 'Naruto Uzumaki', description: 'Visual lendário de Naruto vestindo a capa vermelha do Modo Sábio de Senjutsu.', currency: 'gems', price: 8250, skinImageUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80', badge: 'LENDÁRIO' },
+      { id: 'skin-sasuke-hebi', name: 'Sasuke Traje Hebi', category: 'skin', characterName: 'Sasuke Uchiha', description: 'Visual de Sasuke durante a formação do esquadrão Hebi na caça a Itachi.', currency: 'ryos', price: 330000, skinImageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80', badge: 'RARO' },
+      { id: 'skin-kakashi-anbu', name: 'Kakashi Capitão ANBU', category: 'skin', characterName: 'Kakashi Hatake', description: 'Traje operacional sombrio das Forças Especiais ANBU de Konoha.', currency: 'gems', price: 6000, skinImageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=800&auto=format&fit=crop&q=80', badge: 'ANBU' },
+      { id: 'frame-chama-vontade', name: 'Fogo da Vontade', category: 'frame', description: 'Moldura reluzente inspirada no fogo e determinação dos ninjas de Konoha.', currency: 'ryos', price: 67500, frameStyle: 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] bg-gradient-to-tr from-amber-500 to-red-500', badge: 'POPULAR' },
+      { id: 'frame-sharingan-crimson', name: 'Sharingan Carmesim', category: 'frame', description: 'Moldura com áurea rubra misteriosa inspirada no lendário Dōjutsu do Clã Uchiha.', currency: 'gems', price: 3300, frameStyle: 'border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.7)] bg-gradient-to-tr from-red-600 to-rose-950', badge: 'LENDÁRIO' },
+      { id: 'frame-anbu-operativo', name: 'Operativo ANBU', category: 'frame', description: 'Moldura prateada elegante reservada para ninjas das forças especiais de esquadrão.', currency: 'ryos', price: 105000, frameStyle: 'border-slate-300 shadow-[0_0_15px_rgba(203,213,225,0.5)] bg-gradient-to-tr from-slate-200 to-slate-500', badge: 'ANBU' },
+      { id: 'bundle-ryos-p', name: 'Bolsa de Moedas', category: 'bundle', description: 'Bolsa contendo 1.000 moedas para desbloqueios e compras na loja.', currency: 'gems', price: 2700, bundleGrant: { type: 'ryos', amount: 1000 }, badge: 'PACOTE' },
+      { id: 'bundle-ryos-g', name: 'Baú do Tesouro Ninja', category: 'bundle', description: 'Grande baú com 3.000 moedas para expansão rápida do seu império ninja.', currency: 'gems', price: 7200, bundleGrant: { type: 'ryos', amount: 3000 }, badge: 'OFERTA' }
     ];
     const items = readJSON<any[]>(SHOP_FILE, defaultShop);
     res.json({ success: true, items });
@@ -2194,8 +2275,77 @@ async function startServer() {
       return res.status(400).json({ error: "Lista de missões inválida." });
     }
 
-    writeJSON(QUESTS_FILE, quests);
+    const previousQuests = readJSON<QuestDefinition[]>(QUESTS_FILE, []);
+    let reconciliationBaseline: QuestDefinition[];
+    try {
+      reconciliationBaseline = loadQuestRewardBaseline(previousQuests);
+    } catch (error) {
+      console.error("[QUESTS] Falha ao carregar o histórico base de recompensas:", error);
+      return res.status(500).json({ error: "Não foi possível verificar o histórico das recompensas de missão." });
+    }
+    if (!persistQuestRewardBaseline(reconciliationBaseline)) {
+      return res.status(500).json({ error: "Não foi possível preparar a reconciliação das recompensas de missão." });
+    }
+    if (!persistJsonFile(QUESTS_FILE, quests)) {
+      return res.status(500).json({ error: "Não foi possível salvar as missões no servidor." });
+    }
+    try {
+      const updatedQuests = validQuestDefinitions(quests);
+      reconcileLegacyQuestRewards(reconciliationBaseline, updatedQuests);
+      if (!persistQuestRewardBaseline(updatedQuests)) {
+        throw new Error("Não foi possível atualizar o histórico base após reconciliar as contas.");
+      }
+    } catch (error) {
+      console.error("[QUESTS] Falha ao criar mensagens de manutenção:", error);
+      return res.status(500).json({
+        error: "As missões foram salvas, mas não foi possível preparar todas as mensagens de manutenção. Salve novamente para tentar de novo.",
+      });
+    }
     res.json({ success: true, message: "Missões atualizadas com sucesso!" });
+  });
+
+  app.get("/api/quests/maintenance-inbox", requireActiveMatchSession, (req, res) => {
+    const username = String(req.query.username || "").trim().toLowerCase();
+    if (username === "convidado") return res.json({ success: true, messages: [] });
+    const users = readJSON<Array<Record<string, unknown>>>(USERS_FILE, []);
+    const profile = users.find(user => user.username === username);
+    if (!profile) return res.status(404).json({ error: "Usuário não encontrado." });
+    const messages = Array.isArray(profile.questMaintenanceInbox)
+      ? profile.questMaintenanceInbox
+      : [];
+    res.json({ success: true, messages });
+  });
+
+  app.post("/api/quests/maintenance-inbox/claim", requireActiveMatchSession, (req, res) => {
+    const username = String(req.body?.username || "").trim().toLowerCase();
+    const mailId = typeof req.body?.mailId === "string" ? req.body.mailId : "";
+    if (username === "convidado" || !mailId || mailId.length > 128) {
+      return res.status(400).json({ error: "Mensagem inválida para resgate." });
+    }
+    const users = readJSON<Array<Record<string, unknown>>>(USERS_FILE, []);
+    const profile = users.find(user => user.username === username);
+    if (!profile) return res.status(404).json({ error: "Usuário não encontrado." });
+    const inbox = Array.isArray(profile.questMaintenanceInbox)
+      ? profile.questMaintenanceInbox as QuestMaintenanceMail[]
+      : [];
+    const mail = inbox.find(item => item?.id === mailId);
+    if (!mail) return res.status(404).json({ error: "Mensagem não encontrada." });
+    if (mail.claimedAt) {
+      const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+      return res.json({ success: true, alreadyClaimed: true, user: publicUser });
+    }
+    if (!Array.isArray(mail.rewards) || !mail.rewards.every(isQuestMaintenanceReward)) {
+      return res.status(409).json({ error: "A mensagem contém recompensas inválidas e não pode ser resgatada." });
+    }
+
+    const grantedRewards = grantQuestMaintenanceRewards(profile, mail.rewards);
+    mail.claimedAt = new Date().toISOString();
+    profile.questMaintenanceInbox = inbox;
+    if (!persistAccountUsers(users)) {
+      return res.status(500).json({ error: "Não foi possível salvar o resgate da mensagem." });
+    }
+    const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+    res.json({ success: true, user: publicUser, grantedRewards });
   });
 
   // Environment Full Configuration Export/Import API
@@ -2245,6 +2395,19 @@ async function startServer() {
     }
 
     let countDetails: string[] = [];
+    let reconciliationBaseline: QuestDefinition[] | null = null;
+    if (Array.isArray(data.quests)) {
+      const previousQuests = readJSON<QuestDefinition[]>(QUESTS_FILE, []);
+      try {
+        reconciliationBaseline = loadQuestRewardBaseline(previousQuests);
+      } catch (error) {
+        console.error("[CONFIG] Falha ao carregar o histórico base de recompensas:", error);
+        return res.status(500).json({ error: "Não foi possível verificar o histórico das recompensas de missão." });
+      }
+      if (!persistQuestRewardBaseline(reconciliationBaseline)) {
+        return res.status(500).json({ error: "Não foi possível preparar a reconciliação das recompensas de missão." });
+      }
+    }
 
     if (Array.isArray(data.characters)) {
       writeJSON(CHARACTERS_FILE, data.characters);
@@ -2253,7 +2416,21 @@ async function startServer() {
       countDetails.push(`${data.characters.length} Personagens`);
     }
     if (Array.isArray(data.quests)) {
-      writeJSON(QUESTS_FILE, data.quests);
+      if (!persistJsonFile(QUESTS_FILE, data.quests)) {
+        return res.status(500).json({ error: "Não foi possível salvar as missões importadas." });
+      }
+      try {
+        const updatedQuests = validQuestDefinitions(data.quests);
+        reconcileLegacyQuestRewards(reconciliationBaseline || [], updatedQuests);
+        if (!persistQuestRewardBaseline(updatedQuests)) {
+          throw new Error("Não foi possível atualizar o histórico base após reconciliar as contas.");
+        }
+      } catch (error) {
+        console.error("[CONFIG] Falha ao preparar mensagens de manutenção de missão:", error);
+        return res.status(500).json({
+          error: "As missões foram importadas, mas não foi possível preparar todas as mensagens de manutenção. Importe novamente para tentar de novo.",
+        });
+      }
       countDetails.push(`${data.quests.length} Missões`);
     }
     if (Array.isArray(data.shop)) {

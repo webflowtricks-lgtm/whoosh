@@ -15,8 +15,10 @@ import {
 interface AuthoritativeActionEvents {
   actionIndex: number;
   sourceId: string;
+  skillName: string;
   skillIcon?: string;
   events: CombatEngineEvent[];
+  killedTargets: string[];
 }
 
 export interface AuthoritativeTurnResult {
@@ -267,11 +269,17 @@ function resolveActions(
       };
     }
     const source = [...state.player, ...state.enemy].find(combatant => combatant.id === mapped.sourceId);
+    const nextTargets = new Map([...result.state.player, ...result.state.enemy]
+      .map(combatant => [combatant.id, combatant]));
     actionEvents.push({
       actionIndex,
       sourceId: mapped.sourceId,
+      skillName: source?.character.skills[mapped.skillIndex]?.name || '',
       skillIcon: source?.character.skills[mapped.skillIndex]?.icon,
       events: result.events,
+      killedTargets: [...state.player, ...state.enemy]
+        .filter(combatant => !combatant.isDead && nextTargets.get(combatant.id)?.isDead)
+        .map(combatant => combatant.id),
     });
     gainStacksOnSkillUse(result.state, mapped.sourceId);
     const opposingBefore = (side === 'player' ? state.enemy : state.player)

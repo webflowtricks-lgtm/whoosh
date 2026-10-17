@@ -148,7 +148,8 @@ class MemoryStatement implements D1PreparedStatement {
       return { success: true, meta: { changes } };
     }
     if (q.startsWith('update accounts set profile_json = json_set(')) {
-      const [xpDelta, winsDelta, lossesDelta, username] = this.values;
+      const [xpDelta, winsDelta, lossesDelta] = this.values;
+      const username = this.values[this.values.length - 1];
       const row = this.db.accounts.get(String(username));
       const changes = row && this.db.lastChanges === 1 ? 1 : 0;
       if (changes) {
@@ -156,6 +157,9 @@ class MemoryStatement implements D1PreparedStatement {
         profile.xp = Math.max(0, (Number(profile.xp) || 0) + Number(xpDelta));
         profile.wins = (Number(profile.wins) || 0) + Number(winsDelta);
         profile.losses = (Number(profile.losses) || 0) + Number(lossesDelta);
+        if (q.includes('$.questprogress')) {
+          profile.questProgress = JSON.parse(String(this.values[3]));
+        }
         row.profile_json = JSON.stringify(profile);
       }
       this.db.lastChanges = changes;
@@ -259,6 +263,15 @@ class MemoryStatement implements D1PreparedStatement {
 
   async all<T = Row>() {
     const q = this.query.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (q.startsWith('select username, profile_json from accounts')) {
+      return {
+        success: true,
+        results: [...this.db.accounts.values()].map(row => ({
+          username: row.username,
+          profile_json: row.profile_json,
+        })) as T[],
+      };
+    }
     if (q.startsWith('select ordinal, chunk_number, value_part from game_config_items')) {
       const [key, version] = this.values;
       const results = this.db.configItems
@@ -274,6 +287,7 @@ class MemoryStatement implements D1PreparedStatement {
         }));
       return { success: true, results: results as T[] };
     }
+
     throw new Error(`Unhandled mock D1 all: ${q.slice(0, 90)}`);
   }
 }
@@ -335,6 +349,20 @@ function request(path: string, method = 'POST', body?: unknown, headers?: Header
 
 async function responseBody(response: Response): Promise<Record<string, unknown>> {
   return await response.json() as Record<string, unknown>;
+}
+
+function seedD1Config(db: MemoryD1, key: string, items: unknown[]): void {
+  const version = `${key}-seed`;
+  db.configHeads.set(key, { config_key: key, version_id: version, item_count: items.length });
+  items.forEach((item, ordinal) => {
+    db.configItems.push({
+      config_key: key,
+      version_id: version,
+      ordinal,
+      chunk_number: 0,
+      value_part: JSON.stringify(item),
+    });
+  });
 }
 
 test('registers accounts with hashed passwords, rejects duplicates, and verifies login', async () => {
@@ -582,6 +610,158 @@ test('only the active session for account 2 can publish global configuration', a
   assert.equal(concurrentSave?.status, 409);
   const unchangedRead = await handleD1Request(request('/api/characters', 'GET'), env);
   assert.deepEqual((await responseBody(unchangedRead!)).characters, importedCatalog);
+});
+
+test('sends maintenance reward mail to all completed accounts and claims it idempotently', async () => {
+  const env = { DB: new MemoryD1() };
+  const adminSignup = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: '2',
+    password: 'admin-password',
+    name: 'Admin',
+  }), env);
+  const adminToken = 'a'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: '2',
+    sessionToken: adminToken,
+    sessionTicket: (await responseBody(adminSignup!)).sessionTicket,
+  }), env);
+
+  const createAccount = async (username: string, token: string) => {
+    const signup = await handleD1Request(request('/api/auth/register', 'POST', {
+      username,
+      password: 'account-password',
+      name: username,
+    }), env);
+    await handleD1Request(request('/api/auth/session/claim', 'POST', {
+      username,
+      sessionToken: token,
+      sessionTicket: (await responseBody(signup!)).sessionTicket,
+    }), env);
+    return token;
+  };
+  const snapshotToken = await createAccount('snapshot_user', 'b'.repeat(64));
+  const legacyToken = await createAccount('legacy_user', 'c'.repeat(64));
+  await createAccount('already_owned', 'd'.repeat(64));
+  await createAccount('not_completed', 'e'.repeat(64));
+
+  const setProfile = (username: string, profile: Record<string, unknown>) => {
+    env.DB.accounts.get(username)!.profile_json = JSON.stringify({
+      username,
+      name: username,
+      photoUrl: 'avatar',
+      ryos: 500,
+      gems: 80,
+      ...profile,
+    });
+  };
+  setProfile('snapshot_user', {
+    completedQuestIds: ['q1'],
+    unlockedTitles: ['Existing Title'],
+    questRewardSnapshots: {
+      q1: { ryos: 100, gems: 10, items: ['title:Existing Title'] },
+    },
+  });
+  setProfile('legacy_user', { completedQuestIds: ['q1'], unlockedTitles: [] });
+  setProfile('already_owned', {
+    completedQuestIds: ['q1'],
+    unlockedTitles: ['Existing Title'],
+    unlockedBanners: ['Maintenance Banner'],
+    questRewardSnapshots: {
+      q1: { ryos: 100, gems: 10, items: ['title:Existing Title', 'banner:Maintenance Banner'] },
+    },
+  });
+  setProfile('not_completed', { completedQuestIds: [] });
+
+  const previousQuest = {
+    id: 'q1',
+    title: 'Missão de teste',
+    goals: [{ id: 'g1', type: 'use_skill', targetValue: 1 }],
+    rewards: [
+      { type: 'ryos', value: '100' },
+      { type: 'gems', value: '10' },
+      { type: 'title', value: 'Existing Title' },
+    ],
+  };
+  seedD1Config(env.DB, 'quests', [previousQuest]);
+  const editedQuest = {
+    ...previousQuest,
+    rewards: [
+      { type: 'ryos', value: '220' },
+      { type: 'gems', value: '40' },
+      { type: 'title', value: 'Existing Title' },
+      { type: 'banner', value: 'Maintenance Banner', imageUrl: '/banner.png' },
+    ],
+  };
+  const save = (quest: typeof editedQuest) => handleD1Request(request('/api/quests', 'POST', {
+    quests: [quest],
+  }, {
+    'X-Account-Username': '2',
+    'X-Account-Session': adminToken,
+  }), env);
+
+  const firstSave = await save(editedQuest);
+  assert.equal(firstSave?.status, 200);
+  const snapshotProfile = JSON.parse(String(env.DB.accounts.get('snapshot_user')?.profile_json));
+  assert.equal(snapshotProfile.ryos, 500);
+  assert.equal(snapshotProfile.gems, 80);
+  assert.deepEqual(snapshotProfile.unlockedTitles, ['Existing Title']);
+  const getInbox = async (username: string, token: string) => handleD1Request(request(
+    `/api/quests/maintenance-inbox?username=${encodeURIComponent(username)}`,
+    'GET',
+    undefined,
+    { 'X-Account-Session': token },
+  ), env);
+  const snapshotInbox = await responseBody((await getInbox('snapshot_user', snapshotToken))!);
+  const snapshotMessages = snapshotInbox.messages as Array<Record<string, unknown>>;
+  assert.equal(snapshotMessages.length, 1);
+  const snapshotMail = snapshotMessages[0];
+  assert.equal(snapshotMail.subject, 'Recompensa de manutenção de missão');
+  assert.deepEqual(snapshotMail.rewards, [
+    { type: 'ryos', value: '120' },
+    { type: 'gems', value: '30' },
+    { type: 'banner', value: 'Maintenance Banner', imageUrl: '/banner.png' },
+  ]);
+
+  const legacyProfile = JSON.parse(String(env.DB.accounts.get('legacy_user')?.profile_json));
+  assert.equal(legacyProfile.ryos, 500);
+  assert.equal(legacyProfile.gems, 80);
+  const legacyInbox = await responseBody((await getInbox('legacy_user', legacyToken))!);
+  assert.equal((legacyInbox.messages as unknown[]).length, 1);
+  const alreadyOwnedInbox = await responseBody((await getInbox('already_owned', 'd'.repeat(64)))!);
+  const alreadyOwnedMessages = alreadyOwnedInbox.messages as Array<Record<string, unknown>>;
+  assert.deepEqual(alreadyOwnedMessages[0].rewards, [
+    { type: 'ryos', value: '120' },
+    { type: 'gems', value: '30' },
+  ]);
+  const emptyInbox = await responseBody((await getInbox('not_completed', 'e'.repeat(64)))!);
+  assert.deepEqual(emptyInbox.messages, []);
+
+  await save(editedQuest);
+  const repeatedInbox = await responseBody((await getInbox('snapshot_user', snapshotToken))!);
+  assert.equal((repeatedInbox.messages as unknown[]).length, 1);
+
+  const mailId = String(snapshotMail.id);
+  const claim = () => handleD1Request(request('/api/quests/maintenance-inbox/claim', 'POST', {
+    username: 'snapshot_user',
+    mailId,
+  }, {
+    'X-Account-Session': snapshotToken,
+  }), env);
+  const firstClaim = await handleD1Request(request('/api/quests/maintenance-inbox/claim', 'POST', {
+    username: 'snapshot_user',
+    mailId,
+  }, {
+    'X-Account-Session': snapshotToken,
+  }), env);
+  assert.equal(firstClaim?.status, 200);
+  const claimedProfile = JSON.parse(String(env.DB.accounts.get('snapshot_user')?.profile_json));
+  assert.equal(claimedProfile.ryos, 620);
+  assert.equal(claimedProfile.gems, 110);
+  assert.deepEqual(claimedProfile.unlockedBanners, ['Maintenance Banner']);
+  assert.ok(claimedProfile.questMaintenanceInbox[0].claimedAt);
+  const repeatClaim = await claim();
+  assert.equal((await responseBody(repeatClaim!)).alreadyClaimed, true);
+  assert.equal(JSON.parse(String(env.DB.accounts.get('snapshot_user')?.profile_json)).ryos, 620);
 });
 
 test('rejects a D1 configuration with missing chunks instead of parsing partial catalog data', async () => {
