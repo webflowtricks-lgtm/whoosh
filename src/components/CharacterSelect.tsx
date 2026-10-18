@@ -1893,7 +1893,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         </button>
       )}
 
-      {isMobilePortrait && showCharacterDetails && (
+      {isMobilePortrait && showCharacterDetails && createPortal(
         <button
           type="button"
           onClick={event => {
@@ -1908,10 +1908,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         >
           <Star className="h-4 w-4" fill={favoriteCharacterIds.includes(previewCharacter.id) ? 'currentColor' : 'none'} />
           <span>{favoriteCharacterIds.includes(previewCharacter.id) ? t('Favoritado', 'Favorited') : t('Favoritar', 'Favorite')}</span>
-        </button>
+        </button>,
+        document.body,
       )}
 
-      {isMobilePortrait && showCharacterDetails && (
+      {isMobilePortrait && showCharacterDetails && createPortal(
         <button
           type="button"
           onClick={event => {
@@ -1923,7 +1924,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           aria-label={t('Fechar detalhes', 'Close details')}
         >
           <X className="h-5 w-5" />
-        </button>
+        </button>,
+        document.body,
       )}
 
       {isMobilePortrait && !showCharacterDetails && (
