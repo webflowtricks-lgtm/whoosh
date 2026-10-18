@@ -68,6 +68,7 @@ interface FirebaseJwk extends JsonWebKey {
 }
 const ACCOUNT_FIELDS = new Set([
   'name', 'photoUrl', 'title', 'equippedFrame', 'equippedFrameUrl', 'equippedBannerUrl',
+  'equippedBannerPositionX', 'equippedBannerPositionY',
 ]);
 const SERVER_OWNED_PROFILE_FIELDS = new Set([
   'xp', 'rank', 'wins', 'losses', 'ryos', 'gems', 'collectedCardIds', 'village', 'villageChangeCount',
@@ -641,6 +642,17 @@ async function profileRoute(request: Request, env: D1Env, pathname: string): Pro
       const nextValue = value.trim().slice(0, 60);
       if (profile[key] !== nextValue) {
         profile[key] = nextValue;
+        changed = true;
+      }
+    } else if (
+      (key === 'equippedBannerPositionX' || key === 'equippedBannerPositionY') &&
+      typeof value === 'number' &&
+      Number.isFinite(value) &&
+      value >= 0 &&
+      value <= 100
+    ) {
+      if (profile[key] !== value) {
+        profile[key] = value;
         changed = true;
       }
     } else if (key === 'photoUrl' && typeof value === 'string' && value.length <= 2048) {

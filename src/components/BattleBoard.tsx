@@ -18934,12 +18934,17 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             onImageError={e => { e.currentTarget.style.display = 'none'; }}
                           />
                         ) : (
-                          <img
-                            src={portrait || null}
-                            alt={combatant.character.name}
-                            className="mv-profile-portrait w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
+                          <>
+                            <img
+                              src="/static/img/skin/noskin.webp"
+                              alt={combatant.character.name}
+                              className="h-full w-auto max-w-full object-contain"
+                              referrerPolicy="no-referrer"
+                            />
+                            <span className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wider text-white/25">
+                              Sem skin
+                            </span>
+                          </>
                         )}
                       </button>
                     );
@@ -21051,7 +21056,17 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           autoPlay
                         />
                       ) : (
-                        <div className="w-full h-full" />
+                        <>
+                          <img
+                            src="/static/img/skin/noskin.webp"
+                            alt={combatant.character.name}
+                            className="h-full w-auto max-w-full object-contain scale-x-[-1]"
+                            referrerPolicy="no-referrer"
+                          />
+                          <span className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wider text-white/25">
+                            Sem skin
+                          </span>
+                        </>
                       )}
                     </button>
                   );

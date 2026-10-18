@@ -1073,11 +1073,17 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
     username: 'profile_user',
     name: 'Updated Name',
     equippedFrame: 'frame-1',
+    equippedBannerUrl: '/banners/profile.png',
+    equippedBannerPositionX: 35,
+    equippedBannerPositionY: 72,
   }, headers), env);
   assert.equal(cosmeticUpdate?.status, 200);
   const profile = JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json));
   assert.equal(profile.name, 'Updated Name');
   assert.equal(profile.equippedFrame, 'frame-1');
+  assert.equal(profile.equippedBannerUrl, '/banners/profile.png');
+  assert.equal(profile.equippedBannerPositionX, 35);
+  assert.equal(profile.equippedBannerPositionY, 72);
   assert.equal(profile.xp, undefined);
   assert.equal(env.DB.profileUpdateCount, 1);
 
@@ -1085,8 +1091,20 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
     username: 'profile_user',
     name: 'Updated Name',
     equippedFrame: 'frame-1',
+    equippedBannerUrl: '/banners/profile.png',
+    equippedBannerPositionX: 35,
+    equippedBannerPositionY: 72,
   }, headers), env);
   assert.equal(unchangedCosmetics?.status, 200);
+  assert.equal(env.DB.profileUpdateCount, 1);
+
+  const invalidBannerPosition = await handleD1Request(request('/api/user/profile', 'PUT', {
+    username: 'profile_user',
+    equippedBannerPositionX: 101,
+  }, headers), env);
+  assert.equal(invalidBannerPosition?.status, 200);
+  const profileAfterInvalidPosition = JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json));
+  assert.equal(profileAfterInvalidPosition.equippedBannerPositionX, 35);
   assert.equal(env.DB.profileUpdateCount, 1);
 });
 

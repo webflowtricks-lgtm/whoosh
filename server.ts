@@ -899,7 +899,7 @@ async function startServer() {
   });
 
   app.put("/api/user/profile", requireActiveMatchSession, (req, res) => {
-    const { username, name, photoUrl, xp, rank, wins, losses, gems, title, equippedFrame, equippedFrameUrl, equippedBannerUrl } = req.body;
+    const { username, name, photoUrl, xp, rank, wins, losses, gems, title, equippedFrame, equippedFrameUrl, equippedBannerUrl, equippedBannerPositionX, equippedBannerPositionY } = req.body;
     if (!username) {
       return res.status(400).json({ error: "Nome de usuário é obrigatório." });
     }
@@ -923,6 +923,12 @@ async function startServer() {
     if (equippedFrame) users[userIdx].equippedFrame = equippedFrame;
     if (equippedFrameUrl !== undefined) users[userIdx].equippedFrameUrl = equippedFrameUrl;
     if (equippedBannerUrl !== undefined) users[userIdx].equippedBannerUrl = equippedBannerUrl;
+    if (typeof equippedBannerPositionX === 'number' && Number.isFinite(equippedBannerPositionX) && equippedBannerPositionX >= 0 && equippedBannerPositionX <= 100) {
+      users[userIdx].equippedBannerPositionX = equippedBannerPositionX;
+    }
+    if (typeof equippedBannerPositionY === 'number' && Number.isFinite(equippedBannerPositionY) && equippedBannerPositionY >= 0 && equippedBannerPositionY <= 100) {
+      users[userIdx].equippedBannerPositionY = equippedBannerPositionY;
+    }
     if (Array.isArray(req.body.collectedCardIds)) users[userIdx].collectedCardIds = req.body.collectedCardIds;
 
     writeJSON(USERS_FILE, users);

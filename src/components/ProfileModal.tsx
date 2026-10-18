@@ -75,6 +75,8 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
   const [allCharacters, setAllCharacters] = useState<Character[]>([]);
   const [activeTab, setActiveTab] = useState<'profile' | 'frames' | 'banners' | 'showcase'>('banners');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   const selectTab = (tab: typeof activeTab, button: HTMLButtonElement) => {
@@ -172,7 +174,8 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
     }
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
+    if (savingProfile) return;
     playUahSound();
     const updated: UserProfile = {
       ...user,
@@ -187,9 +190,43 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
       equippedShowcaseSkinUrl
     };
 
-    onUpdateUser(updated);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2500);
+    setSavingProfile(true);
+    setSaveError('');
+    setSaveSuccess(false);
+    try {
+      const response = await configFetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user.username,
+          name,
+          photoUrl,
+          title,
+          equippedFrame,
+          equippedFrameUrl: equippedFrameUrl ?? null,
+          equippedBannerUrl: equippedBannerUrl ?? null,
+          equippedBannerPositionX,
+          equippedBannerPositionY,
+        }),
+      });
+      const result = await response.json().catch(() => null) as {
+        success?: boolean;
+        error?: string;
+        user?: Partial<UserProfile>;
+      } | null;
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || `Falha ao salvar perfil (HTTP ${response.status}).`);
+      }
+
+      onUpdateUser({ ...updated, ...result.user });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+    } catch (error) {
+      console.error('Falha ao salvar o perfil no servidor:', error);
+      setSaveError(error instanceof Error ? error.message : t('Não foi possível salvar o perfil.', 'Could not save profile.'));
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const handleVillageChange = async () => {
@@ -1033,8 +1070,14 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
             data-sound="uah"
             className="btn-wood-image"
             aria-live="polite"
+            disabled={savingProfile}
           >
-            {saveSuccess ? (
+            {savingProfile ? (
+              <RefreshCw
+                className="w-4 h-4 animate-spin"
+                style={{ filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5))', marginBottom: 7 }}
+              />
+            ) : saveSuccess ? (
               <Check
                 className="w-4 h-4"
                 style={{ filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5))', marginBottom: 7 }}
@@ -1046,10 +1089,15 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
               />
             )}
             <span className="salvar-font font-brush text-[13px] sm:text-[15px]">
-              {saveSuccess ? t('Salvo', 'Saved') : t('Salvar', 'Save')}
+              {savingProfile ? t('Salvando...', 'Saving...') : saveSuccess ? t('Salvo', 'Saved') : t('Salvar', 'Save')}
             </span>
           </button>
         </div>
+        {saveError && (
+          <p role="alert" className="fixed bottom-16 right-4 z-[70] max-w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-red-400/40 bg-red-950/95 px-3 py-2 text-xs font-bold text-red-100 shadow-xl">
+            {saveError}
+          </p>
+        )}
         {villageToConfirm && (
           <div
             className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/85 p-4"
