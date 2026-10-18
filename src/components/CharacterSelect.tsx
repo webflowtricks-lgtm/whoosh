@@ -1179,7 +1179,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       </header>
 
       {/* Main Draft Area */}
-      <main className={`character-select-main max-w-[1400px] w-full mx-auto px-0 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform ${showCharacterFilters ? 'character-select-filter-open' : 'character-select-filter-closed'}`}>
+      <main className={`character-select-main max-w-[1400px] w-full mx-auto px-0 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform ${showCharacterFilters ? 'character-select-filter-open' : 'character-select-filter-closed'} ${isMobilePortrait && showCharacterDetails ? 'character-select-modal-open' : ''}`}>
         {/* Roster Grid (Left Side) */}
         <div className="lg:col-span-6 space-y-6">
           <div className="mv-filtro flex flex-col gap-4">
