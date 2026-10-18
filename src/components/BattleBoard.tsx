@@ -1309,7 +1309,7 @@ function GameOverOverlay({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="gameover-content relative z-20 w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
+        className="gameover-content relative z-20 w-full max-w-7xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
       >
         {/* Top Victory/Defeat Banner — imagem YW (vitória) / YL (derrota), mesma classe .gameover-banner-img.
             Absoluta: não empurra o restante do layout (harmonia preservada). */}
@@ -1322,9 +1322,9 @@ function GameOverOverlay({
         </div>
 
         {/* ROW: PLAYER PROFILE CARD | XP REWARD & RANK PROGRESS CARD | OPPONENT PROFILE CARD */}
-        <div className="w-full flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 relative">
+        <div className="w-full flex flex-col xl:flex-row items-center justify-center gap-3 sm:gap-4 relative">
           {/* Left: Player Profile Card with Floating Standing Skin Artwork below */}
-          <div className="relative order-1 flex-1 w-full max-w-[290px] flex flex-col items-center">
+          <div className="relative order-1 flex-1 w-full max-w-sm flex flex-col items-center">
             <div
               onClick={() => {
                 if (playClickSound) playClickSound();
@@ -1349,7 +1349,7 @@ function GameOverOverlay({
                   }, true);
                 }
               }}
-              className="relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-3 sm:p-3.5 flex items-center gap-3 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer w-full z-10"
+              className="relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 sm:p-5 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer w-full z-10"
               title="Clique para ver o Card do Perfil"
             >
               {user.equippedBannerUrl && (
@@ -1364,7 +1364,7 @@ function GameOverOverlay({
               {user.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-slate-900/20 to-slate-900/5 pointer-events-none rounded-2xl z-0" />}
               <div className="absolute top-0 right-0 w-24 h-24 bg-orange-600/5 rounded-full blur-2xl group-hover:bg-orange-600/10 transition-all pointer-events-none z-0" />
 
-              <div className="relative z-10 w-12 h-12 flex-shrink-0">
+              <div className="relative z-10 h-16 w-16 flex-shrink-0 sm:h-[72px] sm:w-[72px]">
                 <div className="absolute inset-0 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
                 <div className="relative w-full h-full rounded-full border-2 border-orange-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
                   <img
@@ -1384,10 +1384,10 @@ function GameOverOverlay({
               </div>
 
               <div className="relative z-10 flex-1 text-left min-w-0">
-                <p className="text-[10px] font-mono text-orange-400 font-black uppercase tracking-wider mb-0.5 drop-shadow truncate">
+                <p className="text-[11px] font-mono text-orange-400 font-black uppercase tracking-wider mb-0.5 drop-shadow truncate">
                   {user.title || 'Shinobi'}
                 </p>
-                <h4 className="text-sm font-black tracking-tight text-white uppercase truncate flex items-center gap-1 font-display group-hover:text-orange-400 transition-colors drop-shadow">
+                <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center gap-1 font-display group-hover:text-orange-400 transition-colors drop-shadow">
                   {user.name}
                 </h4>
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -1397,7 +1397,7 @@ function GameOverOverlay({
                     const bgClass = isNone ? '' : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
                     return (
                       <span
-                        className={`px-2 py-0.5 rounded-md border text-[9px] font-mono font-black uppercase tracking-wider shadow-md flex items-center gap-1 overflow-hidden relative ${bgClass}`}
+                        className={`px-2 py-0.5 rounded-md border text-[10px] font-mono font-black uppercase tracking-wider shadow-md flex items-center gap-1 overflow-hidden relative ${bgClass}`}
                         style={{
                           ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
                           color: r.fontColor || '#ffffff',
@@ -1522,7 +1522,7 @@ function GameOverOverlay({
           </div>
 
           {/* Right: Opponent Profile Card with Floating Standing Skin Artwork below */}
-          <div className="relative order-2 lg:order-3 flex-1 w-full max-w-[290px] flex flex-col items-center">
+          <div className="relative order-2 xl:order-3 flex-1 w-full max-w-sm flex flex-col items-center">
             <div
               onClick={() => {
                 if (playClickSound) playClickSound();
@@ -1548,7 +1548,7 @@ function GameOverOverlay({
                   }, false);
                 }
               }}
-              className="relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-3 sm:p-3.5 flex items-center gap-3 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer w-full z-10"
+              className="relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 sm:p-5 flex items-center gap-4 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer w-full z-10"
               title="Clique para ver o Card do Perfil do Oponente"
             >
               {isOnline && opp?.equippedBannerUrl && (
@@ -1563,7 +1563,7 @@ function GameOverOverlay({
               {isOnline && opp?.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-slate-900/20 to-slate-900/5 pointer-events-none rounded-2xl z-0" />}
               <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 rounded-full blur-2xl group-hover:bg-red-600/10 transition-all pointer-events-none z-0" />
 
-              <div className="relative z-10 w-12 h-12 flex-shrink-0">
+              <div className="relative z-10 h-16 w-16 flex-shrink-0 sm:h-[72px] sm:w-[72px]">
                 <div className="absolute inset-0 bg-gradient-to-tr from-red-600 to-rose-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
                 <div className="relative w-full h-full rounded-full border-2 border-red-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
                   <MangekyoLoader
@@ -1587,10 +1587,10 @@ function GameOverOverlay({
               </div>
 
               <div className="relative z-10 flex-1 text-right min-w-0">
-                <p className="text-[10px] font-mono text-red-400 font-black uppercase tracking-wider mb-0.5 drop-shadow truncate">
+                <p className="text-[11px] font-mono text-red-400 font-black uppercase tracking-wider mb-0.5 drop-shadow truncate">
                   {isOnline && opp ? (opp.title || 'Oponente') : 'Renegado S-Rank'}
                 </p>
-                <h4 className="text-sm font-black tracking-tight text-white uppercase truncate flex items-center justify-end gap-1 font-display group-hover:text-red-400 transition-colors drop-shadow">
+                <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center justify-end gap-1 font-display group-hover:text-red-400 transition-colors drop-shadow">
                   {isOnline && opp ? opp.name : 'I.A. Kakashi'}
                 </h4>
                 <div className="flex items-center justify-end gap-1.5 mt-0.5 flex-wrap">
@@ -1600,7 +1600,7 @@ function GameOverOverlay({
                     const bgClass = isNone ? '' : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
                     return (
                       <span
-                        className={`px-2 py-0.5 rounded-md border text-[9px] font-mono font-black uppercase tracking-wider shadow-md flex items-center justify-end gap-1 overflow-hidden relative ${bgClass}`}
+                        className={`px-2 py-0.5 rounded-md border text-[10px] font-mono font-black uppercase tracking-wider shadow-md flex items-center justify-end gap-1 overflow-hidden relative ${bgClass}`}
                         style={{
                           ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
                           color: r.fontColor || '#ffffff',
