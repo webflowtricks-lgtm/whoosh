@@ -9,7 +9,16 @@ import {
   grantQuestMaintenanceRewards,
   reconcileQuestMaintenanceProfile,
 } from '../src/lib/questMaintenance';
-import type { Quest, QuestMaintenanceMail, QuestReward } from '../src/types';
+import {
+  CARD_ROULETTE_CHANCES,
+  CARD_ROULETTE_COST,
+  CARD_PACK_REWARD_MAX,
+  cardPackRewardQuantity,
+  drawCardRoulette,
+  isValidCardRouletteChances,
+  redeemCardPackRewards,
+} from '../src/lib/cardRoulette';
+import type { NinjaCard, Quest, QuestMaintenanceMail, QuestReward } from '../src/types';
 import { isVillageId } from '../src/lib/villages';
 
 interface D1Result<T = Record<string, unknown>> {
@@ -1050,11 +1059,74 @@ async function recordAiQuestProgress(request: Request, env: D1Env): Promise<Resp
 function isMaintenanceReward(value: unknown): value is QuestReward {
   if (!value || typeof value !== 'object') return false;
   const reward = value as Record<string, unknown>;
-  if (!['title', 'unlock_character', 'frame', 'banner', 'card', 'ryos', 'gems'].includes(String(reward.type)) ||
-      typeof reward.value !== 'string' || reward.value.length > 2048) return false;
+  if (!['title', 'unlock_character', 'frame', 'banner', 'card', 'card_pack', 'ryos', 'gems'].includes(String(reward.type)) ||
+      typeof reward.value !== 'string' || !reward.value.trim() || reward.value.length > 2048) return false;
+  if (reward.type === 'card_pack' && cardPackRewardQuantity(reward.value) === null) return false;
   if ((reward.type === 'ryos' || reward.type === 'gems') &&
       (!Number.isSafeInteger(Number(reward.value)) || Number(reward.value) <= 0)) return false;
   return reward.imageUrl === undefined || typeof reward.imageUrl === 'string' && reward.imageUrl.length <= 2048;
+}
+
+async function sendAdminMail(request: Request, env: D1Env): Promise<Response> {
+  const adminUsername = normalizedUsername(request.headers.get('X-Account-Username'));
+  if (adminUsername !== '2' ||
+      !await isD1SessionActive(env, '2', request.headers.get('X-Account-Session'))) {
+    return error(403, 'Apenas o administrador autorizado pode enviar mensagens.');
+  }
+
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (!body) return error(400, 'Corpo da mensagem inválido.');
+  const sendToAll = body.sendToAll === true;
+  const targetId = normalizedUsername(body.targetId);
+  const subject = typeof body.subject === 'string' ? body.subject.trim() : '';
+  const message = typeof body.message === 'string' ? body.message.trim() : '';
+  const rewards = body.rewards;
+  if ((!sendToAll && (!targetId || targetId.length > 80 || targetId === 'convidado')) ||
+      !subject || subject.length > 120 || !message || message.length > 2000 ||
+      !Array.isArray(rewards) || rewards.length > 8 || !rewards.every(isMaintenanceReward) ||
+      rewards.filter((reward: QuestReward) => reward.type === 'card_pack')
+        .reduce((total: number, reward: QuestReward) => total + (cardPackRewardQuantity(reward.value) || 0), 0) > CARD_PACK_REWARD_MAX) {
+    return error(400, 'Destinatário, mensagem ou recompensas inválidos.');
+  }
+
+  const createdAt = new Date().toISOString();
+  const mail: QuestMaintenanceMail = {
+    id: crypto.randomUUID(),
+    questId: 'admin-message',
+    subject,
+    message,
+    createdAt,
+    rewards,
+  };
+  const mailJson = JSON.stringify(mail);
+  const inboxJson = `CASE
+    WHEN json_type(profile_json, '$.questMaintenanceInbox') = 'array'
+      THEN json_extract(profile_json, '$.questMaintenanceInbox')
+    ELSE '[]'
+  END`;
+  const updateQuery = `
+    UPDATE accounts
+    SET profile_json = json_set(
+      profile_json,
+      '$.questMaintenanceInbox',
+      json_insert(json(${inboxJson}), '$[#]', json(?))
+    ),
+    updated_at = CURRENT_TIMESTAMP
+  `;
+  const statement = sendToAll
+    ? env.DB.prepare(`${updateQuery} WHERE username != 'convidado'`).bind(mailJson)
+    : targetId
+      ? env.DB.prepare(`${updateQuery} WHERE username = ?`).bind(mailJson, targetId)
+      : null;
+  if (!statement) return error(400, 'ID da conta inválido.');
+  const result = await statement.run();
+  const sentCount = result.meta?.changes ?? 0;
+  if (!sentCount) {
+    return sendToAll
+      ? error(404, 'Nenhuma conta destinatária foi encontrada.')
+      : error(404, 'Usuário não encontrado.');
+  }
+  return json({ success: true, sentCount });
 }
 
 async function maintenanceInboxRoute(
@@ -1094,12 +1166,54 @@ async function maintenanceInboxRoute(
     const mail = inbox.find(item => item?.id === mailId);
     if (!mail) return error(404, 'Mensagem não encontrada.');
     if (mail.claimedAt) {
-      return json({ success: true, alreadyClaimed: true, user: profile });
+      const storedCardIds = Array.isArray(mail.claimedRouletteCardIds) ? mail.claimedRouletteCardIds : [];
+      const catalog = storedCardIds.length > 0
+        ? await readConfig(env.DB, 'cards') as NinjaCard[] | null
+        : [];
+      const rouletteCards = storedCardIds
+        .map(id => catalog?.find(card => card.id === id))
+        .filter((card): card is NinjaCard => !!card);
+      return json({ success: true, alreadyClaimed: true, user: profile, rouletteCards });
     }
     if (!Array.isArray(mail.rewards) || !mail.rewards.every(isMaintenanceReward)) {
       return error(409, 'A mensagem contém recompensas inválidas e não pode ser resgatada.');
     }
-    const grantedRewards = grantQuestMaintenanceRewards(profile, mail.rewards);
+    const cardPackRewards = mail.rewards.filter(reward => reward.type === 'card_pack');
+    if (cardPackRewards.reduce((total, reward) => total + (cardPackRewardQuantity(reward.value) || 0), 0) > CARD_PACK_REWARD_MAX) {
+      return error(409, 'A quantidade de pacotes excede o limite permitido.');
+    }
+    const regularRewards = mail.rewards.filter(reward => reward.type !== 'card_pack');
+    let rouletteCards: NinjaCard[] = [];
+    if (cardPackRewards.length > 0) {
+      const catalog = await readConfig(env.DB, 'cards') as NinjaCard[] | null;
+      if (!catalog) return error(503, 'O catálogo de figurinhas ainda não está disponível.');
+      const savedChances = await readConfig(env.DB, 'cardRouletteSettings');
+      const chances = savedChances?.[0] && isValidCardRouletteChances(savedChances[0])
+        ? savedChances[0]
+        : CARD_ROULETTE_CHANCES;
+      const randomValues = new Uint32Array(cardPackRewards.reduce(
+        (total, reward) => total + (cardPackRewardQuantity(reward.value) || 0),
+        0,
+      ) * 2);
+      crypto.getRandomValues(randomValues);
+      let randomIndex = 0;
+      try {
+        rouletteCards = redeemCardPackRewards(
+          profile,
+          cardPackRewards,
+          catalog,
+          chances,
+          () => randomValues[randomIndex++] / 0x1_0000_0000,
+        );
+      } catch (cause) {
+        return error(409, cause instanceof Error ? cause.message : 'Não foi possível abrir os pacotes.');
+      }
+    }
+    const grantedRewards = [
+      ...grantQuestMaintenanceRewards(profile, regularRewards),
+      ...cardPackRewards,
+    ];
+    mail.claimedRouletteCardIds = rouletteCards.map(card => card.id);
     mail.claimedAt = new Date().toISOString();
     profile.questMaintenanceInbox = inbox;
     const updated = await env.DB.prepare(`
@@ -1107,7 +1221,7 @@ async function maintenanceInboxRoute(
       WHERE username = ? AND profile_json = ?
     `).bind(JSON.stringify(profile), username, row.profile_json).run();
     if (updated.meta?.changes === 1) {
-      return json({ success: true, user: profile, grantedRewards });
+      return json({ success: true, user: profile, grantedRewards, rouletteCards });
     }
     if (attempt === 2) return error(409, 'O perfil mudou durante o resgate. Tente novamente.');
   }
@@ -1418,6 +1532,97 @@ async function getConfig(
   return error(503, `Configuração ${config.key} ainda não foi migrada para D1.`);
 }
 
+async function drawRouletteCard(request: Request, env: D1Env): Promise<Response> {
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const username = normalizedUsername(body?.username);
+  if (!username || username === 'convidado') {
+    return error(403, 'Entre em uma conta para usar a roleta.');
+  }
+  if (!await isD1SessionActive(env, username, request.headers.get('X-Account-Session'))) {
+    return error(401, 'Sessão da conta ausente ou revogada. Entre novamente.');
+  }
+
+  const row = await env.DB.prepare(
+    'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
+  ).bind(username).first<AccountRow>();
+  if (!row) return error(404, 'Usuário não encontrado.');
+
+  const cards = await readConfig(env.DB, 'cards');
+  if (!cards) return error(503, 'O catálogo de figurinhas ainda não está disponível.');
+  const savedChances = await readConfig(env.DB, 'cardRouletteSettings');
+  const chances = savedChances?.[0] && isValidCardRouletteChances(savedChances[0])
+    ? savedChances[0]
+    : CARD_ROULETTE_CHANCES;
+  const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+  const currentRyos = Number.isSafeInteger(profile.ryos) && Number(profile.ryos) >= 0
+    ? Number(profile.ryos)
+    : 1500;
+  if (currentRyos < CARD_ROULETTE_COST) {
+    return error(409, 'Você não tem moedas suficientes para girar a roleta.');
+  }
+
+  const randomValues = new Uint32Array(2);
+  crypto.getRandomValues(randomValues);
+  let card;
+  try {
+    card = drawCardRoulette(
+      cards as NinjaCard[],
+      randomValues[0] / 0x1_0000_0000,
+      randomValues[1] / 0x1_0000_0000,
+      chances,
+    );
+  } catch (cause) {
+    return error(503, cause instanceof Error ? cause.message : 'Não foi possível realizar o sorteio.');
+  }
+
+  const collectedCardIds = Array.isArray(profile.collectedCardIds)
+    ? profile.collectedCardIds.filter((id): id is string => typeof id === 'string')
+    : [];
+  const isDuplicate = collectedCardIds.includes(card.id);
+  const updatedProfile = {
+    ...profile,
+    ryos: currentRyos - CARD_ROULETTE_COST,
+    collectedCardIds: [...collectedCardIds, card.id],
+  };
+  const updated = await env.DB.prepare(`
+    UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE username = ? AND profile_json = ?
+  `).bind(JSON.stringify(updatedProfile), username, row.profile_json).run();
+  if (updated.meta?.changes !== 1) {
+    return error(409, 'O perfil mudou durante o sorteio. Tente novamente.');
+  }
+  return json({ success: true, card, user: { ...updatedProfile, username }, isDuplicate });
+}
+
+async function cardRouletteSettingsRoute(request: Request, env: D1Env): Promise<Response> {
+  if (request.method === 'GET') {
+    const saved = await readConfig(env.DB, 'cardRouletteSettings');
+    const chances = saved?.[0] && isValidCardRouletteChances(saved[0])
+      ? saved[0]
+      : CARD_ROULETTE_CHANCES;
+    return json({ success: true, chances });
+  }
+  if (request.method !== 'POST') return error(405, 'Método não permitido.');
+
+  const username = normalizedUsername(request.headers.get('X-Account-Username'));
+  if (username !== '2' ||
+      !await isD1SessionActive(env, '2', request.headers.get('X-Account-Session'))) {
+    return error(403, 'Somente a conta administradora pode alterar as chances da roleta.');
+  }
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (!body || !isValidCardRouletteChances(body.chances)) {
+    return error(400, 'As chances de todas as raridades devem somar 100%.');
+  }
+  try {
+    await writeConfig(env.DB, 'cardRouletteSettings', [body.chances]);
+  } catch (cause) {
+    if (cause instanceof ConfigWriteBusyError) return error(409, cause.message);
+    console.error('[d1-config] Falha ao salvar chances da roleta.', cause);
+    return error(500, 'Não foi possível salvar as chances da roleta no D1.');
+  }
+  return json({ success: true });
+}
+
 async function saveConfig(
   request: Request,
   env: D1Env,
@@ -1494,6 +1699,11 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
       }
       backup[config.key] = items;
     }
+    const savedRouletteChances = await readConfig(env.DB, 'cardRouletteSettings');
+    backup.cardRouletteChances = savedRouletteChances?.[0] &&
+      isValidCardRouletteChances(savedRouletteChances[0])
+      ? savedRouletteChances[0]
+      : CARD_ROULETTE_CHANCES;
     if (missing) return error(503, 'Nem todas as configurações foram migradas para D1.');
     return json(backup);
   }
@@ -1506,6 +1716,10 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
     }
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) return error(400, 'Arquivo de configuração JSON inválido.');
+    const hasRouletteChances = Object.prototype.hasOwnProperty.call(body, 'cardRouletteChances');
+    if (hasRouletteChances && !isValidCardRouletteChances(body.cardRouletteChances)) {
+      return error(400, 'Configuração de chances da roleta inválida.');
+    }
     const inputKeys: Record<string, string> = {
       characters: 'characters', quests: 'quests', shop: 'shop', events: 'events',
       ranks: 'ranks', banners: 'banners', frames: 'frames', cards: 'cards', cardPacks: 'cardPacks',
@@ -1513,7 +1727,9 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
     };
     const datasets = Object.entries(inputKeys)
       .filter(([input]) => Array.isArray(body[input]));
-    if (datasets.length === 0) return error(400, 'Nenhum dado de configuração válido encontrado no arquivo JSON.');
+    if (datasets.length === 0 && !hasRouletteChances) {
+      return error(400, 'Nenhum dado de configuração válido encontrado no arquivo JSON.');
+    }
     if (datasets.some(([input, key]) =>
       (key === 'characters' || key === 'ranks') &&
       (body[input] as unknown[]).length === 0
@@ -1554,7 +1770,20 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
         throw cause;
       }
     }
-    return json({ success: true, message: `Configurações importadas para D1 (${datasets.length} conjuntos).` });
+    if (hasRouletteChances) {
+      try {
+        await writeConfig(env.DB, 'cardRouletteSettings', [body.cardRouletteChances]);
+      } catch (cause) {
+        if (cause instanceof ConfigWriteBusyError) {
+          return error(409, `${cause.message} A importação pode ter aplicado os conjuntos anteriores; tente novamente.`);
+        }
+        throw cause;
+      }
+    }
+    return json({
+      success: true,
+      message: `Configurações importadas para D1 (${datasets.length + Number(hasRouletteChances)} conjuntos).`,
+    });
   }
   const config = CONFIGS[pathname];
   if (!config) return null;
@@ -1587,6 +1816,15 @@ export async function handleD1Request(request: Request, env: D1Env): Promise<Res
   }
   if (pathname === '/api/quests/maintenance-inbox/claim' && request.method === 'POST') {
     return maintenanceInboxRoute(request, env, true);
+  }
+  if (pathname === '/api/admin/mail/send' && request.method === 'POST') {
+    return sendAdminMail(request, env);
+  }
+  if (pathname === '/api/cards/roulette-settings') {
+    return cardRouletteSettingsRoute(request, env);
+  }
+  if (pathname === '/api/cards/roulette/draw' && request.method === 'POST') {
+    return drawRouletteCard(request, env);
   }
   const profile = await profileRoute(request, env, pathname);
   if (profile) return profile;

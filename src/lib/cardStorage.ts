@@ -9,6 +9,39 @@ import { safeFetchJson, saveGlobalConfig } from './api';
 
 const STORAGE_KEY = 'naruto_cards';
 const PACKS_STORAGE_KEY = 'naruto_card_packs';
+const NEW_CARDS_STORAGE_PREFIX = 'naruto_new_cards_';
+
+export function getNewCardIds(username: string): string[] {
+  try {
+    const stored = localStorage.getItem(`${NEW_CARDS_STORAGE_PREFIX}${username.toLowerCase()}`);
+    if (!stored) return [];
+    const parsed: unknown = JSON.parse(stored);
+    return Array.isArray(parsed) && parsed.every(id => typeof id === 'string') ? parsed : [];
+  } catch (error) {
+    console.warn('Falha ao carregar as novas Ninja Cards:', error);
+    return [];
+  }
+}
+
+export function markNewCardIds(username: string, cardIds: string[]): string[] {
+  const ids = [...new Set([...getNewCardIds(username), ...cardIds])];
+  try {
+    localStorage.setItem(`${NEW_CARDS_STORAGE_PREFIX}${username.toLowerCase()}`, JSON.stringify(ids));
+  } catch (error) {
+    console.error('Falha ao salvar as novas Ninja Cards:', error);
+  }
+  return ids;
+}
+
+export function markCardAsViewed(username: string, cardId: string): string[] {
+  const ids = getNewCardIds(username).filter(id => id !== cardId);
+  try {
+    localStorage.setItem(`${NEW_CARDS_STORAGE_PREFIX}${username.toLowerCase()}`, JSON.stringify(ids));
+  } catch (error) {
+    console.error('Falha ao atualizar as Ninja Cards visualizadas:', error);
+  }
+  return ids;
+}
 
 // Raridades (metadados usados na galeria): cor da borda/brilho e pontos.
 export const CARD_RARITY_META: Record<CardRarity, {

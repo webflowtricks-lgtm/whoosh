@@ -14,6 +14,17 @@ import {
   getPacks, savePacks, DEFAULT_PACKS, fetchPacksFromServer,
   CARD_RARITY_META, RARITY_ORDER, rarityFx
 } from '../lib/cardStorage';
+import {
+  CARD_ROULETTE_CHANCES,
+  CARD_ROULETTE_RARITY_ORDER,
+  isValidCardRouletteChances,
+  rebalanceCardRouletteChances,
+} from '../lib/cardRoulette';
+import {
+  fetchCardRouletteChances,
+  saveCardRouletteChances,
+  type CardRouletteChances,
+} from '../lib/cardRouletteSettings';
 import { motion, AnimatePresence } from 'motion/react';
 
 const CARD_IMG_FALLBACK = 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/';
@@ -24,7 +35,7 @@ interface CardAdminProps {
 }
 
 export default function CardAdmin({ playClickSound, playScrollSound }: CardAdminProps) {
-  const [tab, setTab] = useState<'cards' | 'packs'>('cards');
+  const [tab, setTab] = useState<'cards' | 'packs' | 'roulette'>('cards');
 
   // Cards state
   const [cards, setCards] = useState<NinjaCard[]>([]);
@@ -40,6 +51,8 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
 
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [rouletteChances, setRouletteChances] = useState<CardRouletteChances>({ ...CARD_ROULETTE_CHANCES });
+  const [savingRouletteChances, setSavingRouletteChances] = useState(false);
 
   useEffect(() => {
     fetchCardsFromServer().then(loaded => {
@@ -52,6 +65,7 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
     fetchPacksFromServer().then(loadedPacks => {
       setPacks(loadedPacks);
     });
+    fetchCardRouletteChances().then(setRouletteChances);
   }, []);
 
   useEffect(() => {
@@ -320,6 +334,22 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
     setEditingPack({ ...editingPack, allowedRarities: next });
   };
 
+  const handleSaveRouletteChances = async () => {
+    if (!isValidCardRouletteChances(rouletteChances)) {
+      showError('A soma das chances deve ser exatamente 100%.');
+      return;
+    }
+    setSavingRouletteChances(true);
+    try {
+      await saveCardRouletteChances(rouletteChances);
+      showSuccess('Chances da roleta salvas com sucesso!');
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar as chances da roleta.');
+    } finally {
+      setSavingRouletteChances(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-7xl mx-auto p-4 md:p-6 font-sans">
       {/* Toast Feedback */}
@@ -381,6 +411,16 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
           }`}
         >
           <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> Pacotes ({packs.length})</span>
+        </button>
+        <button
+          onClick={() => { playScrollSound(); setTab('roulette'); }}
+          className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+            tab === 'roulette'
+              ? 'bg-gradient-to-r from-sky-600 to-blue-500 text-white shadow-md font-extrabold'
+              : 'text-slate-400 hover:text-slate-200 font-bold'
+          }`}
+        >
+          Chance da Roleta
         </button>
       </div>
 
@@ -653,6 +693,59 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
             )}
           </section>
         </div>
+      ) : tab === 'roulette' ? (
+        <section className="max-w-4xl rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="mb-5">
+            <h3 className="text-sm font-black uppercase tracking-wider text-white">Chance de cada raridade</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Defina a probabilidade de sorteio. As cinco porcentagens precisam somar 100%; raridades sem cards têm a chance redistribuída.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {CARD_ROULETTE_RARITY_ORDER.map(rarity => {
+              const rarityCount = cards.filter(card => card.rarity === rarity).length;
+              return (
+                <label key={rarity} className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950 p-3">
+                  <span className={`min-w-0 ${CARD_RARITY_META[rarity].text}`}>
+                    <span className="block text-xs font-black uppercase tracking-wide">{CARD_RARITY_META[rarity].label}</span>
+                    <span className="mt-1 block text-[10px] text-slate-500">{rarityCount} cards no catálogo</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <input
+                      aria-label={`Chance ${CARD_RARITY_META[rarity].label}`}
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.1}
+                      value={rouletteChances[rarity]}
+                      onChange={event => setRouletteChances(current =>
+                        rebalanceCardRouletteChances(current, rarity, event.target.value),
+                      )}
+                      className="w-24 rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-right font-mono text-sm font-bold text-white outline-none focus:border-sky-500"
+                    />
+                    <span className="text-sm font-bold text-slate-400">%</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-4">
+            <p className={`text-xs font-mono font-bold ${
+              isValidCardRouletteChances(rouletteChances) ? 'text-emerald-400' : 'text-amber-300'
+            }`}>
+              Soma: {CARD_ROULETTE_RARITY_ORDER.reduce((total, rarity) => total + rouletteChances[rarity], 0).toLocaleString('pt-BR')}% — precisa ser 100%
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleSaveRouletteChances()}
+              disabled={savingRouletteChances || !isValidCardRouletteChances(rouletteChances)}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-500 px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              {savingRouletteChances ? 'Salvando...' : 'Salvar chances'}
+            </button>
+          </div>
+        </section>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left: Pack list */}

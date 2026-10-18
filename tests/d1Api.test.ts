@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import {
   awardD1MatchRewards,
@@ -134,6 +135,27 @@ class MemoryStatement implements D1PreparedStatement {
       }
       this.db.lastChanges = matches ? 1 : 0;
       return { success: true, meta: { changes: matches ? 1 : 0 } };
+    }
+    if (q.startsWith('update accounts set profile_json = json_set(') &&
+        q.includes('json_insert')) {
+      const mail = JSON.parse(String(this.values[0])) as Row;
+      const targetUsername = q.includes("where username != 'convidado'")
+        ? null
+        : String(this.values[1]);
+      const recipients = targetUsername === null
+        ? [...this.db.accounts.values()].filter(row => row.username !== 'convidado')
+        : [this.db.accounts.get(targetUsername)].filter((row): row is Row => !!row);
+      for (const row of recipients) {
+        const profile = JSON.parse(String(row.profile_json)) as Row;
+        const inbox = Array.isArray(profile.questMaintenanceInbox)
+          ? profile.questMaintenanceInbox as Row[]
+          : [];
+        inbox.push(mail);
+        profile.questMaintenanceInbox = inbox;
+        row.profile_json = JSON.stringify(profile);
+      }
+      this.db.lastChanges = recipients.length;
+      return { success: true, meta: { changes: recipients.length } };
     }
     if (q.startsWith('update accounts set profile_json = json_set(profile_json,')) {
       const [rankJson, username, expectedXp] = this.values;
@@ -667,6 +689,69 @@ test('claims sessions, reports takeover, and revokes the prior device', async ()
   assert.ok(Date.now() - Number(env.DB.sessions.get('session_user')?.updated_at) >= 180_000);
 });
 
+test('roulette draw charges 25000 coins and persists duplicate card copies', async () => {
+  const db = new MemoryD1();
+  const token = 'c'.repeat(64);
+  db.accounts.set('roulette_user', {
+    username: 'roulette_user',
+    password_salt: null,
+    password_hash: null,
+    profile_json: JSON.stringify({
+      username: 'roulette_user',
+      ryos: 50_000,
+      collectedCardIds: ['common-card'],
+    }),
+  });
+  db.sessions.set('roulette_user', {
+    username: 'roulette_user',
+    active_token_hash: createHash('sha256').update(token).digest('hex'),
+  });
+  const card = {
+    id: 'common-card',
+    characterId: 'ninja',
+    characterName: 'Ninja',
+    slug: 'ninja',
+    rarity: 'comum',
+    title: 'Classic',
+    description: 'Common card',
+    points: 1,
+  };
+  db.configHeads.set('cards', { config_key: 'cards', version_id: 'cards-v1', item_count: 1 });
+  db.configItems.push({
+    config_key: 'cards',
+    version_id: 'cards-v1',
+    ordinal: 0,
+    chunk_number: 0,
+    value_part: JSON.stringify(card),
+  });
+
+  const draw = () => handleD1Request(request('/api/cards/roulette/draw', 'POST', {
+    username: 'roulette_user',
+  }, { 'X-Account-Session': token }), { DB: db });
+  const first = await draw();
+  assert.equal(first?.status, 200);
+  const firstBody = await responseBody(first!);
+  const firstCard = firstBody.card as { id: string };
+  const firstUser = firstBody.user as { ryos: number; gems?: number; collectedCardIds: string[] };
+  assert.equal(firstCard.id, 'common-card');
+  assert.equal(firstBody.isDuplicate, true);
+  assert.equal(firstUser.ryos, 25_000);
+  assert.equal(firstUser.gems, undefined);
+  assert.deepEqual(firstUser.collectedCardIds, ['common-card', 'common-card']);
+
+  const second = await draw();
+  assert.equal(second?.status, 200);
+  const secondBody = await responseBody(second!);
+  assert.equal(secondBody.isDuplicate, true);
+  const secondUser = secondBody.user as { ryos: number; collectedCardIds: string[] };
+  assert.equal(secondUser.ryos, 0);
+  assert.equal(secondUser.collectedCardIds.length, 3);
+
+  const insufficient = await draw();
+  assert.equal(insufficient?.status, 409);
+  assert.equal(JSON.parse(String(db.accounts.get('roulette_user')?.profile_json)).ryos, 0);
+});
+
 test('only the active session for account 2 can publish global configuration', async () => {
   const env = { DB: new MemoryD1() };
   const adminSignup = await handleD1Request(request('/api/auth/register', 'POST', {
@@ -1113,4 +1198,197 @@ test('provides and persists the configurable AI enemy character limit', async ()
   assert.equal(saved?.status, 200);
   const loaded = await handleD1Request(request('/api/ai-settings', 'GET'), env);
   assert.deepEqual((await responseBody(loaded!)).settings, [{ maxEnemyCharacterNumber: 123 }]);
+});
+
+test('admin can configure roulette rarity chances and rejects invalid totals', async () => {
+  const env = { DB: new MemoryD1() };
+  const defaults = await handleD1Request(request('/api/cards/roulette-settings', 'GET'), env);
+  assert.equal(defaults?.status, 200);
+  assert.deepEqual((await responseBody(defaults!)).chances, {
+    comum: 69.1,
+    raro: 25,
+    epico: 4,
+    lendario: 0.9,
+    secreto: 1,
+  });
+
+  const registration = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: '2',
+    password: 'admin-password',
+    name: 'Admin',
+  }), env);
+  const token = 'e'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: '2',
+    sessionToken: token,
+    sessionTicket: (await responseBody(registration!)).sessionTicket,
+  }), env);
+  const headers = { 'X-Account-Username': '2', 'X-Account-Session': token };
+  const unauthorized = await handleD1Request(request('/api/cards/roulette-settings', 'POST', {
+    chances: { comum: 50, raro: 20, epico: 15, lendario: 10, secreto: 4 },
+  }), env);
+  assert.equal(unauthorized?.status, 403);
+
+  const invalid = await handleD1Request(request('/api/cards/roulette-settings', 'POST', {
+    chances: { comum: 50, raro: 20, epico: 15, lendario: 10, secreto: 4 },
+  }, headers), env);
+  assert.equal(invalid?.status, 400);
+
+  const chances = { comum: 50, raro: 20, epico: 15, lendario: 10, secreto: 5 };
+  const saved = await handleD1Request(request('/api/cards/roulette-settings', 'POST', {
+    chances,
+  }, headers), env);
+  assert.equal(saved?.status, 200);
+  const loaded = await handleD1Request(request('/api/cards/roulette-settings', 'GET'), env);
+  assert.deepEqual((await responseBody(loaded!)).chances, chances);
+});
+
+test('admin can send inbox mail to one account or all accounts, with rewards claimed by the recipient', async () => {
+  const env = { DB: new MemoryD1() };
+  seedD1Config(env.DB, 'cards', [{
+    id: 'mail-card',
+    characterId: 'mail-ninja',
+    characterName: 'Mail Ninja',
+    slug: 'mail-ninja',
+    rarity: 'comum',
+    title: 'Classic',
+    description: 'Card sent through inbox roulette',
+    points: 1,
+  }]);
+  const register = async (username: string) => {
+    const response = await handleD1Request(request('/api/auth/register', 'POST', {
+      username,
+      password: 'test-password',
+      name: username,
+    }), env);
+    assert.equal(response?.status, 200);
+    const body = await responseBody(response!);
+    const token = username === '2' ? 'a'.repeat(64) : 'b'.repeat(64);
+    const claimed = await handleD1Request(request('/api/auth/session/claim', 'POST', {
+      username,
+      sessionToken: token,
+      sessionTicket: body.sessionTicket,
+    }), env);
+    assert.equal(claimed?.status, 200);
+    return { token, headers: { 'X-Account-Username': username, 'X-Account-Session': token } };
+  };
+  const admin = await register('2');
+  const recipient = await register('recipient');
+  const secondRecipient = await register('second');
+
+  const denied = await handleD1Request(request('/api/admin/mail/send', 'POST', {
+    sendToAll: false,
+    targetId: 'recipient',
+    subject: 'Prize',
+    message: 'Thanks!',
+    rewards: [],
+  }), env);
+  assert.equal(denied?.status, 403);
+
+  const invalid = await handleD1Request(request('/api/admin/mail/send', 'POST', {
+    sendToAll: false,
+    targetId: 'recipient',
+    subject: 'Prize',
+    message: 'Thanks!',
+    rewards: [{ type: 'ryos', value: '-1' }],
+  }, admin.headers), env);
+  assert.equal(invalid?.status, 400);
+
+  const sent = await handleD1Request(request('/api/admin/mail/send', 'POST', {
+    sendToAll: false,
+    targetId: 'recipient',
+    subject: 'Prêmio especial',
+    message: 'Obrigado por jogar!',
+    rewards: [{ type: 'ryos', value: '250' }],
+  }, admin.headers), env);
+  assert.equal(sent?.status, 200);
+  assert.equal((await responseBody(sent!)).sentCount, 1);
+
+  const recipientInboxResponse = await handleD1Request(request(
+    '/api/quests/maintenance-inbox?username=recipient',
+    'GET',
+    undefined,
+    recipient.headers,
+  ), env);
+  const recipientInbox = await responseBody(recipientInboxResponse!);
+  const messages = recipientInbox.messages as Array<Record<string, unknown>>;
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].subject, 'Prêmio especial');
+  const claimed = await handleD1Request(request('/api/quests/maintenance-inbox/claim', 'POST', {
+    username: 'recipient',
+    mailId: messages[0].id,
+  }, recipient.headers), env);
+  assert.equal(claimed?.status, 200);
+  assert.equal((await responseBody(claimed!)).success, true);
+
+  const invalidPack = await handleD1Request(request('/api/admin/mail/send', 'POST', {
+    sendToAll: false,
+    targetId: 'recipient',
+    subject: 'Pacote inválido',
+    message: 'Quantidade acima do limite.',
+    rewards: [{ type: 'card_pack', value: '51' }],
+  }, admin.headers), env);
+  assert.equal(invalidPack?.status, 400);
+
+  const packMail = await handleD1Request(request('/api/admin/mail/send', 'POST', {
+    sendToAll: false,
+    targetId: 'recipient',
+    subject: 'Pacotes',
+    message: 'Abra seus pacotes!',
+    rewards: [{ type: 'card_pack', value: '2' }],
+  }, admin.headers), env);
+  assert.equal(packMail?.status, 200);
+  const updatedInboxResponse = await handleD1Request(request(
+    '/api/quests/maintenance-inbox?username=recipient',
+    'GET',
+    undefined,
+    recipient.headers,
+  ), env);
+  const updatedInbox = await responseBody(updatedInboxResponse!);
+  const packMessage = (updatedInbox.messages as Array<Record<string, unknown>>)
+    .find(message => message.subject === 'Pacotes');
+  assert.ok(packMessage);
+
+  const packClaim = () => handleD1Request(request('/api/quests/maintenance-inbox/claim', 'POST', {
+    username: 'recipient',
+    mailId: packMessage!.id,
+  }, recipient.headers), env);
+  const firstPackClaim = await packClaim();
+  assert.equal(firstPackClaim?.status, 200);
+  const firstPackBody = await responseBody(firstPackClaim!);
+  assert.deepEqual(
+    (firstPackBody.rouletteCards as Array<{ id: string }>).map(card => card.id),
+    ['mail-card', 'mail-card'],
+  );
+  const claimedProfile = firstPackBody.user as { collectedCardIds: string[] };
+  assert.deepEqual(claimedProfile.collectedCardIds, ['mail-card', 'mail-card']);
+  const retryPackClaim = await packClaim();
+  assert.equal(retryPackClaim?.status, 200);
+  const retryPackBody = await responseBody(retryPackClaim!);
+  assert.equal(retryPackBody.alreadyClaimed, true);
+  assert.deepEqual(
+    (retryPackBody.rouletteCards as Array<{ id: string }>).map(card => card.id),
+    ['mail-card', 'mail-card'],
+  );
+  assert.deepEqual(
+    (retryPackBody.user as { collectedCardIds: string[] }).collectedCardIds,
+    ['mail-card', 'mail-card'],
+  );
+
+  const broadcast = await handleD1Request(request('/api/admin/mail/send', 'POST', {
+    sendToAll: true,
+    subject: 'Aviso',
+    message: 'Mensagem para todas as contas.',
+    rewards: [],
+  }, admin.headers), env);
+  assert.equal(broadcast?.status, 200);
+  assert.equal((await responseBody(broadcast!)).sentCount, 3);
+  const secondInboxResponse = await handleD1Request(request(
+    '/api/quests/maintenance-inbox?username=second',
+    'GET',
+    undefined,
+    secondRecipient.headers,
+  ), env);
+  const secondInbox = await responseBody(secondInboxResponse!);
+  assert.equal((secondInbox.messages as Array<Record<string, unknown>>).length, 1);
 });

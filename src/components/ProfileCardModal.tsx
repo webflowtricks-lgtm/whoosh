@@ -13,6 +13,14 @@ import { getLanguage, useLanguage } from '../lib/i18n';
 import { getVillageById } from '../lib/villages';
 import MangekyoLoader from './MangekyoLoader';
 
+export const CARD_RARITY_GLOW: Record<NinjaCard['rarity'], { background: string; shadow: string }> = {
+  comum: { background: 'linear-gradient(135deg, #475569, #94a3b8)', shadow: 'rgba(203,213,225,0.8)' },
+  raro: { background: 'linear-gradient(135deg, #0369a1, #38bdf8)', shadow: 'rgba(56,189,248,0.9)' },
+  epico: { background: 'linear-gradient(135deg, #7e22ce, #d946ef)', shadow: 'rgba(217,70,239,0.9)' },
+  lendario: { background: 'linear-gradient(135deg, #b45309, #fbbf24)', shadow: 'rgba(251,191,36,0.95)' },
+  secreto: { background: 'linear-gradient(135deg, #b91c1c, #fb7185)', shadow: 'rgba(248,113,113,1)' },
+};
+
 interface OnlineBattleHistoryRecord {
   roomId: string;
   players: [{ username: string; name: string }, { username: string; name: string }];
@@ -61,7 +69,7 @@ function useIsMobilePortrait(): boolean {
  * Usa Pointer Events universais + manipulação direta do DOM via refs.
  * O overflow-hidden do conteúdo NÃO afeta o 3D (a transformação vive aqui).
  */
-function Tilt3D({ children, className, glareRadius = 'rounded-md' }: {
+export function Tilt3D({ children, className, glareRadius = 'rounded-md' }: {
   children: React.ReactNode;
   className?: string;
   glareRadius?: string;
@@ -282,7 +290,9 @@ export default function ProfileCardModal({
 
   // Figurinhas do jogador (coleção) + paginação
   const cardImage = (c: NinjaCard) => c.imageUrl || `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${c.slug || ''}/icon.jpg`;
-  const ownedCards = (profile.collectedCardIds || [])
+  const cardCopies = new Map<string, number>();
+  (profile.collectedCardIds || []).forEach(id => cardCopies.set(id, (cardCopies.get(id) || 0) + 1));
+  const ownedCards = Array.from(cardCopies.keys())
     .map(id => allCards.find(c => c.id === id))
     .filter((c): c is NinjaCard => !!c)
     .sort((a, b) => {
@@ -292,7 +302,11 @@ export default function ProfileCardModal({
       return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
     });
   // Numeração global (renumeradas em ordem sequencial)
-  const numberedOwned = ownedCards.map((c, i) => ({ card: c, num: i + 1 }));
+  const numberedOwned = ownedCards.map((card, i) => ({
+    card,
+    num: i + 1,
+    copies: cardCopies.get(card.id) || 1,
+  }));
 
   // Histórico da Arena — bloco reutilizável:
   // - mobile landscape → abaixo das curtidas do perfil (coluna esquerda)
@@ -300,10 +314,10 @@ export default function ProfileCardModal({
   const arenaHistoryBlock = (
     <div className={`mv-arena-history-card ${isLandscape ? 'px-2.5 py-1.5 gap-2' : 'px-3.5 py-2 gap-3.5'} bg-slate-950/90 border border-slate-800/90 rounded-xl shadow-inner flex items-center flex-shrink-0`}>
     <div className="flex min-w-0 shrink items-center gap-2">
-      <div className={`${isLandscape ? 'w-8 h-8' : 'w-10 h-10'} rounded-lg bg-orange-500/15 border border-orange-500/30 flex items-center justify-center flex-shrink-0`}>
+      <div className={`${isLandscape ? 'w-8 h-8' : 'w-10 h-10'} rounded-lg bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0`}>
         <img src={villageIcon} alt="" aria-hidden="true" className="auth-village-icon h-6 w-6 object-contain" />
       </div>
-      <span className="min-w-0 truncate text-sm sm:text-base font-black text-orange-300">{village}</span>
+      <span className="min-w-0 truncate text-sm sm:text-base font-black text-green-300">{village}</span>
     </div>
       <div className="mv-arena-history-details min-w-0">
         <div className="mv-arena-history-heading flex items-center gap-2">
@@ -465,7 +479,7 @@ export default function ProfileCardModal({
           </div>
 
           {/* CARD BODY: TWO COLUMNS (LEFT STATS | RIGHT SHOWCASE CHARACTER SKIN ARTWORK) */}
-          <div className={`profile-card-modal-body ${isLandscape ? 'p-2' : 'p-4 sm:p-6'} bg-slate-900 flex-1 overflow-y-auto relative custom-scrollbar`}>
+          <div className={`profile-card-modal-body ${isLandscape ? 'p-2' : 'p-4 sm:p-6'} bg-slate-900 flex-1 overflow-y-auto relative custom-scrollbar green-scrollbar`}>
             <div className={`${isLandscape ? 'flex-row gap-2' : 'gap-4 sm:gap-6'} flex flex-col md:flex-row items-stretch`}>
               
               {/* LEFT COLUMN: STATS & DETAILS */}
@@ -532,7 +546,7 @@ export default function ProfileCardModal({
 
             {/* ACTION FOOTER (com o Histórico da Arena à esquerda) */}
             {(!isMobilePortrait || (isSelf && onOpenEditModal)) && (
-              <div className={`${isLandscape ? 'mt-2 pt-2' : 'mt-5 pt-3'} flex flex-wrap items-center gap-3 border-t border-slate-800/80`}>
+              <div className={`${isLandscape ? 'mt-2 pt-2' : 'mt-5 pt-3'} flex flex-col items-start gap-3 border-t border-slate-800/80`}>
 
                 {/* Histórico da Arena — em mobile landscape fica abaixo das curtidas (coluna esquerda) */}
                 {!isLandscape && !isMobilePortrait && (
@@ -582,48 +596,68 @@ export default function ProfileCardModal({
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className={`ml-figurinhas-panel ${isLandscape ? 'flex-1 max-h-[78vh]' : 'w-[230px] sm:w-[335px]'} bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col`}
         >
-          <div className={`${isLandscape ? 'px-2 py-2' : 'px-3 py-3'} flex-shrink-0 bg-gradient-to-r from-fuchsia-700/40 to-purple-700/40 border-b border-slate-800 flex items-center gap-2`}>
-            <div className="w-7 h-7 rounded-lg bg-fuchsia-500/20 border border-fuchsia-500/40 flex items-center justify-center text-fuchsia-300 flex-shrink-0">
-              <Images className="w-3.5 h-3.5" />
+          <div className={`${isLandscape ? 'px-2 py-1.5' : 'px-3 py-2'} flex-shrink-0 bg-gradient-to-r from-green-700 via-green-600 to-emerald-500 border-b border-green-300/40 flex items-center gap-2`}>
+            <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+              <img src="/static/img/icon/card-album.svg" alt="" className="w-7 h-7 object-contain brightness-0 invert" />
             </div>
-            <div className="min-w-0">
-              <span className="text-[9px] text-fuchsia-300/80 font-mono block uppercase tracking-wider leading-none">{t('FIGURINHAS', 'CARDS')}</span>
-              <span className="text-[11px] font-black text-white font-mono leading-tight whitespace-nowrap">{ownedCards.length} {t('colecionadas', 'collected')}</span>
+            <div className="min-w-0 flex-1">
+              <span className="block text-base font-black uppercase tracking-wide leading-none text-white">{t('NINJA CARDS', 'NINJA CARDS')}</span>
             </div>
+            <span className="shrink-0 rounded-lg border border-green-200/40 bg-gradient-to-r from-green-800 to-emerald-900 px-2 py-1 text-sm font-mono font-black leading-none text-white">
+              {ownedCards.length}/{allCards.length}
+            </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2.5 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-2.5 custom-scrollbar green-scrollbar">
             {ownedCards.length === 0 ? (
               <p className="text-[9px] text-slate-500 font-mono text-center py-3">{t('Nenhuma figurinha ainda. Abra pacotes para colecionar!', 'No cards yet. Open packs to collect!')}</p>
             ) : (
               <div className={`${isLandscape ? 'grid-cols-3' : 'grid-cols-5'} grid gap-1.5`}>
-                {numberedOwned.map(({ card: c, num }) => {
+                {numberedOwned.map(({ card: c, num, copies }) => {
                   const fx = rarityFx(c.rarity);
                   const isPremium = c.rarity === 'lendario' || c.rarity === 'secreto';
-                  const cardTitle = `#${String(num).padStart(3, '0')} — ${c.characterName} (${c.title})`;
+                  const cardTitle = `#${String(num).padStart(3, '0')} — ${c.characterName} (${c.title}) ×${copies}`;
+                  const rarityBadgeBackground: Record<NinjaCard['rarity'], string> = {
+                    comum: 'bg-slate-500 text-white',
+                    raro: 'bg-sky-600 text-white',
+                    epico: 'bg-fuchsia-600 text-white',
+                    lendario: 'bg-amber-500 text-slate-950',
+                    secreto: 'bg-red-600 text-white',
+                  };
                   const cardContent = (
                     <>
                       <img src={cardImage(c)} alt={c.characterName} className="w-full h-full object-cover" />
                       {fx && <span className={fx.sweep} />}
-                      <span className="absolute top-0.5 left-0.5 text-[6px] font-mono font-black text-white px-0.5 py-px rounded bg-slate-950/80 leading-none">
-                        #{String(num).padStart(3, '0')}
-                      </span>
-                      <span className={`absolute bottom-0.5 right-0.5 text-[5px] font-mono font-black uppercase px-1 py-px rounded ${CARD_RARITY_META[c.rarity].chip}`}>
-                        {CARD_RARITY_META[c.rarity].label}
-                      </span>
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-0.5 px-1 pb-1">
+                        <span className="min-w-0 truncate text-[7px] font-mono font-black leading-none text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">
+                          #{String(num).padStart(3, '0')}
+                        </span>
+                        <span className={`shrink-0 rounded px-1 py-0.5 text-[6px] font-mono font-black uppercase leading-none ${rarityBadgeBackground[c.rarity]}`}>
+                          {CARD_RARITY_META[c.rarity].label}
+                        </span>
+                      </div>
                     </>
                   );
                   const cardClass = `relative aspect-[3/4] rounded-md border ${CARD_RARITY_META[c.rarity].border} ${CARD_RARITY_META[c.rarity].glow} bg-slate-900 cursor-pointer group shadow-lg flex-shrink-0 ${isPremium ? 'w-full overflow-hidden' : 'overflow-hidden hover:scale-105 transition-transform'} ${fx?.frame || ''}`;
                   const cardClick = () => { if (playClickSound) playClickSound(); setLightboxCard(c); };
 
-                  return isPremium ? (
-                    <TiltCard key={c.id} className={cardClass} onClick={cardClick} title={cardTitle}>
-                      {cardContent}
-                    </TiltCard>
-                  ) : (
-                    <button key={c.id} className={cardClass} onClick={cardClick} title={cardTitle}>
-                      {cardContent}
-                    </button>
+                  return (
+                    <div key={c.id} className="relative min-w-0 overflow-visible">
+                      {isPremium ? (
+                        <TiltCard className={cardClass} onClick={cardClick} title={cardTitle}>
+                          {cardContent}
+                        </TiltCard>
+                      ) : (
+                        <button className={cardClass} onClick={cardClick} title={cardTitle}>
+                          {cardContent}
+                        </button>
+                      )}
+                      {copies > 1 && (
+                        <span className="pointer-events-none absolute -left-1.5 -top-1.5 z-20 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-green-100 bg-gradient-to-br from-green-300 to-green-600 px-0.5 text-[11px] font-mono font-black leading-none text-green-950 shadow-[0_1px_5px_rgba(0,0,0,0.7),0_0_6px_rgba(34,197,94,0.65)] ring-1 ring-green-900/50">
+                          {copies}
+                        </span>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -665,7 +699,7 @@ export default function ProfileCardModal({
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className={`${isLandscape ? 'flex-row-reverse items-center gap-4' : 'flex-col items-center'} relative flex`}
+              className={`${isLandscape ? 'flex-row-reverse items-center gap-4' : 'flex-col items-center'} relative flex max-h-full`}
             >
               {/* Navegação (anterior) */}
               {ownedCards.length > 1 && (
@@ -684,39 +718,47 @@ export default function ProfileCardModal({
                 </button>
               )}
 
-              {/* Card ampliado — foto completa (cover), borda única, sem texto na imagem */}
-              {(lightboxCard.rarity === 'lendario' || lightboxCard.rarity === 'secreto') ? (
-                <Tilt3D key={lightboxCard.id} className="relative" glareRadius="rounded-2xl">
-                  <div className={`relative ${isLandscape ? 'w-50 sm:w-55' : 'w-56 sm:w-64'} aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
+              {/* Card ampliado */}
+              <div className="card-gallery-lightbox-idle">
+                {(lightboxCard.rarity === 'lendario' || lightboxCard.rarity === 'secreto') ? (
+                  <Tilt3D key={lightboxCard.id} className="relative" glareRadius="rounded-2xl">
+                    <div className={`relative ${isLandscape ? 'w-[min(52vh,360px)]' : 'w-[min(82vw,520px)]'} max-h-[78dvh] aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
+                      <img src={cardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
+                      <span
+                        aria-hidden="true"
+                        className={`pointer-events-none absolute inset-0 ${rarityFx(lightboxCard.rarity)?.sweep}`}
+                      />
+                    </div>
+                  </Tilt3D>
+                ) : (
+                  <div className={`relative ${isLandscape ? 'w-[min(52vh,360px)]' : 'w-[min(82vw,520px)]'} max-h-[78dvh] aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
                     <img src={cardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
-                    <span className={`absolute top-2 right-2 text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
-                      {CARD_RARITY_META[lightboxCard.rarity].label}
-                    </span>
                   </div>
-                </Tilt3D>
-              ) : (
-                <div className={`relative ${isLandscape ? 'w-50 sm:w-55' : 'w-56 sm:w-64'} aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
-                  <img src={cardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
-                  <span className={`absolute top-2 right-2 text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
-                    {CARD_RARITY_META[lightboxCard.rarity].label}
-                  </span>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Informações da figurinha (fora da imagem) */}
-              <div className={`${isLandscape ? 'text-left max-w-[190px] mt-0' : 'mt-3 text-center max-w-xs'} flex-shrink-0`}>
-                <span className={`inline-block text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded mb-1 ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
+              <div className={`${isLandscape ? 'text-left max-w-[190px] mt-0' : 'mt-6 text-center max-w-[min(82vw,520px)]'} flex-shrink-0`}>
+                <span
+                  className="mb-2 inline-block rounded-lg border border-white/70 px-3 py-1 text-xs font-mono font-black uppercase text-white ring-1 ring-white/50"
+                  style={{
+                    background: CARD_RARITY_GLOW[lightboxCard.rarity].background,
+                    boxShadow: lightboxCard.rarity === 'comum' || lightboxCard.rarity === 'raro'
+                      ? 'none'
+                      : `0 0 18px ${CARD_RARITY_GLOW[lightboxCard.rarity].shadow}`,
+                    textShadow: lightboxCard.rarity === 'comum' || lightboxCard.rarity === 'raro'
+                      ? 'none'
+                      : `0 0 8px ${CARD_RARITY_GLOW[lightboxCard.rarity].shadow}`,
+                  }}
+                >
                   #{(ownedCards.findIndex(x => x.id === lightboxCard.id) + 1).toString().padStart(3, '0')} • {CARD_RARITY_META[lightboxCard.rarity].label}
                 </span>
-                {lightboxCard.title && (
-                  <p className="text-white text-sm font-extrabold leading-tight">{lightboxCard.title}</p>
-                )}
-                <p className="text-slate-300 text-[11px] font-mono">
-                  {lightboxCard.characterName}{lightboxCard.variant ? ` • ${lightboxCard.variant}` : ''}
-                </p>
-                {lightboxCard.description && (
-                  <p className="mt-1 text-xs text-slate-400 leading-snug">{lightboxCard.description}</p>
-                )}
+                <div className="flex items-center justify-center gap-2">
+                  <p className="truncate text-white text-base font-extrabold leading-tight">{lightboxCard.characterName}</p>
+                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[12px] font-mono font-black ${CARD_RARITY_META[lightboxCard.rarity].chip}`}>
+                    {cardCopies.get(lightboxCard.id) || 1}
+                  </span>
+                </div>
               </div>
 
               {/* Navegação (próxima) */}

@@ -19,6 +19,7 @@ import { getRankProgress } from '../lib/xpSystem';
 import { getCurrentVillageId } from '../lib/villages';
 import { useLanguage } from '../lib/i18n';
 import { fetchCharactersFromServer, getCharacters } from '../lib/characterStorage';
+import { getNewCardIds, markCardAsViewed, markNewCardIds } from '../lib/cardStorage';
 
 declare const __WHOOSH_BUILD_VERSION__: string;
 
@@ -28,6 +29,7 @@ interface MainMenuProps {
   onToggleMute: () => void;
   playClickSound: () => void;
   playScrollSound: () => void;
+  playWinSound: () => void;
   playUahSound: () => void;
   onOpenAdmin: () => void;
   user: UserProfile | null;
@@ -37,7 +39,7 @@ interface MainMenuProps {
   onUpdateAudioSetting: (key: 'master' | 'effects' | 'music', value: number) => void;
 }
 
-export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClickSound, playScrollSound, playUahSound, onOpenAdmin, user, onLogout, onUpdateUser, audioSettings, onUpdateAudioSetting }: MainMenuProps) {
+export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClickSound, playScrollSound, playWinSound, playUahSound, onOpenAdmin, user, onLogout, onUpdateUser, audioSettings, onUpdateAudioSetting }: MainMenuProps) {
   const { t } = useLanguage();
   const [showRules, setShowRules] = useState(false);
   const [showEventsModal, setShowEventsModal] = useState(false);
@@ -47,6 +49,11 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
   const [showGalleryModal, setShowGalleryModal] = useState(false);
   const [showAudioSettings, setShowAudioSettings] = useState(false);
   const [menuCharacters, setMenuCharacters] = useState(() => getCharacters().slice(0, 200));
+  const [newCardIds, setNewCardIds] = useState<string[]>(() => user ? getNewCardIds(user.username) : []);
+
+  useEffect(() => {
+    setNewCardIds(user ? getNewCardIds(user.username) : []);
+  }, [user?.username]);
 
   useEffect(() => {
     let isMounted = true;
@@ -69,9 +76,21 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
   };
 
   const handleUserUpdate = (updated: UserProfile) => {
+    if (user) {
+      const previouslyOwned = new Set(user.collectedCardIds || []);
+      const newlyOwned = [...new Set(updated.collectedCardIds || [])]
+        .filter(cardId => !previouslyOwned.has(cardId));
+      if (newlyOwned.length > 0) {
+        setNewCardIds(markNewCardIds(updated.username, newlyOwned));
+      }
+    }
     if (onUpdateUser) {
       onUpdateUser(updated);
     }
+  };
+
+  const handleCardViewed = (cardId: string) => {
+    if (user) setNewCardIds(markCardAsViewed(user.username, cardId));
   };
 
   const ryos = user ? (user.ryos ?? 1500) : 1500;
@@ -282,11 +301,16 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               playScrollSound();
               setShowGalleryModal(true);
             }}
-            className="main-menu-cards-button px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-fuchsia-500 hover:bg-slate-950 hover:text-fuchsia-400 transition-all cursor-pointer text-slate-400 font-mono text-xs flex items-center gap-2 uppercase tracking-wider font-semibold shadow"
+            className="main-menu-cards-button relative px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-fuchsia-500 hover:bg-slate-950 hover:text-fuchsia-400 transition-all cursor-pointer text-slate-400 font-mono text-xs flex items-center gap-2 uppercase tracking-wider font-semibold shadow"
             title={t('Ninja Cards (Figuras Colecionáveis)', 'Ninja Cards (Collectible Figures)')}
           >
             <Images className="w-4 h-4 text-fuchsia-500" />
             <span>{t('Cards', 'Cards')}</span>
+            {newCardIds.length > 0 && (
+              <span aria-label={t('Nova Ninja Card', 'New Ninja Card')} className="absolute -right-1.5 -top-1.5 text-blue-400 drop-shadow-[0_0_5px_rgba(56,189,248,0.9)]">
+                ◆
+              </span>
+            )}
           </button>
 
           <button
@@ -427,6 +451,8 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
         {user && showGalleryModal && (
           <CardGalleryModal
             user={user}
+            newCardIds={newCardIds}
+            onCardViewed={handleCardViewed}
             onClose={() => setShowGalleryModal(false)}
             playClickSound={playClickSound}
             onOpenShopPacks={() => {
@@ -443,6 +469,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             onUpdateUser={handleUserUpdate}
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
+            playWinSound={playWinSound}
           />
         )}
       </AnimatePresence>

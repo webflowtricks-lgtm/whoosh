@@ -2,7 +2,7 @@
   {
     "id": "naruto-base",
     "characterId": "naruto",
-    "characterName": "Naruto Uzumaki",
+    "characterName": "Tsunade Chilling",
     "slug": "",
     "rarity": "secreto",
     "title": "Figura Clássica",
@@ -48,22 +48,22 @@
     "characterId": "gaara",
     "characterName": "Gaara of the Sand",
     "slug": "gaara",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "Um genin aterrorizante da Vila da Areia que abriga o Shukaku de Uma Cauda. Gaara se protege com uma armadura de areia e manipula a areia para prender e soterrar seus oponentes.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/gaara/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "rock-lee-base",
     "characterId": "rock-lee",
     "characterName": "Rock Lee",
     "slug": "rock-lee",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "Um especialista dedicado da Vila da Folha. Sem habilidades em ninjutsu, Lee treina incansavelmente em taijutsu, usando força física extrema e abrindo os portões internos para colidir com os oponentes.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/rock-lee/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "itachi-base",
@@ -81,11 +81,11 @@
     "characterId": "neji",
     "characterName": "Neji Hyuga",
     "slug": "neji-hyuga",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "O prodígio genial do Clã Hyuga. Usando seu Byakugan, Neji atinge as vias de chakra do oponente, bloqueando suas habilidades e desviando todo o dano com a rotação de palmas.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/neji-hyuga/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "choji-base",
@@ -103,22 +103,22 @@
     "characterId": "shikamaru",
     "characterName": "Shikamaru Nara",
     "slug": "shikamaru-nara",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "O estrategista genial do Time 10. Shikamaru usa suas sombras para prender e estrangular os oponentes de longe, enquanto medita para recuperar chakra e planejar cada passo da batalha.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shikamaru-nara/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "hinata-base",
     "characterId": "hinata",
     "characterName": "Hinata Hyuga",
     "slug": "hinata-hyuga",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "A herdeira tímida do Clã Hyuga do Time 8. Hinata ativa seu Byakugan para obter excelente percepção defensiva e usa seu Punho Suave para golpear precisamente as vias de chakra inimigas.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hinata-hyuga/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "guy-base",
@@ -136,55 +136,55 @@
     "characterId": "jiraiya",
     "characterName": "Jiraiya",
     "slug": "jiraiya",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "Um dos lendários Sannin de Konoha, o carismático \"Sábio dos Sapos\". Ele comanda o óleo de sapo inflamável, agulhas de cabelo protetoras e pode convocar o gigantesco Gamabunta.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/jiraiya/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "orochimaru-base",
     "characterId": "orochimaru",
     "characterName": "Orochimaru",
     "slug": "orochimaru",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "Um dos lendários Sannin de Konoha e criador da Vila do Som. Dominando cobras gigantescas e as propriedades da imortalidade, ele estende sua espada Kusanagi para empalar qualquer oponente.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/orochimaru/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "tsunade-base",
     "characterId": "tsunade",
     "characterName": "Tsunade",
     "slug": "tsunade",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "A lendária médica Sannin de Konoha. Tsunade acumula uma força colossal em seus músculos para destruir o solo e utiliza o milagroso selo Byakugou para curar qualquer ferimento instantaneamente.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/tsunade/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "zabuza-base",
     "characterId": "zabuza",
     "characterName": "Zabuza Momochi",
     "slug": "zabuza-momochi",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "O lendário espadachim \"Demônio da Névoa Oculta\". Zabuza conjura uma neblina impenetrável para se esconder e fatiar silenciosamente seus oponentes com a enorme espada Kubikiribocho.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/zabuza-momochi/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "haku-base",
     "characterId": "haku",
     "characterName": "Haku",
     "slug": "haku",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "O fiel e talentoso parceiro de Zabuza. Detentor do Kekkei Genkai de liberação de gelo, ele prende os oponentes em espelhos de cristais de gelo de altíssima velocidade e ataca com agulhas de acupuntura.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/haku/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "gaara-funk-base",
@@ -202,22 +202,22 @@
     "characterId": "temari",
     "characterName": "Temari",
     "slug": "temari",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "A ninja tática da Vila da Areia. Usando seu leque de ferro gigante, Temari manipula fortes correntes de vento para rasgar e repelir os oponentes, controlando a batalha com furacões cortantes.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/temari/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "kiba-base",
     "characterId": "kiba",
     "characterName": "Kiba Inuzuka",
     "slug": "kiba-inuzuka",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "O genin selvagem do Time 8. Acompanhado por seu fiel cão Akamaru, Kiba desfere ataques combinados velozes de garras e presas com a técnica Presa Sobre Presa.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kiba-inuzuka/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "ino-base",
@@ -235,11 +235,11 @@
     "characterId": "shino",
     "characterName": "Shino Aburame",
     "slug": "shino-aburame",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "O reservado genin mestre de insetos do Time 8. Shino comanda insetos parasitas Kikaichu que drenam o chakra do oponente lentamente até que sequem.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shino-aburame/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "SasoriSOld-base",
@@ -334,11 +334,11 @@
     "characterId": "asuma-sarutobi",
     "characterName": "Asuma Sarutobi",
     "slug": "asuma-sarutobi",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/asuma-sarutobi/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "asuma-sarutobi-(s)-base",
@@ -466,11 +466,11 @@
     "characterId": "corrupted-obito",
     "characterName": "Corrupted Obito",
     "slug": "corrupted-obito",
-    "rarity": "comum",
+    "rarity": "epico",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/corrupted-obito/icon.jpg",
-    "points": 1
+    "points": 8
   },
   {
     "id": "curse-mark-jugo-(s)-base",
@@ -543,11 +543,11 @@
     "characterId": "deidara-(s)",
     "characterName": "Deidara (S)",
     "slug": "deidara-(s)",
-    "rarity": "comum",
+    "rarity": "epico",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/deidara-(s)/icon.jpg",
-    "points": 1
+    "points": 8
   },
   {
     "id": "demon-brothers-base",
@@ -565,11 +565,11 @@
     "characterId": "deva-path-pain-(s)",
     "characterName": "Deva Path Pain (S)",
     "slug": "deva-path-pain-(s)",
-    "rarity": "comum",
+    "rarity": "lendario",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/deva-path-pain-(s)/icon.jpg",
-    "points": 1
+    "points": 20
   },
   {
     "id": "dodai-(s)-base",
@@ -752,11 +752,11 @@
     "characterId": "hashirama-senju",
     "characterName": "Hashirama Senju",
     "slug": "hashirama-senju",
-    "rarity": "comum",
+    "rarity": "lendario",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/hashirama-senju/icon.jpg",
-    "points": 1
+    "points": 20
   },
   {
     "id": "hashirama-senju-(r)-base",
@@ -906,22 +906,22 @@
     "characterId": "itachi-uchiha-(r)",
     "characterName": "Itachi Uchiha (R)",
     "slug": "itachi-uchiha-(r)",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/itachi-uchiha-(r)/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "itachi-uchiha-(s)-base",
     "characterId": "itachi-uchiha-(s)",
     "characterName": "Itachi Uchiha (S)",
     "slug": "itachi-uchiha-(s)",
-    "rarity": "comum",
+    "rarity": "lendario",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/itachi-uchiha-(s)/icon.jpg",
-    "points": 1
+    "points": 20
   },
   {
     "id": "ittan-(s)-base",
@@ -1016,11 +1016,11 @@
     "characterId": "kabuto-yakushi",
     "characterName": "Kabuto Yakushi",
     "slug": "kabuto-yakushi",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kabuto-yakushi/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "kabuto-yakushi-(s)-base",
@@ -1060,11 +1060,11 @@
     "characterId": "kankuro",
     "characterName": "Kankuro",
     "slug": "kankuro",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kankuro/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "kankuro-(s)-base",
@@ -1181,11 +1181,11 @@
     "characterId": "kisame-hoshigaki",
     "characterName": "Kisame Hoshigaki",
     "slug": "kisame-hoshigaki",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kisame-hoshigaki/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "kisame-hoshigaki-(s)-base",
@@ -1302,11 +1302,11 @@
     "characterId": "madara-uchiha-(s)",
     "characterName": "Madara Uchiha (S)",
     "slug": "madara-uchiha-(s)",
-    "rarity": "comum",
+    "rarity": "lendario",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/madara-uchiha-(s)/icon.jpg",
-    "points": 1
+    "points": 20
   },
   {
     "id": "maki-(s)-base",
@@ -1368,22 +1368,22 @@
     "characterId": "minato-namikaze",
     "characterName": "Minato Namikaze",
     "slug": "minato-namikaze",
-    "rarity": "comum",
+    "rarity": "lendario",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/minato-namikaze/icon.jpg",
-    "points": 1
+    "points": 20
   },
   {
     "id": "minato-namikaze-(r)-base",
     "characterId": "minato-namikaze-(r)",
     "characterName": "Minato Namikaze (R)",
     "slug": "minato-namikaze-(r)",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/minato-namikaze-(r)/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "misumi-tsurugi-base",
@@ -1489,11 +1489,11 @@
     "characterId": "obito-uchiha",
     "characterName": "Obito Uchiha",
     "slug": "obito-uchiha",
-    "rarity": "comum",
+    "rarity": "lendario",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/obito-uchiha/icon.jpg",
-    "points": 1
+    "points": 20
   },
   {
     "id": "oboro-base",
@@ -1643,11 +1643,11 @@
     "characterId": "sage-mode-jiraiya-(s)",
     "characterName": "Sage Mode Jiraiya (S)",
     "slug": "sage-mode-jiraiya-(s)",
-    "rarity": "comum",
+    "rarity": "epico",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sage-mode-jiraiya-(s)/icon.jpg",
-    "points": 1
+    "points": 8
   },
   {
     "id": "sage-mode-kabuto-(s)-base",
@@ -1720,11 +1720,11 @@
     "characterId": "sasori-(s)",
     "characterName": "Sasori (S)",
     "slug": "sasori-(s)",
-    "rarity": "comum",
+    "rarity": "epico",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sasori-(s)/icon.jpg",
-    "points": 1
+    "points": 8
   },
   {
     "id": "sasuke-uchiha-(s)-base",
@@ -1808,11 +1808,11 @@
     "characterId": "shukaku-gaara",
     "characterName": "Shukaku Gaara",
     "slug": "shukaku-gaara",
-    "rarity": "comum",
+    "rarity": "epico",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/shukaku-gaara/icon.jpg",
-    "points": 1
+    "points": 8
   },
   {
     "id": "suigetsu-hozuki-(s)-base",
@@ -1852,11 +1852,11 @@
     "characterId": "tenten",
     "characterName": "Tenten",
     "slug": "tenten",
-    "rarity": "comum",
+    "rarity": "raro",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/tenten/icon.jpg",
-    "points": 1
+    "points": 3
   },
   {
     "id": "tenten-(s)-base",
@@ -1973,11 +1973,11 @@
     "characterId": "white-snake-orochimaru-(s)",
     "characterName": "White Snake Orochimaru (S)",
     "slug": "white-snake-orochimaru-(s)",
-    "rarity": "comum",
+    "rarity": "epico",
     "title": "Figura Clássica",
     "description": "Um shinobi de elite com habilidades excepcionais e arsenal único. Mestre em técnicas de combate adaptadas para lutas intensas de Unison.",
     "imageUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/white-snake-orochimaru-(s)/icon.jpg",
-    "points": 1
+    "points": 8
   },
   {
     "id": "yamato-(s)-base",

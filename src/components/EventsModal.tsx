@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Calendar, Gift, Trophy, CheckCircle, Clock, Zap, Star, ShieldAlert, Sparkles, Award } from 'lucide-react';
 import { UserProfile, NinjaEvent } from '../types';
 import { getEvents, fetchEventsFromServer } from '../lib/eventStorage';
+import { playGlobalSound } from '../lib/soundUtils';
 
 interface EventsModalProps {
   user: UserProfile;
@@ -37,11 +38,10 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
   const selectedEvent = events.find(e => e.id === selectedEventId) || events[0] || getEvents()[0];
 
   const handleClaimReward = (event: NinjaEvent, objId: string) => {
-    playClickSound();
-
     const obj = event.objectives.find(o => o.id === objId);
     if (!obj || obj.current < obj.target) return;
     if (claimedIds.includes(objId)) return;
+    playGlobalSound('claim-2');
 
     let newRyos = user.ryos || 1000;
     let newGems = user.gems || 100;
@@ -314,7 +314,10 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
                           </button>
                         ) : isCompleted ? (
                           <button
-                            onClick={() => handleClaimReward(selectedEvent, obj.id)}
+                            onClick={event => {
+                              event.stopPropagation();
+                              handleClaimReward(selectedEvent, obj.id);
+                            }}
                             className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-mono font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30 border border-emerald-400 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2 animate-bounce"
                           >
                             <Gift className="w-4 h-4" />

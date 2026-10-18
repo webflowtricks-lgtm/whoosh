@@ -157,15 +157,16 @@ export default function App() {
       return {
         master: typeof saved.master === 'number' ? Math.max(0, Math.min(1, saved.master)) : 1,
         effects: typeof saved.effects === 'number' ? Math.max(0, Math.min(1, saved.effects)) : 1,
-        music: typeof saved.music === 'number' ? Math.max(0, Math.min(1, saved.music)) : 0.3,
+        music: typeof saved.music === 'number' ? Math.max(0, Math.min(1, saved.music)) : 0.23,
       };
     } catch {
-      return { master: 1, effects: 1, music: 0.3 };
+      return { master: 1, effects: 1, music: 0.23 };
     }
   });
   const characterSelectMusicRef = useRef<HTMLAudioElement | null>(null);
   const battleMusicRef = useRef<HTMLAudioElement | null>(null);
   const resultMusicRef = useRef<HTMLAudioElement | null>(null);
+  const resultMusicGainRef = useRef(4);
   const resultMusicGain = 4;
   const [isSandbox, setIsSandbox] = useState(false);
   const [sandboxPauseChakraGen, setSandboxPauseChakraGen] = useState(false);
@@ -263,7 +264,20 @@ export default function App() {
           ? serverProfile.collectedCardIds
           : (serverProfile.collectedCardIds ? [serverProfile.collectedCardIds] : []);
         // Union (não destrutiva) entre coleção local e do servidor
-        const merged = Array.from(new Set([...localCollected, ...serverCollected]));
+        const collectedCounts = new Map<string, { local: number; server: number }>();
+        for (const id of localCollected) {
+          const counts = collectedCounts.get(id) || { local: 0, server: 0 };
+          counts.local += 1;
+          collectedCounts.set(id, counts);
+        }
+        for (const id of serverCollected) {
+          const counts = collectedCounts.get(id) || { local: 0, server: 0 };
+          counts.server += 1;
+          collectedCounts.set(id, counts);
+        }
+        const merged = Array.from(collectedCounts).flatMap(([id, counts]) =>
+          Array.from({ length: Math.max(counts.local, counts.server) }, () => id),
+        );
         const mergedUser = {
           ...user,
           ...serverProfile,
@@ -427,7 +441,7 @@ export default function App() {
     const musicVolume = 0.45 * audioSettings.music * audioSettings.master;
     if (battleMusicRef.current) battleMusicRef.current.volume = musicVolume;
     if (characterSelectMusicRef.current) characterSelectMusicRef.current.volume = musicVolume;
-    if (resultMusicRef.current) resultMusicRef.current.volume = Math.min(1, musicVolume * resultMusicGain);
+    if (resultMusicRef.current) resultMusicRef.current.volume = Math.min(1, musicVolume * resultMusicGainRef.current);
   }, [audioSettings.music, audioSettings.master]);
 
   const stopCharacterSelectMusic = () => {
@@ -461,9 +475,11 @@ export default function App() {
   const playResultMusic = (soundName: 'Win' | 'Lose') => {
     if (isMuted) return;
     stopResultMusic();
-    const audio = new Audio(`/static/audio/${soundName}.mp3`);
+    resultMusicGainRef.current = soundName === 'Win' ? 1 : resultMusicGain;
+    const audioFileName = soundName === 'Win' ? 'win.mp3' : `${soundName}.mp3`;
+    const audio = new Audio(`/static/audio/${audioFileName}`);
     audio.preload = 'auto';
-    audio.volume = Math.min(1, 0.45 * audioSettings.music * audioSettings.master * resultMusicGain);
+    audio.volume = Math.min(1, 0.45 * audioSettings.music * audioSettings.master * resultMusicGainRef.current);
     resultMusicRef.current = audio;
     audio.onended = () => {
       if (resultMusicRef.current === audio) resultMusicRef.current = null;
@@ -1202,6 +1218,7 @@ export default function App() {
             onToggleMute={() => setIsMuted(!isMuted)}
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
+            playWinSound={playWinSound}
             playUahSound={playUahSound}
             onOpenAdmin={() => {
               if (user?.username.trim().toLowerCase() === '2') setScreen('admin');
@@ -1231,6 +1248,7 @@ export default function App() {
             onToggleMute={() => setIsMuted(!isMuted)}
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
+            playWinSound={playWinSound}
             playUahSound={playUahSound}
             onOpenAdmin={() => {
               if (user?.username.trim().toLowerCase() === '2') setScreen('admin');

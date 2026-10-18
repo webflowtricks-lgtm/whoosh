@@ -1207,6 +1207,7 @@ export interface QuestMaintenanceMail {
   createdAt: string;
   rewards: QuestReward[];
   claimedAt?: string;
+  claimedRouletteCardIds?: string[];
 }
 
 // 🃏 Ninja Cards — Figuras colecionáveis (puramente estéticas, sem poder de combate)
@@ -1309,7 +1310,7 @@ export interface QuestGoal {
 }
 
 export interface QuestReward {
-  type: 'title' | 'unlock_character' | 'frame' | 'banner' | 'card' | 'ryos' | 'gems';
+  type: 'title' | 'unlock_character' | 'frame' | 'banner' | 'card' | 'card_pack' | 'ryos' | 'gems';
   value: string; // Título, nome do personagem, nome/descrição da moldura ou banner, ou ID do card
   imageUrl?: string; // URL da imagem da moldura ou banner de fundo do perfil (ou imagem do card)
   rarity?: CardRarity;

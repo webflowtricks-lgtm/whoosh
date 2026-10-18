@@ -206,10 +206,30 @@
       "naruto-modo-s-bio",
       "sasuke-marca-amaldi-oada",
       "sakura-for-a-bruta",
-      "itachi-genjutsu-supremo"
+      "itachi-genjutsu-supremo",
+      "kinkaku-(r)-base",
+      "baki-base",
+      "dodai-(s)-base",
+      "sakura-for-a-bruta",
+      "orochimaru-base",
+      "gengetsu-hozuki-(r)-base",
+      "sakura-haruno-(s)-base",
+      "jinin-akebino-(r)-base",
+      "misumi-tsurugi-base",
+      "rock-lee-base",
+      "tayuya-base",
+      "temari-base",
+      "corrupted-obito-base",
+      "choji-akimichi-(s)-base",
+      "sakura-base",
+      "kisame-hoshigaki-base",
+      "white-snake-orochimaru-(s)-base",
+      "zabuza-momochi-(r)-base",
+      "shigure-base",
+      "orochimaru-base"
     ],
     "ryos": 6500,
-    "gems": 5020,
+    "gems": 5000,
     "village": "kumogakure",
     "villageChangeCount": 0
   },
@@ -262,7 +282,163 @@
     "username": "4",
     "password": "4",
     "name": "4",
-    "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg"
+    "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+    "village": "konoha",
+    "villageChangeCount": 0,
+    "ryos": 2000,
+    "gems": 1080,
+    "collectedCardIds": [
+      "tobirama-senju-(r)-base",
+      "orochimaru-(s)-base",
+      "tenten-base",
+      "human-path-pain-(s)-base",
+      "one-tailed-naruto-base",
+      "hanzo-(r)-base",
+      "hiruko-sasori-(s)-base",
+      "asuma-sarutobi-base",
+      "kakuzu-(s)-base",
+      "madara-uchiha-(s)-base",
+      "jugo-(s)-base",
+      "ao-(s)-base",
+      "deva-path-pain-(s)-base",
+      "anko-mitarashi-base",
+      "jinpachi-munashi-(r)-base",
+      "killer-b-(s)-base",
+      "asuma-sarutobi-base",
+      "danzo-shimura-(s)-base",
+      "kabuto-yakushi-base",
+      "itachi-genjutsu-supremo",
+      "kazekage-gaara-(s)-base",
+      "preta-path-pain-(s)-base",
+      "preta-path-pain-(s)-base",
+      "haku-base",
+      "gengetsu-hozuki-(r)-base",
+      "choza-akimichi-base",
+      "fukasaku-and-shima-(s)-base",
+      "ginkaku-(r)-base",
+      "choza-akimichi-base",
+      "deidara-(s)-base",
+      "1",
+      "kabuto-yakushi-(s)-base",
+      "123",
+      "killer-b-(s)-base",
+      "haku-base",
+      "neji-hyuga-(s)-base",
+      "ameyuri-ringo-(r)-base",
+      "yondaime-minato-base",
+      "rock-lee-base",
+      "chiyo-(s)-base",
+      "curse-mark-sasuke-(s)-base",
+      "true-form-sasori-(s)-base",
+      "orochimaru-base",
+      "kabuto-yakushi-base",
+      "dodai-(s)-base",
+      "corrupted-obito-base",
+      "rock-lee-base",
+      "hinata-base",
+      "yamato-(s)-base",
+      "naruto-modo-s-bio",
+      "hoshigaki-kisame-body-double-(s)-base"
+    ],
+    "questMaintenanceInbox": [
+      {
+        "id": "f77da750ca31dc15bda79d5f5be95298",
+        "questId": "admin-message",
+        "subject": "Bem Vindo",
+        "message": "Olá!",
+        "createdAt": "2026-10-17T19:22:12.081Z",
+        "rewards": [
+          {
+            "type": "ryos",
+            "value": "500"
+          }
+        ],
+        "claimedAt": "2026-10-17T19:22:45.803Z"
+      },
+      {
+        "id": "9bdb3802de9d0b51c2a8fa2c00f0edf8",
+        "questId": "admin-message",
+        "subject": "Olá",
+        "message": "asdasddsad",
+        "createdAt": "2026-10-17T19:23:59.971Z",
+        "rewards": [
+          {
+            "type": "gems",
+            "value": "1000"
+          }
+        ],
+        "claimedAt": "2026-10-17T19:26:15.774Z"
+      },
+      {
+        "id": "98d42e824a9295d9c5bfeb53495b5c5c",
+        "questId": "admin-message",
+        "subject": "aaa",
+        "message": "adadsasd",
+        "createdAt": "2026-10-17T19:27:15.693Z",
+        "rewards": [
+          {
+            "type": "card",
+            "value": "1"
+          }
+        ],
+        "claimedAt": "2026-10-17T19:27:32.531Z"
+      },
+      {
+        "id": "8ed9f2c24f5275a1b8b1b367f0b9ed4f",
+        "questId": "admin-message",
+        "subject": "4444",
+        "message": "asasdasd",
+        "createdAt": "2026-10-17T19:28:34.186Z",
+        "rewards": [
+          {
+            "type": "card",
+            "value": "123"
+          }
+        ],
+        "claimedAt": "2026-10-17T19:29:07.868Z"
+      },
+      {
+        "id": "e6b78bd94307befae9172c9ba76ae308",
+        "questId": "admin-message",
+        "subject": "asadsd",
+        "message": "a",
+        "createdAt": "2026-10-17T19:45:23.113Z",
+        "rewards": [
+          {
+            "type": "card_pack",
+            "value": "4"
+          }
+        ],
+        "claimedRouletteCardIds": [
+          "true-form-sasori-(s)-base",
+          "orochimaru-base",
+          "kabuto-yakushi-base",
+          "dodai-(s)-base"
+        ],
+        "claimedAt": "2026-10-17T19:45:56.246Z"
+      },
+      {
+        "id": "6fe62e933f23d54f1d305427bb131d27",
+        "questId": "admin-message",
+        "subject": "5",
+        "message": "as",
+        "createdAt": "2026-10-17T19:48:55.486Z",
+        "rewards": [
+          {
+            "type": "card_pack",
+            "value": "5"
+          }
+        ],
+        "claimedRouletteCardIds": [
+          "rock-lee-base",
+          "hinata-base",
+          "yamato-(s)-base",
+          "naruto-modo-s-bio",
+          "hoshigaki-kisame-body-double-(s)-base"
+        ],
+        "claimedAt": "2026-10-17T19:54:30.124Z"
+      }
+    ]
   },
   {
     "username": "abce",
@@ -418,7 +594,10 @@
       ]
     },
     "questAiBattleIds": [
-      "1aec69ac-0b15-4ba8-ad7d-8c4111cbe47e"
+      "1aec69ac-0b15-4ba8-ad7d-8c4111cbe47e",
+      "c85d9c12-f63f-41a2-ad48-bf0595f3519e",
+      "d7e0592f-8026-498d-8c68-95075cd2decc",
+      "1792301738342-z6i38a6ehp"
     ],
     "unlockedCharacterNames": [
       "Haku"
@@ -427,7 +606,50 @@
       "Novo Título"
     ],
     "collectedCardIds": [
-      "naruto-base"
+      "naruto-base",
+      "gaara-base",
+      "regimental-commander-gaara-(s)-base",
+      "hashirama-senju-(r)-base",
+      "deva-path-pain-(s)-base",
+      "madara-uchiha-(s)-base",
+      "kimimaro-base",
+      "kushimaru-kuriarare-(r)-base",
+      "deidara-(r)-base",
+      "hanabi-hyuga-base",
+      "shizune-base",
+      "kakashi-hatake-(s)-base",
+      "ginkaku-(r)-base",
+      "temari-base",
+      "jirobo-(r)-base",
+      "asura-path-pain-(s)-base",
+      "kabuto-yakushi-(s)-base",
+      "minato-namikaze-base",
+      "yamato-(s)-base",
+      "choji-akimichi-(s)-base",
+      "dodai-(s)-base",
+      "hashirama-senju-base",
+      "true-form-sasori-(s)-base",
+      "kankuro-(s)-base",
+      "killer-b-(s)-base",
+      "mangekyo-sasuke-(s)-base",
+      "sakura-for-a-bruta",
+      "eight-tailed-b-(s)-base",
+      "ino-yamanaka-(s)-base",
+      "kankuro-base",
+      "choji-akimichi-(s)-base",
+      "sakura-for-a-bruta",
+      "human-path-pain-(s)-base",
+      "curse-mark-sasuke-base",
+      "kitsuchi-(s)-base",
+      "hayate-gekko-base",
+      "shukaku-gaara-base",
+      "hinata-base",
+      "white-snake-orochimaru-(s)-base",
+      "sage-mode-jiraiya-(s)-base",
+      "sakura-base",
+      "rehabilitated-gaara-base",
+      "jugo-(s)-base",
+      "ino-base"
     ],
     "unlockedBanners": [
       "Banne"
@@ -436,7 +658,7 @@
       "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1200&auto=format&fit=crop"
     ],
     "equippedBannerUrl": "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1200&auto=format&fit=crop",
-    "gems": 25120,
+    "gems": 25077,
     "completedQuestIds": [
       "quest_1784869393005"
     ],

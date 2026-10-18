@@ -537,9 +537,9 @@ body.processing-cursor * {
   transform: translate(-50%, -50%);
 }
 
-.lobby-mail-icon {
-  width: 2rem;
-  height: 2rem;
+.lobby-mission-icon.lobby-mail-icon {
+  width: 4rem;
+  height: 4rem;
   color: #fff1cf;
   filter: drop-shadow(0 2px 3px #000a);
 }
@@ -569,6 +569,11 @@ body.processing-cursor * {
   .lobby-mission-button {
     width: 5rem;
     height: 5rem;
+  }
+
+  .lobby-mail-icon {
+    width: 3rem;
+    height: 3rem;
   }
 }
 
@@ -825,6 +830,10 @@ body.processing-cursor * {
     animation: none;
   }
 
+  .new-card-diamond {
+    animation: none;
+  }
+
   .lobby-events-mission-diamond > svg {
     animation: none;
   }
@@ -857,7 +866,7 @@ body.processing-cursor * {
   box-shadow: 0 4px 12px #0008;
 }
 
-.lobby-quick-actions > button,
+.lobby-quick-actions > button:not(.lobby-inbox-quick-action),
 .lobby-quick-actions-menu button {
   display: grid;
   width: 2rem;
@@ -870,10 +879,14 @@ body.processing-cursor * {
   cursor: pointer;
 }
 
-.lobby-quick-actions > button svg,
+.lobby-quick-actions > button:not(.lobby-inbox-quick-action) svg,
 .lobby-quick-actions-menu button svg {
   width: 1rem;
   height: 1rem;
+}
+
+.lobby-inbox-quick-action {
+  margin-top: .55rem;
 }
 
 .lobby-modal-backdrop {
@@ -1026,6 +1039,19 @@ body.processing-cursor * {
   width: 1rem;
   height: 1rem;
   object-fit: contain;
+}
+
+.lobby-mail-message li .lobby-mail-pack-icons {
+  display: inline-flex;
+  max-width: 14rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .2rem;
+}
+
+.lobby-mail-message li .lobby-mail-pack-icons img {
+  width: 2rem;
+  height: 4.6rem;
 }
 
 .lobby-mail-claim {
@@ -2867,9 +2893,54 @@ html, body {
    SCROLLBAR PERSONALIZADA (cards de perfil, modais etc.)
    Tema Ã¢mbar/ninja com thumb em gradiente e brilho sutil.
    ========================================================= */
+.new-card-diamond {
+  filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.65));
+  animation: new-card-diamond-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes new-card-diamond-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.55));
+  }
+  50% {
+    filter: drop-shadow(0 0 11px rgba(56, 189, 248, 1));
+  }
+}
+
+@keyframes card-gallery-lightbox-idle {
+  0%, 100% {
+    transform: perspective(700px) rotateX(-3deg) rotateY(-10deg) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: perspective(700px) rotateX(3deg) rotateY(10deg) translate3d(0, -3px, 0);
+  }
+}
+
+.card-gallery-lightbox-idle {
+  transform-style: preserve-3d;
+  animation: card-gallery-lightbox-idle 10s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-gallery-lightbox-idle {
+    animation: none;
+  }
+}
+
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #d97706 rgba(15, 23, 42, 0.35);
+}
+.custom-scrollbar.green-scrollbar {
+  scrollbar-color: #22c55e rgba(15, 23, 42, 0.35);
+}
+.custom-scrollbar.green-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4ade80, #22c55e 55%, #16a34a);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.35);
+}
+.custom-scrollbar.green-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #86efac, #4ade80 55%, #22c55e);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
 }
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;

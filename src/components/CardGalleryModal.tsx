@@ -10,9 +10,12 @@ import { UserProfile, NinjaCard, CardRarity } from '../types';
 import { getCards, fetchCardsFromServer, CARD_RARITY_META, RARITY_ORDER, rarityFx } from '../lib/cardStorage';
 import { useCollection } from '../lib/collection';
 import { useLanguage } from '../lib/i18n';
+import { CARD_RARITY_GLOW, Tilt3D } from './ProfileCardModal';
 
 interface CardGalleryModalProps {
   user: UserProfile;
+  newCardIds: string[];
+  onCardViewed: (cardId: string) => void;
   onClose: () => void;
   onUpdateUser?: (updatedUser: UserProfile) => void;
   playClickSound: () => void;
@@ -24,7 +27,7 @@ function cardImage(card: NinjaCard): string {
   return `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${card.slug}/icon.jpg`;
 }
 
-export default function CardGalleryModal({ user, onClose, playClickSound, onOpenShopPacks }: CardGalleryModalProps) {
+export default function CardGalleryModal({ user, newCardIds, onCardViewed, onClose, playClickSound, onOpenShopPacks }: CardGalleryModalProps) {
   const { t } = useLanguage();
   const [cards, setCards] = useState<NinjaCard[]>(() => getCards());
   const [rarityFilter, setRarityFilter] = useState<CardRarity | 'todas'>('todas');
@@ -33,6 +36,8 @@ export default function CardGalleryModal({ user, onClose, playClickSound, onOpen
 
   const { owned } = useCollection(user, undefined, cards);
   const gems = user.gems ?? 0;
+  const cardCopyCounts = new Map<string, number>();
+  (user.collectedCardIds || []).forEach(id => cardCopyCounts.set(id, (cardCopyCounts.get(id) || 0) + 1));
 
   useEffect(() => {
     fetchCardsFromServer().then(setCards);
@@ -43,6 +48,11 @@ export default function CardGalleryModal({ user, onClose, playClickSound, onOpen
     if (ownedOnly && !owned.has(card.id)) return false;
     return true;
   });
+  const newCardIdSet = new Set(newCardIds);
+  filtered.sort((left, right) =>
+    Number(owned.has(right.id) && newCardIdSet.has(right.id)) -
+    Number(owned.has(left.id) && newCardIdSet.has(left.id)),
+  );
 
   const ownedCount = cards.filter(c => owned.has(c.id)).length;
   const totalCount = cards.length;
@@ -61,7 +71,7 @@ export default function CardGalleryModal({ user, onClose, playClickSound, onOpen
         initial={false}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="relative w-full max-w-5xl h-[88vh] max-h-[800px] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-800"
+        className="relative w-full max-w-5xl h-[88vh] max-h-[800px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-800"
       >
         {/* Top Header Bar */}
         <div className="p-4 sm:p-5 bg-white border-b border-slate-200 flex items-center justify-between gap-4 z-10">
@@ -76,6 +86,7 @@ export default function CardGalleryModal({ user, onClose, playClickSound, onOpen
           <div className="flex items-center gap-3">
             <button
               onClick={() => { playClickSound(); onOpenShopPacks(); }}
+              data-sound="Click"
               className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer border bg-blue-600 hover:bg-blue-700 border-blue-700 text-white shadow-md shadow-blue-600/20 active:scale-95"
               title={t('Ver pacotes na loja', 'View packs in the shop')}
             >
@@ -177,13 +188,20 @@ export default function CardGalleryModal({ user, onClose, playClickSound, onOpen
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {filtered.map(card => {
                 const isOwned = owned.has(card.id);
+                const isNew = isOwned && newCardIds.includes(card.id);
                 const meta = CARD_RARITY_META[card.rarity];
                 const fx = isOwned ? rarityFx(card.rarity) : null;
                 return (
                   <div
                     key={card.id}
-                    onClick={() => { playClickSound(); setSelectedCard(card); }}
-                    className={`relative aspect-[3/4] rounded-2xl border-2 overflow-hidden cursor-pointer shadow-lg transition-transform hover:scale-[1.03] group ${
+                    onClick={() => {
+                      playClickSound();
+                      if (isNew) onCardViewed(card.id);
+                      setSelectedCard(card);
+                    }}
+                    className="group relative aspect-[3/4] cursor-pointer overflow-visible transition-transform hover:scale-[1.03]"
+                  >
+                    <div className={`absolute inset-0 overflow-hidden rounded-2xl border-2 shadow-lg ${
                       isOwned
                         ? `${meta.border} ${meta.glow} shadow-xl bg-slate-900 ${fx?.frame || ''}`
                         : 'border-slate-800 bg-slate-950/80'
@@ -212,12 +230,17 @@ export default function CardGalleryModal({ user, onClose, playClickSound, onOpen
                     </div>
 
                     {/* Rarity badge */}
-                    <div className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[8px] font-mono font-black uppercase tracking-wider border ${meta.chip}`}>
+                    <div className={`absolute left-1.5 top-1.5 rounded px-1.5 py-0.5 text-[8px] font-mono font-black uppercase tracking-wider border ${meta.chip}`}>
                       ◆ {meta.label}
                     </div>
                     {!isOwned && (
                       <div className="absolute top-1.5 right-1.5 text-[9px] font-mono text-slate-500 px-1.5 py-0.5 rounded bg-slate-950/70 border border-slate-800">
                         Fig.
+                      </div>
+                    )}
+                    {isOwned && (
+                      <div className="absolute right-1.5 top-1.5 rounded border border-white/20 bg-slate-950/80 px-1.5 py-0.5 text-[8px] font-mono font-black text-white">
+                        ×{cardCopyCounts.get(card.id) || 1}
                       </div>
                     )}
 
@@ -234,6 +257,16 @@ export default function CardGalleryModal({ user, onClose, playClickSound, onOpen
                         <p className="text-[8px] font-mono text-slate-600 uppercase tracking-wider">{t('Não coletada', 'Not collected')}</p>
                       )}
                     </div>
+                  </div>
+                    {isNew && (
+                      <span
+                        aria-label={t('Nova Ninja Card', 'New Ninja Card')}
+                        title={t('Nova Ninja Card', 'New Ninja Card')}
+                        className="new-card-diamond pointer-events-none absolute -left-2.5 -top-4.5 z-20 text-5xl leading-none text-sky-400"
+                      >
+                        ◆
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -268,48 +301,60 @@ export default function CardGalleryModal({ user, onClose, playClickSound, onOpen
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.9, y: 15 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`relative w-full max-w-xs aspect-[3/4] rounded-3xl border-2 overflow-hidden shadow-2xl ${CARD_RARITY_META[selectedCard.rarity].border} ${CARD_RARITY_META[selectedCard.rarity].glow}`}
+                className="flex max-h-full w-full max-w-xs flex-col items-center"
               >
-                {owned.has(selectedCard.id) ? (
-                  <>
-                    <img
-                      src={cardImage(selectedCard)}
-                      alt={selectedCard.characterName}
-                      className="absolute inset-0 w-full h-full object-cover"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/20" />
-                    <div className={`absolute top-3 left-3 px-2 py-1 rounded-lg text-[10px] font-mono font-black uppercase tracking-wider border ${CARD_RARITY_META[selectedCard.rarity].chip}`}>
-                      ◆ {CARD_RARITY_META[selectedCard.rarity].label}
-                    </div>
-                    <div className="absolute bottom-0 inset-x-0 p-4 space-y-2">
-                      <p className={`text-xs font-mono font-bold uppercase tracking-wider ${CARD_RARITY_META[selectedCard.rarity].text}`}>
-                        #{cardNumber(selectedCard.id)}
-                      </p>
-                      <h3 className="text-xl font-black text-white leading-tight">{selectedCard.characterName}</h3>
-                      {selectedCard.variant && (
-                        <span className="inline-block text-[9px] font-mono font-bold text-slate-300 bg-slate-950/70 border border-slate-700 px-2 py-0.5 rounded-full">
-                          {selectedCard.variant}
-                        </span>
-                      )}
-                      <p className="text-[11px] text-slate-300 leading-snug">{selectedCard.description}</p>
-                    </div>
-                  </>
-                ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950 p-6 text-center">
-                    <Lock className="w-10 h-10 text-slate-600" />
-                    <p className="text-slate-400 font-mono text-sm">{t('Figura não coletada', 'Figure not collected')}</p>
-                    <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-1 rounded-lg border ${CARD_RARITY_META[selectedCard.rarity].chip}`}>
-                      ◆ {CARD_RARITY_META[selectedCard.rarity].label}
-                    </span>
+                <div className="card-gallery-lightbox-idle">
+                  <Tilt3D
+                    className={`relative mb-3 aspect-[3/4] w-[min(82vw,520px)] max-h-[78dvh] overflow-hidden rounded-2xl border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[selectedCard.rarity].border} ${CARD_RARITY_META[selectedCard.rarity].glow}`}
+                    glareRadius="rounded-2xl"
+                  >
+                    {owned.has(selectedCard.id) ? (
+                      <>
+                        <img
+                          src={cardImage(selectedCard)}
+                          alt={selectedCard.characterName}
+                          className="absolute inset-0 h-full w-full object-cover"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        {rarityFx(selectedCard.rarity) && (
+                          <span className={`pointer-events-none absolute inset-0 ${rarityFx(selectedCard.rarity)?.sweep}`} />
+                        )}
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950 p-6 text-center">
+                        <Lock className="h-10 w-10 text-slate-600" />
+                        <p className="font-mono text-sm text-slate-400">{t('Figura não coletada', 'Figure not collected')}</p>
+                      </div>
+                    )}
+                  </Tilt3D>
+                </div>
+
+                <div className="w-full space-y-2 text-center">
+                  <span
+                    className="mb-2 inline-block rounded-lg border border-white/70 px-3 py-1 text-xs font-mono font-black uppercase text-white ring-1 ring-white/50"
+                    style={{
+                      background: CARD_RARITY_GLOW[selectedCard.rarity].background,
+                      boxShadow: selectedCard.rarity === 'comum' || selectedCard.rarity === 'raro'
+                        ? 'none'
+                        : `0 0 18px ${CARD_RARITY_GLOW[selectedCard.rarity].shadow}`,
+                      textShadow: selectedCard.rarity === 'comum' || selectedCard.rarity === 'raro'
+                        ? 'none'
+                        : `0 0 8px ${CARD_RARITY_GLOW[selectedCard.rarity].shadow}`,
+                    }}
+                  >
+                    #{cardNumber(selectedCard.id)} • {CARD_RARITY_META[selectedCard.rarity].label}
+                  </span>
+                  <div className="flex items-center justify-center gap-2">
+                    <h3 className="min-w-0 truncate text-xl font-black leading-tight text-white">
+                      {owned.has(selectedCard.id) ? selectedCard.characterName : '???'}
+                    </h3>
+                    {owned.has(selectedCard.id) && (
+                      <span className="shrink-0 rounded-lg border border-white/20 bg-slate-950/75 px-2 py-1 text-[10px] font-mono font-black text-white">
+                        ×{cardCopyCounts.get(selectedCard.id) || 1}
+                      </span>
+                    )}
                   </div>
-                )}
-                <button
-                  onClick={() => setSelectedCard(null)}
-                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-slate-950/70 border border-slate-700 text-slate-200 hover:text-white transition cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                </div>
               </motion.div>
             </motion.div>
           )}

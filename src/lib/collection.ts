@@ -56,8 +56,7 @@ export function useCollection(
 
   const grantCards = (ids: string[]) => {
     if (!user || !onUpdateUser) return;
-    const merged = Array.from(new Set([...collectedIds, ...ids]));
-    onUpdateUser({ ...user, collectedCardIds: merged });
+    onUpdateUser({ ...user, collectedCardIds: [...collectedIds, ...ids] });
   };
 
   const openPack = (cards: NinjaCard[], options?: { count?: number; gemsCost?: number; pack?: NinjaPack }): PackResult => {
@@ -93,10 +92,9 @@ export function useCollection(
       granted.push(rarityCandidates[Math.floor(Math.random() * rarityCandidates.length)]);
     }
     if (user && onUpdateUser) {
-      const merged = Array.from(new Set([...collectedIds, ...granted.map(c => c.id)]));
       onUpdateUser({
         ...user,
-        collectedCardIds: merged,
+        collectedCardIds: [...collectedIds, ...granted.map(c => c.id)],
         gems: Math.max(0, (user.gems ?? 0) - gemsCost),
       });
     }

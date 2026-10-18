@@ -9,6 +9,7 @@ const THROTTLE_MS = 120;
 let effectsVolumeMultiplier = 1;
 const LOUD_EFFECTS = new Set(['NextTurn', 'ApplySkill', 'Cancel', 'Click', 'Target', 'Death']);
 const soundTemplates = new Map<string, HTMLAudioElement>();
+const SOUND_EXTENSIONS: Record<string, string> = { cash: 'wav', denied: 'wav' };
 
 export const setEffectsVolumeMultiplier = (value: number) => {
   effectsVolumeMultiplier = Math.max(0, Math.min(1, value));
@@ -29,7 +30,7 @@ export const playGlobalSound = (soundName: string, volume = 0.45) => {
   try {
     let template = soundTemplates.get(soundName);
     if (!template) {
-      template = new Audio(`/static/audio/${soundName}.mp3`);
+      template = new Audio(`/static/audio/${soundName}.${SOUND_EXTENSIONS[soundName] || 'mp3'}`);
       template.preload = 'auto';
       soundTemplates.set(soundName, template);
       template.load();
@@ -49,7 +50,7 @@ export const playGlobalSound = (soundName: string, volume = 0.45) => {
 export const preloadGlobalSounds = (soundNames: string[]) => {
   soundNames.forEach(soundName => {
     if (soundTemplates.has(soundName)) return;
-    const audio = new Audio(`/static/audio/${soundName}.mp3`);
+    const audio = new Audio(`/static/audio/${soundName}.${SOUND_EXTENSIONS[soundName] || 'mp3'}`);
     audio.preload = 'auto';
     soundTemplates.set(soundName, audio);
     audio.load();

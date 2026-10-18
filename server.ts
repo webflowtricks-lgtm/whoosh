@@ -20,7 +20,17 @@ import {
   reconcileQuestMaintenanceProfile,
   type QuestDefinition,
 } from "./src/lib/questMaintenance";
-import type { Quest, QuestMaintenanceMail, QuestReward } from "./src/types";
+import { buildDefaultCards } from "./src/lib/cardStorage";
+import {
+  CARD_ROULETTE_CHANCES,
+  CARD_ROULETTE_COST,
+  CARD_PACK_REWARD_MAX,
+  cardPackRewardQuantity,
+  drawCardRoulette,
+  isValidCardRouletteChances,
+  redeemCardPackRewards,
+} from "./src/lib/cardRoulette";
+import type { NinjaCard, Quest, QuestMaintenanceMail, QuestReward } from "./src/types";
 
 const DATA_DIR = path.resolve(process.env.WHOOSH_DATA_DIR || path.join(process.cwd(), "src", "data"));
 const USERS_FILE = path.join(DATA_DIR, "users.json");
@@ -35,6 +45,7 @@ const BANNERS_FILE = path.join(DATA_DIR, "banners.json");
 const FRAMES_FILE = path.join(DATA_DIR, "frames.json");
 const CARDS_FILE = path.join(DATA_DIR, "cards.json");
 const CARD_PACKS_FILE = path.join(DATA_DIR, "card_packs.json");
+const CARD_ROULETTE_SETTINGS_FILE = path.join(DATA_DIR, "card_roulette_settings.json");
 const AI_SETTINGS_FILE = path.join(DATA_DIR, "ai_settings.json");
 const MATCH_ROOMS_FILE = path.join(DATA_DIR, "match_rooms.json");
 const ACCOUNT_SESSIONS_FILE = path.join(DATA_DIR, "account_sessions.json");
@@ -337,8 +348,9 @@ function persistJsonFile<T>(filePath: string, data: T): boolean {
 function isQuestMaintenanceReward(value: unknown): value is QuestReward {
   if (!value || typeof value !== "object") return false;
   const reward = value as Record<string, unknown>;
-  if (!["title", "unlock_character", "frame", "banner", "card", "ryos", "gems"].includes(String(reward.type)) ||
-      typeof reward.value !== "string" || reward.value.length > 2048) return false;
+  if (!["title", "unlock_character", "frame", "banner", "card", "card_pack", "ryos", "gems"].includes(String(reward.type)) ||
+      typeof reward.value !== "string" || !reward.value.trim() || reward.value.length > 2048) return false;
+  if (reward.type === "card_pack" && cardPackRewardQuantity(reward.value) === null) return false;
   if ((reward.type === "ryos" || reward.type === "gems") &&
       (!Number.isSafeInteger(Number(reward.value)) || Number(reward.value) <= 0)) return false;
   return reward.imageUrl === undefined || typeof reward.imageUrl === "string" && reward.imageUrl.length <= 2048;
@@ -1164,7 +1176,7 @@ async function startServer() {
 
   const globalConfigWritePaths = new Set([
     "/api/characters", "/api/ranks", "/api/shop", "/api/events",
-    "/api/banners", "/api/frames", "/api/cards", "/api/cards/packs",
+    "/api/banners", "/api/frames", "/api/cards", "/api/cards/packs", "/api/cards/roulette-settings",
     "/api/quests", "/api/ai-settings", "/api/config/import",
   ]);
   app.use((req, res, next) => {
@@ -2183,6 +2195,72 @@ async function startServer() {
     res.json({ success: true, message: "Cards atualizados no servidor com sucesso!" });
   });
 
+  app.get("/api/cards/roulette-settings", (_req, res) => {
+    const chances = readJSON<unknown>(CARD_ROULETTE_SETTINGS_FILE, CARD_ROULETTE_CHANCES);
+    res.json({
+      success: true,
+      chances: isValidCardRouletteChances(chances) ? chances : CARD_ROULETTE_CHANCES,
+    });
+  });
+
+  app.post("/api/cards/roulette-settings", (req, res) => {
+    const chances = req.body?.chances;
+    if (!isValidCardRouletteChances(chances)) {
+      return res.status(400).json({ error: "As chances de todas as raridades devem somar 100%." });
+    }
+    if (!persistJsonFile(CARD_ROULETTE_SETTINGS_FILE, chances)) {
+      return res.status(500).json({ error: "Não foi possível salvar as chances da roleta." });
+    }
+    return res.json({ success: true });
+  });
+
+  app.post("/api/cards/roulette/draw", requireActiveMatchSession, (req, res) => {
+    const username = typeof req.body?.username === "string" ? req.body.username.trim().toLowerCase() : "";
+    if (!username || username === "convidado") {
+      return res.status(403).json({ error: "Entre em uma conta para usar a roleta." });
+    }
+    const users = readJSON<any[]>(USERS_FILE, []);
+    const user = users.find(profile => profile.username?.trim().toLowerCase() === username);
+    if (!user) return res.status(404).json({ error: "Usuário não encontrado." });
+
+    const ryos = Number.isSafeInteger(user.ryos) && user.ryos >= 0 ? user.ryos : 1500;
+    if (ryos < CARD_ROULETTE_COST) {
+      return res.status(409).json({ error: "Você não tem moedas suficientes para girar a roleta." });
+    }
+
+    const configuredCards = readJSON<any[]>(CARDS_FILE, []);
+    const cards = configuredCards.length > 0 ? configuredCards : buildDefaultCards();
+    const configuredChances = readJSON<unknown>(CARD_ROULETTE_SETTINGS_FILE, CARD_ROULETTE_CHANCES);
+    const chances = isValidCardRouletteChances(configuredChances)
+      ? configuredChances
+      : CARD_ROULETTE_CHANCES;
+    let card;
+    try {
+      const randomBytesValue = randomBytes(8);
+      card = drawCardRoulette(
+        cards,
+        randomBytesValue.readUInt32BE(0) / 0x1_0000_0000,
+        randomBytesValue.readUInt32BE(4) / 0x1_0000_0000,
+        chances,
+      );
+    } catch (error) {
+      return res.status(503).json({
+        error: error instanceof Error ? error.message : "Não foi possível realizar o sorteio.",
+      });
+    }
+
+    user.ryos = ryos - CARD_ROULETTE_COST;
+    const collectedCardIds = Array.isArray(user.collectedCardIds)
+      ? user.collectedCardIds.filter((id: unknown): id is string => typeof id === "string")
+      : [];
+    const isDuplicate = collectedCardIds.includes(card.id);
+    user.collectedCardIds = [...collectedCardIds, card.id];
+    writeJSON(USERS_FILE, users);
+
+    const { password: _password, googleId: _googleId, email: _email, ...publicUser } = user;
+    res.json({ success: true, card, user: publicUser, isDuplicate });
+  });
+
   // Card Packs API
   app.get("/api/cards/packs", (req, res) => {
     const packs = readJSON<any[]>(CARD_PACKS_FILE, []);
@@ -2560,6 +2638,58 @@ async function startServer() {
     res.json({ success: true, messages });
   });
 
+  app.post("/api/admin/mail/send", (req, res) => {
+    const adminUsername = String(req.get("X-Account-Username") || "").trim().toLowerCase();
+    const adminSession = String(req.get("X-Account-Session") || "");
+    if (adminUsername !== "2" || !hasActiveAccountSession(adminUsername, adminSession)) {
+      return res.status(403).json({ error: "Apenas o administrador autorizado pode enviar mensagens." });
+    }
+
+    const sendToAll = req.body?.sendToAll === true;
+    const targetId = typeof req.body?.targetId === "string"
+      ? req.body.targetId.trim().toLowerCase()
+      : "";
+    const subject = typeof req.body?.subject === "string" ? req.body.subject.trim() : "";
+    const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
+    const rewards = req.body?.rewards;
+    if ((!sendToAll && (!targetId || targetId.length > 80 || targetId === "convidado")) ||
+        !subject || subject.length > 120 || !message || message.length > 2000 ||
+        !Array.isArray(rewards) || rewards.length > 8 ||
+          !rewards.every(isQuestMaintenanceReward) ||
+          rewards.filter((reward: QuestReward) => reward.type === "card_pack")
+            .reduce((total: number, reward: QuestReward) => total + (cardPackRewardQuantity(reward.value) || 0), 0) > CARD_PACK_REWARD_MAX) {
+      return res.status(400).json({ error: "Destinatário, mensagem ou recompensas inválidos." });
+    }
+
+    const users = readJSON<Array<Record<string, unknown>>>(USERS_FILE, []);
+    const recipients = sendToAll
+      ? users.filter(user => typeof user.username === "string" &&
+        user.username.trim().toLowerCase() !== "convidado")
+      : users.filter(user => typeof user.username === "string" &&
+        user.username.trim().toLowerCase() === targetId);
+    if (!recipients.length) return res.status(404).json({ error: "Nenhuma conta destinatária foi encontrada." });
+
+    const createdAt = new Date().toISOString();
+    for (const recipient of recipients) {
+      const inbox = Array.isArray(recipient.questMaintenanceInbox)
+        ? recipient.questMaintenanceInbox as QuestMaintenanceMail[]
+        : [];
+      inbox.push({
+        id: randomBytes(16).toString("hex"),
+        questId: "admin-message",
+        subject,
+        message,
+        createdAt,
+        rewards: rewards as QuestReward[],
+      });
+      recipient.questMaintenanceInbox = inbox;
+    }
+    if (!persistAccountUsers(users)) {
+      return res.status(500).json({ error: "Não foi possível salvar as mensagens." });
+    }
+    return res.json({ success: true, sentCount: recipients.length });
+  });
+
   app.post("/api/quests/maintenance-inbox/claim", requireActiveMatchSession, (req, res) => {
     const username = String(req.body?.username || "").trim().toLowerCase();
     const mailId = typeof req.body?.mailId === "string" ? req.body.mailId : "";
@@ -2576,20 +2706,52 @@ async function startServer() {
     if (!mail) return res.status(404).json({ error: "Mensagem não encontrada." });
     if (mail.claimedAt) {
       const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
-      return res.json({ success: true, alreadyClaimed: true, user: publicUser });
+      const storedCardIds = Array.isArray(mail.claimedRouletteCardIds) ? mail.claimedRouletteCardIds : [];
+      const configuredCards = readJSON<NinjaCard[]>(CARDS_FILE, []);
+      const cards = configuredCards.length > 0 ? configuredCards : buildDefaultCards();
+      const rouletteCards = storedCardIds
+        .map(id => cards.find(card => card.id === id))
+        .filter((card): card is NinjaCard => !!card);
+      return res.json({ success: true, alreadyClaimed: true, user: publicUser, rouletteCards });
     }
     if (!Array.isArray(mail.rewards) || !mail.rewards.every(isQuestMaintenanceReward)) {
       return res.status(409).json({ error: "A mensagem contém recompensas inválidas e não pode ser resgatada." });
     }
 
-    const grantedRewards = grantQuestMaintenanceRewards(profile, mail.rewards);
+    const cardPackRewards = mail.rewards.filter(reward => reward.type === "card_pack");
+    const regularRewards = mail.rewards.filter(reward => reward.type !== "card_pack");
+    const configuredCards = readJSON<NinjaCard[]>(CARDS_FILE, []);
+    const cards = configuredCards.length > 0 ? configuredCards : buildDefaultCards();
+    const configuredChances = readJSON<unknown>(CARD_ROULETTE_SETTINGS_FILE, CARD_ROULETTE_CHANCES);
+    const chances = isValidCardRouletteChances(configuredChances)
+      ? configuredChances
+      : CARD_ROULETTE_CHANCES;
+    let rouletteCards: NinjaCard[];
+    try {
+      rouletteCards = redeemCardPackRewards(
+        profile,
+        cardPackRewards,
+        cards,
+        chances,
+        () => randomBytes(4).readUInt32BE(0) / 0x1_0000_0000,
+      );
+    } catch (error) {
+      return res.status(409).json({
+        error: error instanceof Error ? error.message : "Não foi possível abrir os pacotes.",
+      });
+    }
+    const grantedRewards = [
+      ...grantQuestMaintenanceRewards(profile, regularRewards),
+      ...cardPackRewards,
+    ];
+    mail.claimedRouletteCardIds = rouletteCards.map(card => card.id);
     mail.claimedAt = new Date().toISOString();
     profile.questMaintenanceInbox = inbox;
     if (!persistAccountUsers(users)) {
       return res.status(500).json({ error: "Não foi possível salvar o resgate da mensagem." });
     }
     const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
-    res.json({ success: true, user: publicUser, grantedRewards });
+    res.json({ success: true, user: publicUser, grantedRewards, rouletteCards });
   });
 
   // Environment Full Configuration Export/Import API
@@ -2607,6 +2769,10 @@ async function startServer() {
       AI_SETTINGS_FILE,
       [{ maxEnemyCharacterNumber: 69 }],
     );
+    const cardRouletteChances = readJSON<unknown>(
+      CARD_ROULETTE_SETTINGS_FILE,
+      CARD_ROULETTE_CHANCES,
+    );
 
     const configBackup = {
       appName: "Naruto Unison Combat",
@@ -2621,6 +2787,9 @@ async function startServer() {
       cards,
       cardPacks,
       aiSettings,
+      cardRouletteChances: isValidCardRouletteChances(cardRouletteChances)
+        ? cardRouletteChances
+        : CARD_ROULETTE_CHANCES,
     };
 
     res.setHeader("Content-Type", "application/json");
@@ -2636,6 +2805,10 @@ async function startServer() {
     if ((Array.isArray(data.characters) && data.characters.length === 0) ||
         (Array.isArray(data.ranks) && data.ranks.length === 0)) {
       return res.status(400).json({ error: "O catálogo de personagens e a lista de ranks não podem ficar vazios." });
+    }
+    if (data.cardRouletteChances !== undefined &&
+        !isValidCardRouletteChances(data.cardRouletteChances)) {
+      return res.status(400).json({ error: "Configuração de chances da roleta inválida." });
     }
 
     let countDetails: string[] = [];
@@ -2704,6 +2877,12 @@ async function startServer() {
     if (Array.isArray(data.cardPacks)) {
       writeJSON(CARD_PACKS_FILE, data.cardPacks);
       countDetails.push(`${data.cardPacks.length} Pacotes de Cards`);
+    }
+    if (data.cardRouletteChances !== undefined) {
+      if (!persistJsonFile(CARD_ROULETTE_SETTINGS_FILE, data.cardRouletteChances)) {
+        return res.status(500).json({ error: "Não foi possível salvar as chances da roleta importadas." });
+      }
+      countDetails.push("Chances da roleta");
     }
     if (Array.isArray(data.aiSettings)) {
       const limit = data.aiSettings[0]?.maxEnemyCharacterNumber;

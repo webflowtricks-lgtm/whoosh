@@ -19,15 +19,18 @@ import {
   VolumeX,
   X,
 } from 'lucide-react';
-import { Character, ChakraType, NinjaEvent, Quest, QuestMaintenanceMail, QuestReward, Skill, UserProfile } from '../types';
+import { Character, ChakraType, NinjaCard, NinjaEvent, Quest, QuestMaintenanceMail, QuestReward, Skill, UserProfile } from '../types';
 import { fetchCharactersFromServer, getCharacters } from '../lib/characterStorage';
 import { fetchEventsFromServer, getEvents } from '../lib/eventStorage';
 import { safeFetchJson } from '../lib/api';
 import { matchFetch } from '../lib/matchFetch';
+import { playGlobalSound } from '../lib/soundUtils';
 import { getCurrentVillageId } from '../lib/villages';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { isCharacterUnlocked } from '../lib/characterUnlocks';
+import { fetchCardsFromServer, getCards, getNewCardIds, markCardAsViewed, markNewCardIds } from '../lib/cardStorage';
+import { cardPackRewardQuantity } from '../lib/cardRoulette';
 import { useLanguage } from '../lib/i18n';
 import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
@@ -35,6 +38,7 @@ import ProfileModal from './ProfileModal';
 import ProfileCardModal from './ProfileCardModal';
 import CardGalleryModal from './CardGalleryModal';
 import GameManualModal from './GameManualModal';
+import CardPackRouletteModal from './CardPackRouletteModal';
 
 interface LobbyScreenProps {
   onStartGame: () => void;
@@ -44,6 +48,7 @@ interface LobbyScreenProps {
   onToggleMute: () => void;
   playClickSound: () => void;
   playScrollSound: () => void;
+  playWinSound: () => void;
   playUahSound: () => void;
   onOpenAdmin: () => void;
   user: UserProfile | null;
@@ -63,6 +68,7 @@ export default function LobbyScreen({
   onToggleMute,
   playClickSound,
   playScrollSound,
+  playWinSound,
   playUahSound,
   onOpenAdmin,
   user,
@@ -88,8 +94,14 @@ export default function LobbyScreen({
   const [maintenanceMessages, setMaintenanceMessages] = useState<QuestMaintenanceMail[]>([]);
   const [claimingMailId, setClaimingMailId] = useState<string | null>(null);
   const [maintenanceMailError, setMaintenanceMailError] = useState('');
+  const [rouletteReveal, setRouletteReveal] = useState<{ cards: NinjaCard[]; catalog: NinjaCard[] } | null>(null);
+  const [newCardIds, setNewCardIds] = useState<string[]>(() => user ? getNewCardIds(user.username) : []);
   const eventSwipeStartX = useRef<number | null>(null);
   const suppressEventClick = useRef(false);
+
+  useEffect(() => {
+    setNewCardIds(user ? getNewCardIds(user.username) : []);
+  }, [user?.username]);
 
   useEffect(() => {
     let active = true;
@@ -317,7 +329,17 @@ export default function LobbyScreen({
     onBattle();
   };
 
-  const updateUser = (updated: UserProfile) => onUpdateUser(updated);
+  const updateUser = (updated: UserProfile) => {
+    if (user) {
+      const previouslyOwned = new Set(user.collectedCardIds || []);
+      const newlyOwned = [...new Set(updated.collectedCardIds || [])]
+        .filter(cardId => !previouslyOwned.has(cardId));
+      if (newlyOwned.length > 0) {
+        setNewCardIds(markNewCardIds(updated.username, newlyOwned));
+      }
+    }
+    onUpdateUser(updated);
+  };
   const pendingMaintenanceCount = maintenanceMessages.filter(message => !message.claimedAt).length;
   const claimMaintenanceMessage = async (message: QuestMaintenanceMail) => {
     if (!user || message.claimedAt || claimingMailId) return;
@@ -333,6 +355,7 @@ export default function LobbyScreen({
         success?: boolean;
         error?: string;
         user?: UserProfile;
+        rouletteCards?: NinjaCard[];
       };
       if (!response.ok) {
         throw new Error(result.error || `Falha ao resgatar mensagem (HTTP ${response.status}).`);
@@ -340,8 +363,14 @@ export default function LobbyScreen({
       if (!result.success || !result.user) {
         throw new Error(result.error || 'O servidor retornou um formato inválido ao resgatar a mensagem.');
       }
-      onUpdateUser({ ...user, ...result.user });
+      if (message.rewards.length > 0) playGlobalSound('claim-2');
+      updateUser({ ...user, ...result.user });
       setMaintenanceMessages(result.user.questMaintenanceInbox || []);
+      if (result.rouletteCards?.length) {
+        const catalog = await fetchCardsFromServer();
+        setModal(null);
+        setRouletteReveal({ cards: result.rouletteCards, catalog: catalog.length ? catalog : getCards() });
+      }
     } catch (error) {
       console.error('Falha ao resgatar mensagem de manutenção:', error);
       setMaintenanceMailError(error instanceof Error ? error.message : t('Não foi possível resgatar a mensagem.', 'Could not claim this message.'));
@@ -356,6 +385,7 @@ export default function LobbyScreen({
     if (reward.type === 'title') return `${t('Título', 'Title')}: ${reward.value}`;
     if (reward.type === 'frame') return `${t('Moldura', 'Frame')}: ${reward.value}`;
     if (reward.type === 'banner') return `${t('Banner', 'Banner')}: ${reward.value}`;
+    if (reward.type === 'card_pack') return `${t('Pacotes Ninja Card', 'Ninja Card packs')}: ${reward.value}`;
     return `${t('Figura', 'Card')}: ${reward.value}`;
   };
   const claimedEventRewardIds = user?.claimedEventRewardIds || [];
@@ -366,9 +396,20 @@ export default function LobbyScreen({
     0,
   );
   const missionNotificationCount = quests.filter(quest => {
-    const isCompleted = user?.completedQuestIds?.includes(quest.id) || quest.completed;
-    if (isCompleted) return false;
-    return (quest.goals || []).every(goal => (goal.currentValue ?? 0) >= (goal.targetValue ?? 0));
+    const completedQuestIds = user?.completedQuestIds || [];
+    const isCompleted = completedQuestIds.includes(quest.id) || quest.completed;
+    if (isCompleted || !quest.goals?.length) return false;
+
+    const questRank = ranks.find(rank => rank.name.toLowerCase() === (quest.minRank || '').toLowerCase());
+    if (questRank && (user?.xp || 0) < questRank.requiredXp) return false;
+    if (!(quest.requiredQuestIds || []).every(id => completedQuestIds.includes(id))) return false;
+
+    const progressByGoal = new Map(
+      (user?.questProgress?.[quest.id] || []).map(progress => [progress.id, progress.currentValue]),
+    );
+    return quest.goals.every(goal =>
+      (progressByGoal.get(goal.id) || 0) >= goal.targetValue,
+    );
   }).length;
   const footerItems = [
     { label: t('Loja', 'Shop'), icon: ShoppingBag, action: () => openAuthenticated('shop') },
@@ -448,11 +489,11 @@ export default function LobbyScreen({
         >
           {missionNotificationCount > 0 && (
             <span
-              className="lobby-events-mission-count"
+              className="lobby-events-mission-count !left-auto !right-[-0.25rem]"
               aria-label={t(`${missionNotificationCount} missões prontas para resgatar`, `${missionNotificationCount} quests ready to claim`)}
             >
-              <span className="lobby-events-mission-diamond">
-                <Diamond aria-hidden="true" />
+              <span className="new-card-diamond text-2xl leading-none text-sky-400" aria-hidden="true">
+                ◆
               </span>
             </span>
           )}
@@ -461,26 +502,19 @@ export default function LobbyScreen({
         {user && (
           <button
             type="button"
-            onClick={() => { playClickSound(); setMaintenanceMailError(''); setModal('mail'); }}
-            className="lobby-mission-button lobby-mail-button"
-            aria-label={t(`Caixa de entrada${pendingMaintenanceCount ? `, ${pendingMaintenanceCount} mensagens não resgatadas` : ''}`, `Inbox${pendingMaintenanceCount ? `, ${pendingMaintenanceCount} unclaimed messages` : ''}`)}
-          >
-            <Mail className="lobby-mail-icon" aria-hidden="true" />
-            {pendingMaintenanceCount > 0 && (
-              <span className="lobby-mail-count" aria-hidden="true">
-                {pendingMaintenanceCount > 99 ? '99+' : pendingMaintenanceCount}
-              </span>
-            )}
-          </button>
-        )}
-        {user && (
-          <button
-            type="button"
             onClick={() => { playClickSound(); setModal('cards'); }}
             className="lobby-mission-button"
             aria-label={t('Abrir álbum de figurinhas', 'Open sticker album')}
           >
             <img className="lobby-mission-icon" src="/static/img/icon/album.webp" alt="" />
+            {newCardIds.length > 0 && (
+              <span
+                aria-label={t('Nova Ninja Card', 'New Ninja Card')}
+                className="new-card-diamond absolute -right-1 -top-1 z-20 text-2xl leading-none text-sky-400"
+              >
+                ◆
+              </span>
+            )}
           </button>
         )}
       </aside>
@@ -588,6 +622,21 @@ export default function LobbyScreen({
         >
           <Settings />
         </button>
+        {user && (
+          <button
+            type="button"
+            className="lobby-mission-button lobby-inbox-quick-action"
+            onClick={() => { playClickSound(); setQuickActionsOpen(false); setMaintenanceMailError(''); setModal('mail'); }}
+            aria-label={t(`Caixa de entrada${pendingMaintenanceCount ? `, ${pendingMaintenanceCount} mensagens não resgatadas` : ''}`, `Inbox${pendingMaintenanceCount ? `, ${pendingMaintenanceCount} unclaimed messages` : ''}`)}
+          >
+            <img className="lobby-mission-icon lobby-mail-icon" src="/static/img/icon/message.webp" alt="" />
+            {pendingMaintenanceCount > 0 && (
+              <span className="lobby-mail-count" aria-hidden="true">
+                {pendingMaintenanceCount > 99 ? '99+' : pendingMaintenanceCount}
+              </span>
+            )}
+          </button>
+        )}
         {quickActionsOpen && (
           <div id="lobby-quick-actions-menu" className="lobby-quick-actions-menu">
             {user?.username.trim().toLowerCase() === '2' && (
@@ -851,6 +900,13 @@ export default function LobbyScreen({
                   <ul>
                     {message.rewards.map((reward, index) => (
                       <li key={`${reward.type}:${reward.value}:${index}`}>
+                        {reward.type === 'card_pack' && (
+                          <span className="lobby-mail-pack-icons" aria-hidden="true">
+                            {Array.from({ length: cardPackRewardQuantity(reward.value) || 0 }, (_, packIndex) => (
+                              <img key={packIndex} src="/static/img/pacote.webp" alt="" />
+                            ))}
+                          </span>
+                        )}
                         {(reward.type === 'ryos' || reward.type === 'gems') && (
                           <img
                             src={reward.type === 'ryos' ? '/static/img/icon/gold.webp' : '/static/img/icon/ryo.webp'}
@@ -868,10 +924,14 @@ export default function LobbyScreen({
                     onClick={() => { void claimMaintenanceMessage(message); }}
                   >
                     {message.claimedAt
-                      ? t('Resgatada', 'Claimed')
+                      ? message.rewards.length
+                        ? t('Resgatada', 'Claimed')
+                        : t('Lida', 'Read')
                       : claimingMailId === message.id
                         ? t('Resgatando...', 'Claiming...')
-                        : t('Resgatar recompensa', 'Claim reward')}
+                        : message.rewards.length
+                          ? t('Resgatar recompensa', 'Claim reward')
+                          : t('Marcar como lida', 'Mark as read')}
                   </button>
                 </article>
               ))}
@@ -900,7 +960,7 @@ export default function LobbyScreen({
       )}
 
       <GameManualModal isOpen={modal === 'help'} onClose={() => setModal(null)} playClickSound={playClickSound} />
-      {user && modal === 'shop' && <ShopModal user={user} initialTab={shopInitialTab} onClose={() => { setShopInitialTab('all'); setModal(null); }} onUpdateUser={updateUser} playClickSound={playClickSound} playScrollSound={playScrollSound} />}
+      {user && modal === 'shop' && <ShopModal user={user} initialTab={shopInitialTab} onClose={() => { setShopInitialTab('all'); setModal(null); }} onUpdateUser={updateUser} playClickSound={playClickSound} playScrollSound={playScrollSound} playWinSound={playWinSound} />}
       {user && modal === 'events' && <EventsModal user={user} onClose={() => setModal(null)} onUpdateUser={updateUser} playClickSound={playClickSound} />}
       {user && modal === 'profile' && (
         <ProfileCardModal
@@ -935,12 +995,23 @@ export default function LobbyScreen({
       {user && modal === 'cards' && (
         <CardGalleryModal
           user={user}
+          newCardIds={newCardIds}
+          onCardViewed={cardId => setNewCardIds(markCardAsViewed(user.username, cardId))}
           onClose={() => setModal(null)}
           playClickSound={playClickSound}
           onOpenShopPacks={() => {
             setShopInitialTab('bundle');
             setModal('shop');
           }}
+        />
+      )}
+      {rouletteReveal && (
+        <CardPackRouletteModal
+          cards={rouletteReveal.cards}
+          catalog={rouletteReveal.catalog}
+          onClose={() => setRouletteReveal(null)}
+          playClickSound={playClickSound}
+          playWinSound={playWinSound}
         />
       )}
     </main>
