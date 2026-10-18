@@ -157,10 +157,10 @@ export default function App() {
       return {
         master: typeof saved.master === 'number' ? Math.max(0, Math.min(1, saved.master)) : 1,
         effects: typeof saved.effects === 'number' ? Math.max(0, Math.min(1, saved.effects)) : 1,
-        music: typeof saved.music === 'number' ? Math.max(0, Math.min(1, saved.music)) : 0.23,
+        music: typeof saved.music === 'number' ? Math.max(0, Math.min(1, saved.music)) : 0.27,
       };
     } catch {
-      return { master: 1, effects: 1, music: 0.23 };
+      return { master: 1, effects: 1, music: 0.27 };
     }
   });
   const characterSelectMusicRef = useRef<HTMLAudioElement | null>(null);

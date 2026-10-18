@@ -723,6 +723,39 @@ test('applies a cleanse configured by debuff types without requiring the boolean
   assert.equal(result.state.player[1].activeEffects.some(effect => effect.type === 'dot'), true);
 });
 
+test('Chakra Leech deals configured affliction damage and reports stolen chakra', () => {
+  const shino = character('Shino Aburame');
+  const state = createState({
+    playerCharacter: shino,
+    playerChakra: { Tai: 0, Nin: 0, Gen: 0, Blood: 1 },
+  });
+  state.enemyChakra = { Tai: 1, Nin: 0, Gen: 0, Blood: 0 };
+  const skillIndex = shino.skills.findIndex(skill => skill.name === 'Chakra Leech');
+  assert.notEqual(skillIndex, -1, 'Shino has Chakra Leech');
+
+  const result = resolveCombatIntent(state, {
+    side: 'player',
+    sourceId: 'player-0',
+    skillIndex,
+    targetId: 'enemy-0',
+  });
+
+  assert.equal(result.status, 'applied');
+  if (result.status !== 'applied') return;
+  assert.equal(result.state.enemy[0].health, 80, 'afflictionVal deals its first hit immediately');
+  assert.equal(
+    result.state.enemy[0].activeEffects.some(effect => effect.type === 'affliction'),
+    false,
+    'a one-tick affliction does not persist after its immediate damage',
+  );
+  assert.equal(result.state.enemyChakra.Tai, 0);
+  assert.equal(result.state.playerChakra.Tai, 1, 'the stolen chakra is granted to Shino’s team');
+  assert.ok(result.events.some(event =>
+    event.type === 'chakra-manipulation' && event.mode === 'steal' &&
+    event.sourceId === 'player-0' && event.targetId === 'enemy-0' && event.amount === 1,
+  ), 'the authoritative result publishes a chakra-steal notification event');
+});
+
 test('refuses to partially apply a skill with multiple damage channels', () => {
   const state = createState({ playerCharacter: character('Tenten') });
   const { intent: action } = intent('Jidanda', state);

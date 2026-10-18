@@ -38,6 +38,14 @@ export interface CombatActionIntent {
 
 export type CombatEngineEvent =
   | { type: 'chakra-spent'; side: 'player' | 'enemy'; chakra: ChakraPool }
+  | {
+    type: 'chakra-manipulation';
+    mode: 'drain' | 'remove' | 'steal';
+    sourceId: string;
+    targetId: string;
+    amount: number;
+    chakraTypes: (keyof ChakraPool)[];
+  }
   | { type: 'damage'; targetId: string; health: number; shield: number; amount: number; damageType: 'damage' | 'direct_damage' }
   | { type: 'heal'; targetId: string; health: number; healed: number }
   | { type: 'shield'; targetId: string; shield: number; added: number; expiresTurn?: number }
@@ -870,7 +878,14 @@ function applyConfiguredEffects(
     { damageType: 'dot', irremovable: skill.dotIrremovable });
   addEffect(skill.bleedingTarget || 'Target', 'bleeding', skill.bleedingDuration || 0,
     skill.bleedingVal, { damageType: 'bleeding', delayTurns: skill.bleedingDelay });
-  addEffect(skill.afflictionTarget || 'Target', 'affliction', skill.afflictionDuration || 0,
+  const afflictionDuration = skill.afflictionDuration || 1;
+  const afflictionTicksOnCast = !skill.afflictionDelay && !(skill.afflictionInstant && skill.afflictionInstant > 0);
+  const remainingAfflictionDuration = (skill.afflictionVal || 0) <= 0
+    ? 0
+    : afflictionTicksOnCast
+      ? (afflictionDuration === 99999 ? 99999 : afflictionDuration - 1)
+      : afflictionDuration;
+  addEffect(skill.afflictionTarget || 'Target', 'affliction', remainingAfflictionDuration,
     skill.afflictionVal, { damageType: 'affliction', delayTurns: skill.afflictionDelay });
   addEffect(skill.damageToShieldTarget || 'Self', 'damage_to_shield',
     skill.damageToShieldDuration || 0, undefined, {
@@ -1087,11 +1102,11 @@ function changeChakra(
   target: CombatCharacter,
   amount: number,
   mode: 'remove' | 'drain' | 'steal',
-): number {
+): (keyof ChakraPool)[] {
   const sourcePool = source.id.startsWith('player-') ? state.playerChakra : state.enemyChakra;
   const targetPool = target.id.startsWith('player-') ? state.playerChakra : state.enemyChakra;
   let remaining = Math.max(0, amount);
-  let changed = 0;
+  const changed: (keyof ChakraPool)[] = [];
   const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
   while (remaining > 0) {
     const available = types.filter(type => targetPool[type] > 0);
@@ -1099,7 +1114,7 @@ function changeChakra(
     const type = available[0];
     targetPool[type] -= 1;
     if (mode === 'steal' || mode === 'drain') sourcePool[type] += 1;
-    changed += 1;
+    changed.push(type);
     remaining -= 1;
   }
   return changed;
@@ -1464,7 +1479,8 @@ export function resolveCombatIntent(
     sum + (effect.opponentSkillUseRule?.damageBuffOnDamage || 0), 0);
   const hasNativeDamage = effectiveDamage.damage > 0 || effectiveDamage.directDamage > 0 ||
     (skill.afflictionVal || 0) > 0 || (skill.dotVal || 0) > 0 ||
-    (skill.bleedingVal || 0) > 0 || (skill.stealLifeVal || 0) > 0;
+    (skill.afflictionInstant || 0) > 0 || (skill.bleedingVal || 0) > 0 ||
+    (skill.stealLifeVal || 0) > 0;
   if (triggeredDamageBonus > 0 && hasNativeDamage) {
     if (effectiveDamage.directDamage > 0) effectiveDamage.directDamage += triggeredDamageBonus;
     else effectiveDamage.damage += triggeredDamageBonus;
@@ -1472,7 +1488,8 @@ export function resolveCombatIntent(
   const hasStackDamage = !!skill.stackDamageRules?.length || !!skill.selfStackDamageRules?.length;
   const hasDamage = effectiveDamage.damage > 0 || effectiveDamage.directDamage > 0 ||
     hasStackDamage || (skill.afflictionVal || 0) > 0 || (skill.dotVal || 0) > 0 ||
-    (skill.bleedingVal || 0) > 0 || (skill.drainChakra || 0) > 0 ||
+    (skill.afflictionInstant || 0) > 0 || (skill.bleedingVal || 0) > 0 ||
+    (skill.drainChakra || 0) > 0 ||
     (skill.removeChakra || 0) > 0 || (skill.stealChakra || 0) > 0 ||
     (skill.stealLifeVal || 0) > 0;
   const isAttack = hasDamage;
@@ -1893,6 +1910,38 @@ export function resolveCombatIntent(
       rule.damageType === 'dot' && rule.ignoreBaseDamage,
     ) ? 0 : nextSkill.dotVal,
   };
+  const afflictionDamage = configuredSkill.afflictionDelay
+    ? 0
+    : configuredSkill.afflictionInstant && configuredSkill.afflictionInstant > 0
+      ? configuredSkill.afflictionInstant
+      : configuredSkill.afflictionVal || 0;
+  if (afflictionDamage > 0) {
+    const afflictionTargets = effectTargets(
+      configuredSkill.afflictionTarget || 'Target',
+      nextSource,
+      nextTarget,
+      nextSourceTeam.filter(combatant => !combatant.isDead),
+      (intent.side === 'player' ? nextState.enemy : nextState.player).filter(combatant => !combatant.isDead),
+      [...nextState.player, ...nextState.enemy].filter(combatant => !combatant.isDead),
+      configuredSkill,
+    );
+    for (const afflictionTarget of afflictionTargets) {
+      if (afflictionTarget.isDead) continue;
+      events.push(...applyDamage(afflictionTarget, {
+        ...configuredSkill,
+        damage: afflictionDamage,
+        directDamage: 0,
+      }, nextState.turn, nextSource));
+      if (!configuredSkill.invisible && !(configuredSkill.invisibleDuration || 0)) {
+        events.push({
+          type: 'combat-text',
+          targetId: afflictionTarget.id,
+          text: `AFLIÇÃO (-${afflictionDamage} HP)`,
+          floatingType: 'effect',
+        });
+      }
+    }
+  }
   events.push(...applyConfiguredEffects(
     nextSource,
     nextTarget,
@@ -2131,7 +2180,15 @@ export function resolveCombatIntent(
       const mode = chakraAction.type === 'drain_chakra'
         ? 'drain'
         : chakraAction.type === 'steal_chakra' ? 'steal' : 'remove';
-      changeChakra(nextState, nextSource, chakraTarget, chakraAction.amount, mode);
+      const changedTypes = changeChakra(nextState, nextSource, chakraTarget, chakraAction.amount, mode);
+      events.push({
+        type: 'chakra-manipulation',
+        mode,
+        sourceId: nextSource.id,
+        targetId: chakraTarget.id,
+        amount: changedTypes.length,
+        chakraTypes: changedTypes,
+      });
       if (chakraAction.duration > 1) {
         chakraTarget.activeEffects.push({
           name: `${chakraAction.type} (${nextSkill.name})`,
@@ -2156,7 +2213,17 @@ export function resolveCombatIntent(
     const eligible = livingEnemies.find(combatant =>
       !checkCombatantInvulnerable(combatant, nextSkill, nextSource),
     );
-    if (eligible) changeChakra(nextState, nextSource, eligible, rule.removeAmount, 'remove');
+    if (eligible) {
+      const changedTypes = changeChakra(nextState, nextSource, eligible, rule.removeAmount, 'remove');
+      events.push({
+        type: 'chakra-manipulation',
+        mode: 'remove',
+        sourceId: nextSource.id,
+        targetId: eligible.id,
+        amount: changedTypes.length,
+        chakraTypes: changedTypes,
+      });
+    }
   }
   for (const rule of nextSkill.chakraStealRules || []) {
     const required = rule.activeSkillName?.toLowerCase();
@@ -2168,7 +2235,17 @@ export function resolveCombatIntent(
       !combatant.isDead &&
       (rule.ignoreInvulnerable || !checkCombatantInvulnerable(combatant, 'chakra', nextSource)),
     );
-    if (eligible) changeChakra(nextState, nextSource, eligible, rule.chakraAmount, 'steal');
+    if (eligible) {
+      const changedTypes = changeChakra(nextState, nextSource, eligible, rule.chakraAmount, 'steal');
+      events.push({
+        type: 'chakra-manipulation',
+        mode: 'steal',
+        sourceId: nextSource.id,
+        targetId: eligible.id,
+        amount: changedTypes.length,
+        chakraTypes: changedTypes,
+      });
+    }
   }
 
   const causesChakraManipulation = (nextSkill.drainChakra || 0) > 0 ||

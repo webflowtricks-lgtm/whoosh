@@ -32,6 +32,34 @@ function team(character: Character): Character[] {
   return [structuredClone(character), findCharacter('Sakura Haruno'), findCharacter('Shiranui Genma')];
 }
 
+test('authoritative online Shino Chakra Leech applies affliction damage and publishes chakra theft', () => {
+  let seed = 0;
+  while (firstSlotForTurn(seed, 1) !== 0) seed += 1;
+  const shino = findCharacter('Shino Aburame');
+  const state = createServerCombatState([
+    team(shino),
+    team(findCharacter('Tenten')),
+  ], seed);
+  state.playerChakra = { Tai: 0, Nin: 0, Gen: 0, Blood: 1 };
+  state.enemyChakra = { Tai: 1, Nin: 0, Gen: 0, Blood: 0 };
+  const skillIndex = findSkill(shino, 'Chakra Leech');
+
+  const result = resolveAuthoritativeActions(state, 0, [{
+    sourceId: 'player-0',
+    skillIndex,
+    targetId: 'enemy-0',
+  }]);
+
+  assert.equal(result.status, 'resolved');
+  assert.equal(result.state.enemy[0].health, 80);
+  assert.equal(result.state.enemyChakra.Tai, 0);
+  assert.equal(result.state.playerChakra.Tai, 1);
+  assert.ok(result.actionEvents?.some(action => action.events.some(event =>
+    event.type === 'chakra-manipulation' && event.mode === 'steal' &&
+    event.sourceId === 'player-0' && event.targetId === 'enemy-0' && event.amount === 1,
+  )));
+});
+
 test('initializes canonical teams, initiative chakra, and seeded turn generation', () => {
   const seed = 8421;
   const state = createServerCombatState([

@@ -12656,7 +12656,37 @@ splashOnlyTargets = splashPool.filter(c =>
                   : '';
                 if (!targetId) continue;
                 const skillIcon = typeof action.skillIcon === 'string' ? action.skillIcon : '';
-                if (event.type === 'damage' && event.amount > 0) {
+                if (event.type === 'chakra-manipulation' && typeof event.sourceId === 'string') {
+                  const sourceId = flipCombatantId(event.sourceId);
+                  const sourceIsPlayer = sourceId.startsWith('player-');
+                  const targetIsPlayer = targetId.startsWith('player-');
+                  const sourceTeam = sourceIsPlayer ? playerRef.current : enemyRef.current;
+                  const targetTeam = targetIsPlayer ? playerRef.current : enemyRef.current;
+                  const sourceName = sourceTeam.find(combatant => combatant.id === sourceId)?.character.name || 'Oponente';
+                  const targetName = targetTeam.find(combatant => combatant.id === targetId)?.character.name || 'alvo';
+                  const chakraNames = Array.isArray(event.chakraTypes)
+                    ? event.chakraTypes.map((type: keyof ChakraPool) => getChakraName(type)).join(', ')
+                    : '';
+                  const amount = Number.isFinite(event.amount) ? Math.max(0, event.amount) : 0;
+                  const mode = event.mode === 'drain' || event.mode === 'remove' ? event.mode : 'steal';
+
+                  if (amount === 0) {
+                    triggerChakraToast(
+                      `ℹ️ ${sourceName} tentou ${mode === 'remove' ? 'remover' : mode === 'drain' ? 'drenar' : 'roubar'} chakra, mas ${targetIsPlayer ? 'seu time' : 'o oponente'} não tinha chakra no estoque.`,
+                      'info',
+                    );
+                  } else if (mode === 'remove') {
+                    triggerChakraToast(
+                      `🔥 ${sourceName} removeu ${amount} chakra${chakraNames ? ` (${chakraNames})` : ''} do estoque de ${targetIsPlayer ? 'seu time' : 'seu oponente'}!`,
+                      targetIsPlayer ? 'lost' : 'removed',
+                    );
+                  } else {
+                    triggerChakraToast(
+                      `⚡ ${sourceName} ${mode === 'drain' ? 'drenou' : 'roubou'} ${amount} chakra${chakraNames ? ` (${chakraNames})` : ''} ${sourceIsPlayer ? 'para seu time' : `de ${targetName} para o oponente`}!`,
+                      sourceIsPlayer ? 'stolen' : 'lost',
+                    );
+                  }
+                } else if (event.type === 'damage' && event.amount > 0) {
                   addFloatingText(targetId, `-${event.amount} HP`, 'damage', skillIcon);
                 } else if (event.type === 'heal' && event.healed > 0) {
                   addFloatingText(targetId, `+${event.healed} HP`, 'heal', skillIcon);
