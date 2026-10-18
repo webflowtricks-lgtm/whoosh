@@ -3648,13 +3648,6 @@ e-squad-name {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .character-select-main.character-select-modal-open {
-    position: relative;
-    z-index: 100 !important;
-    transform: none !important;
-    scale: none !important;
-  }
-
   .character-select-main {
     transition: none !important;
   }

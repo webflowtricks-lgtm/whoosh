@@ -895,14 +895,6 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative selection:bg-orange-600 selection:text-white overflow-x-hidden">
-      {isMobilePortrait && showCharacterDetails && createPortal(
-        <div
-          aria-hidden="true"
-          className="fixed inset-0 z-[50] bg-slate-950/[0.88]"
-          onClick={() => setShowCharacterDetails(false)}
-        />,
-        document.body,
-      )}
       {catalogStatus !== 'ready' && (
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-[#061b35]/90 p-4 backdrop-blur-sm">
           <div role="alert" aria-live="polite" className="w-full max-w-md overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br from-[#123f70] via-[#0a2a4d] to-[#071b33] p-6 text-center text-white shadow-[0_24px_80px_rgba(0,0,0,0.65)]">
@@ -1179,7 +1171,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       </header>
 
       {/* Main Draft Area */}
-      <main className={`character-select-main max-w-[1400px] w-full mx-auto px-0 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform ${showCharacterFilters ? 'character-select-filter-open' : 'character-select-filter-closed'} ${isMobilePortrait && showCharacterDetails ? 'character-select-modal-open' : ''}`}>
+      <main className={`character-select-main max-w-[1400px] w-full mx-auto px-0 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform ${showCharacterFilters ? 'character-select-filter-open' : 'character-select-filter-closed'}`}>
         {/* Roster Grid (Left Side) */}
         <div className="lg:col-span-6 space-y-6">
           <div className="mv-filtro flex flex-col gap-4">
@@ -1482,20 +1474,22 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         </div>
 
         {/* Detailed Inspection sidebar (Right Side) */}
-        <div
-          className={`character-select-details-panel lg:col-span-6 sticky top-28 space-y-6 z-10 ${
-            isMobilePortrait ? (showCharacterDetails ? 'character-select-details-open' : 'character-select-details-hidden') : ''
-          }`}
-          role={isMobilePortrait && showCharacterDetails ? 'dialog' : undefined}
-          aria-modal={isMobilePortrait && showCharacterDetails ? true : undefined}
-          aria-label={isMobilePortrait && showCharacterDetails ? `${previewCharacter.name} - ${t('Detalhes do personagem', 'Character details')}` : undefined}
-          onClick={event => {
-            if (event.target === event.currentTarget) {
-              playScrollSound();
-              setShowCharacterDetails(false);
-            }
-          }}
-        >
+        {(() => {
+          const detailsPanel = (
+            <div
+              className={`character-select-details-panel lg:col-span-6 sticky top-28 space-y-6 z-10 ${
+                isMobilePortrait ? (showCharacterDetails ? 'character-select-details-open' : 'character-select-details-hidden') : ''
+              }`}
+              role={isMobilePortrait && showCharacterDetails ? 'dialog' : undefined}
+              aria-modal={isMobilePortrait && showCharacterDetails ? true : undefined}
+              aria-label={isMobilePortrait && showCharacterDetails ? `${previewCharacter.name} - ${t('Detalhes do personagem', 'Character details')}` : undefined}
+              onClick={event => {
+                if (event.target === event.currentTarget) {
+                  playScrollSound();
+                  setShowCharacterDetails(false);
+                }
+              }}
+            >
           {/* Main Pergaminho Character Details Card */}
           <div className="relative p-7 sm:p-10 md:p-12 flex flex-col justify-between group">
             {/* Pergaminho Personagem Detalhes background asset */}
@@ -1878,7 +1872,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               )}
             </div>
           </div>
-        </div>
+            </div>
+          );
+          return isMobilePortrait ? createPortal(detailsPanel, document.body) : detailsPanel;
+        })()}
       </main>
 
       {isMobilePortrait && !showCharacterDetails && (sandboxPlayerTeam || onBack) && (
