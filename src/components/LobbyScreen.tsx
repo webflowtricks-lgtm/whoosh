@@ -209,7 +209,7 @@ export default function LobbyScreen({
     Tai: t('Taijutsu', 'Taijutsu'),
     Nin: t('Ninjutsu', 'Ninjutsu'),
     Gen: t('Genjutsu', 'Genjutsu'),
-    Blood: t('Linhagem', 'Bloodline'),
+    Blood: t('Kekkei Genkai', 'Kekkei Genkai'),
     Rand: t('Aleatório', 'Random'),
   };
   const targetLabels: Record<string, string> = {

@@ -3303,6 +3303,8 @@ e-squad-name {
   [data-rand-modal] {
     max-width: min(96vw, 660px) !important;
     padding: 0.75rem !important;
+    max-height: calc(100dvh - 1rem);
+    overflow-y: auto;
   }
   [data-rand-modal] h3 {
     font-size: 12px !important;
@@ -3310,31 +3312,20 @@ e-squad-name {
   [data-rand-modal] [data-rand-sub] {
     font-size: 9px !important;
   }
-  [data-rand-modal] > * + * {
-    margin-top: 0.4rem !important;
-  }
   [data-rand-modal] [data-rand-list] {
-    max-height: 4.5rem !important;
-  }
-  [data-rand-modal] [data-rand-progress] {
-    padding: 0.5rem !important;
-  }
-  [data-rand-modal] [data-rand-progress] span {
-    font-size: 10px !important;
+    max-height: 5rem !important;
   }
   [data-rand-modal] [data-rand-picker] {
     gap: 0.4rem !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
   [data-rand-modal] [data-rand-card] {
-    padding: 0.4rem !important;
-  }
-  [data-rand-modal] [data-rand-card] span {
-    font-size: 10px !important;
+    gap: 0.25rem !important;
+    padding: 0.45rem !important;
   }
   [data-rand-modal] [data-rand-card] button {
-    width: 1.25rem !important;
-    height: 1.25rem !important;
-    font-size: 10px !important;
+    width: 1.75rem !important;
+    height: 1.75rem !important;
   }
   [data-rand-modal] [data-rand-actions] button {
     padding-top: 0.4rem !important;
@@ -3342,50 +3333,28 @@ e-squad-name {
     font-size: 10px !important;
   }
 
-  /* ===== LAYOUT HORIZONTAL do modal no mobile landscape =====
-     No celular deitado, o conteúdo fica em colunas: skills à ESQUERDA
-     (largura ~40%) e a seleção dos chakras à DIREITA (~60%). No desktop
-     continua empilhado em coluna (flex-col, o padrão do JSX). */
+  /* Habilidades à esquerda e seleção de chakras à direita no modo paisagem. */
   [data-rand-modal] [data-rand-body] {
-    display: flex;
     flex-direction: row !important;
     align-items: stretch;
     gap: 0.4rem !important;
     min-height: 0;
   }
-  /* Coluna esquerda: lista de habilidades que precisam de chakra aleatório */
-  [data-rand-modal] [data-rand-body] > :first-child {
-    flex: 0 0 40% !important;
+  [data-rand-modal] [data-rand-skills] {
+    flex: 0 0 38% !important;
     min-width: 0;
-    max-height: 100%;
-    display: flex;
-    flex-direction: column;
+    align-self: flex-start;
   }
-  [data-rand-modal] [data-rand-body] > :first-child [data-rand-list] {
-    flex: 1 !important;
+  [data-rand-modal] [data-rand-selection] {
+    flex: 1 1 62% !important;
+    min-width: 0;
+  }
+  [data-rand-modal] [data-rand-list] {
     max-height: none !important;
     overflow-y: auto;
   }
-  /* Coluna direita: seleção de chakras a usar (o último filho do body é a
-     própria div .space-y-3 retornada pelo IIFE — aplica flex column nela) */
-  [data-rand-modal] [data-rand-body] > :last-child {
-    flex: 1 1 60% !important;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
-  [data-rand-modal] [data-rand-body] > :last-child [data-rand-picker] {
-    flex: 1 !important;
-    align-content: center;
-  }
-  /* Header do modal mais compacto no mobile landscape */
-  [data-rand-modal] > :first-child {
+  [data-rand-modal] [data-rand-header] {
     padding-bottom: 0.5rem !important;
-  }
-  [data-rand-modal] [data-rand-body] > :first-child > p {
-    font-size: 9px !important;
-    white-space: nowrap;
   }
 
   /* ===== TABS tab-wood (AuthScreen / QuestBoard / ProfileModal /
@@ -4564,80 +4533,6 @@ e-squad-name {
 
 .battle-profile-chakra {
   display: none !important;
-}
-
-.chakra-trade-modal {
-  width: min(100%, 48rem, calc((100dvh - 2rem) * 1.74));
-  aspect-ratio: 956 / 550;
-  min-height: 0;
-  padding: clamp(0.65rem, 2vw, 1.25rem);
-}
-
-.chakra-trade-content {
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  margin: 0;
-  padding: clamp(0.35rem, 1.2vw, 0.75rem);
-  grid-template-rows: minmax(0, 1fr) auto;
-  column-gap: clamp(0.45rem, 2vw, 1.25rem);
-  row-gap: clamp(0.25rem, 1vh, 0.5rem);
-  overflow: hidden;
-}
-
-.chakra-trade-spend,
-.chakra-trade-receive {
-  min-width: 0;
-}
-
-.chakra-trade-heading {
-  font-size: clamp(0.58rem, 1.2vw, 0.75rem);
-}
-
-.chakra-trade-actions {
-  margin-bottom: 5px;
-}
-
-.chakra-trade-options {
-  height: calc(100% - 1.3rem);
-  min-height: 0;
-  padding: clamp(0.25rem, 1vw, 0.65rem);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  align-items: center;
-  justify-items: center;
-  row-gap: 0.2rem;
-}
-
-.chakra-trade-options > div {
-  gap: clamp(0.15rem, 0.6vw, 0.35rem);
-}
-
-.chakra-trade-targets {
-  height: calc(100% - 1.3rem);
-  min-height: 0;
-  padding: 1.1rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  align-items: center;
-  justify-items: center;
-  row-gap: clamp(0.65rem, 2vh, 1.1rem);
-}
-
-.chakra-trade-target {
-  padding: clamp(0.1rem, 0.5vw, 0.4rem);
-}
-
-.chakra-trade-target svg,
-.chakra-trade-target img,
-.chakra-trade-target > div {
-  width: clamp(1.5rem, 4vw, 2.25rem);
-  height: clamp(1.5rem, 4vw, 2.25rem);
-}
-
-.chakra-trade-content .text-surrender {
-  margin-left: 0;
 }
 
 @media (orientation: portrait) and (max-width: 500px) {

@@ -86,7 +86,7 @@ export default function GameManualModal({ isOpen, onClose, playClickSound }: Gam
                       <span className="font-bold text-green-300">{t('Verde: Taijutsu', 'Green: Taijutsu')}</span>
                       <span className="font-bold text-blue-300">{t('Azul: Ninjutsu', 'Blue: Ninjutsu')}</span>
                       <span className="font-bold text-purple-300">{t('Roxo: Genjutsu', 'Purple: Genjutsu')}</span>
-                      <span className="font-bold text-red-300">{t('Vermelho: Linhagem', 'Red: Bloodline')}</span>
+                      <span className="font-bold text-red-300">{t('Vermelho: Kekkei Genkai', 'Red: Kekkei Genkai')}</span>
                       <span className="font-bold text-slate-300">{t('Cinza/Rand: qualquer tipo', 'Gray/Rand: any type')}</span>
                     </li>
                     <li><span className="font-bold text-cyan-200">{t('Ícones na habilidade mostram o custo.', 'Skill icons show the cost.')}</span>{' '}{t('“Rand” pode ser pago com qualquer chakra disponível; quando necessário, o jogo abre a seleção da combinação. Habilidades grátis não consomem chakra.', '“Rand” can be paid with any available chakra; when needed, the game lets you choose which beads to spend. Free skills cost no chakra.')}</li>

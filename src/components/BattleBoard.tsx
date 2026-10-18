@@ -1327,7 +1327,7 @@ function GameOverOverlay({
         {/* ROW: PLAYER PROFILE CARD | XP REWARD & RANK PROGRESS CARD | OPPONENT PROFILE CARD */}
         <div className="w-full flex flex-col lg:flex-row items-center justify-center gap-3 sm:gap-4 relative">
           {/* Left: Player Profile Card with Floating Standing Skin Artwork below */}
-          <div className="relative flex-1 w-full max-w-[290px] flex flex-col items-center">
+          <div className="relative order-1 flex-1 w-full max-w-[290px] flex flex-col items-center">
             <div
               onClick={() => {
                 if (playClickSound) playClickSound();
@@ -1432,7 +1432,7 @@ function GameOverOverlay({
           </div>
 
           {/* Center: XP reward and rank progress */}
-          <div className={`relative z-10 w-full max-w-xs flex-shrink-0 overflow-hidden rounded-xl border p-3 text-left shadow-xl ${
+          <div className={`relative z-10 order-3 lg:order-2 w-full max-w-sm flex-shrink-0 overflow-hidden rounded-xl border p-3 text-left shadow-xl ${
             isVictory
               ? 'border-emerald-400/30 bg-gradient-to-br from-emerald-950/95 via-slate-950/95 to-slate-950 shadow-emerald-950/40'
               : 'border-red-500/50 bg-gradient-to-br from-red-950 via-rose-950/95 to-slate-950 shadow-red-950/60'
@@ -1470,9 +1470,9 @@ function GameOverOverlay({
                     : 'border-red-300/50 bg-red-600 text-white'
                 }`}>
                   <img
-                    src="/static/img/icon/xp-icon.svg"
+                    src="/static/img/icon/xp-icon.svg?v=2"
                     alt="XP"
-                    className="h-3.5 w-3.5 object-contain drop-shadow-[0_0_4px_rgba(255,255,255,0.4)]"
+                    className="h-10 w-10 object-contain drop-shadow-[0_0_4px_rgba(255,255,255,0.4)]"
                   />
                   <span className="text-[10px] font-black leading-tight">{actualXpChange > 0 ? '+' : ''}{actualXpChange} XP</span>
                 </div>
@@ -1528,7 +1528,7 @@ function GameOverOverlay({
           </div>
 
           {/* Right: Opponent Profile Card with Floating Standing Skin Artwork below */}
-          <div className="relative flex-1 w-full max-w-[290px] flex flex-col items-center">
+          <div className="relative order-2 lg:order-3 flex-1 w-full max-w-[290px] flex flex-col items-center">
             <div
               onClick={() => {
                 if (playClickSound) playClickSound();
@@ -1639,14 +1639,14 @@ function GameOverOverlay({
         </div>
 
         {/* Center Stage: Character Lineup with Pergaminho 3 */}
-        <div className="w-full flex items-center justify-center gap-3 sm:gap-6 flex-wrap">
+        <div className="w-full flex items-center justify-start sm:justify-center gap-3 sm:gap-6 flex-nowrap overflow-x-auto overflow-y-hidden px-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {showcaseTeam.map((combatant) => {
             const portrait = combatant.character.portrait;
 
             return (
               <div
                 key={combatant.id}
-                className="relative group flex flex-col items-center select-none"
+                className="relative group flex flex-shrink-0 flex-col items-center select-none"
               >
                 {/* Pergaminho 3 Card Container */}
                 <div
@@ -2086,6 +2086,14 @@ export default function BattleBoard({
 const [showChakraTrade, setShowChakraTrade] = useState(false);
 const [tradeSelection, setTradeSelection] = useState<ChakraPool>({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
 const [tradeTarget, setTradeTarget] = useState<keyof ChakraPool | null>(null);
+const tradeSelectedTotal = (Object.keys(tradeSelection) as (keyof ChakraPool)[])
+  .reduce((sum, key) => sum + tradeSelection[key], 0);
+const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
+  { type: 'Tai', label: 'Taijutsu' },
+  { type: 'Nin', label: 'Ninjutsu' },
+  { type: 'Gen', label: 'Genjutsu' },
+  { type: 'Blood', label: 'Kekkei Genkai' },
+];
 
   // Floating text animations
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
@@ -17256,7 +17264,7 @@ if (skill.redirectOffensiveToCaster) {
       bg = 'radial-gradient(circle at 35% 30%, #fecaca, #dc2626 45%, #7f1d1d)';
       glow = '0 0 5px rgba(220,38,38,0.95), 0 0 12px rgba(220,38,38,0.55)';
       border = 'border-red-300/80';
-      name = 'Bloodline';
+      name = 'Kekkei Genkai';
     } else {
       bg = 'radial-gradient(circle at 35% 30%, #cbd5e1, #475569 50%, #1e293b)';
       glow = '0 0 5px rgba(100,116,139,0.75), 0 0 12px rgba(100,116,139,0.35)';
@@ -18983,12 +18991,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         .filter(f => f.targetId === combatant.id)
                         .map((f) => {
                         return (
-                          <motion.span
+                          <span
                             key={f.id}
-                            initial={{ opacity: 0, y: 10, scale: 0.8 }}
-                            animate={{ opacity: 1, y: -20, scale: 1.1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ duration: 0.35 }}
                             className={`inline-flex items-center gap-1.5 font-mono text-[10px] font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${getFloatingTextClass(f)}`}
                           >
                             {f.skillIcon && (
@@ -19001,7 +19005,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               />
                             )}
                             {f.text}
-                          </motion.span>
+                          </span>
                         );
                       })}
                       </AnimatePresence>
@@ -20230,12 +20234,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         .filter(f => f.targetId === combatant.id)
                         .map((f) => {
                         return (
-                          <motion.span
+                          <span
                             key={f.id}
-                            initial={{ opacity: 0, y: 10, scale: 0.8 }}
-                            animate={{ opacity: 1, y: -20, scale: 1.1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ duration: 0.35 }}
                             className={`inline-flex items-center gap-1.5 font-mono text-[10px] font-black bg-slate-950 px-2.5 py-1 rounded border border-slate-800 shadow-lg ${getFloatingTextClass(f)}`}
                           >
                             {f.skillIcon && (
@@ -20248,7 +20248,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               />
                             )}
                             {f.text}
-                          </motion.span>
+                          </span>
                         );
                       })}
                       </AnimatePresence>
@@ -21181,81 +21181,113 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       {/* CHAKRA TRADE MODAL */}
       <AnimatePresence>
         {showChakraTrade && (
-          <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
+          <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-md select-none">
             <motion.div
               initial={false}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.85, opacity: 0, y: 15 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="chakra-trade-modal relative overflow-hidden shadow-2xl flex flex-col justify-between"
+              className="chakra-trade-modal relative w-full max-w-xl max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-emerald-400/25 bg-slate-950 text-white shadow-2xl shadow-black/50"
             >
-              {/* Background Pergaminho Image */}
-              <img
-                src="/static/img/ui/pergaminho2_.webp"
-                alt="Pergaminho Shinobi"
-                className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
-              />
+              <div className="p-4 sm:p-6">
+                <header className="mb-5 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="mb-1 flex items-center gap-2">
+                      <h2 className="text-lg font-black tracking-wide text-white sm:text-xl">Troca de chakra</h2>
+                      <span className="rounded-md border border-orange-400/25 bg-orange-400/10 px-2 py-0.5 text-xs font-black text-orange-200">4 → 1</span>
+                    </div>
+                    <p className="text-xs text-slate-400 sm:text-sm">Escolha 4 chakras para gastar e 1 tipo para receber.</p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Fechar troca de chakra"
+                    onClick={() => {
+                      setShowChakraTrade(false);
+                      setTradeSelection({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
+                      setTradeTarget(null);
+                    }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg text-slate-300 hover:border-emerald-400/50 hover:text-white"
+                  >
+                    ×
+                  </button>
+                </header>
 
-              <div className="chakra-trade-content text-surrender content-trade relative z-10 grid grid-cols-2 grid-rows-[1fr_auto] items-center text-center">
-
-                <div className="chakra-trade-spend w-full">
-                  <p className="chakra-trade-heading text-xs font-bold text-stone-800 mb-2">Escolha 4 chakras para gastar:</p>
-                  <div className="chakra-trade-options grid grid-cols-2 bg-[#d3ad75]/30 p-3 rounded-xl border border-[#7a4e25]/30">
-                    {(Object.keys(playerChakra) as (keyof ChakraPool)[]).map(key => {
-                      const totalSelected = (Object.keys(tradeSelection) as (keyof ChakraPool)[])
-                        .reduce((sum, k) => sum + tradeSelection[k], 0);
-                      const canAdd = tradeSelection[key] < playerChakra[key] && totalSelected < 4;
+                <section className="mb-5">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-bold text-white">1. Escolha o que vai gastar</h3>
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${tradeSelectedTotal === 4 ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300' : 'border-orange-400/20 bg-orange-400/10 text-orange-200'}`}>
+                      {tradeSelectedTotal} / 4
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {chakraTradeTypes.map(({ type, label }) => {
+                      const canAdd = tradeSelection[type] < playerChakra[type] && tradeSelectedTotal < 4;
+                      const isSelected = tradeSelection[type] > 0;
                       return (
-                        <div key={key} className="flex flex-col items-center gap-1">
-                          {renderChakraIcon(key)}
-                          <span className="text-[10px] font-bold text-stone-900 font-mono">{tradeSelection[key]} / {playerChakra[key]}</span>
-                          <div className="flex gap-1">
+                        <div
+                          key={type}
+                          className={`flex min-w-0 flex-col items-center gap-2 rounded-xl border p-3 ${isSelected ? 'border-emerald-400/50 bg-emerald-400/[0.07]' : 'border-white/10 bg-white/[0.03]'}`}
+                        >
+                          {renderChakraIcon(type, 'h-7 w-7')}
+                          <span className="text-center text-[11px] font-semibold leading-tight text-white">{label}</span>
+                          <span className="font-mono text-xs text-slate-400">Disponível: {playerChakra[type]}</span>
+                          <div className="flex items-center gap-2">
                             <button
-                              onClick={() => setTradeSelection(prev => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }))}
-                              className="w-5 h-5 text-xs bg-[#7a4e25] text-amber-100 rounded hover:bg-[#5c3a1b] font-bold cursor-pointer"
-                            >-</button>
+                              type="button"
+                              aria-label={`Remover um chakra ${label}`}
+                              disabled={tradeSelection[type] === 0}
+                              onClick={() => setTradeSelection(prev => ({ ...prev, [type]: Math.max(0, prev[type] - 1) }))}
+                              className="h-8 w-8 rounded-lg border border-white/10 bg-white/5 text-lg font-bold text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35"
+                            >−</button>
+                            <span className="min-w-5 text-center font-mono text-sm font-bold text-orange-200">{tradeSelection[type]}</span>
                             <button
+                              type="button"
+                              aria-label={`Adicionar um chakra ${label}`}
                               disabled={!canAdd}
-                              onClick={() => setTradeSelection(prev => ({ ...prev, [key]: prev[key] + 1 }))}
-                              className="w-5 h-5 text-xs bg-[#7a4e25] text-amber-100 rounded hover:bg-[#5c3a1b] font-bold disabled:opacity-30 cursor-pointer"
+                              onClick={() => setTradeSelection(prev => ({ ...prev, [type]: prev[type] + 1 }))}
+                              className="h-8 w-8 rounded-lg border border-orange-400/25 bg-orange-400/10 text-lg font-bold text-orange-200 hover:bg-orange-400/20 disabled:cursor-not-allowed disabled:opacity-35"
                             >+</button>
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                </div>
+                </section>
 
-                <div className="chakra-trade-receive w-full">
-                  <p className="chakra-trade-heading text-xs font-bold text-stone-800 mb-2">Escolha o chakra que vai receber:</p>
-                  <div className="chakra-trade-targets grid grid-cols-2 rounded-xl border border-[#7a4e25]/30 bg-[#d3ad75]/30 px-3 py-2">
-                    {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map(key => (
+                <section className="mb-5">
+                  <h3 className="mb-2 text-sm font-bold text-white">2. Escolha o que vai receber</h3>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {chakraTradeTypes.map(({ type, label }) => (
                       <button
-                        key={key}
-                        onClick={() => setTradeTarget(key)}
-                        className={`chakra-trade-target p-1.5 rounded-lg transition cursor-pointer ${tradeTarget === key ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
+                        type="button"
+                        key={type}
+                        aria-pressed={tradeTarget === type}
+                        onClick={() => setTradeTarget(type)}
+                        className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${tradeTarget === type ? 'border-emerald-400/50 bg-emerald-400/10 text-emerald-100' : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]'}`}
                       >
-                        {renderChakraIcon(key, 'w-12 h-12')}
+                        {renderChakraIcon(type, 'h-5 w-5')}
+                        <span>{label}</span>
                       </button>
                     ))}
                   </div>
-                </div>
+                </section>
 
-                <div className="chakra-trade-actions col-span-2 flex gap-3 w-full">
+                <div className="flex flex-col-reverse gap-2 border-t border-white/10 pt-4 sm:flex-row sm:justify-end">
                   <button
                     onClick={() => { setShowChakraTrade(false); setTradeSelection({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 }); setTradeTarget(null); }}
                     data-sound="uah"
-                    className="flex-1 py-2 px-3 bg-[#d3ad75]/90 hover:bg-[#c49a5d] text-stone-950 font-black text-xs uppercase tracking-wider border-2 border-[#7a4e25] rounded-xl shadow-md transition cursor-pointer active:scale-95"
+                    className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/[0.06] hover:text-white"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={handleTradeChakra}
                     data-sound="uah"
-                    className="flex flex-1 items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-green-800 to-emerald-700 hover:from-green-700 hover:to-emerald-600 text-green-50 font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-green-950/40 border border-green-500/50 transition cursor-pointer active:scale-95"
+                    disabled={tradeSelectedTotal !== 4 || !tradeTarget}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-emerald-950/30 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
-                    Confirmar
+                    Trocar chakras
                   </button>
                 </div>
               </div>
@@ -21597,22 +21629,22 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       {/* RANDOM CHAKRA SELECTION MODAL */}
       <AnimatePresence>
         {showRandChakraModal && randModalData && (
-          <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm select-none">
+          <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-md select-none">
             <div
-              className="relative bg-slate-900 border-2 border-amber-600/50 rounded-2xl p-5 max-w-md w-full shadow-2xl text-slate-100 space-y-4"
+              className="relative bg-slate-950 border border-emerald-400/25 rounded-2xl p-5 max-w-xl w-full shadow-2xl shadow-black/50 text-white space-y-4"
               data-rand-modal
             >
-              <div className="flex items-start justify-between border-b border-amber-900/40 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 rounded-xl bg-slate-800/60 border border-slate-700/60">
+              <div className="flex items-start justify-between border-b border-white/10 pb-3" data-rand-header>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-400/20 bg-orange-400/[0.07]">
                     {renderChakraIcon('Rand', 'w-5 h-5')}
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-sm sm:text-base text-amber-100 uppercase tracking-wide">
-                      Substituir Chakra Aleatório
+                    <h3 className="font-extrabold text-sm sm:text-base text-white">
+                      Complete o custo das habilidades
                     </h3>
-                    <p className="text-[11px] font-semibold text-slate-400" data-rand-sub>
-                      Escolha quais chakras usar para o custo genérico (Rand)
+                    <p className="text-[11px] font-medium text-slate-400" data-rand-sub>
+                      Cada chakra aleatório pode ser pago com qualquer tipo disponível.
                     </p>
                   </div>
                 </div>
@@ -21622,57 +21654,62 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     playClickSound();
                     setShowRandChakraModal(false);
                   }}
-                  className="text-slate-400 hover:text-amber-200 transition p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+                  className="text-slate-400 hover:text-white transition p-1 rounded-lg hover:bg-white/[0.06] cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Conteúdo horizontal no mobile landscape: skills à esquerda, seleção à direita */}
-              <div className="flex flex-col gap-3 min-h-0" data-rand-body>
-              {/* Queued Skills requiring Rand */}
-              <div className="space-y-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <p className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Swords className="w-3.5 h-3.5" /> Habilidades com Custo Aleatório:
-                </p>
-                <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1" data-rand-list>
+              <div className="flex min-h-0 flex-col gap-3" data-rand-body>
+              <section className="rounded-xl border border-amber-900/50 bg-gradient-to-br from-amber-100/95 to-amber-200/90 p-3 shadow-inner" data-rand-skills>
+                <div className="mb-2 flex items-center gap-2 text-[11px] font-bold text-amber-950">
+                  <Swords className="h-3.5 w-3.5 text-orange-300" />
+                  Habilidades selecionadas
+                </div>
+                <div className="max-h-28 space-y-1.5 overflow-y-auto pr-1" data-rand-list>
                   {randModalData.queuedSkillsWithRand.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800">
-                      <div className="flex items-center gap-2">
+                    <div key={idx} className="flex items-center justify-between gap-2 rounded-lg border border-amber-900/10 bg-amber-50/75 px-2.5 py-1.5 text-xs">
+                      <div className="flex min-w-0 items-center gap-2">
                         {item.icon && (
-                          <img src={item.icon || null} alt="" className="w-5 h-5 rounded border border-amber-600/40 object-cover" />
+                          <img src={item.icon} alt="" className="h-7 w-7 shrink-0 rounded-md border border-amber-900/20 object-cover" />
                         )}
-                        <span className="font-semibold text-slate-200">
-                          <span className="text-amber-400">{item.charName}</span> - {item.skillName}
+                        <span className="min-w-0 truncate font-semibold text-amber-950">
+                          <span className="text-orange-800">{item.charName}</span>
+                          <span className="text-amber-900/50"> · </span>
+                          {item.skillName}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700 flex items-center gap-1">
-                        {item.randCount}x {renderChakraIcon('Rand')}
+                      <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-orange-200/70 px-2 py-1 font-mono text-[10px] font-bold text-orange-950">
+                        {renderChakraIcon('Rand', 'h-3 w-3')}
+                        × {item.randCount}
                       </span>
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
 
-              {/* Selection Progress Counter */}
               {(() => {
                 const currentSelected = (Object.keys(randAllocation) as (keyof ChakraPool)[])
                   .reduce((sum, key) => sum + (randAllocation[key] || 0), 0);
                 const isComplete = currentSelected === randModalData.totalRandRequired;
+                const remaining = randModalData.totalRandRequired - currentSelected;
 
                 return (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center bg-amber-950/30 border border-amber-600/30 p-2.5 rounded-xl" data-rand-progress>
-                      <span className="text-xs font-bold text-amber-200">Total de Chakras Aleatórios Necessários:</span>
-                      <span className={`text-xs font-black font-mono px-2 py-0.5 rounded ${
-                        isComplete ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-orange-500/20 text-orange-400 border border-orange-500/40'
+                  <section className="space-y-2.5" data-rand-selection>
+                    <div className="flex items-center justify-between gap-2" data-rand-progress>
+                      <div>
+                        <h4 className="text-xs font-bold text-white">Escolha os chakras para usar</h4>
+                        <p className="mt-0.5 text-[10px] text-slate-400">Os custos fixos já foram descontados.</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
+                        isComplete ? 'bg-emerald-400/10 text-emerald-300' : 'bg-orange-400/10 text-orange-200'
                       }`}>
-                        {currentSelected} / {randModalData.totalRandRequired}
+                        {isComplete ? 'Pronto' : `Faltam ${remaining}`}
+                        <span className="ml-1 font-mono">{currentSelected}/{randModalData.totalRandRequired}</span>
                       </span>
                     </div>
 
-                    {/* Chakra allocation picker */}
-                    <div className="grid grid-cols-2 gap-2" data-rand-picker>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-rand-picker>
                       {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map(key => {
                         const available = randModalData.availablePoolForRand[key] || 0;
                         const allocated = randAllocation[key] || 0;
@@ -21682,58 +21719,62 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         let elemLabel = 'Taijutsu';
                         if (key === 'Nin') elemLabel = 'Ninjutsu';
                         if (key === 'Gen') elemLabel = 'Genjutsu';
-                        if (key === 'Blood') elemLabel = 'Bloodline';
+                        if (key === 'Blood') elemLabel = 'Kekkei Genkai';
+
+                        const chakraLabel = key === 'Blood' ? 'Kekkei Genkai' : elemLabel;
+                        const addButtonColors: Record<keyof ChakraPool, string> = {
+                          Tai: 'border-green-400/50 bg-green-600/30 text-green-100 hover:bg-green-500/50',
+                          Nin: 'border-blue-400/50 bg-blue-600/30 text-blue-100 hover:bg-blue-500/50',
+                          Gen: 'border-slate-300/50 bg-slate-200/20 text-white hover:bg-slate-100/35',
+                          Blood: 'border-red-400/50 bg-red-600/30 text-red-100 hover:bg-red-500/50',
+                        };
 
                         return (
-                          <div key={key} data-rand-card className={`p-2.5 rounded-xl border flex flex-col justify-between transition-all ${
+                          <div key={key} data-rand-card className={`flex min-w-0 flex-col items-center gap-2 rounded-xl border p-2.5 text-center ${
                             allocated > 0
-                              ? 'bg-amber-950/40 border-amber-500/50 shadow-md shadow-amber-950/20'
-                              : 'bg-slate-950/50 border-slate-800'
+                              ? 'border-emerald-400/50 bg-emerald-400/[0.07]'
+                                : 'border-white/10 bg-white/[0.03]'
                           }`}>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                {renderChakraIcon(key)}
-                                <span className="text-xs font-bold text-slate-200">{elemLabel}</span>
-                              </div>
-                              <span className="text-[10px] text-slate-400 font-mono" title="Disponível após custos fixos">
-                                Disp: {available}
-                              </span>
+                            {renderChakraIcon(key, 'h-6 w-6')}
+                            <span className="min-h-7 text-[10px] font-semibold leading-tight text-white">{chakraLabel}</span>
+                            <span className="text-[10px] text-slate-400">
+                              Disponível <strong className="font-mono text-white">{available}</strong>
+                            </span>
+                            <div className="flex w-full items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                aria-label={`Remover um chakra ${chakraLabel}`}
+                                disabled={!canDecrease}
+                                onClick={() => {
+                                  playClickSound();
+                                  setRandAllocation(prev => ({ ...prev, [key]: Math.max(0, (prev[key] || 0) - 1) }));
+                                }}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-base font-bold text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35"
+                              >
+                                −
+                              </button>
+                              <span className="min-w-5 text-sm font-black text-orange-200" aria-live="polite">{allocated}</span>
+                              <button
+                                type="button"
+                                aria-label={`Adicionar um chakra ${chakraLabel}`}
+                                disabled={!canIncrease}
+                                onClick={() => {
+                                  playClickSound();
+                                  setRandAllocation(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+                                }}
+                                className={`flex h-8 w-8 items-center justify-center rounded-lg border text-base font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${addButtonColors[key]}`}
+                              >
+                                +
+                              </button>
                             </div>
-
-                            <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-800/80">
-                              <span className="text-xs font-mono font-black text-amber-300">
-                                Usar: {allocated}
-                              </span>
-                              <div className="flex gap-1">
-                                <button
-                                  type="button"
-                                  disabled={!canDecrease}
-                                  onClick={() => {
-                                    playClickSound();
-                                    setRandAllocation(prev => ({ ...prev, [key]: Math.max(0, (prev[key] || 0) - 1) }));
-                                  }}
-                                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 font-bold text-xs cursor-pointer border border-slate-700 active:scale-95 transition"
-                                >
-                                  -
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={!canIncrease}
-                                  onClick={() => {
-                                    playClickSound();
-                                    setRandAllocation(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-                                  }}
-                                  className="w-6 h-6 flex items-center justify-center rounded bg-amber-700 hover:bg-amber-600 disabled:opacity-40 text-amber-100 font-bold text-xs cursor-pointer border border-amber-600 active:scale-95 transition"
-                                >
-                                  +
-                                </button>
-                              </div>
-                            </div>
+                            <span className="sr-only">
+                              {elemLabel}: selecionado {allocated} de {available} disponíveis
+                            </span>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
+                  </section>
                 );
               })()}
               </div>
@@ -21747,7 +21788,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     setShowRandChakraModal(false);
                   }}
                   data-sound="uah"
-                  className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition active:scale-95 border border-slate-700 cursor-pointer"
+                  className="flex-1 py-2 px-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 font-bold text-xs transition active:scale-95 border border-white/10 cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -21765,10 +21806,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     handleEndTurn(randAllocation);
                   }}
                   data-sound="Click"
-                  className="flex flex-1 items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-amber-100 bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 border border-orange-600/50 shadow-md transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex flex-1 items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/30 shadow-md shadow-emerald-950/30 transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
-                  Confirmar e Finalizar
+                  Finalizar
                 </button>
               </div>
             </div>
