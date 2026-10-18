@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, Swords, RefreshCw, Volume2, VolumeX, ArrowLeft, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo, SlidersHorizontal, Settings, Eye } from 'lucide-react';
+import { Shield, Swords, Zap, RefreshCw, Volume2, VolumeX, ArrowLeft, Sparkles, Flame, User, Info, ChevronLeft, ChevronRight, Clock, Flag, X, Lock, Trophy, ShieldAlert, Scroll, Target, CheckCircle2, Award, ListTodo, SlidersHorizontal, Settings, Eye } from 'lucide-react';
 import { Character, ChakraPool, CombatCharacter, ActiveEffect, CombatLog, FloatingText, Skill, ChakraType, UserProfile, getEffectiveSkillCost, getEffectiveTargetType, getEffectiveCooldown, getSkillCombatTypes, Quest, QuestGoal } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
@@ -21223,14 +21223,34 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     {chakraTradeTypes.map(({ type, label }) => {
                       const canAdd = tradeSelection[type] < playerChakra[type] && tradeSelectedTotal < 4;
                       const isSelected = tradeSelection[type] > 0;
+                      const selectedCardColors: Record<keyof ChakraPool, string> = {
+                        Tai: 'border-green-400/60 bg-green-500/15',
+                        Nin: 'border-blue-400/60 bg-blue-500/15',
+                        Gen: 'border-slate-200/60 bg-slate-100/10',
+                        Blood: 'border-red-400/60 bg-red-500/15',
+                      };
+                      const chakraTextColors: Record<keyof ChakraPool, string> = {
+                        Tai: 'text-green-300',
+                        Nin: 'text-blue-300',
+                        Gen: 'text-slate-100',
+                        Blood: 'text-red-300',
+                      };
+                      const chakraAddButtonColors: Record<keyof ChakraPool, string> = {
+                        Tai: 'border-green-400/50 bg-green-600/30 text-green-100 hover:bg-green-500/50',
+                        Nin: 'border-blue-400/50 bg-blue-600/30 text-blue-100 hover:bg-blue-500/50',
+                        Gen: 'border-slate-300/50 bg-slate-200/20 text-white hover:bg-slate-100/35',
+                        Blood: 'border-red-400/50 bg-red-600/30 text-red-100 hover:bg-red-500/50',
+                      };
                       return (
                         <div
                           key={type}
-                          className={`flex min-w-0 flex-col items-center gap-2 rounded-xl border p-3 ${isSelected ? 'border-emerald-400/50 bg-emerald-400/[0.07]' : 'border-white/10 bg-white/[0.03]'}`}
+                          className={`flex min-w-0 flex-col items-center gap-2 rounded-xl border p-3 ${isSelected ? selectedCardColors[type] : 'border-white/10 bg-white/[0.03]'}`}
                         >
                           {renderChakraIcon(type, 'h-7 w-7')}
                           <span className="text-center text-[11px] font-semibold leading-tight text-white">{label}</span>
-                          <span className="font-mono text-xs text-slate-400">Disponível: {playerChakra[type]}</span>
+                          <span className="font-mono text-xs text-slate-400">
+                            Disponível: <span className={chakraTextColors[type]}>{playerChakra[type]}</span>
+                          </span>
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
@@ -21239,13 +21259,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               onClick={() => setTradeSelection(prev => ({ ...prev, [type]: Math.max(0, prev[type] - 1) }))}
                               className="h-8 w-8 rounded-lg border border-white/10 bg-white/5 text-lg font-bold text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35"
                             >−</button>
-                            <span className="min-w-5 text-center font-mono text-sm font-bold text-orange-200">{tradeSelection[type]}</span>
+                            <span className={`min-w-5 text-center font-mono text-sm font-bold ${chakraTextColors[type]}`}>{tradeSelection[type]}</span>
                             <button
                               type="button"
                               aria-label={`Adicionar um chakra ${label}`}
                               disabled={!canAdd}
                               onClick={() => setTradeSelection(prev => ({ ...prev, [type]: prev[type] + 1 }))}
-                              className="h-8 w-8 rounded-lg border border-orange-400/25 bg-orange-400/10 text-lg font-bold text-orange-200 hover:bg-orange-400/20 disabled:cursor-not-allowed disabled:opacity-35"
+                              className={`h-8 w-8 rounded-lg border text-lg font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${chakraAddButtonColors[type]}`}
                             >+</button>
                           </div>
                         </div>
@@ -21257,18 +21277,26 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 <section className="mb-5">
                   <h3 className="mb-2 text-sm font-bold text-white">2. Escolha o que vai receber</h3>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {chakraTradeTypes.map(({ type, label }) => (
-                      <button
-                        type="button"
-                        key={type}
-                        aria-pressed={tradeTarget === type}
-                        onClick={() => setTradeTarget(type)}
-                        className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${tradeTarget === type ? 'border-emerald-400/50 bg-emerald-400/10 text-emerald-100' : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]'}`}
-                      >
-                        {renderChakraIcon(type, 'h-5 w-5')}
-                        <span>{label}</span>
-                      </button>
-                    ))}
+                    {chakraTradeTypes.map(({ type, label }) => {
+                      const targetColors: Record<keyof ChakraPool, string> = {
+                        Tai: 'border-green-400/60 bg-green-500/15 text-green-100',
+                        Nin: 'border-blue-400/60 bg-blue-500/15 text-blue-100',
+                        Gen: 'border-slate-200/60 bg-slate-100/10 text-white',
+                        Blood: 'border-red-400/60 bg-red-500/15 text-red-100',
+                      };
+                      return (
+                        <button
+                          type="button"
+                          key={type}
+                          aria-pressed={tradeTarget === type}
+                          onClick={() => setTradeTarget(type)}
+                          className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${tradeTarget === type ? targetColors[type] : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]'}`}
+                        >
+                          {renderChakraIcon(type, 'h-5 w-5')}
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </section>
 
@@ -21663,7 +21691,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               <div className="flex min-h-0 flex-col gap-3" data-rand-body>
               <section className="rounded-xl border border-amber-900/50 bg-gradient-to-br from-amber-100/95 to-amber-200/90 p-3 shadow-inner" data-rand-skills>
                 <div className="mb-2 flex items-center gap-2 text-[11px] font-bold text-amber-950">
-                  <Swords className="h-3.5 w-3.5 text-orange-300" />
+                  <Zap className="h-3.5 w-3.5 text-orange-800" />
                   Habilidades selecionadas
                 </div>
                 <div className="max-h-28 space-y-1.5 overflow-y-auto pr-1" data-rand-list>
@@ -21728,17 +21756,29 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           Gen: 'border-slate-300/50 bg-slate-200/20 text-white hover:bg-slate-100/35',
                           Blood: 'border-red-400/50 bg-red-600/30 text-red-100 hover:bg-red-500/50',
                         };
+                        const selectedCardColors: Record<keyof ChakraPool, string> = {
+                          Tai: 'border-green-400/60 bg-green-500/15',
+                          Nin: 'border-blue-400/60 bg-blue-500/15',
+                          Gen: 'border-slate-200/60 bg-slate-100/10',
+                          Blood: 'border-red-400/60 bg-red-500/15',
+                        };
+                        const chakraTextColors: Record<keyof ChakraPool, string> = {
+                          Tai: 'text-green-300',
+                          Nin: 'text-blue-300',
+                          Gen: 'text-slate-100',
+                          Blood: 'text-red-300',
+                        };
 
                         return (
                           <div key={key} data-rand-card className={`flex min-w-0 flex-col items-center gap-2 rounded-xl border p-2.5 text-center ${
                             allocated > 0
-                              ? 'border-emerald-400/50 bg-emerald-400/[0.07]'
+                              ? selectedCardColors[key]
                                 : 'border-white/10 bg-white/[0.03]'
                           }`}>
                             {renderChakraIcon(key, 'h-6 w-6')}
                             <span className="min-h-7 text-[10px] font-semibold leading-tight text-white">{chakraLabel}</span>
                             <span className="text-[10px] text-slate-400">
-                              Disponível <strong className="font-mono text-white">{available}</strong>
+                              Disponível: <span className={chakraTextColors[key]}>{available}</span>
                             </span>
                             <div className="flex w-full items-center justify-center gap-2">
                               <button
@@ -21753,7 +21793,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               >
                                 −
                               </button>
-                              <span className="min-w-5 text-sm font-black text-orange-200" aria-live="polite">{allocated}</span>
+                              <span className={`min-w-5 text-sm font-black ${chakraTextColors[key]}`} aria-live="polite">{allocated}</span>
                               <button
                                 type="button"
                                 aria-label={`Adicionar um chakra ${chakraLabel}`}
