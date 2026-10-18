@@ -18532,13 +18532,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       key={idx}
                       aria-label={r}
                       title={r}
-                      className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                        r === 'Tai' ? 'bg-green-900/80 text-white' :
-                        r === 'Nin' ? 'bg-blue-900/80 text-white' :
-                        r === 'Gen' ? 'bg-slate-700/80 text-white' :
-                        r === 'Blood' ? 'bg-red-900/80 text-white' :
-                        'bg-amber-900/80 text-white'
-                      }`}
+                      className="flex h-12 w-12 items-center justify-center rounded-full"
                     >
                       {renderChakraIcon(r as keyof ChakraPool, 'h-7 w-7')}
                     </div>
