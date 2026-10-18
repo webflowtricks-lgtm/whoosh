@@ -694,5 +694,14 @@
         "claimedAt": "2026-10-17T15:14:55.623Z"
       }
     ]
+  },
+  {
+    "username": "1",
+    "password": "1",
+    "name": "1",
+    "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/gaara/icon.jpg",
+    "village": "konoha",
+    "villageChangeCount": 0,
+    "ryos": 1500
   }
 ]

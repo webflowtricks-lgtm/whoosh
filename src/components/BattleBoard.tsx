@@ -1431,70 +1431,94 @@ function GameOverOverlay({
             )}
           </div>
 
-          {/* Center: XP REWARD & RANK PROGRESS CARD (fundo xp-pergaminho.webp) */}
-          <div className="xp-pergaminho relative w-full max-w-md rounded-2xl p-3 sm:p-3.5 text-center  overflow-hidden flex-shrink-0 z-10 "style={{
-    paddingLeft: '35px',
-    paddingRight: '35px',
-    paddingTop: '25px',
-    paddingBottom: '19px'
-  }}>
-            {/* Background Pergaminho de XP */}
-            <img
-              src="/static/img/ui/xp-pergaminho.webp"
-              alt=""
-              className=" absolute inset-0 w-full h-full object-fill z-0 pointer-events-none"
-            />
+          {/* Center: XP reward and rank progress */}
+          <div className={`relative z-10 w-full max-w-xs flex-shrink-0 overflow-hidden rounded-xl border p-3 text-left shadow-xl ${
+            isVictory
+              ? 'border-emerald-400/30 bg-gradient-to-br from-emerald-950/95 via-slate-950/95 to-slate-950 shadow-emerald-950/40'
+              : 'border-red-500/50 bg-gradient-to-br from-red-950 via-rose-950/95 to-slate-950 shadow-red-950/60'
+          }`}>
 
-            <div className="relative z-10 space-y-2">
+            <div className="relative space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-300 drop-shadow font-brush">RANK:</span>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-lg bg-gradient-to-r font-extrabold text-[11px] uppercase tracking-wider shadow ${newRankProgress.currentRank.color}`}
-                    style={{ color: '#ffffff' }}
-                  >
-                    {newRankProgress.currentRank.name}
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span className={`text-[9px] font-black uppercase tracking-wider ${isVictory ? 'text-emerald-200/70' : 'text-red-200/80'}`}>
+                    Rank:
                   </span>
+                  {(() => {
+                    const rank = newRankProgress.currentRank;
+                    const isNone = !rank.color || rank.color === 'none';
+                    const rankClass = isNone
+                      ? 'border-white/10 bg-slate-800'
+                      : (rank.color.includes('bg-gradient') ? rank.color : `bg-gradient-to-r ${rank.color}`);
+                    return (
+                      <span
+                        className={`inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide shadow-lg ${rankClass}`}
+                        style={{
+                          ...(rank.bgColor ? { backgroundColor: rank.bgColor } : {}),
+                          color: rank.fontColor || '#ffffff',
+                        }}
+                      >
+                        <span className="truncate">{rank.name}</span>
+                      </span>
+                    );
+                  })()}
                 </div>
-                {actualXpChange >= 0 ? (
-                  <span className="xp-gain-badge text-sm font-black font-brush px-3 py-0.5 rounded-full">
-                    +{actualXpChange} XP
-                  </span>
-                ) : (
-                  <span className="xp-lost-badge text-sm font-black font-brush px-3 py-0.5 rounded-full">
-                    {actualXpChange} XP
-                  </span>
-                )}
+
+                <div className={`flex flex-shrink-0 items-center gap-1 rounded-md border px-2 py-1 font-black shadow-sm ${
+                  isVictory
+                    ? 'border-emerald-300/40 bg-emerald-500 text-emerald-950'
+                    : 'border-red-300/50 bg-red-600 text-white'
+                }`}>
+                  <img
+                    src="/static/img/icon/xp-icon.svg"
+                    alt="XP"
+                    className="h-3.5 w-3.5 object-contain drop-shadow-[0_0_4px_rgba(255,255,255,0.4)]"
+                  />
+                  <span className="text-[10px] font-black leading-tight">{actualXpChange > 0 ? '+' : ''}{actualXpChange} XP</span>
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <div className="relative w-full h-2.5 bg-slate-950 rounded-full border border-slate-800">
+              <div className="border-t border-white/10 pt-2">
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <span className="text-[8px] font-bold uppercase tracking-[0.12em] text-slate-300">Progresso do posto</span>
+                  <span className={`text-[10px] font-black tabular-nums ${isVictory ? 'text-emerald-300' : 'text-rose-300'}`}>
+                    {newRankProgress.progressPercent}%
+                  </span>
+                </div>
+                <div
+                  className="h-2 overflow-hidden rounded-full border border-white/10 bg-slate-900 shadow-inner"
+                  role="progressbar"
+                  aria-label="Progresso para o próximo posto"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={newRankProgress.progressPercent}
+                >
                   <motion.div
-                    initial={{ width: `${oldRankProgress.progressPercent}%` }}
+                    initial={{
+                      width: `${rankChangeInfo.rankedUp || rankChangeInfo.rankedDown
+                        ? newRankProgress.progressPercent
+                        : oldRankProgress.progressPercent}%`,
+                    }}
                     animate={{ width: `${newRankProgress.progressPercent}%` }}
                     transition={{ duration: 1, ease: 'easeOut' }}
-                    className="relative h-full"
+                    className={`relative h-full overflow-hidden rounded-full bg-gradient-to-r ${
+                      isVictory ? 'from-emerald-500 via-teal-400 to-cyan-300' : 'from-rose-600 via-red-500 to-orange-400'
+                    }`}
                   >
-                    <div className="absolute inset-0 rounded-full bg-[#0cad81] overflow-hidden shadow-[0_0_12px_rgba(12,173,129,0.6)] xp-bar-ray">
-                      <div className="xp-bar-shimmer" />
-                    </div>
-                    <img
-                      src="/static/img/ui/xpicon.webp"
-                      alt=""
-                      className="xp-final-battle absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 object-contain drop-shadow-[0_0_6px_rgba(12,173,129,0.85)]"
-                    />
+                    <div className="xp-bar-shimmer" />
                   </motion.div>
                 </div>
-                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                <div className="mt-1 flex items-center justify-between gap-3 text-[8px] font-medium text-slate-400">
                   {newRankProgress.isMaxRank ? (
-                    <span className="text-amber-300 font-bold w-full text-center">
-                      🏆 Posto Máximo Alcançado! ({newXp.toLocaleString()} XP)
+                    <span className="flex w-full items-center justify-center gap-1.5 font-bold text-amber-300">
+                      <Trophy className="h-2.5 w-2.5" aria-hidden="true" />
+                      Posto máximo · {newXp.toLocaleString()} XP
                     </span>
                   ) : (
                     <>
-                      <span>{newRankProgress.currentXp.toLocaleString()} XP</span>
-                      <span>
-                        Próximo: {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP ({newRankProgress.nextRank?.name})
+                      <span className="whitespace-nowrap tabular-nums">{newXp.toLocaleString()} XP</span>
+                      <span className="truncate text-right">
+                        Próximo: {newRankProgress.nextRank?.name} · {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP
                       </span>
                     </>
                   )}
