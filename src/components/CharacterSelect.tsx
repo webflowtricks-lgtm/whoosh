@@ -898,7 +898,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       {isMobilePortrait && showCharacterDetails && createPortal(
         <div
           aria-hidden="true"
-          className="fixed inset-0 z-[99] bg-slate-950/[0.88]"
+          className="fixed inset-0 z-[50] bg-slate-950/[0.88]"
           onClick={() => setShowCharacterDetails(false)}
         />,
         document.body,
