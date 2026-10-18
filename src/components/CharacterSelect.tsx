@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Shield, ChevronLeft, ChevronRight, ArrowLeft, Swords, RefreshCw, Sparkles, Search, Filter, Star, AlertTriangle, Shirt, Lock, X, Eye } from 'lucide-react';
 import { Character, ChakraType, UserProfile, Quest, Skill } from '../types';
 import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
@@ -894,6 +895,14 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative selection:bg-orange-600 selection:text-white overflow-x-hidden">
+      {isMobilePortrait && showCharacterDetails && createPortal(
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-[99] bg-slate-950/[0.88]"
+          onClick={() => setShowCharacterDetails(false)}
+        />,
+        document.body,
+      )}
       {catalogStatus !== 'ready' && (
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-[#061b35]/90 p-4 backdrop-blur-sm">
           <div role="alert" aria-live="polite" className="w-full max-w-md overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br from-[#123f70] via-[#0a2a4d] to-[#071b33] p-6 text-center text-white shadow-[0_24px_80px_rgba(0,0,0,0.65)]">
