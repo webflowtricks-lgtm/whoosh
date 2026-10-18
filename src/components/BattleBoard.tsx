@@ -1315,7 +1315,7 @@ function GameOverOverlay({
             Absoluta: não empurra o restante do layout (harmonia preservada). */}
         <div className="gameover-banner-wrap">
           <img
-            src={isVictory ? '/static/img/ui/YW.webp' : '/static/img/ui/YL.webp'}
+            src={isVictory ? '/static/img/ui/YW.webp' : '/static/img/ui/YL-red.webp'}
             alt={isVictory ? 'Vitória' : 'Derrota'}
             className="gameover-banner-img"
           />
