@@ -160,6 +160,50 @@ body.processing-cursor * {
   transform: scale(0.95);
 }
 
+.gameover-return-button {
+  animation: gameover-return-glow 2.4s ease-in-out infinite;
+}
+
+.gameover-return-label {
+  color: #fff;
+  font-weight: 900;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 5px rgba(0, 0, 0, 0.8);
+}
+
+.gameover-xp-badge {
+  transform-origin: center;
+  animation: gameover-xp-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes gameover-xp-pulse {
+  0%, 100% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+  50% {
+    filter: brightness(1.12);
+    transform: scale(1.04);
+  }
+}
+
+@keyframes gameover-return-glow {
+  0%, 100% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+  50% {
+    filter: brightness(1.08);
+    transform: scale(1.035);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gameover-return-button,
+  .gameover-xp-badge {
+    animation: none;
+  }
+}
+
 .btn-shuriken {
   width: 1.25rem;
   height: 1.25rem;
@@ -1949,7 +1993,7 @@ body.processing-cursor * {
 
 .arena-progress-sheen {
   position: absolute;
-  top: 0;
+  top: -8px;
   bottom: 0;
   width: 40%;
   left: -40%;
@@ -2154,7 +2198,7 @@ body.processing-cursor * {
 .gameover-banner-img {
   position: absolute;
   left: 50%;
-  top: 0;
+  top: -10px;
   transform: translateX(-50%);
   width: min(560px, 82vw);
   max-width: 100%;
@@ -2164,13 +2208,15 @@ body.processing-cursor * {
   user-select: none;
 }
 
-/* Pill de rendiÃ§Ã£o que fica abaixo do banner (opcional) */
+/* Mensagem de vitória/derrota por rendição, fixa no canto inferior direito */
 .gameover-surrender-pill {
-  position: absolute;
-  left: 50%;
-  top: 100%;
-  transform: translateX(-50%);
-  margin-top: 0.35rem;
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 30;
+  width: max-content;
+  max-width: min(24rem, calc(100vw - 2rem));
+  margin: 0;
   font-size: 0.7rem;
   font-weight: 700;
   padding: 0.15rem 0.65rem;
@@ -2178,8 +2224,9 @@ body.processing-cursor * {
   background: rgba(255, 255, 255, 0.75);
   border: 1px solid #cbd5e1;
   color: #92400e;
+  text-align: right;
+  white-space: normal;
   pointer-events: auto;
-  white-space: nowrap;
 }
 
  

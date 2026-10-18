@@ -1319,9 +1319,6 @@ function GameOverOverlay({
             alt={isVictory ? 'Vitória' : 'Derrota'}
             className="gameover-banner-img"
           />
-          {surrenderReason && (
-            <p className="gameover-surrender-pill">{surrenderReason}</p>
-          )}
         </div>
 
         {/* ROW: PLAYER PROFILE CARD | XP REWARD & RANK PROGRESS CARD | OPPONENT PROFILE CARD */}
@@ -1359,12 +1356,12 @@ function GameOverOverlay({
                 <img
                   src={user.equippedBannerUrl || undefined}
                   alt=""
-                  className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none rounded-2xl z-0"
+                  className="absolute inset-0 w-full h-full object-cover opacity-100 pointer-events-none rounded-2xl z-0"
                   style={{ objectPosition: `${user.equippedBannerPositionX ?? 50}% ${user.equippedBannerPositionY ?? 50}%` }}
                   referrerPolicy="no-referrer"
                 />
               )}
-              {user.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-slate-900/25 to-slate-900/10 pointer-events-none rounded-2xl z-0" />}
+              {user.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-slate-900/20 to-slate-900/5 pointer-events-none rounded-2xl z-0" />}
               <div className="absolute top-0 right-0 w-24 h-24 bg-orange-600/5 rounded-full blur-2xl group-hover:bg-orange-600/10 transition-all pointer-events-none z-0" />
 
               <div className="relative z-10 w-12 h-12 flex-shrink-0">
@@ -1434,14 +1431,14 @@ function GameOverOverlay({
           {/* Center: XP reward and rank progress */}
           <div className={`relative z-10 order-3 lg:order-2 w-full max-w-sm flex-shrink-0 overflow-hidden rounded-xl border p-3 text-left shadow-xl ${
             isVictory
-              ? 'border-emerald-400/30 bg-gradient-to-br from-emerald-950/95 via-slate-950/95 to-slate-950 shadow-emerald-950/40'
+              ? 'border-emerald-400/50 bg-gradient-to-br from-emerald-900/90 via-emerald-950/95 to-slate-950 shadow-[0_0_28px_rgba(16,185,129,0.2)]'
               : 'border-red-500/50 bg-gradient-to-br from-red-950 via-rose-950/95 to-slate-950 shadow-red-950/60'
           }`}>
 
             <div className="relative space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-1.5">
-                  <span className={`text-[9px] font-black uppercase tracking-wider ${isVictory ? 'text-emerald-200/70' : 'text-red-200/80'}`}>
+                  <span className={`text-[9px] font-black uppercase tracking-wider ${isVictory ? 'text-emerald-300' : 'text-red-200/80'}`}>
                     Rank:
                   </span>
                   {(() => {
@@ -1464,27 +1461,21 @@ function GameOverOverlay({
                   })()}
                 </div>
 
-                <div className={`flex flex-shrink-0 items-center gap-1 rounded-md border px-2 py-1 font-black shadow-sm ${
+                <div className={`gameover-xp-badge inline-flex flex-shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-0 font-black shadow-sm ${
                   isVictory
-                    ? 'border-emerald-300/40 bg-emerald-500 text-emerald-950'
+                    ? 'border-emerald-200/60 bg-emerald-600 text-white shadow-emerald-950/40'
                     : 'border-red-300/50 bg-red-600 text-white'
                 }`}>
                   <img
-                    src="/static/img/icon/xp-icon.svg?v=2"
+                    src="/static/img/icon/xp-icon.svg?v=4"
                     alt="XP"
-                    className="h-10 w-10 object-contain drop-shadow-[0_0_4px_rgba(255,255,255,0.4)]"
+                    className="block h-7 w-7 shrink-0 object-contain drop-shadow-[0_0_4px_rgba(255,255,255,0.4)]"
                   />
-                  <span className="text-[10px] font-black leading-tight">{actualXpChange > 0 ? '+' : ''}{actualXpChange} XP</span>
+                  <span className="text-center text-xs font-black leading-none text-white drop-shadow-sm">{actualXpChange > 0 ? '+' : ''}{actualXpChange} XP</span>
                 </div>
               </div>
 
               <div className="border-t border-white/10 pt-2">
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <span className="text-[8px] font-bold uppercase tracking-[0.12em] text-slate-300">Progresso do posto</span>
-                  <span className={`text-[10px] font-black tabular-nums ${isVictory ? 'text-emerald-300' : 'text-rose-300'}`}>
-                    {newRankProgress.progressPercent}%
-                  </span>
-                </div>
                 <div
                   className="h-2 overflow-hidden rounded-full border border-white/10 bg-slate-900 shadow-inner"
                   role="progressbar"
@@ -1509,18 +1500,21 @@ function GameOverOverlay({
                   </motion.div>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-3 text-[8px] font-medium text-slate-400">
+                  <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap tabular-nums">
+                    <span>{newXp.toLocaleString()} XP</span>
+                    <span className={`font-black ${isVictory ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {newRankProgress.progressPercent}%
+                    </span>
+                  </span>
                   {newRankProgress.isMaxRank ? (
-                    <span className="flex w-full items-center justify-center gap-1.5 font-bold text-amber-300">
-                      <Trophy className="h-2.5 w-2.5" aria-hidden="true" />
-                      Posto máximo · {newXp.toLocaleString()} XP
+                    <span className="flex min-w-0 items-center justify-end gap-1 font-bold text-amber-300">
+                      <Trophy className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">Posto máximo</span>
                     </span>
                   ) : (
-                    <>
-                      <span className="whitespace-nowrap tabular-nums">{newXp.toLocaleString()} XP</span>
-                      <span className="truncate text-right">
-                        Próximo: {newRankProgress.nextRank?.name} · {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP
-                      </span>
-                    </>
+                    <span className="truncate text-right">
+                      Próximo: {newRankProgress.nextRank?.name} · {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP
+                    </span>
                   )}
                 </div>
               </div>
@@ -1561,12 +1555,12 @@ function GameOverOverlay({
                 <img
                   src={opp.equippedBannerUrl || undefined}
                   alt=""
-                  className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none rounded-2xl z-0"
+                  className="absolute inset-0 w-full h-full object-cover opacity-100 pointer-events-none rounded-2xl z-0"
                   style={{ objectPosition: `${opp.equippedBannerPositionX ?? 50}% ${opp.equippedBannerPositionY ?? 50}%` }}
                   referrerPolicy="no-referrer"
                 />
               )}
-              {isOnline && opp?.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-slate-900/25 to-slate-900/10 pointer-events-none rounded-2xl z-0" />}
+              {isOnline && opp?.equippedBannerUrl && <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-slate-900/20 to-slate-900/5 pointer-events-none rounded-2xl z-0" />}
               <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 rounded-full blur-2xl group-hover:bg-red-600/10 transition-all pointer-events-none z-0" />
 
               <div className="relative z-10 w-12 h-12 flex-shrink-0">
@@ -1639,18 +1633,18 @@ function GameOverOverlay({
         </div>
 
         {/* Center Stage: Character Lineup with Pergaminho 3 */}
-        <div className="w-full flex items-center justify-start sm:justify-center gap-3 sm:gap-6 flex-nowrap overflow-x-auto overflow-y-hidden px-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="grid w-full grid-cols-3 items-center justify-items-center gap-1 px-1 pb-2 sm:gap-4 sm:px-2">
           {showcaseTeam.map((combatant) => {
             const portrait = combatant.character.portrait;
 
             return (
               <div
                 key={combatant.id}
-                className="relative group flex flex-shrink-0 flex-col items-center select-none"
+                className="relative group flex w-full min-w-0 flex-col items-center select-none"
               >
                 {/* Pergaminho 3 Card Container */}
                 <div
-                  className={`relative w-30 sm:w-36 h-48 sm:h-56 flex flex-col items-center justify-center pt-[34px] pb-3 px-3 sm:px-4 filter drop-shadow-xl transition-transform duration-300 hover:scale-105 ${
+                  className={`relative flex h-44 w-full max-w-[144px] flex-col items-center justify-center px-1 pb-2 pt-7 filter drop-shadow-xl transition-transform duration-300 hover:scale-105 sm:h-56 sm:px-4 sm:pb-3 sm:pt-[34px] ${
                     combatant.isDead ? 'opacity-60 grayscale' : ''
                   }`}
                 >
@@ -1663,7 +1657,7 @@ function GameOverOverlay({
 
                   {/* Character Portrait (Sempre a foto oficial do ninja) */}
                   <div className="relative z-10 flex items-center justify-center">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-amber-900/60 relative bg-slate-950 shadow-xl">
+                    <div className="relative h-14 w-14 overflow-hidden rounded-xl border-2 border-amber-900/60 bg-slate-950 shadow-xl sm:h-24 sm:w-24 sm:rounded-2xl">
                       <MangekyoLoader
                         src={portrait}
                         alt={combatant.character.name}
@@ -1675,20 +1669,20 @@ function GameOverOverlay({
                   </div>
 
                   {/* Character Name & Status right below photo */}
-                  <div className="relative z-10 w-full text-center flex flex-col items-center gap-1.5 mt-2.5">
-                    <p className="text-[11px] sm:text-xs font-black text-amber-950 truncate max-w-full font-display drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)] leading-tight">
+                  <div className="relative z-10 mt-1.5 flex w-full flex-col items-center gap-1 text-center sm:mt-2.5 sm:gap-1.5">
+                    <p className="max-w-full break-words text-[9px] font-black leading-tight text-amber-950 font-display drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)] sm:text-xs">
                       {combatant.character.name}
                     </p>
                     {combatant.isDead ? (
-                      <span className="text-[8px] sm:text-[9px] font-mono font-black text-red-950 bg-red-900/20 px-2.5 py-0.5 rounded-full border border-red-900/40 uppercase tracking-wider">
+                      <span className="rounded-full border border-red-900/40 bg-red-900/20 px-1.5 py-0.5 text-[7px] font-mono font-black uppercase tracking-wider text-red-950 sm:px-2.5 sm:text-[9px]">
                         MORTO
                       </span>
                     ) : (
                       <>
-                        <span className="text-[8px] sm:text-[9px] font-mono font-black text-emerald-950 bg-emerald-700/20 px-2.5 py-0.5 rounded-full border border-emerald-800/40 uppercase tracking-wider shadow-xs">
+                        <span className="rounded-full border border-emerald-800/40 bg-emerald-700/20 px-1 py-0.5 text-[6px] font-mono font-black uppercase tracking-wider text-emerald-950 shadow-xs sm:px-2.5 sm:text-[9px]">
                           SOBREVIVENTE
                         </span>
-                        <span className="text-[9.5px] sm:text-[10.5px] font-mono font-black text-emerald-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] pt-0.5 ml-hp">
+                        <span className="ml-hp pt-0.5 text-[8px] font-mono font-black text-emerald-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] sm:text-[10.5px]">
                           ❤️ {combatant.health} / {combatant.maxHealth}
                         </span>
                       </>
@@ -1700,38 +1694,36 @@ function GameOverOverlay({
           })}
         </div>
 
-        {/* Scroll Banner Text & Action Button Card */}
-        <div className="pergaminho-voltar-ao-menu relative max-w-sm w-full min-h-[125px] p-4 sm:p-4.5 flex flex-col items-center justify-between text-center gap-2.5">
-          {/* Background Pergaminho Image */}
-          <img
-            src="/static/img/ui/pergaminho2.webp"
-            alt="Pergaminho Shinobi"
-            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-md"
-          />
-
-          <div className="relative z-10 px-5 pt-1 space-y-0.5">
-            <p className="text-xs sm:text-sm text-stone-900 font-extrabold leading-snug">
-              {isVictory
-                ? 'Parabéns! Você executou sua tática com maestria e conquistou a vitória no campo de batalha!'
-                : 'Seu esquadrão combateu bravamente, mas foi superado pelas táticas adversárias!'}
-            </p>
-          </div>
-
-          <div className="relative z-10 w-full flex justify-center" >
-            <button
-              onClick={handleQuit}
-              data-sound="Click"
-              aria-label={t('Voltar à seleção', 'Back to selection')}
-              className="btn-red-image"
-            >
-              {/* Ícone shuriken girando com glow dourado */}
-              <img src="/static/img/ui/gold-shuriken.webp" alt="" className="btn-shuriken" />
-              <span className="font-brush text-[13px] sm:text-[15px]">{t("Voltar ao Menu", "Back to Selection")}</span>
-            </button>
-          </div>
+        {/* Return-to-menu action */}
+        <div className="relative w-full flex justify-center">
+          <button
+            onClick={handleQuit}
+            data-sound="Click"
+            aria-label={t('Voltar à seleção', 'Back to selection')}
+            className="btn-red-image gameover-return-button"
+            style={isVictory ? {
+              backgroundImage: "url('/static/img/ui/green-button.webp')",
+              boxShadow: '0 10px 18px -3px rgba(16, 185, 129, 0.55), 0 0 20px rgba(34, 197, 94, 0.35)',
+            } : undefined}
+          >
+            {/* Ícone shuriken girando com glow dourado */}
+            <img
+              src="/static/img/ui/gold-shuriken.webp"
+              alt=""
+              className="btn-shuriken"
+              style={isVictory ? {
+                filter: 'drop-shadow(0 0 6px rgba(134, 239, 172, 0.95)) drop-shadow(0 0 14px rgba(34, 197, 94, 0.75))',
+              } : undefined}
+            />
+            <span className="gameover-return-label font-brush text-[13px] sm:text-[15px]">{t("Voltar ao Menu", "Back to Selection")}</span>
+          </button>
         </div>
 
       </motion.div>
+
+      {surrenderReason && (
+        <p className="gameover-surrender-pill">{surrenderReason}</p>
+      )}
 
       {/* Modais ficam fora do stacking context do conteúdo para sobrepor Naruto. */}
       {showRankUpModal && (
