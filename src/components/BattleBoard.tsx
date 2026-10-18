@@ -21241,6 +21241,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         Gen: 'border-slate-300/50 bg-slate-200/20 text-white hover:bg-slate-100/35',
                         Blood: 'border-red-400/50 bg-red-600/30 text-red-100 hover:bg-red-500/50',
                       };
+                      const selectedAddButtonColors: Record<keyof ChakraPool, string> = {
+                        Tai: 'border-green-400 bg-green-600 text-green-50',
+                        Nin: 'border-blue-400 bg-blue-600 text-blue-50',
+                        Gen: 'border-slate-200 bg-slate-100 text-slate-900',
+                        Blood: 'border-red-400 bg-red-600 text-red-50',
+                      };
                       return (
                         <div
                           key={type}
@@ -21265,7 +21271,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               aria-label={`Adicionar um chakra ${label}`}
                               disabled={!canAdd}
                               onClick={() => setTradeSelection(prev => ({ ...prev, [type]: prev[type] + 1 }))}
-                              className={`h-8 w-8 rounded-lg border text-lg font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${chakraAddButtonColors[type]}`}
+                              className={`h-8 w-8 rounded-lg border text-lg font-bold transition-colors disabled:cursor-not-allowed ${isSelected ? selectedAddButtonColors[type] : `${chakraAddButtonColors[type]} disabled:opacity-35`}`}
                             >+</button>
                           </div>
                         </div>
@@ -21756,6 +21762,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           Gen: 'border-slate-300/50 bg-slate-200/20 text-white hover:bg-slate-100/35',
                           Blood: 'border-red-400/50 bg-red-600/30 text-red-100 hover:bg-red-500/50',
                         };
+                        const selectedAddButtonColors: Record<keyof ChakraPool, string> = {
+                          Tai: 'border-green-400 bg-green-600 text-green-50',
+                          Nin: 'border-blue-400 bg-blue-600 text-blue-50',
+                          Gen: 'border-slate-200 bg-slate-100 text-slate-900',
+                          Blood: 'border-red-400 bg-red-600 text-red-50',
+                        };
                         const selectedCardColors: Record<keyof ChakraPool, string> = {
                           Tai: 'border-green-400/60 bg-green-500/15',
                           Nin: 'border-blue-400/60 bg-blue-500/15',
@@ -21802,7 +21814,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                   playClickSound();
                                   setRandAllocation(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
                                 }}
-                                className={`flex h-8 w-8 items-center justify-center rounded-lg border text-base font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${addButtonColors[key]}`}
+                                className={`flex h-8 w-8 items-center justify-center rounded-lg border text-base font-bold transition-colors disabled:cursor-not-allowed ${(allocated > 0) ? selectedAddButtonColors[key] : `${addButtonColors[key]} disabled:opacity-35`}`}
                               >
                                 +
                               </button>
