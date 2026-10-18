@@ -46,6 +46,19 @@ body.processing-cursor * {
   letter-spacing: 2.5px; /* Blowbrush Ã© condensada â€” espaÃ§amento extra melhora a leitura */
 }
 
+.animated-gradient-box {
+  background: linear-gradient(325deg, #064e3b, #047857, #059669, #34d399, #10b981, #022c22);
+  background-size: 300% 300%;
+  animation: gradientFlow 4.5s ease infinite;
+  box-shadow: 0 12px 32px rgba(52, 211, 153, 0.4);
+}
+
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .ml-skills-detalhes {
   padding-right: 20px;
   padding-left: 20px;
@@ -1987,10 +2000,6 @@ body.processing-cursor * {
     fire-glow 0.8s ease-in-out infinite;
 }
 
-.gameover-content {
-  margin-top: -13px;
-}
-
 .arena-progress-sheen {
   position: absolute;
   top: -8px;
@@ -3823,13 +3832,6 @@ e-squad-name {
 
   .mv-chakra-roll-icon-frame {
     flex: 0 0 auto;
-  }
-
-  .mv-chakra-roll-icon {
-    display: block;
-    width: 1.25rem;
-    height: 1.25rem;
-    flex: 0 0 1.25rem;
   }
 
   html:has(.battle-arena-layout),

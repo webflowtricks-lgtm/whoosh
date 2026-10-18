@@ -1233,7 +1233,7 @@ function GameOverOverlay({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-[10000] w-full h-full flex items-center justify-center p-3 sm:p-4 select-none overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
+      className="fixed inset-0 z-[10000] w-full h-screen h-[100dvh] flex items-center justify-center p-3 sm:p-4 select-none overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
       style={{ backgroundImage: "url('/static/img/bg/bg-battle.webp')" }}
     >
       {/* Background Dark/Atmospheric Tint Overlay (Defeat Only - Victory keeps background 100% original & clear) */}
@@ -1309,7 +1309,7 @@ function GameOverOverlay({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="gameover-content relative z-20 w-full max-w-5xl flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
+        className="gameover-content relative z-20 w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
       >
         {/* Top Victory/Defeat Banner — imagem YW (vitória) / YL (derrota), mesma classe .gameover-banner-img.
             Absoluta: não empurra o restante do layout (harmonia preservada). */}
@@ -1657,7 +1657,7 @@ function GameOverOverlay({
 
                   {/* Character Portrait (Sempre a foto oficial do ninja) */}
                   <div className="relative z-10 flex items-center justify-center">
-                    <div className="relative h-14 w-14 overflow-hidden rounded-xl border-2 border-amber-900/60 bg-slate-950 shadow-xl sm:h-24 sm:w-24 sm:rounded-2xl">
+                    <div className="relative h-16 w-16 overflow-hidden rounded-xl border-2 border-amber-900/60 bg-slate-950 shadow-xl sm:h-[104px] sm:w-[104px] sm:rounded-2xl">
                       <MangekyoLoader
                         src={portrait}
                         alt={combatant.character.name}
@@ -1670,19 +1670,19 @@ function GameOverOverlay({
 
                   {/* Character Name & Status right below photo */}
                   <div className="relative z-10 mt-1.5 flex w-full flex-col items-center gap-1 text-center sm:mt-2.5 sm:gap-1.5">
-                    <p className="max-w-full break-words text-[9px] font-black leading-tight text-amber-950 font-display drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)] sm:text-xs">
+                    <p className="max-w-full break-words text-[10px] font-black leading-tight text-amber-950 font-display drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)] sm:text-[13px]">
                       {combatant.character.name}
                     </p>
                     {combatant.isDead ? (
-                      <span className="rounded-full border border-red-900/40 bg-red-900/20 px-1.5 py-0.5 text-[7px] font-mono font-black uppercase tracking-wider text-red-950 sm:px-2.5 sm:text-[9px]">
+                      <span className="rounded-full border border-red-900/40 bg-red-900/20 px-1.5 py-0.5 text-[8px] font-mono font-black uppercase tracking-wider text-red-950 sm:px-2.5 sm:text-[10px]">
                         MORTO
                       </span>
                     ) : (
                       <>
-                        <span className="rounded-full border border-emerald-800/40 bg-emerald-700/20 px-1 py-0.5 text-[6px] font-mono font-black uppercase tracking-wider text-emerald-950 shadow-xs sm:px-2.5 sm:text-[9px]">
+                        <span className="rounded-full border border-emerald-800/40 bg-emerald-700/20 px-1 py-0.5 text-[7px] font-mono font-black uppercase tracking-wider text-emerald-950 shadow-xs sm:px-2.5 sm:text-[10px]">
                           SOBREVIVENTE
                         </span>
-                        <span className="ml-hp pt-0.5 text-[8px] font-mono font-black text-emerald-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] sm:text-[10.5px]">
+                        <span className="ml-hp pt-0.5 text-[9px] font-mono font-black text-emerald-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] sm:text-[11.5px]">
                           ❤️ {combatant.health} / {combatant.maxHealth}
                         </span>
                       </>
@@ -18501,18 +18501,46 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               initial={{ opacity: 0, y: -24, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -16, scale: 0.95 }}
-              className="mv-chakra-roll-banner bg-slate-900/95 border border-orange-500/50 rounded-2xl px-8 py-4 flex items-center gap-4 shadow-2xl shadow-orange-600/20 backdrop-blur"
+              className="mv-chakra-roll-banner animated-gradient-box relative flex max-w-[calc(100vw-2rem)] items-center gap-5 overflow-hidden rounded-2xl border border-white/30 px-4 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl sm:gap-6 sm:px-6 sm:py-5"
             >
-              <div className="mv-chakra-roll-icon-frame bg-orange-600/10 p-2 rounded-lg border border-orange-500/30">
-                <img src="/static/img/icon/star.svg" alt="Loading" className="mv-chakra-roll-icon w-5 h-5 animate-spin object-contain" />
+              <div className="mv-chakra-roll-icon-frame relative flex h-14 w-14 shrink-0 items-center justify-center sm:h-16 sm:w-16">
+                <span
+                  aria-hidden="true"
+                  className="chakra-roll-spinner h-14 w-14 animate-spin bg-emerald-300 sm:h-16 sm:w-16"
+                  style={{
+                    maskImage: "url('/static/img/icon/star.svg')",
+                    WebkitMaskImage: "url('/static/img/icon/star.svg')",
+                    maskSize: 'contain',
+                    WebkitMaskSize: 'contain',
+                    maskRepeat: 'no-repeat',
+                    WebkitMaskRepeat: 'no-repeat',
+                    maskPosition: 'center',
+                    WebkitMaskPosition: 'center',
+                  }}
+                />
               </div>
-              <div>
-                <p className="text-[10px] font-mono text-orange-400 font-bold uppercase tracking-wider">Giro de Chakra - Turno {turn}</p>
-                <div className="flex items-center gap-2 mt-1">
+              <div className="relative min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white">Chakra gerado</p>
+                  <span className="rounded-full border border-emerald-300/30 bg-emerald-950/80 px-2 py-0.5 text-[9px] font-bold text-white">
+                    Turno {turn}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
                   {lastChakraRoll.map((r, idx) => (
-                    <div key={idx} className="flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                      {renderChakraIcon(r as keyof ChakraPool)}
-                      <span className="text-xs font-mono font-bold text-slate-300">{r}</span>
+                    <div
+                      key={idx}
+                      aria-label={r}
+                      title={r}
+                      className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                        r === 'Tai' ? 'bg-green-900/80 text-white' :
+                        r === 'Nin' ? 'bg-blue-900/80 text-white' :
+                        r === 'Gen' ? 'bg-slate-700/80 text-white' :
+                        r === 'Blood' ? 'bg-red-900/80 text-white' :
+                        'bg-amber-900/80 text-white'
+                      }`}
+                    >
+                      {renderChakraIcon(r as keyof ChakraPool, 'h-7 w-7')}
                     </div>
                   ))}
                 </div>
@@ -18712,10 +18740,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   ? 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
                   : isSandbox
                     ? activePlanner === 'player'
-                      ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40 cursor-pointer'
+                      ? 'bg-gradient-to-r from-emerald-950 to-green-900 hover:from-emerald-900 hover:to-green-800 text-emerald-100 border-emerald-500/40 shadow-emerald-950/50 cursor-pointer'
                       : 'bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 border-red-600/50 shadow-red-950/40 cursor-pointer'
                     : activePlanner === 'player'
-                      ? 'bg-gradient-to-r from-orange-800 to-amber-800 hover:from-orange-700 hover:to-amber-700 text-amber-100 border-orange-600/50 shadow-orange-950/40 cursor-pointer'
+                      ? 'bg-gradient-to-r from-emerald-950 to-green-900 hover:from-emerald-900 hover:to-green-800 text-emerald-100 border-emerald-500/40 shadow-emerald-950/50 cursor-pointer'
                       : 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
               } font-black rounded-xl active:scale-95 transition-all shadow-lg text-xs uppercase tracking-widest flex items-center gap-2 border disabled:opacity-50 disabled:cursor-not-allowed`}
             >
