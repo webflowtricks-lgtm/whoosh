@@ -1309,7 +1309,7 @@ function GameOverOverlay({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="gameover-content relative z-20 w-full max-w-7xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
+        className="gameover-content relative z-20 -translate-y-6 w-full max-w-7xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain flex flex-col items-center justify-center text-center gap-3 sm:gap-4 my-auto py-2 px-2"
       >
         {/* Top Victory/Defeat Banner — imagem YW (vitória) / YL (derrota), mesma classe .gameover-banner-img.
             Absoluta: não empurra o restante do layout (harmonia preservada). */}
