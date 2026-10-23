@@ -7,6 +7,7 @@ import {
 import type { Character } from '../src/types';
 import type { QuestBattleStats } from '../src/lib/questProgress';
 import { resolveQuestRequiredRank } from '../src/lib/questProgress';
+import { getCurrentRecurringQuests } from '../src/lib/recurringQuests';
 import type { CombatEngineEvent, CombatEngineState } from '../src/lib/combatEngine';
 import {
   getD1AccountProfile,
@@ -375,7 +376,7 @@ export class MatchmakerDurableObject {
         getD1Config(this.env.DB, 'quests'),
         getD1Config(this.env.DB, 'ranks'),
       ]);
-      const quest = quests?.find(item =>
+      const quest = [...(quests || []), ...getCurrentRecurringQuests()].find(item =>
         !!item && typeof item === 'object' && (item as Record<string, unknown>).id === raw.activeQuestId,
       ) as Record<string, unknown> | undefined;
       const completedQuestIds = Array.isArray(storedProfile.completedQuestIds)

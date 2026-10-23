@@ -188,7 +188,7 @@ export function evaluateAuthoritativeQuestGoal(
 ): { nextValue: number; nextStreak: number } {
   let valueToAdd = 0;
   let nextStreak = goal.currentStreak || 0;
-  let currentValue = goal.singleMatch ? 0 : goal.currentValue;
+  let currentValue = goal.singleMatch && goal.currentValue < goal.targetValue ? 0 : goal.currentValue;
 
   const matchesCharacter = (name: string) =>
     !goal.targetCharacters?.length || goal.targetCharacters.some(target =>
@@ -237,11 +237,15 @@ export function evaluateAuthoritativeQuestGoal(
       ).length >= 3) valueToAdd = 1;
       break;
     }
-    case 'use_skill':
-      valueToAdd = stats.skillUseRecords.filter(record =>
+    case 'use_skill': {
+      const matchingUses = stats.skillUseRecords.filter(record =>
         matchesCharacter(record.charName) && matchesSkill(record.skillName) && matchesTags(record.tags),
-      ).length;
+      );
+      valueToAdd = goal.distinctCharacters
+        ? new Set(matchingUses.map(record => normalizeQuestCharacterName(record.charName))).size
+        : matchingUses.length;
       break;
+    }
     case 'heal':
       valueToAdd = stats.healingDoneRecords.filter(record =>
         matchesCharacter(record.charName) && matchesSkill(record.skillName) && matchesTags(record.tags),

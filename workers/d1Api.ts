@@ -1,4 +1,14 @@
 import { calculateBattleXp } from '../src/lib/battleRewards';
+import { buildDefaultCards } from '../src/lib/cardStorage';
+import {
+  calculateRecurringPoints,
+  getCurrentRecurringQuests,
+  getDefaultRecurringQuestSettings,
+  getRecurringChestClaimId,
+  getRecurringChestTiers,
+  isValidRecurringQuestSettings,
+  isRecurringChestUnlocked,
+} from '../src/lib/recurringQuests';
 import {
   evaluateAuthoritativeQuestGoal,
   resolveQuestRequiredRank,
@@ -18,7 +28,7 @@ import {
   isValidCardRouletteChances,
   redeemCardPackRewards,
 } from '../src/lib/cardRoulette';
-import type { NinjaCard, Quest, QuestMaintenanceMail, QuestReward } from '../src/types';
+import type { NinjaCard, Quest, QuestMaintenanceMail, QuestReward, RecurringQuestSettings } from '../src/types';
 import { isVillageId } from '../src/lib/villages';
 
 interface D1Result<T = Record<string, unknown>> {
@@ -73,7 +83,7 @@ const ACCOUNT_FIELDS = new Set([
 const SERVER_OWNED_PROFILE_FIELDS = new Set([
   'xp', 'rank', 'wins', 'losses', 'ryos', 'gems', 'collectedCardIds', 'village', 'villageChangeCount',
   'completedQuestIds', 'questProgress', 'questRewardSnapshots', 'questMaintenanceInbox',
-  'questAiBattleIds',
+  'questAiBattleIds', 'claimedRecurringChestIds',
 ]);
 const VILLAGE_CHANGE_COST = 100;
 let firebaseJwksCache: { keys: FirebaseJwk[]; expiresAt: number } | null = null;
@@ -689,6 +699,7 @@ const CONFIGS: Record<string, { key: string; field: string }> = {
   '/api/cards': { key: 'cards', field: 'cards' },
   '/api/cards/packs': { key: 'cardPacks', field: 'packs' },
   '/api/quests': { key: 'quests', field: 'quests' },
+  '/api/recurring-quest-settings': { key: 'recurringQuestSettings', field: 'settings' },
   '/api/ai-settings': { key: 'aiSettings', field: 'settings' },
 };
 
@@ -738,6 +749,14 @@ async function readConfig(db: D1Database, key: string): Promise<unknown[] | null
 
 export async function getD1Config(db: D1Database, key: string): Promise<unknown[] | null> {
   return readConfig(db, key);
+}
+
+async function loadRecurringQuestSettings(db: D1Database): Promise<RecurringQuestSettings> {
+  const stored = await getD1Config(db, 'recurringQuestSettings');
+  const settings = stored?.[0];
+  return isValidRecurringQuestSettings(settings)
+    ? settings
+    : getDefaultRecurringQuestSettings();
 }
 
 export async function getD1AccountProfile(
@@ -886,6 +905,78 @@ async function reconcileQuestRewards(
   }
 }
 
+async function claimRecurringChest(request: Request, env: D1Env): Promise<Response> {
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const username = normalizedUsername(body?.username);
+  const period = body?.period === 'daily' || body?.period === 'weekly' ? body.period : null;
+  const tierNumber = body?.tier;
+  if (!username || username === 'convidado' || !period || !Number.isInteger(tierNumber)) {
+    return error(400, 'Conta e baú válidos são necessários para resgatar.');
+  }
+  if (!await isD1SessionActive(env, username, request.headers.get('X-Account-Session') || '')) {
+    return error(401, 'Sessão inválida ou revogada. Entre novamente.');
+  }
+
+  const settings = await loadRecurringQuestSettings(env.DB);
+  const chest = getRecurringChestTiers(period, settings).find(item => item.tier === tierNumber);
+  if (!chest) return error(404, 'Baú não encontrado.');
+  const claimId = getRecurringChestClaimId(period, chest.tier);
+  const recurringQuests = getCurrentRecurringQuests(new Date(), settings);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const row = await env.DB.prepare(
+      'SELECT profile_json FROM accounts WHERE username = ?',
+    ).bind(username).first<{ profile_json: string }>();
+    if (!row) return error(404, 'Usuário não encontrado.');
+    const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+    const claimedIds = Array.isArray(profile.claimedRecurringChestIds)
+      ? profile.claimedRecurringChestIds.filter((id): id is string => typeof id === 'string')
+      : [];
+    if (claimedIds.includes(claimId)) return json({ success: true, alreadyClaimed: true, user: profile, grantedRewards: [] });
+
+    const progress = profile.questProgress && typeof profile.questProgress === 'object'
+      ? profile.questProgress as Record<string, Array<{ id: string; currentValue: number }>>
+      : {};
+    if (!isRecurringChestUnlocked(
+      period,
+      chest.tier,
+      calculateRecurringPoints(period, recurringQuests, progress),
+      claimedIds,
+    )) {
+      return error(409, 'Conclua missões e abra o baú anterior para continuar.');
+    }
+
+    const snapshot: QuestRewardSnapshot = { ryos: 0, gems: 0, items: [] };
+    const cardPackRewards = chest.rewards.filter(reward => reward.type === 'card_pack');
+    const regularRewards = chest.rewards.filter(reward => reward.type !== 'card_pack');
+    questRewardCurrencyTotals(regularRewards, claimId);
+    const catalog = await getD1Config(env.DB, 'cards') as NinjaCard[] | null;
+    const savedChances = await getD1Config(env.DB, 'cardRouletteSettings');
+    const chances = savedChances?.[0] && isValidCardRouletteChances(savedChances[0])
+      ? savedChances[0]
+      : CARD_ROULETTE_CHANCES;
+    const randomValue = () => {
+      const bytes = crypto.getRandomValues(new Uint32Array(1));
+      return bytes[0] / 0x1_0000_0000;
+    };
+    const rouletteCards = redeemCardPackRewards(
+      profile,
+      cardPackRewards,
+      catalog?.length ? catalog : buildDefaultCards(),
+      chances,
+      randomValue,
+    );
+    const grantedRewards = [...grantQuestRewards(profile, regularRewards, snapshot), ...cardPackRewards];
+    profile.claimedRecurringChestIds = [...claimedIds.slice(-255), claimId];
+    const updated = await env.DB.prepare(`
+      UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE username = ? AND profile_json = ?
+    `).bind(JSON.stringify(profile), username, row.profile_json).run();
+    if (updated.meta?.changes === 1) return json({ success: true, user: profile, grantedRewards, rouletteCards });
+    if (attempt === 2) return error(409, 'O perfil mudou durante o resgate. Tente novamente.');
+  }
+  return error(409, 'Não foi possível confirmar o resgate do baú.');
+}
+
 async function claimQuestReward(
   request: Request,
   env: D1Env,
@@ -902,7 +993,8 @@ async function claimQuestReward(
   }
   const quests = await getD1Config(env.DB, 'quests');
   if (!quests) return error(503, 'As missões ainda não estão disponíveis no servidor.');
-  const quest = quests.find(item =>
+  const settings = await loadRecurringQuestSettings(env.DB);
+  const quest = [...quests, ...getCurrentRecurringQuests(new Date(), settings)].find(item =>
     !!item && typeof item === 'object' && (item as Quest).id === questId,
   ) as Quest | undefined;
   if (!quest || !Array.isArray(quest.goals) || !Array.isArray(quest.rewards)) {
@@ -953,13 +1045,28 @@ async function claimQuestReward(
     const rawSnapshots = profile.questRewardSnapshots && typeof profile.questRewardSnapshots === 'object'
       ? profile.questRewardSnapshots as Record<string, Partial<QuestRewardSnapshot>>
       : {};
-    questRewardCurrencyTotals(quest.rewards, quest.id);
+    const cardPackRewards = quest.rewards.filter(reward => reward.type === 'card_pack');
+    const regularRewards = quest.rewards.filter(reward => reward.type !== 'card_pack');
+    questRewardCurrencyTotals(regularRewards, quest.id);
     const snapshot: QuestRewardSnapshot = {
       ryos: 0,
       gems: 0,
       items: [],
     };
-    const grantedRewards = grantQuestRewards(profile, quest.rewards, snapshot);
+    const catalog = await getD1Config(env.DB, 'cards') as NinjaCard[] | null;
+    const savedChances = await getD1Config(env.DB, 'cardRouletteSettings');
+    const chances = savedChances?.[0] && isValidCardRouletteChances(savedChances[0])
+      ? savedChances[0]
+      : CARD_ROULETTE_CHANCES;
+    const randomValue = () => crypto.getRandomValues(new Uint32Array(1))[0] / 0x1_0000_0000;
+    const rouletteCards = redeemCardPackRewards(
+      profile,
+      cardPackRewards,
+      catalog?.length ? catalog : buildDefaultCards(),
+      chances,
+      randomValue,
+    );
+    const grantedRewards = [...grantQuestRewards(profile, regularRewards, snapshot), ...cardPackRewards];
     profile.completedQuestIds = [...completedQuestIds, questId];
     profile.questRewardSnapshots = { ...rawSnapshots, [questId]: snapshot };
     const updated = await env.DB.prepare(`
@@ -967,7 +1074,7 @@ async function claimQuestReward(
       WHERE username = ? AND profile_json = ?
     `).bind(JSON.stringify(profile), username, row.profile_json).run();
     if (updated.meta?.changes === 1) {
-      return json({ success: true, user: profile, grantedRewards });
+      return json({ success: true, user: profile, grantedRewards, rouletteCards });
     }
     if (attempt === 2) return error(409, 'O perfil mudou durante o resgate. Tente novamente.');
   }
@@ -992,7 +1099,8 @@ async function recordAiQuestProgress(request: Request, env: D1Env): Promise<Resp
     getD1Config(env.DB, 'ranks'),
   ]);
   if (!quests) return error(503, 'As missões ainda não estão disponíveis no servidor.');
-  const eligibleQuests = quests.filter((item): item is Quest =>
+  const settings = await loadRecurringQuestSettings(env.DB);
+  const eligibleQuests = [...quests, ...getCurrentRecurringQuests(new Date(), settings)].filter((item): item is Quest =>
     !!item && typeof item === 'object' && typeof (item as Quest).id === 'string' &&
     Array.isArray((item as Quest).goals) && (item as Quest).goals.length > 0,
   );
@@ -1281,10 +1389,13 @@ export async function awardD1MatchRewards(
   const questIds = new Set(match.players
     .map(player => player.activeQuestId)
     .filter((questId): questId is string => !!questId));
+  const recurringSettings = await loadRecurringQuestSettings(env.DB);
+  const recurringDefinitions = getCurrentRecurringQuests(new Date(), recurringSettings);
   const questDefinitions = questIds.size ? await getD1Config(env.DB, 'quests') : [];
   if (questIds.size && !questDefinitions) {
     throw new Error('A configuração de missões no D1 é necessária para registrar o progresso.');
   }
+  const allQuestDefinitions = [...(questDefinitions || []), ...recurringDefinitions];
 
   const statements: D1PreparedStatement[] = [];
   const progressByUsername = new Map<string, string>();
@@ -1300,12 +1411,16 @@ export async function awardD1MatchRewards(
   }));
 
   for (const player of match.players) {
-    const questId = player.activeQuestId;
-    if (!questId || !player.questStats || player.username.trim().toLowerCase() === 'convidado') continue;
-    const definition = (questDefinitions || []).find((item): item is Quest =>
-      !!item && typeof item === 'object' && (item as Quest).id === questId,
-    );
-    if (!definition || !Array.isArray(definition.goals) || definition.goals.length === 0) continue;
+    if (!player.questStats || player.username.trim().toLowerCase() === 'convidado') continue;
+    const definitions = new Map<string, Quest>();
+    if (player.activeQuestId) {
+      const activeDefinition = allQuestDefinitions.find((item): item is Quest =>
+        !!item && typeof item === 'object' && (item as Quest).id === player.activeQuestId,
+      );
+      if (activeDefinition) definitions.set(activeDefinition.id, activeDefinition);
+    }
+    for (const definition of recurringDefinitions) definitions.set(definition.id, definition);
+    if (definitions.size === 0) continue;
 
     const username = player.username.trim().toLowerCase();
     const row = await env.DB.prepare(
@@ -1316,27 +1431,37 @@ export async function awardD1MatchRewards(
     const completedQuestIds = Array.isArray(profile.completedQuestIds)
       ? profile.completedQuestIds.filter((id): id is string => typeof id === 'string')
       : [];
-    if (completedQuestIds.includes(questId)) continue;
-
     const savedProgress = profile.questProgress && typeof profile.questProgress === 'object'
       ? profile.questProgress as Record<string, Array<{ id: string; currentValue: number; currentStreak?: number }>>
       : {};
-    const oldGoals = new Map((savedProgress[questId] || []).map(goal => [goal.id, goal]));
     const victory = username === match.winnerUsername.trim().toLowerCase();
-    const updatedGoals = definition.goals.map(goal => {
-      const previous = oldGoals.get(goal.id);
-      const currentGoal = {
-        ...goal,
-        currentValue: Math.max(0, Math.min(goal.targetValue, Number(previous?.currentValue) || 0)),
-        currentStreak: Math.max(0, Number(previous?.currentStreak) || 0),
-      };
-      const result = evaluateAuthoritativeQuestGoal(currentGoal, victory, player.questStats!);
-      return { id: goal.id, currentValue: result.nextValue, currentStreak: result.nextStreak };
-    });
-    progressByUsername.set(username, JSON.stringify({
-      ...savedProgress,
-      [questId]: updatedGoals,
-    }));
+    const updatedProgress = { ...savedProgress };
+    let progressChanged = false;
+    for (const definition of definitions.values()) {
+      if (!Array.isArray(definition.goals) || definition.goals.length === 0 ||
+          completedQuestIds.includes(definition.id)) continue;
+      const oldGoals = new Map((savedProgress[definition.id] || []).map(goal => [goal.id, goal]));
+      const updatedGoals = definition.goals.map(goal => {
+        const previous = oldGoals.get(goal.id);
+        const currentGoal = {
+          ...goal,
+          currentValue: Math.max(0, Math.min(goal.targetValue, Number(previous?.currentValue) || 0)),
+          currentStreak: Math.max(0, Number(previous?.currentStreak) || 0),
+        };
+        const result = evaluateAuthoritativeQuestGoal(currentGoal, victory, player.questStats!);
+        return { id: goal.id, currentValue: result.nextValue, currentStreak: result.nextStreak };
+      });
+      const changed = updatedGoals.some(goal => {
+        const previous = oldGoals.get(goal.id);
+        return goal.currentValue !== Number(previous?.currentValue || 0) ||
+          goal.currentStreak !== Number(previous?.currentStreak || 0);
+      });
+      if (changed) {
+        updatedProgress[definition.id] = updatedGoals;
+        progressChanged = true;
+      }
+    }
+    if (progressChanged) progressByUsername.set(username, JSON.stringify(updatedProgress));
   }
 
   for (const reward of rewards) {
@@ -1704,6 +1829,8 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
     for (const config of Object.values(CONFIGS)) {
       const items = config.key === 'aiSettings'
         ? (await readConfig(env.DB, config.key) ?? [{ maxEnemyCharacterNumber: 69 }])
+        : config.key === 'recurringQuestSettings'
+          ? (await readConfig(env.DB, config.key) ?? [getDefaultRecurringQuestSettings()])
         : await readConfig(env.DB, config.key);
       if (items === null) {
         missing = true;
@@ -1735,7 +1862,7 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
     const inputKeys: Record<string, string> = {
       characters: 'characters', quests: 'quests', shop: 'shop', events: 'events',
       ranks: 'ranks', banners: 'banners', frames: 'frames', cards: 'cards', cardPacks: 'cardPacks',
-      aiSettings: 'aiSettings',
+      aiSettings: 'aiSettings', recurringQuestSettings: 'recurringQuestSettings',
     };
     const datasets = Object.entries(inputKeys)
       .filter(([input]) => Array.isArray(body[input]));
@@ -1755,6 +1882,12 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
         if (settings.length !== 1 || !Number.isSafeInteger(limit) ||
             Number(limit) < 3 || Number(limit) > 100_000) {
           return error(400, 'Configuração de batalha contra IA inválida.');
+        }
+      }
+      if (key === 'recurringQuestSettings') {
+        const settings = (body[input] as unknown[])[0];
+        if ((body[input] as unknown[]).length !== 1 || !isValidRecurringQuestSettings(settings)) {
+          return error(400, 'Configuração de recompensas recorrentes inválida.');
         }
       }
       try {
@@ -1806,6 +1939,39 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
 
 export async function handleD1Request(request: Request, env: D1Env): Promise<Response | null> {
   const { pathname } = new URL(request.url);
+  if (pathname === '/api/recurring-quest-settings') {
+    if (request.method === 'GET') {
+      return json({ success: true, settings: await loadRecurringQuestSettings(env.DB) });
+    }
+    if (request.method === 'POST') {
+      const username = request.headers.get('X-Account-Username')?.trim().toLowerCase();
+      if (!username) return error(401, 'Entre na conta administradora para alterar as configurações globais.');
+      if (username !== '2') return error(403, 'Somente a conta administradora pode alterar as configurações globais.');
+      if (!await isD1SessionActive(env, username, request.headers.get('X-Account-Session'))) {
+        return error(401, 'A sessão da conta administradora está ausente ou foi revogada.');
+      }
+      const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+      if (!body || !isValidRecurringQuestSettings(body.settings)) {
+        return error(400, 'Configuração de recompensas recorrentes inválida.');
+      }
+      try {
+        await writeConfig(env.DB, 'recurringQuestSettings', [body.settings]);
+      } catch (cause) {
+        if (cause instanceof ConfigWriteBusyError) return error(409, cause.message);
+        console.error('[d1-config] Falha ao salvar recompensas recorrentes.', cause);
+        return error(500, 'Não foi possível salvar as recompensas recorrentes no D1.');
+      }
+      return json({ success: true, message: 'Recompensas recorrentes salvas.' });
+    }
+    return error(405, 'Método não permitido.');
+  }
+  if (pathname === '/api/quests' && request.method === 'GET' &&
+      new URL(request.url).searchParams.get('includeRecurring') === 'true') {
+    const quests = await getD1Config(env.DB, 'quests');
+    if (!quests) return error(503, 'As missões ainda não estão disponíveis no servidor.');
+    const settings = await loadRecurringQuestSettings(env.DB);
+    return json({ success: true, quests: [...quests, ...getCurrentRecurringQuests(new Date(), settings)] });
+  }
   if (pathname === '/api/auth/register' && request.method === 'POST') return register(request, env);
   if (pathname === '/api/auth/login' && request.method === 'POST') return login(request, env);
   if (pathname.startsWith('/api/auth/session/') && request.method === 'POST') {
@@ -1819,6 +1985,9 @@ export async function handleD1Request(request: Request, env: D1Env): Promise<Res
   }
   if (pathname === '/api/quests/claim' && request.method === 'POST') {
     return claimQuestReward(request, env);
+  }
+  if (pathname === '/api/quests/recurring-chest/claim' && request.method === 'POST') {
+    return claimRecurringChest(request, env);
   }
   if (pathname === '/api/quests/ai-progress' && request.method === 'POST') {
     return recordAiQuestProgress(request, env);

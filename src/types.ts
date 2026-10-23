@@ -1178,6 +1178,7 @@ export interface UserProfile {
   villageChangeCount?: number;
   completedQuestIds?: string[];
   questProgress?: Record<string, Array<Pick<QuestGoal, 'id' | 'currentValue' | 'currentStreak'>>>;
+  claimedRecurringChestIds?: string[];
   unlockedCharacterNames?: string[];
   title?: string;
   unlockedTitles?: string[];
@@ -1305,6 +1306,7 @@ export interface QuestGoal {
   targetValue: number;         // Valor alvo
   currentValue: number;        // Valor atual de progresso
   singleMatch?: boolean;       // Se é em uma única partida ou acumulativo
+  distinctCharacters?: boolean; // Conta personagens distintos que usaram habilidades
   consecutive?: boolean;       // Se é em sequência
   currentStreak?: number;      // Contador de sequência atual
 }
@@ -1316,6 +1318,11 @@ export interface QuestReward {
   rarity?: CardRarity;
 }
 
+export interface RecurringQuestSettings {
+  missionRewards: Record<string, QuestReward[]>;
+  chestRewards: Record<'daily' | 'weekly', QuestReward[][]>;
+}
+
 export interface Quest {
   id: string;
   title: string;
@@ -1323,6 +1330,9 @@ export interface Quest {
   coverUrl: string; // Capa de foto da missão
   minRank: 'Estudante de Academia' | 'Genin' | 'Chunin' | 'Jonin' | 'ANBU' | 'Hokage'; // Requisitos
   category?: string;
+  period?: 'daily' | 'weekly';
+  recurringKey?: string;
+  recurringPoints?: number;
   requiredQuestIds: string[]; // Missões necessárias para estar liberada
   goals: QuestGoal[];
   rewards: QuestReward[];

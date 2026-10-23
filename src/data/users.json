@@ -231,7 +231,92 @@
     "ryos": 6500,
     "gems": 5000,
     "village": "kumogakure",
-    "villageChangeCount": 0
+    "villageChangeCount": 0,
+    "questProgress": {
+      "quest_1784869393005": [
+        {
+          "id": "goal_1784869393005_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040155794_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786039551209": [
+        {
+          "id": "goal_1786039551209_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786039716489_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786040199522": [
+        {
+          "id": "goal_1786040199522_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040464755_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040480786_3",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040518996_4",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040662748_5",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040694186_6",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786041548484": [
+        {
+          "id": "goal_1786041548484_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786041652644_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786041662283_3",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786041796915": [
+        {
+          "id": "goal_1786041796915_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ]
+    },
+    "questAiBattleIds": [
+      "fb4d0385-f997-440f-b19e-0e2352f6ef34"
+    ]
   },
   {
     "username": "111",

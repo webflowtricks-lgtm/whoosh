@@ -1,0 +1,174 @@
+{
+  "missionRewards": {
+    "daily-victory": [
+      {
+        "type": "ryos",
+        "value": "400"
+      }
+    ],
+    "daily-technique": [
+      {
+        "type": "ryos",
+        "value": "350"
+      }
+    ],
+    "daily-squad": [
+      {
+        "type": "ryos",
+        "value": "500"
+      }
+    ],
+    "daily-damage": [
+      {
+        "type": "ryos",
+        "value": "400"
+      }
+    ],
+    "weekly-wins": [
+      {
+        "type": "ryos",
+        "value": "1500"
+      }
+    ],
+    "weekly-technique": [
+      {
+        "type": "ryos",
+        "value": "1200"
+      }
+    ],
+    "weekly-damage": [
+      {
+        "type": "ryos",
+        "value": "1500"
+      }
+    ],
+    "weekly-shield": [
+      {
+        "type": "ryos",
+        "value": "1500"
+      }
+    ],
+    "weekly-healing": [
+      {
+        "type": "ryos",
+        "value": "1200"
+      }
+    ],
+    "weekly-stuns": [
+      {
+        "type": "ryos",
+        "value": "1200"
+      }
+    ],
+    "weekly-kills": [
+      {
+        "type": "ryos",
+        "value": "1500"
+      }
+    ],
+    "weekly-counters": [
+      {
+        "type": "ryos",
+        "value": "1500"
+      }
+    ]
+  },
+  "chestRewards": {
+    "daily": [
+      [
+        {
+          "type": "ryos",
+          "value": "400"
+        }
+      ],
+      [
+        {
+          "type": "ryos",
+          "value": "650"
+        }
+      ],
+      [
+        {
+          "type": "ryos",
+          "value": "900"
+        }
+      ],
+      [
+        {
+          "type": "ryos",
+          "value": "1500"
+        },
+        {
+          "type": "gems",
+          "value": "2"
+        }
+      ]
+    ],
+    "weekly": [
+      [
+        {
+          "type": "ryos",
+          "value": "1500"
+        }
+      ],
+      [
+        {
+          "type": "ryos",
+          "value": "2500"
+        }
+      ],
+      [
+        {
+          "type": "ryos",
+          "value": "3500"
+        }
+      ],
+      [
+        {
+          "type": "ryos",
+          "value": "5000"
+        },
+        {
+          "type": "gems",
+          "value": "5"
+        }
+      ],
+      [
+        {
+          "type": "ryos",
+          "value": "6500"
+        }
+      ],
+      [
+        {
+          "type": "ryos",
+          "value": "8000"
+        },
+        {
+          "type": "gems",
+          "value": "10"
+        }
+      ],
+      [
+        {
+          "type": "ryos",
+          "value": "10000"
+        },
+        {
+          "type": "gems",
+          "value": "15"
+        }
+      ],
+      [
+        {
+          "type": "ryos",
+          "value": "15000"
+        },
+        {
+          "type": "gems",
+          "value": "25"
+        }
+      ]
+    ]
+  }
+}

@@ -21,6 +21,7 @@ import { RankConfig, getRanks, saveRanks, fetchRanksFromServer, RANK_GRADIENT_PR
 import { configFetch, safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import QuestAdmin from './QuestAdmin';
+import RecurringQuestRewardsAdmin from './RecurringQuestRewardsAdmin';
 import SkinMedia from './SkinMedia';
 import { getSkinUploadError } from '../lib/skinMedia';
 import ShopAdmin from './ShopAdmin';
@@ -104,10 +105,10 @@ interface AdminDashboardProps {
 export default function AdminDashboard({ onBack, playClickSound, playScrollSound }: AdminDashboardProps) {
   const { t } = useLanguage();
   const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'shop' | 'events' | 'ranks' | 'ai' | 'cards' | 'mail' | 'backup'>('ninjas');
+  const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'recurring-quests' | 'shop' | 'events' | 'ranks' | 'ai' | 'cards' | 'mail' | 'backup'>('ninjas');
 
   useEffect(() => {
-    if (!['quests', 'events', 'ranks'].includes(activeTab)) return;
+    if (!['quests', 'recurring-quests', 'events', 'ranks'].includes(activeTab)) return;
     const frame = requestAnimationFrame(() => {
       const content = document.getElementById(`admin-tab-${activeTab}`);
       const target = content?.querySelector('h1, h2, h3') || content;
@@ -848,6 +849,7 @@ const newSkill: Skill = {
             >
               <option value="ninjas">{t('Ninjas', 'Ninjas')}</option>
               <option value="quests">{t('Missões', 'Quests')}</option>
+              <option value="recurring-quests">{t('Recompensas Recorrentes', 'Recurring Rewards')}</option>
               <option value="shop">{t('Loja', 'Shop')}</option>
               <option value="events">{t('Eventos', 'Events')}</option>
               <option value="ranks">{t('Ranks & XP', 'Ranks & XP')}</option>
@@ -876,6 +878,16 @@ const newSkill: Skill = {
                 }`}
               >
                 {t('Missões', 'Quests')}
+              </button>
+              <button
+                onClick={() => { playClickSound(); setActiveTab('recurring-quests'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'recurring-quests'
+                    ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-slate-950 shadow-md font-extrabold'
+                    : 'text-slate-400 hover:text-slate-200 font-bold'
+                }`}
+              >
+                {t('Recompensas Recorrentes', 'Recurring Rewards')}
               </button>
               <button
                 onClick={() => { playClickSound(); setActiveTab('shop'); }}
@@ -976,6 +988,10 @@ const newSkill: Skill = {
       {activeTab === 'quests' ? (
         <div id="admin-tab-quests">
           <QuestAdmin onBack={onBack} playClickSound={playClickSound} />
+        </div>
+      ) : activeTab === 'recurring-quests' ? (
+        <div id="admin-tab-recurring-quests">
+          <RecurringQuestRewardsAdmin />
         </div>
       ) : activeTab === 'shop' ? (
         <ShopAdmin playClickSound={playClickSound} />

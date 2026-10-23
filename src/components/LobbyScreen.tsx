@@ -39,6 +39,7 @@ import ProfileCardModal from './ProfileCardModal';
 import CardGalleryModal from './CardGalleryModal';
 import GameManualModal from './GameManualModal';
 import CardPackRouletteModal from './CardPackRouletteModal';
+import RecurringQuestsModal from './RecurringQuestsModal';
 
 interface LobbyScreenProps {
   onStartGame: () => void;
@@ -58,7 +59,7 @@ interface LobbyScreenProps {
   onUpdateAudioSetting: (key: 'master' | 'effects' | 'music', value: number) => void;
 }
 
-type LobbyModal = 'characters' | 'clan' | 'shop' | 'events' | 'profile' | 'cards' | 'audio' | 'help' | 'mail' | null;
+type LobbyModal = 'characters' | 'clan' | 'shop' | 'events' | 'profile' | 'cards' | 'audio' | 'help' | 'mail' | 'recurring-quests' | null;
 
 export default function LobbyScreen({
   onStartGame,
@@ -637,6 +638,17 @@ export default function LobbyScreen({
             )}
           </button>
         )}
+        {user && (
+          <button
+            type="button"
+            className="lobby-quick-recurring-button"
+            onClick={() => { playClickSound(); setQuickActionsOpen(false); setModal('recurring-quests'); }}
+            aria-label={t('Missões diárias e semanais', 'Daily and weekly missions')}
+            title={t('Missões diárias e semanais', 'Daily and weekly missions')}
+          >
+            <CalendarDays aria-hidden="true" />
+          </button>
+        )}
         {quickActionsOpen && (
           <div id="lobby-quick-actions-menu" className="lobby-quick-actions-menu">
             {user?.username.trim().toLowerCase() === '2' && (
@@ -938,6 +950,16 @@ export default function LobbyScreen({
             </div>
           </section>
         </div>
+      )}
+
+      {user && modal === 'recurring-quests' && (
+        <RecurringQuestsModal
+          user={user}
+          onUpdateUser={updateUser}
+          onClose={() => setModal(null)}
+          playClickSound={playClickSound}
+          playWinSound={playWinSound}
+        />
       )}
 
       {modal === 'audio' && (

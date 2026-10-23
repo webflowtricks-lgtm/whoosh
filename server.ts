@@ -16,6 +16,16 @@ import {
   sanitizeQuestBattleStats,
 } from "./src/lib/questProgress";
 import {
+  calculateRecurringPoints,
+  getCurrentRecurringQuests,
+  getDefaultRecurringQuestSettings,
+  getRecurringChestClaimId,
+  getRecurringChestTiers,
+  isValidRecurringQuestSettings,
+  isValidRecurringQuestRewards,
+  isRecurringChestUnlocked,
+} from "./src/lib/recurringQuests";
+import {
   grantQuestMaintenanceRewards,
   reconcileQuestMaintenanceProfile,
   type QuestDefinition,
@@ -31,12 +41,14 @@ import {
   redeemCardPackRewards,
 } from "./src/lib/cardRoulette";
 import type { NinjaCard, Quest, QuestMaintenanceMail, QuestReward } from "./src/types";
+import type { RecurringQuestSettings } from "./src/types";
 
 const DATA_DIR = path.resolve(process.env.WHOOSH_DATA_DIR || path.join(process.cwd(), "src", "data"));
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const CHARACTERS_FILE = path.join(DATA_DIR, "custom_characters.json");
 
 const QUESTS_FILE = path.join(DATA_DIR, "quests.json");
+const RECURRING_QUEST_SETTINGS_FILE = path.join(DATA_DIR, "recurring_quest_settings.json");
 const QUEST_REWARD_BASELINE_FILE = path.join(DATA_DIR, "quest_reward_baseline.json");
 const RANKS_FILE = path.join(DATA_DIR, "ranks.json");
 const SHOP_FILE = path.join(DATA_DIR, "shop.json");
@@ -507,6 +519,7 @@ async function startServer() {
         frames: readJSON<any[]>(FRAMES_FILE, []),
         cards: readJSON<any[]>(CARDS_FILE, []),
         cardPacks: readJSON<any[]>(CARD_PACKS_FILE, []),
+        recurringQuestSettings: readJSON<unknown>(RECURRING_QUEST_SETTINGS_FILE, getDefaultRecurringQuestSettings()),
       },
       onlineBattleHistory: Object.fromEntries(onlineBattleHistory),
       activeRooms: roomCount,
@@ -1183,7 +1196,7 @@ async function startServer() {
   const globalConfigWritePaths = new Set([
     "/api/characters", "/api/ranks", "/api/shop", "/api/events",
     "/api/banners", "/api/frames", "/api/cards", "/api/cards/packs", "/api/cards/roulette-settings",
-    "/api/quests", "/api/ai-settings", "/api/config/import",
+    "/api/quests", "/api/recurring-quest-settings", "/api/ai-settings", "/api/config/import",
   ]);
   app.use((req, res, next) => {
     if (req.method !== "POST" || !globalConfigWritePaths.has(req.path)) return next();
@@ -2283,6 +2296,84 @@ async function startServer() {
   });
 
   // Quests API
+  app.get("/api/recurring-quest-settings", (_req, res) => {
+    const fallback = getDefaultRecurringQuestSettings();
+    const saved = readJSON<unknown>(RECURRING_QUEST_SETTINGS_FILE, fallback);
+    res.json({ success: true, settings: isValidRecurringQuestSettings(saved) ? saved : fallback });
+  });
+
+  app.post("/api/recurring-quest-settings", (req, res) => {
+    const settings = req.body?.settings;
+    if (!isValidRecurringQuestSettings(settings)) {
+      return res.status(400).json({ error: "Configuração de recompensas recorrentes inválida." });
+    }
+    if (!persistJsonFile(RECURRING_QUEST_SETTINGS_FILE, settings)) {
+      return res.status(500).json({ error: "Não foi possível salvar as recompensas recorrentes." });
+    }
+    return res.json({ success: true, message: "Recompensas recorrentes salvas." });
+  });
+
+  app.post("/api/quests/recurring-chest/claim", requireActiveMatchSession, (req, res) => {
+    const username = typeof req.body?.username === "string" ? req.body.username.trim().toLowerCase() : "";
+    const period = req.body?.period === "daily" || req.body?.period === "weekly" ? req.body.period : null;
+    const tierNumber = req.body?.tier;
+    if (!username || username === "convidado" || !period || !Number.isInteger(tierNumber)) {
+      return res.status(400).json({ error: "Conta e baú válidos são necessários para resgatar." });
+    }
+
+    const recurringSettings = readJSON<RecurringQuestSettings>(RECURRING_QUEST_SETTINGS_FILE, getDefaultRecurringQuestSettings());
+    const chest = getRecurringChestTiers(period, recurringSettings).find(item => item.tier === tierNumber);
+    if (!chest) return res.status(404).json({ error: "Baú não encontrado." });
+    const users = readJSON<Array<Record<string, unknown>>>(USERS_FILE, []);
+    const profile = users.find(item => item.username === username);
+    if (!profile) return res.status(404).json({ error: "Usuário não encontrado." });
+
+    const claimId = getRecurringChestClaimId(period, chest.tier);
+    const claimedIds = Array.isArray(profile.claimedRecurringChestIds)
+      ? profile.claimedRecurringChestIds.filter((id): id is string => typeof id === "string")
+      : [];
+    if (claimedIds.includes(claimId)) {
+      const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+      return res.json({ success: true, alreadyClaimed: true, user: publicUser, grantedRewards: [] });
+    }
+
+    const savedProgress = profile.questProgress && typeof profile.questProgress === "object"
+      ? profile.questProgress as Record<string, Array<{ id: string; currentValue: number }>>
+      : {};
+    const points = calculateRecurringPoints(period, getCurrentRecurringQuests(new Date(), recurringSettings), savedProgress);
+    if (!isRecurringChestUnlocked(period, chest.tier, points, claimedIds)) {
+      return res.status(409).json({ error: "Conclua missões e abra o baú anterior para continuar." });
+    }
+
+    const snapshot: QuestRewardSnapshot = { ryos: 0, gems: 0, items: [] };
+    try {
+      const cardPackRewards = chest.rewards.filter(reward => reward.type === "card_pack");
+      const regularRewards = chest.rewards.filter(reward => reward.type !== "card_pack");
+      questRewardCurrencyTotals(regularRewards, claimId);
+      const catalog = readJSON<NinjaCard[]>(CARDS_FILE, []);
+      const configuredCards = catalog.length > 0 ? catalog : buildDefaultCards();
+      const configuredChances = readJSON<unknown>(CARD_ROULETTE_SETTINGS_FILE, CARD_ROULETTE_CHANCES);
+      const chances = isValidCardRouletteChances(configuredChances) ? configuredChances : CARD_ROULETTE_CHANCES;
+      const rouletteCards = redeemCardPackRewards(
+        profile,
+        cardPackRewards,
+        configuredCards,
+        chances,
+        () => randomBytes(4).readUInt32BE(0) / 0x1_0000_0000,
+      );
+      const grantedRewards = [...grantQuestRewards(profile, regularRewards, snapshot), ...cardPackRewards];
+      profile.claimedRecurringChestIds = [...claimedIds.slice(-255), claimId];
+      if (!persistAccountUsers(users)) {
+        return res.status(500).json({ error: "Não foi possível salvar o resgate do baú." });
+      }
+      const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+      return res.json({ success: true, user: publicUser, grantedRewards, rouletteCards });
+    } catch (error) {
+      console.error("[QUESTS] Falha ao conceder baú recorrente:", error);
+      return res.status(409).json({ error: "Não foi possível validar a recompensa deste baú." });
+    }
+  });
+
   app.post("/api/quests/claim", requireActiveMatchSession, (req, res) => {
     const username = typeof req.body?.username === "string" ? req.body.username.trim().toLowerCase() : "";
     const questId = typeof req.body?.questId === "string" ? req.body.questId : "";
@@ -2290,7 +2381,8 @@ async function startServer() {
       return res.status(400).json({ error: "Conta e missão válidas são necessárias para resgatar a recompensa." });
     }
 
-    const quests = readJSON<Quest[]>(QUESTS_FILE, []);
+    const recurringSettings = readJSON<RecurringQuestSettings>(RECURRING_QUEST_SETTINGS_FILE, getDefaultRecurringQuestSettings());
+    const quests = [...readJSON<Quest[]>(QUESTS_FILE, []), ...getCurrentRecurringQuests(new Date(), recurringSettings)];
     const quest = quests.find(item => item.id === questId);
     if (!quest || !Array.isArray(quest.goals) || !Array.isArray(quest.rewards)) {
       return res.status(404).json({ error: "Missão não encontrada." });
@@ -2336,16 +2428,30 @@ async function startServer() {
     const snapshots = profile.questRewardSnapshots && typeof profile.questRewardSnapshots === "object"
       ? profile.questRewardSnapshots as Record<string, Partial<QuestRewardSnapshot>>
       : {};
+    const cardPackRewards = quest.rewards.filter(reward => reward.type === "card_pack");
+    const regularRewards = quest.rewards.filter(reward => reward.type !== "card_pack");
     try {
-      questRewardCurrencyTotals(quest.rewards, quest.id);
+      questRewardCurrencyTotals(regularRewards, quest.id);
     } catch (error) {
       console.error("[QUESTS] Recompensa inválida no resgate:", error);
       return res.status(409).json({ error: "A missão contém uma recompensa inválida." });
     }
     const snapshot: QuestRewardSnapshot = { ryos: 0, gems: 0, items: [] };
     let grantedRewards: QuestReward[];
+    let rouletteCards: NinjaCard[];
     try {
-      grantedRewards = grantQuestRewards(profile, quest.rewards, snapshot);
+      const configuredCards = readJSON<NinjaCard[]>(CARDS_FILE, []);
+      const cards = configuredCards.length > 0 ? configuredCards : buildDefaultCards();
+      const configuredChances = readJSON<unknown>(CARD_ROULETTE_SETTINGS_FILE, CARD_ROULETTE_CHANCES);
+      const chances = isValidCardRouletteChances(configuredChances) ? configuredChances : CARD_ROULETTE_CHANCES;
+      rouletteCards = redeemCardPackRewards(
+        profile,
+        cardPackRewards,
+        cards,
+        chances,
+        () => randomBytes(4).readUInt32BE(0) / 0x1_0000_0000,
+      );
+      grantedRewards = [...grantQuestRewards(profile, regularRewards, snapshot), ...cardPackRewards];
     } catch (error) {
       console.error("[QUESTS] Falha ao conceder recompensa de missão:", error);
       return res.status(409).json({ error: "Não foi possível validar as recompensas desta missão." });
@@ -2357,7 +2463,7 @@ async function startServer() {
     }
 
     const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
-    return res.json({ success: true, user: publicUser, grantedRewards });
+    return res.json({ success: true, user: publicUser, grantedRewards, rouletteCards });
   });
 
   app.post("/api/quests/ai-progress", requireActiveMatchSession, (req, res) => {
@@ -2369,7 +2475,8 @@ async function startServer() {
       return res.status(400).json({ error: "Dados inválidos para registrar a missão contra IA." });
     }
 
-    const quests = readJSON<Quest[]>(QUESTS_FILE, []);
+    const recurringSettings = readJSON<RecurringQuestSettings>(RECURRING_QUEST_SETTINGS_FILE, getDefaultRecurringQuestSettings());
+    const quests = [...readJSON<Quest[]>(QUESTS_FILE, []), ...getCurrentRecurringQuests(new Date(), recurringSettings)];
     const eligibleQuests = quests.filter(quest =>
       !!quest && typeof quest.id === "string" && Array.isArray(quest.goals) && quest.goals.length > 0,
     );
@@ -2594,7 +2701,11 @@ async function startServer() {
     ];
 
     const quests = readJSON<any[]>(QUESTS_FILE, defaultQuests);
-    res.json({ success: true, quests });
+    const recurringSettings = readJSON<RecurringQuestSettings>(RECURRING_QUEST_SETTINGS_FILE, getDefaultRecurringQuestSettings());
+    const allQuests = req.query.includeRecurring === "true"
+      ? [...quests, ...getCurrentRecurringQuests(new Date(), recurringSettings)]
+      : quests;
+    res.json({ success: true, quests: allQuests });
   });
 
   app.post("/api/quests", (req, res) => {
@@ -2792,6 +2903,7 @@ async function startServer() {
       frames,
       cards,
       cardPacks,
+      recurringQuestSettings: readJSON<unknown>(RECURRING_QUEST_SETTINGS_FILE, getDefaultRecurringQuestSettings()),
       aiSettings,
       cardRouletteChances: isValidCardRouletteChances(cardRouletteChances)
         ? cardRouletteChances
@@ -2883,6 +2995,15 @@ async function startServer() {
     if (Array.isArray(data.cardPacks)) {
       writeJSON(CARD_PACKS_FILE, data.cardPacks);
       countDetails.push(`${data.cardPacks.length} Pacotes de Cards`);
+    }
+    if (data.recurringQuestSettings !== undefined) {
+      if (!isValidRecurringQuestSettings(data.recurringQuestSettings)) {
+        return res.status(400).json({ error: "Configuração de recompensas recorrentes inválida." });
+      }
+      if (!persistJsonFile(RECURRING_QUEST_SETTINGS_FILE, data.recurringQuestSettings)) {
+        return res.status(500).json({ error: "Não foi possível salvar as recompensas recorrentes importadas." });
+      }
+      countDetails.push("Recompensas recorrentes");
     }
     if (data.cardRouletteChances !== undefined) {
       if (!persistJsonFile(CARD_ROULETTE_SETTINGS_FILE, data.cardRouletteChances)) {

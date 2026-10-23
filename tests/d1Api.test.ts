@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
+import type { QuestReward } from '../src/types';
+import {
+  getCurrentRecurringQuests,
+  getDefaultRecurringQuestSettings,
+} from '../src/lib/recurringQuests';
 import {
   awardD1MatchRewards,
   getD1Config,
@@ -340,8 +345,55 @@ test('awards server-derived online rewards idempotently and updates rank', async
     winnerUsername: 'winner',
     turns: 3,
     players: [
-      { username: 'winner', aliveCount: 2, damageDealt: 200 },
-      { username: 'loser', aliveCount: 1, damageDealt: 100 },
+      {
+        username: 'winner',
+        aliveCount: 2,
+        damageDealt: 200,
+        questStats: {
+          damageDealt: 200,
+          damageReceived: 50,
+          healingDone: 0,
+          shieldGenerated: 0,
+          stunsApplied: 0,
+          skillsUsed: { Rasengan: 2 },
+          killsWithSkill: {},
+          playerCharactersUsed: ['Naruto Uzumaki'],
+          playerTeamCharacters: [{ name: 'Naruto Uzumaki', tags: ['Folha'] }],
+          damageDealtRecords: [{ charName: 'Naruto Uzumaki', tags: ['Folha'], skillName: 'Rasengan', amount: 200 }],
+          damageReceivedRecords: [],
+          healingDoneRecords: [],
+          shieldGeneratedRecords: [],
+          killRecords: [],
+          counterRecords: [],
+          skillUseRecords: [
+            { charName: 'Naruto Uzumaki', tags: ['Folha'], skillName: 'Rasengan' },
+            { charName: 'Naruto Uzumaki', tags: ['Folha'], skillName: 'Rasengan' },
+          ],
+        },
+      },
+      {
+        username: 'loser',
+        aliveCount: 1,
+        damageDealt: 100,
+        questStats: {
+          damageDealt: 100,
+          damageReceived: 300,
+          healingDone: 0,
+          shieldGenerated: 0,
+          stunsApplied: 0,
+          skillsUsed: {},
+          killsWithSkill: {},
+          playerCharactersUsed: ['Sasuke Uchiha'],
+          playerTeamCharacters: [{ name: 'Sasuke Uchiha', tags: ['Folha'] }],
+          damageDealtRecords: [],
+          damageReceivedRecords: [],
+          healingDoneRecords: [],
+          shieldGeneratedRecords: [],
+          killRecords: [],
+          counterRecords: [],
+          skillUseRecords: [],
+        },
+      },
     ],
   };
   const first = await awardD1MatchRewards({ DB: db }, match);
@@ -350,6 +402,8 @@ test('awards server-derived online rewards idempotently and updates rank', async
   assert.equal(winnerAfterFirst.xp, 525);
   assert.equal(winnerAfterFirst.wins, 3);
   assert.equal(winnerAfterFirst.rank.id, 'genin');
+  assert.equal(winnerAfterFirst.questProgress[getCurrentRecurringQuests()[0].id][0].currentValue, 1);
+  assert.equal(winnerAfterFirst.questProgress[getCurrentRecurringQuests()[1].id][0].currentValue, 2);
   assert.equal(loserAfterFirst.xp, 79);
   assert.equal(loserAfterFirst.losses, 5);
   assert.equal(loserAfterFirst.rank.id, 'academy');
@@ -386,6 +440,149 @@ function seedD1Config(db: MemoryD1, key: string, items: unknown[]): void {
     });
   });
 }
+
+test('claims recurring chests only after earning their points and grants each once', async () => {
+  const env = { DB: new MemoryD1() };
+  const registration = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: 'chest_claim_user',
+    password: 'correct horse',
+    name: 'Chest Claim User',
+  }), env);
+  const token = 'c'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'chest_claim_user',
+    sessionToken: token,
+    sessionTicket: (await responseBody(registration!)).sessionTicket,
+  }), env);
+
+  const dailyVictory = getCurrentRecurringQuests().find(quest => quest.id.endsWith('daily-victory'))!;
+  const account = env.DB.accounts.get('chest_claim_user')!;
+  const profile = JSON.parse(String(account.profile_json)) as Row;
+  profile.ryos = 100;
+  profile.questProgress = {
+    [dailyVictory.id]: [{ id: dailyVictory.goals[0].id, currentValue: dailyVictory.goals[0].targetValue }],
+  };
+  account.profile_json = JSON.stringify(profile);
+
+  const claim = (tier: number) => handleD1Request(request('/api/quests/recurring-chest/claim', 'POST', {
+    username: 'chest_claim_user',
+    period: 'daily',
+    tier,
+  }, { 'X-Account-Session': token }), env);
+
+  const first = await claim(1);
+  assert.equal(first?.status, 200);
+  assert.equal(JSON.parse(String(account.profile_json)).ryos, 500);
+  assert.equal(JSON.parse(String(account.profile_json)).claimedRecurringChestIds.length, 1);
+
+  const duplicate = await claim(1);
+  assert.equal(duplicate?.status, 200);
+  assert.equal((await responseBody(duplicate!)).alreadyClaimed, true);
+  assert.equal(JSON.parse(String(account.profile_json)).ryos, 500);
+
+  const locked = await claim(2);
+  assert.equal(locked?.status, 409);
+  assert.equal(JSON.parse(String(account.profile_json)).ryos, 500);
+
+  const progressProfile = JSON.parse(String(account.profile_json)) as Row;
+  const currentQuests = getCurrentRecurringQuests();
+  progressProfile.questProgress = Object.fromEntries(currentQuests
+    .filter(quest => quest.period === 'daily')
+    .map(quest => [quest.id, [{ id: quest.goals[0].id, currentValue: quest.goals[0].targetValue }]]));
+  account.profile_json = JSON.stringify(progressProfile);
+  assert.equal((await claim(3))?.status, 409);
+  const tierOneId = `daily-${new Date().toISOString().slice(0, 10)}-chest-1`;
+  progressProfile.claimedRecurringChestIds = [tierOneId];
+  account.profile_json = JSON.stringify(progressProfile);
+  assert.equal((await claim(2))?.status, 200);
+});
+
+test('admin can edit recurring mission and chest rewards in D1', async () => {
+  const env = { DB: new MemoryD1() };
+  seedD1Config(env.DB, 'quests', []);
+  const registration = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: '2',
+    password: 'correct horse',
+    name: 'Admin',
+  }), env);
+  const token = 'd'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: '2',
+    sessionToken: token,
+    sessionTicket: (await responseBody(registration!)).sessionTicket,
+  }), env);
+
+  const settings = getDefaultRecurringQuestSettings();
+  settings.missionRewards['daily-victory'] = [{ type: 'card_pack', value: '2' }];
+  settings.chestRewards.daily[0] = [{ type: 'gems', value: '8' }, { type: 'title', value: 'Lenda Diária' }];
+  const save = await handleD1Request(request('/api/recurring-quest-settings', 'POST', { settings }, {
+    'X-Account-Username': '2',
+    'X-Account-Session': token,
+  }), env);
+  assert.equal(save?.status, 200);
+
+  const load = await handleD1Request(request('/api/recurring-quest-settings', 'GET'), env);
+  assert.equal(load?.status, 200);
+  const savedSettings = (await responseBody(load!)).settings as typeof settings;
+  assert.deepEqual(savedSettings.missionRewards['daily-victory'], [{ type: 'card_pack', value: '2' }]);
+  assert.deepEqual(savedSettings.chestRewards.daily[0], [
+    { type: 'gems', value: '8' },
+    { type: 'title', value: 'Lenda Diária' },
+  ]);
+
+  const recurring = await handleD1Request(request('/api/quests?includeRecurring=true', 'GET'), env);
+  const quests = (await responseBody(recurring!)).quests as Array<{ id: string; rewards: QuestReward[] }>;
+  assert.deepEqual(quests.find(quest => quest.id.endsWith('daily-victory'))?.rewards, [
+    { type: 'card_pack', value: '2' },
+  ]);
+});
+
+test('recurring chest opens configured card packs and persists the drawn cards', async () => {
+  const env = { DB: new MemoryD1() };
+  const registration = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: 'pack_chest_user',
+    password: 'correct horse',
+    name: 'Pack Chest User',
+  }), env);
+  const token = 'e'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'pack_chest_user',
+    sessionToken: token,
+    sessionTicket: (await responseBody(registration!)).sessionTicket,
+  }), env);
+
+  const settings = getDefaultRecurringQuestSettings();
+  settings.chestRewards.daily[0] = [{ type: 'card_pack', value: '2' }];
+  seedD1Config(env.DB, 'recurringQuestSettings', [settings]);
+  seedD1Config(env.DB, 'cards', [{
+    id: 'reward-card',
+    characterId: 'ninja',
+    characterName: 'Ninja',
+    slug: 'ninja',
+    rarity: 'comum',
+    title: 'Clássico',
+    description: 'Carta de teste',
+    points: 1,
+  }]);
+
+  const quest = getCurrentRecurringQuests().find(item => item.id.endsWith('daily-victory'))!;
+  const account = env.DB.accounts.get('pack_chest_user')!;
+  const profile = JSON.parse(String(account.profile_json)) as Row;
+  profile.questProgress = {
+    [quest.id]: [{ id: quest.goals[0].id, currentValue: quest.goals[0].targetValue }],
+  };
+  account.profile_json = JSON.stringify(profile);
+
+  const open = () => handleD1Request(request('/api/quests/recurring-chest/claim', 'POST', {
+    username: 'pack_chest_user', period: 'daily', tier: 1,
+  }, { 'X-Account-Session': token }), env);
+  const response = await open();
+  assert.equal(response?.status, 200);
+  const result = await responseBody(response!);
+  assert.equal((result.rouletteCards as unknown[]).length, 2);
+  assert.equal((JSON.parse(String(account.profile_json)).collectedCardIds as unknown[]).length, 2);
+  assert.equal((await responseBody((await open())!)).alreadyClaimed, true);
+});
 
 test('records authenticated AI battle progress across eligible quests once per battle', async () => {
   const env = { DB: new MemoryD1() };
@@ -487,7 +684,15 @@ test('records authenticated AI battle progress across eligible quests once per b
   assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[1].currentValue, 1);
   assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[2].currentValue, 1);
   assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest-follow-up'] as Row[])[0].currentValue, 1);
-  assert.deepEqual(firstBody.progressedQuestIds, ['ai-quest', 'ai-quest-follow-up']);
+  const progressedRecurringIds = getCurrentRecurringQuests()
+    .filter(quest => ['daily-victory', 'daily-technique', 'daily-squad', 'weekly-wins', 'weekly-technique']
+      .some(templateId => quest.id.endsWith(templateId)))
+    .map(quest => quest.id);
+  assert.deepEqual(firstBody.progressedQuestIds, [
+    'ai-quest',
+    'ai-quest-follow-up',
+    ...progressedRecurringIds,
+  ]);
 
   const duplicate = await report();
   assert.equal(duplicate?.status, 200);

@@ -48,6 +48,9 @@ export function getGoalDescription(goal: QuestGoal): string {
         return `Win battles with a full team (3 ninjas) with tag ${rawTags || 'specified'}${singleNote}`;
 
       case 'use_skill':
+        if (goal.distinctCharacters) {
+          return `Use habilidades com ${goal.targetValue} personagens diferentes${singleNote}`;
+        }
         return `Use ${goal.targetSkill ? `[${goal.targetSkill}]` : 'skill'}${charsText ? ` with ${charsText}` : ''}${tagsNote} ${goal.targetValue}x${singleNote}`;
 
       case 'heal':
@@ -87,6 +90,9 @@ export function getGoalDescription(goal: QuestGoal): string {
       return `Ganhar batalhas com um time completo (3 ninjas) da tag ${goal.targetTags?.join(', ') || 'especificada'}${singleNote}`;
 
     case 'use_skill':
+      if (goal.distinctCharacters) {
+        return `Usar habilidades com ${goal.targetValue} personagens diferentes${singleNote}`;
+      }
       return `Usar ${goal.targetSkill ? `[${goal.targetSkill}]` : 'habilidade'}${charsText ? ` com ${charsText}` : ''}${tagsNote} ${goal.targetValue}x${singleNote}`;
 
     case 'heal':
@@ -122,7 +128,7 @@ export function evaluateQuestGoal(
 ): { nextValue: number; nextStreak: number } {
   let valueToAdd = 0;
   let newStreak = goal.currentStreak || 0;
-  let currentVal = goal.singleMatch ? 0 : goal.currentValue;
+  let currentVal = goal.singleMatch && goal.currentValue < goal.targetValue ? 0 : goal.currentValue;
 
   const matchChar = (recChar: string) => {
     if (!goal.targetCharacters || goal.targetCharacters.length === 0) return true;
@@ -197,9 +203,11 @@ export function evaluateQuestGoal(
 
     case 'use_skill': {
       if (stats.skillUseRecords && stats.skillUseRecords.length > 0) {
-        valueToAdd = stats.skillUseRecords
-          .filter(r => matchChar(r.charName) && matchSkill(r.skillName) && matchTags(r.tags))
-          .length;
+        const matchingUses = stats.skillUseRecords
+          .filter(r => matchChar(r.charName) && matchSkill(r.skillName) && matchTags(r.tags));
+        valueToAdd = goal.distinctCharacters
+          ? new Set(matchingUses.map(record => record.charName.trim().toLocaleLowerCase())).size
+          : matchingUses.length;
       } else if (goal.targetSkill && stats.skillsUsed[goal.targetSkill]) {
         valueToAdd = stats.skillsUsed[goal.targetSkill];
       }
