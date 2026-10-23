@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { GameScreen, Character, UserProfile, Quest } from './types';
 import { safeFetchJson } from './lib/api';
 import { matchFetch } from './lib/matchFetch';
@@ -146,6 +146,7 @@ export default function App() {
   const [screen, setScreen] = useState<GameScreen>('main-menu');
   const screenRef = useRef(screen);
   screenRef.current = screen;
+  const [battleFinished, setBattleFinished] = useState(false);
   const [playerTeam, setPlayerTeam] = useState<Character[]>([]);
   const [enemyTeam, setEnemyTeam] = useState<Character[]>([]);
   const [isMuted, setIsMuted] = useState(false);
@@ -361,6 +362,7 @@ export default function App() {
     setOnlineParams(savedState.onlineParams || null);
     setIsSandbox(!!savedState.isSandbox);
     setSandboxPauseChakraGen(!!savedState.isSandbox && !!savedState.sandboxPauseChakraGen);
+    setBattleFinished(false);
     startBattleMusic();
     setRestoredState(savedState);
     setScreen('battle');
@@ -454,14 +456,19 @@ export default function App() {
     characterSelectMusicRef.current = null;
   };
 
-  const stopBattleMusic = () => {
+  const stopBattleMusic = useCallback(() => {
     const audio = battleMusicRef.current;
     if (!audio) return;
     audio.pause();
     audio.currentTime = 0;
     audio.onerror = null;
     battleMusicRef.current = null;
-  };
+  }, []);
+
+  const handleBattleFinished = useCallback(() => {
+    setBattleFinished(true);
+    stopBattleMusic();
+  }, [stopBattleMusic]);
 
   const stopResultMusic = () => {
     const audio = resultMusicRef.current;
@@ -518,8 +525,9 @@ export default function App() {
     stopBattleMusic();
     const currentAudio = characterSelectMusicRef.current;
     if (currentAudio) {
-      void currentAudio.play().catch((error) => {
-        console.log('Character select music playback prevented:', error);
+      if (!currentAudio.paused) return;
+      void currentAudio.play().catch(error => {
+        console.warn('Character select music playback prevented; it will retry on the next user interaction:', error);
       });
       return;
     }
@@ -532,27 +540,52 @@ export default function App() {
     audio.onerror = () => {
       if (characterSelectMusicRef.current === audio) characterSelectMusicRef.current = null;
     };
-    audio.play().catch((error) => {
-      console.log('Character select music playback prevented:', error);
+    void audio.play().catch(error => {
+      console.warn('Character select music playback prevented; it will retry on the next user interaction:', error);
     });
   };
 
   useEffect(() => {
     if ((screen === 'lobby' || screen === 'quests' || screen === 'character-select') && !isMuted) {
-      if (!characterSelectMusicRef.current) startCharacterSelectMusic();
+      startCharacterSelectMusic();
     } else {
       stopCharacterSelectMusic();
     }
   }, [screen, isMuted]);
 
   useEffect(() => {
-    if (screen === 'battle' && !isMuted) {
+    const resumeScreenMusic = () => {
+      const currentScreen = screenRef.current;
+      if (currentScreen === 'lobby' || currentScreen === 'quests' || currentScreen === 'character-select') {
+        startCharacterSelectMusic();
+      } else if (currentScreen === 'battle' && !battleFinished) {
+        startBattleMusic();
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') resumeScreenMusic();
+    };
+
+    document.addEventListener('pointerdown', resumeScreenMusic, true);
+    document.addEventListener('keydown', resumeScreenMusic, true);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', resumeScreenMusic);
+    return () => {
+      document.removeEventListener('pointerdown', resumeScreenMusic, true);
+      document.removeEventListener('keydown', resumeScreenMusic, true);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', resumeScreenMusic);
+    };
+  }, [isMuted, audioSettings.music, audioSettings.master, battleFinished]);
+
+  useEffect(() => {
+    if (screen === 'battle' && !battleFinished && !isMuted) {
       if (!battleMusicRef.current) startBattleMusic();
     } else {
       stopBattleMusic();
-      stopResultMusic();
+      if (screen !== 'battle' || isMuted) stopResultMusic();
     }
-  }, [screen, isMuted]);
+  }, [screen, isMuted, battleFinished]);
 
   useEffect(() => () => {
     stopCharacterSelectMusic();
@@ -587,6 +620,7 @@ export default function App() {
     setOnlineParams(online || null);
     setIsSandbox(!!sandbox);
     setSandboxPauseChakraGen(!!sandbox && !!sandboxPauseChakraGen);
+    setBattleFinished(false);
     startBattleMusic();
     setScreen('battle');
   };
@@ -1312,7 +1346,7 @@ export default function App() {
             playTargetSound={playTargetSound}
             playWinSound={playWinSound}
             playLoseSound={playLoseSound}
-            onBattleFinished={stopBattleMusic}
+            onBattleFinished={handleBattleFinished}
             onProcessingChange={setIsProcessing}
             user={user}
             onlineParams={onlineParams}

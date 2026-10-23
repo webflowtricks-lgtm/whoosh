@@ -264,7 +264,7 @@ export default function CardGalleryModal({ user, newCardIds, onCardViewed, onClo
                         title={t('Nova Ninja Card', 'New Ninja Card')}
                         className="new-card-diamond pointer-events-none absolute -left-2.5 -top-4.5 z-20 text-5xl leading-none text-sky-400"
                       >
-                        ◆
+                        !
                       </span>
                     )}
                   </div>

@@ -308,7 +308,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
             <span>{t('Cards', 'Cards')}</span>
             {newCardIds.length > 0 && (
               <span aria-label={t('Nova Ninja Card', 'New Ninja Card')} className="absolute -right-1.5 -top-1.5 text-blue-400 drop-shadow-[0_0_5px_rgba(56,189,248,0.9)]">
-                ◆
+                !
               </span>
             )}
           </button>

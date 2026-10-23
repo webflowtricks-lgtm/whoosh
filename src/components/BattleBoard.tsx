@@ -34,6 +34,7 @@ import {
   isOffensiveSkill,
   isSkillBlockedByDelayedUnlock,
   isSkillBlockedByStun,
+  tickStunEffectsOnTurnPass,
   isInvulnerableToFriendlyEffects as isInvulnToFriendlyEffects,
 } from '../lib/combatRules';
 
@@ -632,6 +633,7 @@ export function isEffectVisibleToViewer(
 
 export function isDebuffEffect(eff: ActiveEffect): boolean {
   if (!eff) return false;
+  if (eff.type === 'ignore_stun' || eff.type === 'shield_stun_immunity') return false;
   const debuffTypes = [
     'stun', 'dot', 'bleeding', 'affliction', 'paralyze_cooldown',
     'damage', 'direct_damage', 'damage_debuff', 'damage_vulnerability', 'cannot_reduce_damage', 'cannot_be_invulnerable', 'cannot_receive_friendly', 'on_skill_use_damage', 'capture_arrest_trap', 'capture_arrest_debuff', 'chakra_cost_increase', 'life_steal', 'cooldown_increase', 'countdown_bomb', 'negate_friendly_effects', 'death_link'
@@ -1067,7 +1069,8 @@ function getGroupedActiveEffects(
     const effectCasterSide = eff.casterSide ||
       (eff.casterId ? (eff.casterId.startsWith('player') ? 'player' : 'enemy') : undefined);
     const enemyAppliedOnPlayer = targetIsPlayerSide && effectCasterSide === 'enemy';
-    const isDebuff = enemyAppliedOnPlayer || isDebuffEffect(eff);
+    const isDebuff = eff.type !== 'ignore_stun' && eff.type !== 'shield_stun_immunity' &&
+      (enemyAppliedOnPlayer || isDebuffEffect(eff));
     const skillBaseName = getSkillBaseName(eff);
     const singleDesc = getSingleEffectDescription(eff);
 
@@ -1175,6 +1178,7 @@ function GameOverOverlay({
   playScrollSound,
 }: GameOverOverlayProps) {
   const { t } = useLanguage();
+  const isMobileVertical = useIsMobileVertical();
   const isVictory = gameOver === 'victory';
   const showcaseTeam = isVictory ? playerCombatants : enemyCombatants;
 
@@ -1324,7 +1328,7 @@ function GameOverOverlay({
         {/* ROW: PLAYER PROFILE CARD | XP REWARD & RANK PROGRESS CARD | OPPONENT PROFILE CARD */}
         <div className="w-full flex flex-col xl:flex-row items-center justify-center gap-3 sm:gap-4 relative">
           {/* Left: Player Profile Card with Floating Standing Skin Artwork below */}
-          <div className="relative order-1 flex-1 w-full max-w-sm flex flex-col items-center">
+          <div className={`relative ${isMobileVertical ? 'order-2 xl:order-1' : 'order-1'} flex-1 w-full max-w-sm flex flex-col items-center`}>
             <div
               onClick={() => {
                 if (playClickSound) playClickSound();
@@ -1429,7 +1433,7 @@ function GameOverOverlay({
           </div>
 
           {/* Center: XP reward and rank progress */}
-          <div className={`relative z-10 order-3 lg:order-2 w-full max-w-sm flex-shrink-0 overflow-hidden rounded-xl border p-3 text-left shadow-xl ${
+          <div className={`relative z-10 ${isMobileVertical ? 'order-1 xl:order-2' : 'order-3 lg:order-2'} w-full max-w-sm flex-shrink-0 overflow-hidden rounded-xl border p-3 text-left shadow-xl ${
             isVictory
               ? 'border-emerald-400/50 bg-gradient-to-br from-emerald-900/90 via-emerald-950/95 to-slate-950 shadow-[0_0_28px_rgba(16,185,129,0.2)]'
               : 'border-red-500/50 bg-gradient-to-br from-red-950 via-rose-950/95 to-slate-950 shadow-red-950/60'
@@ -1522,7 +1526,7 @@ function GameOverOverlay({
           </div>
 
           {/* Right: Opponent Profile Card with Floating Standing Skin Artwork below */}
-          <div className="relative order-2 xl:order-3 flex-1 w-full max-w-sm flex flex-col items-center">
+          <div className={`relative ${isMobileVertical ? 'order-3' : 'order-2'} xl:order-3 flex-1 w-full max-w-sm flex flex-col items-center`}>
             <div
               onClick={() => {
                 if (playClickSound) playClickSound();
@@ -1695,7 +1699,7 @@ function GameOverOverlay({
         </div>
 
         {/* Return-to-menu action */}
-        <div className="relative w-full flex justify-center">
+        <div className="relative w-full flex justify-center px-6 py-5 -my-3">
           <button
             onClick={handleQuit}
             data-sound="Click"
@@ -2061,6 +2065,7 @@ export default function BattleBoard({
   // Marca quem usou skill OFENSIVA neste turno (Wood Spire Prison pune quem não usar)
   const usedOffensiveThisTurnRef = useRef<Record<string, boolean>>({});
   const currentSkillRef = useRef<Skill | null>(null);
+  const currentEffectCasterRef = useRef<{ id: string; side: 'player' | 'enemy' } | null>(null);
   // Map<targetId, airBulletsIcon>
   const airBulletsHitTargets = useRef<Map<string, string>>(new Map());
 
@@ -2451,6 +2456,19 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
 
     if (!baseChar) return c;
 
+    const savedSkins = Array.isArray(c.character.skins) ? c.character.skins : [];
+    const restoredSkins = (baseChar.skins || []).map(baseSkin => {
+      const savedSkin = savedSkins.find(skin => skin.id === baseSkin.id);
+      return { ...baseSkin, ...savedSkin, image: savedSkin?.image || baseSkin.image };
+    });
+    const selectedSkinId = c.character.selectedSkinId;
+    const selectedSkin = restoredSkins.find(skin => skin.id === selectedSkinId);
+    const selectedSkinUrl = c.character.selectedSkinUrl ||
+      (selectedSkinId === 'default' ? baseChar.portrait : selectedSkin?.image) ||
+      baseChar.selectedSkinUrl ||
+      restoredSkins[0]?.image ||
+      baseChar.portrait;
+
     const fullSkills = (c.character.skills || []).map((s, idx) => {
       const baseSkill = baseChar.skills?.find(bs => bs.name === s.name) || baseChar.skills?.[idx];
       if (baseSkill) {
@@ -2475,6 +2493,8 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       character: {
         ...baseChar,
         ...c.character,
+        skins: restoredSkins.length > 0 ? restoredSkins : savedSkins,
+        selectedSkinUrl,
         skills: fullSkills
       }
     };
@@ -3863,6 +3883,15 @@ const handleTradeChakra = () => {
   };
 
   const pushActiveEffect = (character: CombatCharacter, effect: ActiveEffect) => {
+    if (effect.type === 'stun' && currentEffectCasterRef.current) {
+      effect = {
+        ...effect,
+        casterId: effect.casterId || currentEffectCasterRef.current.id,
+        casterSide: effect.casterSide || currentEffectCasterRef.current.side,
+        sourceSkillName: effect.sourceSkillName || currentSkillRef.current?.name,
+      };
+    }
+
     // 🚑 Bloqueio de curas: skills com "não pode ser curada enquanto ativa" marcam seus efeitos
     if (!effect.blocksHeals && currentSkillRef.current?.blocksHealsWhileActive) {
       effect = { ...effect, blocksHeals: true };
@@ -4524,6 +4553,10 @@ const handleTradeChakra = () => {
         : rawSkill;
       (source as any)._executingSkill = skill;
       currentSkillRef.current = skill;
+      currentEffectCasterRef.current = {
+        id: source.id,
+        side: action.isPlayer ? 'player' : 'enemy',
+      };
 
       // Regra de alvo "uma vez por ativação": marca o consumo na 1ª skill usada enquanto a condição está ativa.
       // Depois disso, o alvo volta ao normal até a condição ser REATIVADA (reseta o marcador no pushActiveEffect).
@@ -10330,6 +10363,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
     markPendingHiddenActionLogs();
     currentSkillRef.current = null;
+    currentEffectCasterRef.current = null;
 
     // 💜 Sincronização IMEDIATA dos valores de aflição com as regras condicionais:
     // ao ativar/desativar a skill condição (ex.: Mangekyo Sharingan), os debuffs de
@@ -10938,6 +10972,8 @@ splashOnlyTargets = splashPool.filter(c =>
             if (eff.stackType === 'Raikiri' && eff.type === 'custom') {
               console.log(`[RAIKIRI] DECREMENT turn=${turn} castTurn=${eff.castTurn} frozenUntilTurn=${(eff as any).frozenUntilTurn} dur=${eff.duration}`);
             }
+            // Offline stuns tick when their caster's side finishes, after the target has had its turn.
+            if (!onlineParams?.isOnline && eff.type === 'stun') return eff;
             // Permanentes e Raikiri congelado nunca decrementam.
             if (eff.duration >= 99999 || (eff.stackType === 'Raikiri' && (eff as any).frozenUntilTurn === turn)) {
               return eff;
@@ -11667,6 +11703,25 @@ splashOnlyTargets = splashPool.filter(c =>
     if (m2) setEnemyCombatants([...e]);
   }, [turn, playerCombatants, enemyCombatants, gameOver]);
 
+  const tickOfflineStunsForCasterSide = (casterIsPlayerSide: boolean) => {
+    if (onlineParams?.isOnline) return;
+    const targetIsPlayerSide = !casterIsPlayerSide;
+    const currentSide = targetIsPlayerSide ? playerRef.current : enemyRef.current;
+    const fallbackSide = targetIsPlayerSide ? playerCombatants : enemyCombatants;
+    const updatedSide = tickStunEffectsOnTurnPass(
+      currentSide.length ? currentSide : fallbackSide,
+      turn,
+      casterIsPlayerSide ? 'player' : 'enemy',
+    );
+    if (targetIsPlayerSide) {
+      playerRef.current = updatedSide;
+      setPlayerCombatants(updatedSide);
+    } else {
+      enemyRef.current = updatedSide;
+      setEnemyCombatants(updatedSide);
+    }
+  };
+
   // Main End Turn / Pass Turn handler
   const handleEndTurn = (customRandAllocation?: ChakraPool, skipActions?: boolean) => {
     try {
@@ -11739,6 +11794,8 @@ splashOnlyTargets = splashPool.filter(c =>
       if (isGameOver) {
         return;
       }
+
+      tickOfflineStunsForCasterSide(isCurrentPlayer);
 
       // Tick de Dano Contínuo do lado que acabou de passar o turno:
       // o dano é aplicado AGORA (quando o conjurador passa), sem esperar o oponente passar
@@ -12188,6 +12245,8 @@ splashOnlyTargets = splashPool.filter(c =>
           console.error('[BattleBoard] Erro ao executar as ações do oponente (IA), a passagem de turno continuará:', err);
         }
         if (isGameOver) return;
+
+        tickOfflineStunsForCasterSide(false);
 
         const newPassed: ('player' | 'enemy')[] = [...passedPlayersRef.current, 'enemy'];
         passedPlayersRef.current = newPassed;
@@ -15476,6 +15535,9 @@ const pushActiveEffect = (targetChar: CombatCharacter, eff: ActiveEffect) => {
             duration: stunDuration,
             icon: debuffIcon,
             stunType: resolvedStunTypes,
+            casterId: source.id,
+            casterSide: action.isPlayer ? 'player' : 'enemy',
+            sourceSkillName: skill.name,
             irremovable: !!skill.stunIrremovable,
           });
           newLogs.push({
@@ -18501,12 +18563,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               initial={{ opacity: 0, y: -24, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -16, scale: 0.95 }}
-              className="mv-chakra-roll-banner animated-gradient-box relative flex max-w-[calc(100vw-2rem)] items-center gap-5 overflow-hidden rounded-2xl border border-white/30 px-4 py-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl sm:gap-6 sm:px-6 sm:py-5"
+              className="mv-chakra-roll-banner relative flex max-w-[calc(100vw-2rem)] items-center gap-5 overflow-hidden rounded-2xl px-4 py-4 text-white sm:gap-6 sm:px-6 sm:py-5"
             >
               <div className="mv-chakra-roll-icon-frame relative flex h-14 w-14 shrink-0 items-center justify-center sm:h-16 sm:w-16">
                 <span
                   aria-hidden="true"
-                  className="chakra-roll-spinner h-14 w-14 animate-spin bg-emerald-300 sm:h-16 sm:w-16"
+                  className="h-14 w-14 animate-spin bg-white drop-shadow-[0_0_12px_rgba(255,255,255,0.95)] sm:h-16 sm:w-16"
                   style={{
                     maskImage: "url('/static/img/icon/star.svg')",
                     WebkitMaskImage: "url('/static/img/icon/star.svg')",
@@ -18522,7 +18584,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               <div className="relative min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white">Chakra gerado</p>
-                  <span className="rounded-full border border-emerald-300/30 bg-emerald-950/80 px-2 py-0.5 text-[9px] font-bold text-white">
+                  <span className="rounded-full border border-white/30 bg-white/10 px-2 py-0.5 text-[9px] font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]">
                     Turno {turn}
                   </span>
                 </div>
@@ -18944,17 +19006,27 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             className="mv-player-invulnerability-skin h-full w-auto max-w-full object-contain"
                           />
                         ) : skinImg ? (
-                          <SkinMedia
-                            src={skinImg}
-                            alt={combatant.character.name}
-                            /* Skin NA MESMA ALTURA do card (self-stretch + h-full):
-                               encosta na altura do card e cresce junto com ele.
-                               w-auto + object-contain preservam a proporção
-                               (sem distorcer) e max-w-full evita vazar o container. */
-                            className="h-full w-auto max-w-full object-contain"
-                            autoPlay
-                            onImageError={e => { e.currentTarget.style.display = 'none'; }}
-                          />
+                          <span
+                            className="mv-battle-skin-stretch"
+                            style={{ animationDelay: `${idx * 0.65}s` }}
+                          >
+                            <span
+                              className="mv-battle-skin-levitate"
+                              style={{ animationDelay: `${idx * 0.65}s` }}
+                            >
+                              <SkinMedia
+                                src={skinImg}
+                                alt={combatant.character.name}
+                                /* Skin NA MESMA ALTURA do card (self-stretch + h-full):
+                                   encosta na altura do card e cresce junto com ele.
+                                   w-auto + object-contain preservam a proporção
+                                   (sem distorcer) e max-w-full evita vazar o container. */
+                                className="h-full w-auto max-w-full object-contain"
+                                autoPlay
+                                onImageError={e => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            </span>
+                          </span>
                         ) : (
                           <>
                             <img
@@ -21071,12 +21143,22 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           className="h-full w-auto max-w-full object-contain"
                         />
                       ) : skinImg ? (
-                        <SkinMedia
-                          src={skinImg}
-                          alt={combatant.character.name}
-                          className="h-full w-auto max-w-full object-contain scale-x-[-1]"
-                          autoPlay
-                        />
+                        <span
+                          className="mv-battle-skin-stretch"
+                          style={{ animationDelay: `${(idx + 3) * 0.65}s` }}
+                        >
+                          <span
+                            className="mv-battle-skin-levitate"
+                            style={{ animationDelay: `${(idx + 3) * 0.65}s` }}
+                          >
+                            <SkinMedia
+                              src={skinImg}
+                              alt={combatant.character.name}
+                              className="h-full w-auto max-w-full object-contain scale-x-[-1]"
+                              autoPlay
+                            />
+                          </span>
+                        </span>
                       ) : (
                         <>
                           <img

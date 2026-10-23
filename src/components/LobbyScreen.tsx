@@ -485,7 +485,7 @@ export default function LobbyScreen({
         <button
           type="button"
           onClick={openQuests}
-          className="lobby-mission-button"
+          className={`lobby-mission-button${missionNotificationCount > 0 ? ' has-notification' : ''}`}
           aria-label={t('Missões', 'Missions')}
         >
           {missionNotificationCount > 0 && (
@@ -494,7 +494,7 @@ export default function LobbyScreen({
               aria-label={t(`${missionNotificationCount} missões prontas para resgatar`, `${missionNotificationCount} quests ready to claim`)}
             >
               <span className="new-card-diamond text-2xl leading-none text-sky-400" aria-hidden="true">
-                ◆
+                !
               </span>
             </span>
           )}
@@ -504,7 +504,7 @@ export default function LobbyScreen({
           <button
             type="button"
             onClick={() => { playClickSound(); setModal('cards'); }}
-            className="lobby-mission-button"
+            className={`lobby-mission-button${newCardIds.length > 0 ? ' has-notification' : ''}`}
             aria-label={t('Abrir álbum de figurinhas', 'Open sticker album')}
           >
             <img className="lobby-mission-icon" src="/static/img/icon/album.webp" alt="" />
@@ -513,7 +513,7 @@ export default function LobbyScreen({
                 aria-label={t('Nova Ninja Card', 'New Ninja Card')}
                 className="new-card-diamond absolute -right-1 -top-1 z-20 text-2xl leading-none text-sky-400"
               >
-                ◆
+                !
               </span>
             )}
           </button>
@@ -589,23 +589,35 @@ export default function LobbyScreen({
                 className="lobby-events-mission-count"
                 aria-label={t(`${availableEventRewardCount} recompensas de evento para resgatar`, `${availableEventRewardCount} event rewards to claim`)}
               >
-                <span className="lobby-events-mission-diamond">
-                  <Diamond aria-hidden="true" />
+                <span className="lobby-events-mission-diamond" aria-hidden="true">
+                  !
                 </span>
               </span>
             )}
             {label === t('Shinobis', 'Shinobis') ? (
-              <img className="lobby-footer-icon" src="/static/img/icon/ninjas-icon-convertido-de-png.webp" alt="" />
+              <span className="lobby-footer-icon-stretch">
+                <img className="lobby-footer-icon" src="/static/img/icon/ninjas-icon-convertido-de-png.webp" alt="" />
+              </span>
             ) : label === t('Clã', 'Clan') ? (
-              <img className="lobby-footer-icon" src="/static/img/icon/guild.webp" alt="" />
+              <span className="lobby-footer-icon-stretch">
+                <img className="lobby-footer-icon" src="/static/img/icon/guild.webp" alt="" />
+              </span>
             ) : label === t('Loja', 'Shop') ? (
-              <img className="lobby-footer-icon" src="/static/img/icon/shop.webp" alt="" />
+              <span className="lobby-footer-icon-stretch">
+                <img className="lobby-footer-icon" src="/static/img/icon/shop.webp" alt="" />
+              </span>
             ) : label === t('Eventos', 'Events') ? (
-              <img className="lobby-footer-icon" src="/static/img/icon/event.webp" alt="" />
+              <span className="lobby-footer-icon-stretch">
+                <img className="lobby-footer-icon" src="/static/img/icon/event.webp" alt="" />
+              </span>
             ) : primary ? (
-              <img className="lobby-footer-icon" src="/static/img/icon/kunai-icon.webp" alt="" />
+              <span className="lobby-footer-icon-stretch">
+                <img className="lobby-footer-icon" src="/static/img/icon/kunai-icon.webp" alt="" />
+              </span>
             ) : (
-              <Icon className="lobby-footer-icon" aria-hidden="true" />
+              <span className="lobby-footer-icon-stretch">
+                <Icon className="lobby-footer-icon" aria-hidden="true" />
+              </span>
             )}
             <span>{label}</span>
           </button>
@@ -626,7 +638,7 @@ export default function LobbyScreen({
         {user && (
           <button
             type="button"
-            className="lobby-mission-button lobby-inbox-quick-action"
+            className={`lobby-mission-button lobby-inbox-quick-action${pendingMaintenanceCount > 0 ? ' has-notification' : ''}`}
             onClick={() => { playClickSound(); setQuickActionsOpen(false); setMaintenanceMailError(''); setModal('mail'); }}
             aria-label={t(`Caixa de entrada${pendingMaintenanceCount ? `, ${pendingMaintenanceCount} mensagens não resgatadas` : ''}`, `Inbox${pendingMaintenanceCount ? `, ${pendingMaintenanceCount} unclaimed messages` : ''}`)}
           >

@@ -57,6 +57,30 @@ export function isSkillBlockedByStun(skill: Skill | null, activeEffects: ActiveE
   return false;
 }
 
+export function tickStunEffectsOnTurnPass(
+  combatants: CombatCharacter[],
+  turn: number,
+  casterSide: 'player' | 'enemy',
+): CombatCharacter[] {
+  return combatants.map(combatant => ({
+    ...combatant,
+    activeEffects: combatant.activeEffects.flatMap(effect => {
+      const effectCasterSide = effect.casterSide
+        ?? (effect.casterId?.startsWith('player') ? 'player' : effect.casterId?.startsWith('enemy') ? 'enemy' : undefined);
+      if (
+        effect.type !== 'stun' ||
+        effect.duration >= 99999 ||
+        effect.castTurn === turn ||
+        effectCasterSide !== casterSide
+      ) {
+        return [effect];
+      }
+      const duration = effect.duration - 1;
+      return duration > 0 ? [{ ...effect, duration }] : [];
+    }),
+  }));
+}
+
 export function isSkillBlockedByDelayedUnlock(skill: Skill | null, activeEffects: ActiveEffect[]): boolean {
   if (!skill || !activeEffects || activeEffects.length === 0) return false;
   const skillName = (skill.name || '').toLowerCase();

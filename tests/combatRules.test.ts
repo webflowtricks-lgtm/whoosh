@@ -7,6 +7,7 @@ import {
   isOffensiveSkill,
   isSkillBlockedByDelayedUnlock,
   isSkillBlockedByStun,
+  tickStunEffectsOnTurnPass,
 } from '../src/lib/combatRules';
 
 function skill(overrides: Partial<Skill> = {}): Skill {
@@ -69,6 +70,32 @@ test('applies full, typed, and offensive-only stun rules', () => {
   assert.equal(isSkillBlockedByStun(skill({ cannotBeStunned: true }), [effect()]), false);
   assert.equal(isSkillBlockedByStun(skill(), [effect(), effect({ type: 'ignore_stun' })]), false);
   assert.equal(isSkillBlockedByStun(skill(), []), false);
+});
+
+test('expires stuns when their caster passes, not when the affected side passes', () => {
+  const stunned = combatant([
+    effect({ name: 'KO Punch', duration: 1, castTurn: 1, casterSide: 'enemy' }),
+    effect({ name: 'Long Stun', duration: 2, castTurn: 1, casterSide: 'enemy' }),
+    effect({ name: 'New Stun', duration: 1, castTurn: 2, casterSide: 'enemy' }),
+    effect({ name: 'Permanent Stun', duration: 99999, castTurn: 1, casterSide: 'enemy' }),
+    effect({ name: 'Shield', type: 'shield', duration: 2, castTurn: 1 }),
+  ]);
+
+  const afterAffectedSidePass = tickStunEffectsOnTurnPass([stunned], 2, 'player')[0];
+  assert.deepEqual(afterAffectedSidePass.activeEffects, stunned.activeEffects);
+
+  const updated = tickStunEffectsOnTurnPass([stunned], 2, 'enemy')[0];
+
+  assert.deepEqual(
+    updated.activeEffects.map(activeEffect => [activeEffect.name, activeEffect.duration]),
+    [
+      ['Long Stun', 1],
+      ['New Stun', 1],
+      ['Permanent Stun', 99999],
+      ['Shield', 2],
+    ],
+  );
+  assert.equal(stunned.activeEffects.length, 5, 'the source combatant remains unchanged');
 });
 
 test('blocks delayed skills only during their locked phase', () => {
