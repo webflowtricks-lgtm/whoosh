@@ -3300,6 +3300,11 @@ body.processing-cursor * {
    ========================================================= */
 .gameover-content {
   transform-origin: center center;
+  scrollbar-width: none;
+}
+
+.gameover-content::-webkit-scrollbar {
+  display: none;
 }
 
 @media (max-height: 800px) {
