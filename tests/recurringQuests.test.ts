@@ -28,9 +28,13 @@ test('recurring quests keep IDs within a period and rotate at period boundaries'
   assert.equal(first.filter(quest => quest.period === 'daily').length, 4);
   assert.equal(first.filter(quest => quest.period === 'weekly').length, 8);
   const dailyWins = first.find(quest => quest.id.includes('daily-victory'))!;
+  const dailyDamage = first.find(quest => quest.id.includes('daily-damage'))!;
   const weeklyWins = first.find(quest => quest.id.includes('weekly-wins'))!;
-  assert.equal(dailyWins.goals[0].targetValue, 4);
+  assert.equal(dailyWins.desc, 'Vença 5 batalhas. Renova diariamente (UTC).');
+  assert.equal(dailyWins.goals[0].targetValue, 5);
   assert.equal(dailyWins.rewards[0].value, '400');
+  assert.match(dailyDamage.desc, /^Cause 1\.500 pontos de dano em batalhas\./);
+  assert.equal(dailyDamage.goals[0].targetValue, 1500);
   assert.equal(weeklyWins.goals[0].type, 'win_battles_with_chars');
   assert.equal(weeklyWins.goals[0].targetValue, 20);
   assert.equal(weeklyWins.rewards.find(reward => reward.type === 'ryos')?.value, '1500');

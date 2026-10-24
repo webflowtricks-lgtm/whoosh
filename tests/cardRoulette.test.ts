@@ -8,9 +8,19 @@ import {
   drawCardRoulette,
   getCardRouletteChances,
   isValidCardRouletteChances,
+  isValidCardRouletteCost,
   rebalanceCardRouletteChances,
   redeemCardPackRewards,
 } from '../src/lib/cardRoulette';
+
+test('roulette cost accepts non-negative safe integers only', () => {
+  assert.equal(isValidCardRouletteCost(0), true);
+  assert.equal(isValidCardRouletteCost(25_000), true);
+  assert.equal(isValidCardRouletteCost(-1), false);
+  assert.equal(isValidCardRouletteCost(1.5), false);
+  assert.equal(isValidCardRouletteCost(Number.MAX_SAFE_INTEGER + 1), false);
+  assert.equal(isValidCardRouletteCost('25000'), false);
+});
 
 const cards: NinjaCard[] = [
   { id: 'mythic', characterId: 'n1', characterName: 'Mythic', slug: 'n1', rarity: 'secreto', title: '', description: '', points: 50 },

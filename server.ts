@@ -38,6 +38,7 @@ import {
   cardPackRewardQuantity,
   drawCardRoulette,
   isValidCardRouletteChances,
+  isValidCardRouletteCost,
   redeemCardPackRewards,
 } from "./src/lib/cardRoulette";
 import type { NinjaCard, Quest, QuestMaintenanceMail, QuestReward } from "./src/types";
@@ -58,6 +59,7 @@ const FRAMES_FILE = path.join(DATA_DIR, "frames.json");
 const CARDS_FILE = path.join(DATA_DIR, "cards.json");
 const CARD_PACKS_FILE = path.join(DATA_DIR, "card_packs.json");
 const CARD_ROULETTE_SETTINGS_FILE = path.join(DATA_DIR, "card_roulette_settings.json");
+const CARD_ROULETTE_COST_FILE = path.join(DATA_DIR, "card_roulette_cost.json");
 const AI_SETTINGS_FILE = path.join(DATA_DIR, "ai_settings.json");
 const MATCH_ROOMS_FILE = path.join(DATA_DIR, "match_rooms.json");
 const ACCOUNT_SESSIONS_FILE = path.join(DATA_DIR, "account_sessions.json");
@@ -1196,6 +1198,7 @@ async function startServer() {
   const globalConfigWritePaths = new Set([
     "/api/characters", "/api/ranks", "/api/shop", "/api/events",
     "/api/banners", "/api/frames", "/api/cards", "/api/cards/packs", "/api/cards/roulette-settings",
+    "/api/cards/roulette-cost",
     "/api/quests", "/api/recurring-quest-settings", "/api/ai-settings", "/api/config/import",
   ]);
   app.use((req, res, next) => {
@@ -2216,19 +2219,52 @@ async function startServer() {
 
   app.get("/api/cards/roulette-settings", (_req, res) => {
     const chances = readJSON<unknown>(CARD_ROULETTE_SETTINGS_FILE, CARD_ROULETTE_CHANCES);
+    const cost = readJSON<unknown>(CARD_ROULETTE_COST_FILE, CARD_ROULETTE_COST);
     res.json({
       success: true,
       chances: isValidCardRouletteChances(chances) ? chances : CARD_ROULETTE_CHANCES,
+      cost: isValidCardRouletteCost(cost) ? cost : CARD_ROULETTE_COST,
     });
   });
 
   app.post("/api/cards/roulette-settings", (req, res) => {
     const chances = req.body?.chances;
-    if (!isValidCardRouletteChances(chances)) {
+    const cost = req.body?.cost;
+    const hasChances = chances !== undefined;
+    const hasCost = cost !== undefined;
+    if (!hasChances && !hasCost) {
+      return res.status(400).json({ error: "Nenhuma configuração da roleta foi informada." });
+    }
+    if (hasChances && !isValidCardRouletteChances(chances)) {
       return res.status(400).json({ error: "As chances de todas as raridades devem somar 100%." });
     }
-    if (!persistJsonFile(CARD_ROULETTE_SETTINGS_FILE, chances)) {
+    if (hasCost && !isValidCardRouletteCost(cost)) {
+      return res.status(400).json({ error: "O custo da roleta deve ser um número inteiro igual ou maior que zero." });
+    }
+    if (hasChances && !persistJsonFile(CARD_ROULETTE_SETTINGS_FILE, chances)) {
       return res.status(500).json({ error: "Não foi possível salvar as chances da roleta." });
+    }
+    if (hasCost && !persistJsonFile(CARD_ROULETTE_COST_FILE, cost)) {
+      return res.status(500).json({ error: "Não foi possível salvar o custo da roleta." });
+    }
+    return res.json({ success: true });
+  });
+
+  app.get("/api/cards/roulette-cost", (_req, res) => {
+    const configuredCost = readJSON<unknown>(CARD_ROULETTE_COST_FILE, CARD_ROULETTE_COST);
+    res.json({
+      success: true,
+      cost: isValidCardRouletteCost(configuredCost) ? configuredCost : CARD_ROULETTE_COST,
+    });
+  });
+
+  app.post("/api/cards/roulette-cost", (req, res) => {
+    const cost = req.body?.cost;
+    if (!isValidCardRouletteCost(cost)) {
+      return res.status(400).json({ error: "O custo da roleta deve ser um número inteiro igual ou maior que zero." });
+    }
+    if (!persistJsonFile(CARD_ROULETTE_COST_FILE, cost)) {
+      return res.status(500).json({ error: "Não foi possível salvar o custo da roleta." });
     }
     return res.json({ success: true });
   });
@@ -2242,8 +2278,10 @@ async function startServer() {
     const user = users.find(profile => profile.username?.trim().toLowerCase() === username);
     if (!user) return res.status(404).json({ error: "Usuário não encontrado." });
 
+    const configuredCost = readJSON<unknown>(CARD_ROULETTE_COST_FILE, CARD_ROULETTE_COST);
+    const rouletteCost = isValidCardRouletteCost(configuredCost) ? configuredCost : CARD_ROULETTE_COST;
     const ryos = Number.isSafeInteger(user.ryos) && user.ryos >= 0 ? user.ryos : 1500;
-    if (ryos < CARD_ROULETTE_COST) {
+    if (ryos < rouletteCost) {
       return res.status(409).json({ error: "Você não tem moedas suficientes para girar a roleta." });
     }
 
@@ -2268,7 +2306,7 @@ async function startServer() {
       });
     }
 
-    user.ryos = ryos - CARD_ROULETTE_COST;
+    user.ryos = ryos - rouletteCost;
     const collectedCardIds = Array.isArray(user.collectedCardIds)
       ? user.collectedCardIds.filter((id: unknown): id is string => typeof id === "string")
       : [];
@@ -2890,6 +2928,7 @@ async function startServer() {
       CARD_ROULETTE_SETTINGS_FILE,
       CARD_ROULETTE_CHANCES,
     );
+    const cardRouletteCost = readJSON<unknown>(CARD_ROULETTE_COST_FILE, CARD_ROULETTE_COST);
 
     const configBackup = {
       appName: "Naruto Unison Combat",
@@ -2908,6 +2947,9 @@ async function startServer() {
       cardRouletteChances: isValidCardRouletteChances(cardRouletteChances)
         ? cardRouletteChances
         : CARD_ROULETTE_CHANCES,
+      cardRouletteCost: isValidCardRouletteCost(cardRouletteCost)
+        ? cardRouletteCost
+        : CARD_ROULETTE_COST,
     };
 
     res.setHeader("Content-Type", "application/json");
@@ -2927,6 +2969,10 @@ async function startServer() {
     if (data.cardRouletteChances !== undefined &&
         !isValidCardRouletteChances(data.cardRouletteChances)) {
       return res.status(400).json({ error: "Configuração de chances da roleta inválida." });
+    }
+    if (data.cardRouletteCost !== undefined &&
+        !isValidCardRouletteCost(data.cardRouletteCost)) {
+      return res.status(400).json({ error: "Configuração do custo da roleta inválida." });
     }
 
     let countDetails: string[] = [];
@@ -3010,6 +3056,12 @@ async function startServer() {
         return res.status(500).json({ error: "Não foi possível salvar as chances da roleta importadas." });
       }
       countDetails.push("Chances da roleta");
+    }
+    if (data.cardRouletteCost !== undefined) {
+      if (!persistJsonFile(CARD_ROULETTE_COST_FILE, data.cardRouletteCost)) {
+        return res.status(500).json({ error: "Não foi possível salvar o custo da roleta importado." });
+      }
+      countDetails.push("Custo da roleta");
     }
     if (Array.isArray(data.aiSettings)) {
       const limit = data.aiSettings[0]?.maxEnemyCharacterNumber;

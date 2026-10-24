@@ -2054,10 +2054,36 @@ export default function BattleBoard({
   const [enemyCombatants, setEnemyCombatants] = useState<CombatCharacter[]>([]);
   const playerRef = useRef<CombatCharacter[]>([]);
   const enemyRef = useRef<CombatCharacter[]>([]);
+  const skinStretchElementsRef = useRef<Map<string, HTMLSpanElement>>(new Map());
+  const previousCombatantHealthRef = useRef<Map<string, number> | null>(null);
+
+  const triggerSkinStretch = (combatantId: string, eventType: 'damage' | 'skill') => {
+    const element = skinStretchElementsRef.current.get(combatantId);
+    if (!element) return;
+    element.classList.remove('is-damage-animation', 'is-skill-animation');
+    void element.offsetWidth;
+    element.classList.add(eventType === 'damage' ? 'is-damage-animation' : 'is-skill-animation');
+  };
 
   useEffect(() => {
     if (playerCombatants.length > 0) playerRef.current = playerCombatants;
     if (enemyCombatants.length > 0) enemyRef.current = enemyCombatants;
+  }, [playerCombatants, enemyCombatants]);
+
+  useEffect(() => {
+    const currentHealth = new Map(
+      [...playerCombatants, ...enemyCombatants].map(combatant => [combatant.id, combatant.health]),
+    );
+    const previousHealth = previousCombatantHealthRef.current;
+    if (previousHealth) {
+      currentHealth.forEach((health, combatantId) => {
+        const previousValue = previousHealth.get(combatantId);
+        if (previousValue !== undefined && health < previousValue) {
+          triggerSkinStretch(combatantId, 'damage');
+        }
+      });
+    }
+    previousCombatantHealthRef.current = currentHealth;
   }, [playerCombatants, enemyCombatants]);
   // Track skills used per character per turn (for requirePreviousSkill)
   const currentTurnUsedSkills = useRef<Record<string, Set<string>>>({});
@@ -4557,6 +4583,11 @@ const handleTradeChakra = () => {
         id: source.id,
         side: action.isPlayer ? 'player' : 'enemy',
       };
+      const targetsEnemy = targetList.some(combatant => combatant.id === action.targetId);
+      const skillIsInvisible = !!(skill.invisible || (skill.invisibleDuration ?? 0) > 0);
+      if (targetsEnemy && !skillIsInvisible) {
+        triggerSkinStretch(source.id, 'skill');
+      }
 
       // Regra de alvo "uma vez por ativação": marca o consumo na 1ª skill usada enquanto a condição está ativa.
       // Depois disso, o alvo volta ao normal até a condição ser REATIVADA (reseta o marcador no pushActiveEffect).
@@ -19007,13 +19038,18 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           />
                         ) : skinImg ? (
                           <span
+                            ref={element => {
+                              if (element) skinStretchElementsRef.current.set(combatant.id, element);
+                              else skinStretchElementsRef.current.delete(combatant.id);
+                            }}
                             className="mv-battle-skin-stretch"
-                            style={{ animationDelay: `${idx * 0.65}s` }}
+                            onAnimationEnd={event => {
+                              if (event.target === event.currentTarget) {
+                                event.currentTarget.classList.remove('is-damage-animation', 'is-skill-animation');
+                              }
+                            }}
                           >
-                            <span
-                              className="mv-battle-skin-levitate"
-                              style={{ animationDelay: `${idx * 0.65}s` }}
-                            >
+                            <span className="mv-battle-skin-levitate">
                               <SkinMedia
                                 src={skinImg}
                                 alt={combatant.character.name}
@@ -21144,13 +21180,18 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         />
                       ) : skinImg ? (
                         <span
+                          ref={element => {
+                            if (element) skinStretchElementsRef.current.set(combatant.id, element);
+                            else skinStretchElementsRef.current.delete(combatant.id);
+                          }}
                           className="mv-battle-skin-stretch"
-                          style={{ animationDelay: `${(idx + 3) * 0.65}s` }}
+                          onAnimationEnd={event => {
+                            if (event.target === event.currentTarget) {
+                              event.currentTarget.classList.remove('is-damage-animation', 'is-skill-animation');
+                            }
+                          }}
                         >
-                          <span
-                            className="mv-battle-skin-levitate"
-                            style={{ animationDelay: `${(idx + 3) * 0.65}s` }}
-                          >
+                          <span className="mv-battle-skin-levitate">
                             <SkinMedia
                               src={skinImg}
                               alt={combatant.character.name}

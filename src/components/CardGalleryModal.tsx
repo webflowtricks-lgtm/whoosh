@@ -191,6 +191,7 @@ export default function CardGalleryModal({ user, newCardIds, onCardViewed, onClo
                 const isNew = isOwned && newCardIds.includes(card.id);
                 const meta = CARD_RARITY_META[card.rarity];
                 const fx = isOwned ? rarityFx(card.rarity) : null;
+                const has3DMotion = card.rarity === 'lendario' || card.rarity === 'secreto';
                 return (
                   <div
                     key={card.id}
@@ -199,7 +200,7 @@ export default function CardGalleryModal({ user, newCardIds, onCardViewed, onClo
                       if (isNew) onCardViewed(card.id);
                       setSelectedCard(card);
                     }}
-                    className="group relative aspect-[3/4] cursor-pointer overflow-visible transition-transform hover:scale-[1.03]"
+                    className={`group relative aspect-[3/4] cursor-pointer overflow-visible ${has3DMotion ? 'transition-transform hover:scale-[1.03]' : ''}`}
                   >
                     <div className={`absolute inset-0 overflow-hidden rounded-2xl border-2 shadow-lg ${
                       isOwned
@@ -303,10 +304,11 @@ export default function CardGalleryModal({ user, newCardIds, onCardViewed, onClo
                 onClick={(e) => e.stopPropagation()}
                 className="flex max-h-full w-full max-w-xs flex-col items-center"
               >
-                <div className="card-gallery-lightbox-idle">
+                <div className={selectedCard.rarity === 'lendario' || selectedCard.rarity === 'secreto' ? 'card-gallery-lightbox-idle' : ''}>
                   <Tilt3D
                     className={`relative mb-3 aspect-[3/4] w-[min(82vw,520px)] max-h-[78dvh] overflow-hidden rounded-2xl border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[selectedCard.rarity].border} ${CARD_RARITY_META[selectedCard.rarity].glow}`}
                     glareRadius="rounded-2xl"
+                    enabled={selectedCard.rarity === 'lendario' || selectedCard.rarity === 'secreto'}
                   >
                     {owned.has(selectedCard.id) ? (
                       <>

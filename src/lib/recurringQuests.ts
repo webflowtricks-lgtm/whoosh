@@ -6,8 +6,8 @@ const DAILY_TEMPLATES: RecurringQuestTemplate[] = [
   {
     id: 'daily-victory',
     title: 'Ritual Diário: Vitórias',
-    desc: 'Vença 4 batalhas contra a IA ou outros jogadores.',
-    goals: [{ id: 'win', type: 'win_battles_with_chars', targetValue: 4, currentValue: 0 }],
+    desc: 'Vença 5 batalhas.',
+    goals: [{ id: 'win', type: 'win_battles_with_chars', targetValue: 5, currentValue: 0 }],
     rewards: [{ type: 'ryos', value: '400' }],
     recurringPoints: 25,
   },
@@ -37,8 +37,8 @@ const DAILY_TEMPLATES: RecurringQuestTemplate[] = [
   {
     id: 'daily-damage',
     title: 'Ritual Diário: Pressão Ofensiva',
-    desc: 'Cause 2.500 pontos de dano em batalhas.',
-    goals: [{ id: 'damage', type: 'damage_dealt', targetValue: 2500, currentValue: 0 }],
+    desc: 'Cause 1.500 pontos de dano em batalhas.',
+    goals: [{ id: 'damage', type: 'damage_dealt', targetValue: 1500, currentValue: 0 }],
     rewards: [{ type: 'ryos', value: '400' }],
     recurringPoints: 25,
   },

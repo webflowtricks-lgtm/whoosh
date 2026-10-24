@@ -3,6 +3,10 @@ import type { CardRarity, NinjaCard, QuestReward } from '../types';
 export const CARD_ROULETTE_COST = 25_000;
 export const CARD_PACK_REWARD_MAX = 50;
 
+export function isValidCardRouletteCost(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
 export const CARD_ROULETTE_CHANCES: Record<CardRarity, number> = {
   comum: 69.1,
   raro: 25,

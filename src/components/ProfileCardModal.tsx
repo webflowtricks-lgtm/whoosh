@@ -69,10 +69,11 @@ function useIsMobilePortrait(): boolean {
  * Usa Pointer Events universais + manipulação direta do DOM via refs.
  * O overflow-hidden do conteúdo NÃO afeta o 3D (a transformação vive aqui).
  */
-export function Tilt3D({ children, className, glareRadius = 'rounded-md' }: {
+export function Tilt3D({ children, className, glareRadius = 'rounded-md', enabled = true }: {
   children: React.ReactNode;
   className?: string;
   glareRadius?: string;
+  enabled?: boolean;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const glareRef = useRef<HTMLSpanElement>(null);
@@ -129,27 +130,28 @@ export function Tilt3D({ children, className, glareRadius = 'rounded-md' }: {
   return (
     <div
       ref={wrapRef}
-      style={{
+      style={enabled ? {
         transformStyle: 'preserve-3d',
         willChange: 'transform',
         touchAction: 'pan-y',
         userSelect: 'none',
         WebkitTouchCallout: 'none',
-      }}
+      } : undefined}
       className={className}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeaveOrUp}
-      onPointerUp={handlePointerLeaveOrUp}
-      onPointerCancel={handlePointerCancel}
+      onPointerDown={enabled ? handlePointerDown : undefined}
+      onPointerMove={enabled ? handlePointerMove : undefined}
+      onPointerLeave={enabled ? handlePointerLeaveOrUp : undefined}
+      onPointerUp={enabled ? handlePointerLeaveOrUp : undefined}
+      onPointerCancel={enabled ? handlePointerCancel : undefined}
     >
       {children}
-      {/* Reflexo de luz que acompanha o cursor/dedo */}
-      <span
-        ref={glareRef}
-        className={`absolute inset-0 ${glareRadius} pointer-events-none z-10`}
-        style={{ opacity: 0, transition: 'opacity 0.35s ease' }}
-      />
+      {enabled && (
+        <span
+          ref={glareRef}
+          className={`absolute inset-0 ${glareRadius} pointer-events-none z-10`}
+          style={{ opacity: 0, transition: 'opacity 0.35s ease' }}
+        />
+      )}
     </div>
   );
 }
@@ -312,7 +314,7 @@ export default function ProfileCardModal({
   // - mobile landscape → abaixo das curtidas do perfil (coluna esquerda)
   // - demais orientações → na barra do FECHAR (rodapé)
   const arenaHistoryBlock = (
-    <div className={`mv-arena-history-card ${isLandscape ? 'px-2.5 py-1.5 gap-2' : 'px-3.5 py-2 gap-3.5'} bg-slate-950/90 border border-slate-800/90 rounded-xl shadow-inner flex items-center flex-shrink-0`}>
+    <div className={`mv-arena-history-card mv-profile-glass-card ${isLandscape ? 'px-2.5 py-1.5 gap-2' : 'px-3.5 py-2 gap-3.5'} rounded-xl flex items-center flex-shrink-0`}>
     <div className="flex min-w-0 shrink items-center gap-2">
       <div className={`${isLandscape ? 'w-8 h-8' : 'w-10 h-10'} rounded-lg bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0`}>
         <img src={villageIcon} alt="" aria-hidden="true" className="auth-village-icon h-6 w-6 object-contain" />
@@ -333,7 +335,7 @@ export default function ProfileCardModal({
   );
 
   const onlineBattleHistoryBlock = (
-    <section className="w-full max-w-[420px] rounded-xl border border-slate-800/90 bg-slate-950/90 p-3 shadow-inner">
+    <section className="mv-profile-glass-card w-full max-w-[420px] rounded-xl p-3">
       <h3 className="mb-2 flex items-center gap-2 text-[10px] font-mono font-extrabold uppercase tracking-wider text-cyan-300">
         <Swords className="h-3.5 w-3.5" />
         {t('HISTÓRICO DE BATALHAS ONLINE', 'ONLINE BATTLE HISTORY')}
@@ -406,7 +408,7 @@ export default function ProfileCardModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className={`profile-card-modal-container ${isLandscape ? 'max-h-[78vh]' : ''} bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col max-h-[92vh]`}
+          className={`profile-card-modal-container ${isLandscape ? 'max-h-[78vh]' : ''} border border-white/20 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col max-h-[92vh]`}
         >
           {/* HEADER BANNER CARD */}
           <div
@@ -479,7 +481,7 @@ export default function ProfileCardModal({
           </div>
 
           {/* CARD BODY: TWO COLUMNS (LEFT STATS | RIGHT SHOWCASE CHARACTER SKIN ARTWORK) */}
-          <div className={`profile-card-modal-body ${isLandscape ? 'p-2' : 'p-4 sm:p-6'} bg-slate-900 flex-1 overflow-y-auto relative custom-scrollbar green-scrollbar`}>
+          <div className={`profile-card-modal-body mv-profile-glass-body ${isLandscape ? 'p-2' : 'p-4 sm:p-6'} flex-1 overflow-y-auto relative custom-scrollbar green-scrollbar`}>
             <div className={`${isLandscape ? 'flex-row gap-2' : 'gap-4 sm:gap-6'} flex flex-col md:flex-row items-stretch`}>
               
               {/* LEFT COLUMN: STATS & DETAILS */}
@@ -513,10 +515,10 @@ export default function ProfileCardModal({
               </div>
 
               {/* RIGHT COLUMN: SHOWCASE CHARACTER SKIN ARTWORK ("SKIN DE DESTAQUE") */}
-              <div className={`profile-card-showcase ${isLandscape ? 'min-h-[120px] w-28' : 'w-full sm:w-52 md:w-56 min-h-[250px] md:min-h-[300px]'} relative flex-shrink-0 flex items-end justify-center bg-slate-950/50 border border-slate-800/60 rounded-2xl overflow-hidden p-2`}>
+              <div className={`profile-card-showcase mv-profile-glass-showcase ${isLandscape ? 'min-h-[120px] w-28' : 'w-full sm:w-52 md:w-56 min-h-[250px] md:min-h-[300px]'} relative flex-shrink-0 flex items-end justify-center rounded-2xl overflow-hidden p-2`}>
                 
                 {/* Glowing Aura Background Effect */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-amber-500/10 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/45 via-slate-950/15 to-amber-500/5 pointer-events-none" />
                 <div className="absolute bottom-4 w-40 h-40 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
 
                 {/* Main Showcase Artwork (Rendered only if equipped) */}
@@ -594,7 +596,7 @@ export default function ProfileCardModal({
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className={`ml-figurinhas-panel ${isLandscape ? 'flex-1 max-h-[78vh]' : 'w-[230px] sm:w-[335px]'} bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col`}
+          className={`ml-figurinhas-panel mv-profile-glass-collection ${isLandscape ? 'flex-1 max-h-[78vh]' : 'w-[230px] sm:w-[335px]'} border border-white/20 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col`}
         >
           <div className={`${isLandscape ? 'px-2 py-1.5' : 'px-3 py-2'} flex-shrink-0 bg-gradient-to-r from-green-700 via-green-600 to-emerald-500 border-b border-green-300/40 flex items-center gap-2`}>
             <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
@@ -608,7 +610,7 @@ export default function ProfileCardModal({
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2.5 custom-scrollbar green-scrollbar">
+          <div className="mv-profile-glass-collection-body flex-1 overflow-y-auto p-2.5 custom-scrollbar green-scrollbar">
             {ownedCards.length === 0 ? (
               <p className="text-[9px] text-slate-500 font-mono text-center py-3">{t('Nenhuma figurinha ainda. Abra pacotes para colecionar!', 'No cards yet. Open packs to collect!')}</p>
             ) : (
@@ -638,7 +640,7 @@ export default function ProfileCardModal({
                       </div>
                     </>
                   );
-                  const cardClass = `relative aspect-[3/4] rounded-md border ${CARD_RARITY_META[c.rarity].border} ${CARD_RARITY_META[c.rarity].glow} bg-slate-900 cursor-pointer group shadow-lg flex-shrink-0 ${isPremium ? 'w-full overflow-hidden' : 'overflow-hidden hover:scale-105 transition-transform'} ${fx?.frame || ''}`;
+                  const cardClass = `relative aspect-[3/4] rounded-md border ${CARD_RARITY_META[c.rarity].border} ${CARD_RARITY_META[c.rarity].glow} bg-slate-900 cursor-pointer group shadow-lg flex-shrink-0 w-full overflow-hidden ${fx?.frame || ''}`;
                   const cardClick = () => { if (playClickSound) playClickSound(); setLightboxCard(c); };
 
                   return (
@@ -719,7 +721,7 @@ export default function ProfileCardModal({
               )}
 
               {/* Card ampliado */}
-              <div className="card-gallery-lightbox-idle">
+              <div className={lightboxCard.rarity === 'lendario' || lightboxCard.rarity === 'secreto' ? 'card-gallery-lightbox-idle' : ''}>
                 {(lightboxCard.rarity === 'lendario' || lightboxCard.rarity === 'secreto') ? (
                   <Tilt3D key={lightboxCard.id} className="relative" glareRadius="rounded-2xl">
                     <div className={`relative ${isLandscape ? 'w-[min(52vh,360px)]' : 'w-[min(82vw,520px)]'} max-h-[78dvh] aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>

@@ -15,14 +15,18 @@ import {
   CARD_RARITY_META, RARITY_ORDER, rarityFx
 } from '../lib/cardStorage';
 import {
+  CARD_ROULETTE_COST,
   CARD_ROULETTE_CHANCES,
   CARD_ROULETTE_RARITY_ORDER,
   isValidCardRouletteChances,
+  isValidCardRouletteCost,
   rebalanceCardRouletteChances,
 } from '../lib/cardRoulette';
 import {
   fetchCardRouletteChances,
+  fetchCardRouletteCost,
   saveCardRouletteChances,
+  saveCardRouletteCost,
   type CardRouletteChances,
 } from '../lib/cardRouletteSettings';
 import { motion, AnimatePresence } from 'motion/react';
@@ -52,7 +56,9 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [rouletteChances, setRouletteChances] = useState<CardRouletteChances>({ ...CARD_ROULETTE_CHANCES });
+  const [rouletteCost, setRouletteCost] = useState(CARD_ROULETTE_COST);
   const [savingRouletteChances, setSavingRouletteChances] = useState(false);
+  const [savingRouletteCost, setSavingRouletteCost] = useState(false);
 
   useEffect(() => {
     fetchCardsFromServer().then(loaded => {
@@ -66,6 +72,7 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
       setPacks(loadedPacks);
     });
     fetchCardRouletteChances().then(setRouletteChances);
+    fetchCardRouletteCost().then(setRouletteCost);
   }, []);
 
   useEffect(() => {
@@ -347,6 +354,22 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
       showError(error instanceof Error ? error.message : 'Falha ao salvar as chances da roleta.');
     } finally {
       setSavingRouletteChances(false);
+    }
+  };
+
+  const handleSaveRouletteCost = async () => {
+    if (!isValidCardRouletteCost(rouletteCost)) {
+      showError('O custo da roleta deve ser um número inteiro igual ou maior que zero.');
+      return;
+    }
+    setSavingRouletteCost(true);
+    try {
+      await saveCardRouletteCost(rouletteCost);
+      showSuccess('Custo da roleta salvo com sucesso!');
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Falha ao salvar o custo da roleta.');
+    } finally {
+      setSavingRouletteCost(false);
     }
   };
 
@@ -695,6 +718,33 @@ export default function CardAdmin({ playClickSound, playScrollSound }: CardAdmin
         </div>
       ) : tab === 'roulette' ? (
         <section className="max-w-4xl rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
+          <div className="mb-6 rounded-xl border border-amber-500/25 bg-slate-950/70 p-4">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <label className="flex-1 text-xs font-bold text-slate-300">
+                Custo por giro (Ryos)
+                <input
+                  aria-label="Custo por giro da roleta em Ryos"
+                  type="number"
+                  min={0}
+                  max={Number.MAX_SAFE_INTEGER}
+                  step={1}
+                  value={rouletteCost}
+                  onChange={event => setRouletteCost(event.target.value === '' ? 0 : Number(event.target.value))}
+                  className="mt-2 block w-full max-w-xs rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-right font-mono text-sm font-bold text-white outline-none focus:border-amber-500"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void handleSaveRouletteCost()}
+                disabled={savingRouletteCost || !isValidCardRouletteCost(rouletteCost)}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-slate-950 shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Save className="h-4 w-4" />
+                {savingRouletteCost ? 'Salvando...' : 'Salvar custo'}
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] text-slate-500">Valor atualmente configurado: {rouletteCost.toLocaleString('pt-BR')} Ryos por giro.</p>
+          </div>
           <div className="mb-5">
             <h3 className="text-sm font-black uppercase tracking-wider text-white">Chance de cada raridade</h3>
             <p className="mt-1 text-xs text-slate-400">

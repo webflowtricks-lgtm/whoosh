@@ -16,21 +16,16 @@ import {
   CARD_ROULETTE_RARITY_ORDER,
   getCardRouletteChances,
 } from '../lib/cardRoulette';
-import { fetchCardRouletteChances, type CardRouletteChances } from '../lib/cardRouletteSettings';
+import {
+  fetchCardRouletteChances,
+  fetchCardRouletteCost,
+  type CardRouletteChances,
+} from '../lib/cardRouletteSettings';
 import { matchFetch } from '../lib/matchFetch';
 
 type ShopTab = 'all' | 'skin' | 'title' | 'frame' | 'bundle' | 'roulette';
 
 const ROULETTE_ITEM_ID = 'ninja-card-roulette';
-const ROULETTE_ITEM: ShopItem = {
-  id: ROULETTE_ITEM_ID,
-  name: 'Roleta Ninja Card',
-  category: 'bundle',
-  description: 'Gire a roleta e ganhe uma figurinha aleatória.',
-  currency: 'ryos',
-  price: CARD_ROULETTE_COST,
-};
-
 const cardImage = (card: NinjaCard) => card.imageUrl ||
   `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${card.slug}/icon.jpg`;
 
@@ -53,6 +48,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
   const [rouletteSettings, setRouletteSettings] = useState<CardRouletteChances>({
     ...CARD_ROULETTE_CHANCES,
   });
+  const [rouletteCost, setRouletteCost] = useState(CARD_ROULETTE_COST);
   const [rouletteInfoOpen, setRouletteInfoOpen] = useState(false);
   const [roulettePhase, setRoulettePhase] = useState<'spinning' | 'result' | null>(null);
   const [rouletteSequence, setRouletteSequence] = useState<NinjaCard[]>([]);
@@ -81,6 +77,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
     fetchShopItemsFromServer().then(setItems);
     fetchCardsFromServer().then(setCards);
     fetchCardRouletteChances().then(setRouletteSettings);
+    fetchCardRouletteCost().then(setRouletteCost);
   }, []);
 
   useEffect(() => {
@@ -116,6 +113,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
   const equippedFrame = user.equippedFrame || 'Padrão';
   const currentTitle = user.title || unlockedTitles[0] || 'Estudante';
   const rouletteChances = getCardRouletteChances(cards, rouletteSettings);
+  const rouletteCostLabel = `${rouletteCost.toLocaleString('pt-BR')} ${rouletteCost === 1 ? 'moeda' : 'moedas'} por giro`;
 
   const filteredItems = activeTab === 'roulette'
     ? []
@@ -133,7 +131,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
   };
 
   const startRouletteDraw = async () => {
-    if (ryos < CARD_ROULETTE_COST) {
+    if (ryos < rouletteCost) {
       playGlobalSound('denied');
       setPurchaseToast('Moedas insuficientes!');
       setTimeout(() => setPurchaseToast(null), 3000);
@@ -423,18 +421,15 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
               onClick={() => { playClickSound(); setRouletteInfoOpen(true); }}
               data-sound="Click"
               className="group w-full max-w-xl text-left transition hover:-translate-y-1"
-              aria-label="Ver detalhes da Roleta Ninja Card"
+              aria-label="Abrir detalhes da roleta"
             >
               <div className="relative flex flex-col items-center text-center">
                 <div className="relative w-full">
                   <img src="/static/img/pacote.webp" alt="" className="h-[min(60dvh,460px)] w-full object-contain transition duration-500 group-hover:scale-[1.03]" />
                   <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-2 px-4 pb-4 sm:pb-6">
-                    <span className="rounded-full border border-white/35 bg-slate-950/30 px-4 py-1.5 text-sm font-black uppercase tracking-[.25em] text-white backdrop-blur-sm sm:text-base">
-                      Roleta Ninja Card
-                    </span>
-                    <span className="flex items-center gap-2 rounded-xl border border-white/30 bg-slate-950/30 px-4 py-1.5 text-lg font-black text-white backdrop-blur-sm">
-                      <img src="/static/img/icon/gold.webp" alt="" className="h-7 w-7 object-contain" />
-                      {CARD_ROULETTE_COST.toLocaleString('pt-BR')} Moedas por giro
+                    <span className="flex items-center gap-2 rounded-full border border-sky-100/90 bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-600 px-5 py-2.5 text-base font-black uppercase tracking-wide text-white shadow-[0_0_28px_rgba(56,189,248,0.65)] ring-1 ring-white/40 transition duration-300 group-hover:scale-105 group-hover:shadow-[0_0_38px_rgba(56,189,248,0.85)] sm:text-lg">
+                      <img src="/static/img/icon/gold.webp" alt="" className="h-7 w-7 object-contain drop-shadow-md" />
+                      {rouletteCostLabel}
                     </span>
                   </div>
                 </div>
@@ -686,7 +681,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                 <button
                   type="button"
                   onClick={() => {
-                    if (ryos < CARD_ROULETTE_COST) {
+                    if (ryos < rouletteCost) {
                       playGlobalSound('denied');
                       setPurchaseToast('Moedas insuficientes!');
                       setTimeout(() => setPurchaseToast(null), 3000);
@@ -694,17 +689,24 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                     }
                     setRouletteError('');
                     playGlobalSound('cash');
-                    setPendingPurchase(ROULETTE_ITEM);
+                    setPendingPurchase({
+                      id: ROULETTE_ITEM_ID,
+                      name: 'Giro da roleta',
+                      category: 'bundle',
+                      description: 'Gire a roleta e ganhe uma figurinha aleatória.',
+                      currency: 'ryos',
+                      price: rouletteCost,
+                    });
                   }}
                   data-sound="cash"
-                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-black uppercase tracking-wide text-white shadow-lg transition active:scale-95 ${
-                    ryos >= CARD_ROULETTE_COST
-                      ? 'border-blue-700 bg-blue-600 shadow-blue-700/20 hover:bg-blue-700'
+                  className={`inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-xs font-black uppercase tracking-wide text-white shadow-lg ring-1 ring-white/40 transition duration-200 hover:-translate-y-0.5 active:scale-95 ${
+                    ryos >= rouletteCost
+                      ? 'border-sky-300 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 shadow-[0_8px_24px_rgba(37,99,235,0.4)] hover:from-sky-400 hover:via-blue-500 hover:to-indigo-500 hover:shadow-[0_10px_30px_rgba(37,99,235,0.55)]'
                       : 'cursor-not-allowed border-red-700 bg-red-600'
                   }`}
                 >
                   <img src="/static/img/icon/gold.webp" alt="" className="h-5 w-5 object-contain" />
-                  Comprar por {CARD_ROULETTE_COST.toLocaleString('pt-BR')} Moedas
+                  {rouletteCostLabel}
                 </button>
               </footer>
             </motion.section>
@@ -721,7 +723,6 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
             className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-5 bg-blue-950/95 p-4 text-white backdrop-blur-md"
           >
             <div className="text-center">
-              <p className="text-xs font-black uppercase tracking-[.3em] text-orange-300">Roleta Ninja Card</p>
               <h2 className="mt-2 text-xl font-black sm:text-2xl">Sua figurinha está chegando...</h2>
             </div>
             <div ref={rouletteTrackRef} className="relative w-full max-w-4xl overflow-hidden rounded-2xl border-2 border-sky-300/70 bg-slate-950/80 py-4 shadow-[0_0_40px_rgba(56,189,248,0.3)]">

@@ -26,6 +26,7 @@ import {
   cardPackRewardQuantity,
   drawCardRoulette,
   isValidCardRouletteChances,
+  isValidCardRouletteCost,
   redeemCardPackRewards,
 } from '../src/lib/cardRoulette';
 import type { NinjaCard, Quest, QuestMaintenanceMail, QuestReward, RecurringQuestSettings } from '../src/types';
@@ -1690,11 +1691,15 @@ async function drawRouletteCard(request: Request, env: D1Env): Promise<Response>
   const chances = savedChances?.[0] && isValidCardRouletteChances(savedChances[0])
     ? savedChances[0]
     : CARD_ROULETTE_CHANCES;
+  const savedCost = await readConfig(env.DB, 'cardRouletteCost');
+  const rouletteCost = savedCost && isValidCardRouletteCost(savedCost[0])
+    ? savedCost[0]
+    : CARD_ROULETTE_COST;
   const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
   const currentRyos = Number.isSafeInteger(profile.ryos) && Number(profile.ryos) >= 0
     ? Number(profile.ryos)
     : 1500;
-  if (currentRyos < CARD_ROULETTE_COST) {
+  if (currentRyos < rouletteCost) {
     return error(409, 'Você não tem moedas suficientes para girar a roleta.');
   }
 
@@ -1718,7 +1723,7 @@ async function drawRouletteCard(request: Request, env: D1Env): Promise<Response>
   const isDuplicate = collectedCardIds.includes(card.id);
   const updatedProfile = {
     ...profile,
-    ryos: currentRyos - CARD_ROULETTE_COST,
+    ryos: currentRyos - rouletteCost,
     collectedCardIds: [...collectedCardIds, card.id],
   };
   const updated = await env.DB.prepare(`
@@ -1737,7 +1742,11 @@ async function cardRouletteSettingsRoute(request: Request, env: D1Env): Promise<
     const chances = saved?.[0] && isValidCardRouletteChances(saved[0])
       ? saved[0]
       : CARD_ROULETTE_CHANCES;
-    return json({ success: true, chances });
+    const savedCost = await readConfig(env.DB, 'cardRouletteCost');
+    const cost = savedCost && isValidCardRouletteCost(savedCost[0])
+      ? savedCost[0]
+      : CARD_ROULETTE_COST;
+    return json({ success: true, chances, cost });
   }
   if (request.method !== 'POST') return error(405, 'Método não permitido.');
 
@@ -1747,15 +1756,56 @@ async function cardRouletteSettingsRoute(request: Request, env: D1Env): Promise<
     return error(403, 'Somente a conta administradora pode alterar as chances da roleta.');
   }
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  if (!body || !isValidCardRouletteChances(body.chances)) {
+  if (!body) {
+    return error(400, 'Configuração da roleta inválida.');
+  }
+  const hasChances = Object.prototype.hasOwnProperty.call(body, 'chances');
+  const hasCost = Object.prototype.hasOwnProperty.call(body, 'cost');
+  if (!hasChances && !hasCost) {
+    return error(400, 'Nenhuma configuração da roleta foi informada.');
+  }
+  if (hasChances && !isValidCardRouletteChances(body.chances)) {
     return error(400, 'As chances de todas as raridades devem somar 100%.');
   }
+  if (hasCost && !isValidCardRouletteCost(body.cost)) {
+    return error(400, 'O custo da roleta deve ser um número inteiro igual ou maior que zero.');
+  }
   try {
-    await writeConfig(env.DB, 'cardRouletteSettings', [body.chances]);
+    if (hasChances) await writeConfig(env.DB, 'cardRouletteSettings', [body.chances]);
+    if (hasCost) await writeConfig(env.DB, 'cardRouletteCost', [body.cost]);
   } catch (cause) {
     if (cause instanceof ConfigWriteBusyError) return error(409, cause.message);
-    console.error('[d1-config] Falha ao salvar chances da roleta.', cause);
-    return error(500, 'Não foi possível salvar as chances da roleta no D1.');
+    console.error('[d1-config] Falha ao salvar configurações da roleta.', cause);
+    return error(500, 'Não foi possível salvar as configurações da roleta no D1.');
+  }
+  return json({ success: true });
+}
+
+async function cardRouletteCostRoute(request: Request, env: D1Env): Promise<Response> {
+  if (request.method === 'GET') {
+    const savedCost = await readConfig(env.DB, 'cardRouletteCost');
+    const cost = savedCost && isValidCardRouletteCost(savedCost[0])
+      ? savedCost[0]
+      : CARD_ROULETTE_COST;
+    return json({ success: true, cost });
+  }
+  if (request.method !== 'POST') return error(405, 'Método não permitido.');
+
+  const username = normalizedUsername(request.headers.get('X-Account-Username'));
+  if (username !== '2' ||
+      !await isD1SessionActive(env, '2', request.headers.get('X-Account-Session'))) {
+    return error(403, 'Somente a conta administradora pode alterar o custo da roleta.');
+  }
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (!body || !isValidCardRouletteCost(body.cost)) {
+    return error(400, 'O custo da roleta deve ser um número inteiro igual ou maior que zero.');
+  }
+  try {
+    await writeConfig(env.DB, 'cardRouletteCost', [body.cost]);
+  } catch (cause) {
+    if (cause instanceof ConfigWriteBusyError) return error(409, cause.message);
+    console.error('[d1-config] Falha ao salvar o custo da roleta.', cause);
+    return error(500, 'Não foi possível salvar o custo da roleta no D1.');
   }
   return json({ success: true });
 }
@@ -1843,6 +1893,11 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
       isValidCardRouletteChances(savedRouletteChances[0])
       ? savedRouletteChances[0]
       : CARD_ROULETTE_CHANCES;
+    const savedRouletteCost = await readConfig(env.DB, 'cardRouletteCost');
+    backup.cardRouletteCost = savedRouletteCost &&
+      isValidCardRouletteCost(savedRouletteCost[0])
+      ? savedRouletteCost[0]
+      : CARD_ROULETTE_COST;
     if (missing) return error(503, 'Nem todas as configurações foram migradas para D1.');
     return json(backup);
   }
@@ -1856,8 +1911,12 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) return error(400, 'Arquivo de configuração JSON inválido.');
     const hasRouletteChances = Object.prototype.hasOwnProperty.call(body, 'cardRouletteChances');
+    const hasRouletteCost = Object.prototype.hasOwnProperty.call(body, 'cardRouletteCost');
     if (hasRouletteChances && !isValidCardRouletteChances(body.cardRouletteChances)) {
       return error(400, 'Configuração de chances da roleta inválida.');
+    }
+    if (hasRouletteCost && !isValidCardRouletteCost(body.cardRouletteCost)) {
+      return error(400, 'Configuração do custo da roleta inválida.');
     }
     const inputKeys: Record<string, string> = {
       characters: 'characters', quests: 'quests', shop: 'shop', events: 'events',
@@ -1866,7 +1925,7 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
     };
     const datasets = Object.entries(inputKeys)
       .filter(([input]) => Array.isArray(body[input]));
-    if (datasets.length === 0 && !hasRouletteChances) {
+    if (datasets.length === 0 && !hasRouletteChances && !hasRouletteCost) {
       return error(400, 'Nenhum dado de configuração válido encontrado no arquivo JSON.');
     }
     if (datasets.some(([input, key]) =>
@@ -1925,9 +1984,19 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
         throw cause;
       }
     }
+    if (hasRouletteCost) {
+      try {
+        await writeConfig(env.DB, 'cardRouletteCost', [body.cardRouletteCost]);
+      } catch (cause) {
+        if (cause instanceof ConfigWriteBusyError) {
+          return error(409, `${cause.message} A importação pode ter aplicado os conjuntos anteriores; tente novamente.`);
+        }
+        throw cause;
+      }
+    }
     return json({
       success: true,
-      message: `Configurações importadas para D1 (${datasets.length + Number(hasRouletteChances)} conjuntos).`,
+      message: `Configurações importadas para D1 (${datasets.length + Number(hasRouletteChances) + Number(hasRouletteCost)} conjuntos).`,
     });
   }
   const config = CONFIGS[pathname];
@@ -2003,6 +2072,9 @@ export async function handleD1Request(request: Request, env: D1Env): Promise<Res
   }
   if (pathname === '/api/cards/roulette-settings') {
     return cardRouletteSettingsRoute(request, env);
+  }
+  if (pathname === '/api/cards/roulette-cost') {
+    return cardRouletteCostRoute(request, env);
   }
   if (pathname === '/api/cards/roulette/draw' && request.method === 'POST') {
     return drawRouletteCard(request, env);

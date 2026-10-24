@@ -8,6 +8,7 @@ import { fetchCardsFromServer, getCards } from '../lib/cardStorage';
 import {
   calculateRecurringPoints,
   getDefaultRecurringQuestSettings,
+  getCurrentRecurringQuests,
   getRecurringChestClaimId,
   getRecurringChestTiers,
   isRecurringChestUnlocked,
@@ -37,6 +38,7 @@ export default function RecurringQuestsModal({
   const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
   const [claimingChestTier, setClaimingChestTier] = useState<number | null>(null);
   const [selectedChestTier, setSelectedChestTier] = useState<number | null>(null);
+  const [chestRevealStage, setChestRevealStage] = useState<'closed' | 'open' | null>(null);
   const [rouletteReveal, setRouletteReveal] = useState<{ cards: NinjaCard[]; catalog: NinjaCard[] } | null>(null);
   const [error, setError] = useState('');
   const isGuest = user.username.trim().toLowerCase() === 'convidado';
@@ -52,20 +54,24 @@ export default function RecurringQuestsModal({
           setError(t('Não foi possível carregar as missões.', 'Could not load missions.'));
           return;
         }
+        const recurringSettings = settingsResult?.success && settingsResult.settings
+          ? settingsResult.settings
+          : getDefaultRecurringQuestSettings();
         const completed = new Set(user.completedQuestIds || []);
-        const currentQuests = data.quests.filter(quest => quest.period).map(quest => {
+        const currentQuests = getCurrentRecurringQuests(new Date(), recurringSettings).map(quest => {
           const savedGoals = new Map((user.questProgress?.[quest.id] || []).map(goal => [goal.id, goal]));
           return {
             ...quest,
             completed: completed.has(quest.id),
             goals: quest.goals.map(goal => ({
               ...goal,
-              ...savedGoals.get(goal.id),
+              currentValue: savedGoals.get(goal.id)?.currentValue ?? goal.currentValue,
+              currentStreak: savedGoals.get(goal.id)?.currentStreak ?? goal.currentStreak,
             })),
           };
         });
         setQuests(currentQuests);
-        if (settingsResult?.success && settingsResult.settings) setSettings(settingsResult.settings);
+        setSettings(recurringSettings);
       })
       .catch(() => {
         if (active) setError(t('Não foi possível carregar as missões.', 'Could not load missions.'));
@@ -145,6 +151,20 @@ export default function RecurringQuestsModal({
     }
   };
 
+  const handleChestRevealTap = () => {
+    if (chestRevealStage === 'closed') {
+      playClickSound();
+      setChestRevealStage('open');
+      return;
+    }
+    if (selectedChest && selectedChestUnlocked && !selectedChestClaimed) {
+      void claimChest(selectedChest.tier);
+      return;
+    }
+    setChestRevealStage(null);
+    setSelectedChestTier(null);
+  };
+
   const currencyReward = (value: string) => Number(value).toLocaleString('pt-BR');
   const rewardLabel = (reward: Quest['rewards'][number]) => {
     if (reward.type === 'ryos') return `${currencyReward(reward.value)} ${t('Moedas', 'Coins')}`;
@@ -190,7 +210,7 @@ export default function RecurringQuestsModal({
             role="tab"
             aria-selected={activePeriod === 'daily'}
             className={activePeriod === 'daily' ? 'is-active' : ''}
-            onClick={() => { playClickSound(); setSelectedChestTier(null); setActivePeriod('daily'); }}
+            onClick={() => { playClickSound(); setSelectedChestTier(null); setChestRevealStage(null); setActivePeriod('daily'); }}
           >
             {t('Missões Diárias', 'Daily Missions')} <span>{quests.filter(quest => quest.period === 'daily').length}</span>
           </button>
@@ -199,7 +219,7 @@ export default function RecurringQuestsModal({
             role="tab"
             aria-selected={activePeriod === 'weekly'}
             className={activePeriod === 'weekly' ? 'is-active' : ''}
-            onClick={() => { playClickSound(); setSelectedChestTier(null); setActivePeriod('weekly'); }}
+            onClick={() => { playClickSound(); setSelectedChestTier(null); setChestRevealStage(null); setActivePeriod('weekly'); }}
           >
             {t('Missões Semanais', 'Weekly Missions')} <span>{quests.filter(quest => quest.period === 'weekly').length}</span>
           </button>
@@ -210,55 +230,37 @@ export default function RecurringQuestsModal({
             {chestTiers.map(chest => {
               const claimId = getRecurringChestClaimId(activePeriod, chest.tier);
               const claimed = (user.claimedRecurringChestIds || []).includes(claimId);
+              const available = !claimed && isRecurringChestUnlocked(
+                activePeriod,
+                chest.tier,
+                points,
+                user.claimedRecurringChestIds || [],
+              );
               return (
-                <article className={`lobby-chest-item${claimed ? ' is-claimed' : ''}`} key={chest.tier}>
+                <article className={`lobby-chest-item${claimed ? ' is-claimed' : available ? ' is-available' : ''}`} key={chest.tier}>
                   <button
                     type="button"
                     className="lobby-chest-trigger"
-                    aria-label={`${t('Baú', 'Chest')} ${chest.tier}, ${chest.points} pts`}
+                    disabled={!available && !claimed}
+                    aria-label={`${t('Baú', 'Chest')} ${chest.tier}, ${chest.points} pts${available ? ` — ${t('recompensa disponível', 'reward available')}` : claimed ? ` — ${t('ver recompensa resgatada', 'view claimed reward')}` : ''}`}
                     aria-pressed={selectedChestTier === chest.tier}
-                    onClick={() => { playClickSound(); setSelectedChestTier(chest.tier); }}
+                    onClick={() => {
+                      if (!available && !claimed) return;
+                      playClickSound();
+                      setSelectedChestTier(chest.tier);
+                      setChestRevealStage(claimed ? 'open' : 'closed');
+                    }}
                   >
-                    <PackageOpen aria-hidden="true" />
+                    <img
+                      src={claimed ? '/static/img/icon/bauaberto.webp' : '/static/img/icon/baufechado.webp'}
+                      alt=""
+                    />
                   </button>
                   <span className="lobby-chest-threshold">{chest.points} pts</span>
                 </article>
               );
             })}
           </div>
-          {selectedChest && (
-            <div className="lobby-chest-detail" role="region" aria-live="polite">
-              <div className="lobby-chest-detail-heading">
-                <strong>{t('Baú', 'Chest')} {selectedChest.tier}</strong>
-                <button type="button" onClick={() => setSelectedChestTier(null)} aria-label={t('Fechar detalhes do baú', 'Close chest details')}><X /></button>
-              </div>
-              <div className="lobby-chest-detail-rewards">
-                {selectedChest.rewards.map((reward, index) => (
-                  <span key={`${reward.type}-${index}`}>
-                    {reward.type === 'ryos' ? <img src="/static/img/icon/gold.webp" alt="" />
-                      : reward.type === 'gems' ? <img src="/static/img/icon/ryo.webp" alt="" />
-                        : reward.type === 'card_pack' ? <PackageOpen aria-hidden="true" /> : <Gift aria-hidden="true" />}
-                    {rewardLabel(reward)}
-                  </span>
-                ))}
-              </div>
-              <p>{selectedChestClaimed
-                ? t('Este baú já foi aberto.', 'This chest has already been opened.')
-                : selectedChestUnlocked
-                  ? t('Recompensa disponível para resgate.', 'Reward ready to claim.')
-                  : t(`Progresso: ${points} / ${selectedChest.points} pontos. Abra os baús anteriores em ordem.`, `Progress: ${points} / ${selectedChest.points} points. Open previous chests in order.`)}</p>
-              <button
-                type="button"
-                className="lobby-recurring-claim"
-                disabled={!selectedChestUnlocked || selectedChestClaimed || isGuest || claimingChestTier !== null}
-                onClick={() => { void claimChest(selectedChest.tier); }}
-              >
-                {selectedChestClaimed ? t('Baú aberto', 'Chest opened')
-                  : claimingChestTier === selectedChest.tier ? t('Abrindo...', 'Opening...')
-                    : t('Abrir baú', 'Open chest')}
-              </button>
-            </div>
-          )}
         </section>
         <div className="lobby-recurring-content" role="tabpanel">
           <div className="lobby-recurring-list">
@@ -325,6 +327,95 @@ export default function RecurringQuestsModal({
           </div>
         </div>
       </section>
+      {selectedChest && chestRevealStage && (
+        <div
+          className="lobby-chest-opening"
+          role="presentation"
+          onClick={event => {
+            event.stopPropagation();
+            handleChestRevealTap();
+          }}
+        >
+          <section
+            className={`lobby-chest-reveal${chestRevealStage === 'open' ? ' is-open' : ''}`}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('Recompensa do baú', 'Chest reward')}
+            onClick={event => {
+              event.stopPropagation();
+              handleChestRevealTap();
+            }}
+          >
+            <button
+              type="button"
+              className="lobby-chest-reveal-close"
+              onClick={event => {
+                event.stopPropagation();
+                setChestRevealStage(null);
+                setSelectedChestTier(null);
+              }}
+              aria-label={t('Fechar', 'Close')}
+            >
+              <X aria-hidden="true" />
+            </button>
+            {chestRevealStage === 'closed' ? (
+              <>
+                <img className="lobby-chest-reveal-image is-closed" src="/static/img/icon/baufechado.webp" alt="" />
+                <p className="lobby-chest-reveal-prompt">{t('Toque para abrir', 'Tap to open')}</p>
+              </>
+            ) : (
+              <>
+                <h2>{t('Recompensas do baú', 'Chest rewards')}</h2>
+                <div className="lobby-chest-reveal-rewards">
+                  {selectedChest.rewards.map((reward, index) => (
+                    <div className="lobby-chest-reveal-reward" key={`${reward.type}-${index}`}>
+                      <span className="lobby-chest-reveal-reward-icon">
+                        {reward.type === 'ryos' ? <img src="/static/img/icon/gold.webp" alt="" />
+                          : reward.type === 'gems' ? <img src="/static/img/icon/ryo.webp" alt="" />
+                            : reward.type === 'card_pack' ? <PackageOpen aria-hidden="true" />
+                              : <Gift aria-hidden="true" />}
+                      </span>
+                      <strong>{rewardLabel(reward)}</strong>
+                    </div>
+                  ))}
+                </div>
+                <img className="lobby-chest-reveal-image is-open" src="/static/img/icon/bauaberto.webp" alt="" />
+                <p className="lobby-chest-reveal-prompt">
+                  {selectedChestClaimed
+                    ? t('Este baú já foi aberto.', 'This chest has already been opened.')
+                    : selectedChestUnlocked
+                      ? t('Recompensa disponível para resgate.', 'Reward ready to claim.')
+                      : t(`Progresso: ${points} / ${selectedChest.points} pontos. Abra os baús anteriores em ordem.`, `Progress: ${points} / ${selectedChest.points} points. Open previous chests in order.`)}
+                </p>
+                <button
+                  type="button"
+                  className="lobby-chest-reveal-claim"
+                  disabled={!selectedChestUnlocked || selectedChestClaimed || isGuest || claimingChestTier !== null}
+                  onClick={event => {
+                    event.stopPropagation();
+                    void claimChest(selectedChest.tier);
+                  }}
+                >
+                  {claimingChestTier === selectedChest.tier ? (
+                    <LoaderCircle aria-hidden="true" />
+                  ) : (
+                    <Check aria-hidden="true" />
+                  )}
+                  <span>
+                    {selectedChestClaimed ? t('Baú aberto', 'Chest opened')
+                      : isGuest ? t('Entre na conta para resgatar', 'Log in to claim')
+                        : claimingChestTier === selectedChest.tier ? t('Abrindo...', 'Opening...')
+                          : t('Resgatar recompensa', 'Claim reward')}
+                  </span>
+                  {!selectedChestClaimed && !isGuest && claimingChestTier !== selectedChest.tier && (
+                    <span className="lobby-chest-reveal-claim-arrow" aria-hidden="true">→</span>
+                  )}
+                </button>
+              </>
+            )}
+          </section>
+        </div>
+      )}
       {rouletteReveal && (
         <CardPackRouletteModal
           cards={rouletteReveal.cards}

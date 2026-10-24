@@ -226,10 +226,14 @@
       "white-snake-orochimaru-(s)-base",
       "zabuza-momochi-(r)-base",
       "shigure-base",
-      "orochimaru-base"
+      "orochimaru-base",
+      "rin-nohara-base",
+      "naruto-uzumaki-(s)-base",
+      "yamato-(s)-base",
+      "anko-mitarashi-base"
     ],
-    "ryos": 6500,
-    "gems": 5000,
+    "ryos": 32297,
+    "gems": 30000,
     "village": "kumogakure",
     "villageChangeCount": 0,
     "questProgress": {
@@ -344,7 +348,7 @@
       "weekly-2026-W43-weekly-wins": [
         {
           "id": "weekly-2026-W43-weekly-wins-wins",
-          "currentValue": 1,
+          "currentValue": 2,
           "currentStreak": 0
         }
       ],
@@ -358,7 +362,7 @@
       "weekly-2026-W43-weekly-damage": [
         {
           "id": "weekly-2026-W43-weekly-damage-damage",
-          "currentValue": 3300,
+          "currentValue": 6675,
           "currentStreak": 0
         }
       ],
@@ -386,7 +390,7 @@
       "weekly-2026-W43-weekly-kills": [
         {
           "id": "weekly-2026-W43-weekly-kills-kills",
-          "currentValue": 3,
+          "currentValue": 6,
           "currentStreak": 0
         }
       ],
@@ -396,12 +400,43 @@
           "currentValue": 0,
           "currentStreak": 0
         }
+      ],
+      "daily-2026-10-24-daily-victory": [
+        {
+          "id": "daily-2026-10-24-daily-victory-win",
+          "currentValue": 1,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-24-daily-technique": [
+        {
+          "id": "daily-2026-10-24-daily-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-24-daily-squad": [
+        {
+          "id": "daily-2026-10-24-daily-squad-characters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-24-daily-damage": [
+        {
+          "id": "daily-2026-10-24-daily-damage-damage",
+          "currentValue": 2500,
+          "currentStreak": 0
+        }
       ]
     },
     "questAiBattleIds": [
       "fb4d0385-f997-440f-b19e-0e2352f6ef34",
       "ea37e3df-878a-4e04-9fb5-e3a22808765c",
-      "911109d0-a6c7-40b8-8d5f-d218404d49f9"
+      "911109d0-a6c7-40b8-8d5f-d218404d49f9",
+      "06bc10df-06f6-4f8f-8954-bac8a9a1541c",
+      "3bc6b164-9a74-486f-9f42-b639299f90af",
+      "5e385946-3578-414b-861d-138740db558e"
     ],
     "questMaintenanceInbox": [
       {
@@ -414,6 +449,42 @@
         "claimedRouletteCardIds": [],
         "claimedAt": "2026-10-23T09:18:47.675Z"
       }
+    ],
+    "unlockedCharacterNames": [
+      "Haku"
+    ],
+    "unlockedTitles": [
+      "Novo Título"
+    ],
+    "unlockedBanners": [
+      "Banne"
+    ],
+    "unlockedBannerUrls": [
+      "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1200&auto=format&fit=crop"
+    ],
+    "completedQuestIds": [
+      "quest_1784869393005",
+      "daily-2026-10-24-daily-damage"
+    ],
+    "questRewardSnapshots": {
+      "quest_1784869393005": {
+        "ryos": 25001,
+        "gems": 25000,
+        "items": [
+          "unlock_character:Haku",
+          "title:Novo Título",
+          "card:naruto-base",
+          "banner:Banne"
+        ]
+      },
+      "daily-2026-10-24-daily-damage": {
+        "ryos": 400,
+        "gems": 0,
+        "items": []
+      }
+    },
+    "claimedRecurringChestIds": [
+      "daily-2026-10-24-chest-1"
     ]
   },
   {
@@ -563,7 +634,7 @@
     "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
     "village": "konoha",
     "villageChangeCount": 0,
-    "ryos": 2001,
+    "ryos": 2400,
     "gems": 26080,
     "collectedCardIds": [
       "tobirama-senju-(r)-base",
@@ -618,7 +689,8 @@
       "naruto-modo-s-bio",
       "hoshigaki-kisame-body-double-(s)-base",
       "naruto-base",
-      "naraka-path-pain-(s)-base"
+      "naraka-path-pain-(s)-base",
+      "kakuzu-(s)-base"
     ],
     "questMaintenanceInbox": [
       {
@@ -831,7 +903,7 @@
       "weekly-2026-W43-weekly-wins": [
         {
           "id": "weekly-2026-W43-weekly-wins-wins",
-          "currentValue": 3,
+          "currentValue": 4,
           "currentStreak": 0
         }
       ],
@@ -845,7 +917,7 @@
       "weekly-2026-W43-weekly-damage": [
         {
           "id": "weekly-2026-W43-weekly-damage-damage",
-          "currentValue": 7285,
+          "currentValue": 10635,
           "currentStreak": 0
         }
       ],
@@ -873,7 +945,7 @@
       "weekly-2026-W43-weekly-kills": [
         {
           "id": "weekly-2026-W43-weekly-kills-kills",
-          "currentValue": 9,
+          "currentValue": 12,
           "currentStreak": 0
         }
       ],
@@ -881,6 +953,34 @@
         {
           "id": "weekly-2026-W43-weekly-counters-counters",
           "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-24-daily-victory": [
+        {
+          "id": "daily-2026-10-24-daily-victory-win",
+          "currentValue": 1,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-24-daily-technique": [
+        {
+          "id": "daily-2026-10-24-daily-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-24-daily-squad": [
+        {
+          "id": "daily-2026-10-24-daily-squad-characters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-24-daily-damage": [
+        {
+          "id": "daily-2026-10-24-daily-damage-damage",
+          "currentValue": 1500,
           "currentStreak": 0
         }
       ]
@@ -894,7 +994,9 @@
       "1792750255211-66bzn03urmf",
       "1792751100455-nb0hr62y7n9",
       "1792751529550-1mdkjhpo9mt",
-      "1792751694290-muu4vf69bti"
+      "1792751694290-muu4vf69bti",
+      "1792751797563-dkhc01yk748",
+      "1792854791611-i2bw1q2k8w8"
     ],
     "unlockedCharacterNames": [
       "Haku"
@@ -928,7 +1030,10 @@
     "equippedFrame": "Padrão",
     "equippedFrameUrl": null,
     "equippedBannerPositionX": 50,
-    "equippedBannerPositionY": 50
+    "equippedBannerPositionY": 50,
+    "claimedRecurringChestIds": [
+      "daily-2026-10-24-chest-1"
+    ]
   },
   {
     "username": "abce",
