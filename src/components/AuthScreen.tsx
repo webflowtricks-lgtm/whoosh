@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User, Lock, Sparkles, UserPlus, LogIn, Cloud, Leaf, ScrollText, Check, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import { useLanguage } from '../lib/i18n';
-import { signInWithGoogle } from '../lib/firebase';
+import { getGoogleRedirectUser, signInWithGoogle, signInWithGoogleRedirect } from '../lib/firebase';
 import { VillageId, VILLAGES } from '../lib/villages';
 import LanguageSelector from './LanguageSelector';
 
@@ -115,6 +115,44 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
     onLoginSuccess({ ...pendingAccount.profile, village: selectedVillage || undefined }, pendingAccount.ticket);
   };
 
+  const completeGoogleLogin = async (googleUser: Awaited<ReturnType<typeof signInWithGoogle>>) => {
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: googleUser.idToken }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || t('Erro ao entrar com Google.', 'Error signing in with Google.'));
+    }
+    if (typeof data.sessionTicket !== 'string') {
+      throw new Error(t('Não foi possível iniciar uma sessão segura.', 'Could not start a secure session.'));
+    }
+
+    beginOnboarding({
+      ...data.user,
+      photoUrl: googleUser.photoUrl || data.user.photoUrl,
+    }, data.sessionTicket, 'google');
+  };
+
+  useEffect(() => {
+    let active = true;
+    void getGoogleRedirectUser()
+      .then(async googleUser => {
+        if (!active || !googleUser) return;
+        setLoading(true);
+        await completeGoogleLogin(googleUser);
+      })
+      .catch((err: unknown) => {
+        console.error('Google redirect login failed:', err);
+        if (active) setError(err instanceof Error ? err.message : t('Falha ao entrar com Google.', 'Google sign-in failed.'));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     playClickSound();
@@ -211,24 +249,23 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
 
     try {
       const googleUser = await signInWithGoogle();
-      const res = await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: googleUser.idToken }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || t('Erro ao entrar com Google.', 'Error signing in with Google.'));
-      }
-      if (typeof data.sessionTicket !== 'string') {
-        throw new Error(t('Não foi possível iniciar uma sessão segura.', 'Could not start a secure session.'));
-      }
-
-      beginOnboarding({
-        ...data.user,
-        photoUrl: googleUser.photoUrl || data.user.photoUrl,
-      }, data.sessionTicket, 'google');
+      await completeGoogleLogin(googleUser);
     } catch (err: unknown) {
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        err.code === 'auth/popup-closed-by-user'
+      ) {
+        try {
+          await signInWithGoogleRedirect();
+          return;
+        } catch (redirectError: unknown) {
+          console.error('Google redirect sign-in failed:', redirectError);
+          setError(redirectError instanceof Error ? redirectError.message : t('Falha ao entrar com Google.', 'Google sign-in failed.'));
+          return;
+        }
+      }
       console.error('Google login failed:', err);
       setError(err instanceof Error ? err.message : t('Falha ao entrar com Google.', 'Google sign-in failed.'));
     } finally {
