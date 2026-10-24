@@ -4,10 +4,17 @@ import type { QuestBattleStats } from './questProgress';
 export type TrackedEventProgress = Record<string, Record<string, number>>;
 
 export const UCHIHA_EVENT_ID = 'lacos-uchiha-sasuke-itachi';
-export const UCHIHA_EVENT_ENDS_AT = new Date('2026-11-23T15:05:00-03:00').getTime();
+export const UCHIHA_EVENT_STARTED_AT = '2026-10-24T15:05:00-03:00';
 
-export function getUchihaEventTimeRemaining(now: number): { days: number; hours: number; expired: boolean } {
-  const remainingMs = UCHIHA_EVENT_ENDS_AT - now;
+export function getEventTimeRemaining(
+  event: Pick<NinjaEvent, 'durationDays' | 'startedAt'>,
+  now: number,
+): { days: number; hours: number; expired: boolean } | null {
+  const durationDays = Number(event.durationDays);
+  const startedAt = Date.parse(event.startedAt || '');
+  if (!Number.isSafeInteger(durationDays) || durationDays < 1 || !Number.isFinite(startedAt)) return null;
+
+  const remainingMs = startedAt + durationDays * 24 * 60 * 60 * 1000 - now;
   if (remainingMs <= 0) return { days: 0, hours: 0, expired: true };
 
   const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
@@ -26,6 +33,8 @@ export const UCHIHA_EVENT: NinjaEvent = {
   bannerUrl: '/static/img/banners/banner_itachi_sasuke.webp',
   badge: 'EVENTO UCHIHA',
   timeLeft: 'Evento especial',
+  durationDays: 30,
+  startedAt: UCHIHA_EVENT_STARTED_AT,
   featured: true,
   objectives: [
     {
@@ -147,7 +156,11 @@ export function withUchihaEvent(events: NinjaEvent[] | null | undefined): NinjaE
   const configured = Array.isArray(events) ? events : [];
   return configured.some(event => event.id === UCHIHA_EVENT_ID)
     ? configured.map(event => event.id === UCHIHA_EVENT_ID
-      ? { ...event, bannerUrl: UCHIHA_EVENT.bannerUrl }
+      ? {
+        ...event,
+        durationDays: event.durationDays ?? UCHIHA_EVENT.durationDays,
+        startedAt: event.startedAt ?? UCHIHA_EVENT.startedAt,
+      }
       : event)
     : [...configured, UCHIHA_EVENT];
 }
@@ -167,13 +180,14 @@ export function updateTrackedEventProgress(
   current: TrackedEventProgress | undefined,
   stats: QuestBattleStats,
   victory: boolean,
+  event: NinjaEvent = UCHIHA_EVENT,
 ): TrackedEventProgress {
   const progress: TrackedEventProgress = { ...(current || {}) };
-  const eventProgress = { ...(progress[UCHIHA_EVENT_ID] || {}) };
+  const eventProgress = { ...(progress[event.id] || {}) };
   const hasCharacter = (characterId: string) =>
     stats.playerTeamCharacters.some(character => characterMatches(character.name, characterId));
 
-  for (const objective of UCHIHA_EVENT.objectives) {
+  for (const objective of event.objectives) {
     const previous = Math.max(0, Number(eventProgress[objective.id]) || 0);
     let gained = 0;
     if (objective.tracker === 'win_with_character' && victory && hasCharacter(objective.characterId || '')) {
@@ -195,17 +209,22 @@ export function updateTrackedEventProgress(
     eventProgress[objective.id] = Math.min(objective.target, previous + Math.max(0, Math.trunc(gained)));
   }
 
-  progress[UCHIHA_EVENT_ID] = eventProgress;
+  progress[event.id] = eventProgress;
   return progress;
 }
 
 export function chooseUchihaEventReward(
   objectiveId: string,
   random: () => number,
+  event: NinjaEvent = UCHIHA_EVENT,
 ): NonNullable<NinjaEvent['objectives'][number]['rewardOptions']>[number] | null {
-  const objective = UCHIHA_EVENT.objectives.find(item => item.id === objectiveId);
-  const options = objective?.rewardOptions;
-  if (!options?.length) return null;
+  const objective = event.objectives.find(item => item.id === objectiveId);
+  const options = objective?.rewardOptions?.length
+    ? objective.rewardOptions
+    : objective && (objective.rewardType === 'ryos' || objective.rewardType === 'gems')
+      ? [{ type: objective.rewardType, value: Number(objective.rewardValue), label: objective.rewardLabel }]
+      : [];
+  if (!options.length) return null;
   const index = Math.min(options.length - 1, Math.max(0, Math.floor(random() * options.length)));
   return options[index];
 }

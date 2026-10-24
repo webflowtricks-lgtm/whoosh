@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { NinjaEvent, NinjaEventObjective, Character, CharacterSkin } from '../types';
 import { getEvents, saveEvents, resetToDefaultEvents, fetchEventsFromServer } from '../lib/eventStorage';
+import { UCHIHA_EVENT_ID } from '../lib/uchihaEvent';
 import { getPngFrames, addPngFrame, deletePngFrame, PngFrameItem, resetToDefaultPngFrames, fetchPngFramesFromServer } from '../lib/frameStorage';
 import { getCustomBanners, addCustomBanner, deleteCustomBanner, resetToDefaultCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
 import { getCharacters, saveCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
@@ -30,6 +31,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
   const [events, setEvents] = useState<NinjaEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [editingEvent, setEditingEvent] = useState<NinjaEvent | null>(null);
+  const [bannerPreviewAspectRatio, setBannerPreviewAspectRatio] = useState(1800 / 770);
 
   const [editingObjectiveIndex, setEditingObjectiveIndex] = useState<number | null>(null);
   const [editingObjective, setEditingObjective] = useState<NinjaEventObjective | null>(null);
@@ -87,6 +89,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
       const found = events.find(e => e.id === selectedEventId);
       if (found) {
         setEditingEvent(JSON.parse(JSON.stringify(found)));
+        setBannerPreviewAspectRatio(1800 / 770);
         setEditingObjectiveIndex(null);
         setEditingObjective(null);
       }
@@ -415,6 +418,8 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
       bannerUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
       badge: 'NOVO EVENTO',
       timeLeft: '7 dias',
+      durationDays: 7,
+      startedAt: new Date().toISOString(),
       featured: false,
       objectives: [
         {
@@ -442,9 +447,58 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
     showSuccess('Novo evento criado com sucesso!');
   };
 
+  const handleEventBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showError('Envie um arquivo de imagem válido para o banner.');
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      showError('A imagem do banner deve ter no máximo 4 MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const bannerUrl = reader.result;
+      if (typeof bannerUrl !== 'string') {
+        showError('Não foi possível ler a imagem do banner.');
+        return;
+      }
+      setEditingEvent(current => current ? { ...current, bannerUrl } : current);
+    };
+    reader.onerror = () => showError('Não foi possível ler a imagem do banner.');
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveEvent = async () => {
     if (!editingEvent) return;
     playClickSound();
+
+    const originalEvent = events.find(event => event.id === selectedEventId);
+    if (!originalEvent) {
+      showError('O evento selecionado não foi encontrado. Selecione-o novamente antes de salvar.');
+      return;
+    }
+
+    const eventId = editingEvent.id.trim();
+    if (!eventId) {
+      showError('O ID do evento não pode ficar vazio.');
+      return;
+    }
+
+    if (eventId !== selectedEventId &&
+        events.some(event => event.id === eventId && event.id !== selectedEventId)) {
+      showError('Já existe um evento com esse ID.');
+      return;
+    }
+
+    if (originalEvent.id === UCHIHA_EVENT_ID && eventId !== UCHIHA_EVENT_ID) {
+      showError('O ID do evento Uchiha não pode ser alterado, pois ele identifica o progresso e os resgates.');
+      return;
+    }
 
     if (!editingEvent.title.trim()) {
       showError('O título do evento não pode estar vazio.');
@@ -456,11 +510,28 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
       return;
     }
 
-    const updated = events.map(e => e.id === editingEvent.id ? editingEvent : e);
+    const durationDays = Number(editingEvent.durationDays ?? 7);
+    if (!Number.isSafeInteger(durationDays) || durationDays < 1 || durationDays > 3650) {
+      showError('A duração deve ser um número inteiro entre 1 e 3650 dias.');
+      return;
+    }
+
+    const durationChanged = originalEvent.durationDays !== durationDays;
+    const savedEvent: NinjaEvent = {
+      ...editingEvent,
+      id: eventId,
+      durationDays,
+      startedAt: durationChanged || !originalEvent.startedAt
+        ? new Date().toISOString()
+        : originalEvent.startedAt,
+    };
+    const updated = events.map(event => event.id === selectedEventId ? savedEvent : event);
     try {
       await saveEvents(updated);
       setEvents(updated);
-      showSuccess(`Evento "${editingEvent.title}" salvo com sucesso!`);
+      setSelectedEventId(savedEvent.id);
+      setEditingEvent(savedEvent);
+      showSuccess(`Evento "${savedEvent.title}" salvo com sucesso!`);
     } catch (error) {
       showError(error instanceof Error ? error.message : 'Falha ao salvar os eventos globais.');
     }
@@ -565,6 +636,20 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
       showError('A descrição do objetivo não pode estar vazia.');
       return;
     }
+    if (!Number.isSafeInteger(editingObjective.target) || editingObjective.target < 1) {
+      showError('A meta do objetivo deve ser um número inteiro maior que zero.');
+      return;
+    }
+    if (editingObjective.tracker && !editingObjective.characterId?.trim()) {
+      showError('Informe o personagem usado para acompanhar este objetivo.');
+      return;
+    }
+    if (editingObjective.rewardOptions?.some(option =>
+      !Number.isSafeInteger(option.value) || option.value < 1 || !option.label.trim(),
+    )) {
+      showError('Cada opção de prêmio precisa ter um valor inteiro positivo e um rótulo.');
+      return;
+    }
 
     const updatedObjectives = [...editingEvent.objectives];
     updatedObjectives[editingObjectiveIndex] = editingObjective;
@@ -575,6 +660,39 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
     });
 
     showSuccess('Objetivo atualizado! Clique em "Salvar Evento Completo" para gravar as alterações.');
+  };
+
+  const updateObjectiveRewardOption = (
+    index: number,
+    patch: Partial<NonNullable<NinjaEventObjective['rewardOptions']>[number]>,
+  ) => {
+    if (!editingObjective?.rewardOptions) return;
+    const options = [...editingObjective.rewardOptions];
+    options[index] = { ...options[index], ...patch };
+    setEditingObjective({ ...editingObjective, rewardOptions: options });
+  };
+
+  const addObjectiveRewardOption = () => {
+    if (!editingObjective) return;
+    const options = editingObjective.rewardOptions || [];
+    const type = editingObjective.rewardType === 'gems' ? 'gems' : 'ryos';
+    const value = Number(editingObjective.rewardValue) || 100;
+    setEditingObjective({
+      ...editingObjective,
+      rewardOptions: [...options, {
+        type,
+        value,
+        label: `${value.toLocaleString()} ${type === 'ryos' ? 'Moedas' : 'Gems'}`,
+      }],
+    });
+  };
+
+  const removeObjectiveRewardOption = (index: number) => {
+    if (!editingObjective?.rewardOptions) return;
+    setEditingObjective({
+      ...editingObjective,
+      rewardOptions: editingObjective.rewardOptions.filter((_, optionIndex) => optionIndex !== index),
+    });
   };
 
   const handleSelectPngFrameForObjective = (frame: PngFrameItem) => {
@@ -1135,7 +1253,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Subtítulo</label>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Subtítulo do Evento</label>
                     <input
                       type="text"
                       value={editingEvent.subtitle}
@@ -1145,35 +1263,90 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Badge de Destaque</label>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Subtítulo / texto superior do banner</label>
                     <input
                       type="text"
                       value={editingEvent.badge}
                       onChange={e => setEditingEvent({ ...editingEvent, badge: e.target.value })}
-                      placeholder="Ex: EVENTO PRINCIPAL, FESTIVAL..."
+                      placeholder="Ex: EVENTO UCHIHA"
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
                     />
+                    <p className="mt-1 text-[9px] text-slate-500">Ex.: EVENTO UCHIHA</p>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Tempo Restante (Texto Exibido)</label>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Texto antes do tempo restante</label>
                     <input
                       type="text"
                       value={editingEvent.timeLeft}
                       onChange={e => setEditingEvent({ ...editingEvent, timeLeft: e.target.value })}
-                      placeholder="Ex: 4 dias 18 horas, 11 dias..."
+                      placeholder="Ex: Evento especial"
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">URL da Imagem de Capa (Banner)</label>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Duração do evento (dias)</label>
                     <input
-                      type="text"
-                      value={editingEvent.bannerUrl}
-                      onChange={e => setEditingEvent({ ...editingEvent, bannerUrl: e.target.value })}
+                      type="number"
+                      min="1"
+                      max="3650"
+                      step="1"
+                      value={editingEvent.durationDays ?? 7}
+                      onChange={e => setEditingEvent({ ...editingEvent, durationDays: Number(e.target.value) })}
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none font-mono"
                     />
+                    <p className="mt-1 text-[9px] text-slate-500">
+                      Salvar uma nova duração reinicia a contagem a partir de agora.
+                    </p>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Imagem do banner (URL ou arquivo)</label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={editingEvent.bannerUrl}
+                        onChange={e => setEditingEvent({ ...editingEvent, bannerUrl: e.target.value })}
+                        placeholder="Cole a URL ou envie uma imagem"
+                        className="flex-1 min-w-0 px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none font-mono"
+                      />
+                      <label className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-bold rounded-xl border border-slate-700 cursor-pointer flex items-center justify-center gap-1.5 flex-shrink-0">
+                        <Upload className="w-3.5 h-3.5 text-orange-400" />
+                        Enviar imagem
+                        <input type="file" accept="image/*" onChange={handleEventBannerFileUpload} className="hidden" />
+                      </label>
+                    </div>
+                    <p className="text-[9px] text-slate-500 font-mono">Imagem até 4 MB. A proporção original será preservada no lobby, sem fundo ou moldura adicionados.</p>
+                    {editingEvent.bannerUrl && (
+                      <div
+                        className="event-admin-banner-preview"
+                        style={{ aspectRatio: bannerPreviewAspectRatio }}
+                      >
+                        <div className="lobby-event-banner is-artwork">
+                          <img
+                            src={editingEvent.bannerUrl}
+                            alt=""
+                            draggable={false}
+                            onLoad={event => {
+                              const { naturalWidth, naturalHeight } = event.currentTarget;
+                              if (naturalWidth > 0 && naturalHeight > 0) {
+                                setBannerPreviewAspectRatio(naturalWidth / naturalHeight);
+                              }
+                            }}
+                          />
+                          <span className="lobby-event-copy">
+                            <small>{editingEvent.badge || 'EVENTO'}</small>
+                            <strong>{editingEvent.title}</strong>
+                            <span>{editingEvent.timeLeft}</span>
+                          </span>
+                          <span className="lobby-event-cta">
+                            <img src="/static/img/banners/btn_banner.webp" alt="" draggable={false} />
+                            <span>Ver evento</span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="md:col-span-2">
@@ -1324,6 +1497,44 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                           />
                         </div>
 
+                        {editingEvent.id === UCHIHA_EVENT_ID && (
+                          <>
+                            <div>
+                              <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Como contar o progresso</label>
+                              <select
+                                value={editingObjective.tracker || ''}
+                                onChange={e => {
+                                  const tracker = e.target.value as NinjaEventObjective['tracker'];
+                                  setEditingObjective({
+                                    ...editingObjective,
+                                    tracker,
+                                    characterId: tracker ? editingObjective.characterId || 'sasuke' : undefined,
+                                  });
+                                }}
+                                className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
+                              >
+                                <option value="">Sem acompanhamento automático</option>
+                                <option value="win_with_character">Vencer batalhas com personagem</option>
+                                <option value="skills_with_character">Usar habilidades com personagem</option>
+                                <option value="damage_with_character">Causar dano com personagem</option>
+                                <option value="damage_received_with_character">Receber dano com personagem na equipe</option>
+                              </select>
+                            </div>
+                            {editingObjective.tracker && (
+                              <div>
+                                <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Nome/ID do personagem monitorado</label>
+                                <input
+                                  type="text"
+                                  value={editingObjective.characterId || ''}
+                                  onChange={e => setEditingObjective({ ...editingObjective, characterId: e.target.value })}
+                                  placeholder="Ex: sasuke ou itachi"
+                                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
+                                />
+                              </div>
+                            )}
+                          </>
+                        )}
+
                         <div>
                           <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Tipo de Recompensa</label>
                           <select
@@ -1425,6 +1636,65 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                             className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
                           />
                         </div>
+
+                        {editingEvent.id === UCHIHA_EVENT_ID && (
+                          <div className="md:col-span-2 rounded-xl border border-amber-500/30 bg-slate-900 p-3 space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <label className="block text-[10px] font-mono uppercase font-bold text-amber-400">
+                                  Opções de prêmio surpresa
+                                </label>
+                                <p className="text-[9px] text-slate-500">Uma opção será sorteada pelo servidor ao resgatar.</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={addObjectiveRewardOption}
+                                className="rounded-lg border border-amber-500/40 px-2 py-1 text-[9px] font-mono font-bold uppercase text-amber-300 hover:bg-amber-500/10"
+                              >
+                                <Plus className="mr-1 inline h-3 w-3" />
+                                Adicionar opção
+                              </button>
+                            </div>
+                            {(editingObjective.rewardOptions || []).map((option, optionIndex) => (
+                              <div key={`${optionIndex}-${option.label}`} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_2fr_auto]">
+                                <select
+                                  value={option.type}
+                                  onChange={e => updateObjectiveRewardOption(optionIndex, { type: e.target.value as 'ryos' | 'gems' })}
+                                  className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-xs text-slate-100"
+                                  aria-label={`Tipo do prêmio ${optionIndex + 1}`}
+                                >
+                                  <option value="ryos">Moedas</option>
+                                  <option value="gems">Gems</option>
+                                </select>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  value={option.value}
+                                  onChange={e => updateObjectiveRewardOption(optionIndex, { value: Number(e.target.value) })}
+                                  className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-xs text-slate-100"
+                                  aria-label={`Valor do prêmio ${optionIndex + 1}`}
+                                />
+                                <input
+                                  type="text"
+                                  value={option.label}
+                                  onChange={e => updateObjectiveRewardOption(optionIndex, { label: e.target.value })}
+                                  placeholder="Rótulo do prêmio"
+                                  className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-xs text-slate-100"
+                                  aria-label={`Rótulo do prêmio ${optionIndex + 1}`}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeObjectiveRewardOption(optionIndex)}
+                                  className="rounded-lg p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-400"
+                                  aria-label={`Remover opção de prêmio ${optionIndex + 1}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   )}

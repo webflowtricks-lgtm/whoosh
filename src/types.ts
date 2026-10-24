@@ -1284,6 +1284,8 @@ export interface NinjaEvent {
   bannerUrl: string;
   badge: string;
   timeLeft: string;
+  durationDays?: number;
+  startedAt?: string;
   featured: boolean;
   objectives: NinjaEventObjective[];
 }

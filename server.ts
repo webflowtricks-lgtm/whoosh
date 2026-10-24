@@ -49,7 +49,7 @@ import {
   isValidCardRouletteCost,
   redeemCardPackRewards,
 } from "./src/lib/cardRoulette";
-import type { NinjaCard, Quest, QuestMaintenanceMail, QuestReward } from "./src/types";
+import type { NinjaCard, NinjaEvent, Quest, QuestMaintenanceMail, QuestReward } from "./src/types";
 import type { RecurringQuestSettings } from "./src/types";
 
 const DATA_DIR = path.resolve(process.env.WHOOSH_DATA_DIR || path.join(process.cwd(), "src", "data"));
@@ -2163,7 +2163,9 @@ async function startServer() {
   app.post("/api/events/claim", requireActiveMatchSession, (req, res) => {
     const username = typeof req.body?.username === "string" ? req.body.username.trim().toLowerCase() : "";
     const objectiveId = typeof req.body?.objectiveId === "string" ? req.body.objectiveId : "";
-    const objective = UCHIHA_EVENT.objectives.find(item => item.id === objectiveId);
+    const configuredEvent = withUchihaEvent(readJSON<NinjaEvent[]>(EVENTS_FILE, []))
+      .find(event => event.id === UCHIHA_EVENT_ID) || UCHIHA_EVENT;
+    const objective = configuredEvent.objectives.find(item => item.id === objectiveId);
     if (!username || username === "convidado" || !objective) {
       return res.status(400).json({ error: "Conta e objetivo válidos são necessários para resgatar." });
     }
@@ -2194,6 +2196,7 @@ async function startServer() {
     const reward = chooseUchihaEventReward(
       objectiveId,
       () => randomBytes(4).readUInt32BE(0) / 0x1_0000_0000,
+      configuredEvent,
     );
     if (!reward || !Number.isSafeInteger(reward.value) || reward.value < 1) {
       return res.status(500).json({ error: "O prêmio aleatório deste objetivo está inválido." });
@@ -2629,7 +2632,9 @@ async function startServer() {
     const savedEventProgress = profile.eventProgress && typeof profile.eventProgress === "object"
       ? profile.eventProgress as TrackedEventProgress
       : {};
-    profile.eventProgress = updateTrackedEventProgress(savedEventProgress, stats, req.body.victory);
+    const configuredEvent = withUchihaEvent(readJSON<NinjaEvent[]>(EVENTS_FILE, []))
+      .find(event => event.id === UCHIHA_EVENT_ID) || UCHIHA_EVENT;
+    profile.eventProgress = updateTrackedEventProgress(savedEventProgress, stats, req.body.victory, configuredEvent);
     profile.questAiBattleIds = [...processedBattleIds.slice(-999), battleId];
     if (!persistAccountUsers(users)) {
       return res.status(500).json({ error: "Não foi possível salvar o progresso da missão contra IA." });

@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { QuestBattleStats } from '../src/lib/questProgress';
 import {
   chooseUchihaEventReward,
+  getEventTimeRemaining,
   updateTrackedEventProgress,
   withUchihaEvent,
   UCHIHA_EVENT,
@@ -86,8 +87,41 @@ test('Uchiha event reward selection is deterministic and clamps random bounds', 
   assert.equal(chooseUchihaEventReward('unknown-objective', () => 0), null);
 });
 
-test('Uchiha event always uses the dedicated Sasuke and Itachi banner', () => {
+test('configured Uchiha banner is preserved for the lobby template', () => {
   const configured = withUchihaEvent([{ ...UCHIHA_EVENT, bannerUrl: '/old-banner.webp' }]);
-  assert.equal(configured.find(event => event.id === UCHIHA_EVENT_ID)?.bannerUrl,
-    '/static/img/banners/banner_itachi_sasuke.webp');
+  assert.equal(configured.find(event => event.id === UCHIHA_EVENT_ID)?.bannerUrl, '/old-banner.webp');
+});
+
+test('event duration countdown uses configured days and start time', () => {
+  const event = { durationDays: 5, startedAt: '2026-10-20T12:00:00.000Z' };
+  const remaining = getEventTimeRemaining(event, Date.parse('2026-10-23T12:00:00.000Z'));
+
+  assert.deepEqual(remaining, { days: 2, hours: 0, expired: false });
+  assert.deepEqual(getEventTimeRemaining(event, Date.parse('2026-10-25T12:00:00.000Z')), {
+    days: 0,
+    hours: 0,
+    expired: true,
+  });
+  assert.equal(getEventTimeRemaining({ durationDays: 0, startedAt: event.startedAt }, Date.now()), null);
+});
+
+test('configured Uchiha objectives control progress targets and reward options', () => {
+  const customizedEvent = {
+    ...UCHIHA_EVENT,
+    objectives: [{
+      ...UCHIHA_EVENT.objectives[0],
+      target: 2,
+      rewardOptions: [{ type: 'gems' as const, value: 25, label: '25 Gems' }],
+    }],
+  };
+  const progress = updateTrackedEventProgress(undefined, createStats({
+    playerTeamCharacters: [{ name: 'Sasuke Uchiha', tags: [] }],
+  }), true, customizedEvent);
+
+  assert.equal(progress[UCHIHA_EVENT_ID]['uchiha-sasuke-wins'], 1);
+  assert.deepEqual(chooseUchihaEventReward('uchiha-sasuke-wins', () => 0, customizedEvent), {
+    type: 'gems',
+    value: 25,
+    label: '25 Gems',
+  });
 });

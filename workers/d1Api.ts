@@ -990,7 +990,9 @@ async function claimUchihaEventReward(request: Request, env: D1Env): Promise<Res
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const username = normalizedUsername(body?.username);
   const objectiveId = typeof body?.objectiveId === 'string' ? body.objectiveId : '';
-  const objective = UCHIHA_EVENT.objectives.find(item => item.id === objectiveId);
+  const configuredEvent = withUchihaEvent(await readConfig(env.DB, 'events') as NinjaEvent[] | null)
+    .find(event => event.id === UCHIHA_EVENT_ID) || UCHIHA_EVENT;
+  const objective = configuredEvent.objectives.find(item => item.id === objectiveId);
   if (!username || username === 'convidado' || !objective) {
     return error(400, 'Conta e objetivo válidos são necessários para resgatar.');
   }
@@ -1019,7 +1021,7 @@ async function claimUchihaEventReward(request: Request, env: D1Env): Promise<Res
     }
 
     const randomValue = () => crypto.getRandomValues(new Uint32Array(1))[0] / 0x1_0000_0000;
-    const reward = chooseUchihaEventReward(objectiveId, randomValue);
+    const reward = chooseUchihaEventReward(objectiveId, randomValue, configuredEvent);
     if (!reward || !Number.isSafeInteger(reward.value) || reward.value < 1) {
       return error(500, 'O prêmio aleatório deste objetivo está inválido.');
     }
@@ -1231,10 +1233,13 @@ async function recordAiQuestProgress(request: Request, env: D1Env): Promise<Resp
       })) progressedQuestIds.push(quest.id);
     }
     profile.questProgress = updatedProgress;
+    const configuredEvent = withUchihaEvent(await readConfig(env.DB, 'events') as NinjaEvent[] | null)
+      .find(event => event.id === UCHIHA_EVENT_ID) || UCHIHA_EVENT;
     profile.eventProgress = updateTrackedEventProgress(
       profile.eventProgress as TrackedEventProgress | undefined,
       stats,
       body.victory,
+      configuredEvent,
     );
     profile.questAiBattleIds = [...processedBattleIds.slice(-999), battleId];
 
@@ -1463,6 +1468,8 @@ export async function awardD1MatchRewards(
     .filter((questId): questId is string => !!questId));
   const recurringSettings = await loadRecurringQuestSettings(env.DB);
   const recurringDefinitions = getCurrentRecurringQuests(new Date(), recurringSettings);
+  const configuredEvent = withUchihaEvent(await getD1Config(env.DB, 'events') as NinjaEvent[] | null)
+    .find(event => event.id === UCHIHA_EVENT_ID) || UCHIHA_EVENT;
   const questDefinitions = questIds.size ? await getD1Config(env.DB, 'quests') : [];
   if (questIds.size && !questDefinitions) {
     throw new Error('A configuração de missões no D1 é necessária para registrar o progresso.');
@@ -1536,7 +1543,7 @@ export async function awardD1MatchRewards(
     const savedEventProgress = profile.eventProgress && typeof profile.eventProgress === 'object'
       ? profile.eventProgress as TrackedEventProgress
       : {};
-    const updatedEventProgress = updateTrackedEventProgress(savedEventProgress, player.questStats, victory);
+    const updatedEventProgress = updateTrackedEventProgress(savedEventProgress, player.questStats, victory, configuredEvent);
     if (JSON.stringify(updatedEventProgress) !== JSON.stringify(savedEventProgress)) {
       eventProgressByUsername.set(username, JSON.stringify(updatedEventProgress));
     }

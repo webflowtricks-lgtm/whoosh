@@ -645,6 +645,12 @@ test('records authenticated AI battle progress across eligible quests once per b
     name: 'Genin',
     requiredXp: 1000,
   }]);
+  seedD1Config(env.DB, 'events', [{
+    ...UCHIHA_EVENT,
+    objectives: UCHIHA_EVENT.objectives.map(objective =>
+      objective.id === 'uchiha-sasuke-damage' ? { ...objective, target: 200 } : objective,
+    ),
+  }]);
   const stats = {
     damageDealt: 0,
     damageReceived: 125,
@@ -691,7 +697,7 @@ test('records authenticated AI battle progress across eligible quests once per b
   const eventProgress = ((firstBody.user as Row).eventProgress as Row)[UCHIHA_EVENT_ID] as Row;
   assert.equal(eventProgress['uchiha-sasuke-wins'], 1);
   assert.equal(eventProgress['uchiha-sasuke-skills'], 1);
-  assert.equal(eventProgress['uchiha-sasuke-damage'], 420);
+  assert.equal(eventProgress['uchiha-sasuke-damage'], 200);
   assert.equal(eventProgress['uchiha-sasuke-team-damage'], 125);
   const progressedRecurringIds = getCurrentRecurringQuests()
     .filter(quest => [
@@ -714,6 +720,16 @@ test('records authenticated AI battle progress across eligible quests once per b
 
 test('claims a completed Uchiha event reward once and requires the active account session', async () => {
   const env = { DB: new MemoryD1() };
+  const objectiveId = UCHIHA_EVENT.objectives[0].id;
+  const configuredEvent = {
+    ...UCHIHA_EVENT,
+    objectives: [{
+      ...UCHIHA_EVENT.objectives[0],
+      target: 2,
+      rewardOptions: [{ type: 'gems' as const, value: 77, label: '77 Gems' }],
+    }, ...UCHIHA_EVENT.objectives.slice(1)],
+  };
+  seedD1Config(env.DB, 'events', [configuredEvent]);
   const registration = await handleD1Request(request('/api/auth/register', 'POST', {
     username: 'uchiha_event_user',
     password: 'correct horse',
@@ -727,7 +743,6 @@ test('claims a completed Uchiha event reward once and requires the active accoun
   }), env);
   const userRow = env.DB.accounts.get('uchiha_event_user')!;
   const profile = JSON.parse(String(userRow.profile_json)) as Row;
-  const objectiveId = UCHIHA_EVENT.objectives[0].id;
   const claim = () => handleD1Request(request('/api/events/claim', 'POST', {
     username: 'uchiha_event_user',
     objectiveId,
@@ -741,16 +756,14 @@ test('claims a completed Uchiha event reward once and requires the active accoun
   assert.equal((await claim())?.status, 409);
 
   profile.eventProgress = {
-    [UCHIHA_EVENT_ID]: { [objectiveId]: UCHIHA_EVENT.objectives[0].target },
+    [UCHIHA_EVENT_ID]: { [objectiveId]: configuredEvent.objectives[0].target },
   };
   userRow.profile_json = JSON.stringify(profile);
   const first = await claim();
   assert.equal(first?.status, 200);
   const firstBody = await responseBody(first!);
   const reward = firstBody.reward as { type: 'ryos' | 'gems'; value: number; label: string };
-  assert.equal(UCHIHA_EVENT.objectives[0].rewardOptions?.some(option =>
-    option.type === reward.type && option.value === reward.value && option.label === reward.label,
-  ), true);
+  assert.deepEqual(reward, { type: 'gems', value: 77, label: '77 Gems' });
   const rewardedProfile = JSON.parse(String(userRow.profile_json)) as Row;
   assert.deepEqual(rewardedProfile.claimedEventRewardIds, [objectiveId]);
   assert.equal(rewardedProfile[reward.type], Number(profile[reward.type] || (reward.type === 'ryos' ? 1000 : 100)) + reward.value);

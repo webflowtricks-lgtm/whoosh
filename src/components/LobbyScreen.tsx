@@ -39,7 +39,7 @@ import {
   getRecurringChestTiers,
   isRecurringChestUnlocked,
 } from '../lib/recurringQuests';
-import { getUchihaEventTimeRemaining, UCHIHA_EVENT_ID } from '../lib/uchihaEvent';
+import { getEventTimeRemaining } from '../lib/uchihaEvent';
 import { useLanguage } from '../lib/i18n';
 import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
@@ -102,6 +102,7 @@ export default function LobbyScreen({
   const [detailsCharacter, setDetailsCharacter] = useState<Character | null>(null);
   const [activeEventIndex, setActiveEventIndex] = useState(0);
   const [eventClock, setEventClock] = useState(() => Date.now());
+  const [eventBannerAspectRatios, setEventBannerAspectRatios] = useState<Record<string, number>>({});
   const [maintenanceMessages, setMaintenanceMessages] = useState<QuestMaintenanceMail[]>([]);
   const [claimingMailId, setClaimingMailId] = useState<string | null>(null);
   const [maintenanceMailError, setMaintenanceMailError] = useState('');
@@ -181,19 +182,28 @@ export default function LobbyScreen({
     [events],
   );
   const featuredEvent = carouselEvents[activeEventIndex];
-  const isUchihaEvent = featuredEvent?.id === UCHIHA_EVENT_ID;
-  const uchihaTimeRemaining = getUchihaEventTimeRemaining(eventClock);
-  const eventTimeLeft = isUchihaEvent
-    ? uchihaTimeRemaining.expired
-      ? `${featuredEvent.timeLeft} • ${t('Evento encerrado', 'Event ended')}`
-      : `${featuredEvent.timeLeft} • ${t(
-        `${uchihaTimeRemaining.days} dias e ${uchihaTimeRemaining.hours} horas restantes`,
-        `${uchihaTimeRemaining.days} days and ${uchihaTimeRemaining.hours} hours left`,
-      )}`
-    : featuredEvent?.timeLeft;
+  const isArtworkEvent = !!featuredEvent;
+  const eventCountdown = featuredEvent ? getEventTimeRemaining(featuredEvent, eventClock) : null;
   useEffect(() => {
     if (activeEventIndex >= carouselEvents.length) setActiveEventIndex(0);
   }, [activeEventIndex, carouselEvents.length]);
+  useEffect(() => {
+    let active = true;
+    carouselEvents.forEach(event => {
+      if (!event.bannerUrl || eventBannerAspectRatios[event.bannerUrl]) return;
+      const image = new Image();
+      image.onload = () => {
+        if (!active || image.naturalWidth <= 0 || image.naturalHeight <= 0) return;
+        const ratio = image.naturalWidth / image.naturalHeight;
+        setEventBannerAspectRatios(current => ({ ...current, [event.bannerUrl]: ratio }));
+      };
+      image.onerror = () => {
+        console.error(`Não foi possível carregar a imagem do evento "${event.title}".`);
+      };
+      image.src = event.bannerUrl;
+    });
+    return () => { active = false; };
+  }, [carouselEvents, eventBannerAspectRatios]);
   useEffect(() => {
     const timer = window.setInterval(() => setEventClock(Date.now()), 60_000);
     return () => window.clearInterval(timer);
@@ -562,7 +572,8 @@ export default function LobbyScreen({
 
       {featuredEvent && (
         <section
-          className={`lobby-event-carousel${isUchihaEvent ? ' is-uchiha' : ''}`}
+          className="lobby-event-carousel is-artwork"
+          style={{ aspectRatio: eventBannerAspectRatios[featuredEvent.bannerUrl] || 1800 / 770 }}
           aria-label={t('Eventos em destaque', 'Featured events')}
           onPointerDown={event => {
             eventSwipeStartX.current = event.clientX;
@@ -581,37 +592,49 @@ export default function LobbyScreen({
         >
           <button
             type="button"
-            className={`lobby-event-banner${isUchihaEvent ? ' is-uchiha' : ''}`}
+            className="lobby-event-banner is-artwork"
             onClick={() => {
               if (suppressEventClick.current) return;
               openAuthenticated('events');
             }}
             aria-label={`${featuredEvent.title} — ${t('Ver evento', 'View event')}`}
           >
-            <img src={featuredEvent.bannerUrl} alt="" draggable={false} />
-            {!isUchihaEvent && <span className="lobby-event-overlay" />}
+            <img
+              src={featuredEvent.bannerUrl}
+              alt=""
+              draggable={false}
+              onLoad={event => {
+                const { naturalWidth, naturalHeight } = event.currentTarget;
+                if (naturalWidth > 0 && naturalHeight > 0) {
+                  setEventBannerAspectRatios(current => ({
+                    ...current,
+                    [featuredEvent.bannerUrl]: naturalWidth / naturalHeight,
+                  }));
+                }
+              }}
+            />
             <span className="lobby-event-copy">
               <small>{featuredEvent.badge || t('EVENTO', 'EVENT')}</small>
               <strong>{featuredEvent.title}</strong>
               <span>
-                {isUchihaEvent ? (
+                {eventCountdown ? (
                   <>
                     {featuredEvent.timeLeft} •{' '}
                     <span className="lobby-event-time-remaining">
                       <Clock aria-hidden="true" />
-                      {uchihaTimeRemaining.expired
+                      {eventCountdown.expired
                         ? t('Evento encerrado', 'Event ended')
                         : t(
-                          `${uchihaTimeRemaining.days} dias e ${uchihaTimeRemaining.hours} horas restantes`,
-                          `${uchihaTimeRemaining.days} days and ${uchihaTimeRemaining.hours} hours left`,
+                          `${eventCountdown.days} dias e ${eventCountdown.hours} horas restantes`,
+                          `${eventCountdown.days} days and ${eventCountdown.hours} hours left`,
                         )}
                     </span>
                   </>
-                ) : eventTimeLeft}
+                ) : featuredEvent.timeLeft}
               </span>
             </span>
             <span className="lobby-event-cta">
-              {isUchihaEvent && <img src="/static/img/banners/btn_banner.webp" alt="" draggable={false} />}
+              {isArtworkEvent && <img src="/static/img/banners/btn_banner.webp" alt="" draggable={false} />}
               <span>{t('Ver evento', 'View event')}</span>
             </span>
           </button>

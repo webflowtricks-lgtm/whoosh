@@ -761,9 +761,24 @@ body.processing-cursor * {
   touch-action: pan-y;
 }
 
-.lobby-event-carousel.is-uchiha {
+.lobby-event-carousel.is-artwork {
   height: auto;
-  aspect-ratio: 1800 / 770;
+}
+
+.event-admin-banner-preview {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+  background: transparent;
+}
+
+.event-admin-banner-preview .lobby-event-banner.is-artwork {
+  animation: none;
+  cursor: default;
+}
+
+.event-admin-banner-preview .lobby-event-banner.is-artwork .lobby-event-cta {
+  animation: none;
 }
 
 .lobby-event-banner {
@@ -781,12 +796,12 @@ body.processing-cursor * {
   text-align: left;
 }
 
-.lobby-event-banner.is-uchiha {
+.lobby-event-banner.is-artwork {
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  text-align: center;
+  text-align: left;
   animation: uchiha-event-banner-pulse 2.8s ease-in-out infinite;
   transform-origin: center;
 }
@@ -894,11 +909,11 @@ body.processing-cursor * {
   display: none;
 }
 
-.lobby-event-banner.is-uchiha > img {
+.lobby-event-banner.is-artwork > img {
   object-fit: contain;
 }
 
-.lobby-event-banner.is-uchiha .lobby-event-copy {
+.lobby-event-banner.is-artwork .lobby-event-copy {
   inset: 53% 24% 12% 10%;
   max-width: none;
   justify-content: center;
@@ -908,19 +923,19 @@ body.processing-cursor * {
   text-shadow: 0 1px 3px #000;
 }
 
-.lobby-event-banner.is-uchiha .lobby-event-copy small {
+.lobby-event-banner.is-artwork .lobby-event-copy small {
   font-size: clamp(.52rem, 2.2vw, .72rem);
 }
 
-.lobby-event-banner.is-uchiha .lobby-event-copy strong {
+.lobby-event-banner.is-artwork .lobby-event-copy strong {
   font-size: clamp(.78rem, 3.6vw, 1.2rem);
 }
 
-.lobby-event-banner.is-uchiha .lobby-event-copy > span {
+.lobby-event-banner.is-artwork .lobby-event-copy > span {
   font-size: clamp(.55rem, 2vw, .76rem);
 }
 
-.lobby-event-banner.is-uchiha .lobby-event-copy .lobby-event-time-remaining {
+.lobby-event-banner.is-artwork .lobby-event-copy .lobby-event-time-remaining {
   display: inline-flex;
   align-items: center;
   gap: .12rem;
@@ -935,7 +950,7 @@ body.processing-cursor * {
   stroke-width: 2;
 }
 
-.lobby-event-banner.is-uchiha .lobby-event-cta {
+.lobby-event-banner.is-artwork .lobby-event-cta {
   right: 9%;
   bottom: 12%;
   display: flex;
@@ -958,7 +973,7 @@ body.processing-cursor * {
   50% { transform: scale(1.08) rotate(2deg); }
 }
 
-.lobby-event-banner.is-uchiha .lobby-event-cta > img {
+.lobby-event-banner.is-artwork .lobby-event-cta > img {
   position: absolute;
   inset: 0;
   display: block;
@@ -967,7 +982,7 @@ body.processing-cursor * {
   object-fit: fill;
 }
 
-.lobby-event-banner.is-uchiha .lobby-event-cta > span {
+.lobby-event-banner.is-artwork .lobby-event-cta > span {
   position: relative;
   z-index: 1;
   line-height: 1;
@@ -2911,7 +2926,7 @@ body.processing-cursor * {
     width: min(40%, 420px);
   }
 
-  .lobby-event-banner {
+  .lobby-event-carousel {
     right: max(2rem, calc(50% - 480px));
     left: max(2rem, calc(50% - 480px));
   }
@@ -2971,7 +2986,7 @@ body.processing-cursor * {
 @media (max-height: 700px) {
   .lobby-profile-wrap { top: 9%; }
   .lobby-missions { top: 21%; }
-  .lobby-event-banner { height: 5.3rem; }
+  .lobby-event-carousel:not(.is-artwork) { height: 5.3rem; }
 }
 
 /* Shuriken dourada dentro do botÃ£o */
