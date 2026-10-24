@@ -3,6 +3,7 @@ import { Check, Gift, LoaderCircle, PackageOpen, X } from 'lucide-react';
 import type { NinjaCard, Quest, RecurringQuestSettings, UserProfile } from '../types';
 import { safeFetchJson } from '../lib/api';
 import { matchFetch } from '../lib/matchFetch';
+import { playGlobalSound } from '../lib/soundUtils';
 import CardPackRouletteModal from './CardPackRouletteModal';
 import { fetchCardsFromServer, getCards } from '../lib/cardStorage';
 import {
@@ -85,7 +86,7 @@ export default function RecurringQuestsModal({
   const claimReward = async (quest: Quest) => {
     if (isGuest || claimingQuestId || quest.completed ||
         !quest.goals.every(goal => goal.currentValue >= goal.targetValue)) return;
-    playClickSound();
+    playGlobalSound('correct-sound');
     setClaimingQuestId(quest.id);
     setError('');
     try {
@@ -104,7 +105,6 @@ export default function RecurringQuestsModal({
       }
       onUpdateUser({ ...user, ...result.user });
       setQuests(current => current.map(item => item.id === quest.id ? { ...item, completed: true } : item));
-      playWinSound();
       if (result.rouletteCards?.length) {
         const catalog = await fetchCardsFromServer();
         setRouletteReveal({ cards: result.rouletteCards, catalog: catalog.length ? catalog : getCards() });
@@ -120,7 +120,7 @@ export default function RecurringQuestsModal({
     if (isGuest || claimingChestTier !== null) return;
     const claimId = getRecurringChestClaimId(activePeriod, tier);
     if ((user.claimedRecurringChestIds || []).includes(claimId)) return;
-    playClickSound();
+    playGlobalSound('correct-sound');
     setClaimingChestTier(tier);
     setError('');
     try {
@@ -138,7 +138,6 @@ export default function RecurringQuestsModal({
         throw new Error(result.error || t('Não foi possível abrir este baú.', 'Could not open this chest.'));
       }
       onUpdateUser({ ...user, ...result.user });
-      playWinSound();
       setSelectedChestTier(null);
       if (result.rouletteCards?.length) {
         const catalog = await fetchCardsFromServer();
@@ -157,10 +156,6 @@ export default function RecurringQuestsModal({
       setChestRevealStage('open');
       return;
     }
-    if (selectedChest && selectedChestUnlocked && !selectedChestClaimed) {
-      void claimChest(selectedChest.tier);
-      return;
-    }
     setChestRevealStage(null);
     setSelectedChestTier(null);
   };
@@ -177,6 +172,24 @@ export default function RecurringQuestsModal({
     return `${t('Banner', 'Banner')}: ${reward.value}`;
   };
   const visibleQuests = quests.filter(quest => quest.period === activePeriod);
+  const getClaimableRewardsCount = (period: 'daily' | 'weekly') => {
+    const periodQuests = quests.filter(quest => quest.period === period);
+    const claimableQuests = periodQuests.filter(quest =>
+      !quest.completed &&
+      quest.goals.length > 0 &&
+      quest.goals.every(goal => goal.currentValue >= goal.targetValue),
+    ).length;
+    const periodPoints = calculateRecurringPoints(period, quests, user.questProgress || {});
+    const claimedChestIds = user.claimedRecurringChestIds || [];
+    const claimableChests = getRecurringChestTiers(period, settings).filter(chest =>
+      !claimedChestIds.includes(getRecurringChestClaimId(period, chest.tier)) &&
+      isRecurringChestUnlocked(period, chest.tier, periodPoints, claimedChestIds),
+    ).length;
+
+    return claimableQuests + claimableChests;
+  };
+  const dailyClaimableRewards = getClaimableRewardsCount('daily');
+  const weeklyClaimableRewards = getClaimableRewardsCount('weekly');
   const chestTiers = getRecurringChestTiers(activePeriod, settings);
   const points = calculateRecurringPoints(activePeriod, quests, user.questProgress || {});
   const maxPoints = chestTiers[chestTiers.length - 1]?.points || 0;
@@ -199,11 +212,14 @@ export default function RecurringQuestsModal({
         aria-label={t('Missões diárias e semanais', 'Daily and weekly missions')}
         onClick={event => event.stopPropagation()}
       >
-        <header>
-          <button type="button" className="lobby-modal-close" onClick={onClose} aria-label={t('Fechar', 'Close')}>
-            <X />
-          </button>
-        </header>
+        <button
+          type="button"
+          className="lobby-modal-close lobby-recurring-close"
+          onClick={onClose}
+          aria-label={t('Fechar', 'Close')}
+        >
+          <X />
+        </button>
         <div className="lobby-recurring-tabs" role="tablist" aria-label={t('Período das missões', 'Mission period')}>
           <button
             type="button"
@@ -212,7 +228,8 @@ export default function RecurringQuestsModal({
             className={activePeriod === 'daily' ? 'is-active' : ''}
             onClick={() => { playClickSound(); setSelectedChestTier(null); setChestRevealStage(null); setActivePeriod('daily'); }}
           >
-            {t('Missões Diárias', 'Daily Missions')} <span>{quests.filter(quest => quest.period === 'daily').length}</span>
+            {t('Missões Diárias', 'Daily Missions')}
+            {dailyClaimableRewards > 0 && <span>{dailyClaimableRewards}</span>}
           </button>
           <button
             type="button"
@@ -221,7 +238,8 @@ export default function RecurringQuestsModal({
             className={activePeriod === 'weekly' ? 'is-active' : ''}
             onClick={() => { playClickSound(); setSelectedChestTier(null); setChestRevealStage(null); setActivePeriod('weekly'); }}
           >
-            {t('Missões Semanais', 'Weekly Missions')} <span>{quests.filter(quest => quest.period === 'weekly').length}</span>
+            {t('Missões Semanais', 'Weekly Missions')}
+            {weeklyClaimableRewards > 0 && <span>{weeklyClaimableRewards}</span>}
           </button>
         </div>
         {error && <p className="lobby-recurring-error" role="alert">{error}</p>}
@@ -256,6 +274,10 @@ export default function RecurringQuestsModal({
                       alt=""
                     />
                   </button>
+                  <span
+                    className={`lobby-chest-timeline-marker${claimed ? ' is-claimed' : available ? ' is-available' : ''}`}
+                    aria-label={claimed ? t('Recompensa resgatada', 'Reward claimed') : t('Recompensa não resgatada', 'Reward not claimed')}
+                  />
                   <span className="lobby-chest-threshold">{chest.points} pts</span>
                 </article>
               );
@@ -312,6 +334,7 @@ export default function RecurringQuestsModal({
                 <button
                   type="button"
                   className="lobby-recurring-claim"
+                  data-sound="correct-sound"
                   disabled={isGuest || completed || !allGoalsMet || !!claimingQuestId}
                   onClick={() => { void claimReward(quest); }}
                 >
@@ -390,26 +413,19 @@ export default function RecurringQuestsModal({
                 <button
                   type="button"
                   className="lobby-chest-reveal-claim"
+                  data-sound="correct-sound"
                   disabled={!selectedChestUnlocked || selectedChestClaimed || isGuest || claimingChestTier !== null}
                   onClick={event => {
                     event.stopPropagation();
                     void claimChest(selectedChest.tier);
                   }}
                 >
-                  {claimingChestTier === selectedChest.tier ? (
-                    <LoaderCircle aria-hidden="true" />
-                  ) : (
-                    <Check aria-hidden="true" />
-                  )}
                   <span>
                     {selectedChestClaimed ? t('Baú aberto', 'Chest opened')
                       : isGuest ? t('Entre na conta para resgatar', 'Log in to claim')
                         : claimingChestTier === selectedChest.tier ? t('Abrindo...', 'Opening...')
                           : t('Resgatar recompensa', 'Claim reward')}
                   </span>
-                  {!selectedChestClaimed && !isGuest && claimingChestTier !== selectedChest.tier && (
-                    <span className="lobby-chest-reveal-claim-arrow" aria-hidden="true">→</span>
-                  )}
                 </button>
               </>
             )}
