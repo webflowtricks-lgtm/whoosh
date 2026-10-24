@@ -230,8 +230,8 @@ export default function EventsModal({
                     className={`events-modal-event-card group relative w-[min(75vw,250px)] flex-shrink-0 text-left md:w-full ${
                       isSelected ? 'is-selected' : ''
                     }`}
-                    style={getEventThemeStyle(eventTheme)}
-                    data-event-theme-light={eventTheme.light}
+                    style={isSelected ? getEventThemeStyle(eventTheme) : undefined}
+                    data-event-theme-light={isSelected && eventTheme.light ? true : undefined}
                   >
                     <span className="events-modal-card-art" aria-hidden="true">
                       {ev.bannerUrl && <img src={ev.bannerUrl} alt="" draggable={false} />}

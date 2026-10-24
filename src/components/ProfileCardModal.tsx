@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Shield, Sparkles, User, Swords, Trophy, Flame, CheckCircle2, Calendar, ChevronLeft, ChevronRight, Images } from 'lucide-react';
+import { X, Shield, Sparkles, User, Trophy, Flame, CheckCircle2, CircleX, Calendar, ChevronLeft, ChevronRight, Images, Pencil } from 'lucide-react';
 import { UserProfile, NinjaCard } from '../types';
 import { getCards, fetchCardsFromServer, CARD_RARITY_META, rarityFx, RARITY_ORDER } from '../lib/cardStorage';
 import { getRanks } from '../lib/rankStorage';
@@ -28,6 +28,18 @@ interface OnlineBattleHistoryRecord {
   finishedAt: string;
   reason: 'battle' | 'manual' | 'disconnect' | 'timeout' | 'inactivity';
 }
+
+const profileGlassActionStyle: React.CSSProperties = {
+  width: '3.25rem',
+  height: '3.25rem',
+  border: '1px solid rgba(240, 253, 244, .3)',
+  borderRadius: '1.5rem',
+  background: 'linear-gradient(145deg, rgba(15, 23, 20, .78), rgba(20, 45, 31, .72) 48%, rgba(5, 18, 12, .84))',
+  color: '#f0fdf4',
+  WebkitBackdropFilter: 'blur(22px) saturate(190%)',
+  backdropFilter: 'blur(22px) saturate(190%)',
+  boxShadow: '0 12px 32px rgba(0, 0, 0, .48), 0 0 16px rgba(134, 239, 172, .1)',
+};
 
 /** Detecta mobile landscape (celular deitado) — mesmo critério do BattleBoard. */
 function useIsMobileLandscape(): boolean {
@@ -277,8 +289,6 @@ export default function ProfileCardModal({
   const level = profile.level || 15;
   const wins = profile.wins !== undefined ? profile.wins : 24;
   const losses = profile.losses !== undefined ? profile.losses : 5;
-  const totalBattles = wins + losses;
-  const winRate = totalBattles > 0 ? Math.round((wins / totalBattles) * 100) : 100;
   const selectedVillage = getVillageById(profile.village);
   const village = selectedVillage
     ? t(selectedVillage.name, selectedVillage.englishName)
@@ -316,19 +326,21 @@ export default function ProfileCardModal({
   const arenaHistoryBlock = (
     <div className={`mv-arena-history-card mv-profile-glass-card ${isLandscape ? 'px-2.5 py-1.5 gap-2' : 'px-3.5 py-2 gap-3.5'} rounded-xl flex items-center flex-shrink-0`}>
     <div className="flex min-w-0 shrink items-center gap-2">
-      <div className={`${isLandscape ? 'w-8 h-8' : 'w-10 h-10'} rounded-lg bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0`}>
-        <img src={villageIcon} alt="" aria-hidden="true" className="auth-village-icon h-6 w-6 object-contain" />
+      <div className={`${isLandscape ? 'w-8 h-8' : 'w-10 h-10'} rounded-lg bg-gradient-to-br from-green-400 via-green-600 to-green-800 border border-green-300/60 shadow-[0_0_14px_rgba(34,197,94,0.2)] flex items-center justify-center flex-shrink-0`}>
+        <img src={villageIcon} alt="" aria-hidden="true" className="profile-card-village-icon h-6 w-6 object-contain" />
       </div>
       <span className="min-w-0 truncate text-sm sm:text-base font-black text-green-300">{village}</span>
     </div>
       <div className="mv-arena-history-details min-w-0">
-        <div className="mv-arena-history-heading flex items-center gap-2">
-          <span className="text-[9px] text-cyan-300 font-mono font-bold whitespace-nowrap">{winRate}% {t('Vitórias', 'Win Rate')}</span>
-        </div>
         <div className="mv-arena-history-results flex items-center gap-2.5 text-[11px] font-black font-mono">
-          <span className="text-emerald-400">⚔️ {wins} {t('Vitórias', 'Wins')}</span>
-          <span className="mv-arena-history-separator text-slate-700">|</span>
-          <span className="text-red-400">🛡️ {losses} {t('Derrotas', 'Losses')}</span>
+          <span className="inline-flex items-center gap-1.5 text-emerald-300">
+            <Trophy className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
+            <span>{wins} {t('Vitórias', 'Wins')}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-rose-300">
+            <CircleX className="h-3.5 w-3.5 text-rose-400" aria-hidden="true" />
+            <span>{losses} {t('Derrotas', 'Losses')}</span>
+          </span>
         </div>
       </div>
     </div>
@@ -336,10 +348,6 @@ export default function ProfileCardModal({
 
   const onlineBattleHistoryBlock = (
     <section className="mv-profile-glass-card w-full max-w-[420px] rounded-xl p-3">
-      <h3 className="mb-2 flex items-center gap-2 text-[10px] font-mono font-extrabold uppercase tracking-wider text-cyan-300">
-        <Swords className="h-3.5 w-3.5" />
-        {t('HISTÓRICO DE BATALHAS ONLINE', 'ONLINE BATTLE HISTORY')}
-      </h3>
       {onlineHistoryLoading ? (
         <p className="text-[11px] font-mono text-slate-400">{t('Carregando batalhas...', 'Loading battles...')}</p>
       ) : onlineHistoryError ? (
@@ -526,7 +534,7 @@ export default function ProfileCardModal({
                   <img
                     src={profile.equippedShowcaseSkinUrl}
                     alt={t('Skin de Destaque', 'Showcase Skin')}
-                    className={`${isLandscape ? 'max-h-[120px]' : 'max-h-[280px] md:max-h-[340px]'} w-auto max-w-full object-contain filter drop-shadow-[0_10px_25px_rgba(0,0,0,0.95)] z-10 pointer-events-none relative transition-all duration-300 hover:scale-105`}
+                    className={`profile-card-showcase-skin ${isLandscape ? 'profile-card-showcase-skin-landscape max-h-[160px]' : 'max-h-[640px]'} w-auto max-w-full object-contain filter drop-shadow-[0_10px_25px_rgba(0,0,0,0.95)] z-10 pointer-events-none relative transition-all duration-300`}
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                       const img = e.currentTarget;
@@ -547,7 +555,7 @@ export default function ProfileCardModal({
             </div>
 
             {/* ACTION FOOTER (com o Histórico da Arena à esquerda) */}
-            {(!isMobilePortrait || (isSelf && onOpenEditModal)) && (
+            {!isMobilePortrait && (
               <div className={`${isLandscape ? 'mt-2 pt-2' : 'mt-5 pt-3'} flex flex-col items-start gap-3 border-t border-slate-800/80`}>
 
                 {/* Histórico da Arena — em mobile landscape fica abaixo das curtidas (coluna esquerda) */}
@@ -558,19 +566,6 @@ export default function ProfileCardModal({
                   </div>
                 )}
 
-                {isSelf && onOpenEditModal && (
-                  <button
-                    onClick={() => {
-                      if (playScrollSound) playScrollSound();
-                      onOpenEditModal();
-                    }}
-                    data-sound="Scroll"
-                    className="px-4 py-2 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/25 text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-2"
-                  >
-                    <User className="w-3.5 h-3.5" />
-                    {t('Editar perfil', 'Edit Profile')}
-                  </button>
-                )}
               </div>
             )}
 
@@ -584,12 +579,30 @@ export default function ProfileCardModal({
             closeModal();
           }}
           data-sound="Scroll"
-          className="fixed bottom-4 left-4 z-[70] flex h-12 w-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-950/90 text-white shadow-xl transition hover:border-orange-400 hover:bg-slate-900"
+          style={profileGlassActionStyle}
+          className="fixed bottom-4 left-4 z-[70] flex items-center justify-center text-white cursor-pointer transition-transform duration-200 hover:-translate-y-0.5"
           title={t('Voltar', 'Back')}
           aria-label={t('Voltar', 'Back')}
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="relative z-10 h-5 w-5 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]" />
         </button>
+        {isSelf && onOpenEditModal && (
+          <button
+            type="button"
+            onClick={event => {
+              event.stopPropagation();
+              if (playScrollSound) playScrollSound();
+              onOpenEditModal();
+            }}
+            data-sound="Scroll"
+            style={profileGlassActionStyle}
+            className="fixed bottom-4 right-4 z-[70] flex items-center justify-center text-white cursor-pointer transition-transform duration-200 hover:-translate-y-0.5"
+            title={t('Editar perfil', 'Edit Profile')}
+            aria-label={t('Editar perfil', 'Edit Profile')}
+          >
+            <Pencil className="relative z-10 h-5 w-5 drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]" />
+          </button>
+        )}
         {/* PAINEL LATERAL — FIGURINHAS COLECIONÁVEIS */}
         <motion.div
           initial={false}

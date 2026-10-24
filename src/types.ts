@@ -1367,7 +1367,9 @@ export type NinjaEventTheme =
   | 'white-arctic-blue'
   | 'white-jade'
   | 'white-cassis'
-  | 'white-sunflower';
+  | 'white-sunflower'
+  | 'red-black'
+  | 'red-white';
 
 export interface NinjaEvent {
   id: string;

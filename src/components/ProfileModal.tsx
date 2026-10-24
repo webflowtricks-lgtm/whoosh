@@ -973,17 +973,21 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
               </div>
 
               {user.username.trim().toLowerCase() !== 'convidado' && (
-                <div className="rounded-xl border border-slate-700 bg-slate-950/70 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <label className="block text-xs font-mono uppercase font-bold text-slate-400 mb-1">
-                        {t('Vila', 'Village')}
-                      </label>
-                      <div className="flex items-center gap-2 text-sm font-bold text-slate-100">
+                <div className="profile-village-card">
+                  <div className="profile-village-main">
+                    <div className="profile-village-identity">
+                      <div className="profile-village-icon-frame">
                         {selectedVillage && (
                           <img src={selectedVillage.icon} alt="" className="h-7 w-7 object-contain" />
                         )}
-                        <span>{selectedVillage ? t(selectedVillage.name, selectedVillage.englishName) : village}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <label className="profile-village-label">
+                        {t('Vila', 'Village')}
+                        </label>
+                        <div className="profile-village-name">
+                          {selectedVillage ? t(selectedVillage.name, selectedVillage.englishName) : village}
+                        </div>
                       </div>
                     </div>
                     <button
@@ -994,12 +998,13 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
                         setVillagePickerOpen(open => !open);
                       }}
                       disabled={villageChangeLoading}
-                      className="rounded-lg border border-orange-500/50 bg-orange-500/10 px-3 py-2 text-xs font-bold text-orange-200 transition hover:bg-orange-500/20 disabled:opacity-50"
+                      className="profile-village-change"
                     >
+                      <ArrowLeftRight className="h-3.5 w-3.5" />
                       {t('Trocar vila', 'Change village')}
                     </button>
                   </div>
-                  <p className="mt-2 text-xs text-slate-400">
+                  <p className="profile-village-note">
                     {freeVillageChange
                       ? t('Sua primeira troca de vila é gratuita. As próximas custam 100 Ryos.', 'Your first village change is free. Each later change costs 100 Ryos.')
                       : t('Cada troca de vila custa 100 Ryos.', 'Each village change costs 100 Ryos.')}

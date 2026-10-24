@@ -230,12 +230,14 @@
       "rin-nohara-base",
       "naruto-uzumaki-(s)-base",
       "yamato-(s)-base",
-      "anko-mitarashi-base"
+      "anko-mitarashi-base",
+      "orochimaru-(s)-base",
+      "gaara-base"
     ],
-    "ryos": 35297,
+    "ryos": 35295,
     "gems": 30000,
-    "village": "kumogakure",
-    "villageChangeCount": 0,
+    "village": "konoha",
+    "villageChangeCount": 1,
     "questProgress": {
       "quest_1784869393005": [
         {
@@ -443,7 +445,8 @@
       "67c9ea56-f2af-464c-a533-3b7ca4d8e55f",
       "34bdc012-3199-484b-91c8-56d9b8f0405c",
       "db4eb4d1-a25b-4df9-acc6-0d7400c63be7",
-      "38b74448-728f-4799-b7db-f0d1144d4c87"
+      "38b74448-728f-4799-b7db-f0d1144d4c87",
+      "ce751f44-9f37-4157-a972-2f38cbaa4424"
     ],
     "questMaintenanceInbox": [
       {
@@ -499,7 +502,10 @@
     "claimedRecurringChestIds": [
       "daily-2026-10-24-chest-1",
       "weekly-2026-W43-chest-1"
-    ]
+    ],
+    "equippedFrameUrl": null,
+    "equippedBannerPositionX": 50,
+    "equippedBannerPositionY": 50
   },
   {
     "username": "111",
@@ -542,8 +548,8 @@
     "ryos": 4129,
     "gems": 120,
     "title": "Lenda dos Sannin",
-    "village": "kumogakure",
-    "villageChangeCount": 0,
+    "village": "konoha",
+    "villageChangeCount": 1,
     "questProgress": {
       "quest_1784869393005": [
         {
@@ -723,7 +729,8 @@
       "9fe7b123-0434-42a6-9e32-de009fdee750",
       "b1644f58-cd32-4e1e-8d02-ff0997b55fc6",
       "1792857387992-dy2h066lwo",
-      "1792873552742-emhip5lkqqa"
+      "1792873552742-emhip5lkqqa",
+      "1792884316567-ptfmv1f10up"
     ],
     "claimedRecurringChestIds": [
       "daily-2026-10-24-chest-1"
