@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   CalendarDays,
   ChevronDown,
+  Clock,
   CircleHelp,
   Diamond,
   Filter,
@@ -31,6 +32,14 @@ import { getRankProgress } from '../lib/xpSystem';
 import { isCharacterUnlocked } from '../lib/characterUnlocks';
 import { fetchCardsFromServer, getCards, getNewCardIds, markCardAsViewed, markNewCardIds } from '../lib/cardStorage';
 import { cardPackRewardQuantity } from '../lib/cardRoulette';
+import {
+  calculateRecurringPoints,
+  getCurrentRecurringQuests,
+  getRecurringChestClaimId,
+  getRecurringChestTiers,
+  isRecurringChestUnlocked,
+} from '../lib/recurringQuests';
+import { getUchihaEventTimeRemaining, UCHIHA_EVENT_ID } from '../lib/uchihaEvent';
 import { useLanguage } from '../lib/i18n';
 import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
@@ -92,6 +101,7 @@ export default function LobbyScreen({
   const [rosterTag, setRosterTag] = useState('');
   const [detailsCharacter, setDetailsCharacter] = useState<Character | null>(null);
   const [activeEventIndex, setActiveEventIndex] = useState(0);
+  const [eventClock, setEventClock] = useState(() => Date.now());
   const [maintenanceMessages, setMaintenanceMessages] = useState<QuestMaintenanceMail[]>([]);
   const [claimingMailId, setClaimingMailId] = useState<string | null>(null);
   const [maintenanceMailError, setMaintenanceMailError] = useState('');
@@ -171,9 +181,23 @@ export default function LobbyScreen({
     [events],
   );
   const featuredEvent = carouselEvents[activeEventIndex];
+  const isUchihaEvent = featuredEvent?.id === UCHIHA_EVENT_ID;
+  const uchihaTimeRemaining = getUchihaEventTimeRemaining(eventClock);
+  const eventTimeLeft = isUchihaEvent
+    ? uchihaTimeRemaining.expired
+      ? `${featuredEvent.timeLeft} • ${t('Evento encerrado', 'Event ended')}`
+      : `${featuredEvent.timeLeft} • ${t(
+        `${uchihaTimeRemaining.days} dias e ${uchihaTimeRemaining.hours} horas restantes`,
+        `${uchihaTimeRemaining.days} days and ${uchihaTimeRemaining.hours} hours left`,
+      )}`
+    : featuredEvent?.timeLeft;
   useEffect(() => {
     if (activeEventIndex >= carouselEvents.length) setActiveEventIndex(0);
   }, [activeEventIndex, carouselEvents.length]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setEventClock(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     if (carouselEvents.length < 2) return;
     const timer = window.setInterval(() => {
@@ -412,6 +436,22 @@ export default function LobbyScreen({
       (progressByGoal.get(goal.id) || 0) >= goal.targetValue,
     );
   }).length;
+  const recurringQuests = getCurrentRecurringQuests();
+  const dailyRecurringQuests = recurringQuests.filter(quest => quest.period === 'daily');
+  const dailyRecurringPoints = calculateRecurringPoints('daily', dailyRecurringQuests, user?.questProgress || {});
+  const claimedRecurringChestIds = user?.claimedRecurringChestIds || [];
+  const dailyRecurringClaimableCount = user
+    ? dailyRecurringQuests.filter(quest =>
+      !(user.completedQuestIds || []).includes(quest.id) &&
+      quest.goals.length > 0 &&
+      quest.goals.every(goal =>
+        Number((user.questProgress?.[quest.id] || []).find(progress => progress.id === goal.id)?.currentValue) >= goal.targetValue,
+      ),
+    ).length + getRecurringChestTiers('daily').filter(chest =>
+      !claimedRecurringChestIds.includes(getRecurringChestClaimId('daily', chest.tier)) &&
+      isRecurringChestUnlocked('daily', chest.tier, dailyRecurringPoints, claimedRecurringChestIds),
+    ).length
+    : 0;
   const footerItems = [
     { label: t('Loja', 'Shop'), icon: ShoppingBag, action: () => openAuthenticated('shop') },
     { label: t('Shinobis', 'Shinobis'), icon: Users, action: () => { playClickSound(); setModal('characters'); } },
@@ -522,7 +562,7 @@ export default function LobbyScreen({
 
       {featuredEvent && (
         <section
-          className="lobby-event-carousel"
+          className={`lobby-event-carousel${isUchihaEvent ? ' is-uchiha' : ''}`}
           aria-label={t('Eventos em destaque', 'Featured events')}
           onPointerDown={event => {
             eventSwipeStartX.current = event.clientX;
@@ -541,7 +581,7 @@ export default function LobbyScreen({
         >
           <button
             type="button"
-            className="lobby-event-banner"
+            className={`lobby-event-banner${isUchihaEvent ? ' is-uchiha' : ''}`}
             onClick={() => {
               if (suppressEventClick.current) return;
               openAuthenticated('events');
@@ -549,13 +589,31 @@ export default function LobbyScreen({
             aria-label={`${featuredEvent.title} — ${t('Ver evento', 'View event')}`}
           >
             <img src={featuredEvent.bannerUrl} alt="" draggable={false} />
-            <span className="lobby-event-overlay" />
+            {!isUchihaEvent && <span className="lobby-event-overlay" />}
             <span className="lobby-event-copy">
               <small>{featuredEvent.badge || t('EVENTO', 'EVENT')}</small>
               <strong>{featuredEvent.title}</strong>
-              <span>{featuredEvent.timeLeft}</span>
+              <span>
+                {isUchihaEvent ? (
+                  <>
+                    {featuredEvent.timeLeft} •{' '}
+                    <span className="lobby-event-time-remaining">
+                      <Clock aria-hidden="true" />
+                      {uchihaTimeRemaining.expired
+                        ? t('Evento encerrado', 'Event ended')
+                        : t(
+                          `${uchihaTimeRemaining.days} dias e ${uchihaTimeRemaining.hours} horas restantes`,
+                          `${uchihaTimeRemaining.days} days and ${uchihaTimeRemaining.hours} hours left`,
+                        )}
+                    </span>
+                  </>
+                ) : eventTimeLeft}
+              </span>
             </span>
-            <span className="lobby-event-cta">{t('Ver evento', 'View event')}</span>
+            <span className="lobby-event-cta">
+              {isUchihaEvent && <img src="/static/img/banners/btn_banner.webp" alt="" draggable={false} />}
+              <span>{t('Ver evento', 'View event')}</span>
+            </span>
           </button>
           {carouselEvents.length > 1 && (
             <div className="lobby-event-controls">
@@ -653,12 +711,25 @@ export default function LobbyScreen({
         {user && (
           <button
             type="button"
-            className="lobby-quick-recurring-button"
+            className={`lobby-quick-recurring-button${dailyRecurringClaimableCount > 0 ? ' has-notification' : ''}`}
             onClick={() => { playClickSound(); setQuickActionsOpen(false); setModal('recurring-quests'); }}
             aria-label={t('Missões diárias e semanais', 'Daily and weekly missions')}
             title={t('Missões diárias e semanais', 'Daily and weekly missions')}
           >
-            <CalendarDays aria-hidden="true" />
+            {dailyRecurringClaimableCount > 0 && (
+              <span
+                className="lobby-events-mission-count lobby-recurring-notification"
+                aria-label={t(`${dailyRecurringClaimableCount} recompensas diárias para resgatar`, `${dailyRecurringClaimableCount} daily rewards to claim`)}
+              >
+                <span className="new-card-diamond" aria-hidden="true">!</span>
+              </span>
+            )}
+            <img
+              className="lobby-quick-recurring-icon"
+              src="/static/img/icon/daily_mission.webp"
+              alt=""
+              aria-hidden="true"
+            />
           </button>
         )}
         {quickActionsOpen && (

@@ -1179,6 +1179,8 @@ export interface UserProfile {
   completedQuestIds?: string[];
   questProgress?: Record<string, Array<Pick<QuestGoal, 'id' | 'currentValue' | 'currentStreak'>>>;
   claimedRecurringChestIds?: string[];
+  eventProgress?: Record<string, Record<string, number>>;
+  eventRewardClaims?: Record<string, { type: 'ryos' | 'gems'; value: number; label: string }>;
   unlockedCharacterNames?: string[];
   title?: string;
   unlockedTitles?: string[];
@@ -1269,6 +1271,9 @@ export interface NinjaEventObjective {
   rewardValue: string | number;
   rewardLabel: string;
   rewardFrameImageUrl?: string;
+  tracker?: 'win_with_character' | 'skills_with_character' | 'damage_with_character' | 'damage_received_with_character';
+  characterId?: string;
+  rewardOptions?: Array<{ type: 'ryos' | 'gems'; value: number; label: string }>;
 }
 
 export interface NinjaEvent {

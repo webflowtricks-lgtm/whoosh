@@ -9,6 +9,8 @@ import { X, Calendar, Gift, Trophy, CheckCircle, Clock, Zap, Star, ShieldAlert, 
 import { UserProfile, NinjaEvent } from '../types';
 import { getEvents, fetchEventsFromServer } from '../lib/eventStorage';
 import { playGlobalSound } from '../lib/soundUtils';
+import { configFetch } from '../lib/api';
+import { UCHIHA_EVENT_ID } from '../lib/uchihaEvent';
 
 interface EventsModalProps {
   user: UserProfile;
@@ -24,6 +26,7 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
     return loaded.length > 0 ? loaded[0].id : '';
   });
   const [claimToast, setClaimToast] = useState<string | null>(null);
+  const [claimingObjectiveId, setClaimingObjectiveId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchEventsFromServer().then(loaded => {
@@ -37,10 +40,47 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
   const claimedIds = user.claimedEventRewardIds || [];
   const selectedEvent = events.find(e => e.id === selectedEventId) || events[0] || getEvents()[0];
 
-  const handleClaimReward = (event: NinjaEvent, objId: string) => {
+  const getObjectiveProgress = (event: NinjaEvent, objectiveId: string, fallback: number) =>
+    event.id === UCHIHA_EVENT_ID
+      ? Math.max(0, Number(user.eventProgress?.[event.id]?.[objectiveId]) || 0)
+      : fallback;
+
+  const handleClaimReward = async (event: NinjaEvent, objId: string) => {
     const obj = event.objectives.find(o => o.id === objId);
-    if (!obj || obj.current < obj.target) return;
+    if (!obj || getObjectiveProgress(event, objId, obj.current) < obj.target) return;
     if (claimedIds.includes(objId)) return;
+
+    if (event.id === UCHIHA_EVENT_ID) {
+      if (claimingObjectiveId) return;
+      setClaimingObjectiveId(objId);
+      try {
+        const response = await configFetch('/api/events/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: user.username, objectiveId: objId }),
+        });
+        const result = await response.json().catch(() => null) as {
+          success?: boolean;
+          error?: string;
+          user?: UserProfile;
+          reward?: { label?: string };
+        } | null;
+        if (!response.ok || !result?.success || !result.user) {
+          throw new Error(result?.error || 'Não foi possível resgatar o prêmio.');
+        }
+        playGlobalSound('claim-2');
+        onUpdateUser(result.user);
+        setClaimToast(`Prêmio surpresa: ${result.reward?.label || 'resgatado!'}`);
+        setTimeout(() => setClaimToast(null), 3000);
+      } catch (error) {
+        setClaimToast(error instanceof Error ? error.message : 'Não foi possível resgatar o prêmio.');
+        setTimeout(() => setClaimToast(null), 4000);
+      } finally {
+        setClaimingObjectiveId(null);
+      }
+      return;
+    }
+
     playGlobalSound('claim-2');
 
     let newRyos = user.ryos || 1000;
@@ -149,9 +189,13 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
 
             {events.map(ev => {
               const isSelected = ev.id === selectedEventId;
-              const completedCount = ev.objectives.filter(o => o.current >= o.target).length;
+              const completedCount = ev.objectives.filter(o =>
+                getObjectiveProgress(ev, o.id, o.current) >= o.target,
+              ).length;
               const totalObj = ev.objectives.length;
-              const unclaimedCount = ev.objectives.filter(o => o.current >= o.target && !claimedIds.includes(o.id)).length;
+              const unclaimedCount = ev.objectives.filter(o =>
+                getObjectiveProgress(ev, o.id, o.current) >= o.target && !claimedIds.includes(o.id),
+              ).length;
 
               return (
                 <button
@@ -244,9 +288,10 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
 
                 <div className="grid gap-3">
                   {(selectedEvent.objectives || []).map(obj => {
-                  const isCompleted = obj.current >= obj.target;
+                  const currentProgress = getObjectiveProgress(selectedEvent, obj.id, obj.current);
+                  const isCompleted = currentProgress >= obj.target;
                   const isClaimed = claimedIds.includes(obj.id);
-                  const progressPct = Math.min(100, Math.round((obj.current / obj.target) * 100));
+                  const progressPct = Math.min(100, Math.round((currentProgress / Math.max(1, obj.target)) * 100));
 
                   return (
                     <div
@@ -266,7 +311,7 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
                             {obj.description}
                           </p>
                           <span className="text-xs font-mono font-bold text-orange-400">
-                            {obj.current} / {obj.target}
+                            {currentProgress.toLocaleString()} / {obj.target.toLocaleString()}
                           </span>
                         </div>
 
@@ -286,7 +331,9 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
                           <Gift className="w-3.5 h-3.5 text-amber-400" />
                           <span className="inline-flex items-center gap-1">
                             Recompensa:
-                            {obj.rewardType === 'ryos' ? (
+                            {obj.rewardOptions?.length ? (
+                              <strong className="font-semibold text-amber-300">Prêmio surpresa</strong>
+                            ) : obj.rewardType === 'ryos' ? (
                               <>
                                 <img src="/static/img/icon/gold.webp" alt="Moedas" className="h-4 w-4 object-contain" />
                                 <strong className="font-semibold text-amber-300">{Number(obj.rewardValue).toLocaleString()}</strong>
@@ -316,8 +363,9 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
                           <button
                             onClick={event => {
                               event.stopPropagation();
-                              handleClaimReward(selectedEvent, obj.id);
+                              void handleClaimReward(selectedEvent, obj.id);
                             }}
+                            disabled={claimingObjectiveId === obj.id}
                             className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-mono font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30 border border-emerald-400 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2 animate-bounce"
                           >
                             <Gift className="w-4 h-4" />

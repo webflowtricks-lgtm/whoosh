@@ -6,6 +6,7 @@ import {
   getCurrentRecurringQuests,
   getDefaultRecurringQuestSettings,
 } from '../src/lib/recurringQuests';
+import { UCHIHA_EVENT, UCHIHA_EVENT_ID } from '../src/lib/uchihaEvent';
 import {
   awardD1MatchRewards,
   getD1Config,
@@ -646,7 +647,7 @@ test('records authenticated AI battle progress across eligible quests once per b
   }]);
   const stats = {
     damageDealt: 0,
-    damageReceived: 0,
+    damageReceived: 125,
     healingDone: 0,
     shieldGenerated: 0,
     stunsApplied: 0,
@@ -657,7 +658,9 @@ test('records authenticated AI battle progress across eligible quests once per b
       { name: 'Naruto Uzumaki (S)', tags: ['Folha'] },
       { name: 'Sasuke Uchiha (S)', tags: ['Folha'] },
     ],
-    damageDealtRecords: [],
+    damageDealtRecords: [
+      { charName: 'Sasuke Uchiha (S)', tags: ['Folha'], skillName: 'Chidori', amount: 420 },
+    ],
     damageReceivedRecords: [],
     healingDoneRecords: [],
     shieldGeneratedRecords: [],
@@ -666,6 +669,7 @@ test('records authenticated AI battle progress across eligible quests once per b
     skillUseRecords: [
       { charName: 'Uzumaki Naruto', tags: ['Folha'], skillName: 'Rasengan' },
       { charName: 'Uzumaki Naruto', tags: ['Folha'], skillName: 'Rasengan' },
+      { charName: 'Sasuke Uchiha (S)', tags: ['Folha'], skillName: 'Chidori' },
     ],
   };
   const report = () => handleD1Request(request('/api/quests/ai-progress', 'POST', {
@@ -684,8 +688,16 @@ test('records authenticated AI battle progress across eligible quests once per b
   assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[1].currentValue, 1);
   assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[2].currentValue, 1);
   assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest-follow-up'] as Row[])[0].currentValue, 1);
+  const eventProgress = ((firstBody.user as Row).eventProgress as Row)[UCHIHA_EVENT_ID] as Row;
+  assert.equal(eventProgress['uchiha-sasuke-wins'], 1);
+  assert.equal(eventProgress['uchiha-sasuke-skills'], 1);
+  assert.equal(eventProgress['uchiha-sasuke-damage'], 420);
+  assert.equal(eventProgress['uchiha-sasuke-team-damage'], 125);
   const progressedRecurringIds = getCurrentRecurringQuests()
-    .filter(quest => ['daily-victory', 'daily-technique', 'daily-squad', 'weekly-wins', 'weekly-technique']
+    .filter(quest => [
+      'daily-victory', 'daily-technique', 'daily-squad', 'daily-damage',
+      'weekly-wins', 'weekly-technique', 'weekly-damage',
+    ]
       .some(templateId => quest.id.endsWith(templateId)))
     .map(quest => quest.id);
   assert.deepEqual(firstBody.progressedQuestIds, [
@@ -698,6 +710,57 @@ test('records authenticated AI battle progress across eligible quests once per b
   assert.equal(duplicate?.status, 200);
   assert.equal((await responseBody(duplicate!)).alreadyProcessed, true);
   assert.equal(env.DB.profileUpdateCount, 1);
+});
+
+test('claims a completed Uchiha event reward once and requires the active account session', async () => {
+  const env = { DB: new MemoryD1() };
+  const registration = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: 'uchiha_event_user',
+    password: 'correct horse',
+    name: 'Uchiha Event User',
+  }), env);
+  const token = 'c'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'uchiha_event_user',
+    sessionToken: token,
+    sessionTicket: (await responseBody(registration!)).sessionTicket,
+  }), env);
+  const userRow = env.DB.accounts.get('uchiha_event_user')!;
+  const profile = JSON.parse(String(userRow.profile_json)) as Row;
+  const objectiveId = UCHIHA_EVENT.objectives[0].id;
+  const claim = () => handleD1Request(request('/api/events/claim', 'POST', {
+    username: 'uchiha_event_user',
+    objectiveId,
+  }, { 'X-Account-Session': token }), env);
+
+  const unauthorized = await handleD1Request(request('/api/events/claim', 'POST', {
+    username: 'uchiha_event_user',
+    objectiveId,
+  }), env);
+  assert.equal(unauthorized?.status, 401);
+  assert.equal((await claim())?.status, 409);
+
+  profile.eventProgress = {
+    [UCHIHA_EVENT_ID]: { [objectiveId]: UCHIHA_EVENT.objectives[0].target },
+  };
+  userRow.profile_json = JSON.stringify(profile);
+  const first = await claim();
+  assert.equal(first?.status, 200);
+  const firstBody = await responseBody(first!);
+  const reward = firstBody.reward as { type: 'ryos' | 'gems'; value: number; label: string };
+  assert.equal(UCHIHA_EVENT.objectives[0].rewardOptions?.some(option =>
+    option.type === reward.type && option.value === reward.value && option.label === reward.label,
+  ), true);
+  const rewardedProfile = JSON.parse(String(userRow.profile_json)) as Row;
+  assert.deepEqual(rewardedProfile.claimedEventRewardIds, [objectiveId]);
+  assert.equal(rewardedProfile[reward.type], Number(profile[reward.type] || (reward.type === 'ryos' ? 1000 : 100)) + reward.value);
+
+  const duplicate = await claim();
+  assert.equal(duplicate?.status, 200);
+  const duplicateBody = await responseBody(duplicate!);
+  assert.equal(duplicateBody.alreadyClaimed, true);
+  assert.deepEqual(duplicateBody.reward, reward);
+  assert.equal(userRow.profile_json, JSON.stringify(rewardedProfile));
 });
 
 test('claims completed quest rewards once and does not duplicate owned item rewards', async () => {

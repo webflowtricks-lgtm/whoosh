@@ -20,6 +20,14 @@ import {
   reconcileQuestMaintenanceProfile,
 } from '../src/lib/questMaintenance';
 import {
+  chooseUchihaEventReward,
+  updateTrackedEventProgress,
+  UCHIHA_EVENT,
+  UCHIHA_EVENT_ID,
+  withUchihaEvent,
+  type TrackedEventProgress,
+} from '../src/lib/uchihaEvent';
+import {
   CARD_ROULETTE_CHANCES,
   CARD_ROULETTE_COST,
   CARD_PACK_REWARD_MAX,
@@ -29,7 +37,7 @@ import {
   isValidCardRouletteCost,
   redeemCardPackRewards,
 } from '../src/lib/cardRoulette';
-import type { NinjaCard, Quest, QuestMaintenanceMail, QuestReward, RecurringQuestSettings } from '../src/types';
+import type { NinjaCard, NinjaEvent, Quest, QuestMaintenanceMail, QuestReward, RecurringQuestSettings } from '../src/types';
 import { isVillageId } from '../src/lib/villages';
 
 interface D1Result<T = Record<string, unknown>> {
@@ -84,7 +92,7 @@ const ACCOUNT_FIELDS = new Set([
 const SERVER_OWNED_PROFILE_FIELDS = new Set([
   'xp', 'rank', 'wins', 'losses', 'ryos', 'gems', 'collectedCardIds', 'village', 'villageChangeCount',
   'completedQuestIds', 'questProgress', 'questRewardSnapshots', 'questMaintenanceInbox',
-  'questAiBattleIds', 'claimedRecurringChestIds',
+  'questAiBattleIds', 'claimedRecurringChestIds', 'eventProgress', 'eventRewardClaims', 'claimedEventRewardIds',
 ]);
 const VILLAGE_CHANGE_COST = 100;
 let firebaseJwksCache: { keys: FirebaseJwk[]; expiresAt: number } | null = null;
@@ -978,6 +986,64 @@ async function claimRecurringChest(request: Request, env: D1Env): Promise<Respon
   return error(409, 'Não foi possível confirmar o resgate do baú.');
 }
 
+async function claimUchihaEventReward(request: Request, env: D1Env): Promise<Response> {
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const username = normalizedUsername(body?.username);
+  const objectiveId = typeof body?.objectiveId === 'string' ? body.objectiveId : '';
+  const objective = UCHIHA_EVENT.objectives.find(item => item.id === objectiveId);
+  if (!username || username === 'convidado' || !objective) {
+    return error(400, 'Conta e objetivo válidos são necessários para resgatar.');
+  }
+  if (!await isD1SessionActive(env, username, request.headers.get('X-Account-Session') || '')) {
+    return error(401, 'Sessão inválida ou revogada. Entre novamente.');
+  }
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const row = await env.DB.prepare(
+      'SELECT profile_json FROM accounts WHERE username = ?',
+    ).bind(username).first<{ profile_json: string }>();
+    if (!row) return error(404, 'Usuário não encontrado.');
+    const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+    const claimedIds = Array.isArray(profile.claimedEventRewardIds)
+      ? profile.claimedEventRewardIds.filter((id): id is string => typeof id === 'string')
+      : [];
+    if (claimedIds.includes(objectiveId)) {
+      const existingReward = (profile.eventRewardClaims as Record<string, unknown> | undefined)?.[objectiveId];
+      return json({ success: true, alreadyClaimed: true, user: profile, reward: existingReward || null });
+    }
+    const eventProgress = profile.eventProgress && typeof profile.eventProgress === 'object'
+      ? profile.eventProgress as TrackedEventProgress
+      : {};
+    if (Number(eventProgress[UCHIHA_EVENT_ID]?.[objectiveId] || 0) < objective.target) {
+      return error(409, 'Conclua o objetivo em uma batalha antes de resgatar o prêmio.');
+    }
+
+    const randomValue = () => crypto.getRandomValues(new Uint32Array(1))[0] / 0x1_0000_0000;
+    const reward = chooseUchihaEventReward(objectiveId, randomValue);
+    if (!reward || !Number.isSafeInteger(reward.value) || reward.value < 1) {
+      return error(500, 'O prêmio aleatório deste objetivo está inválido.');
+    }
+    if (reward.type === 'ryos') {
+      profile.ryos = Math.max(0, Number(profile.ryos ?? 1000) || 0) + reward.value;
+    } else {
+      profile.gems = Math.max(0, Number(profile.gems ?? 100) || 0) + reward.value;
+    }
+    profile.claimedEventRewardIds = [...claimedIds.slice(-255), objectiveId];
+    const claims = profile.eventRewardClaims && typeof profile.eventRewardClaims === 'object'
+      ? profile.eventRewardClaims as Record<string, unknown>
+      : {};
+    profile.eventRewardClaims = { ...claims, [objectiveId]: reward };
+
+    const updated = await env.DB.prepare(`
+      UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE username = ? AND profile_json = ?
+    `).bind(JSON.stringify(profile), username, row.profile_json).run();
+    if (updated.meta?.changes === 1) return json({ success: true, user: profile, reward });
+    if (attempt === 2) return error(409, 'Não foi possível confirmar o resgate. Tente novamente.');
+  }
+  return error(409, 'Não foi possível confirmar o resgate.');
+}
+
 async function claimQuestReward(
   request: Request,
   env: D1Env,
@@ -1165,6 +1231,11 @@ async function recordAiQuestProgress(request: Request, env: D1Env): Promise<Resp
       })) progressedQuestIds.push(quest.id);
     }
     profile.questProgress = updatedProgress;
+    profile.eventProgress = updateTrackedEventProgress(
+      profile.eventProgress as TrackedEventProgress | undefined,
+      stats,
+      body.victory,
+    );
     profile.questAiBattleIds = [...processedBattleIds.slice(-999), battleId];
 
     const updated = await env.DB.prepare(`
@@ -1400,6 +1471,7 @@ export async function awardD1MatchRewards(
 
   const statements: D1PreparedStatement[] = [];
   const progressByUsername = new Map<string, string>();
+  const eventProgressByUsername = new Map<string, string>();
   const rewards: AuthoritativeMatchReward[] = match.players.map(player => ({
     username: player.username.trim().toLowerCase(),
     xpGained: calculateBattleXp(
@@ -1421,8 +1493,6 @@ export async function awardD1MatchRewards(
       if (activeDefinition) definitions.set(activeDefinition.id, activeDefinition);
     }
     for (const definition of recurringDefinitions) definitions.set(definition.id, definition);
-    if (definitions.size === 0) continue;
-
     const username = player.username.trim().toLowerCase();
     const row = await env.DB.prepare(
       'SELECT profile_json FROM accounts WHERE username = ?',
@@ -1463,6 +1533,13 @@ export async function awardD1MatchRewards(
       }
     }
     if (progressChanged) progressByUsername.set(username, JSON.stringify(updatedProgress));
+    const savedEventProgress = profile.eventProgress && typeof profile.eventProgress === 'object'
+      ? profile.eventProgress as TrackedEventProgress
+      : {};
+    const updatedEventProgress = updateTrackedEventProgress(savedEventProgress, player.questStats, victory);
+    if (JSON.stringify(updatedEventProgress) !== JSON.stringify(savedEventProgress)) {
+      eventProgressByUsername.set(username, JSON.stringify(updatedEventProgress));
+    }
   }
 
   for (const reward of rewards) {
@@ -1473,13 +1550,16 @@ export async function awardD1MatchRewards(
       VALUES (?, ?, ?)
     `).bind(match.roomId, reward.username, reward.xpGained));
     const progressJson = progressByUsername.get(reward.username);
+    const eventProgressJson = eventProgressByUsername.get(reward.username);
     const progressClause = progressJson ? `, '$.questProgress', json(?)` : '';
+    const eventProgressClause = eventProgressJson ? `, '$.eventProgress', json(?)` : '';
     const values: unknown[] = [
       reward.xpGained,
       victory ? 1 : 0,
       victory ? 0 : 1,
     ];
     if (progressJson) values.push(progressJson);
+    if (eventProgressJson) values.push(eventProgressJson);
     values.push(reward.username);
     statements.push(env.DB.prepare(`
       UPDATE accounts
@@ -1489,6 +1569,7 @@ export async function awardD1MatchRewards(
         '$.wins', CAST(COALESCE(json_extract(profile_json, '$.wins'), 0) AS INTEGER) + ?,
         '$.losses', CAST(COALESCE(json_extract(profile_json, '$.losses'), 0) AS INTEGER) + ?
         ${progressClause}
+        ${eventProgressClause}
       ), updated_at = CURRENT_TIMESTAMP
       WHERE username = ? AND changes() = 1
     `).bind(...values));
@@ -1648,7 +1729,10 @@ async function getConfig(
   }
   const stored = await readConfig(env.DB, config.key);
   if (stored !== null) {
-    const body = { success: true, [config.field]: stored };
+    const values = config.key === 'events'
+      ? withUchihaEvent(stored as NinjaEvent[])
+      : stored;
+    const body = { success: true, [config.field]: values };
     if (config.key === 'characters') {
       const serialized = JSON.stringify(body);
       return new Response(serialized, {
@@ -1666,6 +1750,9 @@ async function getConfig(
       success: true,
       settings: [{ maxEnemyCharacterNumber: 69 }],
     });
+  }
+  if (config.key === 'events') {
+    return json({ success: true, events: withUchihaEvent(null) });
   }
   return error(503, `Configuração ${config.key} ainda não foi migrada para D1.`);
 }
@@ -2054,6 +2141,9 @@ export async function handleD1Request(request: Request, env: D1Env): Promise<Res
   }
   if (pathname === '/api/quests/claim' && request.method === 'POST') {
     return claimQuestReward(request, env);
+  }
+  if (pathname === '/api/events/claim' && request.method === 'POST') {
+    return claimUchihaEventReward(request, env);
   }
   if (pathname === '/api/quests/recurring-chest/claim' && request.method === 'POST') {
     return claimRecurringChest(request, env);

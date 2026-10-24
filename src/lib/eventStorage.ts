@@ -5,6 +5,7 @@
 
 import { NinjaEvent } from '../types';
 import { safeFetchJson, saveGlobalConfig } from './api';
+import { UCHIHA_EVENT, withUchihaEvent } from './uchihaEvent';
 
 const STORAGE_KEY = 'naruto_ninja_events';
 
@@ -116,7 +117,8 @@ export const DEFAULT_NINJA_EVENTS: NinjaEvent[] = [
         rewardLabel: '40 Ryos'
       }
     ]
-  }
+  },
+  UCHIHA_EVENT,
 ];
 
 export function getEvents(): NinjaEvent[] {
@@ -125,7 +127,7 @@ export function getEvents(): NinjaEvent[] {
     try {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed)) {
-        return parsed;
+        return withUchihaEvent(parsed);
       }
     } catch (e) {
       console.error('Failed to parse events from localStorage:', e);
@@ -138,12 +140,13 @@ export async function fetchEventsFromServer(): Promise<NinjaEvent[]> {
   try {
     const data = await safeFetchJson<{ success?: boolean; events?: NinjaEvent[] }>('/api/events');
     if (data && data.success && Array.isArray(data.events)) {
+      const events = withUchihaEvent(data.events);
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.events));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
       } catch (e) {
         console.warn("Failed to save events to localStorage:", e);
       }
-      return data.events;
+      return events;
     }
   } catch (e) {
     console.error("Failed to fetch events from server:", e);

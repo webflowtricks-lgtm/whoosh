@@ -717,7 +717,8 @@ body.processing-cursor * {
   position: absolute;
   z-index: 2;
   top: .1rem;
-  right: .1rem;
+  right: auto;
+  left: .1rem;
   display: grid;
   min-width: 1.25rem;
   height: 1.25rem;
@@ -760,6 +761,11 @@ body.processing-cursor * {
   touch-action: pan-y;
 }
 
+.lobby-event-carousel.is-uchiha {
+  height: auto;
+  aspect-ratio: 1800 / 770;
+}
+
 .lobby-event-banner {
   position: relative;
   display: block;
@@ -773,6 +779,21 @@ body.processing-cursor * {
   color: #fff4d5;
   cursor: pointer;
   text-align: left;
+}
+
+.lobby-event-banner.is-uchiha {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  animation: uchiha-event-banner-pulse 2.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes uchiha-event-banner-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
 }
 
 .lobby-event-controls {
@@ -867,6 +888,90 @@ body.processing-cursor * {
   color: #ffe3b5;
   font-size: .58rem;
   font-weight: 900;
+}
+
+.lobby-event-cta > img {
+  display: none;
+}
+
+.lobby-event-banner.is-uchiha > img {
+  object-fit: contain;
+}
+
+.lobby-event-banner.is-uchiha .lobby-event-copy {
+  inset: 53% 24% 12% 10%;
+  max-width: none;
+  justify-content: center;
+  gap: 0;
+  align-items: flex-start;
+  text-align: left;
+  text-shadow: 0 1px 3px #000;
+}
+
+.lobby-event-banner.is-uchiha .lobby-event-copy small {
+  font-size: clamp(.52rem, 2.2vw, .72rem);
+}
+
+.lobby-event-banner.is-uchiha .lobby-event-copy strong {
+  font-size: clamp(.78rem, 3.6vw, 1.2rem);
+}
+
+.lobby-event-banner.is-uchiha .lobby-event-copy > span {
+  font-size: clamp(.55rem, 2vw, .76rem);
+}
+
+.lobby-event-banner.is-uchiha .lobby-event-copy .lobby-event-time-remaining {
+  display: inline-flex;
+  align-items: center;
+  gap: .12rem;
+  color: #ffb146;
+}
+
+.lobby-event-time-remaining svg {
+  width: .9em;
+  height: .9em;
+  flex: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.lobby-event-banner.is-uchiha .lobby-event-cta {
+  right: 9%;
+  bottom: 12%;
+  display: flex;
+  width: clamp(4.2rem, 17vw, 6.5rem);
+  height: clamp(1.5rem, 4.5vh, 2rem);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #4b2600;
+  text-shadow: 0 1px 1px #fff8c9;
+  transform-origin: center;
+  animation: uchiha-event-cta-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes uchiha-event-cta-pulse {
+  0%, 100% { transform: scale(1) rotate(-1deg); }
+  50% { transform: scale(1.08) rotate(2deg); }
+}
+
+.lobby-event-banner.is-uchiha .lobby-event-cta > img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
+.lobby-event-banner.is-uchiha .lobby-event-cta > span {
+  position: relative;
+  z-index: 1;
+  line-height: 1;
+  transform: translateY(-1px);
 }
 
 .lobby-footer {
@@ -1235,23 +1340,45 @@ body.processing-cursor * {
   margin-top: .55rem;
 }
 
-.lobby-quick-recurring-button {
+.lobby-quick-actions > button.lobby-quick-recurring-button {
+  position: relative;
   display: grid;
-  width: 2.55rem;
-  height: 2.55rem;
+  width: 4rem;
+  height: 4rem;
   margin-top: .35rem;
   place-items: center;
-  border: 1px solid #e8bd60;
-  border-radius: .65rem;
-  background: rgba(53, 42, 15, .92);
-  color: #ffe7a1;
-  box-shadow: 0 3px 10px #0007;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
   cursor: pointer;
 }
 
-.lobby-quick-recurring-button:hover {
-  border-color: #ffe7a1;
-  background: rgba(86, 64, 17, .96);
+.lobby-quick-actions > button.lobby-quick-recurring-button:hover {
+  background: transparent;
+  filter: brightness(1.15);
+}
+
+.lobby-quick-recurring-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5.5rem;
+  height: 5.5rem;
+  object-fit: contain;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.lobby-quick-recurring-button.has-notification .lobby-quick-recurring-icon {
+  animation: lobby-icon-stretch-release 3.2s ease-in-out infinite;
+}
+
+.lobby-recurring-notification {
+  top: .1rem;
+  right: auto;
+  left: .1rem;
 }
 
 .lobby-quick-recurring-button svg {
@@ -1288,6 +1415,14 @@ body.processing-cursor * {
   width: min(100%, 600px);
   max-height: min(88dvh, 760px);
   flex-direction: column;
+}
+
+.lobby-mail-modal:not(.lobby-recurring-modal) {
+  border-color: rgba(95, 202, 255, .78);
+  background:
+    radial-gradient(ellipse at 50% 0, rgba(28, 190, 255, .32), transparent 66%),
+    linear-gradient(180deg, rgba(10, 91, 153, .99), rgba(4, 39, 78, .99));
+  box-shadow: 0 16px 50px #000c, 0 0 20px rgba(36, 173, 255, .16);
 }
 
 .lobby-recurring-modal {
@@ -1699,6 +1834,10 @@ body.processing-cursor * {
 @media (prefers-reduced-motion: reduce) {
   .lobby-chest-item:not(.is-claimed) .lobby-chest-trigger img,
   .lobby-chest-item.is-available .lobby-chest-trigger {
+    animation: none;
+  }
+
+  .lobby-quick-recurring-button.has-notification .lobby-quick-recurring-icon {
     animation: none;
   }
 }

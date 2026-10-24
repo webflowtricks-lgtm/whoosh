@@ -21423,6 +21423,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               aria-label={`Adicionar um chakra ${label}`}
                               disabled={!canAdd}
                               onClick={() => setTradeSelection(prev => ({ ...prev, [type]: prev[type] + 1 }))}
+                              data-sound="Click"
                               className={`h-8 w-8 rounded-lg border text-lg font-bold transition-colors disabled:cursor-not-allowed ${isSelected ? selectedAddButtonColors[type] : `${chakraAddButtonColors[type]} disabled:opacity-35`}`}
                             >+</button>
                           </div>
@@ -21461,14 +21462,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 <div className="flex flex-col-reverse gap-2 border-t border-white/10 pt-4 sm:flex-row sm:justify-end">
                   <button
                     onClick={() => { setShowChakraTrade(false); setTradeSelection({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 }); setTradeTarget(null); }}
-                    data-sound="uah"
+                    data-sound="Click"
                     className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/[0.06] hover:text-white"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={handleTradeChakra}
-                    data-sound="uah"
+                    data-sound="Click"
                     disabled={tradeSelectedTotal !== 4 || !tradeTarget}
                     className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-emerald-950/30 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -21962,6 +21963,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                 type="button"
                                 aria-label={`Adicionar um chakra ${chakraLabel}`}
                                 disabled={!canIncrease}
+                                data-sound="Click"
                                 onClick={() => {
                                   playClickSound();
                                   setRandAllocation(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
@@ -21991,7 +21993,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     turnActionLockedRef.current = false;
                     setShowRandChakraModal(false);
                   }}
-                  data-sound="uah"
+                  data-sound="Click"
                   className="flex-1 py-2 px-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 font-bold text-xs transition active:scale-95 border border-white/10 cursor-pointer"
                 >
                   Cancelar

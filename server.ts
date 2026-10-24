@@ -30,6 +30,14 @@ import {
   reconcileQuestMaintenanceProfile,
   type QuestDefinition,
 } from "./src/lib/questMaintenance";
+import {
+  chooseUchihaEventReward,
+  updateTrackedEventProgress,
+  UCHIHA_EVENT,
+  UCHIHA_EVENT_ID,
+  withUchihaEvent,
+  type TrackedEventProgress,
+} from "./src/lib/uchihaEvent";
 import { buildDefaultCards } from "./src/lib/cardStorage";
 import {
   CARD_ROULETTE_CHANCES,
@@ -2148,8 +2156,60 @@ async function startServer() {
         ]
       }
     ];
-    const events = readJSON<any[]>(EVENTS_FILE, defaultEvents);
+    const events = withUchihaEvent(readJSON<any[]>(EVENTS_FILE, defaultEvents));
     res.json({ success: true, events });
+  });
+
+  app.post("/api/events/claim", requireActiveMatchSession, (req, res) => {
+    const username = typeof req.body?.username === "string" ? req.body.username.trim().toLowerCase() : "";
+    const objectiveId = typeof req.body?.objectiveId === "string" ? req.body.objectiveId : "";
+    const objective = UCHIHA_EVENT.objectives.find(item => item.id === objectiveId);
+    if (!username || username === "convidado" || !objective) {
+      return res.status(400).json({ error: "Conta e objetivo válidos são necessários para resgatar." });
+    }
+    const users = readJSON<Array<Record<string, any>>>(USERS_FILE, []);
+    const profile = users.find(item => item.username === username);
+    if (!profile) return res.status(404).json({ error: "Usuário não encontrado." });
+
+    const claimedIds = Array.isArray(profile.claimedEventRewardIds)
+      ? profile.claimedEventRewardIds.filter((id: unknown): id is string => typeof id === "string")
+      : [];
+    if (claimedIds.includes(objectiveId)) {
+      const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+      return res.json({
+        success: true,
+        alreadyClaimed: true,
+        user: publicUser,
+        reward: profile.eventRewardClaims?.[objectiveId] || null,
+      });
+    }
+
+    const progress = profile.eventProgress && typeof profile.eventProgress === "object"
+      ? profile.eventProgress as TrackedEventProgress
+      : {};
+    if (Number(progress[UCHIHA_EVENT_ID]?.[objectiveId] || 0) < objective.target) {
+      return res.status(409).json({ error: "Conclua o objetivo em uma batalha antes de resgatar o prêmio." });
+    }
+
+    const reward = chooseUchihaEventReward(
+      objectiveId,
+      () => randomBytes(4).readUInt32BE(0) / 0x1_0000_0000,
+    );
+    if (!reward || !Number.isSafeInteger(reward.value) || reward.value < 1) {
+      return res.status(500).json({ error: "O prêmio aleatório deste objetivo está inválido." });
+    }
+    if (reward.type === "ryos") {
+      profile.ryos = Math.max(0, Number(profile.ryos ?? 1000) || 0) + reward.value;
+    } else {
+      profile.gems = Math.max(0, Number(profile.gems ?? 100) || 0) + reward.value;
+    }
+    profile.claimedEventRewardIds = [...claimedIds.slice(-255), objectiveId];
+    profile.eventRewardClaims = { ...(profile.eventRewardClaims || {}), [objectiveId]: reward };
+    if (!persistAccountUsers(users)) {
+      return res.status(500).json({ error: "Não foi possível salvar o resgate do prêmio." });
+    }
+    const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+    return res.json({ success: true, user: publicUser, reward });
   });
 
   app.post("/api/events", (req, res) => {
@@ -2566,6 +2626,10 @@ async function startServer() {
       })) progressedQuestIds.push(quest.id);
     }
     profile.questProgress = updatedProgress;
+    const savedEventProgress = profile.eventProgress && typeof profile.eventProgress === "object"
+      ? profile.eventProgress as TrackedEventProgress
+      : {};
+    profile.eventProgress = updateTrackedEventProgress(savedEventProgress, stats, req.body.victory);
     profile.questAiBattleIds = [...processedBattleIds.slice(-999), battleId];
     if (!persistAccountUsers(users)) {
       return res.status(500).json({ error: "Não foi possível salvar o progresso da missão contra IA." });
