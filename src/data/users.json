@@ -535,9 +535,11 @@
     "losses": 20,
     "collectedCardIds": [
       "sage-mode-naruto-(s)-base",
-      "zabuza-base"
+      "zabuza-base",
+      "mu-(r)-base",
+      "gengetsu-hozuki-(r)-base"
     ],
-    "ryos": 398,
+    "ryos": 4129,
     "gems": 120,
     "title": "Lenda dos Sannin",
     "village": "kumogakure",
@@ -668,7 +670,7 @@
       "weekly-2026-W43-weekly-damage": [
         {
           "id": "weekly-2026-W43-weekly-damage-damage",
-          "currentValue": 3300,
+          "currentValue": 3380,
           "currentStreak": 0
         }
       ],
@@ -689,7 +691,7 @@
       "weekly-2026-W43-weekly-stuns": [
         {
           "id": "weekly-2026-W43-weekly-stuns-stuns",
-          "currentValue": 0,
+          "currentValue": 2,
           "currentStreak": 0
         }
       ],
@@ -720,7 +722,8 @@
       "fa858a54-673c-4079-8894-33fa85808f10",
       "9fe7b123-0434-42a6-9e32-de009fdee750",
       "b1644f58-cd32-4e1e-8d02-ff0997b55fc6",
-      "1792857387992-dy2h066lwo"
+      "1792857387992-dy2h066lwo",
+      "1792873552742-emhip5lkqqa"
     ],
     "claimedRecurringChestIds": [
       "daily-2026-10-24-chest-1"
@@ -752,9 +755,21 @@
             "type": "ryos",
             "value": "3333"
           }
-        ]
+        ],
+        "claimedRouletteCardIds": [],
+        "claimedAt": "2026-10-24T20:09:06.989Z"
       }
-    ]
+    ],
+    "completedQuestIds": [
+      "daily-2026-10-24-daily-damage"
+    ],
+    "questRewardSnapshots": {
+      "daily-2026-10-24-daily-damage": {
+        "ryos": 400,
+        "gems": 0,
+        "items": []
+      }
+    }
   },
   {
     "username": "444",

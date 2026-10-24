@@ -103,6 +103,7 @@ export default function LobbyScreen({
   const [activeEventIndex, setActiveEventIndex] = useState(0);
   const [eventClock, setEventClock] = useState(() => Date.now());
   const [eventBannerAspectRatios, setEventBannerAspectRatios] = useState<Record<string, number>>({});
+  const [eventsModalInitialEventId, setEventsModalInitialEventId] = useState<string | undefined>();
   const [maintenanceMessages, setMaintenanceMessages] = useState<QuestMaintenanceMail[]>([]);
   const [claimingMailId, setClaimingMailId] = useState<string | null>(null);
   const [maintenanceMailError, setMaintenanceMailError] = useState('');
@@ -595,6 +596,7 @@ export default function LobbyScreen({
             className="lobby-event-banner is-artwork"
             onClick={() => {
               if (suppressEventClick.current) return;
+              setEventsModalInitialEventId(featuredEvent.id);
               openAuthenticated('events');
             }}
             aria-label={`${featuredEvent.title} — ${t('Ver evento', 'View event')}`}
@@ -1089,7 +1091,18 @@ export default function LobbyScreen({
 
       <GameManualModal isOpen={modal === 'help'} onClose={() => setModal(null)} playClickSound={playClickSound} />
       {user && modal === 'shop' && <ShopModal user={user} initialTab={shopInitialTab} onClose={() => { setShopInitialTab('all'); setModal(null); }} onUpdateUser={updateUser} playClickSound={playClickSound} playScrollSound={playScrollSound} playWinSound={playWinSound} />}
-      {user && modal === 'events' && <EventsModal user={user} onClose={() => setModal(null)} onUpdateUser={updateUser} playClickSound={playClickSound} />}
+      {user && modal === 'events' && (
+        <EventsModal
+          user={user}
+          onClose={() => {
+            setModal(null);
+            setEventsModalInitialEventId(undefined);
+          }}
+          onUpdateUser={updateUser}
+          playClickSound={playClickSound}
+          initialEventId={eventsModalInitialEventId}
+        />
+      )}
       {user && modal === 'profile' && (
         <ProfileCardModal
           profile={{

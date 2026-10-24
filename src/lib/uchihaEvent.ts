@@ -35,6 +35,7 @@ export const UCHIHA_EVENT: NinjaEvent = {
   timeLeft: 'Evento especial',
   durationDays: 30,
   startedAt: UCHIHA_EVENT_STARTED_AT,
+  theme: 'uchiha-red',
   featured: true,
   objectives: [
     {
@@ -160,6 +161,7 @@ export function withUchihaEvent(events: NinjaEvent[] | null | undefined): NinjaE
         ...event,
         durationDays: event.durationDays ?? UCHIHA_EVENT.durationDays,
         startedAt: event.startedAt ?? UCHIHA_EVENT.startedAt,
+        theme: event.theme ?? UCHIHA_EVENT.theme,
       }
       : event)
     : [...configured, UCHIHA_EVENT];

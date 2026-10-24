@@ -12,6 +12,7 @@ import {
 import { NinjaEvent, NinjaEventObjective, Character, CharacterSkin } from '../types';
 import { getEvents, saveEvents, resetToDefaultEvents, fetchEventsFromServer } from '../lib/eventStorage';
 import { UCHIHA_EVENT_ID } from '../lib/uchihaEvent';
+import { EVENT_THEMES, getDefaultEventTheme, getEventThemeStyle } from '../lib/eventThemes';
 import { getPngFrames, addPngFrame, deletePngFrame, PngFrameItem, resetToDefaultPngFrames, fetchPngFramesFromServer } from '../lib/frameStorage';
 import { getCustomBanners, addCustomBanner, deleteCustomBanner, resetToDefaultCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
 import { getCharacters, saveCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
@@ -420,6 +421,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
       timeLeft: '7 dias',
       durationDays: 7,
       startedAt: new Date().toISOString(),
+      theme: 'naruto-orange',
       featured: false,
       objectives: [
         {
@@ -520,6 +522,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
     const savedEvent: NinjaEvent = {
       ...editingEvent,
       id: eventId,
+      theme: editingEvent.theme || getDefaultEventTheme(editingEvent),
       durationDays,
       startedAt: durationChanged || !originalEvent.startedAt
         ? new Date().toISOString()
@@ -1299,6 +1302,42 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                     <p className="mt-1 text-[9px] text-slate-500">
                       Salvar uma nova duração reinicia a contagem a partir de agora.
                     </p>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="mb-2 block text-[10px] font-mono uppercase font-bold text-slate-400">
+                      Tema visual do evento
+                    </label>
+                    <p className="mb-3 text-[10px] text-slate-500">
+                      A paleta escolhida será aplicada ao painel, progresso, metas e recompensas deste evento.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                      {EVENT_THEMES.map(theme => {
+                        const isSelected = (editingEvent.theme || getDefaultEventTheme(editingEvent)) === theme.id;
+                        return (
+                          <button
+                            key={theme.id}
+                            type="button"
+                            aria-pressed={isSelected}
+                            data-sound="Scroll"
+                            onClick={() => setEditingEvent({ ...editingEvent, theme: theme.id })}
+                            className={`event-admin-theme-option ${isSelected ? 'is-selected' : ''}`}
+                            style={getEventThemeStyle(theme)}
+                          >
+                            <span className="event-admin-theme-swatches" aria-hidden="true">
+                              <span />
+                              <span />
+                              <span />
+                            </span>
+                            <span className="min-w-0 text-left">
+                              <strong>{theme.label}</strong>
+                              <small>{theme.description}</small>
+                            </span>
+                            {isSelected && <CheckCircle className="event-admin-theme-check" aria-hidden="true" />}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <div className="md:col-span-2 space-y-2">

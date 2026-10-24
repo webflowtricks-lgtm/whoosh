@@ -3,47 +3,98 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Calendar, Gift, Trophy, CheckCircle, Clock, Zap, Star, ShieldAlert, Sparkles, Award } from 'lucide-react';
+import { X, Calendar, Gift, CheckCircle, Clock, Sparkles, Target, ArrowUpRight } from 'lucide-react';
 import { UserProfile, NinjaEvent } from '../types';
 import { getEvents, fetchEventsFromServer } from '../lib/eventStorage';
 import { playGlobalSound } from '../lib/soundUtils';
 import { configFetch } from '../lib/api';
-import { UCHIHA_EVENT_ID } from '../lib/uchihaEvent';
+import { getEventTimeRemaining, UCHIHA_EVENT_ID } from '../lib/uchihaEvent';
+import { getDefaultEventTheme, getEventTheme, getEventThemeStyle } from '../lib/eventThemes';
 
 interface EventsModalProps {
   user: UserProfile;
   onClose: () => void;
   onUpdateUser: (updatedUser: UserProfile) => void;
   playClickSound: () => void;
+  initialEventId?: string;
 }
 
-export default function EventsModal({ user, onClose, onUpdateUser, playClickSound }: EventsModalProps) {
+export default function EventsModal({
+  user,
+  onClose,
+  onUpdateUser,
+  playClickSound,
+  initialEventId,
+}: EventsModalProps) {
   const [events, setEvents] = useState<NinjaEvent[]>(() => getEvents());
   const [selectedEventId, setSelectedEventId] = useState<string>(() => {
     const loaded = getEvents();
-    return loaded.length > 0 ? loaded[0].id : '';
+    return initialEventId || loaded[0]?.id || '';
   });
   const [claimToast, setClaimToast] = useState<string | null>(null);
   const [claimingObjectiveId, setClaimingObjectiveId] = useState<string | null>(null);
+  const [eventClock, setEventClock] = useState(() => Date.now());
+  const [bannerAspectRatios, setBannerAspectRatios] = useState<Record<string, number>>({});
+  const bannerLoads = useRef(new Set<string>());
 
   useEffect(() => {
     fetchEventsFromServer().then(loaded => {
       setEvents(loaded);
-      if (loaded.length > 0 && !selectedEventId) {
-        setSelectedEventId(loaded[0].id);
-      }
+      setSelectedEventId(current =>
+        initialEventId && loaded.some(event => event.id === initialEventId)
+          ? initialEventId
+          : current && loaded.some(event => event.id === current)
+            ? current
+            : loaded[0]?.id || '',
+      );
     });
+  }, [initialEventId]);
+
+  useEffect(() => {
+    let active = true;
+    events.forEach(event => {
+      if (!event.bannerUrl || bannerLoads.current.has(event.bannerUrl)) return;
+      bannerLoads.current.add(event.bannerUrl);
+      const image = new Image();
+      image.onload = () => {
+        if (!active || image.naturalWidth <= 0 || image.naturalHeight <= 0) return;
+        setBannerAspectRatios(current => ({
+          ...current,
+          [event.bannerUrl]: image.naturalWidth / image.naturalHeight,
+        }));
+      };
+      image.onerror = () => console.error(`Não foi possível carregar a imagem do evento "${event.title}".`);
+      image.src = event.bannerUrl;
+    });
+    return () => { active = false; };
+  }, [events]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setEventClock(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   const claimedIds = user.claimedEventRewardIds || [];
   const selectedEvent = events.find(e => e.id === selectedEventId) || events[0] || getEvents()[0];
+  const eventCountdown = selectedEvent ? getEventTimeRemaining(selectedEvent, eventClock) : null;
 
   const getObjectiveProgress = (event: NinjaEvent, objectiveId: string, fallback: number) =>
     event.id === UCHIHA_EVENT_ID
       ? Math.max(0, Number(user.eventProgress?.[event.id]?.[objectiveId]) || 0)
       : fallback;
+
+  const selectedCompletedCount = selectedEvent?.objectives.filter(objective =>
+    getObjectiveProgress(selectedEvent, objective.id, objective.current) >= objective.target,
+  ).length || 0;
+  const selectedObjectiveCount = selectedEvent?.objectives.length || 0;
+  const selectedCompletion = selectedObjectiveCount
+    ? Math.round((selectedCompletedCount / selectedObjectiveCount) * 100)
+    : 0;
+  const selectedTheme = getEventTheme(
+    selectedEvent ? selectedEvent.theme || getDefaultEventTheme(selectedEvent) : 'naruto-orange',
+  );
 
   const handleClaimReward = async (event: NinjaEvent, objId: string) => {
     const obj = event.objectives.find(o => o.id === objId);
@@ -129,270 +180,249 @@ export default function EventsModal({ user, onClose, onUpdateUser, playClickSoun
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center backdrop-blur-md p-3 sm:p-6 select-none gpu-accelerated">
+    <div className="events-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 select-none gpu-accelerated">
       <motion.div
         initial={false}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="relative w-full max-w-5xl h-[88vh] max-h-[800px] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100"
+        className="events-modal-panel relative flex h-[92dvh] max-h-[900px] w-full max-w-6xl flex-col overflow-hidden text-slate-100"
+        style={getEventThemeStyle(selectedTheme)}
+        data-event-theme-light={selectedTheme.light}
       >
-        {/* Top Bar Header */}
-        <div className="p-4 sm:p-5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between gap-4 z-10">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400">
-              <Calendar className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-lg sm:text-xl font-extrabold font-display uppercase tracking-wider text-slate-100 flex items-center gap-2">
-                Eventos do Mundo Ninja
-                <span className="text-[10px] font-mono bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold">
-                  ATIVOS
-                </span>
-              </h2>
-              <p className="text-xs text-slate-400">Participe dos eventos temporários e ganhe títulos, molduras e moedas!</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              playClickSound();
-              onClose();
-            }}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer border border-slate-700"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Claim Toast Notification */}
         <AnimatePresence>
           {claimToast && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xl border border-emerald-400/40 flex items-center gap-2"
+              className="events-modal-toast absolute left-1/2 top-4 z-50 flex -translate-x-1/2 items-center gap-2"
             >
-              <img src="/static/img/icon/star.svg" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
+              <Sparkles className="h-4 w-4" />
               <span>{claimToast}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Main Content Body */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-slate-950/40">
-          {/* Left Event List Tabs */}
-          <div className="w-full md:w-80 bg-slate-900/60 border-b md:border-b-0 md:border-r border-slate-800/80 p-3 overflow-y-auto space-y-2.5 flex-shrink-0">
-            <h3 className="text-[11px] font-mono uppercase tracking-wider font-bold text-slate-400 px-2 py-1">
-              Eventos Disponíveis
-            </h3>
+        <div className="events-modal-layout flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+          <aside className="events-modal-list w-full flex-shrink-0 overflow-x-auto overflow-y-hidden p-3 md:w-72 md:overflow-x-hidden md:overflow-y-auto md:p-4">
+            <div className="events-modal-event-grid flex gap-2 md:flex-col">
+              {events.map(ev => {
+                const isSelected = ev.id === selectedEventId;
+                const eventTheme = getEventTheme(ev.theme || getDefaultEventTheme(ev));
+                const completedCount = ev.objectives.filter(objective =>
+                  getObjectiveProgress(ev, objective.id, objective.current) >= objective.target,
+                ).length;
+                const totalObjectives = ev.objectives.length;
+                const unclaimedCount = ev.objectives.filter(objective =>
+                  getObjectiveProgress(ev, objective.id, objective.current) >= objective.target &&
+                  !claimedIds.includes(objective.id),
+                ).length;
 
-            {events.map(ev => {
-              const isSelected = ev.id === selectedEventId;
-              const completedCount = ev.objectives.filter(o =>
-                getObjectiveProgress(ev, o.id, o.current) >= o.target,
-              ).length;
-              const totalObj = ev.objectives.length;
-              const unclaimedCount = ev.objectives.filter(o =>
-                getObjectiveProgress(ev, o.id, o.current) >= o.target && !claimedIds.includes(o.id),
-              ).length;
-
-              return (
-                <button
-                  key={ev.id}
-                  onClick={() => {
-                    playClickSound();
-                    setSelectedEventId(ev.id);
-                  }}
-                  className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer relative overflow-hidden group ${
-                    isSelected
-                      ? 'bg-gradient-to-r from-orange-950/60 to-slate-900 border-orange-500/80 shadow-lg shadow-orange-950/20'
-                      : 'bg-slate-900/80 border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/60'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <span className={`text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded ${
-                      ev.featured ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'bg-slate-800 text-slate-400'
-                    }`}>
-                      {ev.badge}
+                return (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedEventId(ev.id);
+                    }}
+                    data-sound="Scroll"
+                    aria-current={isSelected ? 'true' : undefined}
+                    className={`events-modal-event-card group relative w-[min(75vw,250px)] flex-shrink-0 text-left md:w-full ${
+                      isSelected ? 'is-selected' : ''
+                    }`}
+                    style={getEventThemeStyle(eventTheme)}
+                    data-event-theme-light={eventTheme.light}
+                  >
+                    <span className="events-modal-card-art" aria-hidden="true">
+                      {ev.bannerUrl && <img src={ev.bannerUrl} alt="" draggable={false} />}
                     </span>
-                    {unclaimedCount > 0 && (
-                      <span className="bg-red-600 text-white font-mono font-bold text-[10px] px-1.5 py-0.2 rounded-full animate-pulse shadow-md shadow-red-600/40">
-                        {unclaimedCount} Pronto
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="events-modal-event-badge truncate text-[9px] font-black uppercase tracking-[.14em]">
+                        {ev.badge || 'EVENTO'}
                       </span>
-                    )}
-                  </div>
+                      {unclaimedCount > 0 && <span className="events-modal-ready">{unclaimedCount} PRONTO</span>}
+                    </div>
+                    <strong className="mt-1 block truncate text-xs text-slate-100">{ev.title}</strong>
+                    <div className="mt-2 flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400">
+                      <span className="flex min-w-0 items-center gap-1 truncate">
+                        <Clock className="events-modal-event-clock h-3 w-3 flex-none" />
+                        {ev.timeLeft || 'Ativo'}
+                      </span>
+                      <span className="flex-none">{completedCount}/{totalObjectives} metas</span>
+                    </div>
+                    <div className="events-modal-card-progress">
+                      <span style={{ width: `${totalObjectives ? completedCount / totalObjectives * 100 : 0}%` }} />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
 
-                  <h4 className={`text-sm font-bold tracking-tight mb-1 line-clamp-1 ${isSelected ? 'text-orange-400' : 'text-slate-200'}`}>
-                    {ev.title}
-                  </h4>
-
-                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mt-2">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-orange-400/80" />
-                      {ev.timeLeft}
-                    </span>
-                    <span className="font-semibold text-slate-300">
-                      {completedCount}/{totalObj}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Right Event Detail View */}
           {selectedEvent ? (
-            <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
-              {/* Banner Hero */}
-              <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 min-h-[160px] sm:min-h-[200px] flex flex-col justify-end p-5 sm:p-6 shadow-xl">
-                {selectedEvent.bannerUrl && (
-                  <img
-                    src={selectedEvent.bannerUrl || null}
-                    alt={selectedEvent.title || 'Banner de Evento'}
-                    className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-luminosity filter blur-[1px]"
-                  />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
-
-                <div className="relative z-10 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-orange-600/30 text-orange-400 border border-orange-500/40 text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full tracking-wider">
-                      {selectedEvent.badge || 'EVENTO'}
+            <main className="events-modal-detail min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-2 sm:px-6 sm:pb-7 md:pt-5">
+              <div
+                className="events-modal-banner-shell mx-auto mb-5 w-full"
+                style={{ aspectRatio: bannerAspectRatios[selectedEvent.bannerUrl] || 1800 / 770 }}
+              >
+                <div className="lobby-event-banner is-artwork events-modal-banner">
+                  {selectedEvent.bannerUrl && (
+                    <img src={selectedEvent.bannerUrl} alt="" draggable={false} />
+                  )}
+                  <span className="lobby-event-copy">
+                    <small>{selectedEvent.badge || 'EVENTO'}</small>
+                    <strong>{selectedEvent.title || 'Evento Ninja'}</strong>
+                    <span>
+                      {eventCountdown ? (
+                        <>
+                          {selectedEvent.timeLeft} •{' '}
+                          <span className="lobby-event-time-remaining">
+                            <Clock aria-hidden="true" />
+                            {eventCountdown.expired
+                              ? 'Evento encerrado'
+                              : `${eventCountdown.days} dias e ${eventCountdown.hours} horas restantes`}
+                          </span>
+                        </>
+                      ) : selectedEvent.timeLeft || 'Evento ativo'}
                     </span>
-                    <span className="text-xs font-mono text-slate-300 flex items-center gap-1 bg-slate-950/60 px-2.5 py-0.5 rounded-full border border-slate-800">
-                      <Clock className="w-3.5 h-3.5 text-orange-400" />
-                      Tempo restante: <strong className="text-orange-300">{selectedEvent.timeLeft || 'Ativo'}</strong>
-                    </span>
-                  </div>
-
-                  <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white font-display">
-                    {selectedEvent.title || 'Evento Ninja'}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-                    {selectedEvent.description || 'Participe dos desafios e resgate prêmios exclusivos!'}
-                  </p>
+                  </span>
+                  <span className="lobby-event-cta">
+                    <img src="/static/img/banners/btn_banner.webp" alt="" draggable={false} />
+                    <span>Evento ativo</span>
+                  </span>
                 </div>
               </div>
 
-              {/* Objectives Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                  <h3 className="text-xs font-mono uppercase tracking-wider font-extrabold text-orange-400 flex items-center gap-2">
-                    <Trophy className="w-4 h-4" /> Objetivos do Evento
-                  </h3>
-                  <span className="text-xs font-mono text-slate-400">
-                    Progresso das Recompensas
-                  </span>
+              <section className="events-modal-intro mb-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="events-modal-kicker">
+                      <span className="events-modal-kicker-star" aria-hidden="true" />
+                      {selectedEvent.subtitle || 'DESAFIO ESPECIAL'}
+                    </span>
+                    <h3 className="mt-1 text-lg font-black leading-tight text-white sm:text-xl">{selectedEvent.title}</h3>
+                  </div>
+                  <div className="events-modal-summary" aria-label={`${selectedCompletion}% das metas completas`}>
+                    <span
+                      className="events-modal-summary-ring"
+                      style={{
+                        background: `conic-gradient(${selectedTheme.accent} ${selectedCompletion}%, rgba(148, 163, 184, .18) ${selectedCompletion}% 100%)`,
+                      }}
+                    >
+                      <span>{selectedCompletedCount}</span>
+                    </span>
+                    <span className="events-modal-summary-label">
+                      <small>METAS</small>
+                      <strong>/{selectedObjectiveCount}</strong>
+                      <small>COMPLETAS</small>
+                    </span>
+                  </div>
+                </div>
+                {selectedEvent.description && (
+                  <p className="mt-3 max-w-3xl text-xs leading-relaxed text-slate-300 sm:text-sm">
+                    {selectedEvent.description}
+                  </p>
+                )}
+              </section>
+
+              <section className="space-y-3">
+                <div className="events-modal-section-heading">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-orange-300" />
+                    <h3>Metas e recompensas</h3>
+                  </div>
+                  <span>Seu progresso</span>
                 </div>
 
                 <div className="grid gap-3">
-                  {(selectedEvent.objectives || []).map(obj => {
-                  const currentProgress = getObjectiveProgress(selectedEvent, obj.id, obj.current);
-                  const isCompleted = currentProgress >= obj.target;
-                  const isClaimed = claimedIds.includes(obj.id);
-                  const progressPct = Math.min(100, Math.round((currentProgress / Math.max(1, obj.target)) * 100));
+                  {(selectedEvent.objectives || []).map((objective, index) => {
+                    const currentProgress = getObjectiveProgress(selectedEvent, objective.id, objective.current);
+                    const isCompleted = currentProgress >= objective.target;
+                    const isClaimed = claimedIds.includes(objective.id);
+                    const progressPct = Math.min(100, Math.round((currentProgress / Math.max(1, objective.target)) * 100));
 
-                  return (
-                    <div
-                      key={obj.id}
-                      className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all ${
-                        isClaimed
-                          ? 'bg-slate-900/40 border-slate-800/60 opacity-75'
-                          : isCompleted
-                          ? 'bg-gradient-to-r from-emerald-950/30 to-slate-900 border-emerald-500/50 shadow-lg shadow-emerald-950/20'
-                          : 'bg-slate-900/80 border-slate-800/90'
-                      }`}
-                    >
-                      <div className="flex-1 space-y-2 w-full">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                            {isCompleted && <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />}
-                            {obj.description}
-                          </p>
-                          <span className="text-xs font-mono font-bold text-orange-400">
-                            {currentProgress.toLocaleString()} / {obj.target.toLocaleString()}
-                          </span>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
-                          <div
-                            className={`h-full transition-all duration-500 ${
-                              isCompleted
-                                ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                                : 'bg-gradient-to-r from-orange-600 to-amber-500'
-                            }`}
-                            style={{ width: `${progressPct}%` }}
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-2 text-xs text-slate-400">
-                          <Gift className="w-3.5 h-3.5 text-amber-400" />
-                          <span className="inline-flex items-center gap-1">
-                            Recompensa:
-                            {obj.rewardOptions?.length ? (
-                              <strong className="font-semibold text-amber-300">Prêmio surpresa</strong>
-                            ) : obj.rewardType === 'ryos' ? (
+                    return (
+                      <article
+                        key={objective.id}
+                        className={`events-modal-objective ${isClaimed ? 'is-claimed' : ''} ${isCompleted ? 'is-complete' : ''}`}
+                        style={{ animationDelay: `${Math.min(index * 55, 385)}ms` }}
+                      >
+                        <div className="events-modal-objective-index">{isCompleted ? <CheckCircle className="h-4 w-4" /> : String(index + 1).padStart(2, '0')}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                            <h4 className="text-xs font-bold leading-snug text-slate-100 sm:text-sm">{objective.description}</h4>
+                            <span className="whitespace-nowrap text-[10px] font-mono font-bold text-slate-300">
+                              {currentProgress.toLocaleString()} <span className="text-slate-500">/ {objective.target.toLocaleString()}</span>
+                            </span>
+                          </div>
+                          <div className="events-modal-progress-track mt-2">
+                            <span className={isCompleted ? 'is-complete' : ''} style={{ width: `${progressPct}%` }} />
+                          </div>
+                          <div className="events-modal-reward-line flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] text-slate-400">
+                            <Gift className="h-3.5 w-3.5 text-amber-300" />
+                            <span>Recompensa:</span>
+                            {objective.rewardOptions?.length ? (
+                              <strong className="font-bold text-amber-200">Prêmio surpresa</strong>
+                            ) : objective.rewardType === 'ryos' ? (
                               <>
                                 <img src="/static/img/icon/gold.webp" alt="Moedas" className="h-4 w-4 object-contain" />
-                                <strong className="font-semibold text-amber-300">{Number(obj.rewardValue).toLocaleString()}</strong>
+                                <strong className="font-bold text-amber-200">{Number(objective.rewardValue).toLocaleString()} Moedas</strong>
                               </>
-                            ) : obj.rewardType === 'gems' ? (
+                            ) : objective.rewardType === 'gems' ? (
                               <>
-                                <img src="/static/img/icon/ryo.webp" alt="Ryos" className="h-4 w-4 object-contain" />
-                                <strong className="font-semibold text-amber-300">{Number(obj.rewardValue).toLocaleString()}</strong>
+                                <img src="/static/img/icon/ryo.webp" alt="Gems" className="h-4 w-4 object-contain" />
+                                <strong className="font-bold text-amber-200">{Number(objective.rewardValue).toLocaleString()} Gems</strong>
                               </>
                             ) : (
-                              <strong className="font-semibold text-amber-300">{obj.rewardLabel}</strong>
+                              <strong className="font-bold text-amber-200">{objective.rewardLabel}</strong>
                             )}
-                          </span>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="flex-shrink-0 w-full sm:w-auto">
-                        {isClaimed ? (
-                          <button
-                            disabled
-                            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-500 text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-not-allowed"
-                          >
-                            <CheckCircle className="w-4 h-4 text-slate-600" />
-                            Resgatado
-                          </button>
-                        ) : isCompleted ? (
-                          <button
-                            onClick={event => {
-                              event.stopPropagation();
-                              void handleClaimReward(selectedEvent, obj.id);
-                            }}
-                            disabled={claimingObjectiveId === obj.id}
-                            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-mono font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30 border border-emerald-400 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2 animate-bounce"
-                          >
-                            <Gift className="w-4 h-4" />
-                            Resgatar
-                          </button>
-                        ) : (
-                          <button
-                            disabled
-                            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-950/80 border border-slate-800/80 text-slate-500 text-xs font-mono font-bold uppercase tracking-wider cursor-not-allowed text-center"
-                          >
-                            Em Progresso
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+                        <div className="events-modal-objective-action">
+                          {isClaimed ? (
+                            <span className="events-modal-claimed"><CheckCircle className="h-3.5 w-3.5" /> Resgatado</span>
+                          ) : isCompleted ? (
+                            <button
+                              type="button"
+                              onClick={event => {
+                                event.stopPropagation();
+                                void handleClaimReward(selectedEvent, objective.id);
+                              }}
+                              disabled={claimingObjectiveId === objective.id}
+                              className="events-modal-claim"
+                            >
+                              <Gift className="h-3.5 w-3.5" />
+                              {claimingObjectiveId === objective.id ? 'Resgatando…' : 'Resgatar'}
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            </button>
+                          ) : (
+                            <span className="events-modal-in-progress">Em andamento</span>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            </main>
           ) : (
-            <div className="flex-1 p-8 flex flex-col items-center justify-center text-slate-400 font-mono text-sm">
-              <Calendar className="w-12 h-12 text-slate-600 mb-3" />
-              <p>Nenhum evento selecionado ou disponível no momento.</p>
-            </div>
+            <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-slate-400">
+              <Calendar className="h-10 w-10 text-slate-600" />
+              <p className="text-sm">Nenhum evento selecionado ou disponível no momento.</p>
+            </main>
           )}
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            playClickSound();
+            onClose();
+          }}
+          aria-label="Fechar eventos"
+          className="events-modal-close events-modal-close-fixed"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </motion.div>
     </div>
   );
