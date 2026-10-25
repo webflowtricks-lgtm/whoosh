@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rasengan Interativo - Giro e Explosão no Alvo</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #ffffff;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            background-color: #ffffff;
+            cursor: crosshair;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen bg-white font-sans text-slate-800">
+
+    <!-- Canvas principal de tela cheia -->
+    <canvas id="stageCanvas"></canvas>
+
+    <!-- UI Overlay com Controles e Nível -->
+    <div class="absolute top-6 left-6 right-6 flex flex-col sm:flex-row justify-between items-center gap-4 z-20 max-w-4xl mx-auto pointer-events-none">
+        
+        <!-- Status do Jutsu -->
+        <div class="glass-panel px-5 py-3 rounded-2xl text-white pointer-events-auto flex items-center gap-3">
+            <div id="statusIcon" class="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/50 flex items-center justify-center text-cyan-400 font-black">
+                <i class="fa-solid fa-compact-disc animate-spin text-lg" style="animation-duration: 1.5s;"></i>
+            </div>
+            <div>
+                <h1 id="jutsuTitle" class="font-orbitron font-extrabold text-sm sm:text-base tracking-wider text-cyan-400">RASENGAN</h1>
+                <p id="jutsuSub" class="text-[11px] text-slate-300">Pressione e segure para concentrar chakra!</p>
+            </div>
+        </div>
+
+        <!-- Indicador de Poder -->
+        <div class="flex items-center gap-3 pointer-events-auto">
+            <div class="glass-panel px-4 py-2 rounded-xl text-xs font-orbitron text-cyan-300 flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+                <span id="powerLevelLabel">NÍVEL: RASENGAN</span>
+            </div>
+
+            <!-- Som Toggle -->
+            <button onclick="toggleAudio()" id="audioBtn" class="w-11 h-11 rounded-xl glass-panel flex items-center justify-center text-slate-200 hover:text-cyan-400 transition-colors">
+                <i id="audioIcon" class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Mensagem de Instrução Inferior -->
+    <div id="instructionPrompt" class="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-opacity duration-300">
+        <div class="glass-panel px-6 py-2.5 rounded-full text-xs font-orbitron text-cyan-300 flex items-center gap-2 shadow-2xl">
+            <i class="fa-solid fa-hand-pointer animate-bounce text-cyan-400"></i>
+            <span>SEGURE NA TELA PARA CARREGAR • SOLTE PARA LANÇAR</span>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('stageCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Web Audio Synthesizer para Efeitos Sonoros
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        let audioEnabled = true;
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const icon = document.getElementById('audioIcon');
+            icon.className = audioEnabled ? 'fa-solid fa-volume-high text-sm' : 'fa-solid fa-volume-xmark text-sm text-slate-500';
+        }
+
+        function playSound(type, freqFactor = 1) {
+            if (!audioEnabled) return;
+            try {
+                if (!audioCtx) audioCtx = new AudioContext();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'charge') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(150 * freqFactor, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(500 * freqFactor, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'launch') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(800 * freqFactor, audioCtx.currentTime + 0.25);
+                    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.25);
+                } else if (type === 'grind') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220 * freqFactor, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(350 * freqFactor, audioCtx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.08);
+                } else if (type === 'impact') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(250 * freqFactor, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.6);
+                    gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+                }
+            } catch(e){}
+        }
+
+        // Variáveis de Estado
+        let isHolding = false;
+        let holdStartTime = 0;
+        let holdPos = { x: 0, y: 0 };
+        let currentRadius = 35;
+        const MIN_RADIUS = 35;
+        const MAX_RADIUS = 130;
+        let angle = 0;
+        let shake = 0;
+
+        let projectiles = [];
+        let particles = [];
+        let shockwaves = [];
+
+        const jutsuTitle = document.getElementById('jutsuTitle');
+        const jutsuSub = document.getElementById('jutsuSub');
+        const powerLevelLabel = document.getElementById('powerLevelLabel');
+
+        // Desenha o ícone idêntico do Rasengan (Aura, Linhas Espirais e Núcleo Incandescente)
+        function drawExactRasengan(cx, cy, radius, rotAngle) {
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            // Borda suave para dar destaque visual no fundo branco puro
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 40, 100, 0.12)';
+            ctx.fill();
+
+            // Aura radial ciano/azul
+            const grad = ctx.createRadialGradient(0, 0, radius * 0.1, 0, 0, radius * 1.4);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.25, 'rgba(0, 240, 255, 0.95)');
+            grad.addColorStop(0.65, 'rgba(0, 100, 255, 0.55)');
+            grad.addColorStop(1, 'rgba(0, 20, 80, 0)');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius * 1.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Linhas espirais rotativas de vento
+            for (let i = 0; i < 6; i++) {
+                ctx.save();
+                ctx.rotate(rotAngle + (i * Math.PI / 3));
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.lineWidth = Math.max(2, radius * 0.05);
+                ctx.beginPath();
+                ctx.arc(0, 0, radius * 0.45 + (i * (radius * 0.05)), 0, Math.PI * 0.6);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Camada secundária girando na direção oposta
+            for (let j = 0; j < 4; j++) {
+                ctx.save();
+                ctx.rotate(-rotAngle * 1.3 + (j * Math.PI / 2));
+                ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+                ctx.lineWidth = Math.max(1.2, radius * 0.04);
+                ctx.beginPath();
+                ctx.arc(0, 0, radius * 0.6, 0, Math.PI * 0.5);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Núcleo Intenso Brilhante
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = radius * 0.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius * 0.28, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Handlers de Toque / Mouse
+        function startHold(e) {
+            if (e.target.closest('.glass-panel') || e.target.closest('button')) return;
+            e.preventDefault();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            isHolding = true;
+            holdStartTime = Date.now();
+            holdPos = { x: clientX, y: clientY };
+            currentRadius = MIN_RADIUS;
+        }
+
+        function moveHold(e) {
+            if (!isHolding) return;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            holdPos = { x: clientX, y: clientY };
+        }
+
+        function endHold() {
+            if (!isHolding) return;
+            isHolding = false;
+
+            const startX = canvas.width / 2;
+            const startY = canvas.height - 90;
+            const dx = holdPos.x - startX;
+            const dy = holdPos.y - startY;
+            const dist = Math.hypot(dx, dy);
+
+            const speed = 22;
+            projectiles.push({
+                x: startX,
+                y: startY,
+                targetX: holdPos.x,
+                targetY: holdPos.y,
+                vx: (dx / dist) * speed,
+                vy: (dy / dist) * speed,
+                radius: currentRadius,
+                state: 'FLYING', // Estados: FLYING -> GRINDING -> EXPLODED
+                grindTime: 0,
+                maxGrindTime: Math.floor(70 + (currentRadius * 1.1)) // Tempo de giro no alvo
+            });
+
+            playSound('launch', currentRadius / MIN_RADIUS);
+
+            // Reseta HUD
+            jutsuTitle.textContent = "RASENGAN";
+            jutsuSub.textContent = "Pressione e segure para concentrar chakra!";
+            powerLevelLabel.textContent = "NÍVEL: RASENGAN";
+        }
+
+        canvas.addEventListener('mousedown', startHold);
+        canvas.addEventListener('mousemove', moveHold);
+        window.addEventListener('mouseup', endHold);
+
+        canvas.addEventListener('touchstart', startHold, { passive: false });
+        canvas.addEventListener('touchmove', moveHold, { passive: false });
+        window.addEventListener('touchend', endHold);
+
+        // Loop Principal de Animação
+        function animate() {
+            angle += 0.2; // Alta rotação espiral
+
+            ctx.save();
+            
+            // Efeito de Trepidação / Tremor de Tela (Shake)
+            if (shake > 0) {
+                const sx = (Math.random() - 0.5) * shake;
+                const sy = (Math.random() - 0.5) * shake;
+                ctx.translate(sx, sy);
+                shake *= 0.88;
+                if (shake < 0.5) shake = 0;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Carregamento do Rasengan (Cresce continuamente ao segurar)
+            if (isHolding) {
+                const elapsed = (Date.now() - holdStartTime) / 1000;
+                currentRadius = Math.min(MAX_RADIUS, MIN_RADIUS + elapsed * 50);
+
+                const chargeX = canvas.width / 2;
+                const chargeY = canvas.height - 90;
+
+                // Atualização dos nomes de poder
+                if (currentRadius < 55) {
+                    jutsuTitle.textContent = "RASENGAN";
+                    powerLevelLabel.textContent = "NÍVEL: RASENGAN";
+                } else if (currentRadius < 95) {
+                    jutsuTitle.textContent = "ŌDAMA RASENGAN";
+                    powerLevelLabel.textContent = "NÍVEL: ŌDAMA";
+                } else {
+                    jutsuTitle.textContent = "CHŌ ŌDAMA RASENGAN";
+                    powerLevelLabel.textContent = "NÍVEL: CHŌ ŌDAMA";
+                }
+                jutsuSub.textContent = `Poder Concentrado: ${Math.round((currentRadius / MAX_RADIUS) * 100)}%`;
+
+                drawExactRasengan(chargeX, chargeY, currentRadius, angle);
+
+                if (Math.random() < 0.35) {
+                    playSound('charge', currentRadius / MIN_RADIUS);
+                }
+
+                // Partículas de Chakra sendo sugadas para o centro
+                for (let i = 0; i < 3; i++) {
+                    const pAngle = Math.random() * Math.PI * 2;
+                    const pDist = currentRadius * 1.6 + Math.random() * 25;
+                    particles.push({
+                        x: chargeX + Math.cos(pAngle) * pDist,
+                        y: chargeY + Math.sin(pAngle) * pDist,
+                        vx: (chargeX - (chargeX + Math.cos(pAngle) * pDist)) * 0.1,
+                        vy: (chargeY - (chargeY + Math.sin(pAngle) * pDist)) * 0.1,
+                        size: Math.random() * 3.5 + 1,
+                        alpha: 0.85,
+                        color: '#00f0ff'
+                    });
+                }
+            }
+
+            // Atualiza Projéteis em Voo e Giro no Alvo
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+
+                if (p.state === 'FLYING') {
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    drawExactRasengan(p.x, p.y, p.radius, angle);
+
+                    // Rastro de vento durante o voo
+                    particles.push({
+                        x: p.x + (Math.random() - 0.5) * p.radius,
+                        y: p.y + (Math.random() - 0.5) * p.radius,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        size: Math.random() * 3.5 + 1,
+                        alpha: 0.7,
+                        color: '#00f0ff'
+                    });
+
+                    // Chegada no alvo: Muda para o estado de rotação/atrito no local
+                    const distToTarget = Math.hypot(p.targetX - p.x, p.targetY - p.y);
+                    if (distToTarget < 22) {
+                        p.x = p.targetX;
+                        p.y = p.targetY;
+                        p.state = 'GRINDING';
+                    }
+                } 
+                else if (p.state === 'GRINDING') {
+                    p.grindTime++;
+
+                    // MANTÉM A TELA TREMENDO E O RASENGAN GIRANDO EM ALTÍSSIMA VELOCIDADE NO ALVO
+                    shake = Math.min(18, p.radius * 0.22);
+                    drawExactRasengan(p.x, p.y, p.radius, angle * 1.8);
+
+                    if (Math.random() < 0.4) {
+                        playSound('grind', p.radius / MIN_RADIUS);
+                    }
+
+                    // Expulsa faíscas de ar, poeira e vento continuamente durante a perfuração
+                    for (let k = 0; k < 4; k++) {
+                        const sparkAngle = Math.random() * Math.PI * 2;
+                        const sparkSpeed = Math.random() * (p.radius * 0.18) + 2;
+                        particles.push({
+                            x: p.x,
+                            y: p.y,
+                            vx: Math.cos(sparkAngle) * sparkSpeed,
+                            vy: Math.sin(sparkAngle) * sparkSpeed,
+                            size: Math.random() * 4.5 + 1.5,
+                            alpha: 0.9,
+                            color: Math.random() > 0.35 ? '#00f0ff' : '#0066ff'
+                        });
+                    }
+
+                    // FIM DO TEMPO DE ATRITO: EXPLOSÃO RETARDADA
+                    if (p.grindTime >= p.maxGrindTime) {
+                        p.state = 'EXPLODED';
+                        shake = p.radius * 0.65; // Tremor fortíssimo na detonação
+                        playSound('impact', p.radius / MIN_RADIUS);
+
+                        // Onda de choque em expansão
+                        shockwaves.push({
+                            x: p.x,
+                            y: p.y,
+                            radius: p.radius * 0.4,
+                            maxRadius: p.radius * 3.8,
+                            alpha: 1
+                        });
+
+                        // Dispersão massiva de partículas da explosão
+                        for (let k = 0; k < p.radius * 1.6; k++) {
+                            const expAngle = Math.random() * Math.PI * 2;
+                            const expSpeed = Math.random() * (p.radius * 0.28) + 2;
+                            particles.push({
+                                x: p.x,
+                                y: p.y,
+                                vx: Math.cos(expAngle) * expSpeed,
+                                vy: Math.sin(expAngle) * expSpeed,
+                                size: Math.random() * 6 + 2,
+                                alpha: 1,
+                                color: Math.random() > 0.3 ? '#00f0ff' : '#0055ff'
+                            });
+                        }
+
+                        projectiles.splice(i, 1);
+                    }
+                }
+            }
+
+            // Renderiza Ondas de Choque
+            for (let i = shockwaves.length - 1; i >= 0; i--) {
+                const sw = shockwaves[i];
+                sw.radius += 11;
+                sw.alpha -= 0.03;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(0, 240, 255, ${Math.max(0, sw.alpha)})`;
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(sw.x, sw.y, sw.radius * 0.7, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(0, 100, 255, ${Math.max(0, sw.alpha * 0.5)})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+
+                if (sw.alpha <= 0) shockwaves.splice(i, 1);
+            }
+
+            // Renderiza Partículas
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const pt = particles[i];
+                pt.x += pt.vx;
+                pt.y += pt.vy;
+                pt.alpha -= 0.02;
+
+                ctx.fillStyle = pt.color;
+                ctx.globalAlpha = Math.max(0, pt.alpha);
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (pt.alpha <= 0) particles.splice(i, 1);
+            }
+
+            ctx.restore();
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
