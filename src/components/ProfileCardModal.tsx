@@ -202,6 +202,7 @@ export interface ProfileCardData {
   equippedBannerPositionY?: number;
   equippedBannerPositionX?: number;
   equippedShowcaseSkinUrl?: string;
+  createdAt?: string;
   isBot?: boolean;
   level?: number;
   xp?: number;
@@ -246,6 +247,7 @@ export default function ProfileCardModal({
   const isLandscape = useIsMobileLandscape();
   const isMobilePortrait = useIsMobilePortrait();
   const [bannerHover, setBannerHover] = useState<boolean>(false);
+  const [accountCreatedAt, setAccountCreatedAt] = useState(profile.createdAt);
   const [onlineBattleHistory, setOnlineBattleHistory] = useState<OnlineBattleHistoryRecord[]>([]);
   const [onlineHistoryLoading, setOnlineHistoryLoading] = useState(true);
   const [onlineHistoryError, setOnlineHistoryError] = useState<string | null>(null);
@@ -259,6 +261,25 @@ export default function ProfileCardModal({
     fetchCardsFromServer().then(setAllCards);
     fetchShopItemsFromServer().then(setTitleItems);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    setAccountCreatedAt(profile.createdAt);
+    void fetch(`/api/user/profile?username=${encodeURIComponent(profile.username)}`)
+      .then(async response => {
+        if (!response.ok) return null;
+        return await response.json() as { success?: boolean; user?: { createdAt?: unknown } };
+      })
+      .then(data => {
+        if (active && data?.success && typeof data.user?.createdAt === 'string') {
+          setAccountCreatedAt(data.user.createdAt);
+        }
+      })
+      .catch(error => {
+        console.error('Failed to load profile account creation date:', error);
+      });
+    return () => { active = false; };
+  }, [profile.username, profile.createdAt]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -300,6 +321,14 @@ export default function ProfileCardModal({
     ? t(selectedVillage.name, selectedVillage.englishName)
     : profile.village || t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)');
   const villageIcon = selectedVillage?.icon || '/static/img/icon/vilas/Konohagakure_Symbol.webp';
+  const accountCreatedDate = accountCreatedAt ? new Date(accountCreatedAt) : null;
+  const formattedAccountCreatedAt = accountCreatedDate && Number.isFinite(accountCreatedDate.getTime())
+    ? accountCreatedDate.toLocaleDateString(getLanguage() === 'pt' ? 'pt-BR' : 'en-US', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    : null;
 
   // Rank do jogador (para badge genin)
   const rankRanks = getRanks();
@@ -430,6 +459,12 @@ export default function ProfileCardModal({
             onMouseEnter={() => setBannerHover(true)}
             onMouseLeave={() => setBannerHover(false)}
           >
+            {formattedAccountCreatedAt && (
+              <span className="absolute right-2 top-2 z-20 inline-flex max-w-[55%] items-center gap-1 rounded-md border border-white/20 bg-slate-950/75 px-1.5 py-1 text-[8px] font-mono font-bold text-white/90 shadow sm:right-3 sm:top-3 sm:gap-1.5 sm:px-2 sm:text-[10px]">
+                <Calendar className="h-3 w-3 shrink-0 text-amber-300 sm:h-3.5 sm:w-3.5" />
+                <span className="truncate">{t('Cadastro', 'Joined')} · {formattedAccountCreatedAt}</span>
+              </span>
+            )}
             {profile.equippedBannerUrl ? (
               <>
                 <img

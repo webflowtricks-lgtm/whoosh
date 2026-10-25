@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckCircle, Mail, Send, ShieldAlert } from 'lucide-react';
-import type { QuestReward } from '../types';
+import type { QuestReward, ShopItem } from '../types';
 import { configFetch } from '../lib/api';
 import { CARD_PACK_REWARD_MAX } from '../lib/cardRoulette';
+import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
 
 type RewardType = QuestReward['type'] | 'none';
 
@@ -13,9 +14,18 @@ export default function AdminMailCenter({ playClickSound }: { playClickSound: ()
   const [message, setMessage] = useState('');
   const [rewardType, setRewardType] = useState<RewardType>('none');
   const [rewardValue, setRewardValue] = useState('');
+  const [skillSkinItems, setSkillSkinItems] = useState<ShopItem[]>(() =>
+    getShopItems().filter(item => item.category === 'skill_skin'),
+  );
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    fetchShopItemsFromServer().then(items => {
+      setSkillSkinItems(items.filter(item => item.category === 'skill_skin'));
+    });
+  }, []);
 
   const sendMessage = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -129,6 +139,7 @@ export default function AdminMailCenter({ playClickSound }: { playClickSound: ()
                 <option value="unlock_character">Personagem</option>
                 <option value="frame">Moldura</option>
                 <option value="banner">Banner</option>
+                <option value="skill_skin">Skin de habilidade</option>
                 <option value="card_pack">Pacotes Ninja Card</option>
               </select>
             </label>
@@ -143,17 +154,34 @@ export default function AdminMailCenter({ playClickSound }: { playClickSound: ()
                     ? 'Quantidade'
                     : 'ID ou valor do prêmio'}
               </span>
-              <input
-                required
-                type={rewardType === 'ryos' || rewardType === 'gems' || rewardType === 'card_pack' ? 'number' : 'text'}
-                min={rewardType === 'ryos' || rewardType === 'gems' || rewardType === 'card_pack' ? 1 : undefined}
-                max={rewardType === 'card_pack' ? CARD_PACK_REWARD_MAX : undefined}
-                step={rewardType === 'ryos' || rewardType === 'gems' || rewardType === 'card_pack' ? 1 : undefined}
-                value={rewardValue}
-                onChange={event => setRewardValue(event.target.value)}
-                maxLength={2048}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-sky-500"
-              />
+              {rewardType === 'skill_skin' ? (
+                <select
+                  required
+                  value={rewardValue}
+                  onChange={event => setRewardValue(event.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-sky-500"
+                >
+                  <option value="">Selecione uma skin de habilidade</option>
+                  {rewardValue && !skillSkinItems.some(item => item.id === rewardValue) && (
+                    <option value={rewardValue}>{rewardValue} (ID salvo)</option>
+                  )}
+                  {skillSkinItems.map(item => (
+                    <option key={item.id} value={item.id}>{item.name} — {item.skillCharacterId}/{item.skillName}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  required
+                  type={rewardType === 'ryos' || rewardType === 'gems' || rewardType === 'card_pack' ? 'number' : 'text'}
+                  min={rewardType === 'ryos' || rewardType === 'gems' || rewardType === 'card_pack' ? 1 : undefined}
+                  max={rewardType === 'card_pack' ? CARD_PACK_REWARD_MAX : undefined}
+                  step={rewardType === 'ryos' || rewardType === 'gems' || rewardType === 'card_pack' ? 1 : undefined}
+                  value={rewardValue}
+                  onChange={event => setRewardValue(event.target.value)}
+                  maxLength={2048}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-sky-500"
+                />
+              )}
             </label>
           )}
 

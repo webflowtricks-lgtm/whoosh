@@ -1339,6 +1339,7 @@ function GameOverOverlay({
                     name: user.name,
                     username: user.username,
                     photoUrl: user.photoUrl,
+                    createdAt: user.createdAt,
                     title: user.title,
                     equippedFrame: user.equippedFrame,
                     equippedFrameUrl: user.equippedFrameUrl,
@@ -2132,6 +2133,218 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
 
   // Floating text animations
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
+  const [rasenganAnimation, setRasenganAnimation] = useState<{ sourceId: string; targetId: string; token: number } | null>(null);
+  const rasenganAnimationTokenRef = useRef(0);
+  const rasenganCanvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!rasenganAnimation) return;
+
+    const canvas = rasenganCanvasRef.current;
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return;
+
+    const findCombatantRow = (id: string) =>
+      Array.from(document.querySelectorAll<HTMLElement>('[data-combatant-id]'))
+        .find(element => element.dataset.combatantId === id) || null;
+    const getCardPoint = (id: string, isSource: boolean) => {
+      const row = findCombatantRow(id);
+      if (!row) return null;
+      const card = row.querySelector<HTMLElement>('.mv-combatant-panel [data-combatant-target], [data-combatant-target]') || row;
+      const bounds = card.getBoundingClientRect();
+      return {
+        x: bounds.left + bounds.width / 2,
+        y: isSource
+          ? Math.max(24, bounds.top + Math.min(bounds.height * 0.2, 36))
+          : bounds.top + bounds.height / 2,
+      };
+    };
+
+    const start = getCardPoint(rasenganAnimation.sourceId, true);
+    const target = getCardPoint(rasenganAnimation.targetId, false);
+    if (!start || !target) return;
+
+    const resizeCanvas = () => {
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(window.innerWidth * pixelRatio);
+      canvas.height = Math.round(window.innerHeight * pixelRatio);
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    };
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const particles: Array<{
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      size: number;
+      alpha: number;
+      color: string;
+    }> = [];
+    let impactBurstCreated = false;
+    const emitParticles = (x: number, y: number, count: number, mode: 'charge' | 'flight' | 'grind' | 'impact') => {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = mode === 'charge' ? 0.08 + Math.random() * 0.12
+          : mode === 'flight' ? 0.3 + Math.random() * 1.2
+          : mode === 'grind' ? 1.2 + Math.random() * 3
+          : 3 + Math.random() * 7;
+        const spawnRadius = mode === 'charge' ? 42 + Math.random() * 30
+          : mode === 'flight' ? 18 + Math.random() * 46
+          : 2 + Math.random() * 12;
+        particles.push({
+          x: x + Math.cos(angle) * spawnRadius,
+          y: y + Math.sin(angle) * spawnRadius,
+          vx: mode === 'charge' ? -Math.cos(angle) * speed * spawnRadius : Math.cos(angle) * speed,
+          vy: mode === 'charge' ? -Math.sin(angle) * speed * spawnRadius : Math.sin(angle) * speed,
+          size: 1.5 + Math.random() * (mode === 'impact' ? 4 : 2.5),
+          alpha: mode === 'impact' ? 1 : 0.82,
+          color: Math.random() > 0.3 ? '#00f0ff' : '#247bff',
+        });
+      }
+      if (particles.length > 260) particles.splice(0, particles.length - 260);
+    };
+
+    const drawRasengan = (x: number, y: number, radius: number, rotation: number) => {
+      context.save();
+      context.translate(x, y);
+      context.beginPath();
+      context.arc(0, 0, radius, 0, Math.PI * 2);
+      context.fillStyle = 'rgba(0, 40, 100, 0.12)';
+      context.fill();
+
+      const aura = context.createRadialGradient(0, 0, radius * 0.1, 0, 0, radius * 1.4);
+      aura.addColorStop(0, '#ffffff');
+      aura.addColorStop(0.25, 'rgba(0, 240, 255, 0.95)');
+      aura.addColorStop(0.65, 'rgba(0, 100, 255, 0.55)');
+      aura.addColorStop(1, 'rgba(0, 20, 80, 0)');
+      context.fillStyle = aura;
+      context.beginPath();
+      context.arc(0, 0, radius * 1.4, 0, Math.PI * 2);
+      context.fill();
+
+      for (let i = 0; i < 6; i++) {
+        context.save();
+        context.rotate(rotation + i * Math.PI / 3);
+        context.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+        context.lineWidth = Math.max(1.5, radius * 0.05);
+        context.beginPath();
+        context.arc(0, 0, radius * (0.45 + i * 0.05), 0, Math.PI * 0.6);
+        context.stroke();
+        context.restore();
+      }
+      for (let i = 0; i < 4; i++) {
+        context.save();
+        context.rotate(-rotation * 1.3 + i * Math.PI / 2);
+        context.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+        context.lineWidth = Math.max(1, radius * 0.04);
+        context.beginPath();
+        context.arc(0, 0, radius * 0.6, 0, Math.PI * 0.5);
+        context.stroke();
+        context.restore();
+      }
+
+      context.fillStyle = '#fff';
+      context.shadowColor = '#00f0ff';
+      context.shadowBlur = radius * 0.5;
+      context.beginPath();
+      context.arc(0, 0, radius * 0.28, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
+    };
+
+    let animationFrame = 0;
+    let startedAt: number | null = null;
+    const chargeDuration = 780;
+    const flightDuration = 420;
+    const grindDuration = 1600;
+    const impactDuration = 550;
+    const animate = (now: number) => {
+      if (startedAt === null) startedAt = now;
+      const elapsed = now - startedAt;
+      context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      if (elapsed < chargeDuration) {
+        const progress = elapsed / chargeDuration;
+        const radius = 24 + progress * 32;
+        drawRasengan(start.x, start.y, radius, elapsed * 0.022);
+        emitParticles(start.x, start.y, 3, 'charge');
+      } else if (elapsed < chargeDuration + flightDuration) {
+        const progress = Math.min(1, (elapsed - chargeDuration) / flightDuration);
+        const eased = 1 - Math.pow(1 - progress, 2.4);
+        const x = start.x + (target.x - start.x) * eased;
+        const y = start.y + (target.y - start.y) * eased;
+        emitParticles(x, y, 2, 'flight');
+        drawRasengan(x, y, 56, elapsed * 0.04);
+      } else if (elapsed < chargeDuration + flightDuration + grindDuration) {
+        const grindElapsed = elapsed - chargeDuration - flightDuration;
+        const shakeX = Math.sin(grindElapsed * 0.025) * 0.7;
+        const shakeY = Math.cos(grindElapsed * 0.029) * 0.7;
+        const orbX = target.x + shakeX;
+        const orbY = target.y + shakeY;
+        emitParticles(orbX, orbY, 4, 'grind');
+        drawRasengan(orbX, orbY, 56, elapsed * 0.095);
+      } else if (elapsed < chargeDuration + flightDuration + grindDuration + impactDuration) {
+        const progress = (elapsed - chargeDuration - flightDuration - grindDuration) / impactDuration;
+        const opacity = 1 - progress;
+        if (!impactBurstCreated) {
+          emitParticles(target.x, target.y, 54, 'impact');
+          impactBurstCreated = true;
+        }
+        context.save();
+        context.globalAlpha = opacity;
+        context.strokeStyle = '#00eaff';
+        context.shadowColor = '#00d9ff';
+        context.shadowBlur = 18;
+        context.lineWidth = 4 * opacity + 1;
+        context.beginPath();
+        context.arc(target.x, target.y, 12 + progress * 70, 0, Math.PI * 2);
+        context.stroke();
+        context.strokeStyle = 'rgba(36, 107, 255, 0.8)';
+        context.lineWidth = 2;
+        context.beginPath();
+        context.arc(target.x, target.y, 8 + progress * 48, 0, Math.PI * 2);
+        context.stroke();
+        context.restore();
+        drawRasengan(target.x, target.y, 56 * opacity, elapsed * 0.11);
+      } else {
+        context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        setRasenganAnimation(current => current?.token === rasenganAnimation.token ? null : current);
+        return;
+      }
+
+      particles.forEach(particle => {
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.vx *= 0.97;
+        particle.vy *= 0.97;
+        particle.alpha -= 0.018;
+        context.save();
+        context.globalAlpha = Math.max(0, particle.alpha);
+        context.fillStyle = particle.color;
+        context.shadowColor = '#00d9ff';
+        context.shadowBlur = 7;
+        context.beginPath();
+        context.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        context.fill();
+        context.restore();
+      });
+      for (let i = particles.length - 1; i >= 0; i--) {
+        if (particles[i].alpha <= 0) particles.splice(i, 1);
+      }
+
+      animationFrame = requestAnimationFrame(animate);
+    };
+    animationFrame = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      window.removeEventListener('resize', resizeCanvas);
+      context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    };
+  }, [rasenganAnimation]);
   // 🎯 Sistema de floating texts agrupados por tipo: textos com o mesmo conteúdo aparecem
   // simultaneamente em TODOS os alvos, depois somem e o próximo grupo aparece.
   // O buffer acumula textos durante uma resolução; o flush agrupa por texto e exibe em sequência.
@@ -4977,7 +5190,6 @@ const handleTradeChakra = () => {
 
       // Find target combatant
       const defaultTarget = targetList.find(c => c.id === action.targetId) || sourceList.find(c => c.id === action.targetId) || source;
-
       // Regra condicional de contra-ataque/reflexo (noCounterReflectWhenActiveRules): se a habilidade
       // listada estiver ATIVA (em mim ou no alvo), esta skill NÃO pode ser contra-atacada e/ou refletida
       if (rawSkill.noCounterReflectWhenActiveRules && rawSkill.noCounterReflectWhenActiveRules.length > 0) {
@@ -5845,6 +6057,14 @@ const handleTradeChakra = () => {
         });
         addFloatingText(target.id, 'REFLETIDO!', 'effect');
         addFloatingText(source.id, 'ALVO DE REFLECT!', 'damage');
+      }
+
+      if (skill.skillVisualEffect === 'rasengan' && !isReflected && target.id !== source.id && !target.isDead) {
+        setRasenganAnimation({
+          sourceId: source.id,
+          targetId: target.id,
+          token: ++rasenganAnimationTokenRef.current,
+        });
       }
 
       // Skill parameters
@@ -18565,6 +18785,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
   <div
     className="min-h-screen text-slate-100 flex flex-col font-sans relative select-none"
   >
+      {rasenganAnimation && createPortal(
+        <canvas
+          ref={rasenganCanvasRef}
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-[100]"
+        />,
+        document.body
+      )}
       {questSyncError && gameOver && (
         <div role="alert" className="fixed left-1/2 top-4 z-[100] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 rounded-xl border border-red-400/50 bg-red-950/95 p-4 text-sm text-red-100 shadow-2xl">
           <p className="font-bold">Não foi possível salvar o progresso da missão.</p>

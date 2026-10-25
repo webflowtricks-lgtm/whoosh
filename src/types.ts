@@ -361,6 +361,8 @@ export interface Skill {
   desc: string;
   icon: string;
   cost: ChakraType[];
+  skillSkinId?: string;
+  skillVisualEffect?: 'rasengan';
   costRules?: SkillCostRule[];
   targetRules?: SkillTargetRule[];
   cooldownRules?: SkillCooldownRule[];
@@ -1170,6 +1172,7 @@ export interface UserProfile {
   username: string;
   name: string;
   photoUrl: string;
+  createdAt?: string;
   xp?: number;
   rank?: string;
   wins?: number;
@@ -1187,6 +1190,7 @@ export interface UserProfile {
   ryos?: number;
   gems?: number;
   unlockedSkins?: string[];
+  unlockedSkillSkins?: string[];
   unlockedFrames?: string[];
   unlockedFrameUrls?: string[];
   equippedFrame?: string;
@@ -1246,7 +1250,7 @@ export interface NinjaPack {
 export interface ShopItem {
   id: string;
   name: string;
-  category: 'title' | 'skin' | 'frame' | 'bundle';
+  category: 'title' | 'skin' | 'skill_skin' | 'frame' | 'bundle';
   description: string;
   currency: 'ryos' | 'gems';
   price: number;
@@ -1258,6 +1262,10 @@ export interface ShopItem {
   frameImageUrl?: string;
   skinImageUrl?: string;
   characterName?: string;
+  skillCharacterId?: string;
+  skillName?: string;
+  skillVisualEffect?: 'rasengan';
+  addedAt?: string;
   badge?: string;
   bundleGrant?: {
     type: 'ryos' | 'gems';
@@ -1296,7 +1304,7 @@ export interface NinjaEventObjective {
   description: string;
   current: number;
   target: number;
-  rewardType: 'ryos' | 'gems' | 'title' | 'frame' | 'skin' | 'banner';
+  rewardType: 'ryos' | 'gems' | 'title' | 'frame' | 'skin' | 'skill_skin' | 'banner';
   rewardValue: string | number;
   rewardLabel: string;
   rewardFrameImageUrl?: string;
@@ -1444,7 +1452,7 @@ export interface QuestGoal {
 }
 
 export interface QuestReward {
-  type: 'title' | 'unlock_character' | 'frame' | 'banner' | 'card' | 'card_pack' | 'ryos' | 'gems';
+  type: 'title' | 'unlock_character' | 'frame' | 'banner' | 'card' | 'skill_skin' | 'card_pack' | 'ryos' | 'gems';
   value: string; // Título, nome do personagem, nome/descrição da moldura ou banner, ou ID do card
   imageUrl?: string; // URL da imagem da moldura ou banner de fundo do perfil (ou imagem do card)
   rarity?: CardRarity;

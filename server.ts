@@ -39,6 +39,7 @@ import {
   type TrackedEventProgress,
 } from "./src/lib/uchihaEvent";
 import { buildDefaultCards } from "./src/lib/cardStorage";
+import { DEFAULT_SHOP_TAB_ORDER, isValidShopTabOrder } from "./src/lib/shopTabOrder";
 import {
   CARD_ROULETTE_CHANCES,
   CARD_ROULETTE_COST,
@@ -61,6 +62,7 @@ const RECURRING_QUEST_SETTINGS_FILE = path.join(DATA_DIR, "recurring_quest_setti
 const QUEST_REWARD_BASELINE_FILE = path.join(DATA_DIR, "quest_reward_baseline.json");
 const RANKS_FILE = path.join(DATA_DIR, "ranks.json");
 const SHOP_FILE = path.join(DATA_DIR, "shop.json");
+const SHOP_TAB_ORDER_FILE = path.join(DATA_DIR, "shop_tab_order.json");
 const EVENTS_FILE = path.join(DATA_DIR, "events.json");
 const BANNERS_FILE = path.join(DATA_DIR, "banners.json");
 const FRAMES_FILE = path.join(DATA_DIR, "frames.json");
@@ -268,7 +270,7 @@ function grantQuestRewards(
       continue;
     }
 
-    const token = ['title', 'unlock_character', 'frame', 'banner', 'card'].includes(reward.type)
+    const token = ['title', 'unlock_character', 'frame', 'banner', 'card', 'skill_skin'].includes(reward.type)
       ? `${reward.type}:${reward.value}`
       : null;
     if (!token) throw new Error(`Tipo de recompensa não suportado: ${reward.type}.`);
@@ -296,6 +298,8 @@ function grantQuestRewards(
       }
     } else if (reward.type === 'card') {
       newlyGranted = addUniqueQuestReward(profile, 'collectedCardIds', reward.value);
+    } else if (reward.type === 'skill_skin') {
+      newlyGranted = addUniqueQuestReward(profile, 'unlockedSkillSkins', reward.value);
     }
     snapshot.items.push(token);
     if (newlyGranted) granted.push(reward);
@@ -370,7 +374,7 @@ function persistJsonFile<T>(filePath: string, data: T): boolean {
 function isQuestMaintenanceReward(value: unknown): value is QuestReward {
   if (!value || typeof value !== "object") return false;
   const reward = value as Record<string, unknown>;
-  if (!["title", "unlock_character", "frame", "banner", "card", "card_pack", "ryos", "gems"].includes(String(reward.type)) ||
+  if (!["title", "unlock_character", "frame", "banner", "card", "skill_skin", "card_pack", "ryos", "gems"].includes(String(reward.type)) ||
       typeof reward.value !== "string" || !reward.value.trim() || reward.value.length > 2048) return false;
   if (reward.type === "card_pack" && cardPackRewardQuantity(reward.value) === null) return false;
   if ((reward.type === "ryos" || reward.type === "gems") &&
@@ -557,6 +561,7 @@ async function startServer() {
       password: password, // Simple plain password as requested
       name: name.trim(),
       photoUrl: photoUrl || "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+      createdAt: new Date().toISOString(),
     };
 
     users.push(newUser);
@@ -565,7 +570,7 @@ async function startServer() {
     res.json({
       success: true,
       sessionTicket: createSessionTicket(newUser.username),
-      user: { username: newUser.username, name: newUser.name, photoUrl: newUser.photoUrl }
+      user: { username: newUser.username, name: newUser.name, photoUrl: newUser.photoUrl, createdAt: newUser.createdAt }
     });
   });
 
@@ -586,7 +591,7 @@ async function startServer() {
     res.json({
       success: true,
       sessionTicket: createSessionTicket(user.username),
-      user: { username: user.username, name: user.name, photoUrl: user.photoUrl }
+      user: { username: user.username, name: user.name, photoUrl: user.photoUrl, createdAt: user.createdAt }
     });
   });
 
@@ -614,6 +619,7 @@ async function startServer() {
       email?: string;
       name?: string;
       photoUrl?: string;
+      createdAt?: string;
     }>>(USERS_FILE, []);
     let user = users.find(account => account.googleId === claims.sub) ||
       users.find(account => account.email?.toLowerCase() === claims.email?.toLowerCase());
@@ -633,6 +639,7 @@ async function startServer() {
         email: claims.email,
         name: claims.name?.slice(0, 100) || username,
         photoUrl: claims.picture?.slice(0, 2048) || "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+        createdAt: new Date().toISOString(),
       };
       users.push(user);
     } else {
@@ -646,7 +653,7 @@ async function startServer() {
     res.json({
       success: true,
       sessionTicket: createSessionTicket(user.username),
-      user: { username: user.username, name: user.name, photoUrl: user.photoUrl },
+      user: { username: user.username, name: user.name, photoUrl: user.photoUrl, createdAt: user.createdAt },
     });
   });
 
@@ -1204,7 +1211,7 @@ async function startServer() {
       account.activeTokenHash === hashSessionToken(sessionToken));
 
   const globalConfigWritePaths = new Set([
-    "/api/characters", "/api/ranks", "/api/shop", "/api/events",
+    "/api/characters", "/api/ranks", "/api/shop", "/api/shop/tab-order", "/api/events",
     "/api/banners", "/api/frames", "/api/cards", "/api/cards/packs", "/api/cards/roulette-settings",
     "/api/cards/roulette-cost",
     "/api/quests", "/api/recurring-quest-settings", "/api/ai-settings", "/api/config/import",
@@ -2108,6 +2115,20 @@ async function startServer() {
     res.json({ success: true, message: "Loja atualizada no servidor com sucesso!" });
   });
 
+  app.get("/api/shop/tab-order", (req, res) => {
+    const order = readJSON<unknown>(SHOP_TAB_ORDER_FILE, DEFAULT_SHOP_TAB_ORDER);
+    res.json({ success: true, order: isValidShopTabOrder(order) ? order : DEFAULT_SHOP_TAB_ORDER });
+  });
+
+  app.post("/api/shop/tab-order", (req, res) => {
+    const { order } = req.body;
+    if (!isValidShopTabOrder(order)) {
+      return res.status(400).json({ error: "Ordem das abas da loja inválida." });
+    }
+    writeJSON(SHOP_TAB_ORDER_FILE, order);
+    res.json({ success: true, message: "Ordem das abas da loja atualizada." });
+  });
+
   // Events API
   app.get("/api/events", (req, res) => {
     const defaultEvents = [
@@ -2983,6 +3004,7 @@ async function startServer() {
     const characters = readJSON<any[]>(CHARACTERS_FILE, []);
     const quests = readJSON<any[]>(QUESTS_FILE, []);
     const shop = readJSON<any[]>(SHOP_FILE, []);
+    const shopTabOrder = readJSON<unknown>(SHOP_TAB_ORDER_FILE, DEFAULT_SHOP_TAB_ORDER);
     const events = readJSON<any[]>(EVENTS_FILE, []);
     const ranks = readJSON<any[]>(RANKS_FILE, []);
     const banners = readJSON<any[]>(BANNERS_FILE, []);
@@ -3005,6 +3027,7 @@ async function startServer() {
       characters,
       quests,
       shop,
+      shopTabOrder: isValidShopTabOrder(shopTabOrder) ? shopTabOrder : DEFAULT_SHOP_TAB_ORDER,
       events,
       ranks,
       banners,
@@ -3042,6 +3065,9 @@ async function startServer() {
     if (data.cardRouletteCost !== undefined &&
         !isValidCardRouletteCost(data.cardRouletteCost)) {
       return res.status(400).json({ error: "Configuração do custo da roleta inválida." });
+    }
+    if (data.shopTabOrder !== undefined && !isValidShopTabOrder(data.shopTabOrder)) {
+      return res.status(400).json({ error: "Ordem das abas da loja inválida." });
     }
 
     let countDetails: string[] = [];
@@ -3086,6 +3112,10 @@ async function startServer() {
     if (Array.isArray(data.shop)) {
       writeJSON(SHOP_FILE, data.shop);
       countDetails.push(`${data.shop.length} Itens da Loja`);
+    }
+    if (data.shopTabOrder !== undefined) {
+      writeJSON(SHOP_TAB_ORDER_FILE, data.shopTabOrder);
+      countDetails.push("Ordem das abas da loja");
     }
     if (Array.isArray(data.events)) {
       writeJSON(EVENTS_FILE, data.events);

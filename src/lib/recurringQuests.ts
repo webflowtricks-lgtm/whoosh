@@ -212,7 +212,7 @@ export function getRecurringChestTiers(
 
 export function isValidRecurringQuestRewards(value: unknown): value is QuestReward[] {
   const rewardTypes: QuestReward['type'][] = [
-    'title', 'unlock_character', 'frame', 'banner', 'card', 'card_pack', 'ryos', 'gems',
+    'title', 'unlock_character', 'frame', 'banner', 'card', 'skill_skin', 'card_pack', 'ryos', 'gems',
   ];
   return Array.isArray(value) && value.length > 0 && value.length <= 8 && value.every(item => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return false;

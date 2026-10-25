@@ -232,9 +232,10 @@
       "yamato-(s)-base",
       "anko-mitarashi-base",
       "orochimaru-(s)-base",
-      "gaara-base"
+      "gaara-base",
+      "choji-base"
     ],
-    "ryos": 135295,
+    "ryos": 135694,
     "gems": 30000,
     "village": "konoha",
     "villageChangeCount": 1,
@@ -478,7 +479,9 @@
       "990d97af-7cb0-430f-873b-442c0d86b1c5",
       "a866306b-8de8-4928-bc20-f84fdb52c2e6",
       "e20cc307-49e1-4788-b5cc-81323e49a189",
-      "f373267b-ea51-4f12-92a7-ed3111d36741"
+      "f373267b-ea51-4f12-92a7-ed3111d36741",
+      "db9f66ca-7f03-45e1-828e-b76ca2d7d4d1",
+      "ab0db2f5-1272-4461-a0d4-b9867f417889"
     ],
     "questMaintenanceInbox": [
       {
@@ -548,7 +551,8 @@
     },
     "claimedRecurringChestIds": [
       "daily-2026-10-24-chest-1",
-      "weekly-2026-W43-chest-1"
+      "weekly-2026-W43-chest-1",
+      "daily-2026-10-25-chest-1"
     ],
     "equippedFrameUrl": null,
     "equippedBannerPositionX": 50,
@@ -735,7 +739,7 @@
       "weekly-2026-W43-weekly-damage": [
         {
           "id": "weekly-2026-W43-weekly-damage-damage",
-          "currentValue": 3380,
+          "currentValue": 3560,
           "currentStreak": 0
         }
       ],
@@ -756,7 +760,7 @@
       "weekly-2026-W43-weekly-stuns": [
         {
           "id": "weekly-2026-W43-weekly-stuns-stuns",
-          "currentValue": 2,
+          "currentValue": 4,
           "currentStreak": 0
         }
       ],
@@ -771,6 +775,34 @@
         {
           "id": "weekly-2026-W43-weekly-counters-counters",
           "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-25-daily-victory": [
+        {
+          "id": "daily-2026-10-25-daily-victory-win",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-25-daily-technique": [
+        {
+          "id": "daily-2026-10-25-daily-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-25-daily-squad": [
+        {
+          "id": "daily-2026-10-25-daily-squad-characters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-25-daily-damage": [
+        {
+          "id": "daily-2026-10-25-daily-damage-damage",
+          "currentValue": 180,
           "currentStreak": 0
         }
       ]
@@ -789,7 +821,8 @@
       "b1644f58-cd32-4e1e-8d02-ff0997b55fc6",
       "1792857387992-dy2h066lwo",
       "1792873552742-emhip5lkqqa",
-      "1792884316567-ptfmv1f10up"
+      "1792884316567-ptfmv1f10up",
+      "1792939758829-pcci8f8il9j"
     ],
     "claimedRecurringChestIds": [
       "daily-2026-10-24-chest-1"
@@ -834,6 +867,17 @@
         "ryos": 400,
         "gems": 0,
         "items": []
+      }
+    },
+    "eventProgress": {
+      "lacos-uchiha-sasuke-itachi": {
+        "uchiha-sasuke-wins": 0,
+        "uchiha-itachi-wins": 0,
+        "uchiha-sasuke-skills": 0,
+        "uchiha-itachi-skills": 0,
+        "uchiha-sasuke-damage": 0,
+        "uchiha-itachi-damage": 0,
+        "uchiha-sasuke-team-damage": 40
       }
     }
   },

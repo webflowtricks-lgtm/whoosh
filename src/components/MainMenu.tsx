@@ -509,6 +509,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               name: user.name,
               username: user.username,
               photoUrl: user.photoUrl,
+              createdAt: user.createdAt,
               title: user.title,
               equippedFrame: user.equippedFrame,
               equippedFrameUrl: user.equippedFrameUrl,

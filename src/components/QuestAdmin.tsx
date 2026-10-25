@@ -9,12 +9,13 @@ import {
   ArrowLeft, Plus, Trash2, Edit3, Save, Sparkles, CheckCircle, AlertTriangle, 
   Search, Shield, Image, Trophy, Heart, ShieldAlert, Zap, Swords, UserPlus
 } from 'lucide-react';
-import { Quest, QuestGoal, QuestReward, Character, NinjaCard } from '../types';
+import { Quest, QuestGoal, QuestReward, Character, NinjaCard, ShopItem } from '../types';
 import { getCharacters } from '../lib/characterStorage';
 import { getCards, fetchCardsFromServer, CARD_RARITY_META } from '../lib/cardStorage';
 import { getGoalDescription } from '../lib/questUtils';
 import { safeFetchJson, saveGlobalConfig } from '../lib/api';
 import { RankConfig, getRanks, fetchRanksFromServer } from '../lib/rankStorage';
+import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
 
 interface QuestAdminProps {
   onBack: () => void;
@@ -72,6 +73,9 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
   // Reward card autocomplete (figuras colecionáveis)
   const [allCards, setAllCards] = useState<NinjaCard[]>(() => getCards());
   const [showRewardCardSuggestions, setShowRewardCardSuggestions] = useState(false);
+  const [skillSkinItems, setSkillSkinItems] = useState<ShopItem[]>(() =>
+    getShopItems().filter(item => item.category === 'skill_skin'),
+  );
 
   // Fetch quests, ranks and characters on mount
   useEffect(() => {
@@ -97,6 +101,9 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
     setAllSkillNames(Array.from(skills).sort());
     setAllTagsList(Array.from(tagsSet).sort());
     fetchCardsFromServer().then(setAllCards);
+    fetchShopItemsFromServer().then(items => {
+      setSkillSkinItems(items.filter(item => item.category === 'skill_skin'));
+    });
   }, []);
 
   const fetchQuests = async () => {
@@ -1001,6 +1008,7 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                             <option value="banner">🖼️ Banner do Perfil (Fundo do Card)</option>
                             <option value="frame">🖼️ Moldura (Frame da Foto)</option>
                             <option value="card">🃏 Figura Colecionável (Card)</option>
+                            <option value="skill_skin">✨ Skin de Habilidade</option>
                             <option value="ryos">🪙 Moedas</option>
                             <option value="gems">💠 Ryos</option>
                           </select>
@@ -1039,6 +1047,27 @@ export default function QuestAdmin({ onBack, playClickSound }: QuestAdminProps) 
                                     ))}
                                 </div>
                               )}
+                            </div>
+                          ) : r.type === 'skill_skin' ? (
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">
+                                Skin de Habilidade
+                              </label>
+                              <select
+                                value={r.value}
+                                onChange={event => updateRewardField(rIdx, 'value', event.target.value)}
+                                className="w-full bg-slate-950 border border-sky-500/40 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                              >
+                                <option value="">Selecione uma skin cadastrada na loja</option>
+                                {r.value && !skillSkinItems.some(item => item.id === r.value) && (
+                                  <option value={r.value}>{r.value} (ID salvo)</option>
+                                )}
+                                {skillSkinItems.map(item => (
+                                  <option key={item.id} value={item.id}>
+                                    {item.name} — {item.skillCharacterId}/{item.skillName}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
                           ) : r.type === 'banner' || r.type === 'frame' ? (
                             <div className="space-y-2">

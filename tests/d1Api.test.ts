@@ -245,7 +245,7 @@ class MemoryStatement implements D1PreparedStatement {
 
   async first<T = Row>(): Promise<T | null> {
     const q = this.query.replace(/\s+/g, ' ').trim().toLowerCase();
-    if (q.startsWith('select username, password_salt, password_hash, profile_json from accounts')) {
+    if (q.startsWith('select username, password_salt, password_hash, profile_json')) {
       return (this.db.accounts.get(String(this.values[0])) as T) || null;
     }
     if (q.startsWith('select profile_json from accounts')) {
@@ -843,11 +843,14 @@ test('registers accounts with hashed passwords, rejects duplicates, and verifies
   assert.equal(registration?.status, 200);
   const created = await responseBody(registration!);
   assert.equal(typeof created.sessionTicket, 'string');
-  assert.deepEqual(created.user, {
+  const { createdAt, ...createdProfile } = created.user as Record<string, unknown>;
+  assert.deepEqual(createdProfile, {
     username: 'beta_test',
     name: 'Beta Test',
     photoUrl: 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg',
   });
+  assert.equal(typeof createdAt, 'string');
+  assert.equal(Number.isFinite(Date.parse(String(createdAt))), true);
   assert.equal(JSON.stringify(created).includes('correct horse'), false);
   assert.notEqual(env.DB.accounts.get('beta_test')?.password_hash, 'correct horse');
 

@@ -140,6 +140,7 @@ export default function EventsModal({
     let newFrames = [...(user.unlockedFrames || ['Padrão'])];
     let newFrameUrls = [...(user.unlockedFrameUrls || [])];
     let newSkins = [...(user.unlockedSkins || [])];
+    let newSkillSkins = [...(user.unlockedSkillSkins || [])];
 
     if (obj.rewardType === 'ryos' && typeof obj.rewardValue === 'number') {
       newRyos += Number(obj.rewardValue);
@@ -161,6 +162,10 @@ export default function EventsModal({
       if (!newSkins.includes(obj.rewardValue)) {
         newSkins.push(obj.rewardValue);
       }
+    } else if (obj.rewardType === 'skill_skin' && typeof obj.rewardValue === 'string') {
+      if (!newSkillSkins.includes(obj.rewardValue)) {
+        newSkillSkins.push(obj.rewardValue);
+      }
     }
 
     const updatedUser: UserProfile = {
@@ -171,6 +176,7 @@ export default function EventsModal({
       unlockedFrames: newFrames,
       unlockedFrameUrls: newFrameUrls,
       unlockedSkins: newSkins,
+      unlockedSkillSkins: newSkillSkins,
       claimedEventRewardIds: [...claimedIds, objId]
     };
 

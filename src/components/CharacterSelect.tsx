@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Shield, ChevronLeft, ChevronRight, ArrowLeft, Swords, RefreshCw, Sparkles, Search, Filter, Star, AlertTriangle, Shirt, Lock, X, Eye } from 'lucide-react';
-import { Character, ChakraType, UserProfile, Quest, Skill } from '../types';
+import { Character, ChakraType, UserProfile, Quest, Skill, ShopItem } from '../types';
 import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
 import {
   DEFAULT_AI_ENEMY_CHARACTER_LIMIT,
@@ -20,6 +20,7 @@ import { matchFetch } from '../lib/matchFetch';
 import { getCharacterLockReason, isCharacterUnlocked } from '../lib/characterUnlocks';
 import MangekyoLoader from './MangekyoLoader';
 import SkinMedia from './SkinMedia';
+import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
 
 const MATCHMAKING_TIMEOUT_MS = 90_000;
 
@@ -336,11 +337,35 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   // Skins state
   const [showSkinsTab, setShowSkinsTab] = useState(false);
   const [equippedSkins, setEquippedSkins] = useState<Record<string, string>>({});
+  const [equippedSkillSkins, setEquippedSkillSkins] = useState<Record<string, string>>({});
+  const [skillSkinItems, setSkillSkinItems] = useState<ShopItem[]>(() =>
+    getShopItems().filter(item => item.category === 'skill_skin')
+  );
 
-  const attachSkinsToTeam = (team: Character[]) => {
+  useEffect(() => {
+    fetchShopItemsFromServer().then(items => {
+      setSkillSkinItems(items.filter(item => item.category === 'skill_skin'));
+    });
+  }, []);
+
+  const attachSkinsToTeam = (team: Character[], includeSkillSkins = false) => {
     return (team || []).map(char => {
       if (!char) return char;
       const skinId = equippedSkins[char.id];
+      const unlockedSkillSkinIds = new Set(user.unlockedSkillSkins || []);
+      const skills = (Array.isArray(char.skills) ? char.skills : []).map(skill => {
+        if (!includeSkillSkins) return skill;
+        const equippedId = equippedSkillSkins[`${char.id}:${skill.name}`];
+        const item = skillSkinItems.find(candidate =>
+          candidate.id === equippedId &&
+          candidate.skillCharacterId === char.id &&
+          candidate.skillName === skill.name &&
+          unlockedSkillSkinIds.has(candidate.id),
+        );
+        return item?.skillVisualEffect
+          ? { ...skill, skillSkinId: item.id, skillVisualEffect: item.skillVisualEffect }
+          : skill;
+      });
       let selectedSkinUrl: string | undefined = char.selectedSkinUrl;
       const charSkins = Array.isArray(char.skins) ? char.skins : [];
 
@@ -366,7 +391,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       return {
         ...char,
         skins: charSkins,
-        skills: Array.isArray(char.skills) ? char.skills : [],
+        skills,
         selectedSkinId: skinId || 'default',
         selectedSkinUrl: selectedSkinUrl
       };
@@ -378,7 +403,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     playUahSound();
 
     const rawPlayerTeam = charList.filter(c => selectedIds.includes(c.id));
-    const playerTeam = attachSkinsToTeam(rawPlayerTeam);
+    const playerTeam = attachSkinsToTeam(rawPlayerTeam, true);
 
     const remaining = charList
       .slice(0, aiEnemyCharacterLimit)
@@ -404,7 +429,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     if (selectedIds.length !== 3) return;
     playUahSound();
     const rawPlayerTeam = charList.filter(c => selectedIds.includes(c.id));
-    const playerTeam = attachSkinsToTeam(rawPlayerTeam);
+    const playerTeam = attachSkinsToTeam(rawPlayerTeam, true);
     setSandboxPlayerTeam(playerTeam);
     setSelectedIds([]); // clear for enemy team selection
   };
@@ -438,7 +463,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     if (selectedIds.length !== 3) return;
     playUahSound();
 
-    const playerTeam = attachSkinsToTeam(charList.filter(c => selectedIds.includes(c.id)));
+    const playerTeam = attachSkinsToTeam(charList.filter(c => selectedIds.includes(c.id)), true);
 
     setIsMatchmaking(true);
     setMatchmakingStatus('searching');
@@ -941,6 +966,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       />
                     </div>
                   </div>
+
                 ) : (
                   <p className="mt-4 text-xs text-blue-200">
                     {t('Preparando o carregamento...', 'Preparing to load...')}
@@ -1620,6 +1646,74 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           </div>
                         );
                       });
+                    })()}
+                  </div>
+
+                  <div className="space-y-2 border-t border-amber-900/20 pt-3">
+                    <div className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-amber-950">
+                      <svg className="h-4 w-4 text-amber-800" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path fillRule="evenodd" clipRule="evenodd" d="M7.7572 6.3431L11.9998 2.10046L16.2425 6.3431L11.9998 10.5857L7.7572 6.3431ZM10.5856 6.3431L11.9998 4.92889L13.4141 6.3431L11.9998 7.75732L10.5856 6.3431Z" fill="currentColor" />
+                        <path fillRule="evenodd" clipRule="evenodd" d="M2.10046 11.9999L6.3431 7.75726L10.5857 11.9999L6.3431 16.2425L2.10046 11.9999ZM4.92889 11.9999L6.3431 10.5857L7.75732 11.9999L6.3431 13.4141L4.92889 11.9999Z" fill="currentColor" />
+                        <path fillRule="evenodd" clipRule="evenodd" d="M13.4142 11.9999L17.6568 16.2425L21.8995 11.9999L17.6568 7.75726L13.4142 11.9999ZM17.6568 10.5857L16.2426 11.9999L17.6568 13.4141L19.071 11.9999L17.6568 10.5857Z" fill="currentColor" />
+                        <path fillRule="evenodd" clipRule="evenodd" d="M7.7572 17.6569L11.9998 13.4142L16.2425 17.6569L11.9998 21.8995L7.7572 17.6569ZM10.5856 17.6569L11.9998 16.2427L13.4141 17.6569L11.9998 19.0711L10.5856 17.6569Z" fill="currentColor" />
+                      </svg>
+                      SKINS DE HABILIDADE
+                    </div>
+                    {(() => {
+                      const ownedSkillSkins = skillSkinItems.filter(item =>
+                        item.skillCharacterId === previewCharacter.id &&
+                        (previewCharacter.skills || []).some(skill => skill.name === item.skillName) &&
+                        (user.unlockedSkillSkins || []).includes(item.id),
+                      );
+
+                      if (ownedSkillSkins.length === 0) {
+                        return (
+                          <p className="rounded-lg border border-amber-900/20 bg-amber-950/10 px-3 py-2 text-[10px] font-mono text-amber-900/70">
+                            Nenhuma skin de habilidade desbloqueada para este personagem.
+                          </p>
+                        );
+                      }
+
+                      return (
+                        <div className="flex flex-wrap gap-2">
+                          {ownedSkillSkins.map(item => {
+                            const equipKey = `${previewCharacter.id}:${item.skillName}`;
+                            const isEquipped = equippedSkillSkins[equipKey] === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => {
+                                  playUahSound();
+                                  setEquippedSkillSkins(current => {
+                                    const next = { ...current };
+                                    if (next[equipKey] === item.id) delete next[equipKey];
+                                    else next[equipKey] = item.id;
+                                    return next;
+                                  });
+                                }}
+                                className={`flex min-w-40 items-center gap-2 rounded-xl border px-3 py-2 text-left transition ${
+                                  isEquipped
+                                    ? 'border-amber-700 bg-amber-100/75 text-amber-950 ring-2 ring-amber-600/50'
+                                    : 'border-amber-900/30 bg-amber-100/75 text-amber-950 hover:border-amber-700 hover:bg-amber-100'
+                                }`}
+                              >
+                                <svg className={`h-5 w-5 shrink-0 ${isEquipped ? 'text-amber-700' : 'text-amber-800'}`} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                  <path fillRule="evenodd" clipRule="evenodd" d="M7.7572 6.3431L11.9998 2.10046L16.2425 6.3431L11.9998 10.5857L7.7572 6.3431ZM10.5856 6.3431L11.9998 4.92889L13.4141 6.3431L11.9998 7.75732L10.5856 6.3431Z" fill="currentColor" />
+                                  <path fillRule="evenodd" clipRule="evenodd" d="M2.10046 11.9999L6.3431 7.75726L10.5857 11.9999L6.3431 16.2425L2.10046 11.9999ZM4.92889 11.9999L6.3431 10.5857L7.75732 11.9999L6.3431 13.4141L4.92889 11.9999Z" fill="currentColor" />
+                                  <path fillRule="evenodd" clipRule="evenodd" d="M13.4142 11.9999L17.6568 16.2425L21.8995 11.9999L17.6568 7.75726L13.4142 11.9999ZM17.6568 10.5857L16.2426 11.9999L17.6568 13.4141L19.071 11.9999L17.6568 10.5857Z" fill="currentColor" />
+                                  <path fillRule="evenodd" clipRule="evenodd" d="M7.7572 17.6569L11.9998 13.4142L16.2425 17.6569L11.9998 21.8995L7.7572 17.6569ZM10.5856 17.6569L11.9998 16.2427L13.4141 17.6569L11.9998 19.0711L10.5856 17.6569Z" fill="currentColor" />
+                                </svg>
+                                <span className="min-w-0">
+                                  <span className="block truncate text-[10px] font-black uppercase">{item.name}</span>
+                                  <span className="block truncate text-[9px] font-mono">{item.skillName}</span>
+                                  {isEquipped && <span className="block text-[8px] font-black uppercase text-amber-800">Equipado</span>}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
                     })()}
                   </div>
                 </div>

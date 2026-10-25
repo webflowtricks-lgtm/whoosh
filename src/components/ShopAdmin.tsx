@@ -7,12 +7,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   ShoppingBag, Plus, Trash2, Edit3, Save, RefreshCw, 
   CheckCircle, AlertTriangle, Search, Award, Shield, 
-  CircleDollarSign, Shirt, Sparkles, Tag, Eye
+  CircleDollarSign, Shirt, Sparkles, Tag, Eye, ArrowUp, ArrowDown
 } from 'lucide-react';
-import { ShopItem } from '../types';
+import { Character, ShopItem } from '../types';
 import { getShopItems, saveShopItems, resetToDefaultShopItems, fetchShopItemsFromServer } from '../lib/shopStorage';
+import { DEFAULT_SHOP_TAB_ORDER, fetchShopTabOrder, saveShopTabOrder, ShopTabId } from '../lib/shopTabOrder';
 import { getTitleThemeClass, TITLE_THEME_OPTIONS } from '../lib/titleThemes';
 import { motion, AnimatePresence } from 'motion/react';
+import { fetchCharactersFromServer, getCharacters } from '../lib/characterStorage';
 
 interface ShopAdminProps {
   playClickSound: () => void;
@@ -20,10 +22,13 @@ interface ShopAdminProps {
 
 export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
   const [items, setItems] = useState<ShopItem[]>([]);
+  const [characters, setCharacters] = useState<Character[]>(() => getCharacters());
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [editingItem, setEditingItem] = useState<ShopItem | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [shopTabOrder, setShopTabOrder] = useState<ShopTabId[]>(DEFAULT_SHOP_TAB_ORDER);
+  const [isSavingTabOrder, setIsSavingTabOrder] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -36,6 +41,8 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
         setEditingItem(JSON.parse(JSON.stringify(loaded[0])));
       }
     });
+    fetchCharactersFromServer().then(setCharacters);
+    fetchShopTabOrder().then(setShopTabOrder);
   }, []);
 
   useEffect(() => {
@@ -57,6 +64,26 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
     setTimeout(() => setErrorMessage(''), 4000);
   };
 
+  const moveShopTab = async (index: number, offset: -1 | 1) => {
+    const targetIndex = index + offset;
+    if (targetIndex < 0 || targetIndex >= shopTabOrder.length || isSavingTabOrder) return;
+    playClickSound();
+    const previousOrder = shopTabOrder;
+    const nextOrder = [...shopTabOrder];
+    [nextOrder[index], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[index]];
+    setShopTabOrder(nextOrder);
+    setIsSavingTabOrder(true);
+    try {
+      await saveShopTabOrder(nextOrder);
+      showSuccess('Ordem das abas da loja salva!');
+    } catch (error) {
+      setShopTabOrder(previousOrder);
+      showError(error instanceof Error ? error.message : 'Falha ao salvar a ordem das abas da loja.');
+    } finally {
+      setIsSavingTabOrder(false);
+    }
+  };
+
   const handleCreateNewItem = async () => {
     playClickSound();
     const newId = `shop-item-${Date.now().toString().slice(-4)}`;
@@ -67,7 +94,7 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
       description: 'Descrição do novo item da loja.',
       currency: 'ryos',
       price: 500,
-      badge: 'NOVO'
+      addedAt: new Date().toISOString(),
     };
 
     const updated = [...items, newItem];
@@ -94,6 +121,11 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
 
     if (editingItem.price < 0) {
       showError('O preço do item deve ser maior ou igual a zero.');
+      return;
+    }
+    if (editingItem.category === 'skill_skin' &&
+        (!editingItem.skillCharacterId?.trim() || !editingItem.skillName?.trim() || !editingItem.skillVisualEffect)) {
+      showError('Informe o ID do personagem, a habilidade e o efeito visual da skin.');
       return;
     }
 
@@ -211,12 +243,61 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
           </button>
         </div>
 
+        <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-300">Ordem das abas da loja</h4>
+            {isSavingTabOrder && <RefreshCw className="h-3 w-3 animate-spin text-amber-400" />}
+          </div>
+          <p className="mb-2 text-[9px] text-slate-500">TODOS fica fixo em primeiro. Use as setas para organizar as demais abas.</p>
+          <ol className="space-y-1">
+            <li className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1.5 text-[10px] font-mono font-bold text-slate-400">
+              <span>1. TODOS (fixo)</span>
+              <span className="text-[8px] uppercase text-slate-600">fixo</span>
+            </li>
+            {shopTabOrder.map((tab, index) => {
+              const labels: Record<ShopTabId, string> = {
+                title: 'Títulos',
+                skin: 'Skins',
+                frame: 'Molduras de Perfil',
+                bundle: 'Pacotes & Moedas',
+                roulette: 'Roleta',
+              };
+              return (
+                <li key={tab} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/70 px-2 py-1">
+                  <span className="text-[10px] font-mono font-bold text-slate-300">{index + 2}. {labels[tab]}</span>
+                  <span className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => void moveShopTab(index, -1)}
+                      disabled={index === 0 || isSavingTabOrder}
+                      aria-label={`Mover ${labels[tab]} para cima`}
+                      className="rounded border border-slate-700 p-1 text-slate-400 hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ArrowUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void moveShopTab(index, 1)}
+                      disabled={index === shopTabOrder.length - 1 || isSavingTabOrder}
+                      aria-label={`Mover ${labels[tab]} para baixo`}
+                      className="rounded border border-slate-700 p-1 text-slate-400 hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ArrowDown className="h-3 w-3" />
+                    </button>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+
         {/* Filter Category Buttons */}
         <div className="flex items-center gap-1 overflow-x-auto pb-1">
           {[
             { id: 'all', label: 'Tudo' },
             { id: 'title', label: 'Títulos' },
             { id: 'skin', label: 'Skins' },
+            { id: 'skill_skin', label: 'Skins de Habilidade' },
             { id: 'frame', label: 'Molduras' },
             { id: 'bundle', label: 'Pacotes' }
           ].map(cat => (
@@ -264,6 +345,7 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                   <div className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-amber-400 flex-shrink-0">
                     {item.category === 'title' && <Award className="w-4 h-4 text-amber-400" />}
                     {item.category === 'skin' && <Shirt className="w-4 h-4 text-orange-400" />}
+                    {item.category === 'skill_skin' && <Sparkles className="w-4 h-4 text-sky-400" />}
                     {item.category === 'frame' && <Shield className="w-4 h-4 text-blue-400" />}
                     {item.category === 'bundle' && <CircleDollarSign className="w-4 h-4 text-cyan-400" />}
                   </div>
@@ -280,7 +362,7 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                   </div>
                 </div>
 
-                {!item.id.startsWith('title-core-') && (
+                {!item.id.startsWith('title-core-') && item.id !== 'skill-skin-rasengan-perfeito' && (
                   <button
                     onClick={e => {
                       e.stopPropagation();
@@ -364,6 +446,7 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                 >
                   <option value="title">Título Shinobi (title)</option>
                   <option value="skin">Skin de Ninja (skin)</option>
+                  <option value="skill_skin">Skin de Habilidade (skill_skin)</option>
                   <option value="frame">Moldura de Perfil (frame)</option>
                   <option value="bundle">Pacote de Moedas (bundle)</option>
                 </select>
@@ -436,6 +519,72 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                       className="w-full px-3 py-2 bg-slate-950 border border-amber-500/40 text-slate-100 rounded-xl text-xs outline-none"
                     />
                   </div>
+                </>
+              )}
+
+              {editingItem.category === 'skill_skin' && (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-sky-400 mb-1">ID do Personagem Proprietário</label>
+                    <select
+                      value={editingItem.skillCharacterId || ''}
+                      onChange={e => setEditingItem({ ...editingItem, skillCharacterId: e.target.value, skillName: '' })}
+                      className="w-full px-3 py-2 bg-slate-950 border border-sky-500/40 text-slate-100 rounded-xl text-xs outline-none font-mono"
+                    >
+                      <option value="">Selecione um personagem</option>
+                      {editingItem.skillCharacterId &&
+                        !characters.some(character => character.id === editingItem.skillCharacterId) && (
+                          <option value={editingItem.skillCharacterId}>{editingItem.skillCharacterId} (ID salvo)</option>
+                        )}
+                      {characters.map(character => (
+                        <option key={character.id} value={character.id}>{character.name} — {character.id}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-sky-400 mb-1">Nome Exato da Habilidade</label>
+                    <select
+                      value={editingItem.skillName || ''}
+                      onChange={e => setEditingItem({ ...editingItem, skillName: e.target.value })}
+                      disabled={!editingItem.skillCharacterId}
+                      className="w-full px-3 py-2 bg-slate-950 border border-sky-500/40 text-slate-100 rounded-xl text-xs outline-none disabled:opacity-50"
+                    >
+                      <option value="">Selecione uma habilidade</option>
+                      {editingItem.skillName &&
+                        !characters.find(character => character.id === editingItem.skillCharacterId)?.skills
+                          .some(skill => skill.name === editingItem.skillName) && (
+                          <option value={editingItem.skillName}>{editingItem.skillName} (salva)</option>
+                        )}
+                      {Array.from(new Set(
+                        characters.find(character => character.id === editingItem.skillCharacterId)?.skills.map(skill => skill.name) || [],
+                      )).map(skillName => (
+                        <option key={skillName} value={skillName}>{skillName}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-sky-400 mb-1">Efeito Visual</label>
+                    <select
+                      value={editingItem.skillVisualEffect || ''}
+                      onChange={e => setEditingItem({ ...editingItem, skillVisualEffect: e.target.value === 'rasengan' ? 'rasengan' : undefined })}
+                      className="w-full px-3 py-2 bg-slate-950 border border-sky-500/40 text-slate-100 rounded-xl text-xs outline-none"
+                    >
+                      <option value="">Selecione</option>
+                      <option value="rasengan">Rasengan: carga, lançamento e impacto</option>
+                    </select>
+                  </div>
+                  <p className="md:col-span-2 text-[10px] text-slate-500">
+                    O ID deste item será usado para conceder a skin por loja, evento, missão ou mensagem.
+                  </p>
+                  <label className="md:col-span-2 flex items-center gap-2 text-[10px] font-mono font-bold text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={!editingItem.hiddenFromShop}
+                      onChange={e => setEditingItem({ ...editingItem, hiddenFromShop: !e.target.checked })}
+                      className="accent-sky-500"
+                    />
+                    Disponível para compra na loja (desmarque para distribuir apenas por recompensas)
+                  </label>
                 </>
               )}
 

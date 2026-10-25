@@ -22,7 +22,7 @@ function currencyTotals(rewards: QuestReward[], questId: string): Pick<QuestRewa
 }
 
 function rewardToken(reward: QuestReward): string | null {
-  return ['title', 'unlock_character', 'frame', 'banner', 'card'].includes(reward.type)
+  return ['title', 'unlock_character', 'frame', 'banner', 'card', 'skill_skin'].includes(reward.type)
     ? `${reward.type}:${reward.value}`
     : null;
 }
@@ -34,6 +34,7 @@ function hasReward(profile: Record<string, unknown>, reward: QuestReward): boole
     frame: 'unlockedFrames',
     banner: 'unlockedBanners',
     card: 'collectedCardIds',
+    skill_skin: 'unlockedSkillSkins',
   };
   const field = fields[reward.type];
   return !!field && Array.isArray(profile[field]) && (profile[field] as unknown[]).includes(reward.value);
@@ -187,6 +188,8 @@ export function grantQuestMaintenanceRewards(
       if (wasGranted && !profile.equippedBannerUrl && reward.imageUrl) profile.equippedBannerUrl = reward.imageUrl;
     } else if (reward.type === 'card') {
       wasGranted = addUnique('collectedCardIds', reward.value);
+    } else if (reward.type === 'skill_skin') {
+      wasGranted = addUnique('unlockedSkillSkins', reward.value);
     }
     if (wasGranted) granted.push(reward);
   }

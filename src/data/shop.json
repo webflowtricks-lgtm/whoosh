@@ -216,5 +216,29 @@
     "badge": "RECOMPENSA",
     "titleTheme": "classic",
     "hiddenFromShop": true
+  },
+  {
+    "id": "skill-skin-rasengan-perfeito",
+    "name": "Rasengan Perfeito",
+    "category": "skill_skin",
+    "description": "Efeito visual especial de carga, lançamento e impacto para a habilidade Rasengan do Naruto.",
+    "currency": "ryos",
+    "price": 1500,
+    "skillCharacterId": "naruto",
+    "skillName": "Rasengan",
+    "skillVisualEffect": "rasengan",
+    "badge": "HABILIDADE"
+  },
+  {
+    "id": "shop-item-2614",
+    "name": "Novo Título Ninja",
+    "category": "skill_skin",
+    "description": "Descrição do novo item da loja.",
+    "currency": "ryos",
+    "price": 500,
+    "addedAt": "2026-10-25T16:23:52.614Z",
+    "skillCharacterId": "young-nagato",
+    "skillName": "Air Bullets",
+    "skillVisualEffect": "rasengan"
   }
 ]

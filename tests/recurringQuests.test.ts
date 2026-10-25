@@ -5,10 +5,12 @@ import {
   getCurrentRecurringQuests,
   getRecurringChestClaimId,
   getRecurringChestTiers,
+  isValidRecurringQuestRewards,
   isRecurringChestUnlocked,
 } from '../src/lib/recurringQuests';
 import { evaluateAuthoritativeQuestGoal } from '../src/lib/questProgress';
 import type { QuestBattleStats } from '../src/lib/questProgress';
+import { grantQuestMaintenanceRewards } from '../src/lib/questMaintenance';
 
 test('recurring quests keep IDs within a period and rotate at period boundaries', () => {
   const monday = new Date('2026-10-19T12:00:00.000Z');
@@ -95,4 +97,15 @@ test('distinct-character skill goals count each character once per battle', () =
 
   assert.equal(evaluateAuthoritativeQuestGoal(goal, false, stats).nextValue, 3);
   assert.equal(evaluateAuthoritativeQuestGoal({ ...goal, currentValue: 3 }, false, stats).nextValue, 3);
+});
+
+test('skill-skin rewards validate and grant once to a profile', () => {
+  const reward = { type: 'skill_skin' as const, value: 'skill-skin-rasengan-perfeito' };
+  const profile: Record<string, unknown> = {};
+
+  assert.equal(isValidRecurringQuestRewards([reward]), true);
+  assert.equal(isValidRecurringQuestRewards([{ ...reward, value: '' }]), false);
+  assert.deepEqual(grantQuestMaintenanceRewards(profile, [reward]), [reward]);
+  assert.deepEqual(profile.unlockedSkillSkins, [reward.value]);
+  assert.deepEqual(grantQuestMaintenanceRewards(profile, [reward]), []);
 });

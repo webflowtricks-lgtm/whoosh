@@ -7,6 +7,32 @@ import { ShopItem } from '../types';
 import { safeFetchJson, saveGlobalConfig } from './api';
 
 const STORAGE_KEY = 'naruto_shop_items';
+export const SHOP_NEW_ITEM_DURATION_MS = 5 * 24 * 60 * 60 * 1000;
+
+export function isShopItemNew(item: Pick<ShopItem, 'addedAt'>, now = Date.now()): boolean {
+  if (!item.addedAt) return false;
+  const addedAt = Date.parse(item.addedAt);
+  const age = now - addedAt;
+  return Number.isFinite(addedAt) && age >= 0 && age < SHOP_NEW_ITEM_DURATION_MS;
+}
+
+export function sortShopItemsByAddedAt(items: ShopItem[]): ShopItem[] {
+  return items
+    .map((item, index) => ({
+      item,
+      index,
+      addedAt: item.addedAt ? Date.parse(item.addedAt) : Number.NaN,
+    }))
+    .sort((left, right) => {
+      const leftHasDate = Number.isFinite(left.addedAt);
+      const rightHasDate = Number.isFinite(right.addedAt);
+      if (leftHasDate && rightHasDate) return right.addedAt - left.addedAt || left.index - right.index;
+      if (leftHasDate) return -1;
+      if (rightHasDate) return 1;
+      return left.index - right.index;
+    })
+    .map(({ item }) => item);
+}
 
 export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
   // Títulos Shinobi (Titles)
@@ -84,6 +110,18 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     price: 6000,
     skinImageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=800&auto=format&fit=crop&q=80',
     badge: 'ANBU'
+  },
+  {
+    id: 'skill-skin-rasengan-perfeito',
+    name: 'Rasengan Perfeito',
+    category: 'skill_skin',
+    description: 'Efeito visual especial de carga, lançamento e impacto para a habilidade Rasengan do Naruto.',
+    currency: 'ryos',
+    price: 1500,
+    skillCharacterId: 'naruto',
+    skillName: 'Rasengan',
+    skillVisualEffect: 'rasengan',
+    badge: 'HABILIDADE'
   },
 
   // Molduras de Perfil (Profile Frames)
@@ -171,7 +209,9 @@ function mergeBuiltInTitles(items: ShopItem[]): ShopItem[] {
         ? { ...item, titleTheme: defaultItem.titleTheme }
         : item;
     }),
-    ...DEFAULT_SHOP_ITEMS.filter(item => item.id.startsWith('title-core-') && !existingIds.has(item.id)),
+    ...DEFAULT_SHOP_ITEMS.filter(item =>
+      (item.id.startsWith('title-core-') || item.category === 'skill_skin') && !existingIds.has(item.id),
+    ),
   ];
 }
 

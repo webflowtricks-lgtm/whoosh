@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Box, CheckCircle, Clock3, Gem, PackageOpen, Plus, Save, Trash2, Trophy } from 'lucide-react';
-import type { NinjaCard, QuestReward, RecurringQuestSettings } from '../types';
+import type { NinjaCard, QuestReward, RecurringQuestSettings, ShopItem } from '../types';
 import { getCards, fetchCardsFromServer } from '../lib/cardStorage';
 import { safeFetchJson, saveGlobalConfig } from '../lib/api';
 import { useLanguage } from '../lib/i18n';
+import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
 import {
   getCurrentRecurringQuests,
   getDefaultRecurringQuestSettings,
@@ -20,6 +21,7 @@ const rewardTypes: Array<{ value: QuestReward['type']; label: string }> = [
   { value: 'title', label: 'Título' },
   { value: 'unlock_character', label: 'Desbloquear personagem' },
   { value: 'card', label: 'Figura colecionável' },
+  { value: 'skill_skin', label: 'Skin de habilidade' },
   { value: 'frame', label: 'Moldura' },
   { value: 'banner', label: 'Banner' },
 ];
@@ -27,17 +29,18 @@ const rewardTypes: Array<{ value: QuestReward['type']; label: string }> = [
 function newReward(type: QuestReward['type']): QuestReward {
   if (type === 'ryos' || type === 'gems') return { type, value: '500' };
   if (type === 'card_pack') return { type, value: '1' };
-  if (type === 'card') return { type, value: '' };
+  if (type === 'card' || type === 'skill_skin') return { type, value: '' };
   return { type, value: type === 'title' ? 'Novo título' : '' };
 }
 
 interface RewardEditorProps {
   rewards: QuestReward[];
   cards: NinjaCard[];
+  skillSkinItems: ShopItem[];
   onChange: (rewards: QuestReward[]) => void;
 }
 
-function RewardEditor({ rewards, cards, onChange }: RewardEditorProps) {
+function RewardEditor({ rewards, cards, skillSkinItems, onChange }: RewardEditorProps) {
   const { t } = useLanguage();
   const updateReward = (index: number, update: Partial<QuestReward>) => {
     onChange(rewards.map((reward, itemIndex) => itemIndex === index ? { ...reward, ...update } : reward));
@@ -60,7 +63,26 @@ function RewardEditor({ rewards, cards, onChange }: RewardEditorProps) {
               {rewardTypes.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}
             </select>
           </label>
-          {reward.type === 'card' && cards.length > 0 ? (
+          {reward.type === 'skill_skin' ? (
+            <label className="grid gap-1 text-[10px] font-bold uppercase text-slate-400">
+              {t('Skin de habilidade', 'Ability skin')}
+              <select
+                className="min-h-10 w-full rounded-md border border-slate-700 bg-slate-900 px-2 text-xs text-white"
+                value={reward.value}
+                onChange={event => updateReward(index, { value: event.target.value })}
+              >
+                <option value="">{t('Selecione uma skin', 'Select a skin')}</option>
+                {reward.value && !skillSkinItems.some(item => item.id === reward.value) && (
+                  <option value={reward.value}>{reward.value} (ID salvo)</option>
+                )}
+                {skillSkinItems.map(item => (
+                  <option value={item.id} key={item.id}>
+                    {item.name} — {item.skillCharacterId}/{item.skillName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : reward.type === 'card' && cards.length > 0 ? (
             <label className="grid gap-1 text-[10px] font-bold uppercase text-slate-400">
               {t('Figura', 'Card')}
               <select className="min-h-10 w-full rounded-md border border-slate-700 bg-slate-900 px-2 text-xs text-white" value={reward.value} onChange={event => updateReward(index, { value: event.target.value })}>
@@ -107,6 +129,9 @@ export default function RecurringQuestRewardsAdmin() {
   const { t } = useLanguage();
   const [settings, setSettings] = useState<RecurringQuestSettings>(getDefaultRecurringQuestSettings);
   const [cards, setCards] = useState<NinjaCard[]>(() => getCards());
+  const [skillSkinItems, setSkillSkinItems] = useState<ShopItem[]>(() =>
+    getShopItems().filter(item => item.category === 'skill_skin'),
+  );
   const [view, setView] = useState<RewardsView>('daily-missions');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -118,10 +143,12 @@ export default function RecurringQuestRewardsAdmin() {
     void Promise.all([
       safeFetchJson<{ success?: boolean; settings?: RecurringQuestSettings }>('/api/recurring-quest-settings'),
       fetchCardsFromServer(),
-    ]).then(([result, loadedCards]) => {
+      fetchShopItemsFromServer(),
+    ]).then(([result, loadedCards, loadedShopItems]) => {
       if (!active) return;
       if (result?.success && result.settings) setSettings(result.settings);
       setCards(loadedCards.length ? loadedCards : getCards());
+      setSkillSkinItems(loadedShopItems.filter(item => item.category === 'skill_skin'));
     }).catch(() => {
       if (active) setError(t('Não foi possível carregar as recompensas.', 'Could not load rewards.'));
     }).finally(() => {
@@ -213,7 +240,7 @@ export default function RecurringQuestRewardsAdmin() {
                 </div>
                 <span className="rounded-md border border-emerald-500/30 bg-emerald-950/40 px-2 py-1 text-xs font-bold text-emerald-200">+{quest.recurringPoints} pts</span>
               </header>
-              <RewardEditor rewards={settings.missionRewards[quest.recurringKey!] || quest.rewards} cards={cards} onChange={rewards => updateMissionRewards(quest.recurringKey!, rewards)} />
+              <RewardEditor rewards={settings.missionRewards[quest.recurringKey!] || quest.rewards} cards={cards} skillSkinItems={skillSkinItems} onChange={rewards => updateMissionRewards(quest.recurringKey!, rewards)} />
             </article>
           ))}
         </section>
@@ -225,7 +252,7 @@ export default function RecurringQuestRewardsAdmin() {
                 <h3 className="flex items-center gap-2 font-bold text-white"><PackageOpen className="h-4 w-4 text-amber-400" /> {t('Baú', 'Chest')} {chest.tier}</h3>
                 <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-950/30 px-2 py-1 text-xs font-bold text-amber-200"><Clock3 className="h-3.5 w-3.5" />{chest.points} pts</span>
               </header>
-              <RewardEditor rewards={settings.chestRewards[period][index] || chest.rewards} cards={cards} onChange={rewards => updateChestRewards(period, index, rewards)} />
+              <RewardEditor rewards={settings.chestRewards[period][index] || chest.rewards} cards={cards} skillSkinItems={skillSkinItems} onChange={rewards => updateChestRewards(period, index, rewards)} />
             </article>
           ))}
         </section>

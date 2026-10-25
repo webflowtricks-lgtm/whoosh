@@ -9,7 +9,7 @@ import {
   CheckCircle, AlertTriangle, Search, Trophy, Gift, 
   Clock, Sparkles, Tag, Eye, Star, Target, Shield, Upload, ImageIcon, Shirt, User
 } from 'lucide-react';
-import { NinjaEvent, NinjaEventObjective, Character, CharacterSkin } from '../types';
+import { NinjaEvent, NinjaEventObjective, Character, CharacterSkin, ShopItem } from '../types';
 import { getEvents, saveEvents, resetToDefaultEvents, fetchEventsFromServer } from '../lib/eventStorage';
 import { UCHIHA_EVENT_ID } from '../lib/uchihaEvent';
 import { EVENT_THEMES, getDefaultEventTheme, getEventThemeStyle } from '../lib/eventThemes';
@@ -19,6 +19,7 @@ import { getCharacters, saveCharacters, fetchCharactersFromServer } from '../lib
 import { motion, AnimatePresence } from 'motion/react';
 import SkinMedia from './SkinMedia';
 import { getSkinUploadError } from '../lib/skinMedia';
+import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
 
 interface EventAdminProps {
   playClickSound: () => void;
@@ -56,6 +57,9 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
 
   // Character Skins State
   const [charactersList, setCharactersList] = useState<Character[]>([]);
+  const [skillSkinItems, setSkillSkinItems] = useState<ShopItem[]>(() =>
+    getShopItems().filter(item => item.category === 'skill_skin'),
+  );
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
   const [newSkinCharId, setNewSkinCharId] = useState<string>('');
   const [newSkinName, setNewSkinName] = useState<string>('');
@@ -76,6 +80,9 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
 
     fetchPngFramesFromServer().then(setPngFrames);
     fetchCustomBannersFromServer().then(setCustomBanners);
+    fetchShopItemsFromServer().then(items => {
+      setSkillSkinItems(items.filter(item => item.category === 'skill_skin'));
+    });
 
     fetchCharactersFromServer().then(loadedChars => {
       setCharactersList(loadedChars);
@@ -1587,6 +1594,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                             <option value="banner">🖼️ Banner do Perfil (Fundo)</option>
                             <option value="title">🎖️ Título Shinobi</option>
                             <option value="skin">👘 Skin de Ninja</option>
+                            <option value="skill_skin">✨ Skin de Habilidade</option>
                           </select>
                         </div>
 
@@ -1646,6 +1654,37 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                                 </button>
                               ))}
                             </div>
+                          </div>
+                        ) : editingObjective.rewardType === 'skill_skin' ? (
+                          <div>
+                            <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">
+                              Skin de Habilidade
+                            </label>
+                            <select
+                              value={String(editingObjective.rewardValue)}
+                              onChange={e => {
+                                const item = skillSkinItems.find(candidate => candidate.id === e.target.value);
+                                setEditingObjective({
+                                  ...editingObjective,
+                                  rewardValue: e.target.value,
+                                  rewardLabel: item ? `Skin de Habilidade: ${item.name}` : editingObjective.rewardLabel,
+                                });
+                              }}
+                              className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
+                            >
+                              <option value="">Selecione uma skin cadastrada na loja</option>
+                              {String(editingObjective.rewardValue) &&
+                                !skillSkinItems.some(item => item.id === String(editingObjective.rewardValue)) && (
+                                  <option value={String(editingObjective.rewardValue)}>
+                                    {String(editingObjective.rewardValue)} (ID salvo)
+                                  </option>
+                                )}
+                              {skillSkinItems.map(item => (
+                                <option key={item.id} value={item.id}>
+                                  {item.name} — {item.skillCharacterId}/{item.skillName}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         ) : (
                           <div>

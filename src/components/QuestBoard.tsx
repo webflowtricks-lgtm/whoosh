@@ -33,13 +33,14 @@ import {
   Zap,
   Eye,
 } from 'lucide-react';
-import { Quest, UserProfile, Character, QuestReward, QuestGoal, NinjaCard } from '../types';
+import { Quest, UserProfile, Character, QuestReward, QuestGoal, NinjaCard, ShopItem } from '../types';
 import SkinMedia from './SkinMedia';
 import { getGoalDescription } from '../lib/questUtils';
 import MangekyoLoader from './MangekyoLoader';
 import { RankConfig, getRanks, getUserRankFromConfig, fetchRanksFromServer } from '../lib/rankStorage';
 import { getCharacters } from '../lib/characterStorage';
 import { CARD_RARITY_META, fetchCardsFromServer, getCards } from '../lib/cardStorage';
+import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
 import { useLanguage } from '../lib/i18n';
 
 function renderHighlightedGoalDescription(goal: QuestGoal) {
@@ -107,6 +108,9 @@ export default function QuestBoard({
   const { t } = useLanguage();
   const [quests, setQuests] = useState<Quest[]>([]);
   const [allCards, setAllCards] = useState<NinjaCard[]>(() => getCards());
+  const [skillSkinItems, setSkillSkinItems] = useState<ShopItem[]>(() =>
+    getShopItems().filter(item => item.category === 'skill_skin'),
+  );
   const [ranksList, setRanksList] = useState<RankConfig[]>(getRanks());
   const [loading, setLoading] = useState(true);
   const [mainTab, setMainTab] = useState<'missoes' | 'perfil'>('missoes');
@@ -148,6 +152,9 @@ export default function QuestBoard({
     fetchQuests();
     fetchRanksFromServer().then(r => setRanksList(r));
     fetchCardsFromServer().then(setAllCards);
+    fetchShopItemsFromServer().then(items => {
+      setSkillSkinItems(items.filter(item => item.category === 'skill_skin'));
+    });
   }, []);
 
   useEffect(() => {
@@ -388,7 +395,7 @@ export default function QuestBoard({
             folder: r.value
           });
         }
-      } else if (r.type === 'frame' || r.type === 'banner' || r.type === 'card' || r.type === 'ryos' || r.type === 'gems') {
+      } else if (r.type === 'frame' || r.type === 'banner' || r.type === 'card' || r.type === 'skill_skin' || r.type === 'ryos' || r.type === 'gems') {
         otherRewardsList.push(r);
       }
     });
@@ -753,14 +760,20 @@ export default function QuestBoard({
                   <div className="flex w-full flex-col gap-2">
                     {modalOtherRewards.map((r, rIdx) => {
                       const foundCard = r.type === 'card' ? allCards.find(c => c.id === r.value) : undefined;
+                      const foundSkillSkin = r.type === 'skill_skin'
+                        ? skillSkinItems.find(item => item.id === r.value)
+                        : undefined;
                       const rewardName = r.type === 'title' ? 'Título' :
                         r.type === 'banner' ? 'Banner' :
                         r.type === 'card' ? 'Figura colecionável' :
+                        r.type === 'skill_skin' ? 'Skin de habilidade' :
                         r.type === 'ryos' ? 'Moedas' :
                         r.type === 'gems' ? 'Ryos' : 'Moldura';
                       const rewardValue = r.type === 'card' && foundCard
                         ? `${foundCard.characterName} — ${foundCard.title}`
-                        : r.type === 'ryos' || r.type === 'gems'
+                        : r.type === 'skill_skin'
+                          ? foundSkillSkin?.name || r.value
+                          : r.type === 'ryos' || r.type === 'gems'
                           ? `${Number(r.value).toLocaleString('pt-BR')} ${rewardName}`
                           : r.value;
 
@@ -773,6 +786,7 @@ export default function QuestBoard({
                             {r.type === 'title' ? <Award className="h-4 w-4" /> :
                              r.type === 'banner' ? <Image className="h-4 w-4" /> :
                              r.type === 'card' ? <img src="/static/img/icon/ninja-card-icon.svg" alt="" className="h-5 w-5 object-contain" /> :
+                             r.type === 'skill_skin' ? <Sparkles className="h-4 w-4" /> :
                              r.type === 'ryos' ? <img src="/static/img/icon/gold.webp" alt="" className="h-5 w-5 object-contain" /> :
                              r.type === 'gems' ? <img src="/static/img/icon/ryo.webp" alt="" className="h-5 w-5 object-contain" /> :
                              <Shield className="h-4 w-4" />}
@@ -1116,6 +1130,8 @@ export default function QuestBoard({
                                         <Image className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
                                       ) : r.type === 'card' ? (
                                         <img src="/static/img/icon/ninja-card-icon.svg" alt="" className="w-3.5 h-3.5 flex-shrink-0" />
+                                      ) : r.type === 'skill_skin' ? (
+                                        <Sparkles className="w-3.5 h-3.5 text-sky-600 flex-shrink-0" />
                                       ) : (
                                         <Award className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
                                       )}
@@ -1123,7 +1139,8 @@ export default function QuestBoard({
                                         {r.type === 'title' ? `Título: « ${r.value} »` :
                                           r.type === 'banner' ? 'Banner' :
                                             r.type === 'card' ? 'Figura colecionável' :
-                                              r.type === 'frame' ? `Moldura: ${r.value}` :
+                                                r.type === 'skill_skin' ? `Skin de habilidade: ${skillSkinItems.find(item => item.id === r.value)?.name || r.value}` :
+                                                r.type === 'frame' ? `Moldura: ${r.value}` :
                                                 `Recompensa: ${r.value}`}
                                       </span>
                                     </div>

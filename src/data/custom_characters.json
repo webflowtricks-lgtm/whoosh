@@ -46,18 +46,14 @@
         "name": "Rasengan",
         "desc": "Naruto targets one enemy dealing 45 damage to them and stunning their skills for 1 turn.",
         "icon": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/Rasengan.jpg",
-        "cost": [
-          "Nin",
-          "Rand"
-        ],
-        "cooldown": 2,
+        "cost": [],
+        "cooldown": 0,
         "currentCooldown": 0,
         "targetType": "Enemy",
         "classes": [
           "Chakra",
           "Corpo a Corpo"
         ],
-        "requireEffect": "Shadow Clones",
         "damage": 45,
         "stunTurns": 1,
         "stunType": [

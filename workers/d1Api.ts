@@ -1,5 +1,6 @@
 import { calculateBattleXp } from '../src/lib/battleRewards';
 import { buildDefaultCards } from '../src/lib/cardStorage';
+import { DEFAULT_SHOP_TAB_ORDER, isValidShopTabOrder } from '../src/lib/shopTabOrder';
 import {
   calculateRecurringPoints,
   getCurrentRecurringQuests,
@@ -68,6 +69,7 @@ interface AccountRow {
   password_salt: string | null;
   password_hash: string | null;
   profile_json: string;
+  created_at?: string;
 }
 
 const DEFAULT_AVATAR =
@@ -166,7 +168,11 @@ function publicAccount(row: AccountRow): Record<string, unknown> {
   delete profile.password_salt;
   delete profile.googleId;
   delete profile.email;
-  return { ...profile, username: row.username };
+  return {
+    ...profile,
+    username: row.username,
+    ...(row.created_at ? { createdAt: `${row.created_at.replace(' ', 'T')}Z` } : {}),
+  };
 }
 
 async function createTicket(db: D1Database, username: string): Promise<string> {
@@ -191,7 +197,7 @@ async function register(request: Request, env: D1Env): Promise<Response> {
     : DEFAULT_AVATAR;
   const salt = randomHex(16);
   const passwordHash = await derivePassword(password, salt);
-  const profile = { username, name, photoUrl };
+  const profile = { username, name, photoUrl, createdAt: new Date().toISOString() };
   const created = await env.DB.prepare(`
     INSERT INTO accounts (username, password_salt, password_hash, profile_json)
     VALUES (?, ?, ?, ?)
@@ -211,7 +217,7 @@ async function login(request: Request, env: D1Env): Promise<Response> {
     return error(400, 'Usuário e senha são obrigatórios.');
   }
   const account = await env.DB.prepare(
-    'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
+    'SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts WHERE username = ?',
   ).bind(username).first<AccountRow>();
   if (!account) return error(401, 'Usuário ou senha incorretos.');
   if (!account.password_hash || !account.password_salt ||
@@ -302,14 +308,14 @@ async function googleLogin(request: Request, env: D1Env): Promise<Response> {
     return error(401, 'A identidade Google não pôde ser confirmada.');
   }
   const identity = await env.DB.prepare(`
-    SELECT a.username, a.password_salt, a.password_hash, a.profile_json
+    SELECT a.username, a.password_salt, a.password_hash, a.profile_json, a.created_at
     FROM account_google_identities g JOIN accounts a ON a.username = g.username
     WHERE g.google_subject = ?
   `).bind(claims.sub).first<AccountRow>();
   let account = identity;
   if (!account) {
     const existingByEmail = await env.DB.prepare(`
-      SELECT username, password_salt, password_hash, profile_json FROM accounts
+      SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts
       WHERE lower(json_extract(profile_json, '$.email')) = lower(?) LIMIT 1
     `).bind(claims.email).first<AccountRow>();
     if (existingByEmail) {
@@ -334,7 +340,7 @@ async function googleLogin(request: Request, env: D1Env): Promise<Response> {
         VALUES (?, NULL, NULL, ?)
       `).bind(candidate, JSON.stringify(profile)).run();
       account = await env.DB.prepare(
-        'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
+        'SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts WHERE username = ?',
       ).bind(candidate).first<AccountRow>();
     }
   }
@@ -632,7 +638,7 @@ async function profileRoute(request: Request, env: D1Env, pathname: string): Pro
     const username = normalizedUsername(url.searchParams.get('username'));
     if (!username) return error(400, 'Nome de usuário é obrigatório.');
     const row = await env.DB.prepare(
-      'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
+      'SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts WHERE username = ?',
     ).bind(username).first<AccountRow>();
     if (!row) return error(404, 'Usuário não encontrado.');
     return json({ success: true, user: publicAccount(row) });
@@ -645,7 +651,7 @@ async function profileRoute(request: Request, env: D1Env, pathname: string): Pro
     return error(401, 'Sessão da conta ausente ou revogada. Entre novamente.');
   }
   const row = await env.DB.prepare(
-    'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
+    'SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts WHERE username = ?',
   ).bind(username).first<AccountRow>();
   if (!row) return error(404, 'Usuário não encontrado.');
   const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
@@ -702,6 +708,7 @@ const CONFIGS: Record<string, { key: string; field: string }> = {
   '/api/characters': { key: 'characters', field: 'characters' },
   '/api/ranks': { key: 'ranks', field: 'ranks' },
   '/api/shop': { key: 'shop', field: 'items' },
+  '/api/shop/tab-order': { key: 'shopTabOrder', field: 'order' },
   '/api/events': { key: 'events', field: 'events' },
   '/api/banners': { key: 'banners', field: 'banners' },
   '/api/frames': { key: 'frames', field: 'frames' },
@@ -773,7 +780,7 @@ export async function getD1AccountProfile(
   username: string,
 ): Promise<Record<string, unknown> | null> {
   const row = await db.prepare(
-    'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
+    'SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts WHERE username = ?',
   ).bind(username.trim().toLowerCase()).first<AccountRow>();
   return row ? publicAccount(row) : null;
 }
@@ -798,7 +805,7 @@ function questRewardCurrencyTotals(rewards: QuestReward[], questId: string): Pic
 }
 
 function questItemToken(reward: QuestReward): string | null {
-  return ['title', 'unlock_character', 'frame', 'banner', 'card'].includes(reward.type)
+  return ['title', 'unlock_character', 'frame', 'banner', 'card', 'skill_skin'].includes(reward.type)
     ? `${reward.type}:${reward.value}`
     : null;
 }
@@ -860,6 +867,8 @@ function grantQuestRewards(
       if (granted && !profile.equippedBannerUrl && reward.imageUrl) profile.equippedBannerUrl = reward.imageUrl;
     } else if (reward.type === 'card') {
       granted = addUnique(profile, 'collectedCardIds', reward.value);
+    } else if (reward.type === 'skill_skin') {
+      granted = addUnique(profile, 'unlockedSkillSkins', reward.value);
     }
     if (token && !snapshot.items.includes(token)) snapshot.items.push(token);
     if (granted) newlyGranted.push(reward);
@@ -1256,7 +1265,7 @@ async function recordAiQuestProgress(request: Request, env: D1Env): Promise<Resp
 function isMaintenanceReward(value: unknown): value is QuestReward {
   if (!value || typeof value !== 'object') return false;
   const reward = value as Record<string, unknown>;
-  if (!['title', 'unlock_character', 'frame', 'banner', 'card', 'card_pack', 'ryos', 'gems'].includes(String(reward.type)) ||
+  if (!['title', 'unlock_character', 'frame', 'banner', 'card', 'skill_skin', 'card_pack', 'ryos', 'gems'].includes(String(reward.type)) ||
       typeof reward.value !== 'string' || !reward.value.trim() || reward.value.length > 2048) return false;
   if (reward.type === 'card_pack' && cardPackRewardQuantity(reward.value) === null) return false;
   if ((reward.type === 'ryos' || reward.type === 'gems') &&
@@ -1761,6 +1770,9 @@ async function getConfig(
   if (config.key === 'events') {
     return json({ success: true, events: withUchihaEvent(null) });
   }
+  if (config.key === 'shopTabOrder') {
+    return json({ success: true, order: DEFAULT_SHOP_TAB_ORDER });
+  }
   return error(503, `Configuração ${config.key} ainda não foi migrada para D1.`);
 }
 
@@ -1930,6 +1942,9 @@ async function saveConfig(
     }
     body.settings = [{ maxEnemyCharacterNumber: Number(limit) }];
   }
+  if (config.key === 'shopTabOrder' && !isValidShopTabOrder(body.order)) {
+    return error(400, 'Ordem das abas da loja inválida.');
+  }
   try {
     const previousQuests = config.key === 'quests'
       ? await getD1Config(env.DB, 'quests')
@@ -1975,6 +1990,8 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
         ? (await readConfig(env.DB, config.key) ?? [{ maxEnemyCharacterNumber: 69 }])
         : config.key === 'recurringQuestSettings'
           ? (await readConfig(env.DB, config.key) ?? [getDefaultRecurringQuestSettings()])
+        : config.key === 'shopTabOrder'
+          ? (await readConfig(env.DB, config.key) ?? DEFAULT_SHOP_TAB_ORDER)
         : await readConfig(env.DB, config.key);
       if (items === null) {
         missing = true;
@@ -2016,6 +2033,7 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
       characters: 'characters', quests: 'quests', shop: 'shop', events: 'events',
       ranks: 'ranks', banners: 'banners', frames: 'frames', cards: 'cards', cardPacks: 'cardPacks',
       aiSettings: 'aiSettings', recurringQuestSettings: 'recurringQuestSettings',
+      shopTabOrder: 'shopTabOrder',
     };
     const datasets = Object.entries(inputKeys)
       .filter(([input]) => Array.isArray(body[input]));
@@ -2042,6 +2060,9 @@ async function configRoute(request: Request, env: D1Env, pathname: string): Prom
         if ((body[input] as unknown[]).length !== 1 || !isValidRecurringQuestSettings(settings)) {
           return error(400, 'Configuração de recompensas recorrentes inválida.');
         }
+      }
+      if (key === 'shopTabOrder' && !isValidShopTabOrder(body[input])) {
+        return error(400, 'Ordem das abas da loja inválida.');
       }
       try {
         const previousQuests = key === 'quests'

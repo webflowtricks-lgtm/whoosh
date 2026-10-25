@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ArrowLeft, User, Award, Sparkles, Check, Image as ImageIcon, Camera, Upload, Save, RefreshCw, Move, ArrowUpDown, ArrowLeftRight } from 'lucide-react';
+import { X, ArrowLeft, User, Award, Sparkles, Check, Image as ImageIcon, Camera, Upload, Save, RefreshCw, Move, ArrowUpDown, ArrowLeftRight, Calendar } from 'lucide-react';
 import { UserProfile, Character, Quest } from '../types';
 import { getPngFrames, PngFrameItem, fetchPngFramesFromServer } from '../lib/frameStorage';
 import { getCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
@@ -56,10 +56,11 @@ const PRESET_STYLED_FRAMES = [
 ];
 
 export default function ProfileModal({ user, onClose, onUpdateUser, playClickSound, playUahSound, playScrollSound }: ProfileModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isLandscape = useIsMobileLandscape();
   const [name, setName] = useState(user.name);
   const [photoUrl, setPhotoUrl] = useState(user.photoUrl);
+  const [accountCreatedAtValue, setAccountCreatedAtValue] = useState(user.createdAt);
   const [title, setTitle] = useState(() => getCanonicalTitleName(user.title || 'Estudante', getShopItems()));
   const [titleItems, setTitleItems] = useState(() => getShopItems());
   const [earnedRewardTitles, setEarnedRewardTitles] = useState<string[]>([]);
@@ -106,6 +107,18 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
       setTitle(current => getCanonicalTitleName(current, items));
     });
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void safeFetchJson<{ success?: boolean; user?: { createdAt?: unknown } }>(
+      `/api/user/profile?username=${encodeURIComponent(user.username)}`,
+    ).then(data => {
+      if (active && data?.success && typeof data.user?.createdAt === 'string') {
+        setAccountCreatedAtValue(data.user.createdAt);
+      }
+    });
+    return () => { active = false; };
+  }, [user.username]);
 
   useEffect(() => {
     let active = true;
@@ -312,6 +325,14 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
   const selectedVillage = getVillageById(village);
   const confirmedVillage = getVillageById(villageToConfirm || undefined);
   const freeVillageChange = (user.villageChangeCount ?? 0) === 0;
+  const accountCreatedAt = accountCreatedAtValue ? new Date(accountCreatedAtValue) : null;
+  const formattedAccountCreatedAt = accountCreatedAt && Number.isFinite(accountCreatedAt.getTime())
+    ? accountCreatedAt.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    : null;
 
   return (
     <div
@@ -410,9 +431,14 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
                 </span>
               </div>
               <h2 className="text-2xl font-black text-white tracking-tight mt-1">{name}</h2>
- 
             </div>
           </div>
+          {formattedAccountCreatedAt && (
+            <span className="absolute right-3 top-3 z-20 inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-slate-950/65 px-2.5 py-1.5 text-[9px] font-mono font-semibold text-white/80 shadow-sm sm:right-4 sm:top-4">
+              <Calendar className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+              <span>{t('Cadastro', 'Joined')} · {formattedAccountCreatedAt}</span>
+            </span>
+          )}
         </div>
 
         {/* Modal Navigation Tabs */}

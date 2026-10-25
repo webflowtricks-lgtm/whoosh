@@ -7,7 +7,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ShoppingBag, ShoppingCart, Sparkles, Check, Award, Shield, CircleDollarSign, UserCheck, Shirt, Dices, LoaderCircle } from 'lucide-react';
 import { UserProfile, ShopItem, NinjaCard } from '../types';
-import { getShopItems, fetchShopItemsFromServer } from '../lib/shopStorage';
+import { getShopItems, fetchShopItemsFromServer, isShopItemNew, sortShopItemsByAddedAt } from '../lib/shopStorage';
 import { getTitleThemeClass, isTitleUnlocked } from '../lib/titleThemes';
 import { playGlobalSound } from '../lib/soundUtils';
 import { fetchCardsFromServer, getCards, CARD_RARITY_META } from '../lib/cardStorage';
@@ -23,8 +23,9 @@ import {
   type CardRouletteChances,
 } from '../lib/cardRouletteSettings';
 import { matchFetch } from '../lib/matchFetch';
+import { DEFAULT_SHOP_TAB_ORDER, fetchShopTabOrder, ShopTabId } from '../lib/shopTabOrder';
 
-type ShopTab = 'all' | 'skin' | 'title' | 'frame' | 'bundle' | 'roulette';
+type ShopTab = 'all' | ShopTabId;
 
 const ROULETTE_ITEM_ID = 'ninja-card-roulette';
 const cardImage = (card: NinjaCard) => card.imageUrl ||
@@ -43,6 +44,7 @@ interface ShopModalProps {
 export default function ShopModal({ user, onClose, onUpdateUser, playClickSound, playScrollSound, playWinSound, initialTab = 'all' }: ShopModalProps) {
   const [items, setItems] = useState<ShopItem[]>(() => getShopItems());
   const [activeTab, setActiveTab] = useState<ShopTab>(initialTab);
+  const [shopTabOrder, setShopTabOrder] = useState<ShopTabId[]>(DEFAULT_SHOP_TAB_ORDER);
   const [purchaseToast, setPurchaseToast] = useState<string | null>(null);
   const [pendingPurchase, setPendingPurchase] = useState<ShopItem | null>(null);
   const [cards, setCards] = useState<NinjaCard[]>(() => getCards());
@@ -76,6 +78,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
 
   useEffect(() => {
     fetchShopItemsFromServer().then(setItems);
+    fetchShopTabOrder().then(setShopTabOrder);
     fetchCardsFromServer().then(setCards);
     fetchCardRouletteChances().then(setRouletteSettings);
     fetchCardRouletteCost().then(setRouletteCost);
@@ -111,6 +114,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
   const unlockedFrames = user.unlockedFrames || ['Padrão'];
   const unlockedTitles = user.unlockedTitles || ['Estudante'];
   const unlockedSkins = user.unlockedSkins || [];
+  const unlockedSkillSkins = user.unlockedSkillSkins || [];
   const equippedFrame = user.equippedFrame || 'Padrão';
   const currentTitle = user.title || unlockedTitles[0] || 'Estudante';
   const rouletteChances = getCardRouletteChances(cards, rouletteSettings);
@@ -118,7 +122,13 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
 
   const filteredItems = activeTab === 'roulette'
     ? []
-    : items.filter(item => !item.hiddenFromShop && (activeTab === 'all' || item.category === activeTab));
+    : items.filter(item =>
+      !item.hiddenFromShop &&
+      (activeTab === 'all' || (activeTab === 'skin'
+        ? item.category === 'skin' || item.category === 'skill_skin'
+        : item.category === activeTab)),
+    );
+  const visibleItems = activeTab === 'all' ? sortShopItemsByAddedAt(filteredItems) : filteredItems;
 
   const revealRoulettePrize = () => {
     if (rouletteRevealSoundPlayedRef.current) return;
@@ -226,6 +236,33 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
       });
 
       setPurchaseToast(`Skin "${item.name}" adquirida com sucesso!`);
+      setTimeout(() => setPurchaseToast(null), 3000);
+      return;
+    }
+
+    if (item.category === 'skill_skin') {
+      if (unlockedSkillSkins.includes(item.id)) {
+        setPurchaseToast(`Skin de habilidade "${item.name}" já está desbloqueada!`);
+        setTimeout(() => setPurchaseToast(null), 3000);
+        return;
+      }
+      if (item.currency === 'ryos' && ryos < item.price) {
+        setPurchaseToast('Moedas insuficientes!');
+        setTimeout(() => setPurchaseToast(null), 3000);
+        return;
+      }
+      if (item.currency === 'gems' && gems < item.price) {
+        setPurchaseToast('Ryos insuficientes!');
+        setTimeout(() => setPurchaseToast(null), 3000);
+        return;
+      }
+      onUpdateUser({
+        ...user,
+        ryos: item.currency === 'ryos' ? ryos - item.price : ryos,
+        gems: item.currency === 'gems' ? gems - item.price : gems,
+        unlockedSkillSkins: [...unlockedSkillSkins, item.id],
+      });
+      setPurchaseToast(`Skin de habilidade "${item.name}" adquirida com sucesso!`);
       setTimeout(() => setPurchaseToast(null), 3000);
       return;
     }
@@ -386,35 +423,41 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         </AnimatePresence>
 
         {/* Categories Tab Navigation */}
-        <div ref={tabsContainerRef} className="shop-modal-tabs p-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2 overflow-x-auto">
-          {[
-            { id: 'all', label: 'Todos os Itens', icon: ShoppingBag },
-            { id: 'title', label: 'Títulos', icon: Award },
-            { id: 'skin', label: 'Skins', icon: Shirt },
-            { id: 'frame', label: 'Molduras de Perfil', icon: Shield },
-            { id: 'bundle', label: 'Pacotes & Moedas', icon: CircleDollarSign },
-            { id: 'roulette', label: 'Roleta', icon: Dices }
-          ].map(tab => {
+        <div className="shop-modal-tabs flex items-center gap-2 border-b border-slate-200 bg-slate-50 p-3">
+          <div ref={tabsContainerRef} className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
+            {[
+              { id: 'all' as const, label: 'TODOS', icon: ShoppingBag },
+              ...shopTabOrder.map(id => {
+                const tabs: Record<ShopTabId, { label: string; icon: typeof Award }> = {
+                  title: { label: 'Títulos', icon: Award },
+                  skin: { label: 'Skins', icon: Shirt },
+                  frame: { label: 'Molduras de Perfil', icon: Shield },
+                  bundle: { label: 'Pacotes & Moedas', icon: CircleDollarSign },
+                  roulette: { label: 'Roleta', icon: Dices },
+                };
+                return { id, ...tabs[id] };
+              }),
+            ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
-              <button
-                key={tab.id}
-                onClick={event => selectTab(tab.id as typeof activeTab, event.currentTarget)}
-                data-sound="Scroll"
-                className={`flex-shrink-0 px-3 sm:px-4 py-2 rounded-xl border text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
-                  isActive
-                    ? 'bg-blue-600 border-blue-700 text-white shadow-md shadow-blue-600/20'
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <Icon className="w-4 h-4" />
+              <div key={tab.id} className="flex flex-shrink-0 items-center">
+                <button
+                  onClick={event => selectTab(tab.id as typeof activeTab, event.currentTarget)}
+                  data-sound="Scroll"
+                  className={`px-3 py-2 sm:px-4 rounded-xl border text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? 'bg-blue-600 border-blue-700 text-white shadow-md shadow-blue-600/20'
+                      : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
                   <span>{tab.label}</span>
-                </span>
-              </button>
+                </button>
+              </div>
             );
           })}
+          </div>
         </div>
 
         {/* Shop Items Grid */}
@@ -446,14 +489,15 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         ) : (
         <div className="flex-1 overflow-y-auto bg-slate-50/70 p-2.5 sm:p-4">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
-            {filteredItems.map(item => {
+            {visibleItems.map(item => {
               const isUnlockedFrame = item.category === 'frame' && unlockedFrames.includes(item.name);
               const isUnlockedTitle = item.category === 'title' && isTitleUnlocked(unlockedTitles, item);
               const isUnlockedSkin = item.category === 'skin' && (unlockedSkins.includes(item.name) || unlockedSkins.includes(item.id));
+              const isUnlockedSkillSkin = item.category === 'skill_skin' && unlockedSkillSkins.includes(item.id);
               const isEquippedFrame = item.category === 'frame' && equippedFrame === item.name;
               const isEquippedTitle = item.category === 'title' &&
                 (currentTitle === item.name || item.titleAliases?.includes(currentTitle));
-              const isOwned = isUnlockedFrame || isUnlockedTitle || isUnlockedSkin;
+              const isOwned = isUnlockedFrame || isUnlockedTitle || isUnlockedSkin || isUnlockedSkillSkin;
               const isEquipped = isEquippedFrame || isEquippedTitle;
               const hasEnoughCurrency = (item.currency === 'ryos' ? ryos : gems) >= item.price;
 
@@ -463,9 +507,9 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                   className="relative min-w-0 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-900/10 sm:rounded-2xl sm:p-3"
                 >
                   <div className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:rounded-xl">
-                    {item.badge && (
-                      <span className="absolute left-1 top-1 z-10 max-w-[80%] truncate rounded border border-orange-200 bg-orange-50 px-1 py-0.5 text-[7px] font-mono font-bold uppercase text-orange-700 sm:text-[9px]">
-                        {item.badge}
+                    {isShopItemNew(item) && (
+                      <span className="absolute left-1 top-1 z-10 max-w-[80%] truncate rounded border border-orange-300 bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 px-1.5 py-0.5 text-[7px] font-mono font-black uppercase tracking-wider text-orange-950 shadow-[0_0_12px_rgba(249,115,22,0.75)] ring-1 ring-amber-200/80 sm:text-[9px]">
+                        NOVO
                       </span>
                     )}
                     <div className="flex h-full items-center justify-center p-1.5 sm:p-3">
@@ -485,6 +529,22 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                               {item.characterName}
                             </span>
                           )}
+                        </div>
+                      )}
+
+                      {item.category === 'skill_skin' && (
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-sky-50 to-blue-100 p-2 text-center">
+                          {item.icon ? (
+                            <img src={item.icon} alt="" className="h-10 w-10 object-contain sm:h-14 sm:w-14" />
+                          ) : (
+                            <Sparkles className="h-9 w-9 text-blue-600 sm:h-12 sm:w-12" />
+                          )}
+                          <span className="line-clamp-2 text-[8px] font-black uppercase text-blue-800 sm:text-[10px]">
+                            {item.skillName || 'Habilidade'}
+                          </span>
+                          <span className="max-w-full truncate text-[7px] font-mono font-bold text-blue-600 sm:text-[9px]">
+                            {item.skillCharacterId || 'Personagem'}
+                          </span>
                         </div>
                       )}
 
@@ -553,6 +613,10 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                     {isEquipped ? (
                       <span className="p-1 text-emerald-400" title="Equipado" aria-label="Equipado">
                         <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      </span>
+                    ) : isUnlockedSkillSkin ? (
+                      <span className="rounded-md border border-blue-200 bg-blue-50 px-1.5 py-1 text-[8px] font-black uppercase text-blue-700 sm:text-[9px]">
+                        Desbloqueada
                       </span>
                     ) : isOwned ? (
                       <button
