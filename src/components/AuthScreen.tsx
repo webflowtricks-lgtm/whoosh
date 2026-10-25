@@ -541,7 +541,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
   if (onboardingStep !== 'auth') {
     const villageName = VILLAGES.find(village => village.id === selectedVillage)?.name || '';
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden bg-[radial-gradient(circle_at_top,#f8fdff_0%,#f4f6fb_65%,#edf0f7_100%)] px-4 py-16 font-sans text-slate-800">
+      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden bg-[radial-gradient(circle_at_top,#f8fdff_0%,#f4f6fb_65%,#edf0f7_100%)] px-4 pb-32 pt-16 font-sans text-slate-800">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -left-24 top-1/4 h-72 w-72 rounded-full bg-cyan-300/25 blur-3xl" />
           <div className="absolute -right-24 bottom-1/4 h-72 w-72 rounded-full bg-blue-300/20 blur-3xl" />
@@ -595,16 +595,27 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
           </div>
 
           {error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
-          <button
-            type="button"
-            onClick={() => { playClickSound(); continueFromVillage(); }}
-            disabled={!selectedVillage}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-700 py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-[0_8px_20px_rgba(2,132,199,0.25)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {t('Continuar', 'Continue')}
-            <ArrowRight className="h-4 w-4" />
-          </button>
         </motion.section>
+
+        <AnimatePresence>
+          {selectedVillage && (
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              className="fixed inset-x-0 bottom-0 z-30 border-t border-white/80 bg-white/75 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl"
+            >
+              <button
+                type="button"
+                onClick={() => { playClickSound(); continueFromVillage(); }}
+                className="mx-auto flex w-full max-w-2xl items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-700 py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-[0_8px_20px_rgba(2,132,199,0.25)] transition hover:brightness-105"
+              >
+                {t('Continuar', 'Continue')}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {onboardingStep === 'welcome' && pendingAccount && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/25 p-4 backdrop-blur-md">

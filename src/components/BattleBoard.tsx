@@ -1419,7 +1419,7 @@ function GameOverOverlay({
             </div>
 
             {/* Player Full Standing Skin Artwork (Sem borda, sem fundo, posição absoluta para não empurrar nada) */}
-            {user.equippedShowcaseSkinUrl && user.equippedShowcaseSkinUrl !== 'none' && (
+            {!isMobileVertical && user.equippedShowcaseSkinUrl && user.equippedShowcaseSkinUrl !== 'none' && (
               <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 sm:w-72 h-80 sm:h-96 pointer-events-none select-none z-0 flex items-start justify-center">
                 <img
                   src={user.equippedShowcaseSkinUrl}
@@ -1622,7 +1622,7 @@ function GameOverOverlay({
             </div>
 
             {/* Opponent Full Standing Skin Artwork (Sem borda, sem fundo, posição absoluta para não empurrar nada) */}
-            {isOnline && opp?.equippedShowcaseSkinUrl && opp.equippedShowcaseSkinUrl !== 'none' && (
+            {!isMobileVertical && isOnline && opp?.equippedShowcaseSkinUrl && opp.equippedShowcaseSkinUrl !== 'none' && (
               <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 sm:w-72 h-80 sm:h-96 pointer-events-none select-none z-0 flex items-start justify-center">
                 <img
                   src={opp.equippedShowcaseSkinUrl}

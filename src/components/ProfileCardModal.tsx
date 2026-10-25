@@ -436,15 +436,21 @@ export default function ProfileCardModal({
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
         />
-        {/* Folhas animadas (mesma da batalha) */}
-        <div className="leaves-modal gpu-accelerated">
+        {/* Efeito leve de folhas para manter baixa a composição do modal. */}
+        <div className="leaves-modal profile-card-modal-leaves">
           <img src="/static/img/ui/folha.webp" className="leaf leaf1" alt="" loading="lazy" decoding="async" />
           <img src="/static/img/ui/folha.webp" className="leaf leaf2" alt="" loading="lazy" decoding="async" />
           <img src="/static/img/ui/folha.webp" className="leaf leaf3" alt="" loading="lazy" decoding="async" />
-          <img src="/static/img/ui/folha.webp" className="leaf leaf4" alt="" loading="lazy" decoding="async" />
-          <img src="/static/img/ui/folha.webp" className="leaf leaf5" alt="" loading="lazy" decoding="async" />
-          <img src="/static/img/ui/folha.webp" className="leaf leaf6" alt="" loading="lazy" decoding="async" />
         </div>
+        {formattedAccountCreatedAt && (
+          <span
+            onClick={event => event.stopPropagation()}
+            className="profile-account-created-date fixed bottom-4 left-1/2 z-[80] inline-flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-1.5 text-[9px] font-mono font-medium sm:bottom-6 sm:text-[10px]"
+          >
+            <Calendar className="profile-account-created-date-icon h-3.5 w-3.5 shrink-0" />
+            <span>{t('Cadastro', 'Joined')} · {formattedAccountCreatedAt}</span>
+          </span>
+        )}
         <div className={`${isLandscape ? 'max-h-[80vh] my-auto gap-2' : 'gap-3'} ml-profile-card-wrap flex items-stretch max-h-[92vh] relative z-10`} onClick={(e) => e.stopPropagation()}>
         <motion.div
           initial={false}
@@ -459,12 +465,6 @@ export default function ProfileCardModal({
             onMouseEnter={() => setBannerHover(true)}
             onMouseLeave={() => setBannerHover(false)}
           >
-            {formattedAccountCreatedAt && (
-              <span className="absolute right-2 top-2 z-20 inline-flex max-w-[55%] items-center gap-1 rounded-md border border-white/20 bg-slate-950/75 px-1.5 py-1 text-[8px] font-mono font-bold text-white/90 shadow sm:right-3 sm:top-3 sm:gap-1.5 sm:px-2 sm:text-[10px]">
-                <Calendar className="h-3 w-3 shrink-0 text-amber-300 sm:h-3.5 sm:w-3.5" />
-                <span className="truncate">{t('Cadastro', 'Joined')} · {formattedAccountCreatedAt}</span>
-              </span>
-            )}
             {profile.equippedBannerUrl ? (
               <>
                 <img

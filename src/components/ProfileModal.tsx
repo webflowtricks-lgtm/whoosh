@@ -368,6 +368,15 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
       >
         <ArrowLeft className="h-5 w-5" />
       </button>
+      {formattedAccountCreatedAt && (
+        <span
+          onClick={event => event.stopPropagation()}
+          className="fixed right-4 top-4 z-[70] inline-flex max-w-[calc(100vw-5rem)] items-center gap-1.5 rounded-lg border border-white/15 bg-slate-950/85 px-2.5 py-1.5 text-[9px] font-mono font-semibold text-white/90 shadow-lg sm:right-6 sm:top-6"
+        >
+          <Calendar className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+          <span>{t('Cadastro', 'Joined')} · {formattedAccountCreatedAt}</span>
+        </span>
+      )}
       <motion.div
         initial={false}
         animate={{ scale: 1, opacity: 1 }}
@@ -433,12 +442,6 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
               <h2 className="text-2xl font-black text-white tracking-tight mt-1">{name}</h2>
             </div>
           </div>
-          {formattedAccountCreatedAt && (
-            <span className="absolute right-3 top-3 z-20 inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-slate-950/65 px-2.5 py-1.5 text-[9px] font-mono font-semibold text-white/80 shadow-sm sm:right-4 sm:top-4">
-              <Calendar className="h-3.5 w-3.5 shrink-0 text-amber-300" />
-              <span>{t('Cadastro', 'Joined')} · {formattedAccountCreatedAt}</span>
-            </span>
-          )}
         </div>
 
         {/* Modal Navigation Tabs */}

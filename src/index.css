@@ -133,6 +133,14 @@ body.processing-cursor * {
   max-width: 620px;
 }
 
+.profile-account-created-date {
+  color: rgba(255, 255, 255, .38);
+}
+
+.profile-account-created-date-icon {
+  color: rgba(255, 255, 255, .38);
+}
+
 .mv-profile-glass-body {
   background:
     radial-gradient(ellipse at 15% 0%, rgba(170, 207, 184, .07), transparent 42%),
@@ -7829,6 +7837,19 @@ e-squad-name {
   overflow: hidden;
   pointer-events: none;
   z-index: 60;
+}
+
+.profile-card-modal-leaves .leaf {
+  width: 22px;
+  will-change: auto;
+  transform: none;
+  backface-visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-card-modal-leaves .leaf {
+    display: none;
+  }
 }
 
 .main-menu-leaves {
