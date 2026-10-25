@@ -6,11 +6,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ArrowLeft, User, Award, Sparkles, Check, Image as ImageIcon, Camera, Upload, Save, RefreshCw, Move, ArrowUpDown, ArrowLeftRight } from 'lucide-react';
-import { UserProfile, Character } from '../types';
+import { UserProfile, Character, Quest } from '../types';
 import { getPngFrames, PngFrameItem, fetchPngFramesFromServer } from '../lib/frameStorage';
 import { getCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
 import { getCharacters } from '../lib/characterStorage';
-import { configFetch } from '../lib/api';
+import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
+import { getCanonicalTitleName } from '../lib/titleThemes';
+import { fetchEventsFromServer } from '../lib/eventStorage';
+import { configFetch, safeFetchJson } from '../lib/api';
 import { getCurrentVillageId, getVillageById, VILLAGES } from '../lib/villages';
 import { useLanguage } from '../lib/i18n';
 import MangekyoLoader from './MangekyoLoader';
@@ -57,7 +60,9 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
   const isLandscape = useIsMobileLandscape();
   const [name, setName] = useState(user.name);
   const [photoUrl, setPhotoUrl] = useState(user.photoUrl);
-  const [title, setTitle] = useState(user.title || 'Estudante');
+  const [title, setTitle] = useState(() => getCanonicalTitleName(user.title || 'Estudante', getShopItems()));
+  const [titleItems, setTitleItems] = useState(() => getShopItems());
+  const [earnedRewardTitles, setEarnedRewardTitles] = useState<string[]>([]);
   const [equippedFrame, setEquippedFrame] = useState<string>(user.equippedFrame || 'Padrão');
   const [equippedFrameUrl, setEquippedFrameUrl] = useState<string | undefined>(user.equippedFrameUrl);
   const [equippedBannerUrl, setEquippedBannerUrl] = useState<string | undefined>(user.equippedBannerUrl);
@@ -96,11 +101,47 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
     fetchPngFramesFromServer().then(setPngFrames);
     fetchCustomBannersFromServer().then(setCustomBanners);
     setAllCharacters(getCharacters());
+    fetchShopItemsFromServer().then(items => {
+      setTitleItems(items);
+      setTitle(current => getCanonicalTitleName(current, items));
+    });
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      safeFetchJson<{ success?: boolean; quests?: Quest[] }>('/api/quests'),
+      fetchEventsFromServer(),
+    ]).then(([questData, events]) => {
+      const completedQuestIds = new Set(user.completedQuestIds || []);
+      const claimedEventRewardIds = new Set(user.claimedEventRewardIds || []);
+      const questTitles = questData?.success && Array.isArray(questData.quests)
+        ? questData.quests.flatMap(quest =>
+            completedQuestIds.has(quest.id)
+              ? quest.rewards.filter(reward => reward.type === 'title').map(reward => reward.value)
+              : [],
+          )
+        : [];
+      const eventTitles = events.flatMap(event =>
+        event.objectives
+          .filter(objective =>
+            objective.rewardType === 'title' && claimedEventRewardIds.has(objective.id),
+          )
+          .map(objective => String(objective.rewardValue)),
+      );
+      if (active) setEarnedRewardTitles([...questTitles, ...eventTitles]);
+    }).catch(error => {
+      console.error('Não foi possível carregar os títulos de missões e eventos:', error);
+    });
+    return () => { active = false; };
+  }, [user.completedQuestIds, user.claimedEventRewardIds]);
 
   const unlockedFrames = user.unlockedFrames || ['Padrão', 'Fogo da Vontade', 'Operativo ANBU', 'Guerra Shinobi'];
   const unlockedFrameUrls = user.unlockedFrameUrls || [];
-  const unlockedTitles = user.unlockedTitles || ['Estudante', 'Genin de Konoha', 'Herói da Aliança'];
+  const unlockedTitles = Array.from(new Set(
+    [...(user.unlockedTitles || ['Estudante', 'Genin de Konoha', 'Herói da Aliança']), ...earnedRewardTitles, title]
+      .map(unlockedTitle => getCanonicalTitleName(unlockedTitle, titleItems)),
+  ));
 
   // Default preset banners available
   const presetBanners = [
@@ -182,6 +223,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
       name,
       photoUrl,
       title,
+      unlockedTitles,
       equippedFrame,
       equippedFrameUrl,
       equippedBannerUrl,
@@ -218,7 +260,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
         throw new Error(result?.error || `Falha ao salvar perfil (HTTP ${response.status}).`);
       }
 
-      onUpdateUser({ ...updated, ...result.user });
+      onUpdateUser({ ...updated, ...result.user, unlockedTitles });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
     } catch (error) {

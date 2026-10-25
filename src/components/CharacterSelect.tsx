@@ -1300,7 +1300,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     whileHover={{ scale: isFull || isLocked ? 1 : 1.03 }}
                     onClick={() => handleSelectCharacter(char)}
                     className={`group relative flex flex-col items-center justify-between p-0 cursor-pointer transition-all aspect-[1/1.25] w-full select-none ${
-                      isFull && !isSelected ? 'opacity-50 cursor-not-allowed' : ''
+                      isFull && !isSelected ? 'cursor-not-allowed' : ''
                     }`}
                     title={isLocked ? reason : char.name}
                   >

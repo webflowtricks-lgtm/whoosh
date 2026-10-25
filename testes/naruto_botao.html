@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Botão Temático Naruto - Entrar na Arena</title>
+    <!-- Tailwind CSS para layout rápido -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonte temática e limpa do Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&family=Rajdhani:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #030712;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Títulos e textos Ninja */
+        .ninja-font {
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 0.15em;
+        }
+
+        .title-font {
+            font-family: 'Cinzel Decorative', serif;
+        }
+
+        /* Animação do Grid de Fundo */
+        .bg-grid {
+            background-image: radial-gradient(circle at center, rgba(14, 165, 233, 0.08) 0%, transparent 70%),
+                              linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+        }
+
+        /* Vibração Elétrica (Screen Shake) ao Clicar / Hover Intenso */
+        .lightning-shake {
+            animation: shake 0.15s infinite;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            20% { transform: translate(-2px, 2px) rotate(-0.5deg); }
+            40% { transform: translate(2px, -1px) rotate(0.5deg); }
+            60% { transform: translate(-1px, -2px) rotate(0deg); }
+            80% { transform: translate(2px, 1px) rotate(-0.5deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+
+        /* Estrutura Base do Botão Ninja */
+        .chakra-button {
+            position: relative;
+            background: rgba(6, 12, 26, 0.9);
+            border: 2px solid rgba(56, 189, 248, 0.4);
+            border-radius: 16px;
+            box-shadow: 0 0 25px rgba(14, 165, 233, 0.25),
+                        inset 0 0 15px rgba(56, 189, 248, 0.15);
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                        border-color 0.3s ease,
+                        box-shadow 0.3s ease;
+            backdrop-filter: blur(12px);
+            cursor: pointer;
+            overflow: visible; /* Permitir que raios e faíscas se espalhem para fora */
+        }
+
+        /* Container interno para conter o fundo do botão e permitir overflow de faíscas */
+        .button-inner {
+            position: absolute;
+            inset: 0;
+            border-radius: 14px;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .button-inner::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .chakra-button:hover .button-inner::before {
+            left: 100%;
+        }
+
+        .chakra-button:hover {
+            transform: translateY(-3px) scale(1.02);
+            border-color: rgba(0, 243, 255, 0.9);
+            box-shadow: 0 0 45px rgba(0, 243, 255, 0.6),
+                        0 0 80px rgba(0, 136, 255, 0.4),
+                        inset 0 0 25px rgba(186, 230, 253, 0.3);
+        }
+
+        .chakra-button:active {
+            transform: translateY(1px) scale(0.98);
+            box-shadow: 0 0 70px rgba(0, 243, 255, 1),
+                        0 0 110px rgba(255, 255, 255, 0.9),
+                        inset 0 0 35px rgba(255, 255, 255, 0.6);
+        }
+
+        /* Efeito de Vidro/Borda Interna Neon */
+        .button-frame {
+            position: absolute;
+            inset: 3px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Canvas de Arcos Elétricos Sobrepostos na Borda do Botão */
+        #borderLightningCanvas {
+            position: absolute;
+            inset: -20px;
+            width: calc(100% + 40px);
+            height: calc(100% + 40px);
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        /* Estilização dos Botões dos Modos */
+        .mode-btn {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn.active {
+            background: rgba(0, 243, 255, 0.25);
+            border-color: #00f3ff;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+            color: #fff;
+        }
+
+        /* Efeito Text Glow */
+        .text-glow-chidori {
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.9), 0 0 20px rgba(0, 136, 255, 0.7), 0 0 30px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Card de Impacto do Clique */
+        .flash-overlay {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(0, 243, 255, 0.85) 40%, transparent 85%);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 40;
+            transition: opacity 0.05s ease-out;
+        }
+
+        .flash-active {
+            opacity: 1 !important;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col items-center justify-between p-4 relative bg-grid">
+
+    <!-- Canvas de Chakra de Fundo Ambiental -->
+    <canvas id="bgCanvas" class="absolute inset-0 w-full h-full pointer-events-none z-0"></canvas>
+
+    <!-- Overlay Flash de Explosão Ninja ao Clicar -->
+    <div id="flashOverlay" class="flash-overlay"></div>
+
+    <!-- Cabeçalho Temático Naruto -->
+    <header class="z-10 text-center mt-6">
+        <div class="flex items-center justify-center space-x-2 mb-1">
+            <span class="h-px w-12 bg-gradient-to-r from-transparent to-cyan-400"></span>
+            <span class="text-xs uppercase tracking-widest text-cyan-300 font-bold">Naruto Shinobi Arena</span>
+            <span class="h-px w-12 bg-gradient-to-l from-transparent to-cyan-400"></span>
+        </div>
+        <h1 class="title-font text-3xl md:text-5xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-100 via-white to-blue-400 drop-shadow-[0_2px_12px_rgba(0,243,255,0.6)]">
+            KONOHA ARENA
+        </h1>
+        <p class="text-xs md:text-sm text-slate-400 mt-1 font-medium">Libere a sua energia ninja máxima e entre no combate</p>
+    </header>
+
+    <!-- Área Central: O Botão Épico -->
+    <main class="z-10 flex flex-col items-center justify-center my-auto">
+        
+        <!-- Container do Botão -->
+        <div class="relative group" id="buttonContainer">
+            
+            <!-- Canvas de Raios Periféricos / Arcos Elétricos do Botão -->
+            <canvas id="borderLightningCanvas"></canvas>
+
+            <!-- Botão "ENTRAR NA ARENA" -->
+            <button id="arenaBtn" class="chakra-button px-8 py-5 md:px-12 md:py-6 flex items-center space-x-5 group relative z-10">
+                
+                <!-- Estrutura Interna de Brilho -->
+                <div class="button-inner">
+                    <div id="buttonBgFlash" class="absolute inset-0 bg-cyan-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                </div>
+
+                <!-- Borda Decorativa Interna -->
+                <div class="button-frame"></div>
+
+                <!-- Canvas Exclusivo para o Ícone Energético (Rasengan/Chidori Orb) -->
+                <div class="relative w-14 h-14 md:w-16 md:h-16 flex items-center justify-center shrink-0 z-20">
+                    <canvas id="iconCanvas" width="160" height="160" class="w-full h-full transform group-hover:scale-110 transition-transform duration-300"></canvas>
+                </div>
+
+                <!-- Texto Principal do Botão -->
+                <div class="flex flex-col text-left z-20">
+                    <span class="text-[10px] md:text-xs text-cyan-300/90 font-bold uppercase tracking-widest leading-none mb-1 group-hover:text-white transition-colors">
+                        S-Rank Lightning Jutsu
+                    </span>
+                    <span class="ninja-font text-xl md:text-3xl font-black text-white tracking-wider text-glow-chidori group-hover:text-cyan-100 transition-colors flex items-center">
+                        ENTRAR NA ARENA
+                        <svg class="w-5 h-5 ml-2 text-cyan-300 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 5l7 7m0 0l-7 7m7-7H3"></path>
+                        </svg>
+                    </span>
+                </div>
+                
+                <!-- Aura Neon Flutuante em Volta -->
+                <div class="absolute -inset-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-cyan-300 rounded-2xl blur-xl opacity-30 group-hover:opacity-80 transition duration-300 -z-10"></div>
+            </button>
+        </div>
+
+        <!-- Mensagem de Feedback Ninja (ao clicar) -->
+        <div id="statusMessage" class="h-6 mt-6 text-center text-cyan-300 font-bold text-sm md:text-base opacity-0 transition-opacity duration-300">
+            ⚡ CHIDORI NAGASHI ATIVADO! REDIRECIONANDO... ⚡
+        </div>
+    </main>
+
+    <!-- Seletor de Modos / Estilos de Chakra -->
+    <footer class="z-10 w-full max-w-lg mb-4">
+        <div class="bg-slate-900/80 border border-slate-800 backdrop-filter backdrop-blur-md rounded-2xl p-3 shadow-2xl">
+            <div class="text-center text-xs text-slate-400 font-semibold mb-2 uppercase tracking-wider">
+                Seleção de Estilo de Jutsu
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <button id="btnChidori" class="mode-btn active py-2 px-3 rounded-xl text-xs md:text-sm font-bold text-slate-300 flex items-center justify-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full bg-cyan-300 shadow-[0_0_8px_#00f3ff]"></span>
+                    <span>Chidori ⚡</span>
+                </button>
+                <button id="btnUnison" class="mode-btn py-2 px-3 rounded-xl text-xs md:text-sm font-bold text-slate-300 flex items-center justify-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full bg-cyan-200 animate-pulse"></span>
+                    <span>Fusão (Unison)</span>
+                </button>
+                <button id="btnRasengan" class="mode-btn py-2 px-3 rounded-xl text-xs md:text-sm font-bold text-slate-300 flex items-center justify-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                    <span>Rasengan</span>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- LÓGICA DE ANIMAÇÃO CANVAS E INTERAÇÃO -->
+    <script>
+        // --- ESTADO GLOBAL & MODOS ---
+        const MODES = {
+            RASENGAN: 'rasengan',
+            CHIDORI: 'chidori',
+            UNISON: 'unison'
+        };
+        let currentMode = MODES.CHIDORI;
+        let isHovered = false;
+
+        // --- CONFIGURAÇÃO CANVAS DE FUNDO (PARTÍCULAS DE CHAKRA) ---
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        
+        let bgWidth, bgHeight;
+        let bgParticles = [];
+
+        function resizeBg() {
+            bgWidth = bgCanvas.width = window.innerWidth;
+            bgHeight = bgCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeBg);
+        resizeBg();
+
+        class BgParticle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * bgWidth;
+                this.y = Math.random() * bgHeight;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedY = -(Math.random() * 1.5 + 0.3);
+                this.speedX = (Math.random() - 0.5) * 0.8;
+                this.alpha = Math.random() * 0.6 + 0.1;
+                this.color = Math.random() > 0.4 ? '#00f3ff' : '#0088ff';
+            }
+            update() {
+                this.y += this.speedY;
+                this.x += this.speedX;
+                if (this.y < 0 || this.x < 0 || this.x > bgWidth) {
+                    this.reset();
+                    this.y = bgHeight + 10;
+                }
+            }
+            draw() {
+                bgCtx.save();
+                bgCtx.globalAlpha = this.alpha;
+                bgCtx.fillStyle = this.color;
+                bgCtx.beginPath();
+                bgCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                bgCtx.fill();
+                bgCtx.restore();
+            }
+        }
+
+        for (let i = 0; i < 80; i++) {
+            bgParticles.push(new BgParticle());
+        }
+
+        function animateBg() {
+            bgCtx.clearRect(0, 0, bgWidth, bgHeight);
+            bgParticles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            requestAnimationFrame(animateBg);
+        }
+        animateBg();
+
+        // --- CONFIGURAÇÃO CANVAS DO ÍCONE (CHIDORI & RASENGAN) ---
+        const iconCanvas = document.getElementById('iconCanvas');
+        const iconCtx = iconCanvas.getContext('2d');
+        const cx = iconCanvas.width / 2;
+        const cy = iconCanvas.height / 2;
+
+        let rotationAngle = 0;
+        let rasenganParticles = [];
+        let chidoriSparks = [];
+
+        // --- CLASSE DE FAÍSCAS / POEIRA DO CHIDORI ---
+        class ChidoriSpark {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = cx;
+                this.y = cy;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * (isHovered ? 6 : 3) + 1;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.size = Math.random() * 2.5 + 0.8;
+                this.life = 1.0;
+                this.decay = Math.random() * 0.05 + 0.02;
+                this.color = Math.random() > 0.3 ? '#ffffff' : (Math.random() > 0.5 ? '#00f3ff' : '#0088ff');
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.05; // Pequena gravidade
+                this.life -= this.decay;
+                if (this.life <= 0) {
+                    this.reset();
+                }
+            }
+            draw() {
+                iconCtx.save();
+                iconCtx.globalAlpha = this.life;
+                iconCtx.fillStyle = this.color;
+                iconCtx.shadowColor = '#00f3ff';
+                iconCtx.shadowBlur = 10;
+                iconCtx.beginPath();
+                iconCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                iconCtx.fill();
+                iconCtx.restore();
+            }
+        }
+
+        for (let i = 0; i < 35; i++) {
+            chidoriSparks.push(new ChidoriSpark());
+        }
+
+        // --- CLASSE DE PARTÍCULAS DO RASENGAN ---
+        class RasenganParticle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.angle = Math.random() * Math.PI * 2;
+                this.radius = Math.random() * 32 + 2;
+                this.speed = (Math.random() * 0.08 + 0.03) * (Math.random() > 0.5 ? 1 : -1);
+                this.size = Math.random() * 2.5 + 1;
+                this.color = Math.random() > 0.3 ? '#38bdf8' : '#e0f2fe';
+            }
+            update(speedMultiplier) {
+                this.angle += this.speed * speedMultiplier;
+                this.radius += (Math.random() - 0.5) * 0.5;
+                if (this.radius > 36) this.radius = 2;
+                if (this.radius < 2) this.radius = 36;
+            }
+            draw() {
+                const x = cx + Math.cos(this.angle) * this.radius;
+                const y = cy + Math.sin(this.angle) * this.radius;
+
+                iconCtx.save();
+                iconCtx.fillStyle = this.color;
+                iconCtx.shadowColor = '#0284c7';
+                iconCtx.shadowBlur = 8;
+                iconCtx.beginPath();
+                iconCtx.arc(x, y, this.size, 0, Math.PI * 2);
+                iconCtx.fill();
+                iconCtx.restore();
+            }
+        }
+
+        for (let i = 0; i < 40; i++) {
+            rasenganParticles.push(new RasenganParticle());
+        }
+
+        // --- GERADOR RECURSIVO DE RAIOS RAMIFICADOS (CHIDORI) ---
+        function drawLightningBranch(ctx, x1, y1, x2, y2, displacement, depth, mainColor, glowColor) {
+            if (depth === 0) {
+                ctx.save();
+                ctx.strokeStyle = mainColor;
+                ctx.lineWidth = Math.random() * 2 + 1;
+                ctx.shadowColor = glowColor;
+                ctx.shadowBlur = 12;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+                ctx.restore();
+                return;
+            }
+
+            const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * displacement;
+            const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * displacement;
+
+            drawLightningBranch(ctx, x1, y1, midX, midY, displacement / 2, depth - 1, mainColor, glowColor);
+            drawLightningBranch(ctx, midX, midY, x2, y2, displacement / 2, depth - 1, mainColor, glowColor);
+
+            // Gerar ramificação secundária aleatória
+            if (Math.random() < 0.35) {
+                const branchAngle = Math.atan2(y2 - y1, x2 - x1) + (Math.random() - 0.5) * 1.2;
+                const branchLen = Math.hypot(x2 - x1, y2 - y1) * 0.4;
+                const branchX = midX + Math.cos(branchAngle) * branchLen;
+                const branchY = midY + Math.sin(branchAngle) * branchLen;
+                drawLightningBranch(ctx, midX, midY, branchX, branchY, displacement / 2, depth - 1, mainColor, glowColor);
+            }
+        }
+
+        // --- ANIMAÇÃO DO ÍCONE PRINCIPAL ---
+        function animateIcon() {
+            iconCtx.clearRect(0, 0, iconCanvas.width, iconCanvas.height);
+
+            const speedMultiplier = isHovered ? 2.5 : 1.0;
+            rotationAngle += 0.05 * speedMultiplier;
+
+            // 1. CHIDORI (Modo Chidori ou Unison)
+            if (currentMode === MODES.CHIDORI || currentMode === MODES.UNISON) {
+                
+                // Desenhar Faíscas Disparadas
+                chidoriSparks.forEach(s => {
+                    s.update();
+                    s.draw();
+                });
+
+                // Núcleo Super Denso de Plasma Branco Pure
+                iconCtx.save();
+                const flicker = Math.random() * 4 - 2;
+                const coreRadius = (isHovered ? 22 : 17) + flicker;
+                
+                // Aura Externa do Núcleo
+                const outerGlow = iconCtx.createRadialGradient(cx, cy, 1, cx, cy, coreRadius * 2.5);
+                outerGlow.addColorStop(0, '#ffffff');
+                outerGlow.addColorStop(0.3, '#00f3ff');
+                outerGlow.addColorStop(0.7, '#0066ff');
+                outerGlow.addColorStop(1, 'transparent');
+
+                iconCtx.fillStyle = outerGlow;
+                iconCtx.shadowColor = '#00f3ff';
+                iconCtx.shadowBlur = isHovered ? 35 : 20;
+                iconCtx.beginPath();
+                iconCtx.arc(cx, cy, coreRadius * 2.5, 0, Math.PI * 2);
+                iconCtx.fill();
+
+                // Núcleo Intenso Central
+                iconCtx.fillStyle = '#ffffff';
+                iconCtx.shadowColor = '#ffffff';
+                iconCtx.shadowBlur = 15;
+                iconCtx.beginPath();
+                iconCtx.arc(cx, cy, coreRadius * 0.7, 0, Math.PI * 2);
+                iconCtx.fill();
+                iconCtx.restore();
+
+                // Desenhar Raios Ramificados Saídos do Centro
+                const numBolts = isHovered ? 12 : 6;
+                for (let i = 0; i < numBolts; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = Math.random() * (isHovered ? 65 : 45) + 15;
+                    const endX = cx + Math.cos(angle) * distance;
+                    const endY = cy + Math.sin(angle) * distance;
+
+                    const mainColor = Math.random() > 0.2 ? '#ffffff' : '#00f3ff';
+                    const glowColor = Math.random() > 0.5 ? '#00f3ff' : '#0088ff';
+
+                    drawLightningBranch(iconCtx, cx, cy, endX, endY, 15, 3, mainColor, glowColor);
+                }
+            }
+
+            // 2. RASENGAN (Modo Rasengan ou Unison)
+            if (currentMode === MODES.RASENGAN || currentMode === MODES.UNISON) {
+                // Núcleo do Rasengan (Se for só Rasengan)
+                if (currentMode === MODES.RASENGAN) {
+                    iconCtx.save();
+                    const coreGradient = iconCtx.createRadialGradient(cx, cy, 2, cx, cy, isHovered ? 30 : 24);
+                    coreGradient.addColorStop(0, '#ffffff');
+                    coreGradient.addColorStop(0.4, '#38bdf8');
+                    coreGradient.addColorStop(0.8, '#0284c7');
+                    coreGradient.addColorStop(1, 'transparent');
+
+                    iconCtx.fillStyle = coreGradient;
+                    iconCtx.shadowColor = '#38bdf8';
+                    iconCtx.shadowBlur = isHovered ? 30 : 18;
+                    iconCtx.beginPath();
+                    iconCtx.arc(cx, cy, isHovered ? 30 : 24, 0, Math.PI * 2);
+                    iconCtx.fill();
+                    iconCtx.restore();
+                }
+
+                // Orbitais de Vento
+                iconCtx.save();
+                iconCtx.translate(cx, cy);
+                iconCtx.rotate(rotationAngle);
+                iconCtx.strokeStyle = currentMode === MODES.UNISON ? 'rgba(0, 243, 255, 0.8)' : 'rgba(224, 242, 254, 0.7)';
+                iconCtx.lineWidth = 2;
+
+                for (let i = 0; i < 3; i++) {
+                    iconCtx.beginPath();
+                    iconCtx.ellipse(0, 0, isHovered ? 36 : 28, isHovered ? 14 : 10, (i * Math.PI) / 3, 0, Math.PI * 2);
+                    iconCtx.stroke();
+                }
+                iconCtx.restore();
+
+                rasenganParticles.forEach(p => {
+                    p.update(speedMultiplier);
+                    p.draw();
+                });
+            }
+
+            requestAnimationFrame(animateIcon);
+        }
+        animateIcon();
+
+        // --- CANVAS DE RAIOS PERIFÉRICOS NA BORDA DO BOTÃO ---
+        const borderCanvas = document.getElementById('borderLightningCanvas');
+        const borderCtx = borderCanvas.getContext('2d');
+        const arenaBtn = document.getElementById('arenaBtn');
+
+        function resizeBorderCanvas() {
+            const rect = arenaBtn.getBoundingClientRect();
+            borderCanvas.width = rect.width + 40;
+            borderCanvas.height = rect.height + 40;
+        }
+        window.addEventListener('resize', resizeBorderCanvas);
+        setTimeout(resizeBorderCanvas, 100);
+
+        function animateBorderLightning() {
+            borderCtx.clearRect(0, 0, borderCanvas.width, borderCanvas.height);
+
+            // Desenhar raios na borda se for Chidori/Unison e estiver em Hover ou ativado
+            if ((currentMode === MODES.CHIDORI || currentMode === MODES.UNISON) && (isHovered || Math.random() < 0.15)) {
+                const w = borderCanvas.width - 40;
+                const h = borderCanvas.height - 40;
+                const offsetX = 20;
+                const offsetY = 20;
+
+                const borderArcsCount = isHovered ? (Math.floor(Math.random() * 3) + 2) : 1;
+
+                for (let i = 0; i < borderArcsCount; i++) {
+                    // Escolher um lado do botão aleatoriamente
+                    const side = Math.floor(Math.random() * 4);
+                    let startX, startY, endX, endY;
+
+                    if (side === 0) { // Topo
+                        startX = offsetX + Math.random() * w;
+                        startY = offsetY;
+                        endX = startX + (Math.random() - 0.5) * 80;
+                        endY = offsetY + (Math.random() - 0.5) * 15;
+                    } else if (side === 1) { // Direita
+                        startX = offsetX + w;
+                        startY = offsetY + Math.random() * h;
+                        endX = offsetX + w + (Math.random() - 0.5) * 15;
+                        endY = startY + (Math.random() - 0.5) * 80;
+                    } else if (side === 2) { // Baixo
+                        startX = offsetX + Math.random() * w;
+                        startY = offsetY + h;
+                        endX = startX + (Math.random() - 0.5) * 80;
+                        endY = offsetY + h + (Math.random() - 0.5) * 15;
+                    } else { // Esquerda
+                        startX = offsetX;
+                        startY = offsetY + Math.random() * h;
+                        endX = offsetX + (Math.random() - 0.5) * 15;
+                        endY = startY + (Math.random() - 0.5) * 80;
+                    }
+
+                    drawLightningBranch(borderCtx, startX, startY, endX, endY, 12, 3, '#ffffff', '#00f3ff');
+                }
+            }
+
+            requestAnimationFrame(animateBorderLightning);
+        }
+        animateBorderLightning();
+
+        // --- EVENTOS INTERATIVOS & EFEITOS DE FEEDBACK ---
+        const flashOverlay = document.getElementById('flashOverlay');
+        const statusMessage = document.getElementById('statusMessage');
+        const buttonContainer = document.getElementById('buttonContainer');
+
+        arenaBtn.addEventListener('mouseenter', () => {
+            isHovered = true;
+            if (currentMode === MODES.CHIDORI) {
+                buttonContainer.classList.add('lightning-shake');
+            }
+        });
+
+        arenaBtn.addEventListener('mouseleave', () => {
+            isHovered = false;
+            buttonContainer.classList.remove('lightning-shake');
+        });
+
+        // Clique Estrondoso com "Lightning Burst"
+        arenaBtn.addEventListener('click', () => {
+            // Flash Elétrico Intenso de Fundo
+            flashOverlay.classList.add('flash-active');
+            setTimeout(() => {
+                flashOverlay.classList.remove('flash-active');
+            }, 150);
+
+            // Adicionar muitas faíscas extras ao clicar
+            for (let i = 0; i < 25; i++) {
+                chidoriSparks.push(new ChidoriSpark());
+            }
+
+            // Mensagem Temática
+            statusMessage.style.opacity = '1';
+            statusMessage.innerText = currentMode === MODES.CHIDORI ? '⚡ CHIDORI NAGASHI! DESTRUIÇÃO ELÉTRICA TOTAL!' : 
+                                      currentMode === MODES.RASENGAN ? '🌀 RASENGAN IMPACTO DE VENTO!' : 
+                                      '💥 FUSÃO UNISON! CHAKRA DEVASTADOR!';
+
+            setTimeout(() => {
+                statusMessage.style.opacity = '0';
+            }, 2500);
+        });
+
+        // --- SELEÇÃO DE MODOS ---
+        const btnRasengan = document.getElementById('btnRasengan');
+        const btnChidori = document.getElementById('btnChidori');
+        const btnUnison = document.getElementById('btnUnison');
+        const modeButtons = [btnChidori, btnUnison, btnRasengan];
+
+        function setMode(mode, selectedBtn) {
+            currentMode = mode;
+            modeButtons.forEach(btn => btn.classList.remove('active'));
+            selectedBtn.classList.add('active');
+
+            if (currentMode !== MODES.CHIDORI && isHovered) {
+                buttonContainer.classList.remove('lightning-shake');
+            } else if (currentMode === MODES.CHIDORI && isHovered) {
+                buttonContainer.classList.add('lightning-shake');
+            }
+        }
+
+        btnChidori.addEventListener('click', () => setMode(MODES.CHIDORI, btnChidori));
+        btnUnison.addEventListener('click', () => setMode(MODES.UNISON, btnUnison));
+        btnRasengan.addEventListener('click', () => setMode(MODES.RASENGAN, btnRasengan));
+
+    </script>
+</body>
+</html>

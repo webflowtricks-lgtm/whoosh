@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, HelpCircle, Shield, Award, LogOut, Calendar, ShoppingBag, Sparkles, User, Images, Settings, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
@@ -50,6 +50,8 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
   const [showAudioSettings, setShowAudioSettings] = useState(false);
   const [menuCharacters, setMenuCharacters] = useState(() => getCharacters().slice(0, 200));
   const [newCardIds, setNewCardIds] = useState<string[]>(() => user ? getNewCardIds(user.username) : []);
+  const arenaButtonRef = useRef<HTMLButtonElement>(null);
+  const rasenganCanvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     setNewCardIds(user ? getNewCardIds(user.username) : []);
@@ -67,6 +69,101 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
 
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const button = arenaButtonRef.current;
+    const canvas = rasenganCanvasRef.current;
+    const context = canvas?.getContext('2d');
+    if (!button || !canvas || !context) return;
+
+    canvas.width = 160;
+    canvas.height = 160;
+    let frame = 0;
+    let hovering = false;
+    let animationFrame = 0;
+
+    const onMouseEnter = () => { hovering = true; };
+    const onMouseLeave = () => { hovering = false; };
+    button.addEventListener('mouseenter', onMouseEnter);
+    button.addEventListener('mouseleave', onMouseLeave);
+
+    const animate = () => {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      frame += hovering ? 2.2 : 1;
+
+      const auraRadius = 60 + Math.sin(frame * 0.1) * (hovering ? 6 : 3);
+      const aura = context.createRadialGradient(centerX, centerY, 10, centerX, centerY, auraRadius);
+      aura.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      aura.addColorStop(0.35, 'rgba(0, 240, 255, 0.8)');
+      aura.addColorStop(0.7, 'rgba(0, 170, 255, 0.32)');
+      aura.addColorStop(1, 'rgba(0, 170, 255, 0)');
+      context.fillStyle = aura;
+      context.beginPath();
+      context.arc(centerX, centerY, auraRadius, 0, Math.PI * 2);
+      context.fill();
+
+      context.save();
+      context.translate(centerX, centerY);
+      const spiralLayerCount = 14;
+      for (let i = 0; i < spiralLayerCount; i++) {
+        context.save();
+        const direction = i % 2 === 0 ? 1 : -1.4;
+        context.rotate(frame * 0.08 * direction + (i * Math.PI * 2) / spiralLayerCount);
+        context.beginPath();
+        const maxRadius = 48 * (0.6 + Math.sin(frame * 0.04 + i) * 0.25);
+        for (let angle = 0; angle < Math.PI * 3.5; angle += 0.15) {
+          const radius = (angle / (Math.PI * 3.5)) * maxRadius;
+          const x = radius * Math.cos(angle);
+          const y = radius * Math.sin(angle);
+          if (angle === 0) context.moveTo(x, y);
+          else context.lineTo(x, y);
+        }
+        context.strokeStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 240, 255, 0.85)';
+        context.lineWidth = hovering ? 2.5 : 1.8;
+        context.shadowColor = '#00f0ff';
+        context.shadowBlur = 12;
+        context.stroke();
+        context.restore();
+      }
+
+      const particleCount = hovering ? 30 : 16;
+      for (let i = 0; i < particleCount; i++) {
+        const angle = frame * 0.15 * (i % 2 === 0 ? 1 : -1) + (i * 137.5 * Math.PI) / 180;
+        const distance = (Math.sin(frame * 0.06 + i) * 0.4 + 0.5) * 55;
+        context.beginPath();
+        context.arc(Math.cos(angle) * distance, Math.sin(angle) * distance, Math.random() * 2 + 1, 0, Math.PI * 2);
+        context.fillStyle = i % 2 === 0 ? '#fff' : '#80f4ff';
+        context.shadowColor = '#00f0ff';
+        context.shadowBlur = 10;
+        context.fill();
+      }
+      context.restore();
+
+      const coreRadius = 20 + Math.sin(frame * 0.2) * 2;
+      const core = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, coreRadius);
+      core.addColorStop(0, '#fff');
+      core.addColorStop(0.6, '#e0ffff');
+      core.addColorStop(1, 'rgba(0, 240, 255, 0.95)');
+      context.beginPath();
+      context.arc(centerX, centerY, coreRadius, 0, Math.PI * 2);
+      context.fillStyle = core;
+      context.shadowColor = '#fff';
+      context.shadowBlur = 25;
+      context.fill();
+
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      button.removeEventListener('mouseenter', onMouseEnter);
+      button.removeEventListener('mouseleave', onMouseLeave);
+      context.clearRect(0, 0, canvas.width, canvas.height);
     };
   }, []);
 
@@ -516,10 +613,38 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
                 </div>
               </div>
               <button
+                ref={arenaButtonRef}
                 onClick={handleStart}
                 className="main-menu-arena-cta relative flex items-center justify-center gap-3 cursor-pointer"
               >
-                <img src="/static/img/icon/star.svg" alt="" className="main-menu-arena-star h-5 w-5 animate-spin object-contain" aria-hidden="true" />
+                <canvas
+                  ref={rasenganCanvasRef}
+                  className="main-menu-rasengan-canvas h-16 w-16 shrink-0"
+                  aria-hidden="true"
+                />
+                <span className="main-menu-chakra-particles" aria-hidden="true">
+                  {[
+                    { left: '12%', top: '28%', size: 3, delay: '-0.4s' },
+                    { left: '22%', top: '72%', size: 4, delay: '-1.2s' },
+                    { left: '39%', top: '18%', size: 2, delay: '-2.1s' },
+                    { left: '55%', top: '78%', size: 3, delay: '-0.8s' },
+                    { left: '69%', top: '24%', size: 4, delay: '-1.7s' },
+                    { left: '82%', top: '68%', size: 2, delay: '-2.5s' },
+                    { left: '92%', top: '38%', size: 3, delay: '-1s' },
+                  ].map((particle, index) => (
+                    <span
+                      key={index}
+                      className="main-menu-chakra-particle"
+                      style={{
+                        left: particle.left,
+                        top: particle.top,
+                        width: particle.size,
+                        height: particle.size,
+                        animationDelay: particle.delay,
+                      }}
+                    />
+                  ))}
+                </span>
                 <span className="entrar-na-arena-label relative flex items-center justify-center pointer-events-none">
                   {t('ENTRAR NA ARENA', 'ENTER ARENA')}
                 </span>

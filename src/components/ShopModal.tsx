@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, ShoppingBag, ShoppingCart, Sparkles, Check, Award, Shield, CircleDollarSign, UserCheck, Shirt, Dices, LoaderCircle } from 'lucide-react';
 import { UserProfile, ShopItem, NinjaCard } from '../types';
 import { getShopItems, fetchShopItemsFromServer } from '../lib/shopStorage';
+import { getTitleThemeClass, isTitleUnlocked } from '../lib/titleThemes';
 import { playGlobalSound } from '../lib/soundUtils';
 import { fetchCardsFromServer, getCards, CARD_RARITY_META } from '../lib/cardStorage';
 import {
@@ -117,7 +118,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
 
   const filteredItems = activeTab === 'roulette'
     ? []
-    : items.filter(item => activeTab === 'all' || item.category === activeTab);
+    : items.filter(item => !item.hiddenFromShop && (activeTab === 'all' || item.category === activeTab));
 
   const revealRoulettePrize = () => {
     if (rouletteRevealSoundPlayedRef.current) return;
@@ -267,10 +268,13 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
       setPurchaseToast(`Moldura "${item.name}" adquirida e equipada!`);
       setTimeout(() => setPurchaseToast(null), 3000);
     } else if (item.category === 'title') {
-      const isUnlocked = unlockedTitles.includes(item.name);
+      const isUnlocked = isTitleUnlocked(unlockedTitles, item);
       if (isUnlocked) {
         onUpdateUser({
           ...user,
+          unlockedTitles: Array.from(new Set(unlockedTitles.map(title =>
+            item.titleAliases?.includes(title) ? item.name : title,
+          ))),
           title: item.name
         });
         setPurchaseToast(`Título "${item.name}" equipado!`);
@@ -444,10 +448,11 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
             {filteredItems.map(item => {
               const isUnlockedFrame = item.category === 'frame' && unlockedFrames.includes(item.name);
-              const isUnlockedTitle = item.category === 'title' && unlockedTitles.includes(item.name);
+              const isUnlockedTitle = item.category === 'title' && isTitleUnlocked(unlockedTitles, item);
               const isUnlockedSkin = item.category === 'skin' && (unlockedSkins.includes(item.name) || unlockedSkins.includes(item.id));
               const isEquippedFrame = item.category === 'frame' && equippedFrame === item.name;
-              const isEquippedTitle = item.category === 'title' && currentTitle === item.name;
+              const isEquippedTitle = item.category === 'title' &&
+                (currentTitle === item.name || item.titleAliases?.includes(currentTitle));
               const isOwned = isUnlockedFrame || isUnlockedTitle || isUnlockedSkin;
               const isEquipped = isEquippedFrame || isEquippedTitle;
               const hasEnoughCurrency = (item.currency === 'ryos' ? ryos : gems) >= item.price;
@@ -509,7 +514,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                           ) : (
                             <Award className="mx-auto h-7 w-7 text-orange-500 sm:h-8 sm:w-8" />
                           )}
-                          <p className="line-clamp-2 rounded border border-orange-200 bg-orange-50 px-1 py-0.5 text-[8px] font-mono font-black uppercase tracking-wider text-orange-700 sm:px-2 sm:py-1 sm:text-xs">
+                          <p className={`title-theme-preview line-clamp-2 px-1 py-0.5 text-[8px] font-mono font-black uppercase tracking-wider sm:px-2 sm:py-1 sm:text-xs ${getTitleThemeClass(item.titleTheme)}`}>
                             {item.name}
                           </p>
                         </div>

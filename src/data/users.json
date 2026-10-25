@@ -234,7 +234,7 @@
       "orochimaru-(s)-base",
       "gaara-base"
     ],
-    "ryos": 35295,
+    "ryos": 135295,
     "gems": 30000,
     "village": "konoha",
     "villageChangeCount": 1,
@@ -350,7 +350,7 @@
       "weekly-2026-W43-weekly-wins": [
         {
           "id": "weekly-2026-W43-weekly-wins-wins",
-          "currentValue": 5,
+          "currentValue": 7,
           "currentStreak": 0
         }
       ],
@@ -364,7 +364,7 @@
       "weekly-2026-W43-weekly-damage": [
         {
           "id": "weekly-2026-W43-weekly-damage-damage",
-          "currentValue": 16575,
+          "currentValue": 23195,
           "currentStreak": 0
         }
       ],
@@ -430,6 +430,34 @@
           "currentValue": 2500,
           "currentStreak": 0
         }
+      ],
+      "daily-2026-10-25-daily-victory": [
+        {
+          "id": "daily-2026-10-25-daily-victory-win",
+          "currentValue": 2,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-25-daily-technique": [
+        {
+          "id": "daily-2026-10-25-daily-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-25-daily-squad": [
+        {
+          "id": "daily-2026-10-25-daily-squad-characters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-25-daily-damage": [
+        {
+          "id": "daily-2026-10-25-daily-damage-damage",
+          "currentValue": 1500,
+          "currentStreak": 0
+        }
       ]
     },
     "questAiBattleIds": [
@@ -446,7 +474,11 @@
       "34bdc012-3199-484b-91c8-56d9b8f0405c",
       "db4eb4d1-a25b-4df9-acc6-0d7400c63be7",
       "38b74448-728f-4799-b7db-f0d1144d4c87",
-      "ce751f44-9f37-4157-a972-2f38cbaa4424"
+      "ce751f44-9f37-4157-a972-2f38cbaa4424",
+      "990d97af-7cb0-430f-873b-442c0d86b1c5",
+      "a866306b-8de8-4928-bc20-f84fdb52c2e6",
+      "e20cc307-49e1-4788-b5cc-81323e49a189",
+      "f373267b-ea51-4f12-92a7-ed3111d36741"
     ],
     "questMaintenanceInbox": [
       {
@@ -458,6 +490,21 @@
         "rewards": [],
         "claimedRouletteCardIds": [],
         "claimedAt": "2026-10-23T09:18:47.675Z"
+      },
+      {
+        "id": "c66a05a2b995904777afeb5b01c456fa",
+        "questId": "admin-message",
+        "subject": "22",
+        "message": "2",
+        "createdAt": "2026-10-25T10:55:24.753Z",
+        "rewards": [
+          {
+            "type": "ryos",
+            "value": "100000"
+          }
+        ],
+        "claimedRouletteCardIds": [],
+        "claimedAt": "2026-10-25T10:55:28.780Z"
       }
     ],
     "unlockedCharacterNames": [
@@ -505,7 +552,18 @@
     ],
     "equippedFrameUrl": null,
     "equippedBannerPositionX": 50,
-    "equippedBannerPositionY": 50
+    "equippedBannerPositionY": 50,
+    "eventProgress": {
+      "lacos-uchiha-sasuke-itachi": {
+        "uchiha-sasuke-wins": 2,
+        "uchiha-itachi-wins": 0,
+        "uchiha-sasuke-skills": 0,
+        "uchiha-itachi-skills": 0,
+        "uchiha-sasuke-damage": 0,
+        "uchiha-itachi-damage": 0,
+        "uchiha-sasuke-team-damage": 190
+      }
+    }
   },
   {
     "username": "111",
@@ -543,9 +601,10 @@
       "sage-mode-naruto-(s)-base",
       "zabuza-base",
       "mu-(r)-base",
-      "gengetsu-hozuki-(r)-base"
+      "gengetsu-hozuki-(r)-base",
+      "kakashi-hatake-(s)-base"
     ],
-    "ryos": 4129,
+    "ryos": 4128,
     "gems": 120,
     "title": "Lenda dos Sannin",
     "village": "konoha",
@@ -1480,5 +1539,20 @@
     "village": "konoha",
     "villageChangeCount": 0,
     "ryos": 1500
+  },
+  {
+    "username": "99",
+    "password": "99",
+    "name": "99",
+    "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+    "village": "konoha",
+    "villageChangeCount": 0,
+    "ryos": 1500
+  },
+  {
+    "username": "999",
+    "password": "999",
+    "name": "999",
+    "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg"
   }
 ]

@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naruto Arena - Shinobi Mobile Login</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Press+Start+2P&family=Yuji+Syuku&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        rasengan: {
+                            cyan: '#00F0FF',
+                            blue: '#0066FF',
+                            deep: '#0B1021',
+                            accent: '#FF7700'
+                        },
+                        chidori: {
+                            core: '#FFFFFF',
+                            violet: '#A855F7',
+                            electric: '#00E5FF',
+                            dark: '#0D0914'
+                        }
+                    },
+                    fontFamily: {
+                        cinzel: ['Cinzel', 'serif'],
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        kanji: ['Yuji Syuku', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Keyframe Animations */
+        @keyframes rotateFuinjutsu {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        @keyframes reverseRotate {
+            0% { transform: translate(-50%, -50%) rotate(360deg); }
+            100% { transform: translate(-50%, -50%) rotate(-360deg); }
+        }
+
+        @keyframes titleShine {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes screenShake {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            20% { transform: translate(-3px, 2px) rotate(-0.5deg); }
+            40% { transform: translate(3px, -2px) rotate(0.5deg); }
+            60% { transform: translate(-2px, -3px) rotate(-0.2deg); }
+            80% { transform: translate(2px, 2px) rotate(0.3deg); }
+        }
+
+        .shake-active {
+            animation: screenShake 0.15s infinite;
+        }
+
+        /* Fuinjutsu Seal Backgrounds */
+        .fuinjutsu-ring-1 {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: min(85vw, 680px);
+            height: min(85vw, 680px);
+            border: 2px dashed rgba(255, 120, 0, 0.2);
+            border-radius: 50%;
+            animation: rotateFuinjutsu 50s linear infinite;
+            pointer-events: none;
+            transition: border-color 0.5s ease;
+        }
+
+        .chidori-mode .fuinjutsu-ring-1 {
+            border-color: rgba(168, 85, 247, 0.25);
+        }
+
+        .fuinjutsu-ring-2 {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: min(65vw, 520px);
+            height: min(65vw, 520px);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 50%;
+            animation: reverseRotate 35s linear infinite;
+            pointer-events: none;
+            transition: border-color 0.5s ease;
+        }
+
+        .chidori-mode .fuinjutsu-ring-2 {
+            border-color: rgba(0, 229, 255, 0.25);
+        }
+
+        /* Glassmorphism Card Container */
+        .shinobi-card {
+            background: rgba(11, 16, 33, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(0, 240, 255, 0.08);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .chidori-mode .shinobi-card {
+            background: rgba(13, 9, 20, 0.88);
+            border-color: rgba(168, 85, 247, 0.4);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95), inset 0 0 25px rgba(168, 85, 247, 0.12);
+        }
+
+        /* Metallic Title Text Gradients */
+        .title-rasengan {
+            background: linear-gradient(135deg, #FFFFFF 0%, #70E4FF 40%, #0066FF 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-size: 200% 200%;
+            animation: titleShine 4s ease infinite;
+        }
+
+        .title-chidori {
+            background: linear-gradient(135deg, #FFFFFF 0%, #D8B4FE 40%, #8B5CF6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-size: 200% 200%;
+            animation: titleShine 4s ease infinite;
+        }
+
+        /* Makimono Scroll Inputs */
+        .scroll-input-wrapper {
+            position: relative;
+            background: linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(2, 6, 23, 0.9) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-left: 4px solid #FF7700;
+            border-right: 4px solid #FF7700;
+            transition: all 0.3s ease;
+        }
+
+        .chidori-mode .scroll-input-wrapper {
+            border-left-color: #A855F7;
+            border-right-color: #A855F7;
+        }
+
+        .scroll-input-wrapper:focus-within {
+            border-color: #00F0FF;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+            border-left-width: 6px;
+            border-right-width: 6px;
+        }
+
+        .chidori-mode .scroll-input-wrapper:focus-within {
+            border-color: #A855F7;
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+        }
+
+        /* Action Button Layout */
+        .jutsu-action-button {
+            position: relative;
+            width: 100%;
+            height: 92px;
+            border-radius: 20px;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 6, 23, 0.95) 100%);
+            border: 2px solid rgba(0, 240, 255, 0.6);
+            box-shadow: 0 10px 30px rgba(0, 240, 255, 0.25), inset 0 0 15px rgba(0, 240, 255, 0.2);
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .chidori-mode .jutsu-action-button {
+            border-color: rgba(168, 85, 247, 0.7);
+            box-shadow: 0 10px 30px rgba(168, 85, 247, 0.3), inset 0 0 15px rgba(168, 85, 247, 0.25);
+        }
+
+        .jutsu-action-button:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 15px 40px rgba(0, 240, 255, 0.45), inset 0 0 25px rgba(0, 240, 255, 0.4);
+        }
+
+        .chidori-mode .jutsu-action-button:hover {
+            box-shadow: 0 15px 40px rgba(168, 85, 247, 0.55), inset 0 0 25px rgba(168, 85, 247, 0.45);
+        }
+
+        .jutsu-action-button:active {
+            transform: scale(0.97);
+        }
+
+        /* Sound Waves Indicator */
+        .sound-wave {
+            display: inline-block;
+            width: 3px;
+            height: 12px;
+            background: #00F0FF;
+            margin: 0 1px;
+            animation: waveAnim 1s ease-in-out infinite;
+        }
+        .sound-wave:nth-child(2) { animation-delay: 0.2s; }
+        .sound-wave:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes waveAnim {
+            0%, 100% { height: 4px; }
+            50% { height: 14px; }
+        }
+
+        /* Background Particle Canvas */
+        #bgCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.4); border-radius: 3px; }
+    </style>
+</head>
+<body id="mainBody" class="bg-[#060810] text-slate-100 font-sans min-h-screen overflow-x-hidden flex items-center justify-center p-3 sm:p-6 select-none transition-colors duration-500">
+
+    <!-- Canvas Background Engine -->
+    <canvas id="bgCanvas"></canvas>
+
+    <!-- Fuinjutsu Runes Background Rings -->
+    <div class="fuinjutsu-ring-1 flex items-center justify-center">
+        <span class="text-orange-500/20 text-4xl sm:text-6xl tracking-[1.5rem] sm:tracking-[2.5rem] font-kanji font-bold">忍術 螺旋丸 雷切 封印 忍 界</span>
+    </div>
+    <div class="fuinjutsu-ring-2 flex items-center justify-center">
+        <span class="text-cyan-400/20 text-2xl sm:text-4xl tracking-[1rem] sm:tracking-[1.8rem] font-kanji font-bold">チャクラ 風遁 雷遁 忍者 闘</span>
+    </div>
+
+    <!-- Ambient Glowing Orbs -->
+    <div id="orbLeft" class="fixed top-1/4 -left-20 w-80 h-80 bg-cyan-500/20 rounded-full blur-[110px] pointer-events-none transition-all duration-700"></div>
+    <div id="orbRight" class="fixed bottom-1/4 -right-20 w-80 h-80 bg-orange-500/20 rounded-full blur-[110px] pointer-events-none transition-all duration-700"></div>
+
+    <!-- MAIN LOGIN CONTAINER -->
+    <main class="relative z-10 w-full max-w-md mx-auto">
+
+        <!-- TOP BAR CONTROLS -->
+        <div class="flex items-center justify-between mb-4 px-2">
+            <!-- Audio Synthesizer Toggle -->
+            <button id="soundToggleBtn" onclick="toggleAudio()" class="flex items-center gap-2 bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 rounded-full px-3.5 py-1.5 text-xs text-slate-300 transition-all hover:scale-105 active:scale-95 shadow-xl backdrop-blur-md">
+                <i id="soundIcon" class="fa-solid fa-volume-xmark text-slate-400"></i>
+                <span id="soundText" class="font-semibold">Som: Desativado</span>
+                <span id="soundWaveBox" class="hidden flex items-center ml-1">
+                    <span class="sound-wave"></span>
+                    <span class="sound-wave"></span>
+                    <span class="sound-wave"></span>
+                </span>
+            </button>
+
+            <!-- Server Badge -->
+            <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded-full px-3 py-1.5 text-[11px] text-slate-300 backdrop-blur-md shadow-xl">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span class="font-bold tracking-wider">MUNDO 01: KONOHA</span>
+            </div>
+        </div>
+
+        <!-- MAIN SHINOBI GLASS CARD -->
+        <div id="loginCard" class="shinobi-card rounded-3xl p-6 sm:p-8 relative overflow-hidden">
+            
+            <!-- Metallic Ninja Scroll Corner Accents -->
+            <div class="absolute top-0 left-0 w-10 h-10 border-t-2 border-l-2 border-cyan-400/60 rounded-tl-3xl pointer-events-none"></div>
+            <div class="absolute top-0 right-0 w-10 h-10 border-t-2 border-r-2 border-cyan-400/60 rounded-tr-3xl pointer-events-none"></div>
+            <div class="absolute bottom-0 left-0 w-10 h-10 border-b-2 border-l-2 border-cyan-400/60 rounded-bl-3xl pointer-events-none"></div>
+            <div class="absolute bottom-0 right-0 w-10 h-10 border-b-2 border-r-2 border-cyan-400/60 rounded-br-3xl pointer-events-none"></div>
+
+            <!-- Header Section -->
+            <div class="text-center mb-6">
+                <!-- Japanese Kanji Header Banner -->
+                <div class="flex items-center justify-center gap-2 mb-1">
+                    <span class="h-[1px] w-8 bg-gradient-to-r from-transparent to-cyan-400"></span>
+                    <span id="kanjiSubtitle" class="font-kanji text-amber-400 text-sm tracking-widest font-bold">NARUTO 忍界対戦</span>
+                    <span class="h-[1px] w-8 bg-gradient-to-l from-transparent to-cyan-400"></span>
+                </div>
+
+                <!-- Main Game Logo Title -->
+                <h1 id="gameTitle" class="text-3xl sm:text-4xl font-black font-cinzel tracking-wider title-rasengan drop-shadow-lg">
+                    NARUTO UNISON
+                </h1>
+                <p class="text-[11px] text-slate-400 mt-1 tracking-widest font-bold uppercase">
+                    ARENA DOS CINCO GRANDES PAÍSES
+                </p>
+            </div>
+
+            <!-- JUTSU MODE SWITCHER TOGGLE -->
+            <div class="mb-6 bg-slate-950/90 p-1.5 rounded-2xl border border-slate-800 flex items-center justify-between relative shadow-inner">
+                <button id="selectRasengan" onclick="setJutsuMode('rasengan')" class="w-1/2 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative z-10 text-white bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/30">
+                    <i class="fa-solid fa-dharmachakra text-cyan-200 animate-spin" style="animation-duration: 4s;"></i>
+                    <span>RASENGAN</span>
+                </button>
+
+                <button id="selectChidori" onclick="setJutsuMode('chidori')" class="w-1/2 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative z-10 text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-bolt text-purple-400 text-sm"></i>
+                    <span>CHIDORI</span>
+                </button>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                
+                <!-- NINJA ID INPUT FIELD -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1.5 ml-1 tracking-wide uppercase flex items-center gap-1.5">
+                        <i class="fa-solid fa-scroll text-orange-400"></i> ID do Shinobi / Nome
+                    </label>
+                    <div class="scroll-input-wrapper rounded-xl flex items-center px-4 py-3 gap-3">
+                        <div class="w-5 text-center text-slate-400">
+                            <i id="userIcon" class="fa-solid fa-user-ninja text-cyan-400 text-base"></i>
+                        </div>
+                        <input type="text" id="ninjaId" required placeholder="Ex: Uzumaki_Naruto" 
+                            class="bg-transparent text-sm w-full text-slate-100 placeholder-slate-500 focus:outline-none font-semibold tracking-wide">
+                        <div class="text-[10px] bg-slate-800/80 text-cyan-300 px-2.5 py-1 rounded-md uppercase font-black border border-slate-700">
+                            ID
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASSWORD INPUT FIELD -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5 ml-1">
+                        <label class="block text-xs font-bold text-slate-300 tracking-wide uppercase flex items-center gap-1.5">
+                            <i class="fa-solid fa-key text-cyan-400"></i> Chakra de Acesso
+                        </label>
+                        <a href="javascript:void(0)" onclick="forgotChakra()" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-bold transition-colors">
+                            Esqueceu o Selo?
+                        </a>
+                    </div>
+                    <div class="scroll-input-wrapper rounded-xl flex items-center px-4 py-3 gap-3">
+                        <div class="w-5 text-center text-slate-400">
+                            <i id="passIcon" class="fa-solid fa-lock text-orange-400 text-base"></i>
+                        </div>
+                        <input type="password" id="ninjaPass" required placeholder="••••••••••••" 
+                            class="bg-transparent text-sm w-full text-slate-100 placeholder-slate-500 focus:outline-none font-semibold tracking-widest">
+                        <button type="button" onclick="togglePasswordVisibility()" class="text-slate-400 hover:text-slate-200 text-sm focus:outline-none transition-colors">
+                            <i id="eyeIcon" class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- REMEMBER SEAL & CLAN TAG -->
+                <div class="flex items-center justify-between text-xs py-1">
+                    <label class="flex items-center gap-2 cursor-pointer text-slate-300 group">
+                        <input type="checkbox" checked class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-0 cursor-pointer accent-cyan-500">
+                        <span class="group-hover:text-white transition-colors font-medium">Manter Selo Conectado</span>
+                    </label>
+
+                    <div id="clanTag" class="flex items-center gap-1.5 text-cyan-300 text-[11px] font-extrabold">
+                        <i id="clanIcon" class="fa-solid fa-leaf text-emerald-400"></i>
+                        <span id="clanName">Vila da Folha</span>
+                    </div>
+                </div>
+
+                <!-- DYNAMIC ELEMENTAL "ENTRAR NA ARENA" BUTTON -->
+                <div class="pt-2">
+                    <button type="submit" id="jutsuBtn" class="jutsu-action-button flex items-center justify-between px-4 sm:px-6">
+                        <!-- Left Ninja Plate -->
+                        <div class="relative z-20 flex items-center gap-2 text-left">
+                            <span class="font-kanji text-amber-400 text-xs font-bold block leading-none">突入</span>
+                            <span id="btnTextMain" class="text-white font-black text-base sm:text-lg tracking-wider block uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+                                ENTRAR
+                            </span>
+                        </div>
+
+                        <!-- CENTERPIECE 3D PROCEDURAL ELEMENTAL JUTSU ORB CANVAS -->
+                        <div class="relative z-20 w-20 h-20 flex items-center justify-center">
+                            <canvas id="jutsuOrbCanvas" class="w-20 h-20 pointer-events-none rounded-full"></canvas>
+                        </div>
+
+                        <!-- Right Ninja Plate -->
+                        <div class="relative z-20 flex items-center gap-2 text-right">
+                            <span id="btnTextSub" class="text-white font-black text-base sm:text-lg tracking-wider block uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+                                ARENA
+                            </span>
+                            <i id="btnArrow" class="fa-solid fa-angles-right text-cyan-300 text-sm"></i>
+                        </div>
+                    </button>
+                </div>
+
+            </form>
+
+            <!-- FOOTER LINKS & SOCIAL SYNC -->
+            <div class="mt-6 pt-4 border-t border-slate-800/90 text-center">
+                <p class="text-xs text-slate-400 mb-2.5 font-medium">Ainda não registrou seu Nindo?</p>
+                
+                <button onclick="openRegisterModal()" class="w-full py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold tracking-wider transition-all hover:border-cyan-500/50 shadow">
+                    CRIAR NOVA CONTA NINJA
+                </button>
+
+                <!-- Quick Social Sync -->
+                <div class="flex items-center justify-center gap-4 mt-4">
+                    <button class="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-cyan-400 flex items-center justify-center transition-all">
+                        <i class="fa-brands fa-google text-xs"></i>
+                    </button>
+                    <button class="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-cyan-400 flex items-center justify-center transition-all">
+                        <i class="fa-brands fa-discord text-xs"></i>
+                    </button>
+                    <button class="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-cyan-400 flex items-center justify-center transition-all">
+                        <i class="fa-solid fa-gamepad text-xs"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer Credits -->
+        <p class="text-center text-[11px] text-slate-600 mt-4 font-semibold">
+            &copy; 2026 Naruto Unison Mobile • Todos os direitos reservados.
+        </p>
+
+    </main>
+
+    <!-- FULLSCREEN NINJUTSU RELEASE TRANSITION OVERLAY -->
+    <div id="chakraBurstOverlay" class="fixed inset-0 z-50 pointer-events-none opacity-0 flex items-center justify-center transition-opacity duration-300">
+        <div id="burstBg" class="absolute inset-0 bg-cyan-500"></div>
+        <div class="relative z-10 text-center">
+            <div class="text-white font-kanji text-6xl font-bold animate-ping mb-2">解</div>
+            <div class="text-white font-cinzel text-2xl font-black tracking-widest uppercase">FUINJUTSU RELEASE!</div>
+        </div>
+    </div>
+
+    <!-- MOCK ARENA LOBBY MODAL -->
+    <div id="arenaLobbyModal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-500">
+        <div class="bg-slate-900 border border-cyan-500/50 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center relative overflow-hidden shadow-2xl">
+            <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 mx-auto flex items-center justify-center shadow-lg shadow-cyan-500/40 mb-4 animate-bounce">
+                <i class="fa-solid fa-khanda text-3xl text-white"></i>
+            </div>
+
+            <h2 class="text-2xl font-black text-white font-cinzel mb-1">ARENA DE BATALHA</h2>
+            <p id="welcomeShinobiName" class="text-cyan-400 font-bold text-sm mb-4">Shinobi Uzumaki</p>
+            
+            <div class="bg-slate-950/90 rounded-2xl p-4 border border-slate-800 text-left space-y-3 mb-6 text-xs text-slate-300">
+                <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                    <span class="text-slate-400">Sincronização de Chakra:</span>
+                    <span class="text-emerald-400 font-bold flex items-center gap-1">
+                        <i class="fa-solid fa-circle-check"></i> 100% Estável
+                    </span>
+                </div>
+                <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                    <span class="text-slate-400">Modo Elemental:</span>
+                    <span id="modalJutsuType" class="text-cyan-400 font-bold">Rasengan (Wind Release)</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Próximo Oponente:</span>
+                    <span class="text-amber-400 font-bold">Sasuke (Torneio Chunin)</span>
+                </div>
+            </div>
+
+            <button onclick="closeLobbyModal()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-black text-sm tracking-wider shadow-lg shadow-cyan-500/25 transition-all active:scale-95">
+                ENTRAR NO LOBBY DE COMBATE
+            </button>
+        </div>
+    </div>
+
+    <!-- MOCK REGISTER MODAL -->
+    <div id="registerModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full text-center relative shadow-2xl">
+            <h3 class="text-xl font-bold text-white font-cinzel mb-1">NOVO SHINOBI</h3>
+            <p class="text-xs text-slate-400 mb-4">Registre seu nome e selecione sua vila de origem.</p>
+            
+            <input type="text" placeholder="Nome de Shinobi" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white mb-3 focus:outline-none focus:border-cyan-400 font-semibold">
+            <select class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-slate-300 mb-4 focus:outline-none focus:border-cyan-400 font-semibold">
+                <option>Vila da Folha (Konohagakure)</option>
+                <option>Vila da Areia (Sunagakure)</option>
+                <option>Vila da Nuvem (Kumogakure)</option>
+                <option>Vila da Névoa (Kirigakure)</option>
+                <option>Clã Uchiha (Distrito Oculto)</option>
+            </select>
+
+            <div class="flex gap-2">
+                <button onclick="closeRegisterModal()" class="w-1/2 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700">CANCELAR</button>
+                <button onclick="closeRegisterModal()" class="w-1/2 py-2.5 rounded-xl bg-cyan-500 text-white text-xs font-bold hover:bg-cyan-400">REGISTRAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC & PROCEDURAL CANVAS RENDERERS -->
+    <script>
+        // State Variables
+        let currentMode = 'rasengan'; // 'rasengan' or 'chidori'
+        let audioEnabled = false;
+        let audioCtx = null;
+        let isHoveringButton = false;
+
+        // Web Audio Synthesizer for Authentic Jutsu Sound Effects
+        function playSynthesizedSound(type) {
+            if (!audioEnabled) return;
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'rasengan') {
+                    // Wind hum + spinning chakra pitch ramp
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.35);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                } else if (type === 'chidori') {
+                    // High frequency electricity crackle with noisy sawtooth modulation
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(1200, now);
+                    osc.frequency.setValueAtTime(1800, now + 0.05);
+                    osc.frequency.setValueAtTime(600, now + 0.1);
+                    osc.frequency.setValueAtTime(2200, now + 0.15);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'release') {
+                    // Explosive chakra release
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(100, now);
+                    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.25);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.7);
+                    gain.gain.setValueAtTime(0.6, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.7);
+                }
+            } catch(e) {
+                console.log("Audio FX initialization error:", e);
+            }
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const soundIcon = document.getElementById('soundIcon');
+            const soundText = document.getElementById('soundText');
+            const soundWaveBox = document.getElementById('soundWaveBox');
+
+            if (audioEnabled) {
+                soundIcon.className = "fa-solid fa-volume-high text-cyan-400";
+                soundText.innerText = "Som: Ativado";
+                soundWaveBox.classList.remove('hidden');
+                playSynthesizedSound(currentMode);
+            } else {
+                soundIcon.className = "fa-solid fa-volume-xmark text-slate-400";
+                soundText.innerText = "Som: Desativado";
+                soundWaveBox.classList.add('hidden');
+            }
+        }
+
+        // Toggle Theme Mode (Rasengan vs Chidori)
+        function setJutsuMode(mode) {
+            currentMode = mode;
+            playSynthesizedSound(mode);
+
+            const body = document.getElementById('mainBody');
+            const title = document.getElementById('gameTitle');
+            const kanjiSubtitle = document.getElementById('kanjiSubtitle');
+            const rasenganBtn = document.getElementById('selectRasengan');
+            const chidoriBtn = document.getElementById('selectChidori');
+            const userIcon = document.getElementById('userIcon');
+            const passIcon = document.getElementById('passIcon');
+            const clanIcon = document.getElementById('clanIcon');
+            const clanName = document.getElementById('clanName');
+            const btnArrow = document.getElementById('btnArrow');
+            const orbLeft = document.getElementById('orbLeft');
+            const orbRight = document.getElementById('orbRight');
+
+            if (mode === 'rasengan') {
+                body.className = "bg-[#060810] text-slate-100 font-sans min-h-screen overflow-x-hidden flex items-center justify-center p-3 sm:p-6 select-none transition-colors duration-500";
+                title.className = "text-3xl sm:text-4xl font-black font-cinzel tracking-wider title-rasengan drop-shadow-lg";
+                kanjiSubtitle.innerText = "NARUTO 忍界対戦";
+                kanjiSubtitle.className = "font-kanji text-amber-400 text-sm tracking-widest font-bold";
+
+                rasenganBtn.className = "w-1/2 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative z-10 text-white bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/30";
+                chidoriBtn.className = "w-1/2 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative z-10 text-slate-400 hover:text-white";
+
+                userIcon.className = "fa-solid fa-user-ninja text-cyan-400 text-base";
+                passIcon.className = "fa-solid fa-lock text-orange-400 text-base";
+                clanIcon.className = "fa-solid fa-leaf text-emerald-400";
+                clanName.innerText = "Vila da Folha";
+                btnArrow.className = "fa-solid fa-angles-right text-cyan-300 text-sm";
+
+                orbLeft.className = "fixed top-1/4 -left-20 w-80 h-80 bg-cyan-500/20 rounded-full blur-[110px] pointer-events-none transition-all duration-700";
+                orbRight.className = "fixed bottom-1/4 -right-20 w-80 h-80 bg-orange-500/20 rounded-full blur-[110px] pointer-events-none transition-all duration-700";
+
+            } else {
+                body.className = "bg-[#0A0712] chidori-mode text-slate-100 font-sans min-h-screen overflow-x-hidden flex items-center justify-center p-3 sm:p-6 select-none transition-colors duration-500";
+                title.className = "text-3xl sm:text-4xl font-black font-cinzel tracking-wider title-chidori drop-shadow-lg";
+                kanjiSubtitle.innerText = "SASUKE 千鳥雷切";
+                kanjiSubtitle.className = "font-kanji text-purple-400 text-sm tracking-widest font-bold";
+
+                chidoriBtn.className = "w-1/2 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative z-10 text-white bg-gradient-to-r from-purple-600 to-indigo-600 shadow-lg shadow-purple-500/30";
+                rasenganBtn.className = "w-1/2 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 relative z-10 text-slate-400 hover:text-white";
+
+                userIcon.className = "fa-solid fa-eye text-purple-400 text-base";
+                passIcon.className = "fa-solid fa-bolt text-cyan-400 text-base";
+                clanIcon.className = "fa-solid fa-eye text-purple-400";
+                clanName.innerText = "Clã Uchiha";
+                btnArrow.className = "fa-solid fa-angles-right text-purple-300 text-sm";
+
+                orbLeft.className = "fixed top-1/4 -left-20 w-80 h-80 bg-purple-500/25 rounded-full blur-[110px] pointer-events-none transition-all duration-700";
+                orbRight.className = "fixed bottom-1/4 -right-20 w-80 h-80 bg-cyan-500/25 rounded-full blur-[110px] pointer-events-none transition-all duration-700";
+            }
+        }
+
+        // Toggle Password Masking
+        function togglePasswordVisibility() {
+            const passInput = document.getElementById('ninjaPass');
+            const eyeIcon = document.getElementById('eyeIcon');
+
+            if (passInput.type === 'password') {
+                passInput.type = 'text';
+                eyeIcon.className = 'fa-solid fa-eye-slash text-cyan-400';
+            } else {
+                passInput.type = 'password';
+                eyeIcon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        function forgotChakra() {
+            const user = document.getElementById('ninjaId').value || 'Shinobi';
+            alert(`Selo de redefinição de chakra enviado para as aves do usuário ${user}!`);
+        }
+
+        // Handle Login Submission & Ninjutsu Explosion Transition
+        function handleLogin(event) {
+            event.preventDefault();
+            const ninjaId = document.getElementById('ninjaId').value;
+            
+            playSynthesizedSound('release');
+
+            // Trigger Screen Shake
+            const body = document.getElementById('mainBody');
+            body.classList.add('shake-active');
+
+            // Trigger Fullscreen Chakra Flash
+            const overlay = document.getElementById('chakraBurstOverlay');
+            const burstBg = document.getElementById('burstBg');
+
+            if (currentMode === 'rasengan') {
+                burstBg.className = "absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-600 to-white";
+            } else {
+                burstBg.className = "absolute inset-0 bg-gradient-to-r from-purple-600 via-indigo-600 to-white";
+            }
+
+            overlay.classList.remove('opacity-0', 'pointer-events-none');
+            overlay.classList.add('opacity-100');
+
+            setTimeout(() => {
+                body.classList.remove('shake-active');
+                overlay.classList.remove('opacity-100');
+                overlay.classList.add('opacity-0', 'pointer-events-none');
+
+                // Show Arena Lobby Modal
+                document.getElementById('welcomeShinobiName').innerText = `Ninja: ${ninjaId}`;
+                document.getElementById('modalJutsuType').innerText = currentMode === 'rasengan' ? 'Rasengan (Wind Release)' : 'Chidori (Lightning Release)';
+                
+                const modal = document.getElementById('arenaLobbyModal');
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    modal.classList.add('opacity-100');
+                }, 50);
+
+            }, 650);
+        }
+
+        function closeLobbyModal() {
+            const modal = document.getElementById('arenaLobbyModal');
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 500);
+        }
+
+        function openRegisterModal() {
+            document.getElementById('registerModal').classList.remove('hidden');
+        }
+
+        function closeRegisterModal() {
+            document.getElementById('registerModal').classList.add('hidden');
+        }
+
+        // =============================================================
+        // BACKGROUND PARTICLES ENGINE (LEAF VILLAGE VS LIGHTNING ARCS)
+        // =============================================================
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        let bgParticles = [];
+
+        function resizeBgCanvas() {
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeBgCanvas);
+        resizeBgCanvas();
+
+        class BgParticle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * bgCanvas.width;
+                this.y = Math.random() * bgCanvas.height;
+                this.size = Math.random() * 3.5 + 1;
+                this.speedX = (Math.random() - 0.5) * 1.5;
+                this.speedY = -Math.random() * 1.8 - 0.5;
+                this.alpha = Math.random() * 0.7 + 0.3;
+                this.life = Math.random() * 120 + 60;
+                this.angle = Math.random() * Math.PI * 2;
+                this.spin = (Math.random() - 0.5) * 0.08;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.angle += this.spin;
+                this.life--;
+
+                if (this.life <= 0 || this.y < 0) {
+                    this.reset();
+                    this.y = bgCanvas.height + 10;
+                }
+            }
+
+            draw() {
+                bgCtx.save();
+                bgCtx.globalAlpha = this.alpha;
+                bgCtx.translate(this.x, this.y);
+                bgCtx.rotate(this.angle);
+
+                if (currentMode === 'rasengan') {
+                    // Leaves & Wind Chakra Particles
+                    if (Math.random() > 0.5) {
+                        bgCtx.fillStyle = '#10B981'; // Konoha Leaf Green
+                        bgCtx.beginPath();
+                        bgCtx.ellipse(0, 0, this.size * 2.2, this.size, 0, 0, Math.PI * 2);
+                        bgCtx.fill();
+                    } else {
+                        bgCtx.fillStyle = '#00F0FF';
+                        bgCtx.shadowColor = '#00F0FF';
+                        bgCtx.shadowBlur = 10;
+                        bgCtx.beginPath();
+                        bgCtx.arc(0, 0, this.size, 0, Math.PI * 2);
+                        bgCtx.fill();
+                    }
+                } else {
+                    // Electric Lightning Arc Sparks
+                    bgCtx.strokeStyle = Math.random() > 0.3 ? '#A855F7' : '#00E5FF';
+                    bgCtx.shadowColor = '#00E5FF';
+                    bgCtx.shadowBlur = 12;
+                    bgCtx.lineWidth = 1.6;
+                    bgCtx.beginPath();
+                    bgCtx.moveTo(-this.size * 2, 0);
+                    bgCtx.lineTo(0, (Math.random() - 0.5) * 8);
+                    bgCtx.lineTo(this.size * 2, 0);
+                    bgCtx.stroke();
+                }
+                
+                bgCtx.restore();
+            }
+        }
+
+        function initBgParticles() {
+            bgParticles = [];
+            const count = Math.min(Math.floor(window.innerWidth / 16), 80);
+            for (let i = 0; i < count; i++) {
+                bgParticles.push(new BgParticle());
+            }
+        }
+
+        function animateBgParticles() {
+            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+            bgParticles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            requestAnimationFrame(animateBgParticles);
+        }
+
+        // =============================================================
+        // AUTHENTIC 3D-STYLIZED RASENGAN & CHIDORI ORB CANVAS ENGINE
+        // =============================================================
+        const orbCanvas = document.getElementById('jutsuOrbCanvas');
+        const orbCtx = orbCanvas.getContext('2d');
+        let orbFrame = 0;
+
+        function resizeOrbCanvas() {
+            orbCanvas.width = 160;  // Hi-DPI Resolution
+            orbCanvas.height = 160;
+        }
+        resizeOrbCanvas();
+
+        // Mouse hover intensity handler
+        const jutsuBtn = document.getElementById('jutsuBtn');
+        jutsuBtn.addEventListener('mouseenter', () => { isHoveringButton = true; });
+        jutsuBtn.addEventListener('mouseleave', () => { isHoveringButton = false; });
+        jutsuBtn.addEventListener('touchstart', () => { isHoveringButton = true; });
+        jutsuBtn.addEventListener('touchend', () => { isHoveringButton = false; });
+
+        // Lightning Bolt Recursive Generator for Chidori
+        function drawLightningArc(ctx, x1, y1, x2, y2, displace, color, width) {
+            if (displace < 2) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = width;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            } else {
+                const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * displace;
+                const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * displace;
+                drawLightningArc(ctx, x1, y1, midX, midY, displace / 2, color, width);
+                drawLightningArc(ctx, midX, midY, x2, y2, displace / 2, color, width);
+            }
+        }
+
+        function renderJutsuOrb() {
+            const w = orbCanvas.width;
+            const h = orbCanvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+
+            orbCtx.clearRect(0, 0, w, h);
+            
+            // Speed boost on hover
+            const speedMultiplier = isHoveringButton ? 2.2 : 1.0;
+            orbFrame += speedMultiplier;
+
+            if (currentMode === 'rasengan') {
+                // =========================================================
+                // AUTHENTIC 3D SWIRLING RASENGAN SPHERE
+                // =========================================================
+                
+                // 1. Dense Outer Pulsing Aura Halo
+                const auraRadius = 60 + Math.sin(orbFrame * 0.1) * (isHoveringButton ? 6 : 3);
+                const auraGrad = orbCtx.createRadialGradient(cx, cy, 10, cx, cy, auraRadius);
+                auraGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+                auraGrad.addColorStop(0.35, 'rgba(0, 240, 255, 0.8)');
+                auraGrad.addColorStop(0.7, 'rgba(0, 102, 255, 0.45)');
+                auraGrad.addColorStop(1, 'rgba(0, 50, 150, 0)');
+
+                orbCtx.fillStyle = auraGrad;
+                orbCtx.beginPath();
+                orbCtx.arc(cx, cy, auraRadius, 0, Math.PI * 2);
+                orbCtx.fill();
+
+                // 2. Dual Counter-Rotating Swirling Energy Spirals
+                const spiralLayerCount = 14;
+                orbCtx.save();
+                orbCtx.translate(cx, cy);
+
+                for (let i = 0; i < spiralLayerCount; i++) {
+                    orbCtx.save();
+                    // Alternating reverse rotation angles for 3D depth
+                    const dir = i % 2 === 0 ? 1 : -1.4;
+                    const rotAngle = (orbFrame * 0.08 * dir) + (i * Math.PI * 2 / spiralLayerCount);
+                    orbCtx.rotate(rotAngle);
+
+                    orbCtx.beginPath();
+                    const maxR = 48 * (0.6 + Math.sin(orbFrame * 0.04 + i) * 0.25);
+                    for (let a = 0; a < Math.PI * 3.5; a += 0.15) {
+                        const r = (a / (Math.PI * 3.5)) * maxR;
+                        const x = r * Math.cos(a);
+                        const y = r * Math.sin(a);
+                        if (a === 0) orbCtx.moveTo(x, y);
+                        else orbCtx.lineTo(x, y);
+                    }
+
+                    orbCtx.strokeStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 240, 255, 0.85)';
+                    orbCtx.lineWidth = isHoveringButton ? 2.5 : 1.8;
+                    orbCtx.shadowColor = '#00F0FF';
+                    orbCtx.shadowBlur = 12;
+                    orbCtx.stroke();
+                    orbCtx.restore();
+                }
+
+                // 3. Floating Ejected Chakra Particle Sparks
+                const particleCount = isHoveringButton ? 30 : 16;
+                for (let p = 0; p < particleCount; p++) {
+                    const pAngle = (orbFrame * 0.15 * (p % 2 === 0 ? 1 : -1)) + (p * 137.5 * Math.PI / 180);
+                    const pDist = (Math.sin(orbFrame * 0.06 + p) * 0.4 + 0.5) * 55;
+                    const px = Math.cos(pAngle) * pDist;
+                    const py = Math.sin(pAngle) * pDist;
+
+                    orbCtx.beginPath();
+                    orbCtx.arc(px, py, Math.random() * 2 + 1, 0, Math.PI * 2);
+                    orbCtx.fillStyle = p % 2 === 0 ? '#FFFFFF' : '#80F4FF';
+                    orbCtx.shadowColor = '#00F0FF';
+                    orbCtx.shadowBlur = 10;
+                    orbCtx.fill();
+                }
+                orbCtx.restore();
+
+                // 4. White-Hot Solid Dense Inner Core Sphere
+                const coreRadius = 20 + Math.sin(orbFrame * 0.2) * 2;
+                const coreGrad = orbCtx.createRadialGradient(cx, cy, 0, cx, cy, coreRadius);
+                coreGrad.addColorStop(0, '#FFFFFF');
+                coreGrad.addColorStop(0.6, '#E0FFFF');
+                coreGrad.addColorStop(1, 'rgba(0, 240, 255, 0.95)');
+
+                orbCtx.beginPath();
+                orbCtx.arc(cx, cy, coreRadius, 0, Math.PI * 2);
+                orbCtx.fillStyle = coreGrad;
+                orbCtx.shadowColor = '#FFFFFF';
+                orbCtx.shadowBlur = 25;
+                orbCtx.fill();
+
+            } else {
+                // =========================================================
+                // AUTHENTIC CRACKLING CHIDORI LIGHTNING CLUSTER
+                // =========================================================
+
+                // 1. High-Voltage Background Electric Glow
+                const chidoriRadius = 62;
+                const glowGrad = orbCtx.createRadialGradient(cx, cy, 5, cx, cy, chidoriRadius);
+                glowGrad.addColorStop(0, '#FFFFFF');
+                glowGrad.addColorStop(0.3, '#D8B4FE');
+                glowGrad.addColorStop(0.65, '#00E5FF');
+                glowGrad.addColorStop(1, 'rgba(13, 9, 20, 0)');
+
+                orbCtx.fillStyle = glowGrad;
+                orbCtx.beginPath();
+                orbCtx.arc(cx, cy, chidoriRadius, 0, Math.PI * 2);
+                orbCtx.fill();
+
+                // 2. Branching Electric Lightning Bolts (Jittered each frame)
+                const arcCount = isHoveringButton ? 22 : 14;
+                for (let i = 0; i < arcCount; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = Math.random() * 58 + 12;
+                    const targetX = cx + Math.cos(angle) * dist;
+                    const targetY = cy + Math.sin(angle) * dist;
+
+                    const colors = ['#FFFFFF', '#00E5FF', '#D8B4FE', '#A855F7'];
+                    const col = colors[Math.floor(Math.random() * colors.length)];
+                    const width = Math.random() * 2.8 + 0.8;
+
+                    drawLightningArc(orbCtx, cx, cy, targetX, targetY, 22, col, width);
+                }
+
+                // 3. High-Frequency Spark Explosions
+                const sparkCount = isHoveringButton ? 35 : 20;
+                for (let s = 0; s < sparkCount; s++) {
+                    const sx = cx + (Math.random() - 0.5) * 110;
+                    const sy = cy + (Math.random() - 0.5) * 110;
+
+                    orbCtx.fillStyle = Math.random() > 0.3 ? '#FFFFFF' : '#A855F7';
+                    orbCtx.beginPath();
+                    orbCtx.arc(sx, sy, Math.random() * 2.5 + 0.6, 0, Math.PI * 2);
+                    orbCtx.shadowColor = '#00E5FF';
+                    orbCtx.shadowBlur = 12;
+                    orbCtx.fill();
+                }
+
+                // 4. White-Hot Concentrated Lightning Core Center
+                const jitterX = (Math.random() - 0.5) * 4;
+                const jitterY = (Math.random() - 0.5) * 4;
+                const coreGrad = orbCtx.createRadialGradient(cx + jitterX, cy + jitterY, 0, cx + jitterX, cy + jitterY, 18);
+                coreGrad.addColorStop(0, '#FFFFFF');
+                coreGrad.addColorStop(0.5, '#F0ABFC');
+                coreGrad.addColorStop(1, 'rgba(168, 85, 247, 0.95)');
+
+                orbCtx.beginPath();
+                orbCtx.arc(cx + jitterX, cy + jitterY, 18 + Math.random() * 3, 0, Math.PI * 2);
+                orbCtx.fillStyle = coreGrad;
+                orbCtx.shadowColor = '#FFFFFF';
+                orbCtx.shadowBlur = 30;
+                orbCtx.fill();
+            }
+
+            requestAnimationFrame(renderJutsuOrb);
+        }
+
+        // Initialize Everything On Load
+        window.onload = function() {
+            initBgParticles();
+            animateBgParticles();
+            renderJutsuOrb();
+        };
+    </script>
+</body>
+</html>

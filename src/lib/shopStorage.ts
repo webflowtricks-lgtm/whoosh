@@ -17,7 +17,8 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     description: 'Título exclusivo de prestígio reconhecido por todos os países ninjas.',
     currency: 'ryos',
     price: 142500,
-    badge: 'TÍTULO'
+    badge: 'TÍTULO',
+    titleTheme: 'gold-glow'
   },
   {
     id: 'title-akatsuki-renegado',
@@ -26,7 +27,8 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     description: 'Título para aqueles que trilham o caminho da névoa e das sombras.',
     currency: 'gems',
     price: 3750,
-    badge: 'TÍTULO'
+    badge: 'TÍTULO',
+    titleTheme: 'black-red'
   },
   {
     id: 'title-mestre-taijutsu',
@@ -35,7 +37,8 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     description: 'Título honroso concedido a guerreiros que dominam a força do Taijutsu.',
     currency: 'ryos',
     price: 97500,
-    badge: 'TÍTULO'
+    badge: 'TÍTULO',
+    titleTheme: 'blue'
   },
   {
     id: 'title-deus-shinobi',
@@ -44,7 +47,8 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     description: 'O mais alto título do mundo ninja, gravado nos monumentos da arena.',
     currency: 'gems',
     price: 6750,
-    badge: 'MÍTICO'
+    badge: 'MÍTICO',
+    titleTheme: 'gold-glow'
   },
 
   // Skins de Personagem (Skins)
@@ -134,8 +138,42 @@ export const DEFAULT_SHOP_ITEMS: ShopItem[] = [
     price: 7200,
     bundleGrant: { type: 'ryos', amount: 3000 },
     badge: 'OFERTA'
-  }
+  },
+  ...[
+    'Estudante',
+    'Genin de Konoha',
+    'Herói da Aliança',
+    'Novo Título',
+    'The 4 Seals of the Sound',
+    'The Prodigal Son Returns',
+    'A Girl Grown Up',
+    "Orochimaru's Spy",
+  ].map((name, index): ShopItem => ({
+    id: `title-core-${index + 1}`,
+    name,
+    category: 'title',
+    description: 'Título existente concedido por padrão ou como recompensa.',
+    currency: 'ryos',
+    price: 0,
+    badge: 'RECOMPENSA',
+    titleTheme: 'classic',
+    hiddenFromShop: true,
+  })),
 ];
+
+function mergeBuiltInTitles(items: ShopItem[]): ShopItem[] {
+  const existingIds = new Set(items.map(item => item.id));
+  const defaultsById = new Map(DEFAULT_SHOP_ITEMS.map(item => [item.id, item]));
+  return [
+    ...items.map(item => {
+      const defaultItem = defaultsById.get(item.id);
+      return item.category === 'title' && defaultItem?.category === 'title' && !item.titleTheme
+        ? { ...item, titleTheme: defaultItem.titleTheme }
+        : item;
+    }),
+    ...DEFAULT_SHOP_ITEMS.filter(item => item.id.startsWith('title-core-') && !existingIds.has(item.id)),
+  ];
+}
 
 export function getShopItems(): ShopItem[] {
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -143,7 +181,7 @@ export function getShopItems(): ShopItem[] {
     try {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed)) {
-        return parsed;
+        return mergeBuiltInTitles(parsed);
       }
     } catch (e) {
       console.error('Failed to parse shop items from localStorage:', e);
@@ -156,12 +194,13 @@ export async function fetchShopItemsFromServer(): Promise<ShopItem[]> {
   try {
     const data = await safeFetchJson<{ success?: boolean; items?: ShopItem[] }>('/api/shop');
     if (data && data.success && Array.isArray(data.items)) {
+      const items = mergeBuiltInTitles(data.items);
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.items));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
       } catch (e) {
-        console.warn("Failed to save shop items to localStorage:", e);
+        console.warn("Failed to save merged shop items to localStorage:", e);
       }
-      return data.items;
+      return items;
     }
   } catch (e) {
     console.error("Failed to fetch shop items from server:", e);

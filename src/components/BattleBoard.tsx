@@ -14,6 +14,8 @@ import MangekyoLoader from './MangekyoLoader';
 import SkinMedia from './SkinMedia';
 import { calculateBattleXp, getRankProgress, checkRankChange } from '../lib/xpSystem';
 import { getRanks } from '../lib/rankStorage';
+import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
+import { findTitleItem, getCanonicalTitleName, getTitleThemeClass } from '../lib/titleThemes';
 import { getCharacters } from '../lib/characterStorage';
 import { useLanguage, translateGameText, translateSkillName, translateTargetType, getLanguage } from '../lib/i18n';
 import { getGoalDescription } from '../lib/questUtils';
@@ -1873,6 +1875,10 @@ export default function BattleBoard({
   // 🧊 Sandbox: geração de chakra pausada (só vale em sandbox). Restaurado da reconexão quando existir.
   const chakraGenPaused = !!isSandbox && !!(restoredState ? restoredState.sandboxPauseChakraGen : sandboxPauseChakraGen);
   const { t, language } = useLanguage();
+  const [titleShopItems, setTitleShopItems] = useState(() => getShopItems());
+  useEffect(() => {
+    fetchShopItemsFromServer().then(setTitleShopItems);
+  }, []);
 
   const ranksList = useMemo(() => getRanks(), []);
   const playerXp = user?.xp || 0;
@@ -1882,6 +1888,12 @@ export default function BattleBoard({
   const opponentXp = onlineParams?.isOnline ? (onlineParams.opponentProfile?.xp || 0) : 0;
   const opponentRankProgress = useMemo(() => getRankProgress(opponentXp, ranksList), [opponentXp, ranksList]);
   const opponentCurrentRank = opponentRankProgress.currentRank;
+  const playerTitle = getCanonicalTitleName(user.title || 'Shinobi', titleShopItems);
+  const playerTitleTheme = getTitleThemeClass(findTitleItem(titleShopItems, playerTitle)?.titleTheme);
+  const opponentTitle = onlineParams?.isOnline
+    ? getCanonicalTitleName(onlineParams.opponentProfile.title || 'Oponente', titleShopItems)
+    : 'Renegado S-Rank';
+  const opponentTitleTheme = getTitleThemeClass(findTitleItem(titleShopItems, opponentTitle)?.titleTheme);
 
   // 🔑 ONLINE INITIATIVE — single source of truth, server-authoritative.
   // Both clients share the same room `seed`. Turn 1's starter is the seed-derived
@@ -18887,7 +18899,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
               return (
                 <span
-                  className={`battle-player-rank-badge z-0 flex w-max max-w-[120px] items-center gap-1 overflow-hidden whitespace-nowrap rounded-lg border px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider shadow-md ${bgClass}`}
+                  className={`battle-player-rank-badge z-0 flex w-max max-w-[120px] items-center gap-1 overflow-visible whitespace-nowrap rounded-lg border px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider shadow-md ${bgClass}`}
                   style={{
                     ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
                     color: r.fontColor || '#ffffff'
@@ -18902,6 +18914,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     <Award className="relative z-10 h-3 w-3 text-amber-300" />
                   )}
                   <span className="relative z-10">{r.name}</span>
+                  <span className={`battle-player-title-badge battle-title-badge title-theme-preview ${playerTitleTheme} max-w-[120px] truncate px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider`}>
+                    {playerTitle}
+                  </span>
                 </span>
               );
             })()}
@@ -18950,7 +18965,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             {/* Avatar container with high fidelity glow and frame overlay (Foreground z-10) */}
             <div className="mv-profile-avatar relative z-10 w-14 h-14 flex-shrink-0">
               <div className="absolute inset-0 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
-              <div className="relative z-10 w-full h-full rounded-full border-2 border-orange-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
+              <div className="relative z-10 w-full h-full rounded-full border-2 border-orange-500/80 overflow-hidden shadow-lg bg-slate-950">
                 <img
                   src={user.photoUrl || null}
                   alt={user.name}
@@ -20205,7 +20220,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               : (r.color.includes('bg-gradient') ? r.color : `bg-gradient-to-r ${r.color}`);
             return (
               <span
-                className={`battle-enemy-rank-badge z-0 flex w-max max-w-[120px] items-center gap-1 overflow-hidden whitespace-nowrap rounded-lg border px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider shadow-md ${bgClass}`}
+                className={`battle-enemy-rank-badge z-0 flex w-max max-w-[120px] items-center gap-1 overflow-visible whitespace-nowrap rounded-lg border px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider shadow-md ${bgClass}`}
                 style={{
                   ...(r.bgColor ? { backgroundColor: r.bgColor } : {}),
                   color: r.fontColor || '#ffffff'
@@ -20220,6 +20235,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   <Award className="relative z-10 h-3 w-3 text-red-300" />
                 )}
                 <span className="relative z-10">{r.name}</span>
+                <span className={`battle-enemy-title-badge battle-title-badge title-theme-preview ${opponentTitleTheme} max-w-[120px] truncate px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider`}>
+                  {opponentTitle}
+                </span>
               </span>
             );
           })()}
@@ -20271,7 +20289,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             {/* Avatar container with high fidelity glow and frame overlay (Foreground z-10) */}
             <div className="mv-profile-avatar relative z-10 w-14 h-14 flex-shrink-0">
               <div className="absolute inset-0 bg-gradient-to-tr from-red-600 to-rose-500 rounded-full blur-sm opacity-50 animate-pulse group-hover:opacity-80 transition-all" />
-              <div className="relative w-full h-full rounded-full border-2 border-red-500/80 overflow-hidden shadow-lg p-0.5 bg-slate-950">
+              <div className="relative w-full h-full rounded-full border-2 border-red-500/80 overflow-hidden shadow-lg bg-slate-950">
                 <MangekyoLoader
                   src={onlineParams?.isOnline ? onlineParams.opponentProfile.photoUrl : 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kakashi-hatake/icon.jpg'}
                   alt={onlineParams?.isOnline ? onlineParams.opponentProfile.name : 'I.A. Oponente'}

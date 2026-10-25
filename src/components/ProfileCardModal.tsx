@@ -10,6 +10,8 @@ import { getCards, fetchCardsFromServer, CARD_RARITY_META, rarityFx, RARITY_ORDE
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { getLanguage, useLanguage } from '../lib/i18n';
+import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
+import { findTitleItem, getCanonicalTitleName, getTitleThemeClass } from '../lib/titleThemes';
 import { getVillageById } from '../lib/villages';
 import MangekyoLoader from './MangekyoLoader';
 
@@ -251,9 +253,11 @@ export default function ProfileCardModal({
   // Figurinhas colecionáveis do jogador
   const [allCards, setAllCards] = useState<NinjaCard[]>(() => getCards());
   const [lightboxCard, setLightboxCard] = useState<NinjaCard | null>(null);
+  const [titleItems, setTitleItems] = useState(() => getShopItems());
 
   useEffect(() => {
     fetchCardsFromServer().then(setAllCards);
+    fetchShopItemsFromServer().then(setTitleItems);
   }, []);
 
   useEffect(() => {
@@ -290,6 +294,8 @@ export default function ProfileCardModal({
   const wins = profile.wins !== undefined ? profile.wins : 24;
   const losses = profile.losses !== undefined ? profile.losses : 5;
   const selectedVillage = getVillageById(profile.village);
+  const displayedTitle = getCanonicalTitleName(profile.title || t('ESTUDANTE', 'STUDENT'), titleItems);
+  const displayedTitleTheme = getTitleThemeClass(findTitleItem(titleItems, displayedTitle)?.titleTheme);
   const village = selectedVillage
     ? t(selectedVillage.name, selectedVillage.englishName)
     : profile.village || t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)');
@@ -433,7 +439,7 @@ export default function ProfileCardModal({
                   style={{ objectPosition: `${profile.equippedBannerPositionX ?? 50}% ${profile.equippedBannerPositionY ?? 50}%` }}
                   referrerPolicy="no-referrer"
                 />
-                <div className={`absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/45 to-slate-950/25 pointer-events-none transition-opacity duration-500 ${bannerHover ? 'opacity-0' : 'opacity-100'}`} />
+                <div className={`absolute inset-0 bg-gradient-to-t from-slate-950/65 via-slate-950/30 to-slate-950/10 pointer-events-none transition-opacity duration-500 ${bannerHover ? 'opacity-0' : 'opacity-100'}`} />
               </>
             ) : (
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
@@ -472,8 +478,8 @@ export default function ProfileCardModal({
 
                 {/* Título do jogador + @username abaixo do nome */}
                 <div className={`${isLandscape ? 'gap-1 mt-0.5' : 'gap-1.5 sm:gap-2 mt-0.5 sm:mt-1'} flex flex-wrap items-center`}>
-                  <span className="text-[9px] sm:text-[10px] font-mono font-black uppercase px-1.5 sm:px-2.5 py-px sm:py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 shadow">
-                    {profile.title || t('ESTUDANTE', 'STUDENT')}
+                  <span className={`title-theme-preview ${displayedTitleTheme} text-[9px] sm:text-[10px] font-mono font-black uppercase px-1.5 sm:px-2.5 py-px sm:py-0.5`}>
+                    {displayedTitle}
                   </span>
                   <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase px-1.5 sm:px-2 py-px sm:py-0.5 rounded bg-slate-950/60 text-slate-300 border border-slate-800">
                     @{profile.username || profile.name}
@@ -493,7 +499,7 @@ export default function ProfileCardModal({
             <div className={`${isLandscape ? 'flex-row gap-2' : 'gap-4 sm:gap-6'} flex flex-col md:flex-row items-stretch`}>
               
               {/* LEFT COLUMN: STATS & DETAILS */}
-              <div className={`${isLandscape ? 'space-y-2' : 'space-y-3.5'} flex-1 z-10`}>
+              <div className="space-y-0.5 flex-1 z-10">
                 
                 {isMobilePortrait && (
                   <>
@@ -560,7 +566,7 @@ export default function ProfileCardModal({
 
                 {/* Histórico da Arena — em mobile landscape fica abaixo das curtidas (coluna esquerda) */}
                 {!isLandscape && !isMobilePortrait && (
-                  <div className="flex min-w-0 flex-col gap-2">
+                  <div className="flex min-w-0 flex-col gap-0.5">
                     {arenaHistoryBlock}
                     {onlineBattleHistoryBlock}
                   </div>

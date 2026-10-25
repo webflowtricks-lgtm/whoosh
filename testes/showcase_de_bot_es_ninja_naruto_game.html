@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naruto Shinobi UI - Button Showcase & Arena Preview</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Permanent+Marker&family=Rajdhani:wght@600;700&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        ninja: ['"Permanent Marker"', 'cursive'],
+                        epic: ['"Cinzel Decorative"', 'serif'],
+                        tech: ['"Rajdhani"', 'sans-serif'],
+                        jp: ['"Noto Sans JP"', 'sans-serif'],
+                    },
+                    colors: {
+                        ninja: {
+                            dark: '#07070b',
+                            card: '#0e0f17',
+                            border: '#1e2030',
+                            sharingan: '#ff003c',
+                            rasengan: '#00d2ff',
+                            chidori: '#aae5ff',
+                            cursed: '#a855f7',
+                            sage: '#f59e0b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* BASE & BACKGROUND */
+        body {
+            background-color: #050508;
+            color: #f3f4f6;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        .ninja-bg-pattern {
+            background-image: 
+                radial-gradient(circle at 50% 20%, rgba(20, 15, 35, 0.7) 0%, rgba(5, 5, 8, 1) 80%),
+                repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 8px);
+        }
+
+        /* CARD CONTAINERS & TABS */
+        .glass-card {
+            background: linear-gradient(135deg, rgba(18, 20, 32, 0.8) 0%, rgba(10, 11, 18, 0.95) 100%);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* 1. SHARINGAN BUTTON STYLES */
+        .btn-sharingan {
+            position: relative;
+            background: linear-gradient(135deg, #180306 0%, #080102 100%);
+            border: 2px solid #ff003c;
+            box-shadow: 0 0 15px rgba(255, 0, 60, 0.3), inset 0 0 15px rgba(255, 0, 60, 0.2);
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            overflow: hidden;
+        }
+        .btn-sharingan:hover {
+            transform: scale(1.05) translateY(-2px);
+            box-shadow: 0 0 30px rgba(255, 0, 60, 0.7), inset 0 0 25px rgba(255, 0, 60, 0.5);
+            border-color: #ff3366;
+        }
+        .btn-sharingan:active {
+            transform: scale(0.97);
+        }
+
+        @keyframes sharinganSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .btn-sharingan:hover .mangekyou-iris {
+            animation: sharinganSpin 1.2s cubic-bezier(0.5, 0, 0.2, 1) infinite;
+        }
+
+        /* 2. RASENGAN BUTTON STYLES */
+        .btn-rasengan {
+            position: relative;
+            background: radial-gradient(circle, rgba(0,210,255,0.2) 0%, rgba(5,15,30,0.95) 100%);
+            border: 2px solid #00d2ff;
+            box-shadow: 0 0 20px rgba(0,210,255,0.4), inset 0 0 15px rgba(0,210,255,0.3);
+            border-radius: 9999px;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        .btn-rasengan:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 40px rgba(0,210,255,0.8), inset 0 0 30px rgba(0,255,255,0.6);
+            border-color: #ffffff;
+        }
+        .btn-rasengan:active {
+            transform: scale(0.96);
+        }
+
+        @keyframes spiralRotate {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.15); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        .rasengan-core {
+            animation: spiralRotate 2s linear infinite;
+        }
+
+        /* 3. CHIDORI / RAIKIRI BUTTON STYLES */
+        .btn-chidori {
+            position: relative;
+            background: linear-gradient(135deg, #091828 0%, #020712 100%);
+            border: 2px solid #7dd3fc;
+            box-shadow: 0 0 20px rgba(125,211,252,0.4), inset 0 0 15px rgba(56,189,248,0.3);
+            clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+            transition: all 0.2s ease;
+        }
+        .btn-chidori:hover {
+            transform: scale(1.05) skewX(-2deg);
+            box-shadow: 0 0 35px rgba(186,230,253,0.9), inset 0 0 25px rgba(255,255,255,0.8);
+            border-color: #ffffff;
+            animation: lightningJitter 0.15s infinite alternate;
+        }
+        .btn-chidori:active {
+            transform: scale(0.96);
+        }
+
+        @keyframes lightningJitter {
+            0% { filter: drop-shadow(0 0 5px #38bdf8) brightness(1); }
+            50% { filter: drop-shadow(0 0 15px #e0f2fe) brightness(1.4); }
+            100% { filter: drop-shadow(0 0 8px #0284c7) brightness(1.1); }
+        }
+
+        /* 4. CURSED MARK BUTTON STYLES */
+        .btn-cursed {
+            position: relative;
+            background: linear-gradient(135deg, #140821 0%, #06020c 100%);
+            border: 2px solid #9333ea;
+            box-shadow: 0 0 15px rgba(147,51,234,0.4), inset 0 0 15px rgba(88,28,135,0.5);
+            transition: all 0.4s ease;
+            clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+        }
+        .btn-cursed:hover {
+            transform: scale(1.05);
+            border-color: #c084fc;
+            box-shadow: 0 0 30px rgba(192,132,252,0.8), inset 0 0 20px rgba(147,51,234,0.8);
+        }
+        .btn-cursed:hover .tomoe-mark {
+            transform: scale(1.2) rotate(180deg);
+            filter: drop-shadow(0 0 8px #c084fc);
+        }
+
+        /* 5. SAGE MODE BUTTON STYLES */
+        .btn-sage {
+            position: relative;
+            background: linear-gradient(180deg, #2a1a08 0%, #120b02 100%);
+            border: 2px solid #f59e0b;
+            box-shadow: 0 0 20px rgba(245,158,11,0.4), inset 0 0 15px rgba(217,119,6,0.4);
+            border-radius: 8px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .btn-sage:hover {
+            transform: scale(1.05) translateY(-3px);
+            border-color: #fbbf24;
+            box-shadow: 0 0 35px rgba(251,191,36,0.8), inset 0 0 25px rgba(245,158,11,0.6);
+        }
+        .btn-sage:active {
+            transform: scale(0.97);
+        }
+
+        /* SCREEN SHAKE ANIMATION FOR ARENA IMPACT */
+        @keyframes screenShake {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            10% { transform: translate(-8px, -8px) rotate(-1deg); }
+            20% { transform: translate(8px, 6px) rotate(1deg); }
+            30% { transform: translate(-6px, 4px) rotate(0deg); }
+            40% { transform: translate(6px, -4px) rotate(1deg); }
+            50% { transform: translate(-4px, -2px) rotate(-1deg); }
+            60% { transform: translate(4px, 4px) rotate(0deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+        .shake-active {
+            animation: screenShake 0.4s ease-in-out;
+        }
+
+        /* CUSTOM SCROLLBAR */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #07070b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+    </style>
+</head>
+<body class="ninja-bg-pattern min-h-screen font-tech flex flex-col justify-between">
+
+    <!-- HEADER / NAVIGATION -->
+    <header class="sticky top-0 z-40 bg-ninja-dark/90 backdrop-blur-md border-b border-ninja-border/80 px-4 py-3 sm:px-8">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 via-orange-500 to-amber-400 flex items-center justify-center shadow-[0_0_15px_rgba(239,68,68,0.5)]">
+                    <i class="fa-solid fa-scroll text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-ninja text-xl sm:text-2xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-200 to-red-500">
+                        SHINOBI UI SHOWCASE
+                    </h1>
+                    <p class="text-xs text-gray-400 -mt-1 font-tech">Galeria de Botões Temáticos do Universo Naruto</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <button onclick="toggleAudio()" id="audioToggleBtn" class="px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-700 hover:border-orange-500 text-xs text-gray-300 hover:text-white transition flex items-center gap-2">
+                    <i class="fa-solid fa-volume-high text-orange-400" id="audioIcon"></i>
+                    <span id="audioStatusText">Som: Ativado</span>
+                </button>
+                <button onclick="openArenaPreview('sharingan')" class="px-4 py-1.5 rounded-lg bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold text-xs uppercase tracking-wider hover:opacity-90 shadow-[0_0_15px_rgba(220,38,38,0.4)] transition flex items-center gap-2">
+                    <i class="fa-solid fa-play"></i> Testar na Arena
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- MAIN SHOWCASE CONTAINER -->
+    <main class="max-w-7xl mx-auto px-4 py-8 w-full flex-grow">
+
+        <!-- INTRO BANNER -->
+        <div class="glass-card rounded-2xl p-6 mb-8 relative overflow-hidden border-l-4 border-l-orange-500">
+            <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs uppercase tracking-widest mb-2">
+                        <span class="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
+                        Interface para Jogos Shinobi
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-ninja text-white">Selecione e Interaja com os Jutsus</h2>
+                    <p class="text-gray-400 text-sm mt-1 max-w-2xl">
+                        Passe o mouse para sentir o efeito de áudio sintetizado e animações exclusivas. Clique nos botões para disparar seus respectivos poderes ou acesse o modo <strong>'Arena Preview'</strong> para testá-los em ação no jogo.
+                    </p>
+                </div>
+                <div class="text-xs text-gray-500 font-mono bg-black/40 p-3 rounded-xl border border-white/5">
+                    <div class="text-orange-400 font-bold mb-1"><i class="fa-solid fa-code"></i> Recursos Prontos:</div>
+                    • Web Audio API Nativado<br>
+                    • Efeitos de Canvas 2D<br>
+                    • Código CSS/HTML Copiável
+                </div>
+            </div>
+        </div>
+
+        <!-- GRID DE 5 BOTÕES SHOWCASE -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            <!-- 1. SHARINGAN / UCHIHA -->
+            <div class="glass-card rounded-2xl p-6 flex flex-col justify-between relative group hover:border-red-500/50 transition-all duration-300">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs font-bold text-red-500 uppercase tracking-widest flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-red-500"></span> Clã Uchiha
+                        </span>
+                        <span class="text-xs font-jp text-gray-500">写輪眼</span>
+                    </div>
+                    <h3 class="text-xl font-ninja text-white mb-2">1. Sharingan Mangekyou</h3>
+                    <p class="text-xs text-gray-400 mb-6 min-h-[36px]">
+                        Efeito de olho Mangekyou giratório, aura de chamas vermelhas e rastro de chamas negras de Amaterasu ao clicar.
+                    </p>
+                </div>
+
+                <!-- ÁREA DE EXIBIÇÃO DO BOTÃO -->
+                <div class="my-6 py-8 px-4 rounded-xl bg-black/60 border border-neutral-900 flex items-center justify-center relative overflow-hidden">
+                    <button onclick="triggerButtonAction('sharingan', event)" onmouseenter="playJutsuSound('sharingan_hover')" class="btn-sharingan px-8 py-4 rounded-xl flex items-center gap-3 group/btn">
+                        <!-- Iris Mangekyou SVG -->
+                        <div class="w-7 h-7 relative flex items-center justify-center">
+                            <svg class="mangekyou-iris w-full h-full text-red-600 filter drop-shadow-[0_0_5px_#ff003c]" viewBox="0 0 100 100" fill="currentColor">
+                                <circle cx="50" cy="50" r="45" stroke="#ff003c" stroke-width="6" fill="none"/>
+                                <circle cx="50" cy="50" r="12" fill="#ff003c"/>
+                                <!-- 3 Tomoes Mangekyou Blade Pattern -->
+                                <path d="M50,15 C58,15 62,30 50,38 C38,30 42,15 50,15 Z" transform="rotate(0 50 50)"/>
+                                <path d="M50,15 C58,15 62,30 50,38 C38,30 42,15 50,15 Z" transform="rotate(120 50 50)"/>
+                                <path d="M50,15 C58,15 62,30 50,38 C38,30 42,15 50,15 Z" transform="rotate(240 50 50)"/>
+                            </svg>
+                        </div>
+                        <span class="font-ninja text-lg tracking-wider text-red-100 group-hover/btn:text-white">AMATERASU</span>
+                    </button>
+                </div>
+
+                <!-- CONTROLES DO CARD -->
+                <div class="flex items-center justify-between gap-2 pt-4 border-t border-neutral-800/60">
+                    <button onclick="copyCode('sharingan')" class="px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-xs text-gray-300 transition flex items-center gap-1.5">
+                        <i class="fa-regular fa-copy text-red-400"></i> Copiar Código
+                    </button>
+                    <button onclick="openArenaPreview('sharingan')" class="px-3 py-1.5 rounded-lg bg-red-950/60 border border-red-500/40 text-red-400 hover:bg-red-900/60 text-xs font-bold transition flex items-center gap-1">
+                        Preview Arena <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. RASENGAN / UZUMAKI -->
+            <div class="glass-card rounded-2xl p-6 flex flex-col justify-between relative group hover:border-cyan-500/50 transition-all duration-300">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-cyan-400"></span> Clã Uzumaki
+                        </span>
+                        <span class="text-xs font-jp text-gray-500">螺旋丸</span>
+                    </div>
+                    <h3 class="text-xl font-ninja text-white mb-2">2. Rasengan Vórtice</h3>
+                    <p class="text-xs text-gray-400 mb-6 min-h-[36px]">
+                        Esfera espiral de chakra de vento em rotação contínua com faíscas azuis e liberação de energia no impacto.
+                    </p>
+                </div>
+
+                <!-- ÁREA DE EXIBIÇÃO DO BOTÃO -->
+                <div class="my-6 py-8 px-4 rounded-xl bg-black/60 border border-neutral-900 flex items-center justify-center relative overflow-hidden">
+                    <button onclick="triggerButtonAction('rasengan', event)" onmouseenter="playJutsuSound('rasengan_hover')" class="btn-rasengan px-8 py-4 flex items-center gap-3 group/btn">
+                        <!-- Esfera Rasengan em SVG -->
+                        <div class="w-7 h-7 relative flex items-center justify-center">
+                            <svg class="rasengan-core w-full h-full text-cyan-300 filter drop-shadow-[0_0_8px_#00d2ff]" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4">
+                                <circle cx="50" cy="50" r="45" stroke-dasharray="10 5" opacity="0.6"/>
+                                <circle cx="50" cy="50" r="30" stroke-dasharray="8 4"/>
+                                <circle cx="50" cy="50" r="15" fill="#ffffff"/>
+                                <path d="M 10,50 Q 50,10 90,50 Q 50,90 10,50 Z" stroke="#ffffff" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <span class="font-ninja text-lg tracking-wider text-cyan-100 group-hover/btn:text-white">RASENGAN</span>
+                    </button>
+                </div>
+
+                <!-- CONTROLES DO CARD -->
+                <div class="flex items-center justify-between gap-2 pt-4 border-t border-neutral-800/60">
+                    <button onclick="copyCode('rasengan')" class="px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-xs text-gray-300 transition flex items-center gap-1.5">
+                        <i class="fa-regular fa-copy text-cyan-400"></i> Copiar Código
+                    </button>
+                    <button onclick="openArenaPreview('rasengan')" class="px-3 py-1.5 rounded-lg bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-900/60 text-xs font-bold transition flex items-center gap-1">
+                        Preview Arena <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. RAIKIRI / CHIDORI -->
+            <div class="glass-card rounded-2xl p-6 flex flex-col justify-between relative group hover:border-sky-400/50 transition-all duration-300">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs font-bold text-sky-300 uppercase tracking-widest flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-sky-300"></span> Raiton / Trovão
+                        </span>
+                        <span class="text-xs font-jp text-gray-500">千鳥 / 雷切</span>
+                    </div>
+                    <h3 class="text-xl font-ninja text-white mb-2">3. Raikiri / Chidori</h3>
+                    <p class="text-xs text-gray-400 mb-6 min-h-[36px]">
+                        Lâmina de raios azuis pulsantes com animação de relâmpago jitter e sintetizador sonoro de descarga elétrica.
+                    </p>
+                </div>
+
+                <!-- ÁREA DE EXIBIÇÃO DO BOTÃO -->
+                <div class="my-6 py-8 px-4 rounded-xl bg-black/60 border border-neutral-900 flex items-center justify-center relative overflow-hidden">
+                    <button onclick="triggerButtonAction('chidori', event)" onmouseenter="playJutsuSound('chidori_hover')" class="btn-chidori px-8 py-4 flex items-center gap-3 group/btn">
+                        <!-- Raio SVG -->
+                        <div class="w-6 h-6 text-sky-200 animate-pulse">
+                            <svg class="w-full h-full filter drop-shadow-[0_0_8px_#38bdf8]" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z"/>
+                            </svg>
+                        </div>
+                        <span class="font-ninja text-lg tracking-wider text-sky-100 group-hover/btn:text-white">CHIDORI</span>
+                    </button>
+                </div>
+
+                <!-- CONTROLES DO CARD -->
+                <div class="flex items-center justify-between gap-2 pt-4 border-t border-neutral-800/60">
+                    <button onclick="copyCode('chidori')" class="px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-xs text-gray-300 transition flex items-center gap-1.5">
+                        <i class="fa-regular fa-copy text-sky-300"></i> Copiar Código
+                    </button>
+                    <button onclick="openArenaPreview('chidori')" class="px-3 py-1.5 rounded-lg bg-sky-950/60 border border-sky-500/40 text-sky-300 hover:bg-sky-900/60 text-xs font-bold transition flex items-center gap-1">
+                        Preview Arena <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 4. SELO AMALDIÇOADO / CURSED MARK -->
+            <div class="glass-card rounded-2xl p-6 flex flex-col justify-between relative group hover:border-purple-500/50 transition-all duration-300">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs font-bold text-purple-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-purple-400"></span> Juinjutsu / Selo
+                        </span>
+                        <span class="text-xs font-jp text-gray-500">呪印術</span>
+                    </div>
+                    <h3 class="text-xl font-ninja text-white mb-2">4. Selo Amaldiçoado</h3>
+                    <p class="text-xs text-gray-400 mb-6 min-h-[36px]">
+                        Aura sombria de Senjutsu de Orochimaru com marcas de Tomoe pretas, chamas roxas e expansão de poder.
+                    </p>
+                </div>
+
+                <!-- ÁREA DE EXIBIÇÃO DO BOTÃO -->
+                <div class="my-6 py-8 px-4 rounded-xl bg-black/60 border border-neutral-900 flex items-center justify-center relative overflow-hidden">
+                    <button onclick="triggerButtonAction('cursed', event)" onmouseenter="playJutsuSound('cursed_hover')" class="btn-cursed px-8 py-4 flex items-center gap-3 group/btn">
+                        <!-- 3 Tomoes Cursed Mark SVG -->
+                        <div class="tomoe-mark w-6 h-6 text-purple-400 transition-transform duration-500">
+                            <svg class="w-full h-full filter drop-shadow-[0_0_5px_#a855f7]" viewBox="0 0 100 100" fill="currentColor">
+                                <path d="M50 20 C65 20 70 35 55 45 C45 35 40 20 50 20 Z" />
+                                <path d="M50 20 C65 20 70 35 55 45 C45 35 40 20 50 20 Z" transform="rotate(120 50 50)" />
+                                <path d="M50 20 C65 20 70 35 55 45 C45 35 40 20 50 20 Z" transform="rotate(240 50 50)" />
+                            </svg>
+                        </div>
+                        <span class="font-ninja text-lg tracking-wider text-purple-200 group-hover/btn:text-white">SELO CURSED</span>
+                    </button>
+                </div>
+
+                <!-- CONTROLES DO CARD -->
+                <div class="flex items-center justify-between gap-2 pt-4 border-t border-neutral-800/60">
+                    <button onclick="copyCode('cursed')" class="px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-xs text-gray-300 transition flex items-center gap-1.5">
+                        <i class="fa-regular fa-copy text-purple-400"></i> Copiar Código
+                    </button>
+                    <button onclick="openArenaPreview('cursed')" class="px-3 py-1.5 rounded-lg bg-purple-950/60 border border-purple-500/40 text-purple-400 hover:bg-purple-900/60 text-xs font-bold transition flex items-center gap-1">
+                        Preview Arena <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 5. MODO SÁBIO / SAGE MODE -->
+            <div class="glass-card rounded-2xl p-6 flex flex-col justify-between relative group hover:border-amber-500/50 transition-all duration-300 md:col-span-2 lg:col-span-1">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-amber-400"></span> Senjutsu / Monte Myōboku
+                        </span>
+                        <span class="text-xs font-jp text-gray-500">仙人モード</span>
+                    </div>
+                    <h3 class="text-xl font-ninja text-white mb-2">5. Modo Sábio (Senjutsu)</h3>
+                    <p class="text-xs text-gray-400 mb-6 min-h-[36px]">
+                        Energia da natureza dourada com Kanji '仙' (Sen) gravado em pedra, olhos de sapo e aura física espiritual.
+                    </p>
+                </div>
+
+                <!-- ÁREA DE EXIBIÇÃO DO BOTÃO -->
+                <div class="my-6 py-8 px-4 rounded-xl bg-black/60 border border-neutral-900 flex items-center justify-center relative overflow-hidden">
+                    <button onclick="triggerButtonAction('sage', event)" onmouseenter="playJutsuSound('sage_hover')" class="btn-sage px-8 py-4 flex items-center gap-3 group/btn">
+                        <!-- Kanji Sen 仙 em Badge de Pedra -->
+                        <div class="w-7 h-7 rounded-md bg-amber-950 border border-amber-500/60 flex items-center justify-center font-jp font-bold text-amber-300 text-sm shadow-[0_0_10px_rgba(245,158,11,0.5)]">
+                            仙
+                        </div>
+                        <span class="font-ninja text-lg tracking-wider text-amber-100 group-hover/btn:text-white">MODO SÁBIO</span>
+                    </button>
+                </div>
+
+                <!-- CONTROLES DO CARD -->
+                <div class="flex items-center justify-between gap-2 pt-4 border-t border-neutral-800/60">
+                    <button onclick="copyCode('sage')" class="px-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-xs text-gray-300 transition flex items-center gap-1.5">
+                        <i class="fa-regular fa-copy text-amber-400"></i> Copiar Código
+                    </button>
+                    <button onclick="openArenaPreview('sage')" class="px-3 py-1.5 rounded-lg bg-amber-950/60 border border-amber-500/40 text-amber-400 hover:bg-amber-900/60 text-xs font-bold transition flex items-center gap-1">
+                        Preview Arena <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- FOOTER INFO -->
+    <footer class="border-t border-ninja-border/60 bg-ninja-dark py-6 px-4 text-center text-xs text-gray-500">
+        <p>Desenvolvido para Interfaces de Jogos de Naruto &bull; HTML5 Canvas + Web Audio API + Tailwind CSS</p>
+    </footer>
+
+
+    <!-- MODAL DE CÓDIGO FONTE (SNIPPET COPIÁVEL) -->
+    <div id="codeModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-ninja-card border border-neutral-800 rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-neutral-800 flex items-center justify-between bg-black/40">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-orange-500"></span>
+                    <h3 class="font-ninja text-lg text-white" id="modalTitle">Código do Botão</h3>
+                </div>
+                <button onclick="closeCodeModal()" class="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-gray-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div class="p-4 overflow-y-auto font-mono text-xs text-gray-300 bg-black/60 leading-relaxed">
+                <pre id="codeBlock" class="whitespace-pre-wrap select-text"></pre>
+            </div>
+
+            <div class="p-4 border-t border-neutral-800 flex items-center justify-end gap-3 bg-black/40">
+                <button onclick="closeCodeModal()" class="px-4 py-2 rounded-lg bg-neutral-800 text-xs text-gray-300 hover:bg-neutral-700 transition">Fechar</button>
+                <button onclick="copyToClipboardFromModal()" class="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs transition flex items-center gap-2">
+                    <i class="fa-regular fa-copy"></i> Copiar Código Completo
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ARENA PREVIEW MODAL (TELA CHEIA INTERATIVA COM APLICAÇÃO DO JUTSU) -->
+    <div id="arenaPreviewModal" class="fixed inset-0 z-50 bg-black flex flex-col items-center justify-between p-6 hidden opacity-0 transition-opacity duration-500 overflow-hidden">
+        
+        <!-- Canvas de Partículas do Jutsu Ativo -->
+        <canvas id="arenaCanvas" class="absolute inset-0 z-0 pointer-events-none"></canvas>
+
+        <!-- Overlay de Transição / Impacto Flash -->
+        <div id="impactFlash" class="absolute inset-0 bg-white pointer-events-none opacity-0 z-30 transition-opacity duration-150"></div>
+
+        <!-- Kanji Gigante de Fundo (Aparece no Impacto) -->
+        <div id="backgroundKanji" class="absolute inset-0 flex items-center justify-center font-jp font-black text-[25vw] text-white/5 pointer-events-none z-0 select-none">
+            忍
+        </div>
+
+        <!-- Top Controls -->
+        <div class="relative z-10 w-full max-w-5xl flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button onclick="closeArenaPreview()" class="px-3 py-1.5 rounded-lg bg-black/60 border border-white/20 text-xs text-gray-300 hover:text-white hover:border-orange-500 transition flex items-center gap-2 backdrop-blur-md">
+                    <i class="fa-solid fa-arrow-left"></i> Voltar à Galeria
+                </button>
+                <span class="text-xs text-gray-400 uppercase tracking-widest hidden sm:inline">&bull; Modo de Teste em Combate</span>
+            </div>
+
+            <!-- Seletor Rápido na Arena -->
+            <div class="flex items-center gap-1.5 bg-black/60 p-1.5 rounded-xl border border-white/10 backdrop-blur-md">
+                <button onclick="switchArenaJutsu('sharingan')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-red-400 hover:bg-red-950/60 transition">Sharingan</button>
+                <button onclick="switchArenaJutsu('rasengan')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-cyan-400 hover:bg-cyan-950/60 transition">Rasengan</button>
+                <button onclick="switchArenaJutsu('chidori')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-sky-300 hover:bg-sky-950/60 transition">Chidori</button>
+                <button onclick="switchArenaJutsu('cursed')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-purple-400 hover:bg-purple-950/60 transition">Cursed</button>
+                <button onclick="switchArenaJutsu('sage')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-amber-400 hover:bg-amber-950/60 transition">Sábio</button>
+            </div>
+        </div>
+
+        <!-- Seção Central de Teste do Botão Selecionado -->
+        <div class="relative z-10 my-auto flex flex-col items-center justify-center text-center">
+            
+            <div class="mb-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/60 border border-white/10 backdrop-blur-md">
+                <span class="w-2.5 h-2.5 rounded-full" id="arenaJutsuDot"></span>
+                <span class="text-xs font-bold uppercase tracking-widest text-white" id="arenaJutsuTitle">JUTSU SELECIONADO</span>
+            </div>
+
+            <!-- O BOTÃO TESTÁVEL EM ESCALA MAIOR -->
+            <div class="my-8 relative group" id="arenaButtonContainer">
+                <!-- Injetado dinamicamente via JS -->
+            </div>
+
+            <p class="text-xs text-gray-400 max-w-sm mt-4 tracking-wider">
+                Clique para acionar o poder máximo do Jutsu, disparando trepidação de tela (Screen Shake), som característico e aura de combate.
+            </p>
+
+        </div>
+
+        <!-- Arena HUD Footer -->
+        <div class="relative z-10 w-full max-w-md bg-black/60 border border-white/10 backdrop-blur-md rounded-xl p-3 flex items-center justify-between text-xs text-gray-400">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-shield-halved text-orange-400"></i>
+                <span>Status da Arena: Pronta</span>
+            </div>
+            <div class="text-gray-500 font-mono">
+                FPS: 60 | WebAudio: OK
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- JAVASCRIPT: WEB AUDIO SINTETIZADO, CANVAS E LÓGICA DE INTERAÇÃO -->
+    <script>
+        // --- 1. CONFIGURAÇÕES E ESTADO GLOBAL ---
+        let isAudioEnabled = true;
+        let audioCtx = null;
+        let currentArenaJutsu = 'sharingan';
+
+        const jutsuData = {
+            sharingan: {
+                name: 'Sharingan Mangekyou',
+                kanji: '写輪眼',
+                color: '#ff003c',
+                btnText: 'ENTRAR NA ARENA - UCHIHA',
+                btnClass: 'btn-sharingan px-12 py-5 rounded-xl flex items-center gap-4 text-xl',
+                iconSvg: `<svg class="mangekyou-iris w-8 h-8 text-red-600 filter drop-shadow-[0_0_8px_#ff003c]" viewBox="0 0 100 100" fill="currentColor">
+                            <circle cx="50" cy="50" r="45" stroke="#ff003c" stroke-width="6" fill="none"/>
+                            <circle cx="50" cy="50" r="12" fill="#ff003c"/>
+                            <path d="M50,15 C58,15 62,30 50,38 C38,30 42,15 50,15 Z" transform="rotate(0 50 50)"/>
+                            <path d="M50,15 C58,15 62,30 50,38 C38,30 42,15 50,15 Z" transform="rotate(120 50 50)"/>
+                            <path d="M50,15 C58,15 62,30 50,38 C38,30 42,15 50,15 Z" transform="rotate(240 50 50)"/>
+                        </svg>`
+            },
+            rasengan: {
+                name: 'Rasengan Uzumaki',
+                kanji: '螺旋丸',
+                color: '#00d2ff',
+                btnText: 'ENTRAR NA ARENA - RASENGAN',
+                btnClass: 'btn-rasengan px-12 py-5 flex items-center gap-4 text-xl',
+                iconSvg: `<svg class="rasengan-core w-8 h-8 text-cyan-300 filter drop-shadow-[0_0_10px_#00d2ff]" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4">
+                            <circle cx="50" cy="50" r="45" stroke-dasharray="10 5" opacity="0.6"/>
+                            <circle cx="50" cy="50" r="30" stroke-dasharray="8 4"/>
+                            <circle cx="50" cy="50" r="15" fill="#ffffff"/>
+                        </svg>`
+            },
+            chidori: {
+                name: 'Raikiri / Chidori',
+                kanji: '雷切',
+                color: '#38bdf8',
+                btnText: 'ENTRAR NA ARENA - CHIDORI',
+                btnClass: 'btn-chidori px-12 py-5 flex items-center gap-4 text-xl',
+                iconSvg: `<svg class="w-8 h-8 text-sky-200 filter drop-shadow-[0_0_10px_#38bdf8] animate-pulse" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z"/>
+                        </svg>`
+            },
+            cursed: {
+                name: 'Selo Amaldiçoado',
+                kanji: '呪印',
+                color: '#a855f7',
+                btnText: 'ENTRAR NA ARENA - CURSED MARK',
+                btnClass: 'btn-cursed px-12 py-5 flex items-center gap-4 text-xl',
+                iconSvg: `<div class="tomoe-mark w-8 h-8 text-purple-400">
+                            <svg class="w-full h-full filter drop-shadow-[0_0_8px_#a855f7]" viewBox="0 0 100 100" fill="currentColor">
+                                <path d="M50 20 C65 20 70 35 55 45 C45 35 40 20 50 20 Z" />
+                                <path d="M50 20 C65 20 70 35 55 45 C45 35 40 20 50 20 Z" transform="rotate(120 50 50)" />
+                                <path d="M50 20 C65 20 70 35 55 45 C45 35 40 20 50 20 Z" transform="rotate(240 50 50)" />
+                            </svg>
+                        </div>`
+            },
+            sage: {
+                name: 'Modo Sábio (Senjutsu)',
+                kanji: '仙人',
+                color: '#f59e0b',
+                btnText: 'ENTRAR NA ARENA - MODO SÁBIO',
+                btnClass: 'btn-sage px-12 py-5 flex items-center gap-4 text-xl',
+                iconSvg: `<div class="w-8 h-8 rounded-md bg-amber-950 border border-amber-500/80 flex items-center justify-center font-jp font-bold text-amber-300 text-base shadow-[0_0_12px_rgba(245,158,11,0.6)]">
+                            仙
+                        </div>`
+            }
+        };
+
+        // --- 2. SINTETIZADOR DE ÁUDIO EXCLUSIVO PARA CADA JUTSU (Web Audio API) ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleAudio() {
+            isAudioEnabled = !isAudioEnabled;
+            const btnText = document.getElementById('audioStatusText');
+            const icon = document.getElementById('audioIcon');
+            
+            if (isAudioEnabled) {
+                btnText.innerText = "Som: Ativado";
+                icon.className = "fa-solid fa-volume-high text-orange-400";
+            } else {
+                btnText.innerText = "Som: Desativado";
+                icon.className = "fa-solid fa-volume-xmark text-gray-500";
+            }
+        }
+
+        function playJutsuSound(type) {
+            if (!isAudioEnabled) return;
+            try {
+                initAudio();
+                const now = audioCtx.currentTime;
+
+                // 1. Sharingan Hover & Click (Som Dojutsu Místico)
+                if (type === 'sharingan_hover') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(200, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(now + 0.12);
+                } else if (type === 'sharingan_click') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(120, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.4);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(now + 0.4);
+                }
+
+                // 2. Rasengan Hover & Click (Som Espiral de Vento)
+                else if (type === 'rasengan_hover') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.linearRampToValueAtTime(150, now + 0.15);
+                    gain.gain.setValueAtTime(0.07, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(now + 0.15);
+                } else if (type === 'rasengan_click') {
+                    // Explosão de vento e ressonância
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(450, now);
+                    osc.frequency.exponentialRampToValueAtTime(80, now + 0.5);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(now + 0.5);
+                }
+
+                // 3. Chidori Hover & Click (Som de Faísca e Trovão)
+                else if (type === 'chidori_hover' || type === 'chidori_click') {
+                    const bufferSize = audioCtx.sampleRate * (type === 'chidori_click' ? 0.3 : 0.1);
+                    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+                    const noise = audioCtx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(2000, now);
+                    filter.frequency.linearRampToValueAtTime(5000, now + (type === 'chidori_click' ? 0.25 : 0.08));
+
+                    const gain = audioCtx.createGain();
+                    gain.gain.setValueAtTime(type === 'chidori_click' ? 0.35 : 0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + (type === 'chidori_click' ? 0.3 : 0.1));
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    noise.start();
+                }
+
+                // 4. Cursed Mark Hover & Click (Grave Sombrio)
+                else if (type === 'cursed_hover' || type === 'cursed_click') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(type === 'cursed_click' ? 90 : 140, now);
+                    osc.frequency.linearRampToValueAtTime(40, now + (type === 'cursed_click' ? 0.4 : 0.15));
+                    gain.gain.setValueAtTime(type === 'cursed_click' ? 0.3 : 0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + (type === 'cursed_click' ? 0.4 : 0.15));
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(now + (type === 'cursed_click' ? 0.4 : 0.15));
+                }
+
+                // 5. Modo Sábio Hover & Click (Energia Senjutsu)
+                else if (type === 'sage_hover' || type === 'sage_click') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(250, now);
+                    osc.frequency.exponentialRampToValueAtTime(type === 'sage_click' ? 700 : 400, now + (type === 'sage_click' ? 0.35 : 0.12));
+                    gain.gain.setValueAtTime(type === 'sage_click' ? 0.25 : 0.07, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + (type === 'sage_click' ? 0.35 : 0.12));
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(now + (type === 'sage_click' ? 0.35 : 0.12));
+                }
+            } catch(e) {}
+        }
+
+
+        // --- 3. AÇÕES DOS BOTÕES E DISPARO DE IMPACTO ---
+        function triggerButtonAction(jutsuKey, event) {
+            playJutsuSound(`${jutsuKey}_click`);
+            
+            // Emitir partículas no canvas da arena se o modal estiver aberto
+            const data = jutsuData[jutsuKey];
+            createChakraExplosion(event.clientX, event.clientY, data.color);
+
+            // Se acionado na Arena, aplica o Screen Shake
+            const arenaModal = document.getElementById('arenaPreviewModal');
+            if (!arenaModal.classList.contains('hidden')) {
+                arenaModal.classList.add('shake-active');
+                
+                // Flash de Impacto
+                const flash = document.getElementById('impactFlash');
+                flash.style.opacity = '0.9';
+                setTimeout(() => flash.style.opacity = '0', 120);
+
+                setTimeout(() => {
+                    arenaModal.classList.remove('shake-active');
+                }, 400);
+            }
+        }
+
+
+        // --- 4. SISTEMA DE CANVAS DE PARTÍCULAS DA ARENA ---
+        const arenaCanvas = document.getElementById('arenaCanvas');
+        const ctx = arenaCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeArenaCanvas() {
+            arenaCanvas.width = window.innerWidth;
+            arenaCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeArenaCanvas);
+        resizeArenaCanvas();
+
+        class ChakraParticle {
+            constructor(x, y, color) {
+                this.x = x || Math.random() * arenaCanvas.width;
+                this.y = y || Math.random() * arenaCanvas.height;
+                this.color = color || jutsuData[currentArenaJutsu].color;
+                this.size = Math.random() * 4 + 1.5;
+                this.speedX = (Math.random() - 0.5) * 6;
+                this.speedY = (Math.random() - 0.5) * 6;
+                this.life = 1;
+                this.decay = Math.random() * 0.02 + 0.01;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.life -= this.decay;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createChakraExplosion(x, y, color) {
+            for (let i = 0; i < 40; i++) {
+                particles.push(new ChakraParticle(x, y, color));
+            }
+        }
+
+        function renderArenaParticles() {
+            ctx.clearRect(0, 0, arenaCanvas.width, arenaCanvas.height);
+
+            // Gera partículas continuas ambiente na arena
+            if (particles.length < 50) {
+                particles.push(new ChakraParticle(
+                    Math.random() * arenaCanvas.width,
+                    Math.random() * arenaCanvas.height,
+                    jutsuData[currentArenaJutsu].color
+                ));
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+
+                if (particles[i].life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(renderArenaParticles);
+        }
+        renderArenaParticles();
+
+
+        // --- 5. ARENA PREVIEW MODAL CONTROL ---
+        function openArenaPreview(jutsuKey) {
+            currentArenaJutsu = jutsuKey || 'sharingan';
+            const modal = document.getElementById('arenaPreviewModal');
+            
+            updateArenaUI();
+
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('opacity-100'), 10);
+        }
+
+        function closeArenaPreview() {
+            const modal = document.getElementById('arenaPreviewModal');
+            modal.classList.remove('opacity-100');
+            setTimeout(() => modal.classList.add('hidden'), 500);
+        }
+
+        function switchArenaJutsu(jutsuKey) {
+            currentArenaJutsu = jutsuKey;
+            updateArenaUI();
+            playJutsuSound(`${jutsuKey}_hover`);
+        }
+
+        function updateArenaUI() {
+            const data = jutsuData[currentArenaJutsu];
+            
+            document.getElementById('arenaJutsuTitle').innerText = data.name;
+            document.getElementById('arenaJutsuTitle').style.color = data.color;
+            document.getElementById('arenaJutsuDot').style.backgroundColor = data.color;
+            document.getElementById('arenaJutsuDot').style.boxShadow = `0 0 10px ${data.color}`;
+            document.getElementById('backgroundKanji').innerText = data.kanji;
+
+            // Renderiza o botão dentro da Arena
+            const container = document.getElementById('arenaButtonContainer');
+            container.innerHTML = `
+                <button onclick="triggerButtonAction('${currentArenaJutsu}', event)" onmouseenter="playJutsuSound('${currentArenaJutsu}_hover')" class="${data.btnClass} cursor-pointer group/arena">
+                    ${data.iconSvg}
+                    <span class="font-ninja tracking-wider text-white">${data.btnText}</span>
+                </button>
+            `;
+        }
+
+
+        // --- 6. SNIPPET CODE MODAL & COPY ---
+        const codeSnippets = {
+            sharingan: `<!-- BUTTON SHARINGAN UCHIHA -->
+<button class="btn-sharingan px-8 py-4 rounded-xl flex items-center gap-3">
+    <svg class="w-7 h-7 text-red-600 animate-spin" viewBox="0 0 100 100" fill="currentColor">
+        <circle cx="50" cy="50" r="45" stroke="#ff003c" stroke-width="6" fill="none"/>
+        <circle cx="50" cy="50" r="12" fill="#ff003c"/>
+        <path d="M50,15 C58,15 62,30 50,38 C38,30 42,15 50,15 Z" transform="rotate(0 50 50)"/>
+        <path d="M50,15 C58,15 62,30 50,38 C38,30 42,15 50,15 Z" transform="rotate(120 50 50)"/>
+        <path d="M50,15 C58,15 62,30 50,38 C38,30 42,15 50,15 Z" transform="rotate(240 50 50)"/>
+    </svg>
+    <span class="font-ninja text-lg text-white">AMATERASU</span>
+</button>
+
+<style>
+.btn-sharingan {
+    background: linear-gradient(135deg, #180306 0%, #080102 100%);
+    border: 2px solid #ff003c;
+    box-shadow: 0 0 15px rgba(255, 0, 60, 0.3);
+    transition: all 0.3s ease;
+}
+.btn-sharingan:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(255, 0, 60, 0.7);
+}
+</style>`,
+            rasengan: `<!-- BUTTON RASENGAN UZUMAKI -->
+<button class="btn-rasengan px-8 py-4 rounded-full flex items-center gap-3">
+    <div class="w-7 h-7 text-cyan-300 animate-spin">
+        <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4">
+            <circle cx="50" cy="50" r="45" stroke-dasharray="10 5"/>
+            <circle cx="50" cy="50" r="15" fill="#ffffff"/>
+        </svg>
+    </div>
+    <span class="font-ninja text-lg text-white">RASENGAN</span>
+</button>
+
+<style>
+.btn-rasengan {
+    background: radial-gradient(circle, rgba(0,210,255,0.2) 0%, rgba(5,15,30,0.95) 100%);
+    border: 2px solid #00d2ff;
+    box-shadow: 0 0 20px rgba(0,210,255,0.4);
+}
+.btn-rasengan:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 40px rgba(0,210,255,0.8);
+}
+</style>`,
+            chidori: `<!-- BUTTON CHIDORI / RAIKIRI -->
+<button class="btn-chidori px-8 py-4 flex items-center gap-3">
+    <svg class="w-6 h-6 text-sky-200 animate-pulse" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z"/>
+    </svg>
+    <span class="font-ninja text-lg text-white">CHIDORI</span>
+</button>
+
+<style>
+.btn-chidori {
+    background: linear-gradient(135deg, #091828 0%, #020712 100%);
+    border: 2px solid #7dd3fc;
+    box-shadow: 0 0 20px rgba(125,211,252,0.4);
+    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+}
+.btn-chidori:hover {
+    transform: scale(1.05) skewX(-2deg);
+    box-shadow: 0 0 35px rgba(186,230,253,0.9);
+}
+</style>`,
+            cursed: `<!-- BUTTON CURSED MARK -->
+<button class="btn-cursed px-8 py-4 flex items-center gap-3">
+    <span class="font-ninja text-lg text-purple-200">SELO CURSED</span>
+</button>
+
+<style>
+.btn-cursed {
+    background: linear-gradient(135deg, #140821 0%, #06020c 100%);
+    border: 2px solid #9333ea;
+    box-shadow: 0 0 15px rgba(147,51,234,0.4);
+}
+.btn-cursed:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(192,132,252,0.8);
+}
+</style>`,
+            sage: `<!-- BUTTON MODO SÁBIO (SENJUTSU) -->
+<button class="btn-sage px-8 py-4 rounded-lg flex items-center gap-3">
+    <div class="w-7 h-7 rounded bg-amber-950 border border-amber-500 text-amber-300 font-bold flex items-center justify-center">仙</div>
+    <span class="font-ninja text-lg text-amber-100">MODO SÁBIO</span>
+</button>
+
+<style>
+.btn-sage {
+    background: linear-gradient(180deg, #2a1a08 0%, #120b02 100%);
+    border: 2px solid #f59e0b;
+    box-shadow: 0 0 20px rgba(245,158,11,0.4);
+}
+.btn-sage:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 35px rgba(251,191,36,0.8);
+}
+</style>`
+        };
+
+        let activeCopyKey = '';
+
+        function copyCode(key) {
+            activeCopyKey = key;
+            const modal = document.getElementById('codeModal');
+            const codeBlock = document.getElementById('codeBlock');
+            const title = document.getElementById('modalTitle');
+
+            title.innerText = `Código: ${jutsuData[key].name}`;
+            codeBlock.innerText = codeSnippets[key];
+
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('opacity-100'), 10);
+        }
+
+        function closeCodeModal() {
+            const modal = document.getElementById('codeModal');
+            modal.classList.remove('opacity-100');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function copyToClipboardFromModal() {
+            const codeText = codeSnippets[activeCopyKey];
+            
+            // Fallback usando execCommand para compatibilidade iFrame
+            const dummy = document.createElement('textarea');
+            document.body.appendChild(dummy);
+            dummy.value = codeText;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+
+            alert('Código copiado com sucesso para a área de transferência!');
+        }
+    </script>
+</body>
+</html>

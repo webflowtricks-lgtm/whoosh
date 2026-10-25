@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Ultra-Realistic Rasengan Icon & Animation FX</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap');
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow-x: hidden;
+    }
+
+    .font-orbitron {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    /* Screen Shake Animation */
+    @keyframes screenShake {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      10% { transform: translate(-8px, -12px) rotate(-1deg); }
+      20% { transform: translate(10px, 8px) rotate(1.5deg); }
+      30% { transform: translate(-10px, 10px) rotate(-1deg); }
+      40% { transform: translate(12px, -6px) rotate(1deg); }
+      50% { transform: translate(-8px, 6px) rotate(-0.5deg); }
+      60% { transform: translate(6px, -10px) rotate(1deg); }
+      70% { transform: translate(-4px, 8px) rotate(-1deg); }
+      80% { transform: translate(8px, -4px) rotate(0.5deg); }
+      100% { transform: translate(0, 0) rotate(0deg); }
+    }
+
+    .animate-shake {
+      animation: screenShake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    /* Radial Glow effects */
+    .rasengan-glow {
+      box-shadow: 0 0 50px rgba(59, 130, 246, 0.6), 0 0 100px rgba(147, 197, 253, 0.4), inset 0 0 30px rgba(255, 255, 255, 0.8);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(59, 130, 246, 0.5);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(59, 130, 246, 0.8);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+  <!-- Main Container -->
+  <div class="flex-1 flex flex-col max-w-7xl w-full mx-auto p-3 sm:p-6 gap-6">
+
+    <!-- Header -->
+    <header class="flex flex-col sm:flex-row justify-between items-center pb-4 border-b border-slate-800 gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-500/50 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <i class="fa-solid fa-bolt-lightning text-blue-400 text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-orbitron font-extrabold tracking-wider bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-300 bg-clip-text text-transparent">
+            RASENGAN FX CORE
+          </h1>
+          <p class="text-xs text-slate-400">Ultra-Lightweight & Realistic Mobile Asset</p>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="flex items-center gap-3">
+        <button id="themeToggleBtn" class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-2 text-xs font-semibold">
+          <i class="fa-solid fa-moon text-blue-400" id="themeIcon"></i>
+          <span id="themeText">Dark Mode</span>
+        </button>
+        <button id="copyCodeNavBtn" onclick="scrollToCode()" class="p-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-lg shadow-blue-600/30 transition-all flex items-center gap-2">
+          <i class="fa-solid fa-code"></i> Get Export Code
+        </button>
+      </div>
+    </header>
+
+    <!-- Interactive Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+
+      <!-- Left Column: Stage / Simulator (7 cols) -->
+      <div class="lg:col-span-7 flex flex-col gap-4">
+        
+        <!-- Canvas Stage Card -->
+        <div id="stageCard" class="relative flex-1 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-6 overflow-hidden flex flex-col justify-between shadow-2xl backdrop-blur-sm min-h-[420px] sm:min-h-[500px]">
+          
+          <!-- Background Grid Pattern -->
+          <div class="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
+
+          <!-- Top Stage Info Bar -->
+          <div class="relative z-10 flex justify-between items-center">
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium">
+              <span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+              Interactive Canvas Engine
+            </span>
+            <div class="text-xs text-slate-400 font-mono" id="fpsCounter">
+              60 FPS | Vector Shader
+            </div>
+          </div>
+
+          <!-- Central Rasengan Stage -->
+          <div id="viewportContainer" class="relative flex-1 flex items-center justify-center my-4">
+            
+            <!-- Shockwave Ring Effect (CSS) -->
+            <div id="shockwaveRing" class="absolute w-12 h-12 rounded-full border-4 border-cyan-300 opacity-0 pointer-events-none transition-all duration-700 ease-out z-0"></div>
+
+            <!-- Rasengan Interactive Canvas -->
+            <canvas id="rasenganCanvas" class="cursor-pointer relative z-10 rounded-full transition-transform active:scale-95 touch-none" width="320" height="320"></canvas>
+
+            <!-- Instructions Overlay -->
+            <div id="tapPrompt" class="absolute bottom-2 text-center pointer-events-none transition-opacity duration-300">
+              <p class="text-xs text-slate-400 bg-slate-950/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-800">
+                <i class="fa-solid fa-hand-pointer text-blue-400 mr-1.5"></i> Tap Rasengan or click Activate button
+              </p>
+            </div>
+          </div>
+
+          <!-- Bottom Activation Trigger Area -->
+          <div class="relative z-10 flex flex-col sm:flex-row items-center gap-3">
+            <button id="activateBtn" class="w-full sm:w-auto flex-1 py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-orbitron font-bold text-sm tracking-wider shadow-lg shadow-blue-500/30 active:scale-98 transition-all flex items-center justify-center gap-2">
+              <i class="fa-solid fa-bolt text-amber-300 text-base"></i>
+              ATIVAR RASENGAN (USE RASENGAN)
+            </button>
+            <button id="resetBtn" class="w-full sm:w-auto px-4 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all flex items-center justify-center gap-2 border border-slate-700">
+              <i class="fa-solid fa-rotate-left"></i> Reset
+            </button>
+          </div>
+
+        </div>
+
+        <!-- SVG Pure Icon Preview Bar -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center p-2 shadow-inner">
+              <!-- SVG Icon -->
+              <svg id="svgIconPreview" viewBox="0 0 100 100" class="w-full h-full filter drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]">
+                <defs>
+                  <radialGradient id="svgCoreGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#ffffff" />
+                    <stop offset="35%" stop-color="#bfdbfe" />
+                    <stop offset="70%" stop-color="#3b82f6" />
+                    <stop offset="100%" stop-color="#1d4ed8" />
+                  </radialGradient>
+                  <filter id="svgGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                </defs>
+                <circle cx="50" cy="50" r="42" fill="url(#svgCoreGrad)" />
+                <!-- Spiral overlay paths -->
+                <g stroke="rgba(255,255,255,0.9)" stroke-width="1.8" fill="none" stroke-linecap="round">
+                  <path d="M 50 50 A 12 12 0 0 1 62 50 A 24 24 0 0 1 38 50 A 36 36 0 0 1 86 50" class="origin-center animate-[spin_3s_linear_infinite]" />
+                  <path d="M 50 50 A 10 10 0 0 0 40 50 A 20 20 0 0 0 60 50 A 30 30 0 0 0 20 50" stroke="#a5f3fc" stroke-width="1.2" class="origin-center animate-[spin_2s_linear_infinite_reverse]" />
+                </g>
+                <circle cx="50" cy="50" r="14" fill="#ffffff" class="animate-pulse" />
+              </svg>
+            </div>
+            <div>
+              <h4 class="text-sm font-semibold text-slate-200">Pure SVG Icon Asset</h4>
+              <p class="text-xs text-slate-400">Zero dependencies, resolution-independent vector asset (~2KB)</p>
+            </div>
+          </div>
+          <button onclick="copySVGCode()" class="w-full sm:w-auto px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 font-medium transition-all flex items-center justify-center gap-1.5">
+            <i class="fa-regular fa-copy text-blue-400"></i> Copy SVG
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Controls & Integration Panel (5 cols) -->
+      <div class="lg:col-span-5 flex flex-col gap-5">
+        
+        <!-- Controls Config Box -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4">
+          <h3 class="text-sm font-orbitron font-bold text-slate-200 tracking-wide flex items-center gap-2">
+            <i class="fa-solid fa-sliders text-blue-400"></i> FX CONTROL PARAMETERS
+          </h3>
+
+          <!-- Chakra Color Theme Picker -->
+          <div class="space-y-2">
+            <label class="text-xs font-semibold text-slate-400 flex justify-between">
+              <span>Chakra Type / Color Theme</span>
+              <span id="currentColorLabel" class="text-blue-400">Standard Blue</span>
+            </label>
+            <div class="grid grid-cols-4 gap-2">
+              <button onclick="setColorPreset('blue')" class="color-preset-btn p-2 rounded-xl bg-slate-950 border-2 border-blue-500 flex flex-col items-center gap-1 hover:bg-slate-800 transition-all">
+                <span class="w-4 h-4 rounded-full bg-blue-500 shadow-sm shadow-blue-500"></span>
+                <span class="text-[10px] text-slate-300 font-medium">Standard</span>
+              </button>
+              <button onclick="setColorPreset('vermilion')" class="color-preset-btn p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col items-center gap-1 hover:bg-slate-800 transition-all">
+                <span class="w-4 h-4 rounded-full bg-red-500 shadow-sm shadow-red-500"></span>
+                <span class="text-[10px] text-slate-300 font-medium">Nine-Tails</span>
+              </button>
+              <button onclick="setColorPreset('sage')" class="color-preset-btn p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col items-center gap-1 hover:bg-slate-800 transition-all">
+                <span class="w-4 h-4 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400"></span>
+                <span class="text-[10px] text-slate-300 font-medium">Sage</span>
+              </button>
+              <button onclick="setColorPreset('gold')" class="color-preset-btn p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col items-center gap-1 hover:bg-slate-800 transition-all">
+                <span class="w-4 h-4 rounded-full bg-amber-400 shadow-sm shadow-amber-400"></span>
+                <span class="text-[10px] text-slate-300 font-medium">Six Paths</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Animation Intensity Slider -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between items-center text-xs">
+              <label class="font-semibold text-slate-400">Animation Intensity / Speed</label>
+              <span id="intensityVal" class="text-blue-400 font-mono font-bold">1.5x</span>
+            </div>
+            <input type="range" id="intensityRange" min="0.5" max="3" step="0.1" value="1.5" class="w-full accent-blue-500 h-1.5 bg-slate-950 rounded-lg cursor-pointer">
+          </div>
+
+          <!-- Particle Count Slider -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between items-center text-xs">
+              <label class="font-semibold text-slate-400">Chakra Density (Particles)</label>
+              <span id="particleVal" class="text-blue-400 font-mono font-bold">120</span>
+            </div>
+            <input type="range" id="particleRange" min="40" max="250" step="10" value="120" class="w-full accent-blue-500 h-1.5 bg-slate-950 rounded-lg cursor-pointer">
+          </div>
+
+          <!-- Toggle Effects Switches -->
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <label class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer">
+              <span class="text-xs text-slate-300 font-medium">Camera Shake</span>
+              <input type="checkbox" id="shakeToggle" checked class="rounded accent-blue-500 w-4 h-4">
+            </label>
+            <label class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer">
+              <span class="text-xs text-slate-300 font-medium">Sound Synth</span>
+              <input type="checkbox" id="soundToggle" checked class="rounded accent-blue-500 w-4 h-4">
+            </label>
+          </div>
+
+        </div>
+
+        <!-- Code Snippet Viewer Section -->
+        <div id="codeSection" class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col gap-3 flex-1">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-orbitron font-bold text-slate-200 tracking-wide flex items-center gap-2">
+              <i class="fa-solid fa-code text-blue-400"></i> INTEGRATION CODE
+            </h3>
+            
+            <!-- Code Tab Selector -->
+            <div class="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+              <button onclick="switchTab('html')" id="tab-html" class="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all bg-blue-600 text-white">
+                HTML/JS
+              </button>
+              <button onclick="switchTab('react')" id="tab-react" class="px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-slate-200 transition-all">
+                React Native
+              </button>
+              <button onclick="switchTab('svg')" id="tab-svg" class="px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-slate-200 transition-all">
+                SVG Only
+              </button>
+            </div>
+          </div>
+
+          <!-- Code Display Box -->
+          <div class="relative flex-1 min-h-[180px] bg-slate-950 border border-slate-800/80 rounded-xl p-3 overflow-hidden">
+            <pre class="text-xs font-mono text-cyan-300/90 h-48 overflow-y-auto overflow-x-auto whitespace-pre leading-relaxed select-text" id="codeDisplayArea"></pre>
+            
+            <!-- Copy Floating Button -->
+            <button onclick="copyCodeFromDisplay()" class="absolute top-3 right-3 px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-[11px] border border-slate-700 shadow-md backdrop-blur-sm transition-all flex items-center gap-1.5">
+              <i class="fa-regular fa-copy text-blue-400"></i>
+              <span id="copyBtnText">Copy Code</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Tech Specs Footer -->
+    <footer class="border-t border-slate-800/80 pt-4 pb-2 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-2">
+      <p>© 2026 Mobile FX Core • Lightweight Canvas Vector Engine (~4KB payload)</p>
+      <div class="flex items-center gap-4">
+        <span>60FPS Hardware Accelerated</span>
+        <span>•</span>
+        <span>Zero External Textures</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- JavaScript Logic -->
+  <script>
+    // Global Config & State
+    const state = {
+      theme: 'dark',
+      intensity: 1.5,
+      particleDensity: 120,
+      enableShake: true,
+      enableSound: true,
+      activeColorKey: 'blue',
+      isExploding: false,
+      explosionProgress: 0,
+      activeTab: 'html'
+    };
+
+    const COLOR_SCHEMES = {
+      blue: {
+        name: 'Standard Blue',
+        core: '#FFFFFF',
+        innerGlow: '#a5f3fc',
+        midRing: '#3b82f6',
+        outerGlow: '#1d4ed8',
+        particle: '#7dd3fc',
+        rgb: [59, 130, 246]
+      },
+      vermilion: {
+        name: 'Nine-Tails Red',
+        core: '#FFF7ED',
+        innerGlow: '#fde047',
+        midRing: '#f97316',
+        outerGlow: '#dc2626',
+        particle: '#fb923c',
+        rgb: [239, 68, 68]
+      },
+      sage: {
+        name: 'Sage Emerald',
+        core: '#F0FDF4',
+        innerGlow: '#a7f3d0',
+        midRing: '#10b981',
+        outerGlow: '#047857',
+        particle: '#6ee7b7',
+        rgb: [16, 185, 129]
+      },
+      gold: {
+        name: 'Six Paths Gold',
+        core: '#FEFCE8',
+        innerGlow: '#fef08a',
+        midRing: '#eab308',
+        outerGlow: '#ca8a04',
+        particle: '#fde047',
+        rgb: [234, 179, 8]
+      }
+    };
+
+    // DOM Elements
+    const canvas = document.getElementById('rasenganCanvas');
+    const ctx = canvas.getContext('2d');
+    const stageCard = document.getElementById('stageCard');
+    const shockwaveRing = document.getElementById('shockwaveRing');
+    const intensityRange = document.getElementById('intensityRange');
+    const intensityVal = document.getElementById('intensityVal');
+    const particleRange = document.getElementById('particleRange');
+    const particleVal = document.getElementById('particleVal');
+    const shakeToggle = document.getElementById('shakeToggle');
+    const soundToggle = document.getElementById('soundToggle');
+    const activateBtn = document.getElementById('activateBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const themeIcon = document.getElementById('themeIcon');
+    const themeText = document.getElementById('themeText');
+    const codeDisplayArea = document.getElementById('codeDisplayArea');
+
+    // Web Audio Synthesizer for Rasengan Sound Effects
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          audioCtx = new AudioContext();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playRasenganSound() {
+      if (!state.enableSound) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      try {
+        const now = audioCtx.currentTime;
+
+        // High frequency swirling chakra sound
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.3);
+        osc.frequency.exponentialRampToValueAtTime(300, now + 0.8);
+
+        // Low rumble bass for force impact
+        const subOsc = audioCtx.createOscillator();
+        const subGain = audioCtx.createGain();
+        subOsc.type = 'sine';
+        subOsc.frequency.setValueAtTime(60, now);
+        subOsc.frequency.exponentialRampToValueAtTime(160, now + 0.15);
+        subOsc.frequency.exponentialRampToValueAtTime(30, now + 0.7);
+
+        // Filter for smooth chakra noise feel
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(400, now);
+        filter.frequency.linearRampToValueAtTime(2500, now + 0.2);
+        filter.frequency.linearRampToValueAtTime(500, now + 0.8);
+
+        // Connect
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.3, now + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+
+        subGain.gain.setValueAtTime(0.4, now);
+        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        subOsc.connect(subGain);
+        subGain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.85);
+        subOsc.start(now);
+        subOsc.stop(now + 0.7);
+      } catch (e) {
+        console.warn('Audio play restricted', e);
+      }
+    }
+
+    // Canvas Particle System
+    class ChakraParticle {
+      constructor(centerX, centerY) {
+        this.reset(centerX, centerY);
+      }
+
+      reset(centerX, centerY) {
+        this.centerX = centerX;
+        this.centerY = centerY;
+        this.angle = Math.random() * Math.PI * 2;
+        this.distance = 20 + Math.random() * 90;
+        this.speed = (0.02 + Math.random() * 0.04) * state.intensity;
+        this.radius = 0.8 + Math.random() * 2.2;
+        this.opacity = 0.3 + Math.random() * 0.7;
+        this.spiralDir = Math.random() > 0.5 ? 1 : -1;
+      }
+
+      update(centerX, centerY) {
+        this.centerX = centerX;
+        this.centerY = centerY;
+
+        // Spiral inwards or outwards depending on phase
+        if (state.isExploding) {
+          this.distance += (4 + Math.random() * 8) * state.intensity;
+          this.opacity -= 0.02;
+        } else {
+          this.angle += this.speed * this.spiralDir;
+          this.distance -= 0.3 * state.intensity;
+          if (this.distance < 8) {
+            this.distance = 70 + Math.random() * 40;
+          }
+        }
+
+        this.x = this.centerX + Math.cos(this.angle) * this.distance;
+        this.y = this.centerY + Math.sin(this.angle) * this.distance;
+      }
+
+      draw(ctx, palette) {
+        if (this.opacity <= 0) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = palette.particle;
+        ctx.globalAlpha = Math.max(0, this.opacity);
+        ctx.shadowColor = palette.midRing;
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // Swirling Energy Wind Lines
+    class SwirlArc {
+      constructor() {
+        this.angle = Math.random() * Math.PI * 2;
+        this.radius = 25 + Math.random() * 55;
+        this.length = 0.5 + Math.random() * 1.2;
+        this.speed = (0.04 + Math.random() * 0.05);
+        this.width = 1 + Math.random() * 2;
+      }
+
+      update() {
+        this.angle += this.speed * state.intensity;
+      }
+
+      draw(ctx, centerX, centerY, palette) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, this.radius, this.angle, this.angle + this.length);
+        ctx.strokeStyle = palette.innerGlow;
+        ctx.lineWidth = this.width;
+        ctx.globalAlpha = 0.6;
+        ctx.shadowColor = palette.midRing;
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    let particles = [];
+    let arcs = [];
+    let globalRotation = 0;
+
+    function initParticles() {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      particles = [];
+      for (let i = 0; i < state.particleDensity; i++) {
+        particles.push(new ChakraParticle(centerX, centerY));
+      }
+      arcs = [];
+      for (let i = 0; i < 8; i++) {
+        arcs.push(new SwirlArc());
+      }
+    }
+
+    // Main Render Loop
+    function render() {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const palette = COLOR_SCHEMES[state.activeColorKey];
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      globalRotation += 0.03 * state.intensity;
+
+      // Handle Triggered Explosion Animation Phase
+      let scaleMultiplier = 1;
+      if (state.isExploding) {
+        state.explosionProgress += 0.03 * state.intensity;
+        scaleMultiplier = 1 + Math.sin(state.explosionProgress * Math.PI) * 0.45;
+
+        if (state.explosionProgress >= 1) {
+          state.isExploding = false;
+          state.explosionProgress = 0;
+          initParticles();
+        }
+      }
+
+      const coreRadius = 45 * scaleMultiplier;
+
+      // 1. Outer Chakra Aura Glow Gradient
+      const outerGrad = ctx.createRadialGradient(
+        centerX, centerY, coreRadius * 0.2,
+        centerX, centerY, coreRadius * 2.2
+      );
+      outerGrad.addColorStop(0, `rgba(${palette.rgb.join(',')}, 0.8)`);
+      outerGrad.addColorStop(0.5, `rgba(${palette.rgb.join(',')}, 0.35)`);
+      outerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, coreRadius * 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = outerGrad;
+      ctx.fill();
+      ctx.restore();
+
+      // 2. Swirling Wind Arcs
+      arcs.forEach(arc => {
+        arc.update();
+        arc.draw(ctx, centerX, centerY, palette);
+      });
+
+      // 3. Dense Compressed Shell Sphere
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, coreRadius, 0, Math.PI * 2);
+      const shellGrad = ctx.createRadialGradient(
+        centerX - 8, centerY - 8, 2,
+        centerX, centerY, coreRadius
+      );
+      shellGrad.addColorStop(0, palette.core);
+      shellGrad.addColorStop(0.4, palette.innerGlow);
+      shellGrad.addColorStop(0.75, palette.midRing);
+      shellGrad.addColorStop(1, palette.outerGlow);
+
+      ctx.fillStyle = shellGrad;
+      ctx.shadowColor = palette.midRing;
+      ctx.shadowBlur = 25;
+      ctx.fill();
+      ctx.restore();
+
+      // 4. Internal Swirling Vortex Curves
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(globalRotation);
+
+      for (let i = 0; i < 4; i++) {
+        ctx.rotate((Math.PI * 2) / 4);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(coreRadius * 0.6, coreRadius * 0.3, coreRadius * 0.9, 0);
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2.2;
+        ctx.globalAlpha = 0.85;
+        ctx.stroke();
+
+        // Counter swirl
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(-coreRadius * 0.5, -coreRadius * 0.4, -coreRadius * 0.8, 0);
+        ctx.strokeStyle = palette.innerGlow;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.6;
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // 5. High-bright Core Center
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, coreRadius * 0.32, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowColor = '#FFFFFF';
+      ctx.shadowBlur = 18;
+      ctx.fill();
+      ctx.restore();
+
+      // 6. Chakra Flying Particles
+      particles.forEach(p => {
+        p.update(centerX, centerY);
+        p.draw(ctx, palette);
+      });
+
+      requestAnimationFrame(render);
+    }
+
+    // Trigger Full Rasengan Action
+    function activateRasengan() {
+      if (state.isExploding) return;
+
+      state.isExploding = true;
+      state.explosionProgress = 0;
+
+      // Audio trigger
+      playRasenganSound();
+
+      // Camera Shake Effect
+      if (state.enableShake) {
+        stageCard.classList.remove('animate-shake');
+        void stageCard.offsetWidth; // trigger reflow
+        stageCard.classList.add('animate-shake');
+      }
+
+      // Visual Shockwave Expansion
+      const palette = COLOR_SCHEMES[state.activeColorKey];
+      shockwaveRing.style.borderColor = palette.innerGlow;
+      shockwaveRing.style.boxShadow = `0 0 30px ${palette.midRing}`;
+      shockwaveRing.style.transform = 'scale(1)';
+      shockwaveRing.style.opacity = '1';
+
+      setTimeout(() => {
+        shockwaveRing.style.transform = 'scale(12)';
+        shockwaveRing.style.opacity = '0';
+      }, 10);
+
+      setTimeout(() => {
+        shockwaveRing.style.transform = 'scale(1)';
+      }, 750);
+    }
+
+    // UI Event Handlers
+    canvas.addEventListener('click', activateRasengan);
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      activateRasengan();
+    }, { passive: false });
+
+    activateBtn.addEventListener('click', activateRasengan);
+
+    resetBtn.addEventListener('click', () => {
+      state.isExploding = false;
+      state.explosionProgress = 0;
+      initParticles();
+    });
+
+    // Preset color selection
+    window.setColorPreset = function(colorKey) {
+      state.activeColorKey = colorKey;
+      document.getElementById('currentColorLabel').innerText = COLOR_SCHEMES[colorKey].name;
+      document.getElementById('currentColorLabel').style.color = COLOR_SCHEMES[colorKey].midRing;
+
+      // Update active border styles
+      document.querySelectorAll('.color-preset-btn').forEach(btn => {
+        btn.classList.remove('border-2', 'border-blue-500', 'border-red-500', 'border-emerald-400', 'border-amber-400');
+        btn.classList.add('border', 'border-slate-800');
+      });
+
+      event.currentTarget.classList.remove('border-slate-800');
+      event.currentTarget.classList.add('border-2', `border-${colorKey === 'blue' ? 'blue-500' : colorKey === 'vermilion' ? 'red-500' : colorKey === 'sage' ? 'emerald-400' : 'amber-400'}`);
+
+      updateCodeSnippet();
+    };
+
+    intensityRange.addEventListener('input', (e) => {
+      state.intensity = parseFloat(e.target.value);
+      intensityVal.innerText = `${state.intensity}x`;
+    });
+
+    particleRange.addEventListener('input', (e) => {
+      state.particleDensity = parseInt(e.target.value);
+      particleVal.innerText = state.particleDensity;
+      initParticles();
+    });
+
+    shakeToggle.addEventListener('change', (e) => state.enableShake = e.target.checked);
+    soundToggle.addEventListener('change', (e) => state.enableSound = e.target.checked);
+
+    // Dark / Light Mode Preview Toggle
+    themeToggleBtn.addEventListener('click', () => {
+      if (state.theme === 'dark') {
+        state.theme = 'light';
+        document.body.classList.remove('bg-slate-950', 'text-slate-100');
+        document.body.classList.add('bg-slate-100', 'text-slate-900');
+        stageCard.classList.remove('bg-slate-900/80');
+        stageCard.classList.add('bg-white', 'border-slate-200');
+        themeIcon.className = 'fa-solid fa-sun text-amber-500';
+        themeText.innerText = 'Light Mode';
+      } else {
+        state.theme = 'dark';
+        document.body.classList.remove('bg-slate-100', 'text-slate-900');
+        document.body.classList.add('bg-slate-950', 'text-slate-100');
+        stageCard.classList.remove('bg-white', 'border-slate-200');
+        stageCard.classList.add('bg-slate-900/80');
+        themeIcon.className = 'fa-solid fa-moon text-blue-400';
+        themeText.innerText = 'Dark Mode';
+      }
+    });
+
+    // Dynamic Snippets
+    function getSnippetHTML() {
+      const palette = COLOR_SCHEMES[state.activeColorKey];
+      return `<!-- Lightweight Rasengan Web Component (~3KB) -->
+<div class="rasengan-container" style="position:relative; width:200px; height:200px;">
+  <canvas id="rasenganCanvas" width="200" height="200" style="cursor:pointer;"></canvas>
+</div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('rasenganCanvas');
+  const ctx = canvas.getContext('2d');
+  let rot = 0;
+
+  function draw() {
+    const cx = canvas.width / 2, cy = canvas.height / 2, r = 35;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Aura Glow
+    const aura = ctx.createRadialGradient(cx, cy, 5, cx, cy, r * 1.8);
+    aura.addColorStop(0, '${palette.midRing}');
+    aura.addColorStop(1, 'transparent');
+    ctx.fillStyle = aura;
+    ctx.beginPath(); ctx.arc(cx, cy, r * 1.8, 0, Math.PI * 2); ctx.fill();
+
+    // Core Sphere
+    const core = ctx.createRadialGradient(cx-5, cy-5, 2, cx, cy, r);
+    core.addColorStop(0, '${palette.core}');
+    core.addColorStop(0.5, '${palette.innerGlow}');
+    core.addColorStop(1, '${palette.outerGlow}');
+    ctx.fillStyle = core;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+
+    // Swirls
+    rot += 0.05;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
+    for(let i=0; i<4; i++) {
+      ctx.rotate(Math.PI/2);
+      ctx.beginPath(); ctx.moveTo(0,0);
+      ctx.quadraticCurveTo(r*0.6, r*0.3, r*0.85, 0);
+      ctx.strokeStyle = '#FFF'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+<\/script>`;
+    }
+
+    function getSnippetReact() {
+      const palette = COLOR_SCHEMES[state.activeColorKey];
+      return `// React Native / React Component for Rasengan FX
+import React, { useEffect, useRef } from 'react';
+
+export const RasenganIcon = ({ size = 120, onActivate }) => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let animationId;
+    let angle = 0;
+
+    const render = () => {
+      const cx = size / 2, cy = size / 2, r = size * 0.22;
+      ctx.clearRect(0, 0, size, size);
+
+      // Core Radial Gradient
+      const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, r);
+      grad.addColorStop(0, '${palette.core}');
+      grad.addColorStop(0.5, '${palette.innerGlow}');
+      grad.addColorStop(1, '${palette.midRing}');
+
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+
+      // Swirl Lines
+      angle += 0.04;
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+      for(let i = 0; i < 4; i++) {
+        ctx.rotate(Math.PI / 2);
+        ctx.beginPath(); ctx.moveTo(0,0);
+        ctx.quadraticCurveTo(r*0.5, r*0.3, r*0.8, 0);
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1.8; ctx.stroke();
+      }
+      ctx.restore();
+      animationId = requestAnimationFrame(render);
+    };
+
+    render();
+    return () => cancelAnimationFrame(animationId);
+  }, [size]);
+
+  return (
+    <canvas 
+      ref={canvasRef} 
+      width={size} 
+      height={size} 
+      onClick={onActivate} 
+      style={{ cursor: 'pointer' }}
+    />
+  );
+};`;
+    }
+
+    function getSnippetSVG() {
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="rasenganCore" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#bfdbfe"/>
+      <stop offset="80%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </radialGradient>
+  </defs>
+  <!-- Outer Aura Ring -->
+  <circle cx="50" cy="50" r="46" fill="#3b82f6" opacity="0.25"/>
+  <!-- Main Rasengan Sphere -->
+  <circle cx="50" cy="50" r="38" fill="url(#rasenganCore)"/>
+  <!-- Inner Dynamic Chakra Spirals -->
+  <g stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.9">
+    <path d="M 50 50 A 10 10 0 0 1 60 50 A 20 20 0 0 1 40 50 A 30 30 0 0 1 80 50">
+      <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+    <path d="M 50 50 A 8 8 0 0 0 42 50 A 16 16 0 0 0 58 50 A 24 24 0 0 0 26 50" stroke="#a5f3fc" stroke-width="1.5">
+      <animateTransform attributeName="transform" type="rotate" from="360 50 50" to="0 50 50" dur="1s" repeatCount="indefinite"/>
+    </path>
+  </g>
+  <!-- Concentrated Hotspot Center -->
+  <circle cx="50" cy="50" r="10" fill="#ffffff"/>
+</svg>`;
+    }
+
+    function updateCodeSnippet() {
+      if (state.activeTab === 'html') {
+        codeDisplayArea.innerText = getSnippetHTML();
+      } else if (state.activeTab === 'react') {
+        codeDisplayArea.innerText = getSnippetReact();
+      } else {
+        codeDisplayArea.innerText = getSnippetSVG();
+      }
+    }
+
+    window.switchTab = function(tab) {
+      state.activeTab = tab;
+      ['html', 'react', 'svg'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        if (t === tab) {
+          btn.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all bg-blue-600 text-white';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-slate-200 transition-all';
+        }
+      });
+      updateCodeSnippet();
+    };
+
+    window.copyCodeFromDisplay = function() {
+      const code = codeDisplayArea.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        const copyBtnText = document.getElementById('copyBtnText');
+        copyBtnText.innerText = 'Copied!';
+        setTimeout(() => copyBtnText.innerText = 'Copy Code', 2000);
+      });
+    };
+
+    window.copySVGCode = function() {
+      const svgCode = getSnippetSVG();
+      navigator.clipboard.writeText(svgCode).then(() => {
+        alert('SVG code copied to clipboard!');
+      });
+    };
+
+    window.scrollToCode = function() {
+      document.getElementById('codeSection').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // Canvas Auto-Resizing & High-DPI Fix
+    function setupCanvasDPI() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = 320 * dpr;
+      canvas.height = 320 * dpr;
+      canvas.style.width = '260px';
+      canvas.style.height = '260px';
+      ctx.scale(dpr, dpr);
+    }
+
+    window.onload = function() {
+      setupCanvasDPI();
+      initParticles();
+      updateCodeSnippet();
+      requestAnimationFrame(render);
+    };
+
+    window.addEventListener('resize', setupCanvasDPI);
+  </script>
+</body>
+</html>

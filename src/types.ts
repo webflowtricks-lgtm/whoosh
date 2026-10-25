@@ -1251,6 +1251,9 @@ export interface ShopItem {
   currency: 'ryos' | 'gems';
   price: number;
   icon?: string;
+  titleTheme?: TitleTheme;
+  titleAliases?: string[];
+  hiddenFromShop?: boolean;
   frameStyle?: string;
   frameImageUrl?: string;
   skinImageUrl?: string;
@@ -1261,6 +1264,32 @@ export interface ShopItem {
     amount: number;
   };
 }
+
+export type TitleTheme =
+  | 'classic'
+  | 'gold'
+  | 'gold-glow'
+  | 'black-red'
+  | 'white-red'
+  | 'blue'
+  | 'cyan-glow'
+  | 'emerald'
+  | 'purple-glow'
+  | 'rainbow-glow'
+  | 'black-gold'
+  | 'silver'
+  | 'crimson'
+  | 'orange-flame'
+  | 'pink-glow'
+  | 'ice'
+  | 'lava'
+  | 'shadow'
+  | 'leaf'
+  | 'white-gold'
+  | 'crimson-glow'
+  | 'blue-glow'
+  | 'green-glow'
+  | 'pink-glow-royal';
 
 export interface NinjaEventObjective {
   id: string;

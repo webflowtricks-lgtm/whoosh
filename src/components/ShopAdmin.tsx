@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { ShopItem } from '../types';
 import { getShopItems, saveShopItems, resetToDefaultShopItems, fetchShopItemsFromServer } from '../lib/shopStorage';
+import { getTitleThemeClass, TITLE_THEME_OPTIONS } from '../lib/titleThemes';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ShopAdminProps {
@@ -96,10 +97,19 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
       return;
     }
 
-    const updated = items.map(i => i.id === editingItem.id ? editingItem : i);
+    const previousItem = items.find(item => item.id === editingItem.id);
+    const titleAliases = editingItem.category === 'title'
+      ? Array.from(new Set([
+          ...(editingItem.titleAliases || []),
+          ...(previousItem?.category === 'title' && previousItem.name !== editingItem.name ? [previousItem.name] : []),
+        ].filter(alias => alias !== editingItem.name)))
+      : editingItem.titleAliases;
+    const itemToSave = { ...editingItem, titleAliases };
+    const updated = items.map(i => i.id === itemToSave.id ? itemToSave : i);
     try {
       await saveShopItems(updated);
       setItems(updated);
+      setEditingItem(itemToSave);
       showSuccess(`Item "${editingItem.name}" salvo com sucesso!`);
     } catch (error) {
       showError(error instanceof Error ? error.message : 'Falha ao salvar o catálogo global da loja.');
@@ -270,16 +280,18 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                   </div>
                 </div>
 
-                <button
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleDeleteItem(item.id);
-                  }}
-                  className="p-1 text-slate-500 hover:text-red-400 transition rounded hover:bg-slate-800 opacity-0 group-hover:opacity-100"
-                  title="Excluir Item"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                {!item.id.startsWith('title-core-') && (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleDeleteItem(item.id);
+                    }}
+                    className="p-1 text-slate-500 hover:text-red-400 transition rounded hover:bg-slate-800 opacity-0 group-hover:opacity-100"
+                    title="Excluir Item"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             );
           })}
@@ -347,6 +359,7 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                 <select
                   value={editingItem.category}
                   onChange={e => setEditingItem({ ...editingItem, category: e.target.value as any })}
+                  disabled={editingItem.id.startsWith('title-core-')}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none"
                 >
                   <option value="title">Título Shinobi (title)</option>
@@ -439,6 +452,36 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                 </div>
               )}
 
+              {editingItem.category === 'title' && (
+                <>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-mono uppercase font-bold text-amber-400 mb-1">Tema do título</label>
+                    <select
+                      value={editingItem.titleTheme || 'classic'}
+                      onChange={e => setEditingItem({ ...editingItem, titleTheme: e.target.value as ShopItem['titleTheme'] })}
+                      className="w-full px-3 py-2 bg-slate-950 border border-amber-500/40 text-slate-100 rounded-xl text-xs outline-none"
+                    >
+                      {TITLE_THEME_OPTIONS.map(theme => (
+                        <option key={theme.id} value={theme.id}>{theme.label}</option>
+                      ))}
+                    </select>
+                    {editingItem.hiddenFromShop && (
+                      <p className="mt-1 text-[10px] text-slate-500">Título de recompensa: aparece no painel, mas não é vendido na loja.</p>
+                    )}
+                  </div>
+                  <label className="md:col-span-2 flex items-center gap-2 text-[10px] font-mono font-bold text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={!editingItem.hiddenFromShop}
+                      onChange={e => setEditingItem({ ...editingItem, hiddenFromShop: !e.target.checked })}
+                      disabled={editingItem.id.startsWith('title-core-')}
+                      className="accent-amber-500"
+                    />
+                    {editingItem.id.startsWith('title-core-') ? 'Título de recompensa (não vendido na loja)' : 'Disponível para compra na loja'}
+                  </label>
+                </>
+              )}
+
               {editingItem.category === 'bundle' && (
                 <>
                   <div>
@@ -499,7 +542,7 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                   {editingItem.category === 'title' && (
                     <div className="text-center space-y-1">
                       <Award className="w-8 h-8 text-amber-400 mx-auto" />
-                      <p className="text-xs font-mono font-black uppercase tracking-wider text-amber-300 px-3 py-1 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                      <p className={`title-theme-preview px-3 py-1 text-xs font-mono font-black uppercase tracking-wider ${getTitleThemeClass(editingItem.titleTheme)}`}>
                         "{editingItem.name}"
                       </p>
                     </div>

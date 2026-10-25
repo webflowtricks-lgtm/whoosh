@@ -6,7 +6,9 @@
     "description": "Título exclusivo de prestígio reconhecido por todos os países ninjas.",
     "currency": "ryos",
     "price": 142500,
-    "badge": "TÍTULO"
+    "badge": "TÍTULO",
+    "titleTheme": "crimson-glow",
+    "titleAliases": []
   },
   {
     "id": "title-akatsuki-renegado",
@@ -15,7 +17,8 @@
     "description": "Título para aqueles que trilham o caminho da névoa e das sombras.",
     "currency": "gems",
     "price": 3750,
-    "badge": "TÍTULO"
+    "badge": "TÍTULO",
+    "titleTheme": "black-red"
   },
   {
     "id": "title-mestre-taijutsu",
@@ -24,7 +27,8 @@
     "description": "Título honroso concedido a guerreiros que dominam a força do Taijutsu.",
     "currency": "ryos",
     "price": 97500,
-    "badge": "TÍTULO"
+    "badge": "TÍTULO",
+    "titleTheme": "blue"
   },
   {
     "id": "title-deus-shinobi",
@@ -33,7 +37,8 @@
     "description": "O mais alto título do mundo ninja, gravado nos monumentos da arena.",
     "currency": "gems",
     "price": 6750,
-    "badge": "MÍTICO"
+    "badge": "MÍTICO",
+    "titleTheme": "gold-glow"
   },
   {
     "id": "skin-naruto-sage",
@@ -123,5 +128,93 @@
       "amount": 3000
     },
     "badge": "OFERTA"
+  },
+  {
+    "id": "title-core-1",
+    "name": "Estudante",
+    "category": "title",
+    "description": "Título existente concedido por padrão ou como recompensa.",
+    "currency": "ryos",
+    "price": 0,
+    "badge": "RECOMPENSA",
+    "titleTheme": "classic",
+    "hiddenFromShop": true
+  },
+  {
+    "id": "title-core-2",
+    "name": "Genin de Konoha",
+    "category": "title",
+    "description": "Título existente concedido por padrão ou como recompensa.",
+    "currency": "ryos",
+    "price": 0,
+    "badge": "RECOMPENSA",
+    "titleTheme": "classic",
+    "hiddenFromShop": true
+  },
+  {
+    "id": "title-core-3",
+    "name": "Herói da Aliança",
+    "category": "title",
+    "description": "Título existente concedido por padrão ou como recompensa.",
+    "currency": "ryos",
+    "price": 0,
+    "badge": "RECOMPENSA",
+    "titleTheme": "classic",
+    "hiddenFromShop": true
+  },
+  {
+    "id": "title-core-4",
+    "name": "Novo Título",
+    "category": "title",
+    "description": "Título existente concedido por padrão ou como recompensa.",
+    "currency": "ryos",
+    "price": 0,
+    "badge": "RECOMPENSA",
+    "titleTheme": "classic",
+    "hiddenFromShop": true
+  },
+  {
+    "id": "title-core-5",
+    "name": "The 4 Seals of the Sound",
+    "category": "title",
+    "description": "Título existente concedido por padrão ou como recompensa.",
+    "currency": "ryos",
+    "price": 0,
+    "badge": "RECOMPENSA",
+    "titleTheme": "classic",
+    "hiddenFromShop": true
+  },
+  {
+    "id": "title-core-6",
+    "name": "The Prodigal Son Returns",
+    "category": "title",
+    "description": "Título existente concedido por padrão ou como recompensa.",
+    "currency": "ryos",
+    "price": 0,
+    "badge": "RECOMPENSA",
+    "titleTheme": "classic",
+    "hiddenFromShop": true
+  },
+  {
+    "id": "title-core-7",
+    "name": "A Girl Grown Up",
+    "category": "title",
+    "description": "Título existente concedido por padrão ou como recompensa.",
+    "currency": "ryos",
+    "price": 0,
+    "badge": "RECOMPENSA",
+    "titleTheme": "classic",
+    "hiddenFromShop": true
+  },
+  {
+    "id": "title-core-8",
+    "name": "Orochimaru's Spy",
+    "category": "title",
+    "description": "Título existente concedido por padrão ou como recompensa.",
+    "currency": "ryos",
+    "price": 0,
+    "badge": "RECOMPENSA",
+    "titleTheme": "classic",
+    "hiddenFromShop": true
   }
 ]
