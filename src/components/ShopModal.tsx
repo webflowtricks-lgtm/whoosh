@@ -24,10 +24,23 @@ import {
 } from '../lib/cardRouletteSettings';
 import { matchFetch } from '../lib/matchFetch';
 import { DEFAULT_SHOP_TAB_ORDER, fetchShopTabOrder, ShopTabId } from '../lib/shopTabOrder';
+import { SKIN_FRAGMENT_PACK_COST } from '../lib/skinFragments';
+import { useLanguage } from '../lib/i18n';
 
 type ShopTab = 'all' | ShopTabId;
 
 const ROULETTE_ITEM_ID = 'ninja-card-roulette';
+const SKIN_FRAGMENT_PACK_ID = 'skin-fragment-pack';
+const SKIN_FRAGMENT_PACK: ShopItem = {
+  id: SKIN_FRAGMENT_PACK_ID,
+  name: 'Pacote de Fragmentos de Skin',
+  category: 'bundle',
+  description: 'Receba fragmentos de uma skin aleatória. 80% de chance de 1, 18% de 2 e 2% de 3 fragmentos.',
+  currency: 'ryos',
+  price: SKIN_FRAGMENT_PACK_COST,
+  icon: '/static/img/pacote.webp',
+  badge: 'RARO',
+};
 const cardImage = (card: NinjaCard) => card.imageUrl ||
   `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${card.slug}/icon.jpg`;
 
@@ -42,6 +55,7 @@ interface ShopModalProps {
 }
 
 export default function ShopModal({ user, onClose, onUpdateUser, playClickSound, playScrollSound, playWinSound, initialTab = 'all' }: ShopModalProps) {
+  const { t } = useLanguage();
   const [items, setItems] = useState<ShopItem[]>(() => getShopItems());
   const [activeTab, setActiveTab] = useState<ShopTab>(initialTab);
   const [shopTabOrder, setShopTabOrder] = useState<ShopTabId[]>(DEFAULT_SHOP_TAB_ORDER);
@@ -60,6 +74,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
   const [rouletteOffset, setRouletteOffset] = useState<number | null>(null);
   const [rouletteSpinDuration, setRouletteSpinDuration] = useState(3.2);
   const [rouletteError, setRouletteError] = useState('');
+  const [isOpeningSkinFragmentPack, setIsOpeningSkinFragmentPack] = useState(false);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const rouletteTrackRef = useRef<HTMLDivElement>(null);
   const rouletteRevealSoundPlayedRef = useRef(false);
@@ -141,6 +156,48 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
     setRoulettePhase('result');
   };
 
+  const openSkinFragmentPack = async () => {
+    if (isOpeningSkinFragmentPack) return;
+    setIsOpeningSkinFragmentPack(true);
+    try {
+      const response = await matchFetch('/api/skins/fragments/pack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username }),
+      });
+      const result = await response.json().catch(() => ({})) as {
+        success?: boolean;
+        error?: string;
+        skin?: { id: string; name: string; characterName: string };
+        fragmentsAdded?: number;
+        fragmentCount?: number;
+        unlocked?: boolean;
+        user?: UserProfile;
+      };
+      if (!response.ok || !result.success || !result.skin || !result.user ||
+          !Number.isSafeInteger(result.fragmentsAdded) || !Number.isSafeInteger(result.fragmentCount)) {
+        throw new Error(result.error || `Não foi possível abrir o pacote (HTTP ${response.status}).`);
+      }
+
+      onUpdateUser({ ...user, ...result.user });
+      const rewardMessage = result.unlocked
+        ? t(`Skin ${result.skin.name} desbloqueada!`, `${result.skin.name} skin unlocked!`)
+        : t(
+          `+${result.fragmentsAdded} fragmento(s) de ${result.skin.name} — ${result.fragmentCount}/50`,
+          `+${result.fragmentsAdded} ${result.skin.name} fragment(s) — ${result.fragmentCount}/50`,
+        );
+      setPurchaseToast(rewardMessage);
+      if (result.unlocked) playWinSound();
+      window.setTimeout(() => setPurchaseToast(null), 4500);
+    } catch (error) {
+      console.error('Falha ao abrir pacote de fragmentos de skin:', error);
+      setPurchaseToast(error instanceof Error ? error.message : 'Não foi possível abrir o pacote.');
+      window.setTimeout(() => setPurchaseToast(null), 4500);
+    } finally {
+      setIsOpeningSkinFragmentPack(false);
+    }
+  };
+
   const startRouletteDraw = async () => {
     if (ryos < rouletteCost) {
       playGlobalSound('denied');
@@ -193,6 +250,11 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
   const confirmPendingPurchase = () => {
     if (!pendingPurchase) return;
     playGlobalSound('cash');
+    if (pendingPurchase.id === SKIN_FRAGMENT_PACK_ID) {
+      setPendingPurchase(null);
+      void openSkinFragmentPack();
+      return;
+    }
     if (pendingPurchase.id === ROULETTE_ITEM_ID) {
       setPendingPurchase(null);
       void startRouletteDraw();
@@ -489,6 +551,52 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         ) : (
         <div className="flex-1 overflow-y-auto bg-slate-50/70 p-2.5 sm:p-4">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            {(activeTab === 'all' || activeTab === 'skin') && (
+              <div className="relative min-w-0 rounded-xl border border-sky-300 bg-gradient-to-br from-sky-50 to-blue-100 p-1.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-500 hover:shadow-lg sm:rounded-2xl sm:p-3">
+                <div className="relative aspect-square overflow-hidden rounded-lg border border-sky-200 bg-slate-950 sm:rounded-xl">
+                  <img
+                    src="/static/img/pacote.webp"
+                    alt=""
+                    className="h-full w-full object-contain p-3"
+                  />
+                  <span className="absolute left-1 top-1 rounded border border-sky-200 bg-sky-900/90 px-1.5 py-0.5 text-[7px] font-mono font-black uppercase tracking-wider text-sky-100 sm:text-[9px]">
+                    {t('1 a 3 fragmentos', '1 to 3 fragments')}
+                  </span>
+                </div>
+                <div className="mt-1 min-w-0">
+                  <h3 className="truncate text-[9px] font-extrabold tracking-tight text-slate-800 sm:text-sm">
+                    {SKIN_FRAGMENT_PACK.name}
+                  </h3>
+                  <p className="mt-1 line-clamp-2 min-h-8 text-[8px] leading-tight text-slate-600 sm:text-[10px]">
+                    {t('Skin aleatória. Chance: 80% de 1, 18% de 2 e 2% de 3 fragmentos.', 'Random skin. Odds: 80% for 1, 18% for 2, and 2% for 3 fragments.')}
+                  </p>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between gap-1 border-t border-sky-200 pt-1.5 sm:mt-2 sm:pt-2">
+                  <span className={`flex min-w-0 items-center gap-1 whitespace-nowrap text-xs font-mono font-extrabold sm:gap-1.5 sm:text-sm ${ryos >= SKIN_FRAGMENT_PACK_COST ? 'text-blue-700' : 'text-red-600'}`}>
+                    <img src="/static/img/icon/gold.webp" alt="" className="h-[18px] w-[18px] shrink-0 object-contain sm:h-5 sm:w-5" />
+                    <span className="truncate">{SKIN_FRAGMENT_PACK_COST.toLocaleString('pt-BR')}</span>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isOpeningSkinFragmentPack}
+                    onClick={() => {
+                      if (ryos < SKIN_FRAGMENT_PACK_COST) {
+                        setPurchaseToast(t('Moedas insuficientes!', 'Not enough coins!'));
+                        window.setTimeout(() => setPurchaseToast(null), 3000);
+                        return;
+                      }
+                      setPendingPurchase(SKIN_FRAGMENT_PACK);
+                    }}
+                    data-sound="cash"
+                    aria-label={t('Comprar pacote de fragmentos de skin', 'Buy skin fragment pack')}
+                    title={t('Comprar pacote', 'Buy pack')}
+                    className="rounded-lg border border-blue-700 bg-blue-600 p-1 text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 active:scale-95 disabled:cursor-wait disabled:opacity-50"
+                  >
+                    <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
             {visibleItems.map(item => {
               const isUnlockedFrame = item.category === 'frame' && unlockedFrames.includes(item.name);
               const isUnlockedTitle = item.category === 'title' && isTitleUnlocked(unlockedTitles, item);
@@ -631,12 +739,11 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                       <button
                         onClick={() => {
                           if (!hasEnoughCurrency) {
-                            playGlobalSound('denied');
                             return;
                           }
-                          playGlobalSound('cash');
                           setPendingPurchase(item);
                         }}
+                        data-sound="cash"
                         aria-label={`Comprar ${item.name}`}
                         title="Comprar"
                         className="rounded-lg border border-blue-700 bg-blue-600 p-1 text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 active:scale-95"

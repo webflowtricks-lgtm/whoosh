@@ -50,6 +50,21 @@ import {
   isValidCardRouletteCost,
   redeemCardPackRewards,
 } from "./src/lib/cardRoulette";
+import {
+  getSkinFragmentCatalog,
+  rollSkinFragmentQuantity,
+  SKIN_FRAGMENT_PACK_COST,
+  SKIN_FRAGMENT_UNLOCK_TARGET,
+} from "./src/lib/skinFragments";
+import {
+  appendRewardRouletteHistory,
+  buildRewardRoulettePool,
+  drawRewardRouletteSpin,
+  REWARD_ROULETTE_COST,
+  REWARD_ROULETTE_MAX_SPINS,
+  type RewardRouletteDraw,
+} from "./src/lib/rewardRoulette";
+import { DEFAULT_CUSTOM_BANNERS, type CustomBannerItem } from "./src/lib/bannerStorage";
 import type { NinjaCard, NinjaEvent, Quest, QuestMaintenanceMail, QuestReward } from "./src/types";
 import type { RecurringQuestSettings } from "./src/types";
 
@@ -549,6 +564,9 @@ async function startServer() {
     }
 
     const cleanUsername = username.trim().toLowerCase();
+    if (cleanUsername === "convidado") {
+      return res.status(400).json({ error: "O acesso de visitante não está disponível. Crie ou acesse uma conta." });
+    }
     const users = readJSON<any[]>(USERS_FILE, []);
 
     const exists = users.find((u) => u.username === cleanUsername);
@@ -581,6 +599,9 @@ async function startServer() {
     }
 
     const cleanUsername = username.trim().toLowerCase();
+    if (cleanUsername === "convidado") {
+      return res.status(400).json({ error: "O acesso de visitante não está disponível. Acesse uma conta." });
+    }
     const users = readJSON<any[]>(USERS_FILE, []);
 
     const user = users.find((u) => u.username === cleanUsername && u.password === password);
@@ -625,7 +646,8 @@ async function startServer() {
       users.find(account => account.email?.toLowerCase() === claims.email?.toLowerCase());
 
     if (!user) {
-      const baseUsername = claims.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 80) || "google_user";
+      const emailUsername = claims.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 80) || "google_user";
+      const baseUsername = emailUsername === "convidado" ? "google_user" : emailUsername;
       let username = baseUsername;
       let suffix = 1;
       while (users.some(account => account.username === username)) {
@@ -648,6 +670,9 @@ async function startServer() {
       if (claims.name) user.name = claims.name.slice(0, 100);
       if (claims.picture) user.photoUrl = claims.picture.slice(0, 2048);
     }
+    if (user.username.trim().toLowerCase() === "convidado") {
+      return res.status(403).json({ error: "O acesso de visitante não está disponível. Acesse uma conta." });
+    }
     writeJSON(USERS_FILE, users);
 
     res.json({
@@ -667,6 +692,9 @@ async function startServer() {
     }
 
     const cleanUsername = username.trim().toLowerCase();
+    if (cleanUsername === "convidado") {
+      return res.status(403).json({ error: "O acesso de visitante não está disponível. Entre em uma conta." });
+    }
     const ticket = sessionTickets.get(sessionTicket);
     if (!ticket || ticket.username !== cleanUsername || ticket.expiresAt <= Date.now()) {
       sessionTickets.delete(sessionTicket);
@@ -1187,7 +1215,9 @@ async function startServer() {
     const rawUsername = req.body?.username ?? req.query.username;
     const username = typeof rawUsername === "string" ? rawUsername.trim().toLowerCase() : "";
     if (!username) return res.status(400).json({ error: "Nome de usuário é obrigatório." });
-    if (username === "convidado") return next();
+    if (username === "convidado") {
+      return res.status(403).json({ error: "O acesso de visitante não está disponível. Entre em uma conta." });
+    }
 
     const sessionToken = req.get("X-Account-Session");
     const account = accountSessions[username];
@@ -1201,8 +1231,7 @@ async function startServer() {
     username: string,
     sessionToken: unknown,
     account = accountSessions[username],
-  ) => username === "convidado" ||
-    (process.env.NODE_ENV !== "production" &&
+  ) => (process.env.NODE_ENV !== "production" &&
       process.env.ENABLE_LOAD_TEST_AUTH === "true" &&
       /^loadtest_[a-z0-9_]{1,80}$/.test(username)) ||
     (typeof sessionToken === "string" &&
@@ -1237,7 +1266,7 @@ async function startServer() {
 
     const resolved = submittedTeam.map(submitted => {
       const official = byId.get(submitted.id);
-      if (!official || !Array.isArray(official.skills) || official.skills.length === 0) return null;
+      if (!official || official.enabled === false || !Array.isArray(official.skills) || official.skills.length === 0) return null;
       const selectedSkinId = typeof (submitted as any).selectedSkinId === "string"
         ? (submitted as any).selectedSkinId.slice(0, 100)
         : undefined;
@@ -2400,6 +2429,147 @@ async function startServer() {
 
     const { password: _password, googleId: _googleId, email: _email, ...publicUser } = user;
     res.json({ success: true, card, user: publicUser, isDuplicate });
+  });
+
+  app.post("/api/reward-roulette/draw", requireActiveMatchSession, (req, res) => {
+    const username = typeof req.body?.username === "string" ? req.body.username.trim().toLowerCase() : "";
+    const spins = req.body?.spins;
+    if (!username || username === "convidado") {
+      return res.status(403).json({ error: "Entre em uma conta para usar a roleta." });
+    }
+    if (!Number.isSafeInteger(spins) || ![1, REWARD_ROULETTE_MAX_SPINS].includes(spins)) {
+      return res.status(400).json({ error: "Escolha 1 ou 10 giros." });
+    }
+
+    const users = readJSON<any[]>(USERS_FILE, []);
+    const user = users.find(profile => profile.username?.trim().toLowerCase() === username);
+    if (!user) return res.status(404).json({ error: "Usuário não encontrado." });
+
+    const configuredCards = readJSON<NinjaCard[]>(CARDS_FILE, []);
+    const configuredBanners = readJSON<CustomBannerItem[]>(BANNERS_FILE, []);
+    const prizePool = buildRewardRoulettePool(
+      getAuthoritativeCharacters(),
+      configuredCards.length > 0 ? configuredCards : buildDefaultCards(),
+      configuredBanners.length > 0 ? configuredBanners : DEFAULT_CUSTOM_BANNERS,
+    );
+    if (prizePool.length === 0) {
+      return res.status(503).json({ error: "Não há recompensas cadastradas para a roleta." });
+    }
+
+    const currentRyos = Number.isSafeInteger(user.ryos) && user.ryos >= 0 ? user.ryos : 1500;
+    const cost = spins * REWARD_ROULETTE_COST;
+    if (currentRyos < cost) {
+      return res.status(409).json({ error: "Você não tem Ryos suficientes para girar a roleta." });
+    }
+
+    user.ryos = currentRyos - cost;
+    const randomValues = randomBytes(spins * 8);
+    const draws: RewardRouletteDraw[] = [];
+    try {
+      for (let index = 0; index < spins; index++) {
+        draws.push(drawRewardRouletteSpin(
+          user,
+          prizePool,
+          randomValues.readUInt32BE(index * 8) / 0x1_0000_0000,
+          randomValues.readUInt32BE(index * 8 + 4) / 0x1_0000_0000,
+        ));
+      }
+    } catch (error) {
+      return res.status(409).json({
+        error: error instanceof Error ? error.message : "Não foi possível aplicar as recompensas.",
+      });
+    }
+
+    appendRewardRouletteHistory(
+      user,
+      draws,
+      randomBytes(16).toString("hex"),
+    );
+    if (!persistAccountUsers(users)) {
+      return res.status(500).json({ error: "Não foi possível salvar as recompensas da roleta." });
+    }
+    const { password: _password, googleId: _googleId, email: _email, ...publicUser } = user;
+    return res.json({ success: true, cost, draws, user: publicUser });
+  });
+
+  app.get("/api/reward-roulette/history", requireActiveMatchSession, (req, res) => {
+    const username = typeof req.query.username === "string" ? req.query.username.trim().toLowerCase() : "";
+    const users = readJSON<any[]>(USERS_FILE, []);
+    const user = users.find(profile => profile.username?.trim().toLowerCase() === username);
+    if (!user) return res.status(404).json({ error: "Usuário não encontrado." });
+    const history = Array.isArray(user.rewardRouletteHistory)
+      ? user.rewardRouletteHistory
+      : [];
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ success: true, history });
+  });
+
+  app.post("/api/skins/fragments/pack", requireActiveMatchSession, (req, res) => {
+    const username = typeof req.body?.username === "string" ? req.body.username.trim().toLowerCase() : "";
+    if (!username || username === "convidado") {
+      return res.status(403).json({ error: "Entre na sua conta para abrir o pacote de fragmentos." });
+    }
+
+    const users = readJSON<any[]>(USERS_FILE, []);
+    const user = users.find(profile => profile.username?.trim().toLowerCase() === username);
+    if (!user) return res.status(404).json({ error: "Usuário não encontrado." });
+
+    const characters = readJSON<unknown[]>(CHARACTERS_FILE, DEFAULT_CHARACTERS);
+    const skinCatalog = getSkinFragmentCatalog(characters);
+    if (skinCatalog.length === 0) {
+      return res.status(503).json({ error: "Não há skins disponíveis para este pacote." });
+    }
+
+    const ryos = Number.isSafeInteger(user.ryos) && user.ryos >= 0 ? user.ryos : 1500;
+    if (ryos < SKIN_FRAGMENT_PACK_COST) {
+      return res.status(409).json({ error: "Você não tem moedas suficientes para comprar este pacote." });
+    }
+
+    const fragments = user.skinFragments && typeof user.skinFragments === "object"
+      ? user.skinFragments as Record<string, unknown>
+      : {};
+    const unlockedSkins = Array.isArray(user.unlockedSkins)
+      ? user.unlockedSkins.filter((id: unknown): id is string => typeof id === "string")
+      : [];
+    const eligibleSkins = skinCatalog.filter(skin =>
+      !unlockedSkins.includes(skin.id) &&
+      !(Number.isSafeInteger(fragments[skin.id]) && Number(fragments[skin.id]) >= SKIN_FRAGMENT_UNLOCK_TARGET),
+    );
+    if (eligibleSkins.length === 0) {
+      return res.status(409).json({ error: "Você já desbloqueou todas as skins disponíveis." });
+    }
+
+    const randomValues = randomBytes(8);
+    const skin = eligibleSkins[randomValues.readUInt32BE(0) % eligibleSkins.length];
+    const rolledQuantity = rollSkinFragmentQuantity(randomValues.readUInt32BE(4) / 0x1_0000_0000);
+    const previousCount = Number.isSafeInteger(fragments[skin.id])
+      ? Math.max(0, Math.min(SKIN_FRAGMENT_UNLOCK_TARGET, Number(fragments[skin.id])))
+      : 0;
+    const fragmentsAdded = Math.min(rolledQuantity, SKIN_FRAGMENT_UNLOCK_TARGET - previousCount);
+    const fragmentCount = previousCount + fragmentsAdded;
+    const skinUnlocked = fragmentCount >= SKIN_FRAGMENT_UNLOCK_TARGET;
+    const updatedUser = {
+      ...user,
+      ryos: ryos - SKIN_FRAGMENT_PACK_COST,
+      skinFragments: { ...fragments, [skin.id]: fragmentCount },
+      unlockedSkins: skinUnlocked && !unlockedSkins.includes(skin.id)
+        ? [...unlockedSkins, skin.id]
+        : unlockedSkins,
+    };
+    users[users.indexOf(user)] = updatedUser;
+    if (!persistAccountUsers(users)) {
+      return res.status(500).json({ error: "Não foi possível salvar a compra do pacote." });
+    }
+
+    const { password: _password, googleId: _googleId, email: _email, ...publicUser } = updatedUser;
+    return res.json({
+      success: true,
+      skin: { id: skin.id, name: skin.name, characterName: skin.characterName },
+      fragmentsAdded,
+      fragmentCount,
+      unlocked: skinUnlocked,
+      user: publicUser,
+    });
   });
 
   // Card Packs API

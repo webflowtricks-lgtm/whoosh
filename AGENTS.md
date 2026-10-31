@@ -11,7 +11,7 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 - `npm run lint` — `tsc --noEmit`
 - `npm test` — unit tests for combat rules and multiplayer action/turn validation
 - Start an isolated local load-test server with `WHOOSH_DATA_DIR` pointing to a temporary data directory, `PORT=3100`, `ENABLE_LOAD_TEST_AUTH=true`, and `ENABLE_RUNTIME_METRICS=true`; copy `src/data/custom_characters.json` into that directory before startup. Never enable test auth in production.
-- `npm run load:online -- --url http://localhost:3100 --players 60 --rooms 15 --turns 10` — repeatable local multiplayer protocol load (30 active players + 30 matchmaking pollers)
+- `npm run load:online -- --url http://localhost:3100 --players 60 --rooms 25 --turns 10` — repeatable local multiplayer protocol load (50 active players in 25 rooms + 10 matchmaking pollers)
 - For 60 active players use `--rooms 30`; each room currently has two human players.
 - Deploy: `vercel.json` rewrites `/api/*` to the Cloudflare Worker; the Vercel domain remains the frontend host.
 
@@ -163,22 +163,22 @@ When a target the player hit with a multi-turn skill becomes invulnerable on its
 - `resolvedTurnRef` + `forcedResolveTurnsRef`: resolve/force-resolve max once per turn.
 - **🛡️ SERVER-CONFIRMED SUBMIT (v8)**: `submittedTurnRef` is marked ONLY when the server accepts `submit-turn` (in `submitWithRetry` r.ok, or `trySubmitPending` r.ok). NEVER mark it optimistically at click time. The 20s force-resolve watchdog requires BOTH `submittedTurnRef.has(turn)` AND fresh `lastServerConfirmRef` (server room-state/heartbeat saw my slot registered, <30s old) — otherwise it must NOT resolve, or rounds get resolved without the opponent during Render cold starts ("gerou chakra e o turno não passou" bug).
 - Circuit breaker in `executeTurnEndResolution`: blocks any resolution <1500ms after the previous one (`lastResolutionAtRef`) — chained resolutions = pathological loop (played StartTurn sound endlessly).
-- Online watchdogs while waiting: heartbeat `⏳ Aguardando há Xs — servidor diz: meu turno ✔/✖ | oponente ✔/✖` every ~10s; unlock planning after 30s + 15 consecutive poll failures (only when I haven't submitted). NO force-resolve (removed in v13).
+- Online watchdogs while waiting: heartbeat `⏳ Aguardando há Xs — servidor diz: meu turno ✔/✖ | oponente ✔/✖` every ~30s; unlock planning after 30s + 6 consecutive poll failures (only when I haven't submitted). NO force-resolve (removed in v13).
 - Per-click guard `finalizedKeysRef` (key `${turn}:${side}`); refs cleared at battle start only.
 
 **Diagnostics overlay (temporary but keep until fully stable)**:
 - `logs` state was NEVER rendered before — added fixed bottom-left panel "🧪 Log v7" (BattleBoard JSX end) showing last 7 logs incl. build marker line as first initial log. Bump this marker whenever touching turn flow again (current: `🧪 BUILD v25-ws-push`).
 
-**🔌 WebSocket push (v25→v26, target: 30 jogadores em batalha 24/7 dentro de ~5GB/mês)**:
+**🔌 WebSocket push (v25→v26, target: 50 jogadores em batalha simultânea)**:
 - Server: `wss` at path `/ws` on the same httpServer; `roomSockets` Map<roomId, Set<WebSocket>> + `socketUsers` Map<ws,username> + `lastPushBySocket` Map<ws,lastPayload> (dedup). `broadcastRoomState(roomId,{full?,exclude?})` sends lightweight `type:'room-state'` (`players` = username-only unless full; `turnActions` windowed resolvedTurn±1 unless full) — hooked on: submit-turn (**exclude submitter**), report-state (**exclude reporter**), surrender, timeout auto-pass, 2-turn defeat; ws `join` sends **full:true** (histórico completo p/ catch-up pós-reconexão). `sendToRoom(roomId,obj,{exclude})` for tiny events.
 - **Submit-turn response carries `{success,resolvedTurn,room}`** — the SUBMITTER processes it through the SAME `processData` (serverResolvedTurn advance without needing any push/poll). Opponent learns via targeted push. NEVER re-add a poll dependency for the submitter's own resolution.
 - Chat: `sendToRoom({type:'chat',message})` to ALL (author relies on echo for isSelf — do NOT make it optimistic-append without removing the echo). Emoji: `{type:'emoji'}` EXCLUDE author (client renders own optimistically).
 - Deflate ON: `perMessageDeflate:{threshold:128,zlibDeflateOptions:{level:9}}` (~3-5x wire reduction). Ping replies `{type:'pong'}`.
 - Client: data handling lives in `processData(data)` inside `runSync(wsData?)` — SHARED by HTTP fetch (`.then(processData)`), WS push and submit-response. Do NOT duplicate that logic again.
-- **WS health = `wsConnectedRef && Date.now()-lastWsMsgAtRef < 45000`** (ping every 25s keeps freshness). When healthy: syncLoop does ZERO HTTP (checks every 5s), chat poll returns early, emoji poll returns early, watchdog heartbeat skipped. When unhealthy: everything falls back automatically (sync 1500ms, polls resume).
+- **WS health = `wsConnectedRef && Date.now()-lastWsMsgAtRef < 45000`** (ping every 30s keeps freshness). When healthy: syncLoop does ZERO HTTP (checks every 5s), chat poll returns early, emoji poll returns early, watchdog heartbeat skipped. When unhealthy: room-state fallback runs every 5s.
 - URL: localhost → same-host `/ws`; production defaults to `wss://whoosh.robertosouzasouza999.workers.dev/ws` because Vercel rewrites do NOT pass WS upgrade. Override with `VITE_WS_URL` env at build time.
 - Smoke-tested locally (smoke v26): opponent-only pushes ✔, submitter fed by HTTP response room ✔, dedup collapses identical reports ✔, chat all / emoji opponent-only ✔, deflate negotiated ✔.
 - **v27 — Render strips permessage-deflate (confirmed via raw upgrade: 101 but no `sec-websocket-extensions`)**. Compensations: `report-state` NO LONGER broadcasts a full room-state — it sends a tiny `{type:'report',username,turn,units,chakra}` event (≈208B, exclude reporter) consumed by `wsApplyReportRef` → shared `applyOppReport` (hoisted in runSync scope, same converge-para-menor logic + guards). `lightRoomObject` includes `stateReports` ONLY on `full` (join). `sendToRoom` events do NOT dedup (client guards make duplicates harmless).
-- Budget math @30 players × 24h/day: ~4KB/round/player (2 submits + 2 reports HTTP ≈ 3.2KB + ~2 deflated pushes ≈ 1KB) ≈ 170KB/h/player ≈ **~4GB/month total** — fits 5GB free tier. Without deflate on prod pushes: ~4KB/round still holds thanks to v27 slim reports (~2 submits+reports HTTP ≈ 3.2KB + ~1.5KB raw pushes) → **~3.5-4.5GB/month**, borderline but fits; monitor Render dashboard.
+- Capacity and bandwidth must be verified with the 50-player load test and the selected provider's usage metrics; estimates from the earlier 30-player target are not proof that 50-player, 24/7 traffic fits a low-tier plan.
 
 **Server side**: rooms persist to `src/data/match_rooms.json` (debounced `markRoomsDirty`, restore-on-boot); `/api/health` reports version. Render free tier cold-start tolerances are baked into the 20-failure room-lost threshold. `resolvedTurn` is persisted per room and restored (fallback 0).

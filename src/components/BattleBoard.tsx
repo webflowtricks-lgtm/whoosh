@@ -2457,7 +2457,7 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
   // lados), a rodada é resolvida localmente para a partida NUNCA congelar.
   const waitingSinceRef = useRef(0);
   const forcedResolveTurnsRef = useRef<Set<number>>(new Set());
-  // 💓 Último heartbeat de diagnóstico emitido enquanto aguardando (a cada ~10s).
+  // 💓 Último heartbeat de diagnóstico emitido enquanto aguardando (a cada ~30s).
   const lastWaitBeatRef = useRef(0);
   // 📡 Sequência atual de falhas de poll (compartilhada entre o efeito de polling e
   // o watchdog: se o servidor está inacessível há muito tempo E eu ainda nem joguei,
@@ -2509,7 +2509,7 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
   // const chatScrollRef = useRef<HTMLDivElement>(null);
   // const lastChatTimestampRef = useRef<number>(0);
   // 🔌 WEBSOCKET PUSH (v26): canal compartilhado com o efeito ws.
-  // Saúde do canal = conectado E recebeu mensagem há <45s (ping a cada 25s).
+  // Saúde do canal = conectado E recebeu mensagem há <45s (ping a cada 30s).
   // Quando saudável, TODOS os polls HTTP ficam em zero (sync/chat/emoji/heartbeat).
   const wsPushRef = useRef<((data: any) => void) | null>(null);
   const wsConnectedRef = useRef(false);
@@ -12830,7 +12830,7 @@ splashOnlyTargets = splashPool.filter(c =>
   const showRoomLostModalRef = useRef(false);
   const roomLostDismissedAtRef = useRef(0);
 
-  // Periodic background online room-state polling & turn sync (1 second)
+  // Periodic online room-state fallback and turn synchronization.
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver) return;
 
@@ -13392,17 +13392,17 @@ splashOnlyTargets = splashPool.filter(c =>
     // Expõe o sync para o listener de visibilitychange (aba volta a ficar visível)
     syncFnRef.current = runSync;
     wsPushRef.current = (data: any) => runSync(data);
-    // 🔌 v25: com WebSocket conectado o push entrega tudo na hora;
-    // o poll HTTP vira só fallback lento (6s). Sem ws, mantém 1500ms.
+    // 🔌 Com WebSocket conectado o push entrega tudo na hora; HTTP é fallback
+    // de baixa frequência para reduzir chamadas durante instabilidade do canal.
     let syncTimer: ReturnType<typeof setTimeout> | null = null;
     let syncCancelled = false;
     const syncLoop = () => {
       if (syncCancelled) return;
       // v26: WS saudável entrega TUDO por push — zero HTTP. Fallback só se o canal
-      // cair/mostrar-se mudo (>45s sem mensagem nenhuma, ping a cada 25s).
+      // cair/mostrar-se mudo (>45s sem mensagem nenhuma, ping a cada 30s).
       const wsHealthy = wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000;
       if (!wsHealthy) runSync();
-      syncTimer = setTimeout(syncLoop, wsHealthy ? 5000 : 1500);
+      syncTimer = setTimeout(syncLoop, 5000);
     };
     syncLoop();
 
@@ -13415,7 +13415,7 @@ splashOnlyTargets = splashPool.filter(c =>
 
   // 🔌 WEBSOCKET PUSH (v25): o servidor empurra room-state em submit/surrender/
   // timeout/report — skills do oponente, resolução e rendição chegam SEM polling.
-  // Reconexão automática a cada 3s; ping keepalive a cada 25s (evita idle-timeout).
+  // Reconexão automática a cada 3s; ping keepalive a cada 30s (evita idle-timeout).
   // O poll HTTP continua como fallback lento (syncLoop acima).
   useEffect(() => {
     if (!onlineParams?.isOnline || gameOver) return;
@@ -13463,7 +13463,7 @@ splashOnlyTargets = splashPool.filter(c =>
         if (pingTimer) clearInterval(pingTimer);
         pingTimer = setInterval(() => {
           try { ws?.send(JSON.stringify({ type: 'ping', roomId: onlineParams.roomId })); } catch {}
-        }, 25000);
+        }, 30000);
       };
       ws.onmessage = (ev) => {
         try {
@@ -13521,7 +13521,7 @@ splashOnlyTargets = splashPool.filter(c =>
     let lastActivitySentAt = 0;
     const signalActivity = () => {
       const now = Date.now();
-      if (now - lastActivitySentAt < 10000) return;
+      if (now - lastActivitySentAt < 30000) return;
       lastActivitySentAt = now;
       if (wsActivityRef.current?.()) return;
       void matchFetch('/api/match/activity', {
@@ -13567,11 +13567,11 @@ splashOnlyTargets = splashPool.filter(c =>
       if (gameOver || !isWaitingForOpponent) return;
       const waitedMs = Date.now() - waitingSinceRef.current;
 
-      // 💓 HEARTBEAT DE DIAGNÓSTICO (a cada ~10s, visível no log de combate):
+      // 💓 Diagnóstico periódico, sem competir com o sync HTTP de fallback:
       // pergunta ao servidor quem já submetiu o turno atual. Com isso a gente VÊ
       // exatamente onde a corrente quebra: meu submit falhou? o oponente não
       // enviou? rendição por ping? servidor inacessível?
-      if (Date.now() - lastWaitBeatRef.current >= 10000 && !(wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000)) {
+      if (Date.now() - lastWaitBeatRef.current >= 30000 && !(wsConnectedRef.current && Date.now() - lastWsMsgAtRef.current < 45000)) {
         // v26: heartbeat HTTP sù quando o canal WS Não está saudável (diagnóstico de fallback).
         lastWaitBeatRef.current = Date.now();
         const mineIdxB = onlineParams.playerIndex === 1 ? 1 : 0;
@@ -13620,7 +13620,7 @@ splashOnlyTargets = splashPool.filter(c =>
       // Caso 2: eu NEM JOGUEI ainda (oponente começou a rodada) e o servidor está
       // inacessível há muito tempo → destravo MINHA fase de planejamento, senão a
       // partida congelava para sempre sem eu poder fazer nada ("turno não passa").
-      if (waitedMs > 30000 && pollFailureStreakRef.current >= 15) {
+      if (waitedMs > 30000 && pollFailureStreakRef.current >= 6) {
         console.warn(`[TURN] WATCHDOG ONLINE: servidor inacessível (${pollFailureStreakRef.current} falhas) e aguardando há ${Math.round(waitedMs / 1000)}s — liberando fase local.`);
         setLogs(l => [
           ...l,
@@ -19062,7 +19062,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             <button
               onClick={handleEndTurnClick}
               disabled={isEndingTurn || isPreparing || isWaitingForOpponent || turnCooldownRemaining > 0 || (!isSandbox && activePlanner !== 'player')}
-              className={`btn-end-turn pointer-events-auto px-4 sm:px-6 py-2 sm:py-2.5 ${
+              className={`btn-end-turn battle-end-turn-continue pointer-events-auto px-4 sm:px-6 py-2 sm:py-2.5 ${
                 isEndingTurn || isWaitingForOpponent || turnCooldownRemaining > 0
                   ? 'bg-stone-800/80 text-stone-400 border-stone-600 opacity-60 cursor-not-allowed'
                   : isSandbox
@@ -19082,17 +19082,19 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               ) : (
                 <>
                   <Swords className="w-4 h-4" />
-                  {turnCooldownRemaining > 0
-                    ? `Aguardar ${Math.ceil(turnCooldownRemaining / 1000)}s...`
-                    : isWaitingForOpponent
-                      ? 'Aguardando...'
-                      : isSandbox
-                        ? activePlanner === 'player'
-                          ? 'Terminar Turno Jogador'
-                          : 'Terminar Turno Oponente'
-                        : activePlanner === 'player'
-                          ? 'Finalizar Turno'
-                          : 'Aguardando...'}
+                  <span>
+                    {turnCooldownRemaining > 0
+                      ? `Aguardar ${Math.ceil(turnCooldownRemaining / 1000)}s...`
+                      : isWaitingForOpponent
+                        ? 'Aguardando...'
+                        : isSandbox
+                          ? activePlanner === 'player'
+                            ? 'Terminar Turno Jogador'
+                            : 'Terminar Turno Oponente'
+                          : activePlanner === 'player'
+                            ? 'Finalizar Turno'
+                            : 'Aguardando...'}
+                  </span>
                 </>
               )}
             </button>
@@ -19383,7 +19385,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
                   {/* Incoming skills icons (Targeted skills prediction) */}
                   {incomingCues.length > 0 && (
-                    <div className="absolute top-2 right-2 flex gap-1 items-center z-10" onClick={(e) => e.stopPropagation()}>
+                    <div className="absolute top-2 right-2 flex gap-1 items-center z-10">
                       
                       {incomingCues.map((cue, cIdx) => {
                         const src = playerCombatants.find(p => p.id === cue.sourceId) || enemyCombatants.find(e => e.id === cue.sourceId);
@@ -20629,7 +20631,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
                   {/* Incoming skills icons (Targeted skills prediction) */}
                   {incomingCues.length > 0 && (
-                    <div className="absolute top-2 left-2 flex gap-1 items-center  z-10" onClick={(e) => e.stopPropagation()}>
+                    <div className="absolute top-2 left-2 flex gap-1 items-center z-10">
                      
                       {incomingCues.map((cue, cIdx) => {
                         const src = playerCombatants.find(p => p.id === cue.sourceId) || enemyCombatants.find(e => e.id === cue.sourceId);

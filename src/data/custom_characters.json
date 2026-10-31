@@ -1670,7 +1670,14 @@
         "invulnerableDuration": 1
       }
     ],
-    "skins": []
+    "skins": [
+      {
+        "id": "young-kakashi-skin-test-mythic",
+        "name": "Kakashi Mítico (Teste)",
+        "image": "https://i.ibb.co/C5j2kZCR/profile-1.webp",
+        "rarity": "mitica"
+      }
+    ]
   },
   {
     "id": "young-obito",
@@ -1770,7 +1777,14 @@
         "invulnerableDuration": 1
       }
     ],
-    "skins": []
+    "skins": [
+      {
+        "id": "young-obito-skin-test-legendary",
+        "name": "Obito Lendário (Teste)",
+        "image": "https://i.ibb.co/r29cWFym/base-profile.png",
+        "rarity": "lendaria"
+      }
+    ]
   },
   {
     "id": "young-rin",
@@ -1875,7 +1889,14 @@
         "invulnerableDuration": 1
       }
     ],
-    "skins": []
+    "skins": [
+      {
+        "id": "young-rin-skin-test-rare",
+        "name": "Rin Rara (Teste)",
+        "image": "https://i.ibb.co/nNb8krSt/base-profile-3.webp",
+        "rarity": "rara"
+      }
+    ]
   },
   {
     "id": "hyuga-hanabi",
@@ -8158,7 +8179,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "orochimaru",
@@ -8236,7 +8258,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "tsunade",
@@ -8312,7 +8335,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "SasoriSOld",
@@ -8388,7 +8412,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "a-(r)",
@@ -8465,7 +8490,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "akatsuchi-(s)",
@@ -8537,7 +8563,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "ameyuri-ringo-(r)",
@@ -8613,7 +8640,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "animal-path-pain-(s)",
@@ -8686,7 +8714,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "ao-(s)",
@@ -8757,7 +8786,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "aoba-yamashiro",
@@ -8833,7 +8863,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "asuma-sarutobi-(s)",
@@ -8910,7 +8941,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "asura-path-pain-(s)",
@@ -8986,7 +9018,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "atsui-(s)",
@@ -9060,7 +9093,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "c-(s)",
@@ -9132,7 +9166,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "chiyo-(r)",
@@ -9209,7 +9244,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "chiyo-(s)",
@@ -9285,7 +9321,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "choji-akimichi-(s)",
@@ -9360,7 +9397,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "chojuro-(s)",
@@ -9435,7 +9473,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "choza-akimichi-s",
@@ -9510,7 +9549,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "chukichi-(r)",
@@ -9585,7 +9625,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "corrupted-obito",
@@ -9659,7 +9700,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "curse-mark-jugo-(s)",
@@ -9807,7 +9849,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "curse-mark-sasuke-(s)",
@@ -9881,7 +9924,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "danzo-shimura-(s)",
@@ -9958,7 +10002,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "darui-(s)",
@@ -10034,7 +10079,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "deidara-(r)",
@@ -10109,7 +10155,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "deidara-(s)",
@@ -10186,7 +10233,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "deva-path-pain-(s)",
@@ -10262,7 +10310,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "dodai-(s)",
@@ -10335,7 +10384,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "drunken-lee",
@@ -10409,7 +10459,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "eight-gates-guy-(s)",
@@ -10485,7 +10536,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "eight-tailed-b-(s)",
@@ -10558,7 +10610,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "four-tailed-naruto-(s)",
@@ -10631,7 +10684,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "fu-yamanaka-(s)",
@@ -10710,7 +10764,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "fuguki-suikazan-(r)",
@@ -10783,7 +10838,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "fukai-(r)",
@@ -10856,7 +10912,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "fukasaku-and-shima-(s)",
@@ -10931,7 +10988,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "gari-(r)",
@@ -11007,7 +11065,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "gengetsu-hozuki-(r)",
@@ -11083,7 +11142,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "ginkaku-(r)",
@@ -11158,7 +11218,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "haku-(r)",
@@ -11236,7 +11297,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "hanzo-(r)",
@@ -11310,7 +11372,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "hashirama-senju",
@@ -11386,7 +11449,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "hashirama-senju-(r)",
@@ -11464,7 +11528,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "hiashi-hyuga",
@@ -11540,7 +11605,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "hidan-(s)",
@@ -11615,7 +11681,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "hinata-hyuga-(s)",
@@ -11689,7 +11756,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "hiruko-sasori-(s)",
@@ -11767,7 +11835,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "hiruzen-sarutobi",
@@ -11843,7 +11912,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "hoshigaki-kisame-body-double-(s)",
@@ -11920,7 +11990,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "human-path-pain-(s)",
@@ -11998,7 +12069,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "ibiki-morino",
@@ -12071,7 +12143,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "ino-yamanaka-(s)",
@@ -12147,7 +12220,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "inoichi-yamanaka-s",
@@ -12220,7 +12294,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "itachi-uchiha-(r)",
@@ -12300,7 +12375,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "itachi-uchiha-(s)",
@@ -12376,7 +12452,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "ittan-(s)",
@@ -12452,7 +12529,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "izumo-and-kotetsu",
@@ -12524,7 +12602,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "jinin-akebino-(r)",
@@ -12599,7 +12678,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "jinpachi-munashi-(r)",
@@ -12674,7 +12754,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "jiraiya-(s)",
@@ -12748,7 +12829,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "jirobo",
@@ -12824,7 +12906,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "jirobo-(r)",
@@ -12900,7 +12983,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "jugo-(s)",
@@ -12975,7 +13059,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "yakushi-kabuto",
@@ -13048,7 +13133,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kabuto-yakushi-(s)",
@@ -13122,7 +13208,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kakashi-hatake-(s)",
@@ -13200,7 +13287,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kakuzu-(s)",
@@ -13278,7 +13366,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kankuro-(s)",
@@ -13356,7 +13445,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "karin-(s)",
@@ -13429,7 +13519,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kazekage-gaara-(s)",
@@ -13506,7 +13597,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kiba-inuzuka-(s)",
@@ -13585,7 +13677,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kidomaru",
@@ -13658,7 +13751,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "killer-b-(s)",
@@ -13736,7 +13830,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kimimaro",
@@ -13813,7 +13908,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kimimaro-(r)",
@@ -13887,7 +13983,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kinkaku-(r)",
@@ -13963,7 +14060,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kisame-hoshigaki-(s)",
@@ -14041,7 +14139,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kitsuchi-(s)",
@@ -14118,7 +14217,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "konan-(s)",
@@ -14195,7 +14295,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "konan-of-the-rain-(s)",
@@ -14270,7 +14371,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "konohamaru-sarutobi",
@@ -14347,7 +14449,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "konohamaru-sarutobi-(s)",
@@ -14433,7 +14536,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kurotsuchi-(s)",
@@ -14510,7 +14614,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "kushimaru-kuriarare-(r)",
@@ -14583,7 +14688,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "madara-uchiha-(s)",
@@ -14656,7 +14762,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "maki-(s)",
@@ -14732,7 +14839,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "mangekyo-sasuke-(s)",
@@ -14809,7 +14917,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "mei-terumi-(s)",
@@ -14885,7 +14994,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "might-guy-(s)",
@@ -14960,7 +15070,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "minato-namikaze",
@@ -15035,7 +15146,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "minato-namikaze-(r)",
@@ -15109,7 +15221,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "mu-(r)",
@@ -15187,7 +15300,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "nagato-(r)",
@@ -15265,7 +15379,8 @@
         "invulnerableDuration": 1
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "nagato-(s)",
@@ -15346,7 +15461,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "naraka-path-pain-(s)",
@@ -15421,7 +15537,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "naruto-uzumaki-(s)",
@@ -15497,7 +15614,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "neji-hyuga-(s)",
@@ -15572,7 +15690,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "nine-tailed-naruto-(s)",
@@ -15644,7 +15763,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "obito-uchiha",
@@ -15720,7 +15840,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "omoi-(s)",
@@ -15797,7 +15918,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "one-tailed-naruto",
@@ -15869,7 +15991,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "onoki-(s)",
@@ -15946,7 +16069,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "orochimaru-(s)",
@@ -16019,7 +16143,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "pakura-(r)",
@@ -16094,7 +16219,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "preta-path-pain-(s)",
@@ -16170,7 +16296,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "puppet-master-kankuro-(s)",
@@ -16247,7 +16374,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "rasa-(r)",
@@ -16322,7 +16450,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "regimental-commander-gaara-(s)",
@@ -16399,7 +16528,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "rehabilitated-gaara",
@@ -16476,7 +16606,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "rin-nohara",
@@ -16549,7 +16680,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "rock-lee-(s)",
@@ -16623,7 +16755,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "sage-mode-jiraiya-(s)",
@@ -16697,7 +16830,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "sage-mode-kabuto-(s)",
@@ -16774,7 +16908,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "sage-mode-naruto-(s)",
@@ -16849,7 +16984,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "sai-(s)",
@@ -16924,7 +17060,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "sakon-and-ukon",
@@ -16999,7 +17136,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "sakura-haruno-(s)",
@@ -17075,7 +17213,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "sasori-(r)",
@@ -17150,7 +17289,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "sasori-(s)",
@@ -17224,7 +17364,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "sasuke-uchiha-(s)",
@@ -17303,7 +17444,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "shikamaru-nara-(s)",
@@ -17378,7 +17520,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "shino-aburame-(s)",
@@ -17459,7 +17602,8 @@
         "shieldVal": 35
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "shisui-uchiha-(s)",
@@ -17536,7 +17680,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "suigetsu-hozuki-(s)",
@@ -17614,7 +17759,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "tayuya",
@@ -17687,7 +17833,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "temari-(s)",
@@ -17763,7 +17910,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "tenten-(s)",
@@ -17840,7 +17988,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "tobi-(s)",
@@ -17919,7 +18068,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "tobirama-senju-(r)",
@@ -17996,7 +18146,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "toroi-(r)",
@@ -18073,7 +18224,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "torune-aburame-(s)",
@@ -18158,7 +18310,8 @@
         "damage": 35
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "true-form-sasori-(s)",
@@ -18235,7 +18388,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "tsume-inuzuka",
@@ -18312,7 +18466,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "tsunade-(s)",
@@ -18385,7 +18540,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "uchiha-itachi-body-double-(s)",
@@ -18462,7 +18618,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "utakata-(s)",
@@ -18537,7 +18694,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "white-snake-orochimaru-(s)",
@@ -18614,7 +18772,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "yamato-(s)",
@@ -18690,7 +18849,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "yugao-uzuki",
@@ -18764,7 +18924,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "yugito-nii-(s)",
@@ -18839,7 +19000,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "zabuza-momochi-(r)",
@@ -18915,7 +19077,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "zaji",
@@ -18986,7 +19149,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "zetsu-(s)",
@@ -19064,7 +19228,8 @@
         ]
       }
     ],
-    "skins": []
+    "skins": [],
+    "enabled": false
   },
   {
     "id": "novo-ninja-0158",

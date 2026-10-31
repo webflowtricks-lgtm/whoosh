@@ -54,6 +54,10 @@ export function enrichCharacters(characters: Character[]): Character[] {
   return enriched;
 }
 
+export function isCharacterEnabled(character: Character): boolean {
+  return character.enabled !== false;
+}
+
 export function getCharacters(): Character[] {
   if (memoryCache && memoryCache.length > 0) {
     return memoryCache;

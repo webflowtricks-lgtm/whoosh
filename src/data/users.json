@@ -233,9 +233,150 @@
       "anko-mitarashi-base",
       "orochimaru-(s)-base",
       "gaara-base",
-      "choji-base"
+      "choji-base",
+      "sasuke-uchiha-(s)-base",
+      "sasori-(s)-base",
+      "hiruzen-sarutobi-base",
+      "rasa-(r)-base",
+      "iruka-umino-base",
+      "kinkaku-(r)-base",
+      "yamato-(s)-base",
+      "haku-base",
+      "zabuza-momochi-(r)-base",
+      "demon-brothers-base",
+      "rock-lee-base",
+      "curse-mark-sasuke-base",
+      "rock-lee-base",
+      "gaara-base",
+      "zetsu-(s)-base",
+      "haku-base",
+      "gaara-base",
+      "shino-aburame-(s)-base",
+      "deidara-(s)-base",
+      "itachi-uchiha-(r)-base",
+      "demon-brothers-base",
+      "shino-base",
+      "konan-(s)-base",
+      "tayuya-base",
+      "nine-tailed-naruto-(s)-base",
+      "white-snake-orochimaru-(s)-base",
+      "gaara-base",
+      "kidomaru-base",
+      "sasori-(s)-base",
+      "kankuro-base",
+      "white-snake-orochimaru-(s)-base",
+      "temari-base",
+      "ao-(s)-base",
+      "kisame-hoshigaki-base",
+      "kakashi-base",
+      "mu-(r)-base",
+      "kankuro-base",
+      "yoroi-akado-base",
+      "corrupted-obito-base",
+      "yamato-(s)-base",
+      "white-snake-orochimaru-(s)-base",
+      "ittan-(s)-base",
+      "masked-man-base",
+      "corrupted-obito-base",
+      "ao-(s)-base",
+      "masked-man-base",
+      "dodai-(s)-base",
+      "uchiha-itachi-body-double-(s)-base",
+      "jinpachi-munashi-(r)-base",
+      "c-(s)-base",
+      "kiba-base",
+      "kisame-hoshigaki-(s)-base",
+      "white-snake-orochimaru-(s)-base",
+      "sai-(s)-base",
+      "iruka-umino-base",
+      "hashirama-senju-base",
+      "konohamaru-sarutobi-(s)-base",
+      "hinata-base",
+      "tsume-inuzuka-base",
+      "rock-lee-base",
+      "zetsu-(s)-base",
+      "maki-(s)-base",
+      "killer-b-(s)-base",
+      "kakuzu-(s)-base",
+      "shino-aburame-(s)-base",
+      "zabuza-base",
+      "kakashi-lenda-de-konoha",
+      "white-snake-orochimaru-(s)-base",
+      "orochimaru-base",
+      "fukai-(r)-base",
+      "itachi-uchiha-(r)-base",
+      "deidara-(s)-base",
+      "tsume-inuzuka-base",
+      "sakura-for-a-bruta",
+      "zaku-abumi-base",
+      "fuguki-suikazan-(r)-base",
+      "ao-(s)-base",
+      "rehabilitated-gaara-base",
+      "yamato-(s)-base",
+      "kiba-base",
+      "ao-(s)-base",
+      "hiruzen-sarutobi-base",
+      "utakata-(s)-base",
+      "eight-gates-guy-(s)-base",
+      "naruto-uzumaki-(s)-base",
+      "white-snake-orochimaru-(s)-base",
+      "temari-base",
+      "zabuza-momochi-(r)-base",
+      "deidara-(r)-base",
+      "hashirama-senju-base",
+      "tobirama-senju-(r)-base",
+      "madara-uchiha-(s)-base",
+      "shino-aburame-(s)-base",
+      "gaara-base",
+      "ittan-(s)-base",
+      "eight-tailed-b-(s)-base",
+      "SasoriSOld-base",
+      "rock-lee-base",
+      "kakashi-lenda-de-konoha",
+      "asuma-sarutobi-base",
+      "four-tailed-naruto-(s)-base",
+      "rock-lee-base",
+      "kakashi-base",
+      "gari-(r)-base",
+      "hinata-base",
+      "rock-lee-base",
+      "guy-base",
+      "rock-lee-base",
+      "sasuke-uchiha-(s)-base",
+      "sage-mode-naruto-(s)-base",
+      "jiraiya-(s)-base",
+      "masked-man-base",
+      "shukaku-gaara-base",
+      "masked-man-base",
+      "shikamaru-nara-(s)-base",
+      "one-tailed-naruto-base",
+      "gaara-base",
+      "hanzo-(r)-base",
+      "baki-base",
+      "yamato-(s)-base",
+      "shikamaru-nara-(s)-base",
+      "neji-base",
+      "misumi-tsurugi-base",
+      "baki-base",
+      "nine-tailed-naruto-(s)-base",
+      "naraka-path-pain-(s)-base",
+      "konohamaru-sarutobi-base",
+      "minato-namikaze-base",
+      "hiashi-hyuga-base",
+      "sakura-for-a-bruta",
+      "itachi-genjutsu-supremo",
+      "hashirama-senju-base",
+      "one-tailed-naruto-base",
+      "choza-akimichi-base",
+      "yamato-(s)-base",
+      "ino-base",
+      "minato-namikaze-(r)-base",
+      "deva-path-pain-(s)-base",
+      "hashirama-senju-base",
+      "white-snake-orochimaru-(s)-base",
+      "neji-base"
     ],
-    "ryos": 135694,
+    "ryos": 60094,
     "gems": 30000,
     "village": "konoha",
     "villageChangeCount": 1,
@@ -525,7 +666,8 @@
     "completedQuestIds": [
       "quest_1784869393005",
       "daily-2026-10-24-daily-damage",
-      "weekly-2026-W43-weekly-kills"
+      "weekly-2026-W43-weekly-kills",
+      "daily-2026-10-25-daily-damage"
     ],
     "questRewardSnapshots": {
       "quest_1784869393005": {
@@ -545,6 +687,11 @@
       },
       "weekly-2026-W43-weekly-kills": {
         "ryos": 1500,
+        "gems": 0,
+        "items": []
+      },
+      "daily-2026-10-25-daily-damage": {
+        "ryos": 400,
         "gems": 0,
         "items": []
       }
@@ -567,7 +714,19 @@
         "uchiha-itachi-damage": 0,
         "uchiha-sasuke-team-damage": 190
       }
-    }
+    },
+    "skinFragments": {
+      "sakura-skin-3756": 1
+    },
+    "unlockedSkins": [
+      "sasuke-skin-8077",
+      "young-obito-skin-test-legendary",
+      "sakura-skin-5341"
+    ],
+    "rewardRouletteSpinCount": 1,
+    "unlockedVoiceIds": [
+      "kakashi-jutsucopiado"
+    ]
   },
   {
     "username": "111",
@@ -606,10 +765,376 @@
       "zabuza-base",
       "mu-(r)-base",
       "gengetsu-hozuki-(r)-base",
-      "kakashi-hatake-(s)-base"
+      "kakashi-hatake-(s)-base",
+      "minato-namikaze-base",
+      "naruto-base",
+      "suigetsu-hozuki-(s)-base",
+      "sasuke-marca-amaldi-oada",
+      "kiba-base",
+      "karin-(s)-base",
+      "asuma-sarutobi-(s)-base",
+      "shigure-base",
+      "neji-base",
+      "aoba-yamashiro-base",
+      "eight-tailed-b-(s)-base",
+      "naruto-uzumaki-(s)-base",
+      "pakura-(r)-base",
+      "dosu-kinuta-base",
+      "chiyo-(r)-base",
+      "SasoriSOld-base",
+      "nagato-(r)-base",
+      "neji-hyuga-(s)-base",
+      "chojuro-(s)-base",
+      "shukaku-gaara-base",
+      "rock-lee-base",
+      "deidara-(s)-base",
+      "kin-tsuchi-base",
+      "obito-uchiha-base",
+      "haku-(r)-base",
+      "rin-nohara-base",
+      "itachi-uchiha-(r)-base",
+      "itachi-uchiha-(r)-base",
+      "sakura-for-a-bruta",
+      "c-(s)-base",
+      "ino-yamanaka-(s)-base",
+      "deva-path-pain-(s)-base",
+      "dosu-kinuta-base",
+      "hidan-(s)-base",
+      "uchiha-itachi-body-double-(s)-base",
+      "naruto-uzumaki-(s)-base",
+      "tenten-(s)-base",
+      "itachi-uchiha-(r)-base",
+      "nagato-(r)-base",
+      "masked-man-base",
+      "jinpachi-munashi-(r)-base",
+      "hashirama-senju-base",
+      "hidan-(s)-base",
+      "aoba-yamashiro-base",
+      "shisui-uchiha-(s)-base",
+      "gari-(r)-base",
+      "shukaku-gaara-base",
+      "rehabilitated-gaara-base",
+      "sakura-for-a-bruta",
+      "itachi-uchiha-(r)-base",
+      "chiyo-(r)-base",
+      "kin-tsuchi-base",
+      "konohamaru-sarutobi-base",
+      "corrupted-obito-base",
+      "itachi-uchiha-(r)-base",
+      "hayate-gekko-base",
+      "orochimaru-base",
+      "aoba-yamashiro-base",
+      "white-snake-orochimaru-(s)-base",
+      "kisame-hoshigaki-(s)-base",
+      "itachi-uchiha-(s)-base",
+      "young-kakashi-base",
+      "zaji-base",
+      "four-tailed-naruto-(s)-base",
+      "shikamaru-base",
+      "SasoriSOld-base",
+      "asuma-sarutobi-base",
+      "sakura-haruno-(s)-base",
+      "dosu-kinuta-base",
+      "sakura-for-a-bruta",
+      "fukasaku-and-shima-(s)-base",
+      "choza-akimichi-base",
+      "kurenai-yuhi-base",
+      "hidan-(s)-base",
+      "corrupted-obito-base",
+      "asuma-sarutobi-base",
+      "itachi-genjutsu-supremo",
+      "zaku-abumi-base",
+      "rock-lee-base",
+      "choji-base",
+      "nagato-(s)-base",
+      "kisame-hoshigaki-base",
+      "atsui-(s)-base",
+      "itachi-uchiha-(s)-base",
+      "sakura-for-a-bruta",
+      "white-snake-orochimaru-(s)-base",
+      "curse-mark-sasuke-(s)-base",
+      "rock-lee-base",
+      "tayuya-base",
+      "temari-base",
+      "itachi-uchiha-(r)-base",
+      "kushimaru-kuriarare-(r)-base",
+      "madara-uchiha-(s)-base",
+      "konohamaru-sarutobi-base",
+      "shino-base",
+      "sage-mode-jiraiya-(s)-base",
+      "corrupted-obito-base",
+      "shukaku-gaara-base",
+      "fu-yamanaka-(s)-base",
+      "shukaku-gaara-base",
+      "itachi-genjutsu-supremo",
+      "kakashi-base",
+      "itachi-genjutsu-supremo",
+      "mei-terumi-(s)-base",
+      "curse-mark-sasuke-(s)-base",
+      "neji-hyuga-(s)-base",
+      "sasuke-uchiha-(s)-base",
+      "shikamaru-base",
+      "sasori-(s)-base",
+      "fuguki-suikazan-(r)-base",
+      "rin-nohara-base",
+      "chojuro-(s)-base",
+      "kakashi-lenda-de-konoha",
+      "kankuro-(s)-base",
+      "mu-(r)-base",
+      "neji-base",
+      "curse-mark-sasuke-base",
+      "rehabilitated-gaara-base",
+      "konan-of-the-rain-(s)-base",
+      "nine-tailed-naruto-(s)-base",
+      "kisame-hoshigaki-base",
+      "obito-uchiha-base",
+      "kabuto-yakushi-base",
+      "asuma-sarutobi-base",
+      "shigure-base",
+      "sage-mode-naruto-(s)-base",
+      "shizune-base",
+      "c-(s)-base",
+      "zabuza-momochi-(r)-base",
+      "curse-mark-sasuke-base",
+      "kakashi-lenda-de-konoha",
+      "white-snake-orochimaru-(s)-base",
+      "hinata-base",
+      "a-(r)-base",
+      "deidara-(s)-base",
+      "mei-terumi-(s)-base",
+      "kabuto-yakushi-base",
+      "sage-mode-jiraiya-(s)-base",
+      "deidara-(s)-base",
+      "deva-path-pain-(s)-base",
+      "curse-mark-jugo-(s)-base",
+      "kankuro-base",
+      "gari-(r)-base",
+      "shikamaru-base",
+      "yamato-(s)-base",
+      "masked-man-base",
+      "sasuke-uchiha-(s)-base",
+      "konan-(s)-base",
+      "madara-uchiha-(s)-base",
+      "puppet-master-kankuro-(s)-base",
+      "minato-namikaze-(r)-base",
+      "puppet-master-kankuro-(s)-base",
+      "hinata-base",
+      "asuma-sarutobi-(s)-base",
+      "true-form-sasori-(s)-base",
+      "kushimaru-kuriarare-(r)-base",
+      "itachi-uchiha-(s)-base",
+      "iruka-umino-base",
+      "gari-(r)-base",
+      "eight-tailed-b-(s)-base",
+      "rock-lee-base",
+      "zaku-abumi-base",
+      "puppet-master-kankuro-(s)-base",
+      "hinata-hyuga-(s)-base",
+      "sai-(s)-base",
+      "temari-(s)-base",
+      "ao-(s)-base",
+      "shikamaru-base",
+      "konohamaru-sarutobi-base",
+      "kankuro-base",
+      "zabuza-base",
+      "kisame-hoshigaki-base",
+      "ino-base",
+      "neji-hyuga-(s)-base",
+      "corrupted-obito-base",
+      "sage-mode-kabuto-(s)-base",
+      "shikamaru-base",
+      "jiraiya-base",
+      "haku-(r)-base",
+      "neji-hyuga-(s)-base",
+      "hashirama-senju-base",
+      "shino-base",
+      "neji-base",
+      "shikamaru-nara-(s)-base",
+      "konohamaru-sarutobi-(s)-base",
+      "neji-base",
+      "kisame-hoshigaki-base",
+      "jugo-(s)-base",
+      "jinin-akebino-(r)-base",
+      "white-snake-orochimaru-(s)-base",
+      "tenten-base",
+      "rock-lee-base",
+      "itachi-uchiha-(r)-base",
+      "uchiha-itachi-body-double-(s)-base",
+      "ino-yamanaka-(s)-base",
+      "tsume-inuzuka-base",
+      "kakashi-lenda-de-konoha",
+      "fukai-(r)-base",
+      "gaara-base",
+      "omoi-(s)-base",
+      "sasori-(s)-base",
+      "itachi-base",
+      "sage-mode-kabuto-(s)-base",
+      "nagato-(r)-base",
+      "anko-mitarashi-base",
+      "chojuro-(s)-base",
+      "kakashi-lenda-de-konoha",
+      "ittan-(s)-base",
+      "rin-nohara-base",
+      "anko-mitarashi-base",
+      "oboro-base",
+      "yoroi-akado-base",
+      "kakashi-base",
+      "sai-(s)-base",
+      "white-snake-orochimaru-(s)-base",
+      "shukaku-gaara-base",
+      "sakura-for-a-bruta",
+      "sage-mode-naruto-(s)-base",
+      "choji-akimichi-(s)-base",
+      "zaku-abumi-base",
+      "maki-(s)-base",
+      "mei-terumi-(s)-base",
+      "oboro-base",
+      "drunken-lee-base",
+      "itachi-uchiha-(s)-base",
+      "karin-(s)-base",
+      "anko-mitarashi-base",
+      "uchiha-itachi-body-double-(s)-base",
+      "yoroi-akado-base",
+      "kakashi-hatake-(s)-base",
+      "c-(s)-base",
+      "madara-uchiha-(s)-base",
+      "hidan-(s)-base",
+      "anko-mitarashi-base",
+      "kiba-base",
+      "shukaku-gaara-base",
+      "kin-tsuchi-base",
+      "sasori-(s)-base",
+      "ino-base",
+      "itachi-uchiha-(s)-base",
+      "konan-of-the-rain-(s)-base",
+      "itachi-uchiha-(r)-base",
+      "kin-tsuchi-base",
+      "kiba-base",
+      "temari-(s)-base",
+      "deidara-(s)-base",
+      "deidara-(r)-base",
+      "nagato-(s)-base",
+      "jinpachi-munashi-(r)-base",
+      "shukaku-gaara-base",
+      "deidara-(r)-base",
+      "shino-aburame-(s)-base",
+      "guy-base",
+      "hashirama-senju-(r)-base",
+      "fukai-(r)-base",
+      "akatsuchi-(s)-base",
+      "hashirama-senju-base",
+      "kisame-hoshigaki-base",
+      "hanzo-(r)-base",
+      "deidara-(s)-base",
+      "white-snake-orochimaru-(s)-base",
+      "oboro-base",
+      "orochimaru-(s)-base",
+      "onoki-(s)-base",
+      "misumi-tsurugi-base",
+      "sage-mode-naruto-(s)-base",
+      "haku-base",
+      "shukaku-gaara-base",
+      "kurotsuchi-(s)-base",
+      "corrupted-obito-base",
+      "zabuza-base",
+      "jiraiya-base",
+      "inoichi-yamanaka-base",
+      "itachi-uchiha-(s)-base",
+      "mu-(r)-base",
+      "masked-man-base",
+      "jiraiya-base",
+      "onoki-(s)-base",
+      "tenten-base",
+      "itachi-base",
+      "white-snake-orochimaru-(s)-base",
+      "chukichi-(r)-base",
+      "sasuke-uchiha-(s)-base",
+      "SasoriSOld-base",
+      "jirobo-(r)-base",
+      "tobirama-senju-(r)-base",
+      "itachi-uchiha-(r)-base",
+      "hashirama-senju-(r)-base",
+      "neji-base",
+      "curse-mark-sasuke-(s)-base",
+      "sakura-for-a-bruta",
+      "kiba-inuzuka-(s)-base",
+      "jugo-(s)-base",
+      "young-kakashi-base",
+      "nagato-(s)-base",
+      "sasuke-marca-amaldi-oada",
+      "shino-base",
+      "shikamaru-base",
+      "ibiki-morino-base",
+      "akatsuchi-(s)-base",
+      "jinin-akebino-(r)-base",
+      "deva-path-pain-(s)-base",
+      "sage-mode-jiraiya-(s)-base",
+      "sasori-(s)-base",
+      "uchiha-itachi-body-double-(s)-base",
+      "ameyuri-ringo-(r)-base",
+      "ino-base",
+      "itachi-uchiha-(r)-base",
+      "chiyo-(r)-base",
+      "jiraiya-base",
+      "kakashi-lenda-de-konoha",
+      "jiraiya-base",
+      "neji-hyuga-(s)-base",
+      "fuguki-suikazan-(r)-base",
+      "drunken-lee-base",
+      "rock-lee-base",
+      "rehabilitated-gaara-base",
+      "tenten-base",
+      "hayate-gekko-base",
+      "minato-namikaze-base",
+      "a-(r)-base",
+      "zabuza-base",
+      "mei-terumi-(s)-base",
+      "sakura-for-a-bruta",
+      "tobirama-senju-(r)-base",
+      "sakura-for-a-bruta",
+      "nagato-(s)-base",
+      "toroi-(r)-base",
+      "dodai-(s)-base",
+      "four-tailed-naruto-(s)-base",
+      "zabuza-base",
+      "chiyo-(s)-base",
+      "rasa-(r)-base",
+      "rehabilitated-gaara-base",
+      "konohamaru-sarutobi-(s)-base",
+      "ameyuri-ringo-(r)-base",
+      "kiba-inuzuka-(s)-base",
+      "fukai-(r)-base",
+      "kitsuchi-(s)-base",
+      "kurenai-yuhi-base",
+      "shukaku-gaara-base",
+      "shikamaru-nara-(s)-base",
+      "masked-man-base",
+      "shikaku-nara-base",
+      "c-(s)-base",
+      "akatsuchi-(s)-base",
+      "hinata-base",
+      "sasori-(s)-base",
+      "sage-mode-kabuto-(s)-base",
+      "sasori-(s)-base",
+      "hanzo-(r)-base",
+      "ino-base",
+      "guy-base",
+      "mizuki-base",
+      "kabuto-yakushi-base",
+      "aoba-yamashiro-base",
+      "curse-mark-sasuke-base",
+      "itachi-base",
+      "eight-tailed-b-(s)-base",
+      "white-snake-orochimaru-(s)-base",
+      "rock-lee-base",
+      "sasuke-base",
+      "kimimaro-base",
+      "aoba-yamashiro-base",
+      "hinata-base",
+      "might-guy-(s)-base"
     ],
-    "ryos": 4128,
-    "gems": 120,
+    "ryos": 3333333332307752,
+    "gems": 333358453,
     "title": "Lenda dos Sannin",
     "village": "konoha",
     "villageChangeCount": 1,
@@ -617,12 +1142,12 @@
       "quest_1784869393005": [
         {
           "id": "goal_1784869393005_1",
-          "currentValue": 0,
+          "currentValue": 1,
           "currentStreak": 0
         },
         {
           "id": "goal_1786040155794_2",
-          "currentValue": 0,
+          "currentValue": 1,
           "currentStreak": 0
         }
       ],
@@ -641,7 +1166,7 @@
       "quest_1786040199522": [
         {
           "id": "goal_1786040199522_1",
-          "currentValue": 0,
+          "currentValue": 1,
           "currentStreak": 0
         },
         {
@@ -683,14 +1208,14 @@
         },
         {
           "id": "goal_1786041662283_3",
-          "currentValue": 0,
+          "currentValue": 1,
           "currentStreak": 0
         }
       ],
       "quest_1786041796915": [
         {
           "id": "goal_1786041796915_1",
-          "currentValue": 0,
+          "currentValue": 65,
           "currentStreak": 0
         }
       ],
@@ -805,6 +1330,118 @@
           "currentValue": 180,
           "currentStreak": 0
         }
+      ],
+      "daily-2026-10-29-daily-victory": [
+        {
+          "id": "daily-2026-10-29-daily-victory-win",
+          "currentValue": 2,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-29-daily-technique": [
+        {
+          "id": "daily-2026-10-29-daily-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-29-daily-squad": [
+        {
+          "id": "daily-2026-10-29-daily-squad-characters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-29-daily-damage": [
+        {
+          "id": "daily-2026-10-29-daily-damage-damage",
+          "currentValue": 1380,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-wins": [
+        {
+          "id": "weekly-2026-W44-weekly-wins-wins",
+          "currentValue": 2,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-technique": [
+        {
+          "id": "weekly-2026-W44-weekly-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-damage": [
+        {
+          "id": "weekly-2026-W44-weekly-damage-damage",
+          "currentValue": 1460,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-shield": [
+        {
+          "id": "weekly-2026-W44-weekly-shield-shield",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-healing": [
+        {
+          "id": "weekly-2026-W44-weekly-healing-healing",
+          "currentValue": 65,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-stuns": [
+        {
+          "id": "weekly-2026-W44-weekly-stuns-stuns",
+          "currentValue": 15,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-kills": [
+        {
+          "id": "weekly-2026-W44-weekly-kills-kills",
+          "currentValue": 4,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-counters": [
+        {
+          "id": "weekly-2026-W44-weekly-counters-counters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-31-daily-victory": [
+        {
+          "id": "daily-2026-10-31-daily-victory-win",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-31-daily-technique": [
+        {
+          "id": "daily-2026-10-31-daily-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-31-daily-squad": [
+        {
+          "id": "daily-2026-10-31-daily-squad-characters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-31-daily-damage": [
+        {
+          "id": "daily-2026-10-31-daily-damage-damage",
+          "currentValue": 80,
+          "currentStreak": 0
+        }
       ]
     },
     "questAiBattleIds": [
@@ -822,7 +1459,17 @@
       "1792857387992-dy2h066lwo",
       "1792873552742-emhip5lkqqa",
       "1792884316567-ptfmv1f10up",
-      "1792939758829-pcci8f8il9j"
+      "1792939758829-pcci8f8il9j",
+      "1792952209512-08god89aa6m8",
+      "1793237619798-6ri8kri7fi8",
+      "1793238144169-turumoy5j6",
+      "1793239718423-46pgunamo4e",
+      "1793239819253-qbc403or46q",
+      "1793240288610-doea7tf5t3d",
+      "1793241634883-ihig1c5mo",
+      "1793479832513-hjvdx9rqexl",
+      "1793481272142-nn0kdp5thv",
+      "1793484320704-vqllfmcqj6"
     ],
     "claimedRecurringChestIds": [
       "daily-2026-10-24-chest-1"
@@ -857,29 +1504,113 @@
         ],
         "claimedRouletteCardIds": [],
         "claimedAt": "2026-10-24T20:09:06.989Z"
+      },
+      {
+        "id": "381ab068af7118d5334299ad44d26136",
+        "questId": "admin-message",
+        "subject": "3",
+        "message": "3",
+        "createdAt": "2026-10-29T02:01:29.352Z",
+        "rewards": [
+          {
+            "type": "ryos",
+            "value": "3333333333333332"
+          }
+        ],
+        "claimedRouletteCardIds": [],
+        "claimedAt": "2026-10-29T02:02:08.161Z"
+      },
+      {
+        "id": "606598d8a92159cc98cb30eb89bd2862",
+        "questId": "admin-message",
+        "subject": "3",
+        "message": "3333333",
+        "createdAt": "2026-10-29T02:01:37.376Z",
+        "rewards": [
+          {
+            "type": "gems",
+            "value": "333333333"
+          }
+        ],
+        "claimedRouletteCardIds": [],
+        "claimedAt": "2026-10-29T02:02:04.101Z"
+      },
+      {
+        "id": "167abf20daa65d286bea0852db3056a4",
+        "questId": "admin-message",
+        "subject": "33333333",
+        "message": "33333333333",
+        "createdAt": "2026-10-29T02:01:44.157Z",
+        "rewards": [],
+        "claimedRouletteCardIds": [],
+        "claimedAt": "2026-10-29T02:02:06.003Z"
       }
     ],
     "completedQuestIds": [
-      "daily-2026-10-24-daily-damage"
+      "daily-2026-10-24-daily-damage",
+      "quest_1784869393005"
     ],
     "questRewardSnapshots": {
       "daily-2026-10-24-daily-damage": {
         "ryos": 400,
         "gems": 0,
         "items": []
+      },
+      "quest_1784869393005": {
+        "ryos": 25001,
+        "gems": 25000,
+        "items": [
+          "unlock_character:Haku",
+          "title:Novo Título",
+          "card:naruto-base",
+          "banner:Banne"
+        ]
       }
     },
     "eventProgress": {
       "lacos-uchiha-sasuke-itachi": {
-        "uchiha-sasuke-wins": 0,
+        "uchiha-sasuke-wins": 2,
         "uchiha-itachi-wins": 0,
         "uchiha-sasuke-skills": 0,
         "uchiha-itachi-skills": 0,
-        "uchiha-sasuke-damage": 0,
+        "uchiha-sasuke-damage": 405,
         "uchiha-itachi-damage": 0,
-        "uchiha-sasuke-team-damage": 40
+        "uchiha-sasuke-team-damage": 490
       }
-    }
+    },
+    "unlockedCharacterNames": [
+      "Haku"
+    ],
+    "unlockedTitles": [
+      "Novo Título"
+    ],
+    "unlockedBanners": [
+      "Banne"
+    ],
+    "unlockedBannerUrls": [
+      "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1200&auto=format&fit=crop"
+    ],
+    "skinFragments": {
+      "sakura-skin-5341": 2,
+      "sasuke-skin-8077": 5,
+      "naruto-skin-4164": 2,
+      "naruto-skin-1470": 3,
+      "sakura-skin-3756": 2,
+      "sasuke-skin-3412": 2
+    },
+    "unlockedSkins": [
+      "young-rin-skin-test-rare",
+      "naruto-skin-4164",
+      "young-obito-skin-test-legendary",
+      "sakura-skin-3756",
+      "sasuke-skin-3412",
+      "sasuke-skin-8077",
+      "young-kakashi-skin-test-mythic"
+    ],
+    "rewardRouletteSpinCount": 5,
+    "unlockedVoiceIds": [
+      "kakashi-jutsucopiado"
+    ]
   },
   {
     "username": "444",
@@ -894,7 +1625,7 @@
     "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
     "village": "konoha",
     "villageChangeCount": 0,
-    "ryos": 6850,
+    "ryos": 6825,
     "gems": 26080,
     "collectedCardIds": [
       "tobirama-senju-(r)-base",
@@ -950,7 +1681,8 @@
       "hoshigaki-kisame-body-double-(s)-base",
       "naruto-base",
       "naraka-path-pain-(s)-base",
-      "kakuzu-(s)-base"
+      "kakuzu-(s)-base",
+      "jiraiya-(s)-base"
     ],
     "questMaintenanceInbox": [
       {
@@ -1318,7 +2050,8 @@
       "daily-2026-10-24-chest-1",
       "weekly-2026-W43-chest-1",
       "daily-2026-10-24-chest-2"
-    ]
+    ],
+    "rewardRouletteSpinCount": 1
   },
   {
     "username": "abce",
@@ -1336,7 +2069,187 @@
     "username": "123",
     "password": "123",
     "name": "123",
-    "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg"
+    "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
+    "questProgress": {
+      "quest_1784869393005": [
+        {
+          "id": "goal_1784869393005_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040155794_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786039551209": [
+        {
+          "id": "goal_1786039551209_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786039716489_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786040199522": [
+        {
+          "id": "goal_1786040199522_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040464755_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040480786_3",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040518996_4",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040662748_5",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040694186_6",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786041548484": [
+        {
+          "id": "goal_1786041548484_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786041652644_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786041662283_3",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786041796915": [
+        {
+          "id": "goal_1786041796915_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-29-daily-victory": [
+        {
+          "id": "daily-2026-10-29-daily-victory-win",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-29-daily-technique": [
+        {
+          "id": "daily-2026-10-29-daily-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-29-daily-squad": [
+        {
+          "id": "daily-2026-10-29-daily-squad-characters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-10-29-daily-damage": [
+        {
+          "id": "daily-2026-10-29-daily-damage-damage",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-wins": [
+        {
+          "id": "weekly-2026-W44-weekly-wins-wins",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-technique": [
+        {
+          "id": "weekly-2026-W44-weekly-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-damage": [
+        {
+          "id": "weekly-2026-W44-weekly-damage-damage",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-shield": [
+        {
+          "id": "weekly-2026-W44-weekly-shield-shield",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-healing": [
+        {
+          "id": "weekly-2026-W44-weekly-healing-healing",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-stuns": [
+        {
+          "id": "weekly-2026-W44-weekly-stuns-stuns",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-kills": [
+        {
+          "id": "weekly-2026-W44-weekly-kills-kills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-counters": [
+        {
+          "id": "weekly-2026-W44-weekly-counters-counters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ]
+    },
+    "eventProgress": {
+      "lacos-uchiha-sasuke-itachi": {
+        "uchiha-sasuke-wins": 0,
+        "uchiha-itachi-wins": 0,
+        "uchiha-sasuke-skills": 0,
+        "uchiha-itachi-skills": 0,
+        "uchiha-sasuke-damage": 0,
+        "uchiha-itachi-damage": 0,
+        "uchiha-sasuke-team-damage": 0
+      }
+    },
+    "questAiBattleIds": [
+      "1793237298964-zg69okrxetb"
+    ]
   },
   {
     "username": "5656",

@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Shield, ChevronLeft, ChevronRight, ArrowLeft, Swords, RefreshCw, Sparkles, Search, Filter, Star, AlertTriangle, Shirt, Lock, X, Eye } from 'lucide-react';
 import { Character, ChakraType, UserProfile, Quest, Skill, ShopItem } from '../types';
-import { getCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
+import { getCharacters, fetchCharactersFromServer, isCharacterEnabled } from '../lib/characterStorage';
 import {
   DEFAULT_AI_ENEMY_CHARACTER_LIMIT,
   fetchAiMatchSettings,
@@ -17,6 +17,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage, translateGameText, translateSkillName, translateTargetType } from '../lib/i18n';
 import { playGlobalSound } from '../lib/soundUtils';
 import { matchFetch } from '../lib/matchFetch';
+import {
+  isSkinUnlocked,
+  normalizeSkinRarity,
+  SKIN_FRAGMENT_UNLOCK_TARGET,
+  SKIN_RARITY_META,
+} from '../lib/skinFragments';
 import { getCharacterLockReason, isCharacterUnlocked } from '../lib/characterUnlocks';
 import MangekyoLoader from './MangekyoLoader';
 import SkinMedia from './SkinMedia';
@@ -67,7 +73,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   // 🧊 Sandbox: modal perguntando se deseja pausar a geração de chakra (10 chakras fixos p/ ambos)
   const [showSandboxChakraModal, setShowSandboxChakraModal] = useState(false);
   const [previewCharacter, setPreviewCharacter] = useState<Character>(() => {
-    const list = getCharacters();
+    const list = getCharacters().filter(isCharacterEnabled);
     try {
       const saved = localStorage.getItem('naruto_last_selected_team');
       if (saved) {
@@ -160,15 +166,17 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       if (!active) return;
       if (updated && updated.length > 0) {
         setCharList(updated);
+        const enabledCharacters = updated.filter(isCharacterEnabled);
+        setSelectedIds(current => current.filter(id => enabledCharacters.some(character => character.id === id)));
         setCatalogStatus('ready');
         setCatalogError('');
         // Set preview character if current preview isn't in list or as default
         setPreviewCharacter(prev => {
           if (prev) {
-            const found = updated.find(c => c.id === prev.id);
+            const found = enabledCharacters.find(c => c.id === prev.id);
             if (found) return found;
           }
-          return updated[0];
+            return enabledCharacters[0] || null;
         });
       }
     }).catch(error => {
@@ -282,7 +290,8 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const FILTER_TAGS = ['Todos', 'Clássico', 'Shippuden', 'Reencarnado', 'Akatsuki', 'Vila da Folha', 'Vila da Areia', 'Vila da Névoa', 'Vila da Nuvem', 'Vila da Pedra'];
 
   // Apply search and tag filters
-  const filteredCharacters = charList.filter(char => {
+  const playableCharacters = charList.filter(isCharacterEnabled);
+  const filteredCharacters = playableCharacters.filter(char => {
     const matchesSearch = char.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           char.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTag = selectedTag === 'Todos' || char.tags.includes(selectedTag);
@@ -336,12 +345,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
   // Skins state
   const [showSkinsTab, setShowSkinsTab] = useState(false);
-  const [equippedSkins, setEquippedSkins] = useState<Record<string, string>>({});
-  const [equippedSkillSkins, setEquippedSkillSkins] = useState<Record<string, string>>({});
+  const [equippedSkins, setEquippedSkins] = useState<Record<string, string>>(() => user.equippedCharacterSkins || {});
+  const [equippedSkillSkins, setEquippedSkillSkins] = useState<Record<string, string>>(() => user.equippedSkillSkins || {});
   const [skillSkinItems, setSkillSkinItems] = useState<ShopItem[]>(() =>
     getShopItems().filter(item => item.category === 'skill_skin')
   );
-
   useEffect(() => {
     fetchShopItemsFromServer().then(items => {
       setSkillSkinItems(items.filter(item => item.category === 'skill_skin'));
@@ -351,7 +359,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const attachSkinsToTeam = (team: Character[], includeSkillSkins = false) => {
     return (team || []).map(char => {
       if (!char) return char;
-      const skinId = equippedSkins[char.id];
+      const charSkins = Array.isArray(char.skins) ? char.skins : [];
+      const requestedSkinId = equippedSkins[char.id];
+      const skinId = requestedSkinId && isSkinUnlocked(user, requestedSkinId) &&
+        charSkins.some(skin => skin.id === requestedSkinId)
+        ? requestedSkinId
+        : undefined;
       const unlockedSkillSkinIds = new Set(user.unlockedSkillSkins || []);
       const skills = (Array.isArray(char.skills) ? char.skills : []).map(skill => {
         if (!includeSkillSkins) return skill;
@@ -366,26 +379,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           ? { ...skill, skillSkinId: item.id, skillVisualEffect: item.skillVisualEffect }
           : skill;
       });
-      let selectedSkinUrl: string | undefined = char.selectedSkinUrl;
-      const charSkins = Array.isArray(char.skins) ? char.skins : [];
+      let selectedSkinUrl: string | undefined = char.portrait;
 
       if (skinId) {
-        if (skinId === 'default') {
-          selectedSkinUrl = char.portrait;
-        } else if (charSkins.length > 0) {
-          const skinObj = charSkins.find(s => s && s.id === skinId);
-          if (skinObj && skinObj.image) {
-            selectedSkinUrl = skinObj.image;
-          }
-        }
-      }
-
-      if (!selectedSkinUrl) {
-        if (charSkins.length > 0 && charSkins[0]?.image) {
-          selectedSkinUrl = charSkins[0].image;
-        } else {
-          selectedSkinUrl = char.portrait;
-        }
+        selectedSkinUrl = charSkins.find(skin => skin.id === skinId)?.image || char.portrait;
       }
 
       return {
@@ -402,10 +399,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     if (selectedIds.length !== 3) return;
     playUahSound();
 
-    const rawPlayerTeam = charList.filter(c => selectedIds.includes(c.id));
+    const rawPlayerTeam = playableCharacters.filter(c => selectedIds.includes(c.id));
     const playerTeam = attachSkinsToTeam(rawPlayerTeam, true);
 
-    const remaining = charList
+    const remaining = playableCharacters
       .slice(0, aiEnemyCharacterLimit)
       .filter(character => !selectedIds.includes(character.id));
     if (remaining.length < 3) {
@@ -428,7 +425,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const handleStartSandboxPhase = () => {
     if (selectedIds.length !== 3) return;
     playUahSound();
-    const rawPlayerTeam = charList.filter(c => selectedIds.includes(c.id));
+    const rawPlayerTeam = playableCharacters.filter(c => selectedIds.includes(c.id));
     const playerTeam = attachSkinsToTeam(rawPlayerTeam, true);
     setSandboxPlayerTeam(playerTeam);
     setSelectedIds([]); // clear for enemy team selection
@@ -452,7 +449,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const finalizeSandboxMatch = (pauseChakraGen: boolean) => {
     if (selectedIds.length !== 3 || !sandboxPlayerTeam) return;
     playUahSound();
-    const rawEnemyTeam = charList.filter(c => selectedIds.includes(c.id));
+    const rawEnemyTeam = playableCharacters.filter(c => selectedIds.includes(c.id));
     const enemyTeam = attachSkinsToTeam(rawEnemyTeam);
     setShowSandboxChakraModal(false);
     onConfirmTeams(sandboxPlayerTeam, enemyTeam, undefined, true, pauseChakraGen);
@@ -463,7 +460,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     if (selectedIds.length !== 3) return;
     playUahSound();
 
-    const playerTeam = attachSkinsToTeam(charList.filter(c => selectedIds.includes(c.id)), true);
+    const playerTeam = attachSkinsToTeam(playableCharacters.filter(c => selectedIds.includes(c.id)), true);
 
     setIsMatchmaking(true);
     setMatchmakingStatus('searching');
@@ -918,6 +915,33 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     return effects;
   };
 
+  if (catalogStatus === 'ready' && playableCharacters.length === 0) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-center text-slate-100">
+        <section className="max-w-lg space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-8 shadow-2xl">
+          <h1 className="text-xl font-black uppercase tracking-wide text-amber-300">
+            {t('Nenhum ninja disponível', 'No ninjas available')}
+          </h1>
+          <p className="text-sm text-slate-300">
+            {t(
+              'Todos os personagens estão ocultos no painel de controle. Ative pelo menos um para selecionar uma equipe.',
+              'All characters are hidden in the developer dashboard. Enable at least one to select a team.',
+            )}
+          </p>
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded-xl bg-amber-500 px-5 py-2.5 font-bold text-slate-950 transition hover:bg-amber-400"
+            >
+              {t('Voltar ao lobby', 'Back to lobby')}
+            </button>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans relative selection:bg-orange-600 selection:text-white overflow-x-hidden">
       {catalogStatus !== 'ready' && (
@@ -1052,7 +1076,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               <div className="flex items-center gap-2">
                 {[0, 1, 2].map(idx => {
                   const charId = selectedIds[idx];
-                  const char = charList.find(c => c.id === charId);
+                  const char = playableCharacters.find(c => c.id === charId);
 
                   return (
                     <button
@@ -1582,7 +1606,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       GALERIA DE SKINS
                     </span>
                     <span className="text-[10px] text-amber-900/90 font-mono font-semibold">
-                      Clique para equipar
+                      50 fragmentos por skin; equipe as desbloqueadas
                     </span>
                   </div>
 
@@ -1602,23 +1626,46 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       }
 
                       return skinsList.map((skin) => {
-                        const isEquipped = (equippedSkins[previewCharacter.id] || skinsList[0]?.id) === skin.id;
+                        const isUnlocked = isSkinUnlocked(user, skin.id);
+                        const fragmentCount = Math.max(0, Math.min(
+                          SKIN_FRAGMENT_UNLOCK_TARGET,
+                          Number.isSafeInteger(user.skinFragments?.[skin.id])
+                            ? Number(user.skinFragments?.[skin.id])
+                            : 0,
+                        ));
+                        const isEquipped = equippedSkins[previewCharacter.id] === skin.id && isUnlocked;
+                        const rarity = SKIN_RARITY_META[normalizeSkinRarity(skin.rarity)];
 
                         return (
                           <div
                             key={skin.id}
-                            onClick={() => {
+                            role="button"
+                            tabIndex={isUnlocked ? 0 : -1}
+                            aria-disabled={!isUnlocked}
+                            onClick={isUnlocked ? () => {
                               playUahSound();
                               setEquippedSkins(prev => ({
                                 ...prev,
                                 [previewCharacter.id]: skin.id
                               }));
-                            }}
+                            } : undefined}
+                            onKeyDown={isUnlocked ? event => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                playUahSound();
+                                setEquippedSkins(prev => ({
+                                  ...prev,
+                                  [previewCharacter.id]: skin.id
+                                }));
+                              }
+                            } : undefined}
                             data-sound="uah"
-                            className={`relative group flex-shrink-0 w-32 h-44 rounded-xl border-2 overflow-hidden flex flex-col items-center justify-between p-2 cursor-pointer transition-all ${
-                              isEquipped
-                                ? 'border-amber-700 ring-2 ring-amber-600/50 shadow-xl bg-amber-500/20 scale-102'
-                                : 'border-amber-900/30 hover:border-amber-700 bg-amber-950/10 hover:bg-amber-950/20'
+                            className={`relative group flex-shrink-0 w-32 h-44 rounded-xl border-2 overflow-hidden flex flex-col items-center justify-between p-2 transition-all ${
+                              !isUnlocked
+                                ? 'cursor-not-allowed border-slate-500/60 bg-slate-950/60 opacity-80'
+                                : isEquipped
+                                ? 'cursor-pointer border-amber-700 ring-2 ring-amber-600/50 shadow-xl bg-amber-500/20 scale-102'
+                                : 'cursor-pointer border-amber-900/30 hover:border-amber-700 bg-amber-950/10 hover:bg-amber-950/20'
                             }`}
                           >
                             {isEquipped && (
@@ -1627,6 +1674,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                               </div>
                             )}
 
+                            <span className={`absolute left-1.5 top-1.5 z-10 rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide ${rarity.className}`}>
+                              {t(rarity.labelPt, rarity.labelEn)}
+                            </span>
                             <div className="w-full h-32 flex items-center justify-center overflow-hidden p-1">
                               <SkinMedia
                                 src={skin.image}
@@ -1643,6 +1693,12 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                             <span className="text-[10px] font-bold text-amber-950 truncate w-full text-center font-mono uppercase tracking-tight">
                               {skin.name}
                             </span>
+                            {!isUnlocked && (
+                              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 bg-slate-950/75 text-center font-mono text-[9px] font-black uppercase tracking-wide text-slate-100">
+                                <Lock className="h-5 w-5 text-sky-300" />
+                                <span>{fragmentCount}/{SKIN_FRAGMENT_UNLOCK_TARGET} FRAGMENTOS</span>
+                              </div>
+                            )}
                           </div>
                         );
                       });

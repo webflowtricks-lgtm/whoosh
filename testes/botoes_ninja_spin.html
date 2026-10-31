@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Botões Ninja Spin HD (1 GIRO & 10 GIROS)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Fontes Google -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Titan+One&family=Open+Sans:wght@700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Titan One', cursive, sans-serif;
+    }
+    .font-ryo {
+      font-family: 'Open Sans', sans-serif;
+    }
+    
+    /* Background de grama temática (fundo da imagem original) */
+    .bg-grass-theme {
+      background-color: #4a7c29;
+      background-image: 
+        radial-gradient(circle at 50% 30%, #5d9934 0%, #3e6822 70%),
+        repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px, transparent 2px, transparent 12px);
+    }
+    
+    .bg-dark-theme {
+      background-color: #121418;
+      background-image: radial-gradient(circle at 50% 50%, #1e232d 0%, #0c0d10 80%);
+    }
+
+    /* Efeito 3D de Stroke / Contorno Forte nos Textos */
+    .ninja-text-shadow {
+      text-shadow: 
+        -2px -2px 0 #000,  
+         2px -2px 0 #000,
+        -2px  2px 0 #000,
+         2px  2px 0 #000,
+        -1px  3px 0 #000,
+         1px  3px 0 #000,
+         0px  4px 6px rgba(0, 0, 0, 0.9);
+    }
+
+    /* Efeito de iluminação e pressionar do botão */
+    .btn-3d {
+      transition: transform 0.1s ease, filter 0.2s ease, box-shadow 0.2s ease;
+    }
+    .btn-3d:hover {
+      filter: brightness(1.08);
+      transform: translateY(-2px);
+    }
+    .btn-3d:active {
+      transform: translateY(2px) scale(0.99);
+      filter: brightness(0.95);
+    }
+
+    /* Animação suave para giro de shuriken no hover */
+    .btn-3d:hover .shuriken-svg {
+      transform: rotate(90deg);
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .shuriken-svg {
+      transition: transform 0.3s ease;
+    }
+  </style>
+</head>
+<body id="page-body" class="bg-grass-theme min-h-screen flex flex-col items-center justify-between p-4 sm:p-6 text-white select-none transition-colors duration-300">
+
+  <!-- Header com Controles -->
+  <header class="w-full max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4 mt-2 mb-6 bg-black/40 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-xl">
+    <div>
+      <h1 class="text-xl sm:text-2xl font-bold tracking-wide text-amber-300 drop-shadow">
+        Botões Féis da Imagem (HD)
+      </h1>
+      <p class="text-xs font-ryo text-slate-200 opacity-90">
+        Com vetorização SVG das texturas de madeira, molduras 3D e shurikens.
+      </p>
+    </div>
+
+    <!-- Controles de Fundo e Saldo -->
+    <div class="flex items-center gap-3">
+      <button onclick="toggleTheme()" class="text-xs font-ryo font-bold bg-slate-800/90 hover:bg-slate-700 text-amber-300 border border-amber-500/30 px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+        <span>Alternar Fundo</span>
+      </button>
+
+      <div class="flex items-center gap-2 bg-stone-950/80 border border-amber-500/40 px-3 py-1.5 rounded-xl font-ryo text-sm shadow">
+        <span class="text-slate-400 font-semibold text-xs">Ryos:</span>
+        <span id="ryo-counter" class="text-amber-400 font-extrabold text-base">500</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ÁREA CENTRAL COM OS 2 BOTÕES FIDEDIGNOS -->
+  <main class="w-full max-w-5xl my-auto flex flex-col md:flex-row items-center justify-center gap-6 sm:gap-8 px-2 py-8">
+
+    <!-- ================= BOTÃO 1: "1 GIRO" (AZUL / PRATA) ================= -->
+    <div onclick="spin(1, 25)" class="btn-3d relative w-full max-w-[390px] h-[98px] cursor-pointer drop-shadow-[0_10px_15px_rgba(0,0,0,0.6)]">
+      <!-- Container SVG do Botão Azul Completo (Vetor de Alta Resolução) -->
+      <svg class="w-full h-full" viewBox="0 0 390 98" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- Moldura Externa Metal Prata -->
+          <linearGradient id="silver-frame-grad" x1="0" y1="0" x2="0" y2="98" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ffffff" />
+            <stop offset="15%" stop-color="#d0dbe5" />
+            <stop offset="50%" stop-color="#708294" />
+            <stop offset="85%" stop-color="#3c4a57" />
+            <stop offset="100%" stop-color="#19222b" />
+          </linearGradient>
+
+          <!-- Moldura Externa Bisel Interno -->
+          <linearGradient id="silver-inner-grad" x1="0" y1="0" x2="0" y2="98" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#1a2530" />
+            <stop offset="100%" stop-color="#5a6e80" />
+          </linearGradient>
+
+          <!-- Textura Madeira Azul Petrolio -->
+          <linearGradient id="blue-wood-grad" x1="0" y1="0" x2="0" y2="98" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#3b5d7c" />
+            <stop offset="40%" stop-color="#2d4861" />
+            <stop offset="100%" stop-color="#1c3042" />
+          </linearGradient>
+
+          <!-- Textura Veios da Madeira Azul -->
+          <pattern id="blue-wood-grain" width="200" height="98" patternUnits="userSpaceOnUse">
+            <path d="M0 12 Q 50 16 100 12 T 200 12 M0 34 Q 60 28 120 34 T 200 34 M0 60 Q 40 66 100 60 T 200 60 M0 82 Q 70 78 140 82 T 200 82" stroke="#162635" stroke-width="2.5" opacity="0.4" fill="none"/>
+            <path d="M0 22 Q 40 25 90 22 T 200 22 M0 48 Q 50 44 110 48 T 200 48 M0 72 Q 30 76 80 72 T 200 72" stroke="#4a7399" stroke-width="1.5" opacity="0.3" fill="none"/>
+          </pattern>
+
+          <!-- Gradiente Emblem Shuriken Prata -->
+          <linearGradient id="shuriken-silver-blade" x1="0" y1="0" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="45%" stop-color="#b0c0d0"/>
+            <stop offset="70%" stop-color="#687a8c"/>
+            <stop offset="100%" stop-color="#3a4856"/>
+          </linearGradient>
+
+          <!-- NOVOS DEGRADÊS HIPER-REALISTAS: PRATA METÁLICO 3D -->
+          <linearGradient id="metal-facet-light" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="35%" stop-color="#e2e8f0"/>
+            <stop offset="70%" stop-color="#94a3b8"/>
+            <stop offset="100%" stop-color="#475569"/>
+          </linearGradient>
+
+          <linearGradient id="metal-facet-dark" x1="100%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#64748b"/>
+            <stop offset="40%" stop-color="#334155"/>
+            <stop offset="80%" stop-color="#1e293b"/>
+            <stop offset="100%" stop-color="#0f172a"/>
+          </linearGradient>
+
+          <radialGradient id="silver-specular" cx="35%" cy="35%" r="65%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+            <stop offset="30%" stop-color="#e2e8f0" stop-opacity="0.5"/>
+            <stop offset="70%" stop-color="#64748b" stop-opacity="0.1"/>
+            <stop offset="100%" stop-color="#0f172a" stop-opacity="0"/>
+          </radialGradient>
+
+          <!-- Sombra Interna do Emblema -->
+          <radialGradient id="emblem-shadow" cx="50%" cy="50%" r="50%">
+            <stop offset="70%" stop-color="#0a1118" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#0a1118" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <!-- Sombra Projetada Externa -->
+        <rect x="2" y="4" width="386" height="92" rx="22" fill="#000" opacity="0.4"/>
+
+        <!-- Borda Externa Metalica Prata -->
+        <rect x="2" y="2" width="386" height="92" rx="20" fill="url(#silver-frame-grad)" stroke="#111822" stroke-width="2.5"/>
+        <rect x="6" y="6" width="378" height="84" rx="16" fill="url(#silver-inner-grad)"/>
+        
+        <!-- Fundo de Madeira Azul -->
+        <rect x="8" y="8" width="374" height="80" rx="14" fill="url(#blue-wood-grad)"/>
+        <rect x="8" y="8" width="374" height="80" rx="14" fill="url(#blue-wood-grain)"/>
+
+        <!-- Filigramas / Arabescos Prata nos 4 Cantos -->
+        <!-- Canto Superior Esquerdo -->
+        <path d="M16 22 C16 16, 22 16, 26 16 C22 18, 20 20, 20 24 M16 22 C18 26, 22 28, 26 28" stroke="#cbd5e1" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.85"/>
+        <circle cx="17" cy="17" r="1.5" fill="#f8fafc"/>
+        <!-- Canto Superior Direito -->
+        <path d="M374 22 C374 16, 368 16, 364 16 C368 18, 370 20, 370 24 M374 22 C372 26, 368 28, 364 28" stroke="#cbd5e1" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.85"/>
+        <circle cx="373" cy="17" r="1.5" fill="#f8fafc"/>
+        <!-- Canto Inferior Esquerdo -->
+        <path d="M16 74 C16 80, 22 80, 26 80 C22 78, 20 76, 20 72 M16 74 C18 70, 22 68, 26 68" stroke="#cbd5e1" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.85"/>
+        <circle cx="17" cy="81" r="1.5" fill="#f8fafc"/>
+        <!-- Canto Inferior Direito -->
+        <path d="M374 74 C374 80, 368 80, 364 80 C368 78, 370 76, 370 72 M374 74 C372 70, 368 68, 364 68" stroke="#cbd5e1" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.85"/>
+        <circle cx="373" cy="81" r="1.5" fill="#f8fafc"/>
+
+        <!-- EMBLEMA DA SHURIKEN (ESQUERDA) -->
+        <g transform="translate(14, 11)">
+          <!-- Sombra do Nicho Circular -->
+          <circle cx="38" cy="38" r="36" fill="#0c141d" />
+          
+          <!-- Anel Moldura Prata do Ícone -->
+          <circle cx="38" cy="38" r="35" fill="none" stroke="url(#silver-frame-grad)" stroke-width="4.5"/>
+          <circle cx="38" cy="38" r="32.5" fill="none" stroke="#1e293b" stroke-width="1.5"/>
+          <circle cx="38" cy="38" r="31" fill="#1b2836"/>
+
+          <!-- SHURIKEN PRATA 3D HIPER-REALISTA DE 4 PONTAS -->
+          <g class="shuriken-svg" transform-origin="38 38">
+            <!-- Sombra de projeção 3D da Shuriken -->
+            <path d="M38 7 L45 31 L69 38 L45 45 L38 69 L31 45 L7 38 L31 31 Z" fill="#050b11" opacity="0.75" transform="translate(1.5, 2.5)"/>
+
+            <!-- Lâminas - Facetas Claras (Reflexo Especular) -->
+            <path d="M38 8 L38 38 L68 38 Z" fill="url(#metal-facet-light)"/>
+            <path d="M38 68 L38 38 L8 38 Z" fill="url(#metal-facet-light)"/>
+            <path d="M8 38 L38 38 L38 8 Z" fill="url(#metal-facet-light)" transform="rotate(90 38 38)"/>
+            <path d="M68 38 L38 38 L38 68 Z" fill="url(#metal-facet-light)" transform="rotate(90 38 38)"/>
+
+            <!-- Lâminas - Facetas Escuras (Sombreamento de Chanfro) -->
+            <path d="M38 38 L44 32 L38 8 Z" fill="url(#metal-facet-dark)"/>
+            <path d="M38 38 L32 44 L38 68 Z" fill="url(#metal-facet-dark)"/>
+            <path d="M38 38 L44 44 L68 38 Z" fill="url(#metal-facet-dark)"/>
+            <path d="M38 38 L32 32 L8 38 Z" fill="url(#metal-facet-dark)"/>
+
+            <!-- Vincos Centrais da Lâmina (Corte Afiado) -->
+            <path d="M38 8 L38 68 M8 38 L68 38" stroke="#ffffff" stroke-width="0.75" opacity="0.7"/>
+            <path d="M38 8 L44 32 M38 68 L32 44 M68 38 L44 44 M8 38 L32 32" stroke="#000000" stroke-width="0.75" opacity="0.6"/>
+
+            <!-- Brilho Especular Global -->
+            <circle cx="38" cy="38" r="28" fill="url(#silver-specular)" pointer-events="none"/>
+
+            <!-- Centro Metálico e Furo Anelar 3D -->
+            <circle cx="38" cy="38" r="9" fill="url(#metal-facet-dark)" stroke="url(#silver-frame-grad)" stroke-width="1.5"/>
+            <circle cx="38" cy="38" r="6" fill="#090e14" stroke="#e2e8f0" stroke-width="1.5"/>
+            <!-- Anel Interno de Profundidade do Furo -->
+            <circle cx="37.3" cy="37.3" r="4.8" fill="none" stroke="#000000" stroke-width="1" opacity="0.8"/>
+          </g>
+        </g>
+      </svg>
+
+      <!-- TEXTO & BADGE SOBREPOSTOS COM TAILWIND -->
+      <div class="absolute inset-0 flex flex-col items-end justify-center pr-6 pl-24 pointer-events-none">
+        <!-- Texto "1 GIRO" -->
+        <span class="ninja-text-shadow text-3xl sm:text-[34px] font-black text-white tracking-wide uppercase leading-none mb-1">
+          1 GIRO
+        </span>
+
+        <!-- Badge "25 Ryos" -->
+        <div class="bg-black/80 border border-slate-500/60 rounded-full px-3.5 py-1 flex items-center gap-1.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]">
+          <!-- Ícone de Ryo Ninja (Moeda Ninja) -->
+          <svg class="w-4 h-4 text-amber-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="10" fill="#d97706" stroke="#451a03" stroke-width="1.5"/>
+            <circle cx="12" cy="12" r="6" fill="#f59e0b"/>
+            <rect x="10" y="10" width="4" height="4" fill="#451a03" rx="1"/>
+          </svg>
+          <span class="font-ryo font-extrabold text-amber-300 text-sm tracking-tight drop-shadow">
+            25 Ryos
+          </span>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ================= BOTÃO 2: "10 GIROS" (VERMELHO / OURO) ================= -->
+    <div onclick="spin(10, 250)" class="btn-3d relative w-full max-w-[390px] h-[98px] cursor-pointer drop-shadow-[0_10px_15px_rgba(0,0,0,0.6)]">
+      <!-- Container SVG do Botão Vermelho Completo (Vetor de Alta Resolução) -->
+      <svg class="w-full h-full" viewBox="0 0 390 98" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- Moldura Externa Metal Ouro/Bronze -->
+          <linearGradient id="gold-frame-grad" x1="0" y1="0" x2="0" y2="98" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#fffbeb" />
+            <stop offset="15%" stop-color="#fde047" />
+            <stop offset="50%" stop-color="#ca8a04" />
+            <stop offset="85%" stop-color="#854d0e" />
+            <stop offset="100%" stop-color="#3b1a03" />
+          </linearGradient>
+
+          <!-- Moldura Externa Bisel Interno Ouro -->
+          <linearGradient id="gold-inner-grad" x1="0" y1="0" x2="0" y2="98" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#451a03" />
+            <stop offset="100%" stop-color="#9a3412" />
+          </linearGradient>
+
+          <!-- Textura Madeira Vermelha / Mogno -->
+          <linearGradient id="red-wood-grad" x1="0" y1="0" x2="0" y2="98" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#8c2b18" />
+            <stop offset="40%" stop-color="#6b1d0e" />
+            <stop offset="100%" stop-color="#450e05" />
+          </linearGradient>
+
+          <!-- Textura Veios da Madeira Vermelha -->
+          <pattern id="red-wood-grain" width="200" height="98" patternUnits="userSpaceOnUse">
+            <path d="M0 14 Q 50 18 100 14 T 200 14 M0 36 Q 60 30 120 36 T 200 36 M0 62 Q 40 68 100 62 T 200 62 M0 84 Q 70 80 140 84 T 200 84" stroke="#2a0803" stroke-width="2.5" opacity="0.45" fill="none"/>
+            <path d="M0 24 Q 40 27 90 24 T 200 24 M0 50 Q 50 46 110 50 T 200 50 M0 74 Q 30 78 80 74 T 200 74" stroke="#b91c1c" stroke-width="1.5" opacity="0.25" fill="none"/>
+          </pattern>
+
+          <!-- Gradiente Lâminas Shuriken Ouro Curvada -->
+          <linearGradient id="shuriken-gold-blade" x1="0" y1="0" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="25%" stop-color="#fef08a"/>
+            <stop offset="60%" stop-color="#eab308"/>
+            <stop offset="100%" stop-color="#854d0e"/>
+          </linearGradient>
+
+          <!-- NOVOS DEGRADÊS HIPER-REALISTAS: OURO METÁLICO & RUBI 3D -->
+          <linearGradient id="gold-facet-light" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="25%" stop-color="#fef08a"/>
+            <stop offset="65%" stop-color="#eab308"/>
+            <stop offset="100%" stop-color="#a16207"/>
+          </linearGradient>
+
+          <linearGradient id="gold-facet-dark" x1="100%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#ca8a04"/>
+            <stop offset="50%" stop-color="#854d0e"/>
+            <stop offset="100%" stop-color="#451a03"/>
+          </linearGradient>
+
+          <radialGradient id="ruby-gem" cx="35%" cy="35%" r="65%">
+            <stop offset="0%" stop-color="#fca5a5"/>
+            <stop offset="25%" stop-color="#ef4444"/>
+            <stop offset="65%" stop-color="#991b1b"/>
+            <stop offset="100%" stop-color="#450a0a"/>
+          </radialGradient>
+
+          <radialGradient id="gold-specular" cx="30%" cy="30%" r="70%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+            <stop offset="35%" stop-color="#fef08a" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="#78350f" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <!-- Sombra Projetada Externa -->
+        <rect x="2" y="4" width="386" height="92" rx="22" fill="#000" opacity="0.4"/>
+
+        <!-- Borda Externa Metalica Ouro -->
+        <rect x="2" y="2" width="386" height="92" rx="20" fill="url(#gold-frame-grad)" stroke="#270c03" stroke-width="2.5"/>
+        <rect x="6" y="6" width="378" height="84" rx="16" fill="url(#gold-inner-grad)"/>
+        
+        <!-- Fundo de Madeira Vermelha -->
+        <rect x="8" y="8" width="374" height="80" rx="14" fill="url(#red-wood-grad)"/>
+        <rect x="8" y="8" width="374" height="80" rx="14" fill="url(#red-wood-grain)"/>
+
+        <!-- Filigramas / Arabescos Dourados nos 4 Cantos -->
+        <!-- Canto Superior Esquerdo -->
+        <path d="M16 22 C16 16, 22 16, 26 16 C22 18, 20 20, 20 24 M16 22 C18 26, 22 28, 26 28" stroke="#fde047" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.9"/>
+        <circle cx="17" cy="17" r="1.5" fill="#fef08a"/>
+        <!-- Canto Superior Direito -->
+        <path d="M374 22 C374 16, 368 16, 364 16 C368 18, 370 20, 370 24 M374 22 C372 26, 368 28, 364 28" stroke="#fde047" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.9"/>
+        <circle cx="373" cy="17" r="1.5" fill="#fef08a"/>
+        <!-- Canto Inferior Esquerdo -->
+        <path d="M16 74 C16 80, 22 80, 26 80 C22 78, 20 76, 20 72 M16 74 C18 70, 22 68, 26 68" stroke="#fde047" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.9"/>
+        <circle cx="17" cy="81" r="1.5" fill="#fef08a"/>
+        <!-- Canto Inferior Direito -->
+        <path d="M374 74 C374 80, 368 80, 364 80 C368 78, 370 76, 370 72 M374 74 C372 70, 368 68, 364 68" stroke="#fde047" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.9"/>
+        <circle cx="373" cy="81" r="1.5" fill="#fef08a"/>
+
+        <!-- EMBLEMA DA SHURIKEN CURVADA DOURADA (ESQUERDA) -->
+        <g transform="translate(14, 11)">
+          <!-- Nicho Vermelho Escuro -->
+          <circle cx="38" cy="38" r="36" fill="#300705" />
+          
+          <!-- Anel Moldura Ouro do Ícone -->
+          <circle cx="38" cy="38" r="35" fill="none" stroke="url(#gold-frame-grad)" stroke-width="4.5"/>
+          <circle cx="38" cy="38" r="32.5" fill="none" stroke="#450a0a" stroke-width="1.5"/>
+          <circle cx="38" cy="38" r="31" fill="#5c1108"/>
+
+          <!-- SHURIKEN DOURADA 3D HIPER-REALISTA DE LÂMINAS CURVAS -->
+          <g class="shuriken-svg" transform-origin="38 38">
+            <!-- Sombra de projeção 3D -->
+            <g transform="translate(1.5, 2.5)" opacity="0.8">
+              <path d="M38 38 C32 18 26 6 48 2 C39 17 46 28 38 38 Z" fill="#1a0503"/>
+              <path d="M38 38 C58 32 70 26 74 48 C59 39 48 46 38 38 Z" fill="#1a0503"/>
+              <path d="M38 38 C44 58 50 70 28 74 C37 59 30 48 38 38 Z" fill="#1a0503"/>
+              <path d="M38 38 C18 44 6 50 2 28 C17 37 28 30 38 38 Z" fill="#1a0503"/>
+            </g>
+
+            <!-- Lâminas Curvas - Facetas Principais (Ouro Reluzente) -->
+            <path d="M38 38 C32 18 26 6 48 2 C39 17 46 28 38 38 Z" fill="url(#gold-facet-light)" stroke="#78350f" stroke-width="0.5"/>
+            <path d="M38 38 C58 32 70 26 74 48 C59 39 48 46 38 38 Z" fill="url(#gold-facet-light)" stroke="#78350f" stroke-width="0.5"/>
+            <path d="M38 38 C44 58 50 70 28 74 C37 59 30 48 38 38 Z" fill="url(#gold-facet-light)" stroke="#78350f" stroke-width="0.5"/>
+            <path d="M38 38 C18 44 6 50 2 28 C17 37 28 30 38 38 Z" fill="url(#gold-facet-light)" stroke="#78350f" stroke-width="0.5"/>
+
+            <!-- Lâminas Curvas - Chanfro Interno de Sombra (Lado de Corte) -->
+            <path d="M38 38 C32 18 26 6 48 2 C41 12 44 22 38 38 Z" fill="url(#gold-facet-dark)" opacity="0.6"/>
+            <path d="M38 38 C58 32 70 26 74 48 C64 41 54 44 38 38 Z" fill="url(#gold-facet-dark)" opacity="0.6"/>
+            <path d="M38 38 C44 58 50 70 28 74 C35 64 32 54 38 38 Z" fill="url(#gold-facet-dark)" opacity="0.6"/>
+            <path d="M38 38 C18 44 6 50 2 28 C12 35 22 32 38 38 Z" fill="url(#gold-facet-dark)" opacity="0.6"/>
+
+            <!-- Linhas de Fio da Lâmina / Reflexo de Borda -->
+            <path d="M26 6 C48 2 C39 17 46 28 38 38" stroke="#ffffff" stroke-width="0.8" fill="none" opacity="0.85"/>
+            <path d="M70 26 C74 48 C59 39 48 46 38 38" stroke="#ffffff" stroke-width="0.8" fill="none" opacity="0.85"/>
+            <path d="M50 70 C28 74 C37 59 30 48 38 38" stroke="#ffffff" stroke-width="0.8" fill="none" opacity="0.85"/>
+            <path d="M6 50 C2 28 C17 37 28 30 38 38" stroke="#ffffff" stroke-width="0.8" fill="none" opacity="0.85"/>
+
+            <!-- Brilho Especular Global -->
+            <circle cx="38" cy="38" r="28" fill="url(#gold-specular)" pointer-events="none"/>
+
+            <!-- Joia / Disco de Rubi Central 3D -->
+            <circle cx="38" cy="38" r="14" fill="url(#ruby-gem)" stroke="url(#gold-frame-grad)" stroke-width="2"/>
+            <circle cx="38" cy="38" r="13" fill="none" stroke="#fef08a" stroke-width="0.5" opacity="0.8"/>
+            <ellipse cx="34" cy="32" rx="5" ry="3" fill="#ffffff" opacity="0.55" transform="rotate(-30 34 32)"/>
+            
+            <!-- Furo Central com Moldura de Ouro -->
+            <circle cx="38" cy="38" r="5" fill="#260403" stroke="#fef08a" stroke-width="1.8"/>
+            <circle cx="37.3" cy="37.3" r="4" fill="none" stroke="#000000" stroke-width="0.8" opacity="0.9"/>
+          </g>
+        </g>
+      </svg>
+
+      <!-- TEXTO & BADGE SOBREPOSTOS COM TAILWIND -->
+      <div class="absolute inset-0 flex flex-col items-end justify-center pr-6 pl-24 pointer-events-none">
+        <!-- Texto "10 GIROS" -->
+        <span class="ninja-text-shadow text-3xl sm:text-[34px] font-black text-white tracking-wide uppercase leading-none mb-1">
+          10 GIROS
+        </span>
+
+        <!-- Badge "250 Ryos" -->
+        <div class="bg-black/80 border border-red-900/80 rounded-full px-3.5 py-1 flex items-center gap-1.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]">
+          <!-- Ícone de Ryo Ninja (Moeda Ninja) -->
+          <svg class="w-4 h-4 text-amber-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="10" fill="#d97706" stroke="#451a03" stroke-width="1.5"/>
+            <circle cx="12" cy="12" r="6" fill="#f59e0b"/>
+            <rect x="10" y="10" width="4" height="4" fill="#451a03" rx="1"/>
+          </svg>
+          <span class="font-ryo font-extrabold text-amber-300 text-sm tracking-tight drop-shadow">
+            250 Ryos
+          </span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Rodapé & Exportação de Código -->
+  <footer class="w-full max-w-4xl bg-stone-950/90 border border-amber-500/30 rounded-2xl p-4 sm:p-5 backdrop-blur-md shadow-2xl mt-4 font-ryo">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-stone-800 pb-3 mb-3">
+      <div class="flex items-center gap-2 text-amber-400 font-bold text-sm">
+        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+        <span>Exportar Componente Puro</span>
+      </div>
+      <button onclick="copyCode()" class="w-full sm:w-auto text-xs bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold px-4 py-2 rounded-xl transition shadow flex items-center justify-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        <span>Copiar Código HTML dos Botões</span>
+      </button>
+    </div>
+
+    <div id="log" class="text-xs font-mono bg-black/70 p-3 rounded-lg text-emerald-400 h-14 overflow-y-auto border border-stone-800/80">
+      > Sistema pronto. Clique em um dos botões para efetuar o giro ninja.
+    </div>
+  </footer>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed top-5 right-5 transform translate-x-full transition-transform duration-300 bg-amber-400 text-stone-950 font-ryo font-extrabold px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2 z-50">
+    <span id="toast-text">Notificação</span>
+  </div>
+
+  <script>
+    let ryos = 500;
+
+    function spin(amount, cost) {
+      const log = document.getElementById('log');
+      if (ryos < cost) {
+        showToast(`Ryos insuficientes! Faltam ${cost - ryos} Ryos.`, true);
+        log.innerHTML = `<div class="text-red-400">> [FALHA] Ryos insuficientes para o giro de ${amount}x (${cost} Ryos).</div>` + log.innerHTML;
+        return;
+      }
+
+      ryos -= cost;
+      document.getElementById('ryo-counter').innerText = ryos;
+      
+      const rewards = ["Kunai Prata", "Pergaminho de Invocação", "Chakra Boost", "Carta Rara Ninja", "100 Ryos Bônus"];
+      const prize = rewards[Math.floor(Math.random() * rewards.length)];
+
+      showToast(`🎉 ${amount} Giro(s) realizado(s)! Recompensa: ${prize}`);
+      log.innerHTML = `<div class="text-emerald-300">> [GIRO OK] Gastou ${cost} Ryos para ${amount} giro(s). Ganhou: <b>${prize}</b></div>` + log.innerHTML;
+    }
+
+    function toggleTheme() {
+      const body = document.getElementById('page-body');
+      if (body.classList.contains('bg-grass-theme')) {
+        body.classList.remove('bg-grass-theme');
+        body.classList.add('bg-dark-theme');
+        showToast("Fundo alterado para Escuro");
+      } else {
+        body.classList.remove('bg-dark-theme');
+        body.classList.add('bg-grass-theme');
+        showToast("Fundo alterado para Grama Ninja");
+      }
+    }
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      const text = document.getElementById('toast-text');
+      text.innerText = msg;
+      toast.className = `fixed top-5 right-5 transform transition-transform duration-300 font-ryo font-extrabold px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2 z-50 ${
+        isError ? 'bg-red-600 text-white' : 'bg-amber-400 text-stone-950'
+      }`;
+      
+      toast.classList.remove('translate-x-full');
+      setTimeout(() => {
+        toast.classList.add('translate-x-full');
+      }, 2500);
+    }
+
+    function copyCode() {
+      const btnsHTML = document.querySelector('main').innerHTML;
+      const dummy = document.createElement('textarea');
+      document.body.appendChild(dummy);
+      dummy.value = btnsHTML;
+      dummy.select();
+      document.execCommand('copy');
+      document.body.removeChild(dummy);
+
+      showToast("Código HTML/SVG dos 2 botões copiado!");
+    }
+  </script>
+</body>
+</html>

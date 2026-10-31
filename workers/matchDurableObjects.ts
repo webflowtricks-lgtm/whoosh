@@ -78,6 +78,8 @@ interface TurnRow {
   actions_json: string;
 }
 
+const ROOM_HEARTBEAT_PERSIST_INTERVAL_MS = 30_000;
+
 function emptyQuestStats(team: Character[]): QuestBattleStats {
   return {
     damageDealt: 0,
@@ -259,7 +261,6 @@ function validSessionToken(value: string | null): value is string {
 }
 
 async function verifySession(env: MatchEnv, username: string, token: string | null): Promise<boolean> {
-  if (username === 'convidado') return true;
   if (!validSessionToken(token)) return false;
   if (env.DB) return isD1SessionActive({ DB: env.DB }, username, token);
   return false;
@@ -337,16 +338,14 @@ export class MatchmakerDurableObject {
 
   private async authoritativePlayer(raw: Record<string, unknown>): Promise<PlayerSlot | null> {
     const username = canonicalUsername(raw.username);
-    if (!username || username.length > 100 || !isValidMatchTeam(raw.team)) return null;
+    if (!username || username === 'convidado' || username.length > 100 || !isValidMatchTeam(raw.team)) return null;
     if (!this.env.DB) throw new Error('D1 não está configurado para validar a equipe.');
     const [characters, storedProfile] = await Promise.all([
       getD1Config(this.env.DB, 'characters'),
-      username === 'convidado'
-        ? Promise.resolve(null)
-        : getD1AccountProfile(this.env.DB, username),
+      getD1AccountProfile(this.env.DB, username),
     ]);
     if (!characters) throw new Error('Catálogo oficial de personagens ausente do D1.');
-    if (username !== 'convidado' && !storedProfile) return null;
+    if (!storedProfile) return null;
     const catalog = new Map(
       characters
         .filter((character): character is Record<string, unknown> =>
@@ -357,7 +356,8 @@ export class MatchmakerDurableObject {
 
     const team = raw.team.map(selection => {
       const official = catalog.get(selection.id);
-      if (!official || !Array.isArray(official.skills) || official.skills.length === 0) return null;
+      if (!official || official.enabled === false ||
+          !Array.isArray(official.skills) || official.skills.length === 0) return null;
       return stripLargeInlineMedia({
         ...official,
         selectedSkinId: typeof (selection as Record<string, unknown>).selectedSkinId === 'string'
@@ -403,8 +403,7 @@ export class MatchmakerDurableObject {
       }
     }
 
-    const guestProfile = cleanPublicProfile(raw.profile, username, username);
-    const profile = storedProfile || guestProfile;
+    const profile = storedProfile;
     const displayName = typeof profile.name === 'string' && profile.name.trim()
       ? profile.name.trim().slice(0, 100)
       : username;
@@ -734,9 +733,14 @@ export class MatchRoomDurableObject {
         return json({ success: true });
       });
     }
-    room.pings[slot] = Date.now();
-    await this.saveRoom(room);
-    if (path === '/api/match/room-state' && request.method === 'GET') return this.roomState(room, url, slot);
+    if (path === '/api/match/room-state' && request.method === 'GET') {
+      const now = Date.now();
+      if (now - room.pings[slot] >= ROOM_HEARTBEAT_PERSIST_INTERVAL_MS) {
+        room.pings[slot] = now;
+        await this.saveRoom(room);
+      }
+      return this.roomState(room, url, slot);
+    }
     if (path === '/api/match/report-state' && request.method === 'POST') return this.report();
     if (path === '/api/match/surrender' && request.method === 'POST') return this.surrender(room, username, body!);
     if (path === '/api/match/finish' && request.method === 'POST') {

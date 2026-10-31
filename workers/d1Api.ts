@@ -1,5 +1,6 @@
 import { calculateBattleXp } from '../src/lib/battleRewards';
 import { buildDefaultCards } from '../src/lib/cardStorage';
+import { CHARACTERS as DEFAULT_CHARACTERS } from '../src/data/characters';
 import { DEFAULT_SHOP_TAB_ORDER, isValidShopTabOrder } from '../src/lib/shopTabOrder';
 import {
   calculateRecurringPoints,
@@ -38,7 +39,21 @@ import {
   isValidCardRouletteCost,
   redeemCardPackRewards,
 } from '../src/lib/cardRoulette';
-import type { NinjaCard, NinjaEvent, Quest, QuestMaintenanceMail, QuestReward, RecurringQuestSettings } from '../src/types';
+import {
+  getSkinFragmentCatalog,
+  rollSkinFragmentQuantity,
+  SKIN_FRAGMENT_PACK_COST,
+  SKIN_FRAGMENT_UNLOCK_TARGET,
+} from '../src/lib/skinFragments';
+import {
+  appendRewardRouletteHistory,
+  buildRewardRoulettePool,
+  drawRewardRouletteSpin,
+  REWARD_ROULETTE_COST,
+  REWARD_ROULETTE_MAX_SPINS,
+} from '../src/lib/rewardRoulette';
+import { DEFAULT_CUSTOM_BANNERS, type CustomBannerItem } from '../src/lib/bannerStorage';
+import type { Character, NinjaCard, NinjaEvent, Quest, QuestMaintenanceMail, QuestReward, RecurringQuestSettings } from '../src/types';
 import { isVillageId } from '../src/lib/villages';
 
 interface D1Result<T = Record<string, unknown>> {
@@ -93,6 +108,7 @@ const ACCOUNT_FIELDS = new Set([
 ]);
 const SERVER_OWNED_PROFILE_FIELDS = new Set([
   'xp', 'rank', 'wins', 'losses', 'ryos', 'gems', 'collectedCardIds', 'village', 'villageChangeCount',
+  'unlockedVoiceIds', 'rewardRouletteSpinCount', 'rewardRouletteHistory',
   'completedQuestIds', 'questProgress', 'questRewardSnapshots', 'questMaintenanceInbox',
   'questAiBattleIds', 'claimedRecurringChestIds', 'eventProgress', 'eventRewardClaims', 'claimedEventRewardIds',
 ]);
@@ -192,6 +208,7 @@ async function register(request: Request, env: D1Env): Promise<Response> {
   if (!username || !password || password.length > 4096 || !name || name.length > 100) {
     return error(400, 'Usuário, senha e nome de exibição inválidos.');
   }
+  if (username === 'convidado') return error(400, 'O acesso de visitante não está disponível. Crie ou acesse uma conta.');
   const photoUrl = typeof body.photoUrl === 'string' && body.photoUrl.length <= 2048
     ? body.photoUrl
     : DEFAULT_AVATAR;
@@ -216,6 +233,7 @@ async function login(request: Request, env: D1Env): Promise<Response> {
   if (!username || !password || password.length > 4096) {
     return error(400, 'Usuário e senha são obrigatórios.');
   }
+  if (username === 'convidado') return error(401, 'O acesso de visitante não está disponível. Acesse uma conta.');
   const account = await env.DB.prepare(
     'SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts WHERE username = ?',
   ).bind(username).first<AccountRow>();
@@ -321,7 +339,8 @@ async function googleLogin(request: Request, env: D1Env): Promise<Response> {
     if (existingByEmail) {
       account = existingByEmail;
     } else {
-      const base = claims.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 80) || 'google_user';
+      const emailUsername = claims.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 80) || 'google_user';
+      const base = emailUsername === 'convidado' ? 'google_user' : emailUsername;
       let candidate = base;
       for (let suffix = 1; suffix <= 10; suffix++) {
         const exists = await env.DB.prepare('SELECT username FROM accounts WHERE username = ?')
@@ -345,6 +364,9 @@ async function googleLogin(request: Request, env: D1Env): Promise<Response> {
     }
   }
   if (!account) return error(500, 'Não foi possível carregar a conta Google.');
+  if (account.username === 'convidado') {
+    return error(403, 'O acesso de visitante não está disponível. Acesse uma conta.');
+  }
   const profile = JSON.parse(account.profile_json) as Record<string, unknown>;
   if (typeof claims.name === 'string') profile.name = claims.name.slice(0, 100);
   if (typeof claims.picture === 'string') profile.photoUrl = claims.picture.slice(0, 2048);
@@ -374,7 +396,6 @@ export async function isD1SessionActive(
   username: string,
   token: string | null,
 ): Promise<boolean> {
-  if (username === 'convidado') return true;
   if (!validSessionToken(token)) return false;
   const row = await env.DB.prepare(
     'SELECT active_token_hash FROM account_sessions WHERE username = ?',
@@ -418,6 +439,7 @@ async function sessionRoute(request: Request, env: D1Env, pathname: string): Pro
   if (!body || !validSessionInput(body.username, body.sessionToken)) {
     return error(400, 'Dados da sessão inválidos.');
   }
+  if (username === 'convidado') return error(403, 'O acesso de visitante não está disponível. Entre em uma conta.');
   if (pathname.endsWith('/claim') && body.initialVillageId !== undefined && !isVillageId(body.initialVillageId)) {
     return error(400, 'Vila inicial inválida.');
   }
@@ -1842,6 +1864,196 @@ async function drawRouletteCard(request: Request, env: D1Env): Promise<Response>
   return json({ success: true, card, user: { ...updatedProfile, username }, isDuplicate });
 }
 
+function isCharacterSummary(value: unknown): value is Pick<Character, 'id' | 'name' | 'skins'> {
+  return !!value && typeof value === 'object' && !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).id === 'string' &&
+    typeof (value as Record<string, unknown>).name === 'string' &&
+    ((value as Record<string, unknown>).skins === undefined ||
+      Array.isArray((value as Record<string, unknown>).skins));
+}
+
+function isRouletteCard(value: unknown): value is Pick<NinjaCard, 'id' | 'characterName' | 'rarity'> {
+  return !!value && typeof value === 'object' && !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).id === 'string' &&
+    typeof (value as Record<string, unknown>).characterName === 'string' &&
+    ['comum', 'raro', 'epico', 'lendario', 'secreto'].includes(
+      String((value as Record<string, unknown>).rarity),
+    );
+}
+
+function isRouletteBanner(
+  value: unknown,
+): value is Pick<CustomBannerItem, 'id' | 'name' | 'imageUrl'> {
+  return !!value && typeof value === 'object' && !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).id === 'string' &&
+    typeof (value as Record<string, unknown>).name === 'string' &&
+    typeof (value as Record<string, unknown>).imageUrl === 'string';
+}
+
+async function drawRewardRoulette(request: Request, env: D1Env): Promise<Response> {
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const username = normalizedUsername(body?.username);
+  const spins = body?.spins;
+  if (!username || username === 'convidado') {
+    return error(403, 'Entre em uma conta para usar a roleta.');
+  }
+  if (!Number.isSafeInteger(spins) || ![1, REWARD_ROULETTE_MAX_SPINS].includes(Number(spins))) {
+    return error(400, 'Escolha 1 ou 10 giros.');
+  }
+  if (!await isD1SessionActive(env, username, request.headers.get('X-Account-Session'))) {
+    return error(401, 'Sessão da conta ausente ou revogada. Entre novamente.');
+  }
+
+  const row = await env.DB.prepare(
+    'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
+  ).bind(username).first<AccountRow>();
+  if (!row) return error(404, 'Usuário não encontrado.');
+
+  const configuredCharacters = await readConfig(env.DB, 'characters');
+  const characters = (configuredCharacters || []).filter(isCharacterSummary);
+  const configuredCards = await readConfig(env.DB, 'cards');
+  const cards = (configuredCards || []).filter(isRouletteCard);
+  const configuredBanners = await readConfig(env.DB, 'banners');
+  const banners = (configuredBanners || []).filter(isRouletteBanner);
+  const prizePool = buildRewardRoulettePool(
+    characters.length > 0 ? characters : DEFAULT_CHARACTERS,
+    cards.length > 0 ? cards : buildDefaultCards(),
+    banners.length > 0 ? banners : DEFAULT_CUSTOM_BANNERS,
+  );
+  if (prizePool.length === 0) return error(503, 'Não há recompensas cadastradas para a roleta.');
+
+  const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+  const currentRyos = Number.isSafeInteger(profile.ryos) && Number(profile.ryos) >= 0
+    ? Number(profile.ryos)
+    : 1500;
+  const cost = Number(spins) * REWARD_ROULETTE_COST;
+  if (currentRyos < cost) {
+    return error(409, 'Você não tem Ryos suficientes para girar a roleta.');
+  }
+
+  const randomValues = new Uint32Array(Number(spins) * 2);
+  crypto.getRandomValues(randomValues);
+  profile.ryos = currentRyos - cost;
+  const draws = [];
+  try {
+    for (let index = 0; index < Number(spins); index++) {
+      draws.push(drawRewardRouletteSpin(
+        profile,
+        prizePool,
+        randomValues[index * 2] / 0x1_0000_0000,
+        randomValues[index * 2 + 1] / 0x1_0000_0000,
+      ));
+    }
+  } catch (cause) {
+    return error(409, cause instanceof Error ? cause.message : 'Não foi possível aplicar as recompensas.');
+  }
+
+  appendRewardRouletteHistory(profile, draws, crypto.randomUUID());
+  const updated = await env.DB.prepare(`
+    UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE username = ? AND profile_json = ?
+  `).bind(JSON.stringify(profile), username, row.profile_json).run();
+  if (updated.meta?.changes !== 1) {
+    return error(409, 'O perfil mudou durante os giros. Tente novamente.');
+  }
+  return json({ success: true, cost, draws, user: { ...profile, username } });
+}
+
+async function getRewardRouletteHistory(request: Request, env: D1Env): Promise<Response> {
+  const username = normalizedUsername(new URL(request.url).searchParams.get('username'));
+  if (!username || username === 'convidado') {
+    return error(403, 'Entre em uma conta para consultar o histórico da roleta.');
+  }
+  if (!await isD1SessionActive(env, username, request.headers.get('X-Account-Session'))) {
+    return error(401, 'Sessão da conta ausente ou revogada. Entre novamente.');
+  }
+  const row = await env.DB.prepare(
+    'SELECT profile_json FROM accounts WHERE username = ?',
+  ).bind(username).first<{ profile_json: string }>();
+  if (!row) return error(404, 'Usuário não encontrado.');
+  const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+  const history = Array.isArray(profile.rewardRouletteHistory) ? profile.rewardRouletteHistory : [];
+  return json({ success: true, history });
+}
+
+async function openSkinFragmentPack(request: Request, env: D1Env): Promise<Response> {
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const username = normalizedUsername(body?.username);
+  if (!username || username === 'convidado') {
+    return error(403, 'Entre na sua conta para abrir o pacote de fragmentos.');
+  }
+  if (!await isD1SessionActive(env, username, request.headers.get('X-Account-Session'))) {
+    return error(401, 'Sessão da conta ausente ou revogada. Entre novamente.');
+  }
+
+  const row = await env.DB.prepare(
+    'SELECT username, password_salt, password_hash, profile_json FROM accounts WHERE username = ?',
+  ).bind(username).first<AccountRow>();
+  if (!row) return error(404, 'Usuário não encontrado.');
+
+  const characters = await readConfig(env.DB, 'characters');
+  if (!characters) return error(503, 'O catálogo de personagens ainda não está disponível.');
+  const skinCatalog = getSkinFragmentCatalog(characters);
+  if (skinCatalog.length === 0) return error(503, 'Não há skins disponíveis para este pacote.');
+
+  const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+  const currentRyos = Number.isSafeInteger(profile.ryos) && Number(profile.ryos) >= 0
+    ? Number(profile.ryos)
+    : 1500;
+  if (currentRyos < SKIN_FRAGMENT_PACK_COST) {
+    return error(409, 'Você não tem moedas suficientes para comprar este pacote.');
+  }
+
+  const fragments = profile.skinFragments && typeof profile.skinFragments === 'object'
+    ? profile.skinFragments as Record<string, unknown>
+    : {};
+  const unlockedSkins = Array.isArray(profile.unlockedSkins)
+    ? profile.unlockedSkins.filter((id): id is string => typeof id === 'string')
+    : [];
+  const eligibleSkins = skinCatalog.filter(skin =>
+    !unlockedSkins.includes(skin.id) &&
+    !(Number.isSafeInteger(fragments[skin.id]) && Number(fragments[skin.id]) >= SKIN_FRAGMENT_UNLOCK_TARGET),
+  );
+  if (eligibleSkins.length === 0) {
+    return error(409, 'Você já desbloqueou todas as skins disponíveis.');
+  }
+
+  const randomValues = new Uint32Array(2);
+  crypto.getRandomValues(randomValues);
+  const skin = eligibleSkins[randomValues[0] % eligibleSkins.length];
+  const rolledQuantity = rollSkinFragmentQuantity(randomValues[1] / 0x1_0000_0000);
+  const previousCount = Number.isSafeInteger(fragments[skin.id])
+    ? Math.max(0, Math.min(SKIN_FRAGMENT_UNLOCK_TARGET, Number(fragments[skin.id])))
+    : 0;
+  const fragmentsAdded = Math.min(rolledQuantity, SKIN_FRAGMENT_UNLOCK_TARGET - previousCount);
+  const fragmentCount = previousCount + fragmentsAdded;
+  const skinUnlocked = fragmentCount >= SKIN_FRAGMENT_UNLOCK_TARGET;
+  const updatedProfile = {
+    ...profile,
+    ryos: currentRyos - SKIN_FRAGMENT_PACK_COST,
+    skinFragments: { ...fragments, [skin.id]: fragmentCount },
+    unlockedSkins: skinUnlocked && !unlockedSkins.includes(skin.id)
+      ? [...unlockedSkins, skin.id]
+      : unlockedSkins,
+  };
+  const updated = await env.DB.prepare(`
+    UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE username = ? AND profile_json = ?
+  `).bind(JSON.stringify(updatedProfile), username, row.profile_json).run();
+  if (updated.meta?.changes !== 1) {
+    return error(409, 'O perfil mudou durante a compra. Tente novamente.');
+  }
+
+  return json({
+    success: true,
+    skin: { id: skin.id, name: skin.name, characterName: skin.characterName },
+    fragmentsAdded,
+    fragmentCount,
+    unlocked: skinUnlocked,
+    user: { ...updatedProfile, username },
+  });
+}
+
 async function cardRouletteSettingsRoute(request: Request, env: D1Env): Promise<Response> {
   if (request.method === 'GET') {
     const saved = await readConfig(env.DB, 'cardRouletteSettings');
@@ -2196,6 +2408,15 @@ export async function handleD1Request(request: Request, env: D1Env): Promise<Res
   }
   if (pathname === '/api/cards/roulette/draw' && request.method === 'POST') {
     return drawRouletteCard(request, env);
+  }
+  if (pathname === '/api/reward-roulette/draw' && request.method === 'POST') {
+    return drawRewardRoulette(request, env);
+  }
+  if (pathname === '/api/reward-roulette/history' && request.method === 'GET') {
+    return getRewardRouletteHistory(request, env);
+  }
+  if (pathname === '/api/skins/fragments/pack' && request.method === 'POST') {
+    return openSkinFragmentPack(request, env);
   }
   const profile = await profileRoute(request, env, pathname);
   if (profile) return profile;

@@ -217,6 +217,13 @@ export default function App() {
       try {
         const parsed = JSON.parse(stored);
         if (parsed) {
+          if (typeof parsed.username !== 'string' || parsed.username.trim().toLowerCase() === 'convidado') {
+            localStorage.removeItem('naruto_user_profile');
+            localStorage.removeItem('active_match_save');
+            sessionStorage.removeItem('naruto_account_session_token');
+            return null;
+          }
+          if (!sessionStorage.getItem('naruto_account_session_token')) return null;
           if (typeof parsed.xp === 'number' && parsed.xp < 0) {
             parsed.xp = 0;
             try {
@@ -812,8 +819,11 @@ export default function App() {
   };
 
   const handleLoginSuccess = (profile: UserProfile, ticket?: string) => {
-    const isGuest = !ticket && profile.username.trim().toLowerCase() === 'convidado';
-    if (!ticket && !isGuest) {
+    if (profile.username.trim().toLowerCase() === 'convidado') {
+      console.error('Refusing visitor account login.');
+      return;
+    }
+    if (!ticket) {
       console.error('Login succeeded without a session ticket; refusing to start an unprotected account session.');
       return;
     }
@@ -821,7 +831,7 @@ export default function App() {
       ...profile,
       xp: Math.max(0, profile.xp ?? 0),
     };
-    const token = ticket ? createAccountSessionToken() : null;
+    const token = createAccountSessionToken();
     if (token) {
       try {
         sessionStorage.setItem('naruto_account_session_token', token);
@@ -831,8 +841,8 @@ export default function App() {
     }
     sessionRevocationHandledRef.current = false;
     setSessionToken(token);
-    setSessionTicket(ticket || null);
-    setSessionStatus(ticket ? 'initializing' : 'idle');
+    setSessionTicket(ticket);
+    setSessionStatus('initializing');
     setSessionError(null);
     setSessionRevoked(false);
     setSessionTakeoverResult(false);
@@ -1069,7 +1079,7 @@ export default function App() {
   }, [user?.username, sessionToken, sessionTicket, screen]);
 
   useEffect(() => {
-    if (!user || sessionToken || user.username.trim().toLowerCase() === 'convidado') return;
+    if (!user || sessionToken) return;
     setUser(null);
     setShowAuth(true);
     setSessionStatus('idle');

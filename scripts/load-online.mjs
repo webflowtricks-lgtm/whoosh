@@ -240,7 +240,7 @@ try {
         seedValue = (seedValue * 2246822519) >>> 0;
         seedValue ^= seedValue >>> 13;
         const starterSlot = seedValue & 1;
-        const leaderSlot = (starterSlot + turn - 1) % 2;
+        const leaderSlot = starterSlot;
         const orderedPlayers = [...players].sort((left, right) =>
           slotByPlayer.get(left) === leaderSlot ? -1 : slotByPlayer.get(right) === leaderSlot ? 1 : 0,
         );

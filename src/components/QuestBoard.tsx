@@ -1403,7 +1403,7 @@ export default function QuestBoard({
             playClickSound();
             setShowQuestFilters(open => !open);
           }}
-          className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-40 grid h-12 w-12 -translate-x-1/2 place-items-center rounded-full border border-sky-300/70 bg-slate-950/90 text-sky-200 shadow-xl shadow-slate-950/60 backdrop-blur transition hover:scale-105 hover:bg-slate-900 hover:text-white"
+          className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-40 grid h-12 w-12 place-items-center rounded-full border border-sky-300/70 bg-slate-950/90 text-sky-200 shadow-xl shadow-slate-950/60 backdrop-blur transition hover:scale-105 hover:bg-slate-900 hover:text-white"
           aria-label={showQuestFilters ? t('Ocultar filtros', 'Hide filters') : t('Mostrar filtros', 'Show filters')}
           aria-expanded={showQuestFilters}
           aria-controls="quest-filter-panel"

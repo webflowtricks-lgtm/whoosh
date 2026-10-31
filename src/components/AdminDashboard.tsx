@@ -8,7 +8,7 @@ import {
   ArrowLeft, Shield, Plus, Trash2, Edit3, Save, 
   Database, RefreshCw, AlertTriangle, CheckCircle, Sparkles, User, HelpCircle, Shirt,
   Lock, Unlock, Search, Trophy, Award, X, Download, Upload, FolderArchive, FileText, Server, CheckCircle2,
-  GripVertical, ArrowUp, ArrowDown, Image, Images as ImagesIcon
+  GripVertical, ArrowUp, ArrowDown, Image, Images as ImagesIcon, Eye, EyeOff
 } from 'lucide-react';
 import { Character, Skill, ChakraType, CharacterSkin, Quest } from '../types';
 import { getCharacters, saveCharacters, resetToDefaultCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
@@ -535,6 +535,29 @@ const getEffectNameSuggestions = (): string[] => {
       },
       char.id,
     );
+  };
+
+  const handleToggleCharacterEnabled = async (char: Character) => {
+    const updatedList = characters.map(character =>
+      character.id === char.id
+        ? { ...character, enabled: character.enabled === false }
+        : character,
+    );
+    try {
+      await saveCharacters(updatedList);
+      setCharacters(updatedList);
+      const updatedCharacter = updatedList.find(character => character.id === char.id);
+      if (updatedCharacter && editingChar?.id === char.id) {
+        setEditingChar(updatedCharacter);
+      }
+      triggerSuccess(
+        updatedCharacter?.enabled
+          ? `"${char.name}" está disponível nas batalhas.`
+          : `"${char.name}" foi ocultado das batalhas.`,
+      );
+    } catch (error) {
+      triggerError(error instanceof Error ? error.message : 'Falha ao atualizar a disponibilidade do personagem.');
+    }
   };
 
   // Reset to default characters
@@ -1952,7 +1975,29 @@ const newSkill: Skill = {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleToggleCharacterEnabled(char);
+                      }}
+                      className={`rounded p-1 transition-all hover:bg-slate-800/60 ${
+                        char.enabled === false
+                          ? 'text-red-400 hover:text-red-300'
+                          : 'text-emerald-400 hover:text-emerald-300'
+                      }`}
+                      title={char.enabled === false
+                        ? 'Personagem oculto. Clique para permitir nas batalhas.'
+                        : 'Personagem disponível. Clique para ocultar das batalhas.'}
+                      aria-label={char.enabled === false
+                        ? `Ativar ${char.name} nas batalhas`
+                        : `Ocultar ${char.name} das batalhas`}
+                    >
+                      {char.enabled === false
+                        ? <EyeOff className="h-4 w-4" />
+                        : <Eye className="h-4 w-4" />}
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -2263,7 +2308,8 @@ const newSkill: Skill = {
                         const newSkin: CharacterSkin = {
                           id: 'skin-' + Date.now(),
                           name: 'Nova Skin',
-                          image: ''
+                          image: '',
+                          rarity: 'comum',
                         };
                         handleUpdateCharDetails('skins', [...currentSkins, newSkin]);
                       }}
@@ -2285,7 +2331,7 @@ const newSkill: Skill = {
                           )}
                         </div>
 
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <div>
                             <label className="block text-[8px] font-mono text-slate-400 uppercase">Nome da Skin</label>
                             <input
@@ -2301,7 +2347,29 @@ const newSkill: Skill = {
                             />
                           </div>
 
-                           <div>
+                          <div>
+                            <label className="block text-[8px] font-mono text-slate-400 uppercase">Raridade</label>
+                            <select
+                              value={skin.rarity || 'comum'}
+                              onChange={e => {
+                                const updatedSkins = [...(editingChar.skins || [])];
+                                updatedSkins[skinIdx] = {
+                                  ...updatedSkins[skinIdx],
+                                  rarity: e.target.value as CharacterSkin['rarity'],
+                                };
+                                handleUpdateCharDetails('skins', updatedSkins);
+                              }}
+                              className="w-full px-2 py-1 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded text-xs text-white outline-none font-mono"
+                            >
+                              <option value="comum">Comum</option>
+                              <option value="rara">Rara</option>
+                              <option value="epica">Épica</option>
+                              <option value="lendaria">Lendária</option>
+                              <option value="mitica">Mítica</option>
+                            </select>
+                          </div>
+
+                          <div className="sm:col-span-2">
                              <label className="block text-[8px] font-mono text-slate-400 uppercase">Imagem da Skin</label>
                              <div className="flex gap-1 items-center">
                                <div className="w-8 h-8 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-center flex-shrink-0">

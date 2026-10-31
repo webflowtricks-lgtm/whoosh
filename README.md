@@ -43,6 +43,14 @@ The production Worker is served at `https://whoosh.robertosouzasouza999.workers.
 
 Before publishing code that adds a D1 migration, apply it to the production database with `npx wrangler d1 migrations apply naruto-infinity-beta --remote`; the D1 database keeps that name even though its Worker is `whoosh`. After `npx wrangler login`, `npm run cf:deploy` builds and publishes the Worker. It does not change DNS. Wrangler migrations create SQLite-backed Durable Object namespaces for the matchmaker coordinator and individual rooms. Rollback to the prior Worker version is possible, but matches created by the Durable Objects are not visible to the legacy backend; do not switch an active match between them.
 
+### Multiplayer capacity notes
+
+The online client uses WebSocket push as its primary room-sync channel. Its room-state HTTP fallback runs every 5 seconds; keepalive and user-activity signals are each limited to one every 30 seconds. On the Worker, only room-state reads persist the heartbeat, at most once per 30 seconds; unrelated read-only match routes no longer rewrite the complete room record. These reductions lower unnecessary traffic and storage writes, but do not guarantee that a low-tier plan can sustain 50 players continuously. `npm run load:online` exercises the legacy local Express API, not the Cloudflare Worker/Durable Objects; verify Worker capacity and billing with a staging load test and provider usage metrics before relying on 50 simultaneous players.
+
+In Admin Dashboard → Ninjas, the eye control beside each character toggles availability. Hidden characters are omitted from team selection and the lobby Shinobi list, and both matchmaking backends reject them in newly submitted teams.
+
+Character skins are collected through the lobby backpack. Each skin needs 50 fragments to unlock; the shop's 75,000-coin pack awards fragments for a random locked skin (80% chance of 1, 18% of 2, and 2% of 3). The purchase, random reward, fragment balance, and unlock are processed by the authenticated server endpoint.
+
 ### Data and service cutover gates
 
 `migrations/d1/0001_accounts_and_config.sql` provisions D1 account/session/config/history tables. Configuration items are chunked into bounded SQLite rows because the live character catalog contains individual records larger than 2 MB. Passwords from the legacy JSON source are rehashed with PBKDF2-SHA256; plaintext is not sent to D1. Google accounts are linked by Firebase UID and login verifies Firebase ID-token signatures against Google's published JWKs.

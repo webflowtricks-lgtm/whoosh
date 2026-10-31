@@ -911,10 +911,13 @@ export type TargetOverride =
   | 'AllEnemiesExceptTarget'
   | 'AllAlliesExceptTarget';
 
+export type SkinRarity = 'comum' | 'rara' | 'epica' | 'lendaria' | 'mitica';
+
 export interface CharacterSkin {
   id: string;
   name: string;
   image: string; // Transparent PNG artwork or WebM video URL/data URL
+  rarity?: SkinRarity;
 }
 
 export interface Character {
@@ -925,6 +928,7 @@ export interface Character {
   skills: Skill[];
   portrait: string;
   folder: string; // original folder name in public/static/img/ninja/
+  enabled?: boolean;
   skins?: CharacterSkin[];
   selectedSkinId?: string;
   selectedSkinUrl?: string;
@@ -1168,6 +1172,36 @@ export interface SelectionState {
   enemyTeam: Character[];
 }
 
+export type RewardRouletteRarity = 'comum' | 'rara' | 'epica' | 'lendaria' | 'mitica';
+export type RewardRoulettePrizeKind = 'ryos' | 'skin' | 'voice' | 'card' | 'banner';
+
+export interface RewardRoulettePrize {
+  id: string;
+  kind: RewardRoulettePrizeKind;
+  rarity: RewardRouletteRarity;
+  name: string;
+  amount?: number;
+  skinId?: string;
+  cardId?: string;
+  bannerId?: string;
+  imageUrl?: string;
+  characterName?: string;
+  voiceId?: string;
+}
+
+export interface RewardRouletteDraw {
+  prize: RewardRoulettePrize;
+  duplicate?: boolean;
+  guaranteedLegendary?: boolean;
+  spinsUntilLegendary?: number;
+}
+
+export interface RewardRouletteHistoryEntry {
+  id: string;
+  createdAt: string;
+  draw: RewardRouletteDraw;
+}
+
 export interface UserProfile {
   username: string;
   name: string;
@@ -1190,7 +1224,13 @@ export interface UserProfile {
   ryos?: number;
   gems?: number;
   unlockedSkins?: string[];
+  skinFragments?: Record<string, number>;
   unlockedSkillSkins?: string[];
+  unlockedVoiceIds?: string[];
+  rewardRouletteSpinCount?: number;
+  rewardRouletteHistory?: RewardRouletteHistoryEntry[];
+  equippedCharacterSkins?: Record<string, string>;
+  equippedSkillSkins?: Record<string, string>;
   unlockedFrames?: string[];
   unlockedFrameUrls?: string[];
   equippedFrame?: string;

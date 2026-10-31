@@ -2,26 +2,30 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Award,
   ArrowLeft,
+  Backpack,
   CalendarDays,
   ChevronDown,
   Clock,
   CircleHelp,
   Diamond,
+  Dices,
   Filter,
   Mail,
   LogOut,
   Settings,
   Search,
   Shield,
+  Shirt,
   ShoppingBag,
+  Sparkles,
   Swords,
   Users,
   Volume2,
   VolumeX,
   X,
 } from 'lucide-react';
-import { Character, ChakraType, NinjaCard, NinjaEvent, Quest, QuestMaintenanceMail, QuestReward, Skill, UserProfile } from '../types';
-import { fetchCharactersFromServer, getCharacters } from '../lib/characterStorage';
+import { Character, ChakraType, NinjaCard, NinjaEvent, Quest, QuestMaintenanceMail, QuestReward, ShopItem, Skill, UserProfile } from '../types';
+import { fetchCharactersFromServer, getCharacters, isCharacterEnabled } from '../lib/characterStorage';
 import { fetchEventsFromServer, getEvents } from '../lib/eventStorage';
 import { safeFetchJson } from '../lib/api';
 import { matchFetch } from '../lib/matchFetch';
@@ -30,6 +34,13 @@ import { getCurrentVillageId } from '../lib/villages';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { isCharacterUnlocked } from '../lib/characterUnlocks';
+import {
+  isSkinUnlocked,
+  normalizeSkinRarity,
+  SKIN_FRAGMENT_UNLOCK_TARGET,
+  SKIN_RARITY_META,
+} from '../lib/skinFragments';
+import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
 import { fetchCardsFromServer, getCards, getNewCardIds, markCardAsViewed, markNewCardIds } from '../lib/cardStorage';
 import { cardPackRewardQuantity } from '../lib/cardRoulette';
 import {
@@ -49,6 +60,9 @@ import CardGalleryModal from './CardGalleryModal';
 import GameManualModal from './GameManualModal';
 import CardPackRouletteModal from './CardPackRouletteModal';
 import RecurringQuestsModal from './RecurringQuestsModal';
+import SkinBagModal from './SkinBagModal';
+import SkinMedia from './SkinMedia';
+import RewardRoulettePage from './RewardRoulettePage';
 
 interface LobbyScreenProps {
   onStartGame: () => void;
@@ -68,7 +82,7 @@ interface LobbyScreenProps {
   onUpdateAudioSetting: (key: 'master' | 'effects' | 'music', value: number) => void;
 }
 
-type LobbyModal = 'characters' | 'clan' | 'shop' | 'events' | 'profile' | 'cards' | 'audio' | 'help' | 'mail' | 'recurring-quests' | null;
+type LobbyModal = 'characters' | 'clan' | 'shop' | 'events' | 'profile' | 'cards' | 'audio' | 'help' | 'mail' | 'recurring-quests' | 'skin-bag' | null;
 
 export default function LobbyScreen({
   onStartGame,
@@ -92,6 +106,7 @@ export default function LobbyScreen({
   const [shopInitialTab, setShopInitialTab] = useState<'all' | 'bundle'>('all');
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [rewardRouletteOpen, setRewardRouletteOpen] = useState(false);
   const [characters, setCharacters] = useState<Character[]>(() => getCharacters());
   const [quests, setQuests] = useState<Quest[]>([]);
   const [events, setEvents] = useState<NinjaEvent[]>(() => getEvents());
@@ -100,6 +115,10 @@ export default function LobbyScreen({
   const [rosterSearch, setRosterSearch] = useState('');
   const [rosterTag, setRosterTag] = useState('');
   const [detailsCharacter, setDetailsCharacter] = useState<Character | null>(null);
+  const [showCharacterSkins, setShowCharacterSkins] = useState(false);
+  const [skillSkinItems, setSkillSkinItems] = useState<ShopItem[]>(() =>
+    getShopItems().filter(item => item.category === 'skill_skin')
+  );
   const [activeEventIndex, setActiveEventIndex] = useState(0);
   const [eventClock, setEventClock] = useState(() => Date.now());
   const [eventBannerAspectRatios, setEventBannerAspectRatios] = useState<Record<string, number>>({});
@@ -138,6 +157,14 @@ export default function LobbyScreen({
         if (active) setEvents(loaded);
       })
       .catch(error => console.error('Failed to load lobby events:', error));
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetchShopItemsFromServer().then(items => {
+      if (active) setSkillSkinItems(items.filter(item => item.category === 'skill_skin'));
+    });
     return () => { active = false; };
   }, []);
 
@@ -220,7 +247,7 @@ export default function LobbyScreen({
     setActiveEventIndex(index => (index + offset + carouselEvents.length) % carouselEvents.length);
   };
   const orderedCharacters = useMemo(() => {
-    return [...characters].sort((a, b) =>
+    return characters.filter(isCharacterEnabled).sort((a, b) =>
       Number(isCharacterUnlocked(b, user, quests)) - Number(isCharacterUnlocked(a, user, quests)),
     );
   }, [characters, quests, user]);
@@ -375,6 +402,26 @@ export default function LobbyScreen({
       }
     }
     onUpdateUser(updated);
+  };
+  const equipCharacterSkin = (skinId: string) => {
+    if (!user || !detailsCharacter || !isSkinUnlocked(user, skinId)) return;
+    playUahSound();
+    updateUser({
+      ...user,
+      equippedCharacterSkins: {
+        ...user.equippedCharacterSkins,
+        [detailsCharacter.id]: skinId,
+      },
+    });
+  };
+  const toggleCharacterSkillSkin = (item: ShopItem) => {
+    if (!user) return;
+    playUahSound();
+    const equipKey = `${item.skillCharacterId}:${item.skillName}`;
+    const equipped = { ...user.equippedSkillSkins };
+    if (equipped[equipKey] === item.id) delete equipped[equipKey];
+    else equipped[equipKey] = item.id;
+    updateUser({ ...user, equippedSkillSkins: equipped });
   };
   const pendingMaintenanceCount = maintenanceMessages.filter(message => !message.claimedAt).length;
   const claimMaintenanceMessage = async (message: QuestMaintenanceMail) => {
@@ -757,6 +804,33 @@ export default function LobbyScreen({
             />
           </button>
         )}
+        {user && (
+          <button
+            type="button"
+            className="lobby-quick-recurring-button lobby-skin-bag-button"
+            onClick={() => { playClickSound(); setQuickActionsOpen(false); setModal('skin-bag'); }}
+            aria-label={t('Mochila de fragmentos de skin', 'Skin fragment bag')}
+            title={t('Mochila de fragmentos de skin', 'Skin fragment bag')}
+          >
+            <Backpack aria-hidden="true" />
+          </button>
+        )}
+        {user && (
+          <button
+            type="button"
+            className="lobby-quick-recurring-button lobby-reward-roulette-button"
+            onClick={() => {
+              playClickSound();
+              setQuickActionsOpen(false);
+              setModal(null);
+              setRewardRouletteOpen(true);
+            }}
+            aria-label={t('Roleta de recompensas', 'Reward roulette')}
+            title={t('Roleta de recompensas', 'Reward roulette')}
+          >
+            <Dices aria-hidden="true" />
+          </button>
+        )}
         {quickActionsOpen && (
           <div id="lobby-quick-actions-menu" className="lobby-quick-actions-menu">
             {user?.username.trim().toLowerCase() === '2' && (
@@ -825,6 +899,7 @@ export default function LobbyScreen({
                     aria-label={t(`Ver habilidades e detalhes de ${character.name}`, `View ${character.name} skills and details`)}
                     onClick={() => {
                       playClickSound();
+                      setShowCharacterSkins(false);
                       setDetailsCharacter(character);
                     }}
                   >
@@ -871,6 +946,22 @@ export default function LobbyScreen({
             aria-labelledby="lobby-character-details-title"
             onClick={event => event.stopPropagation()}
           >
+            <div className="lobby-character-details-toolbar">
+              <button
+                type="button"
+                className={`lobby-character-skins-toggle${showCharacterSkins ? ' is-active' : ''}`}
+                onClick={() => {
+                  playClickSound();
+                  setShowCharacterSkins(value => !value);
+                }}
+                aria-pressed={showCharacterSkins}
+                aria-label={t('Abrir galeria de skins', 'Open skin gallery')}
+                title={t('Galeria de skins', 'Skin gallery')}
+              >
+                <Shirt aria-hidden="true" />
+                <span>SKINS</span>
+              </button>
+            </div>
             <header className="lobby-character-details-header">
               <img
                 src={detailsCharacter.portrait || `/static/img/ninja/${detailsCharacter.folder}/icon.jpg`}
@@ -895,64 +986,150 @@ export default function LobbyScreen({
                 {detailsCharacter.tags.map(tag => <span key={tag}>{tag}</span>)}
               </div>
             )}
-            <h3>{t('Habilidades', 'Skills')}</h3>
-            <div className="lobby-character-skills">
-              {(detailsCharacter.skills || []).map((skill, index) => {
-                const effects = getSkillEffects(skill);
-                return (
-                  <article className="lobby-character-skill" key={`${skill.name}-${index}`}>
-                    <header className="lobby-character-skill-header">
-                      <h4>{skill.name}</h4>
-                      <div className="lobby-character-skill-cost" aria-label={t('Custo de chakra', 'Chakra cost')}>
-                        {(skill.cost || []).map((type, costIndex) => (
-                          <span
-                            className={`lobby-chakra-orb lobby-chakra-${type.toLowerCase()}`}
-                            key={`${type}-${costIndex}`}
-                            title={chakraLabels[type]}
-                          />
-                        ))}
-                      </div>
-                    </header>
-                    <div className="lobby-character-skill-body">
-                      {skill.icon && (
-                        <img
-                          className="lobby-character-skill-icon"
-                          src={skill.icon}
-                          alt=""
-                          onError={event => { event.currentTarget.style.visibility = 'hidden'; }}
-                        />
-                      )}
-                      <div className="lobby-character-skill-effects">
-                        {effects.map((effect, effectIndex) => (
-                          <article className="lobby-character-skill-effect" key={`${effect.label}-${effectIndex}`}>
-                            <strong>{effect.label}</strong>
-                            <p>{effect.value}</p>
-                            <span className="lobby-character-skill-effect-target">
-                              <span aria-hidden="true">🎯</span> {effect.target}
-                            </span>
-                          </article>
-                        ))}
-                        {effects.length === 0 && (
-                          <article className="lobby-character-skill-effect">
-                            <strong>{t('Habilidade', 'Skill')}</strong>
-                            <p>{skill.desc || t('Sem efeitos especificados.', 'No effects specified.')}</p>
-                            <span className="lobby-character-skill-effect-target">
-                              {targetLabels[skill.targetType] || skill.targetType}
-                            </span>
-                          </article>
+            {showCharacterSkins ? (
+              <section className="lobby-character-skin-gallery" aria-label={t('Galeria de skins', 'Skin gallery')}>
+                <header>
+                  <h3>{t('Skins do personagem', 'Character skins')}</h3>
+                  <p>{t('Equipe as skins desbloqueadas para suas próximas batalhas.', 'Equip unlocked skins for your next battles.')}</p>
+                </header>
+                <div className="lobby-character-skin-grid">
+                  {(detailsCharacter.skins || []).map(skin => {
+                    const unlocked = !!user && isSkinUnlocked(user, skin.id);
+                    const isEquipped = unlocked && user?.equippedCharacterSkins?.[detailsCharacter.id] === skin.id;
+                    const fragmentCount = Math.max(0, Math.min(
+                      SKIN_FRAGMENT_UNLOCK_TARGET,
+                      Number.isSafeInteger(user?.skinFragments?.[skin.id])
+                        ? Number(user?.skinFragments?.[skin.id])
+                        : 0,
+                    ));
+                    const rarity = SKIN_RARITY_META[normalizeSkinRarity(skin.rarity)];
+                    return (
+                      <button
+                        type="button"
+                        key={skin.id}
+                        className={`lobby-character-skin-card${isEquipped ? ' is-equipped' : ''}${unlocked ? '' : ' is-locked'}`}
+                        disabled={!unlocked}
+                        onClick={() => equipCharacterSkin(skin.id)}
+                        aria-pressed={isEquipped}
+                      >
+                        <SkinMedia src={skin.image} alt="" className="lobby-character-skin-image" />
+                        <span className={`lobby-character-skin-rarity ${rarity.className}`}>
+                          {t(rarity.labelPt, rarity.labelEn)}
+                        </span>
+                        <strong>{skin.name}</strong>
+                        {isEquipped && <span className="lobby-character-skin-equipped">{t('Equipada', 'Equipped')}</span>}
+                        {!unlocked && (
+                          <span className="lobby-character-skin-lock">
+                            {user
+                              ? `${fragmentCount}/${SKIN_FRAGMENT_UNLOCK_TARGET} ${t('fragmentos', 'fragments')}`
+                              : t('Faça login para equipar', 'Log in to equip')}
+                          </span>
                         )}
-                      </div>
-                    </div>
-                    <p className="lobby-character-skill-target">
-                      <b>{t('Alvo', 'Target')}:</b> {targetLabels[skill.targetType] || skill.targetType}
-                    </p>
-                  </article>
-                );
-              })}
-              {!(detailsCharacter.skills || []).length && (
-                <p className="lobby-roster-empty">{t('Nenhuma habilidade cadastrada.', 'No skills available.')}</p>
-              )}
-            </div>
+                      </button>
+                    );
+                  })}
+                  {!(detailsCharacter.skins || []).length && (
+                    <p className="lobby-roster-empty">{t('Nenhuma skin cadastrada para este personagem.', 'No skins available for this character.')}</p>
+                  )}
+                </div>
+                <div className="lobby-character-skill-skins">
+                  <h4><Sparkles aria-hidden="true" />{t('Skins de habilidade', 'Skill skins')}</h4>
+                  <div>
+                    {skillSkinItems
+                      .filter(item =>
+                        item.skillCharacterId === detailsCharacter.id &&
+                        (detailsCharacter.skills || []).some(skill => skill.name === item.skillName) &&
+                        (user?.unlockedSkillSkins || []).includes(item.id),
+                      )
+                      .map(item => {
+                        const equipKey = `${detailsCharacter.id}:${item.skillName}`;
+                        const isEquipped = user?.equippedSkillSkins?.[equipKey] === item.id;
+                        return (
+                          <button
+                            type="button"
+                            key={item.id}
+                            className={`lobby-character-skill-skin${isEquipped ? ' is-equipped' : ''}`}
+                            onClick={() => toggleCharacterSkillSkin(item)}
+                            aria-pressed={isEquipped}
+                          >
+                            <strong>{item.name}</strong>
+                            <span>{item.skillName}</span>
+                            <span>{isEquipped ? t('Equipado', 'Equipped') : t('Equipar', 'Equip')}</span>
+                          </button>
+                        );
+                      })}
+                    {(!user || !skillSkinItems.some(item =>
+                      item.skillCharacterId === detailsCharacter.id &&
+                      (detailsCharacter.skills || []).some(skill => skill.name === item.skillName) &&
+                      (user.unlockedSkillSkins || []).includes(item.id),
+                    )) && (
+                      <p className="lobby-roster-empty">{t('Nenhuma skin de habilidade desbloqueada para este personagem.', 'No skill skins unlocked for this character.')}</p>
+                    )}
+                  </div>
+                </div>
+              </section>
+            ) : (
+              <>
+                <h3>{t('Habilidades', 'Skills')}</h3>
+                <div className="lobby-character-skills">
+                  {(detailsCharacter.skills || []).map((skill, index) => {
+                    const effects = getSkillEffects(skill);
+                    return (
+                      <article className="lobby-character-skill" key={`${skill.name}-${index}`}>
+                        <header className="lobby-character-skill-header">
+                          <h4>{skill.name}</h4>
+                          <div className="lobby-character-skill-cost" aria-label={t('Custo de chakra', 'Chakra cost')}>
+                            {(skill.cost || []).map((type, costIndex) => (
+                              <span
+                                className={`lobby-chakra-orb lobby-chakra-${type.toLowerCase()}`}
+                                key={`${type}-${costIndex}`}
+                                title={chakraLabels[type]}
+                              />
+                            ))}
+                          </div>
+                        </header>
+                        <div className="lobby-character-skill-body">
+                          {skill.icon && (
+                            <img
+                              className="lobby-character-skill-icon"
+                              src={skill.icon}
+                              alt=""
+                              onError={event => { event.currentTarget.style.visibility = 'hidden'; }}
+                            />
+                          )}
+                          <div className="lobby-character-skill-effects">
+                            {effects.map((effect, effectIndex) => (
+                              <article className="lobby-character-skill-effect" key={`${effect.label}-${effectIndex}`}>
+                                <strong>{effect.label}</strong>
+                                <p>{effect.value}</p>
+                                <span className="lobby-character-skill-effect-target">
+                                  <span aria-hidden="true">🎯</span> {effect.target}
+                                </span>
+                              </article>
+                            ))}
+                            {effects.length === 0 && (
+                              <article className="lobby-character-skill-effect">
+                                <strong>{t('Habilidade', 'Skill')}</strong>
+                                <p>{skill.desc || t('Sem efeitos especificados.', 'No effects specified.')}</p>
+                                <span className="lobby-character-skill-effect-target">
+                                  {targetLabels[skill.targetType] || skill.targetType}
+                                </span>
+                              </article>
+                            )}
+                          </div>
+                        </div>
+                        <p className="lobby-character-skill-target">
+                          <b>{t('Alvo', 'Target')}:</b> {targetLabels[skill.targetType] || skill.targetType}
+                        </p>
+                      </article>
+                    );
+                  })}
+                  {!(detailsCharacter.skills || []).length && (
+                    <p className="lobby-roster-empty">{t('Nenhuma habilidade cadastrada.', 'No skills available.')}</p>
+                  )}
+                </div>
+              </>
+            )}
           </section>
         </div>
       )}
@@ -1090,6 +1267,30 @@ export default function LobbyScreen({
       )}
 
       <GameManualModal isOpen={modal === 'help'} onClose={() => setModal(null)} playClickSound={playClickSound} />
+      {user && modal === 'skin-bag' && (
+        <SkinBagModal
+          user={user}
+          characters={characters}
+          onClose={() => setModal(null)}
+          playClickSound={playClickSound}
+        />
+      )}
+      {user && rewardRouletteOpen && (
+        <RewardRoulettePage
+          user={user}
+          characters={characters}
+          onClose={() => setRewardRouletteOpen(false)}
+          onUpdateUser={updateUser}
+          playClickSound={playClickSound}
+          playRouletteTickSound={() => {
+            if (!isMuted) playGlobalSound('ui_click', 0.25);
+          }}
+          playWinSound={playWinSound}
+          playCorrectSound={() => {
+            if (!isMuted) playGlobalSound('correct-sound');
+          }}
+        />
+      )}
       {user && modal === 'shop' && <ShopModal user={user} initialTab={shopInitialTab} onClose={() => { setShopInitialTab('all'); setModal(null); }} onUpdateUser={updateUser} playClickSound={playClickSound} playScrollSound={playScrollSound} playWinSound={playWinSound} />}
       {user && modal === 'events' && (
         <EventsModal

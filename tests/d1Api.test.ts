@@ -416,6 +416,28 @@ test('awards server-derived online rewards idempotently and updates rank', async
   assert.equal(db.rewardClaims.size, 2);
 });
 
+test('rejects visitor accounts during registration, login, and session claiming', async () => {
+  const env = { DB: new MemoryD1() };
+  const registration = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: 'convidado',
+    password: 'visitor password',
+    name: 'Visitante',
+  }), env);
+  const login = await handleD1Request(request('/api/auth/login', 'POST', {
+    username: 'convidado',
+    password: 'visitor password',
+  }), env);
+  const claim = await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'convidado',
+    sessionToken: 'a'.repeat(64),
+    sessionTicket: 'visitor-ticket',
+  }), env);
+
+  assert.equal(registration?.status, 400);
+  assert.equal(login?.status, 401);
+  assert.equal(claim?.status, 403);
+});
+
 function request(path: string, method = 'POST', body?: unknown, headers?: HeadersInit): Request {
   return new Request(`https://worker.test${path}`, {
     method,
@@ -496,6 +518,77 @@ test('claims recurring chests only after earning their points and grants each on
   progressProfile.claimedRecurringChestIds = [tierOneId];
   account.profile_json = JSON.stringify(progressProfile);
   assert.equal((await claim(2))?.status, 200);
+});
+
+test('skin fragment pack charges currency and grants server-selected skin fragments', async () => {
+  const env = { DB: new MemoryD1() };
+  seedD1Config(env.DB, 'characters', [
+    { name: 'Naruto', skins: [{ id: 'naruto-sage', name: 'Modo Sábio', image: '/sage.png' }] },
+    { name: 'Sasuke', skins: [{ id: 'sasuke-hebi', name: 'Hebi', image: '/hebi.png' }] },
+  ]);
+  const registration = await handleD1Request(request('/api/auth/register', 'POST', {
+    username: 'skin_fragment_user',
+    password: 'correct horse',
+    name: 'Skin Fragment User',
+  }), env);
+  const token = 'f'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'skin_fragment_user',
+    sessionToken: token,
+    sessionTicket: (await responseBody(registration!)).sessionTicket,
+  }), env);
+
+  const account = env.DB.accounts.get('skin_fragment_user')!;
+  const profile = JSON.parse(String(account.profile_json)) as Row;
+  profile.ryos = 200_000;
+  account.profile_json = JSON.stringify(profile);
+
+  await handleD1Request(request('/api/user/profile', 'PUT', {
+    username: 'skin_fragment_user',
+    ryos: 999_999_999,
+    skinFragments: { 'naruto-sage': 50 },
+    unlockedSkins: ['naruto-sage'],
+  }, { 'X-Account-Session': token }), env);
+  const protectedProfile = JSON.parse(String(account.profile_json)) as Row;
+  assert.equal(protectedProfile.ryos, 200_000);
+  assert.equal(protectedProfile.skinFragments, undefined);
+  assert.equal(protectedProfile.unlockedSkins, undefined);
+
+  const unauthorized = await handleD1Request(request('/api/skins/fragments/pack', 'POST', {
+    username: 'skin_fragment_user',
+  }), env);
+  assert.equal(unauthorized?.status, 401);
+  assert.equal(JSON.parse(String(account.profile_json)).ryos, 200_000);
+
+  const response = await handleD1Request(request('/api/skins/fragments/pack', 'POST', {
+    username: 'skin_fragment_user',
+  }, { 'X-Account-Session': token }), env);
+  assert.equal(response?.status, 200);
+  const result = await responseBody(response!);
+  const skin = result.skin as Row;
+  const user = result.user as Row;
+  const fragmentsAdded = Number(result.fragmentsAdded);
+  assert.ok(['naruto-sage', 'sasuke-hebi'].includes(String(skin.id)));
+  assert.ok(fragmentsAdded >= 1 && fragmentsAdded <= 3);
+  assert.equal(result.fragmentCount, fragmentsAdded);
+  assert.equal(user.ryos, 125_000);
+  assert.equal((user.skinFragments as Row)[String(skin.id)], fragmentsAdded);
+  assert.deepEqual(user.unlockedSkins, []);
+
+  const nearUnlockProfile = JSON.parse(String(account.profile_json)) as Row;
+  nearUnlockProfile.skinFragments = { [String(skin.id)]: 49 };
+  nearUnlockProfile.unlockedSkins = [skin.id === 'naruto-sage' ? 'sasuke-hebi' : 'naruto-sage'];
+  account.profile_json = JSON.stringify(nearUnlockProfile);
+  const finalFragmentResponse = await handleD1Request(request('/api/skins/fragments/pack', 'POST', {
+    username: 'skin_fragment_user',
+  }, { 'X-Account-Session': token }), env);
+  assert.equal(finalFragmentResponse?.status, 200);
+  const finalResult = await responseBody(finalFragmentResponse!);
+  assert.equal(finalResult.skin && (finalResult.skin as Row).id, skin.id);
+  assert.equal(finalResult.fragmentsAdded, 1);
+  assert.equal(finalResult.fragmentCount, 50);
+  assert.equal(finalResult.unlocked, true);
+  assert.ok(((finalResult.user as Row).unlockedSkins as string[]).includes(String(skin.id)));
 });
 
 test('admin can edit recurring mission and chest rewards in D1', async () => {
@@ -1036,6 +1129,93 @@ test('roulette draw charges 25000 coins and persists duplicate card copies', asy
   assert.equal(JSON.parse(String(db.accounts.get('roulette_user')?.profile_json)).ryos, 0);
 });
 
+test('reward roulette validates paid spins and persists server-generated rewards', async () => {
+  const db = new MemoryD1();
+  const token = 'e'.repeat(64);
+  db.accounts.set('reward_user', {
+    username: 'reward_user',
+    password_salt: null,
+    password_hash: null,
+    profile_json: JSON.stringify({ username: 'reward_user', ryos: 1000 }),
+  });
+  db.sessions.set('reward_user', {
+    username: 'reward_user',
+    active_token_hash: createHash('sha256').update(token).digest('hex'),
+  });
+  seedD1Config(db, 'characters', [{
+    id: 'reward-ninja',
+    name: 'Reward Ninja',
+    skins: [{ id: 'reward-skin', name: 'Reward Skin', rarity: 'rara' }],
+  }]);
+
+  const draw = (spins: number, sessionToken = token) => handleD1Request(
+    request('/api/reward-roulette/draw', 'POST', { username: 'reward_user', spins }, {
+      'X-Account-Session': sessionToken,
+    }),
+    { DB: db },
+  );
+  const invalid = await draw(2);
+  assert.equal(invalid?.status, 400);
+  const unauthorized = await draw(1, 'x'.repeat(64));
+  assert.equal(unauthorized?.status, 401);
+  assert.equal(db.profileUpdateCount, 0);
+
+  const response = await draw(10);
+  assert.equal(response?.status, 200);
+  const body = await responseBody(response!);
+  assert.equal(body.cost, 250);
+  const draws = body.draws as Array<{
+    prize: { id: string; kind: string; amount?: number; rarity: string };
+    duplicate?: boolean;
+    guaranteedLegendary?: boolean;
+    spinsUntilLegendary?: number;
+  }>;
+  assert.equal(draws.length, 10);
+  assert.ok(draws.every(result =>
+    Number.isSafeInteger(result.spinsUntilLegendary) &&
+    result.spinsUntilLegendary! >= 1 &&
+    result.spinsUntilLegendary! <= 10,
+  ));
+  const awardedRyos = draws.reduce(
+    (total, result) => total + (result.prize.kind === 'ryos' ? result.prize.amount || 0 : 0),
+    0,
+  );
+  const user = body.user as { ryos: number; rewardRouletteSpinCount: number };
+  assert.equal(user.ryos, 1000 - 250 + awardedRyos);
+  assert.ok(Number.isSafeInteger(user.rewardRouletteSpinCount));
+  assert.ok(user.rewardRouletteSpinCount >= 0 && user.rewardRouletteSpinCount < 10);
+  assert.equal(draws[draws.length - 1].spinsUntilLegendary, 10 - user.rewardRouletteSpinCount);
+  const persistedProfile = JSON.parse(String(db.accounts.get('reward_user')?.profile_json));
+  assert.equal(persistedProfile.ryos, user.ryos);
+  assert.deepEqual(
+    persistedProfile.rewardRouletteHistory.map((entry: { draw: { prize: { id: string } } }) => entry.draw.prize.id),
+    draws.map(result => result.prize.id),
+  );
+  assert.equal(persistedProfile.rewardRouletteHistory.length, 10);
+  assert.equal(db.profileUpdateCount, 1);
+  const profileResponse = await handleD1Request(
+    request('/api/user/profile?username=reward_user', 'GET'),
+    { DB: db },
+  );
+  assert.equal(profileResponse?.status, 200);
+  const profileBody = await responseBody(profileResponse!);
+  assert.equal((profileBody.user as { rewardRouletteHistory: unknown[] }).rewardRouletteHistory.length, 10);
+  const historyResponse = await handleD1Request(
+    request('/api/reward-roulette/history?username=reward_user', 'GET', undefined, {
+      'X-Account-Session': token,
+    }),
+    { DB: db },
+  );
+  assert.equal(historyResponse?.status, 200);
+  const historyBody = await responseBody(historyResponse!);
+  assert.equal((historyBody.history as unknown[]).length, 10);
+  const unauthorizedHistory = await handleD1Request(
+    request('/api/reward-roulette/history?username=reward_user', 'GET'),
+    { DB: db },
+  );
+  assert.equal(unauthorizedHistory?.status, 401);
+});
+
 test('only the active session for account 2 can publish global configuration', async () => {
   const env = { DB: new MemoryD1() };
   const adminSignup = await handleD1Request(request('/api/auth/register', 'POST', {
@@ -1339,10 +1519,11 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
     collectedCardIds: ['forged-card'],
     village: 'takumi',
     villageChangeCount: 999,
+    rewardRouletteHistory: [{ id: 'forged-history-entry' }],
   }, headers), env);
   assert.equal(progressionUpdate?.status, 200);
   assert.deepEqual((await responseBody(progressionUpdate!)).ignoredFields, [
-    'xp', 'wins', 'gems', 'collectedCardIds', 'village', 'villageChangeCount',
+    'xp', 'wins', 'gems', 'collectedCardIds', 'village', 'villageChangeCount', 'rewardRouletteHistory',
   ]);
   const progressedProfile = JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json));
   assert.equal(progressedProfile.xp, undefined);
@@ -1351,6 +1532,7 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
   assert.equal(progressedProfile.collectedCardIds, undefined);
   assert.equal(progressedProfile.village, undefined);
   assert.equal(progressedProfile.villageChangeCount, undefined);
+  assert.equal(progressedProfile.rewardRouletteHistory, undefined);
   assert.equal(env.DB.profileUpdateCount, 0);
 
   const cosmeticUpdate = await handleD1Request(request('/api/user/profile', 'PUT', {

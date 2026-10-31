@@ -367,10 +367,10 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               </div>
               <div className="text-left min-w-0">
                 <div className="text-xs font-mono font-black text-orange-400 uppercase tracking-wide">
-                  {t('Visitante', 'Guest')}
+                  {t('Entrar na conta', 'Log in')}
                 </div>
                 <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                  {t('Toque para entrar na arena', 'Tap to enter the arena')}
+                  {t('Entre para acessar a arena', 'Sign in to enter the arena')}
                 </div>
               </div>
             </button>

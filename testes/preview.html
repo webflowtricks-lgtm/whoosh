@@ -1,0 +1,406 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shuriken 3D</title>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #050507;
+  font-family: Arial, sans-serif;
+  color: #fff;
+}
+
+.stage {
+  width: min(90vw, 540px);
+  aspect-ratio: 1 / 1;
+  background: radial-gradient(
+    ellipse at 48% 42%,
+    #24212b 0%,
+    #111015 48%,
+    #050507 78%
+  );
+  border: 1px solid #34313b;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.stage::before {
+  content: "";
+  position: absolute;
+  width: 75%;
+  height: 75%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    #69607819,
+    transparent 70%
+  );
+  filter: blur(22px);
+}
+
+#shuriken {
+  width: 91%;
+  height: 91%;
+  overflow: visible;
+  position: relative;
+  filter:
+    drop-shadow(0px 20px 14px #000b)
+    drop-shadow(0px 0px 12px #aaa3);
+  animation: spin 12s linear infinite;
+  animation-play-state: paused;
+}
+
+#shuriken.running {
+  animation-play-state: running;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 15px;
+}
+
+button {
+  border: 1px solid #5b5665;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #393441, #1b1920);
+  color: white;
+  padding: 11px 20px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px #0008;
+}
+
+button:hover {
+  background: #494354;
+}
+
+.hint {
+  text-align: center;
+  color: #928d9a;
+  font-size: 11px;
+  margin-top: 12px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="stage">
+
+<svg id="shuriken"
+viewBox="0 0 1240 1240"
+xmlns="http://www.w3.org/2000/svg">
+
+<defs>
+
+  <!-- Corpo metálico -->
+  <linearGradient id="s-body" x1="0" y1="0" x2=".9" y2="1">
+    <stop stop-color="#55515d"/>
+    <stop offset=".12" stop-color="#302d37"/>
+    <stop offset=".42" stop-color="#17151c"/>
+    <stop offset=".72" stop-color="#292631"/>
+    <stop offset="1" stop-color="#09090d"/>
+  </linearGradient>
+
+  <!-- Bordas metálicas -->
+  <linearGradient id="s-edge" x1="0" y1="0" x2=".8" y2="1">
+    <stop stop-color="#e2dfe9"/>
+    <stop offset=".12" stop-color="#85818e"/>
+    <stop offset=".3" stop-color="#393641"/>
+    <stop offset=".7" stop-color="#77727e"/>
+    <stop offset="1" stop-color="#292630"/>
+  </linearGradient>
+
+  <!-- Reflexos -->
+  <linearGradient id="s-highlight" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#fff" stop-opacity=".65"/>
+    <stop offset=".18" stop-color="#d9d5e4" stop-opacity=".18"/>
+    <stop offset=".55" stop-color="#fff" stop-opacity="0"/>
+    <stop offset="1" stop-color="#aaa3b5" stop-opacity=".17"/>
+  </linearGradient>
+
+  <!-- Laterais -->
+  <linearGradient id="s-side" x1="0" y1="0" x2="0" y2="1">
+    <stop stop-color="#c7c2d0"/>
+    <stop offset=".25" stop-color="#77727e"/>
+    <stop offset="1" stop-color="#24212b"/>
+  </linearGradient>
+
+  <!-- Centro -->
+  <radialGradient id="s-center">
+    <stop offset=".55" stop-color="#292630"/>
+    <stop offset=".8" stop-color="#111015"/>
+    <stop offset="1" stop-color="#77717e"/>
+  </radialGradient>
+
+  <!-- Sombras -->
+  <filter id="s-blur"
+    x="-50%" y="-50%"
+    width="200%" height="200%">
+    <feGaussianBlur stdDeviation="14"/>
+  </filter>
+
+  <!-- Brilho -->
+  <filter id="s-glow"
+    x="-50%" y="-50%"
+    width="200%" height="200%">
+
+    <feGaussianBlur stdDeviation="5" result="b"/>
+
+    <feMerge>
+      <feMergeNode in="b"/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+
+  </filter>
+
+  <!-- Formato da shuriken -->
+  <path id="s-shape"
+  d="
+  M1093 33
+  C1081 156 1006 248 888 289
+  C855 390 757 432 679 397
+  C627 374 609 318 610 228
+  C480 95 260 50 69 155
+  C200 150 296 240 328 359
+  C425 400 461 478 423 551
+  C390 607 330 630 267 638
+  C155 750 94 960 198 1190
+  C201 1060 278 970 399 930
+  C430 832 510 790 584 824
+  C646 852 675 911 676 977
+  C800 1110 1020 1140 1222 1055
+  C1090 1050 1000 960 963 847
+  C865 810 827 730 856 655
+  C884 590 944 562 1058 551
+  C1170 420 1180 210 1093 33Z"/>
+
+  <clipPath id="s-clip">
+    <use href="#s-shape"/>
+  </clipPath>
+
+</defs>
+
+<!-- Sombra projetada -->
+<use href="#s-shape"
+fill="#000"
+transform="translate(0 18)"
+opacity=".9"
+filter="url(#s-blur)"/>
+
+<!-- Base metálica -->
+<use href="#s-shape"
+fill="url(#s-edge)"
+stroke="#aaa5b1"
+stroke-width="2"/>
+
+<!-- Superfície -->
+<use href="#s-shape"
+fill="url(#s-body)"
+transform="translate(0 5) scale(.999)"/>
+
+<!-- Iluminação e reflexos -->
+<g clip-path="url(#s-clip)">
+
+  <path
+  d="M20 0 L650 0 L370 620 L0 500Z"
+  fill="url(#s-highlight)"
+  opacity=".55"/>
+
+  <path
+  d="M950 0 L1240 0 L1240 570 L1050 600Z"
+  fill="#a8a1b4"
+  opacity=".055"/>
+
+  <path
+  d="M0 740 Q220 640 420 770
+  Q550 850 680 900 L800 1300 L0 1300Z"
+  fill="#fff"
+  opacity=".025"/>
+
+  <path
+  d="M0 0 L1240 0 L1240 35 L0 35Z"
+  fill="#fff"
+  opacity=".04"/>
+
+  <!-- Reflexos nas lâminas -->
+  <path
+  d="M70 154 Q230 120 328 359"
+  fill="none"
+  stroke="#e5e1eb"
+  stroke-width="7"
+  opacity=".3"
+  filter="url(#s-glow)"/>
+
+  <path
+  d="M1093 33 Q1080 180 888 289"
+  fill="none"
+  stroke="#e1dce9"
+  stroke-width="7"
+  opacity=".42"
+  filter="url(#s-glow)"/>
+
+  <path
+  d="M198 1190 Q195 1030 399 930"
+  fill="none"
+  stroke="#aaa4b2"
+  stroke-width="6"
+  opacity=".35"/>
+
+  <path
+  d="M1222 1055 Q1040 1120 963 847"
+  fill="none"
+  stroke="#ded9e5"
+  stroke-width="5"
+  opacity=".28"/>
+
+</g>
+
+<!-- Contorno iluminado -->
+<use href="#s-shape"
+fill="none"
+stroke="#bcb7c5"
+stroke-width="2"
+opacity=".26"/>
+
+<!-- Sombra do centro -->
+<circle cx="645" cy="603" r="121"
+fill="#000"
+opacity=".8"
+filter="url(#s-blur)"/>
+
+<!-- Anel central -->
+<circle cx="645" cy="603" r="116"
+fill="#08070b"
+stroke="#050408"
+stroke-width="5"/>
+
+<circle cx="645" cy="603" r="107"
+fill="url(#s-side)"
+stroke="#96919d"
+stroke-width="2"/>
+
+<circle cx="645" cy="603" r="92"
+fill="url(#s-center)"
+stroke="#34313b"
+stroke-width="4"/>
+
+<!-- Furo central -->
+<circle cx="645" cy="603" r="78"
+fill="#030305"/>
+
+<circle cx="645" cy="603" r="74"
+fill="none"
+stroke="#000"
+stroke-width="3"/>
+
+<!-- Reflexos do anel -->
+<path
+d="M555 557 A100 100 0 0 1 639 503"
+fill="none"
+stroke="#f1edf5"
+stroke-width="5"
+opacity=".48"
+stroke-linecap="round"/>
+
+<path
+d="M731 646 A94 94 0 0 1 672 700"
+fill="none"
+stroke="#09080c"
+stroke-width="5"
+opacity=".8"
+stroke-linecap="round"/>
+
+<ellipse cx="610" cy="510"
+rx="28" ry="5"
+fill="#fff"
+opacity=".12"
+filter="url(#s-blur)"/>
+
+</svg>
+
+</div>
+
+<div class="controls">
+
+  <button id="spin-toggle">
+    ▶ Girar shuriken
+  </button>
+
+  <button id="spin-reset">
+    ↺ Reiniciar
+  </button>
+
+</div>
+
+<div class="hint">
+  METAL 3D · REFLEXOS · CHANFROS · SOMBRAS · ILUMINAÇÃO
+</div>
+
+<script>
+
+const svg = document.getElementById("shuriken");
+const toggle = document.getElementById("spin-toggle");
+const reset = document.getElementById("spin-reset");
+
+let running = false;
+
+toggle.addEventListener("click", () => {
+
+  running = !running;
+
+  svg.classList.toggle("running", running);
+
+  toggle.textContent = running
+    ? "Ⅱ Pausar rotação"
+    : "▶ Girar shuriken";
+
+});
+
+reset.addEventListener("click", () => {
+
+  running = false;
+
+  svg.classList.remove("running");
+
+  svg.style.animation = "none";
+
+  svg.getBoundingClientRect();
+
+  svg.style.animation = "";
+
+  toggle.textContent = "▶ Girar shuriken";
+
+});
+
+</script>
+
+</body>
+</html>
