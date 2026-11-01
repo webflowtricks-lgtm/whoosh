@@ -26,6 +26,7 @@ import { matchFetch } from '../lib/matchFetch';
 import { firstSlotForTurn } from '../lib/matchProtocol';
 import { getCurrentVillageId } from '../lib/villages';
 import type { QuestBattleStats } from '../lib/questProgress';
+import { GLOBAL_REQUIRED_CHARACTER_SKINS } from '../lib/skinFragments';
 import {
   checkCombatantInvulnerable,
   hasConditionalInvulnerabilityBypass as hasConditionalInvulnBypass,
@@ -67,6 +68,9 @@ interface BattleBoardProps {
     opponentProfile: UserProfile;
   } | null;
   isSandbox?: boolean;
+  tutorialMode?: boolean;
+  tutorialStep?: number | null;
+  onTutorialStepChange?: (step: number) => void;
   /** 🧊 Sandbox: geração automática de chakra pausada (ambos começam com 10 chakras variados) */
   sandboxPauseChakraGen?: boolean;
   restoredState?: {
@@ -331,6 +335,7 @@ function EffectBadges({
             <div
               key={effIdx}
               data-pin-key={`${combatantId}:${effIdx}`}
+              data-tutorial-target={combatantId === 'player-1' && eff.type === 'stun' ? 'stun-effect' : undefined}
               onClick={(e) => {
                 e.stopPropagation();
                 if (suppressNextClick.current) {
@@ -1866,6 +1871,9 @@ export default function BattleBoard({
   user,
   onlineParams,
   isSandbox,
+  tutorialMode = false,
+  tutorialStep = null,
+  onTutorialStepChange,
   sandboxPauseChakraGen,
   restoredState,
   onBattleEnd,
@@ -1874,7 +1882,7 @@ export default function BattleBoard({
   activeQuest,
 }: BattleBoardProps) {
   // 🧊 Sandbox: geração de chakra pausada (só vale em sandbox). Restaurado da reconexão quando existir.
-  const chakraGenPaused = !!isSandbox && !!(restoredState ? restoredState.sandboxPauseChakraGen : sandboxPauseChakraGen);
+  const chakraGenPaused = tutorialMode || (!!isSandbox && !!(restoredState ? restoredState.sandboxPauseChakraGen : sandboxPauseChakraGen));
   const { t, language } = useLanguage();
   const [titleShopItems, setTitleShopItems] = useState(() => getShopItems());
   useEffect(() => {
@@ -2368,6 +2376,28 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
 
   // Selection/Targeting State
   const [selectedSkill, setSelectedSkill] = useState<{ charId: string; skillIndex: number } | null>(null);
+  const isTutorialSkillModalLocked = () =>
+    tutorialMode && [6, 7, 14, 15, 20, 21, 23, 24, 30, 32, 33].includes(tutorialStep ?? -1);
+  const isTutorialSkillSelectionLocked = () => {
+    if (!tutorialMode || !selectedSkill) return false;
+    const skillForStep: Record<number, { characterId: string; skillName: string }> = {
+      8: { characterId: 'naruto', skillName: 'Uzumaki Barrage' },
+      9: { characterId: 'naruto', skillName: 'Uzumaki Barrage' },
+      16: { characterId: 'sakura', skillName: 'Healing Technique' },
+      17: { characterId: 'sakura', skillName: 'Healing Technique' },
+      22: { characterId: 'naruto', skillName: 'Shadow Clones' },
+      25: { characterId: 'sasuke', skillName: 'Sharingan' },
+      30: { characterId: 'naruto', skillName: 'Rasengan' },
+      31: { characterId: 'naruto', skillName: 'Rasengan' },
+      33: { characterId: 'sasuke', skillName: 'Chidori' },
+      34: { characterId: 'sasuke', skillName: 'Chidori' },
+    };
+    const requiredSkill = skillForStep[tutorialStep ?? -1];
+    if (!requiredSkill) return false;
+    const source = playerCombatants.find(combatant => combatant.id === selectedSkill.charId);
+    return source?.character.id === requiredSkill.characterId &&
+      source.character.skills[selectedSkill.skillIndex]?.name === requiredSkill.skillName;
+  };
   const [cuedActions, setCuedActions] = useState<CuedAction[]>([]);
   const [skillsModalCharacterId, setSkillsModalCharacterId] = useState<string | null>(null);
   const [mobileSkillDetailsCharacterId, setMobileSkillDetailsCharacterId] = useState<string | null>(null);
@@ -2384,7 +2414,9 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
     if (!skillsModalCharacterId) return;
 
     const closeModalOnOutsideClick = (event: PointerEvent) => {
+      if (isTutorialSkillModalLocked()) return;
       const target = event.target;
+      if (target instanceof Element && target.closest('[data-tutorial-control]')) return;
       const modal = document.querySelector('.mv-skills-modal-stack, .mv-character-skills-open');
       if (target instanceof Node && !modal?.contains(target)) {
         const targetCard = target instanceof Element ? target.closest('.mv-skill-targetable') : null;
@@ -2394,7 +2426,7 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
         outsideModalCombatantClickRef.current = targetCard
           ? null
           : combatantRow?.dataset.combatantId || null;
-        if (!targetCard) setSelectedSkill(null);
+        if (!targetCard && !isTutorialSkillSelectionLocked()) setSelectedSkill(null);
         setSkillsModalCharacterId(null);
         setMobileSkillDetailsCharacterId(null);
       }
@@ -2402,7 +2434,19 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
 
     document.addEventListener('pointerdown', closeModalOnOutsideClick);
     return () => document.removeEventListener('pointerdown', closeModalOnOutsideClick);
-  }, [selectedSkill, skillsModalCharacterId]);
+  }, [selectedSkill, skillsModalCharacterId, tutorialMode, tutorialStep]);
+
+  useEffect(() => {
+    if (
+      !tutorialMode ||
+      !selectedSkill ||
+      ![9, 17, 22, 25, 31, 34].includes(tutorialStep ?? -1) ||
+      !window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches
+    ) return;
+
+    setSkillsModalCharacterId(null);
+    setMobileSkillDetailsCharacterId(null);
+  }, [selectedSkill, tutorialMode, tutorialStep]);
 
   // 📌 Tooltip de buff/debuff fixado por clique. Chave única = `${combatant.id}:${effIdx}`.
   // Quando setado, o tooltip desse efeito fica aberto mesmo sem hover; fecha ao clicar
@@ -2724,6 +2768,8 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
       return { ...baseSkin, ...savedSkin, image: savedSkin?.image || baseSkin.image };
     });
     const savedSkinId = c.character.selectedSkinId;
+    const requiredSkinId = GLOBAL_REQUIRED_CHARACTER_SKINS[baseChar.id as keyof typeof GLOBAL_REQUIRED_CHARACTER_SKINS];
+    const globallyRequiredSkin = restoredSkins.find(skin => skin.id === requiredSkinId);
     const savedCharacterSkin = restoredSkins.find(skin => skin.id === savedSkinId);
     const savedShopSkin = shopItems.find(item =>
       item.id === savedSkinId &&
@@ -2746,9 +2792,9 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
         item.characterName?.trim().toLowerCase() === baseChar.name.trim().toLowerCase(),
       )
       : undefined;
-    const selectedSkinId = savedSkinId === 'default'
+    const selectedSkinId = globallyRequiredSkin?.id || (savedSkinId === 'default'
       ? 'default'
-      : savedCharacterSkin?.id || savedShopSkin?.id || equippedCharacterSkin?.id || equippedShopSkin?.id || savedSkinId;
+      : savedCharacterSkin?.id || savedShopSkin?.id || equippedCharacterSkin?.id || equippedShopSkin?.id || savedSkinId);
     const selectedSkinUrl = selectedSkinId === 'default'
       ? baseChar.portrait
       : restoredSkins.find(skin => skin.id === selectedSkinId)?.image ||
@@ -2871,7 +2917,7 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
     waitingSinceRef.current = 0;
     pollFailureStreakRef.current = 0;
 
-    let startingPlanner: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
+    let startingPlanner: 'player' | 'enemy' = tutorialMode ? 'player' : Math.random() < 0.5 ? 'player' : 'enemy';
     if (onlineParams?.isOnline) {
       // Server-authoritative random initiative (shared seed) — decidido UMA vez,
       // quando a partida é encontrada. Fica FIXO para a partida inteira.
@@ -3162,7 +3208,9 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
     const initialLogs: CombatLog[] = [
       { id: '1', turn: 1, message: '🧪 BUILD v30-chakra-fix', type: 'system' },
       { id: '1b', turn: 1, message: '⚔️ BATALHA INICIADA! Esquadrão confirmado.', type: 'system' },
-      { id: '2', turn: 1, message: startingPlanner === 'player'
+      { id: '2', turn: 1, message: tutorialMode
+          ? '📘 Tutorial: seu time planeja primeiro em todos os turnos.'
+          : startingPlanner === 'player'
           ? '🎲 [INICIATIVA] Você ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Inicia com 1 Chakra)'
           : '🎲 [INICIATIVA] O Oponente ganhou o sorteio e planeja PRIMEIRO em todos os turnos! (Você inicia com 3 Chakras)', type: 'system' },
       { id: '3', turn: 1, message: 'Gere seus chakras e escolha suas táticas!', type: 'system' },
@@ -3183,6 +3231,7 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
       // 🧊 Sandbox com geração pausada: ambos começam com 10 chakras variados (fixos).
       // A partir daqui NÃO gera chakra ao virar o turno (rollChakraForTurn é ignorado).
       const buildTenVaried = (): ChakraPool => {
+        if (tutorialMode) return { Tai: 10, Nin: 10, Gen: 10, Blood: 10 };
         const pool: ChakraPool = { Tai: 0, Nin: 0, Gen: 0, Blood: 0 };
         const types: (keyof ChakraPool)[] = ['Tai', 'Nin', 'Gen', 'Blood'];
         for (let i = 0; i < 10; i++) pool[types[i % types.length]] += 1;
@@ -3192,7 +3241,9 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
       setEnemyChakra(buildTenVaried());
       setLogs(prev => [
         ...prev,
-        { id: Math.random().toString(), turn: 1, message: '🧊 [SANDBOX] Geração de chakra PAUSADA. Ambos começam com 10 chakras. Gasto/remoção ainda contam, mas passar o turno NÃO gera chakra.', type: 'system' },
+        { id: Math.random().toString(), turn: 1, message: tutorialMode
+        ? '📘 Tutorial: cada equipe começa com 10 chakras de cada elemento e não recebe geração automática.'
+          : '🧊 [SANDBOX] Geração de chakra PAUSADA. Ambos começam com 10 chakras. Gasto/remoção ainda contam, mas passar o turno NÃO gera chakra.', type: 'system' },
       ]);
     } else {
       // 🛡️ v30: reseta refs para zero ANTES de rolar — garante idempotência mesmo
@@ -3207,7 +3258,7 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
         rollChakraForTurn(false, 1);
       }
     }
-  }, [playerTeam, enemyTeam, restoredState]);
+  }, [playerTeam, enemyTeam, restoredState, tutorialMode]);
 
   // Poll for opponent emojis in an online match
   useEffect(() => {
@@ -3631,6 +3682,14 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
     if (!combatant) return;
 
     const skill = combatant.character.skills[skillIdx];
+    const tutorialSkillSteps: Record<string, number[]> = {
+      'uzumaki barrage': [7],
+      'healing technique': [15],
+      'shadow clones': [21],
+      sharingan: [24],
+      rasengan: [30],
+      chidori: [33],
+    };
     // Always inspect the skill first!
     setInspectedSkill({
       skill,
@@ -3642,7 +3701,31 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
     setCenterTab('inspector');
     playScrollSound();
 
+    const requiredTutorialSkill = tutorialMode && [30, 31, 33, 34].includes(tutorialStep ?? -1)
+      ? tutorialStep! <= 31
+        ? { characterId: 'naruto', skillName: 'Rasengan' }
+        : { characterId: 'sasuke', skillName: 'Chidori' }
+      : null;
+    const isRequiredTutorialSkill = !isEnemyChar &&
+      (!requiredTutorialSkill || (
+        combatant.character.id === requiredTutorialSkill.characterId &&
+        skill.name === requiredTutorialSkill.skillName
+      ));
+
+    if (requiredTutorialSkill && !isRequiredTutorialSkill) return;
+
+    if (
+      tutorialMode &&
+      !isEnemyChar &&
+      tutorialStep !== null &&
+      tutorialSkillSteps[skill.name.toLowerCase()]?.includes(tutorialStep) &&
+      isRequiredTutorialSkill
+    ) {
+      onTutorialStepChange?.(tutorialStep + 1);
+    }
+
     if (selectedSkill?.charId === charId && selectedSkill.skillIndex === skillIdx) {
+      if (isTutorialSkillSelectionLocked()) return;
       setSelectedSkill(null);
       playCustomSound('Cancel');
       return;
@@ -3854,6 +3937,18 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
       : (isEnemyTarget ? enemyCombatants : playerCombatants);
     const targetChar = targetList.find(c => c.id === targetId);
     if (!targetChar) return;
+    if (tutorialMode && tutorialStep === 31 && (
+      isEnemyTarget !== true ||
+      sourceChar.character.id !== 'naruto' ||
+      skill.name !== 'Rasengan' ||
+      targetChar.character.id !== 'sasuke'
+    )) return;
+    if (tutorialMode && tutorialStep === 34 && (
+      isEnemyTarget !== true ||
+      sourceChar.character.id !== 'sasuke' ||
+      skill.name !== 'Chidori' ||
+      targetChar.character.id !== 'naruto'
+    )) return;
 
     // ✨ Reviver: com reviveDeadAllies ativo, um ALIADO MORTO pode ser clicado para ser revivido
     if (skill.reviveDeadAllies && targetChar.isDead && !isSourceEnemy) {
@@ -3938,12 +4033,38 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
     setSelectedSkill(null);
     setSkillsModalCharacterId(null);
     setMobileSkillDetailsCharacterId(null);
+    const tutorialTargetSteps = [9, 17, 22, 25, 31, 34];
+    if (tutorialMode && tutorialStep !== null && tutorialTargetSteps.includes(tutorialStep)) {
+      onTutorialStepChange?.(tutorialStep + 1);
+    }
   };
 
   const handleCombatantCardClick = (targetId: string, isEnemyTarget: boolean) => {
     if (outsideModalCombatantClickRef.current === targetId) {
       outsideModalCombatantClickRef.current = null;
       return;
+    }
+
+    const tutorialTarget = (isEnemyTarget ? enemyCombatants : playerCombatants)
+      .find(combatant => combatant.id === targetId);
+    const tutorialSkinSteps: Record<number, { side: 'player' | 'enemy'; characterId: string }> = {
+      6: { side: 'player', characterId: 'naruto' },
+      14: { side: 'player', characterId: 'sakura' },
+      20: { side: 'player', characterId: 'naruto' },
+      23: { side: 'player', characterId: 'sasuke' },
+      28: { side: 'player', characterId: 'sakura' },
+      32: { side: 'player', characterId: 'sasuke' },
+    };
+    const expectedSkin = tutorialStep === null ? undefined : tutorialSkinSteps[tutorialStep];
+    if (
+      tutorialMode &&
+      tutorialStep !== null &&
+      !selectedSkill &&
+      expectedSkin &&
+      expectedSkin.side === (isEnemyTarget ? 'enemy' : 'player') &&
+      tutorialTarget?.character.id === expectedSkin.characterId
+    ) {
+      onTutorialStepChange?.(tutorialStep + 1);
     }
 
     if (!selectedSkill && window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches) {
@@ -4013,7 +4134,9 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
     if (!selectedSkill || !window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches) return;
 
     const cancelOnNonTargetClick = (event: MouseEvent) => {
+      if (isTutorialSkillSelectionLocked()) return;
       const clickedElement = event.target;
+      if (clickedElement instanceof Element && clickedElement.closest('[data-tutorial-control]')) return;
       const targetRegion = clickedElement instanceof Element
         ? clickedElement.closest<HTMLElement>('[data-combatant-target]')
         : null;
@@ -4030,7 +4153,7 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
 
     document.addEventListener('click', cancelOnNonTargetClick, true);
     return () => document.removeEventListener('click', cancelOnNonTargetClick, true);
-  }, [selectedSkill, playerCombatants, enemyCombatants]);
+  }, [selectedSkill, tutorialMode, tutorialStep, playerCombatants, enemyCombatants]);
 
 // Trade 4 chakras of choice for 1 chakra of choice
 const handleTradeChakra = () => {
@@ -12110,6 +12233,11 @@ splashOnlyTargets = splashPool.filter(c =>
         return;
       }
 
+      if (tutorialMode && [35, 37].includes(tutorialStep ?? -1) && isCurrentPlayer) {
+        onTutorialStepChange?.(38);
+        return;
+      }
+
       if (onlineParams?.isOnline) {
         // Submit com retry embutido: 3 tentativas com backoff; se todas falharem,
         // fica como pendência e o polling reenvia a cada 5s até o servidor aceitar.
@@ -12239,6 +12367,56 @@ splashOnlyTargets = splashPool.filter(c =>
 
     if (activePlanner === 'enemy' && !passedPlayersThisTurn.includes('enemy')) {
         const timer = setTimeout(() => {
+        if (tutorialMode) {
+          const findCombatant = (side: 'player' | 'enemy', characterId: string) =>
+            (side === 'player' ? playerCombatants : enemyCombatants)
+              .find(combatant => combatant.character.id === characterId && !combatant.isDead);
+          const makeAction = (sourceSide: 'player' | 'enemy', sourceCharacterId: string, skillName: string, targetSide: 'player' | 'enemy', targetCharacterId: string): CuedAction | null => {
+            const source = findCombatant(sourceSide, sourceCharacterId);
+            const target = findCombatant(targetSide, targetCharacterId);
+            const skillIndex = source?.character.skills.findIndex(skill => skill.name.toLowerCase() === skillName.toLowerCase()) ?? -1;
+            if (!source || !target || skillIndex < 0) return null;
+            return { sourceId: source.id, skillIndex, targetId: target.id };
+          };
+          const scriptedActions: CuedAction[] = (turn === 1
+            ? [makeAction('enemy', 'sasuke', 'Lions Barrage', 'player', 'naruto')]
+            : turn === 2
+              ? [
+                makeAction('enemy', 'sasuke', 'Sharingan', 'player', 'sasuke'),
+                makeAction('enemy', 'naruto', 'Shadow Clones', 'enemy', 'naruto'),
+              ]
+              : turn === 3
+                ? [
+                  makeAction('enemy', 'sasuke', 'Chidori', 'player', 'naruto'),
+                  makeAction('enemy', 'naruto', 'Rasengan', 'player', 'sakura'),
+                ]
+                : [])
+            .filter((action): action is CuedAction => action !== null);
+          const expectedActionCount = turn === 1 ? 1 : turn === 2 || turn === 3 ? 2 : 0;
+          if (scriptedActions.length !== expectedActionCount) {
+            console.error(`[BattleBoard] Tutorial IA could not build turn ${turn}'s scripted actions.`);
+            setLastAIError(`Não foi possível preparar as ações do tutorial no turno ${turn}.`);
+          }
+          const aiActions = scriptedActions;
+          if (aiActions.length > 0) {
+            try {
+              executeSideActions(aiActions, false);
+            } catch (error) {
+              console.error('[BattleBoard] Failed to execute scripted tutorial AI actions:', error);
+            }
+          }
+          tickOfflineStunsForCasterSide(false);
+          const newPassed: ('player' | 'enemy')[] = [...passedPlayersRef.current, 'enemy'];
+          passedPlayersRef.current = newPassed;
+          setPassedPlayersThisTurn(newPassed);
+          if (newPassed.length < 2) {
+            setActivePlanner('player');
+          } else {
+            executeTurnEndResolution();
+          }
+          return;
+        }
+
         const aiActions: CuedAction[] = [];
         let tempAiChakra = { ...enemyChakra };
 
@@ -12572,11 +12750,18 @@ splashOnlyTargets = splashPool.filter(c =>
         } else {
           executeTurnEndResolution();
         }
-      }, 5000);
+      }, tutorialMode ? 1500 : 5000);
 
       return () => clearTimeout(timer);
     }
-  }, [activePlanner, passedPlayersThisTurn.includes('enemy'), gameOver, isSandbox, onlineParams?.isOnline, turn]);
+  }, [activePlanner, passedPlayersThisTurn.includes('enemy'), gameOver, isSandbox, onlineParams?.isOnline, turn, tutorialMode]);
+
+  useEffect(() => {
+    if (!tutorialMode || activePlanner !== 'player') return;
+    if (turn === 2 && tutorialStep === 13) onTutorialStepChange?.(14);
+    if (turn === 3 && tutorialStep === 19) onTutorialStepChange?.(20);
+    if (turn === 4 && tutorialStep === 27) onTutorialStepChange?.(28);
+  }, [activePlanner, onTutorialStepChange, tutorialMode, tutorialStep, turn]);
 
   const [showSurrenderModal, setShowSurrenderModal] = useState(false);
   const [showReloadModal, setShowReloadModal] = useState(false);
@@ -12746,6 +12931,8 @@ splashOnlyTargets = splashPool.filter(c =>
       // nenhuma pré-seleção automática.
       setRandAllocation({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
       setShowRandChakraModal(true);
+      if (tutorialMode && tutorialStep === 26) onTutorialStepChange?.(36);
+      if (tutorialMode && tutorialStep === 35) onTutorialStepChange?.(37);
       playScrollSound();
       turnActionLockedRef.current = false;
       isEndingTurnRef.current = false;
@@ -12754,6 +12941,7 @@ splashOnlyTargets = splashPool.filter(c =>
       return;
     }
 
+    if (tutorialMode && tutorialStep === 26) onTutorialStepChange?.(27);
     handleEndTurn();
   };
 
@@ -12785,6 +12973,14 @@ splashOnlyTargets = splashPool.filter(c =>
       setShowNoInternetModal(true);
       playScrollSound();
       return;
+    }
+
+    const tutorialEndTurnNext: Record<number, number> = {
+      10: 11,
+      18: 19,
+    };
+    if (tutorialMode && tutorialStep !== null && tutorialEndTurnNext[tutorialStep] !== undefined) {
+      onTutorialStepChange?.(tutorialEndTurnNext[tutorialStep]);
     }
 
     if (isSandbox && !dontShowSandboxConfirmAgain) {
@@ -13764,6 +13960,10 @@ splashOnlyTargets = splashPool.filter(c =>
 
   useEffect(() => {
     if (gameOver) return;
+    if (tutorialMode) {
+      setTimeLeft(60);
+      return;
+    }
     if (showRandChakraModal) return;
     // ONLINE: relogio autoritario no servidor - 60s reais mesmo com refresh, cronometra inimigo tambem
     if (onlineParams?.isOnline) {
@@ -13803,7 +14003,7 @@ splashOnlyTargets = splashPool.filter(c =>
       });
     }, 1000);
     return () => clearInterval(timerInterval);
-  }, [turn, gameOver, isWaitingForOpponent, activePlanner, showRandChakraModal, onlineParams?.isOnline, serverPhaseDeadline]);
+  }, [turn, gameOver, isWaitingForOpponent, activePlanner, showRandChakraModal, onlineParams?.isOnline, serverPhaseDeadline, tutorialMode]);
 
   const executeTurnSimulation = (playerActions: CuedAction[] = [], enemyActions: CuedAction[] = []) => {
     const newLogs: CombatLog[] = [];
@@ -18756,11 +18956,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     return (
       <div
         className="mv-skill-detail-panel"
+        data-tutorial-target={tutorialMode && [8, 16].includes(tutorialStep ?? -1) ? 'skill-inspector' : undefined}
         role="region"
         aria-label={`Características de ${translateSkillName(skill.name, language)}`}
         onClick={event => {
           event.stopPropagation();
-          if (selectedSkill) setSelectedSkill(null);
+          if (selectedSkill && !isTutorialSkillSelectionLocked()) setSelectedSkill(null);
         }}
       >
         
@@ -19101,6 +19302,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             {/* End Turn Button */}
             <button
               onClick={handleEndTurnClick}
+              data-tutorial-target={tutorialMode && [10, 18, 26, 35].includes(tutorialStep ?? -1) ? 'end-turn' : undefined}
               disabled={isEndingTurn || isPreparing || isWaitingForOpponent || turnCooldownRemaining > 0 || (!isSandbox && activePlanner !== 'player')}
               className={`btn-end-turn battle-end-turn-continue pointer-events-auto px-4 sm:px-6 py-2 sm:py-2.5 ${
                 isEndingTurn || isWaitingForOpponent || turnCooldownRemaining > 0
@@ -19305,7 +19507,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       <button
                         type="button"
                         data-combatant-target={combatant.id}
-                        disabled={combatant.isDead && !isSkillTargetable(combatant, false)}
+                          data-tutorial-target={tutorialMode ? `battle-player-${combatant.character.id}` : undefined}
+                          disabled={combatant.isDead && !isSkillTargetable(combatant, false)}
                         aria-label={`Ver habilidades de ${combatant.character.name}`}
                         aria-expanded={skillsModalCharacterId === combatant.id}
                         onClick={() => handleCombatantCardClick(combatant.id, false)}
@@ -19664,6 +19867,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           <button
                             type="button"
                             onClick={() => {
+                              if (isTutorialSkillModalLocked()) return;
                               setSkillsModalCharacterId(null);
                               setMobileSkillDetailsCharacterId(null);
                             }}
@@ -19789,6 +19993,15 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             return (
                               <div
                                 key={sIdx}
+                                data-tutorial-target={tutorialMode ? (
+                                  combatant.character.id === 'naruto' && skill.name === 'Uzumaki Barrage' ? 'skill-uzumaki-barrage'
+                                  : combatant.character.id === 'sakura' && skill.name === 'Healing Technique' ? 'skill-healing-technique'
+                                  : combatant.character.id === 'naruto' && skill.name === 'Shadow Clones' ? 'skill-shadow-clones'
+                                  : combatant.character.id === 'sasuke' && skill.name === 'Sharingan' ? 'skill-sharingan'
+                                  : combatant.character.id === 'naruto' && skill.name === 'Rasengan' ? 'skill-rasengan'
+                                  : combatant.character.id === 'sasuke' && skill.name === 'Chidori' ? 'skill-chidori'
+                                  : undefined
+                                ) : undefined}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   playScrollSound();
@@ -20085,6 +20298,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           <button
             type="button"
             className="mv-center-status-chakra"
+            data-tutorial-target={tutorialMode ? 'player-chakra' : undefined}
             onClick={() => {
               playClickSound();
               playScrollSound();
@@ -20199,6 +20413,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 </span>
                 <div className="flex items-center justify-center gap-2.5">
                   <button
+                    data-tutorial-target={tutorialMode ? 'player-chakra' : undefined}
                     onClick={() => {
                       playClickSound();
                       playScrollSound();
@@ -20260,6 +20475,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           {/* Skill Inspector Details (skills_detalhes.webp) */}
           <div
             data-panel="skills-detalhes"
+            data-tutorial-target={tutorialMode && [8, 16].includes(tutorialStep ?? -1) ? 'skill-inspector' : undefined}
             className="ml-skills-detalhes relative w-full overflow-hidden p-2 sm:p-3.5 flex flex-col mt-[-5px] mb-[10px]"
             style={{
               backgroundImage: "url('/static/img/skills_detalhes.webp')",
@@ -20626,6 +20842,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   {/* Main Combatant Card Container */}
                   <div
                     data-combatant-target={combatant.id}
+                    data-tutorial-target={tutorialMode && !(tutorialStep === 9 && combatant.character.id === 'sasuke')
+                      ? `battle-enemy-${combatant.character.id}`
+                      : undefined}
                     onClick={() => handleCombatantCardClick(combatant.id, true)}
                     data-effect-tooltip-pinned={idx === 0 && pinnedEffectTooltip?.startsWith(`${combatant.id}:`) ? 'true' : undefined}
                     className={`flex-1 relative isolate ${idx === 0 ? 'battle-first-character-card' : ''} ${isSkillTargetable(combatant, true) ? 'mv-skill-targetable' : ''} p-5 pl-[15px] transition-all ${
@@ -20921,6 +21140,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           <button
                             type="button"
                             onClick={() => {
+                              if (isTutorialSkillModalLocked()) return;
                               setSkillsModalCharacterId(null);
                               setMobileSkillDetailsCharacterId(null);
                             }}
@@ -21460,6 +21680,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     <button
                       type="button"
                       data-combatant-target={combatant.id}
+                      data-tutorial-target={tutorialMode && tutorialStep === 9 && combatant.character.id === 'sasuke'
+                        ? 'battle-enemy-sasuke-skin'
+                        : undefined}
                       disabled={combatant.isDead && !isSkillTargetable(combatant, true)}
                       aria-label={`Selecionar ${combatant.character.name} como alvo`}
                       onClick={() => handleCombatantCardClick(combatant.id, true)}
@@ -22125,7 +22348,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       {/* RANDOM CHAKRA SELECTION MODAL */}
       <AnimatePresence>
         {showRandChakraModal && randModalData && (
-          <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-md select-none">
+          <div
+            className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-md select-none"
+            data-tutorial-control={tutorialMode ? true : undefined}
+          >
             <div
               className="battle-wood-modal relative rounded-2xl p-5 max-w-xl w-full text-white space-y-4"
               data-rand-modal
@@ -22143,7 +22369,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 </div>
                 <button
                   type="button"
+                  disabled={tutorialMode}
+                  data-tutorial-control={tutorialMode ? true : undefined}
                   onClick={() => {
+                    if (tutorialMode) return;
                     playClickSound();
                     setShowRandChakraModal(false);
                   }}
@@ -22253,11 +22482,21 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             <div className="flex w-full items-center justify-center gap-2">
                               <button
                                 type="button"
+                                data-tutorial-control={tutorialMode ? true : undefined}
                                 aria-label={`Remover um chakra ${chakraLabel}`}
                                 disabled={!canDecrease}
                                 onClick={() => {
                                   playClickSound();
-                                  setRandAllocation(prev => ({ ...prev, [key]: Math.max(0, (prev[key] || 0) - 1) }));
+                                  const nextAllocation = {
+                                    ...randAllocation,
+                                    [key]: Math.max(0, (randAllocation[key] || 0) - 1),
+                                  };
+                                  setRandAllocation(nextAllocation);
+                                  if (tutorialMode && [11, 12].includes(tutorialStep ?? -1)) {
+                                    const nextTotal = (Object.keys(nextAllocation) as (keyof ChakraPool)[])
+                                      .reduce((sum, chakra) => sum + nextAllocation[chakra], 0);
+                                    onTutorialStepChange?.(nextTotal === randModalData.totalRandRequired ? 12 : 11);
+                                  }
                                 }}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-base font-bold text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35"
                               >
@@ -22268,10 +22507,20 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                 type="button"
                                 aria-label={`Adicionar um chakra ${chakraLabel}`}
                                 disabled={!canIncrease}
+                                data-tutorial-control={tutorialMode ? true : undefined}
                                 data-sound="Click"
                                 onClick={() => {
                                   playClickSound();
-                                  setRandAllocation(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+                                  const nextAllocation = {
+                                    ...randAllocation,
+                                    [key]: (randAllocation[key] || 0) + 1,
+                                  };
+                                  setRandAllocation(nextAllocation);
+                                  if (tutorialMode && [11, 12].includes(tutorialStep ?? -1)) {
+                                    const nextTotal = (Object.keys(nextAllocation) as (keyof ChakraPool)[])
+                                      .reduce((sum, chakra) => sum + nextAllocation[chakra], 0);
+                                    onTutorialStepChange?.(nextTotal === randModalData.totalRandRequired ? 12 : 11);
+                                  }
                                 }}
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg border text-base font-bold transition-colors disabled:cursor-not-allowed ${(allocated > 0) ? selectedAddButtonColors[key] : `${addButtonColors[key]} disabled:opacity-35`}`}
                               >
@@ -22293,7 +22542,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               <div className="flex items-center gap-2.5 pt-2" data-rand-actions>
                 <button
                   type="button"
+                  disabled={tutorialMode}
                   onClick={() => {
+                    if (tutorialMode) return;
                     playClickSound();
                     turnActionLockedRef.current = false;
                     setShowRandChakraModal(false);
@@ -22305,6 +22556,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 </button>
                 <button
                   type="button"
+                  data-tutorial-control={tutorialMode ? true : undefined}
+                  data-tutorial-target={tutorialMode && tutorialStep === 12 ? 'rand-confirm' : undefined}
                   disabled={
                     isEndingTurn ||
                     turnActionLockedRef.current ||
@@ -22314,6 +22567,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     if (isEndingTurnRef.current || isEndingTurn || randConfirmLockRef.current) return;
                     randConfirmLockRef.current = true;
                     setShowRandChakraModal(false);
+                    if (tutorialMode && tutorialStep === 12) onTutorialStepChange?.(13);
+                    else if (tutorialMode && tutorialStep === 36) onTutorialStepChange?.(27);
                     handleEndTurn(randAllocation);
                   }}
                   data-sound="Click"
@@ -22568,7 +22823,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       {/* 🧪 OVERLAY DE DIAGNÓSTICO (temporário) — log de combate visível no canto.
           Mostra as últimas mensagens de sistema (⏳ watchdog, 🛑 anti-loop, iniciativa).
           Pode ser ocultado via Configurações da Batalha → "Log da Batalha". */}
-      {showBattleLog && (
+      {showBattleLog && !tutorialMode && (
         <div className="fixed bottom-2 left-2 z-[90] max-w-[280px] pointer-events-none select-none">
           <div className="bg-black/75 border border-orange-900/60 rounded-lg px-2 py-1.5 font-mono text-[9px] leading-snug text-slate-200 shadow-lg">
             <div className="text-orange-400 font-bold uppercase tracking-wider mb-0.5">🧪 Log v7</div>

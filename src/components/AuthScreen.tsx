@@ -20,7 +20,7 @@ const REMEMBERED_USERNAME_KEY = 'naruto_remembered_username';
 const AFFILIATION_STORAGE_KEY = 'naruto_ninja_affiliation';
 
 interface AuthScreenProps {
-  onLoginSuccess: (user: UserProfile, sessionTicket?: string) => void;
+  onLoginSuccess: (user: UserProfile, sessionTicket?: string, isNewAccount?: boolean) => void;
   playClickSound: () => void;
   playScrollSound: () => void;
   onBack?: () => void;
@@ -36,6 +36,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
     profile: UserProfile;
     ticket: string;
     source: 'google' | 'register';
+    isNewAccount: boolean;
   } | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [sharinganSpinKey, setSharinganSpinKey] = useState(0);
@@ -341,8 +342,13 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const beginOnboarding = (profile: UserProfile, ticket: string, source: 'google' | 'register') => {
-    setPendingAccount({ profile, ticket, source });
+  const beginOnboarding = (
+    profile: UserProfile,
+    ticket: string,
+    source: 'google' | 'register',
+    isNewAccount = source === 'register',
+  ) => {
+    setPendingAccount({ profile, ticket, source, isNewAccount });
     setIsAkatsuki(false);
     setSelectedVillage(null);
     setOnboardingStep('village');
@@ -358,7 +364,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
       return;
     }
     if (pendingAccount?.source === 'google') {
-      onLoginSuccess({ ...pendingAccount.profile, village }, pendingAccount.ticket);
+      onLoginSuccess({ ...pendingAccount.profile, village }, pendingAccount.ticket, pendingAccount.isNewAccount);
       return;
     }
     setOnboardingStep('welcome');
@@ -377,7 +383,11 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
       setOnboardingStep('auth');
       return;
     }
-    onLoginSuccess({ ...pendingAccount.profile, village: selectedVillage || undefined }, pendingAccount.ticket);
+    onLoginSuccess(
+      { ...pendingAccount.profile, village: selectedVillage || undefined },
+      pendingAccount.ticket,
+      pendingAccount.isNewAccount,
+    );
   };
 
   const completeGoogleLogin = async (googleUser: Awaited<ReturnType<typeof signInWithGoogle>>) => {
@@ -397,7 +407,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
     beginOnboarding({
       ...data.user,
       photoUrl: googleUser.photoUrl || data.user.photoUrl,
-    }, data.sessionTicket, 'google');
+    }, data.sessionTicket, 'google', data.isNewAccount === true);
   };
 
   useEffect(() => {

@@ -51,6 +51,7 @@ import {
   redeemCardPackRewards,
 } from "./src/lib/cardRoulette";
 import {
+  addSkinFragments,
   getSkinFragmentCatalog,
   rollSkinFragmentQuantity,
   SKIN_FRAGMENT_PACK_COST,
@@ -644,6 +645,7 @@ async function startServer() {
     }>>(USERS_FILE, []);
     let user = users.find(account => account.googleId === claims.sub) ||
       users.find(account => account.email?.toLowerCase() === claims.email?.toLowerCase());
+    let isNewAccount = false;
 
     if (!user) {
       const emailUsername = claims.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 80) || "google_user";
@@ -664,6 +666,7 @@ async function startServer() {
         createdAt: new Date().toISOString(),
       };
       users.push(user);
+      isNewAccount = true;
     } else {
       user.googleId = claims.sub;
       user.email = claims.email;
@@ -677,6 +680,7 @@ async function startServer() {
 
     res.json({
       success: true,
+      isNewAccount,
       sessionTicket: createSessionTicket(user.username),
       user: { username: user.username, name: user.name, photoUrl: user.photoUrl, createdAt: user.createdAt },
     });
@@ -1003,6 +1007,7 @@ async function startServer() {
       users[userIdx].equippedBannerPositionY = equippedBannerPositionY;
     }
     if (Array.isArray(req.body.collectedCardIds)) users[userIdx].collectedCardIds = req.body.collectedCardIds;
+    if (req.body.tutorialRewardClaimed === true) users[userIdx].tutorialRewardClaimed = true;
 
     if (!persistAccountUsers(users)) {
       return res.status(500).json({ error: "Não foi possível salvar as skins e os dados da conta." });
@@ -2560,10 +2565,10 @@ async function startServer() {
     const skin = eligibleSkins[randomValues.readUInt32BE(0) % eligibleSkins.length];
     const rolledQuantity = rollSkinFragmentQuantity(randomValues.readUInt32BE(4) / 0x1_0000_0000);
     const previousCount = Number.isSafeInteger(fragments[skin.id])
-      ? Math.max(0, Math.min(SKIN_FRAGMENT_UNLOCK_TARGET, Number(fragments[skin.id])))
+      ? Math.max(0, Number(fragments[skin.id]))
       : 0;
-    const fragmentsAdded = Math.min(rolledQuantity, SKIN_FRAGMENT_UNLOCK_TARGET - previousCount);
-    const fragmentCount = previousCount + fragmentsAdded;
+    const fragmentsAdded = rolledQuantity;
+    const fragmentCount = addSkinFragments(previousCount, fragmentsAdded);
     const skinUnlocked = fragmentCount >= SKIN_FRAGMENT_UNLOCK_TARGET;
     const updatedUser = {
       ...user,

@@ -40,6 +40,7 @@ import {
   redeemCardPackRewards,
 } from '../src/lib/cardRoulette';
 import {
+  addSkinFragments,
   getSkinFragmentCatalog,
   rollSkinFragmentQuantity,
   SKIN_FRAGMENT_PACK_COST,
@@ -104,7 +105,7 @@ interface FirebaseJwk extends JsonWebKey {
 }
 const ACCOUNT_FIELDS = new Set([
   'name', 'photoUrl', 'title', 'equippedFrame', 'equippedFrameUrl', 'equippedBannerUrl',
-  'equippedBannerPositionX', 'equippedBannerPositionY', 'equippedCharacterSkins',
+  'equippedBannerPositionX', 'equippedBannerPositionY', 'equippedCharacterSkins', 'tutorialRewardClaimed',
   'equippedShopSkins', 'equippedSkillSkins',
 ]);
 const EQUIPPED_SKIN_MAP_FIELDS = new Set([
@@ -348,6 +349,7 @@ async function googleLogin(request: Request, env: D1Env): Promise<Response> {
     WHERE g.google_subject = ?
   `).bind(claims.sub).first<AccountRow>();
   let account = identity;
+  let isNewAccount = false;
   if (!account) {
     const existingByEmail = await env.DB.prepare(`
       SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts
@@ -378,6 +380,7 @@ async function googleLogin(request: Request, env: D1Env): Promise<Response> {
       account = await env.DB.prepare(
         'SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts WHERE username = ?',
       ).bind(candidate).first<AccountRow>();
+      isNewAccount = true;
     }
   }
   if (!account) return error(500, 'Não foi possível carregar a conta Google.');
@@ -398,6 +401,7 @@ async function googleLogin(request: Request, env: D1Env): Promise<Response> {
   `).bind(claims.sub, account.username, claims.email).run();
   return json({
     success: true,
+    isNewAccount,
     sessionTicket: await createTicket(env.DB, account.username),
     user: publicAccount(account),
   });
@@ -708,6 +712,11 @@ async function profileRoute(request: Request, env: D1Env, pathname: string): Pro
       }
       if (JSON.stringify(profile[key]) !== JSON.stringify(value)) {
         profile[key] = value;
+        changed = true;
+      }
+    } else if (key === 'tutorialRewardClaimed') {
+      if (value === true && profile[key] !== true) {
+        profile[key] = true;
         changed = true;
       }
     } else if (key === 'name' && typeof value === 'string' && value.trim()) {
@@ -2048,10 +2057,10 @@ async function openSkinFragmentPack(request: Request, env: D1Env): Promise<Respo
   const skin = eligibleSkins[randomValues[0] % eligibleSkins.length];
   const rolledQuantity = rollSkinFragmentQuantity(randomValues[1] / 0x1_0000_0000);
   const previousCount = Number.isSafeInteger(fragments[skin.id])
-    ? Math.max(0, Math.min(SKIN_FRAGMENT_UNLOCK_TARGET, Number(fragments[skin.id])))
+    ? Math.max(0, Number(fragments[skin.id]))
     : 0;
-  const fragmentsAdded = Math.min(rolledQuantity, SKIN_FRAGMENT_UNLOCK_TARGET - previousCount);
-  const fragmentCount = previousCount + fragmentsAdded;
+  const fragmentsAdded = rolledQuantity;
+  const fragmentCount = addSkinFragments(previousCount, fragmentsAdded);
   const skinUnlocked = fragmentCount >= SKIN_FRAGMENT_UNLOCK_TARGET;
   const updatedProfile = {
     ...profile,

@@ -8,7 +8,7 @@ import { GameScreen, Character, UserProfile, Quest } from './types';
 import { safeFetchJson } from './lib/api';
 import { matchFetch } from './lib/matchFetch';
 import { fetchCharactersFromServer, getCharacters } from './lib/characterStorage';
-import { autoEquipNewlyUnlockedCharacterSkins } from './lib/skinFragments';
+import { autoEquipNewlyUnlockedCharacterSkins, GLOBAL_REQUIRED_CHARACTER_SKINS } from './lib/skinFragments';
 import { fetchRanksFromServer } from './lib/rankStorage';
 import { fetchShopItemsFromServer, getShopItems } from './lib/shopStorage';
 import { fetchEventsFromServer } from './lib/eventStorage';
@@ -30,6 +30,8 @@ import BattleBoard from './components/BattleBoard';
 import ArenaLoading from './components/ArenaLoading';
 import AdminDashboard from './components/AdminDashboard';
 import AuthScreen from './components/AuthScreen';
+import FirstBattleTutorial from './components/FirstBattleTutorial';
+import SkinMedia from './components/SkinMedia';
 import QuestBoard from './components/QuestBoard';
 // import RotateOverlay from './components/RotateOverlay'; // DESABILITADO temporariamente — reativar quando necessário
 
@@ -57,6 +59,66 @@ function ScreenLoadingFallback() {
     </div>
   );
 }
+
+const FIRST_BATTLE_TUTORIAL: Record<number, { target: string | null; instruction: string; continueTo?: number; complete?: boolean; allowTargetClick?: boolean; allowClicksWithin?: string; centered?: boolean; topAligned?: boolean; lowerAligned?: boolean; extraLowerAligned?: boolean }> = {
+  0: { target: '[data-tutorial-target="lobby-battle"]', instruction: 'Bem-vindo! Toque em Batalha para montar sua equipe.', centered: true },
+  1: { target: '[data-tutorial-target="select-naruto"]', instruction: 'Dê dois toques rápidos em Naruto para adicioná-lo à equipe.', centered: true },
+  2: { target: '[data-tutorial-target="select-sakura"]', instruction: 'Dê dois toques rápidos em Sakura para adicioná-la à equipe.', centered: true },
+  3: { target: '[data-tutorial-target="select-sasuke"]', instruction: 'Dê dois toques rápidos em Sasuke para completar a equipe.', centered: true },
+  4: { target: '[data-tutorial-target="tutorial-fight-ai"]', instruction: 'Sua equipe está pronta. Toque em Lutar contra IA para começar.', centered: true },
+  5: { target: '[data-tutorial-target="player-chakra"]', instruction: 'Este é seu estoque de chakra: Tai (verde), Nin (azul), Gen (branco) e Kekkei Genkai (vermelho). O tempo fica pausado neste tutorial.', continueTo: 6, allowTargetClick: false },
+  6: { target: '[data-tutorial-target="battle-player-naruto"]', instruction: 'Toque na skin do Naruto para abrir as habilidades dele.', centered: true },
+  7: { target: '[data-tutorial-target="skill-uzumaki-barrage"]', instruction: 'Escolha Uzumaki Barrage.' },
+  8: { target: '[data-tutorial-target="skill-inspector"]', instruction: 'Confira o custo de chakra e os efeitos da habilidade. Quando terminar de ler, continue.', continueTo: 9, allowTargetClick: false, lowerAligned: true },
+  9: { target: '[data-tutorial-target="battle-enemy-sasuke-skin"]', instruction: 'Toque na skin do Sasuke do time adversário para escolhê-lo como alvo.', centered: true },
+  10: { target: '[data-tutorial-target="end-turn"]', instruction: 'Agora finalize seu turno. Você verá como pagar o custo Rand.', centered: true },
+  11: { target: null, instruction: 'Rand é um custo flexível: escolha qualquer tipo de chakra disponível para completá-lo.', topAligned: true },
+  12: { target: '[data-tutorial-target="rand-confirm"]', instruction: 'Confirme a escolha do chakra para finalizar o turno.', centered: true },
+  13: { target: null, instruction: '' },
+  14: { target: '[data-tutorial-target="battle-player-sakura"]', instruction: 'No seu próximo turno, toque na skin da Sakura.', centered: true, lowerAligned: true },
+  15: { target: '[data-tutorial-target="skill-healing-technique"]', instruction: 'Escolha Healing Technique.' },
+  16: { target: '[data-tutorial-target="skill-inspector"]', instruction: 'Veja o custo e os efeitos de cura da habilidade e continue.', continueTo: 17, allowTargetClick: false, centered: true, lowerAligned: true },
+  17: { target: '[data-tutorial-target="battle-player-naruto"]', instruction: 'Use a cura no Naruto, seu aliado.', centered: true },
+  18: { target: '[data-tutorial-target="end-turn"]', instruction: 'Finalize o turno da Sakura.', centered: true },
+  19: { target: null, instruction: '' },
+  20: { target: '[data-tutorial-target="battle-player-naruto"]', instruction: 'Toque na skin do Naruto para abrir as habilidades dele.', centered: true },
+  21: { target: '[data-tutorial-target="skill-shadow-clones"]', instruction: 'Escolha Shadow Clones do Naruto.', topAligned: true },
+  22: { target: '[data-tutorial-target="battle-player-naruto"]', instruction: 'Use Shadow Clones no próprio Naruto.', centered: true },
+  23: { target: '[data-tutorial-target="battle-player-sasuke"]', instruction: 'Toque na skin do Sasuke para abrir as habilidades dele.', centered: true },
+  24: { target: '[data-tutorial-target="skill-sharingan"]', instruction: 'Escolha Sharingan do Sasuke.' },
+  25: { target: '[data-tutorial-target="battle-enemy-naruto"]', instruction: 'Use Sharingan no Naruto do time adversário.', centered: true },
+  26: { target: '[data-tutorial-target="end-turn"]', instruction: 'Finalize seu turno para ver os ataques da IA.', centered: true },
+  27: { target: null, instruction: '' },
+  28: { target: '[data-tutorial-target="battle-player-sakura"]', instruction: 'Toque na Sakura para abrir os efeitos ativos e as habilidades dela.', allowClicksWithin: '.mv-effect-detail-backdrop', centered: true },
+  29: { target: '[data-tutorial-target="stun-effect"]', instruction: 'Toque no efeito e leia a descrição: Rasengan atordoa e bloqueia as habilidades da Sakura. Depois continue.', continueTo: 30, allowClicksWithin: '.mv-effect-detail-backdrop', centered: true },
+  30: { target: null, instruction: 'Encontre e escolha Rasengan do Naruto. Você pode abrir a equipe e navegar pelas habilidades.', allowClicksWithin: '[data-combatant-target], .mv-character-skills, .mv-skills-modal-stack, .mv-effect-detail-backdrop', centered: true, extraLowerAligned: true },
+  31: { target: '[data-tutorial-target="battle-enemy-sasuke"]', instruction: 'Use Rasengan no Sasuke adversário.', centered: true },
+  32: { target: '[data-tutorial-target="battle-player-sasuke"]', instruction: 'Toque na skin do Sasuke para abrir as habilidades dele.', centered: true },
+  33: { target: '[data-tutorial-target="skill-chidori"]', instruction: 'Escolha Chidori do Sasuke.' },
+  34: { target: '[data-tutorial-target="battle-enemy-naruto"]', instruction: 'Use Chidori no Naruto adversário.' },
+  35: { target: '[data-tutorial-target="end-turn"]', instruction: 'Finalize o turno para concluir o tutorial.', centered: true },
+  36: { target: null, instruction: 'Escolha o chakra para pagar o custo das habilidades e finalize o turno.', allowClicksWithin: '[data-rand-modal]', topAligned: true },
+  37: { target: null, instruction: 'Escolha como pagar o custo das habilidades e finalize o turno para concluir o tutorial.', allowClicksWithin: '[data-rand-modal]', topAligned: true },
+  38: { target: null, instruction: 'Todos os personagens são liberados gratuitamente. Aqui, o que conta é a sua estratégia.', centered: true, continueTo: 39 },
+  39: { target: null, instruction: 'Naruto Arena Mobile é free-to-play: gastar dinheiro não dá vantagem nas batalhas.', centered: true, continueTo: 40 },
+  40: { target: null, instruction: 'Se estiver gostando, apoiar o projeto ajuda no desenvolvimento. Obrigado por jogar!', centered: true, complete: true },
+};
+
+const getInitialTutorialStep = (): number | null => {
+  try {
+    const pendingUsername = localStorage.getItem('whoosh_tutorial_pending');
+    const storedProfile = JSON.parse(localStorage.getItem('naruto_user_profile') || 'null') as UserProfile | null;
+    if (
+      pendingUsername &&
+      sessionStorage.getItem('naruto_account_session_token') &&
+      storedProfile?.username?.toLowerCase() === pendingUsername.toLowerCase() &&
+      localStorage.getItem(`whoosh_tutorial_completed:${pendingUsername.toLowerCase()}`) !== 'true'
+    ) return 0;
+  } catch (error) {
+    console.error('Failed to restore the new-account tutorial state:', error);
+  }
+  return null;
+};
 
 function AccountSessionPrompt({
   status,
@@ -240,12 +302,43 @@ export default function App() {
     }
     return null;
   });
+  const [tutorialStep, setTutorialStep] = useState<number | null>(getInitialTutorialStep);
+  const [tutorialCompletionStage, setTutorialCompletionStage] = useState<'congrats' | 'claim' | 'reward' | null>(null);
+  const [isClaimingTutorialReward, setIsClaimingTutorialReward] = useState(false);
+  const [tutorialRewardError, setTutorialRewardError] = useState<string | null>(null);
+  const tutorialActive = tutorialStep !== null;
+
+  useEffect(() => {
+    if (tutorialCompletionStage !== 'congrats') return;
+    const timer = window.setTimeout(() => setTutorialCompletionStage('claim'), 3000);
+    return () => window.clearTimeout(timer);
+  }, [tutorialCompletionStage]);
 
   useEffect(() => {
     if (user && screen === 'main-menu') {
       setScreen('lobby');
     }
   }, [user, screen]);
+
+  useEffect(() => {
+    if (!tutorialActive) return;
+    if (tutorialStep === 0) {
+      try {
+        localStorage.removeItem('active_match_save');
+      } catch (error) {
+        console.error('Failed to clear the interrupted tutorial battle:', error);
+      }
+      setRestoredState(null);
+      setReconnectData(null);
+      setReconnectChecking(false);
+    }
+    if (tutorialStep === 0 && screen !== 'lobby') setScreen('lobby');
+    else if (tutorialStep !== null && tutorialStep >= 1 && tutorialStep <= 4 && screen !== 'character-select') {
+      setScreen('character-select');
+    } else if (tutorialStep !== null && tutorialStep >= 5 && tutorialStep <= 40 && screen !== 'battle') {
+      setScreen('battle');
+    }
+  }, [screen, tutorialActive, tutorialStep]);
 
   // Sync all configurations (characters, ranks, shop, events, banners, frames) from server on startup
   useEffect(() => {
@@ -303,7 +396,7 @@ export default function App() {
 
   // Check for active match/reconnection on load
   useEffect(() => {
-    if (!user) return;
+    if (!user || tutorialActive) return;
 
     const saved = localStorage.getItem('active_match_save');
     if (saved) {
@@ -359,7 +452,7 @@ export default function App() {
         console.error("Error reading reconnect data:", e);
       }
     }
-  }, [user]);
+  }, [user, tutorialActive]);
 
   const handleRestoreGame = (savedState: any) => {
     playClickSound();
@@ -603,6 +696,7 @@ export default function App() {
   }, []);
 
   const handleStartGame = () => {
+    if (tutorialActive) return;
     if (!user) {
       setShowAuth(true);
       return;
@@ -611,6 +705,7 @@ export default function App() {
   };
 
   const handleSelectQuest = (quest: Quest) => {
+    if (tutorialActive) return;
     setActiveQuest(quest);
     startCharacterSelectMusic();
     setScreen('character-select');
@@ -621,7 +716,8 @@ export default function App() {
     enemySquad: Character[],
     online?: { isOnline: boolean; roomId: string; playerIndex: number; seed: number; opponentProfile: UserProfile },
     sandbox?: boolean,
-    sandboxPauseChakraGen?: boolean
+    sandboxPauseChakraGen?: boolean,
+    tutorialMode?: boolean
   ) => {
     preloadCharacters([...playerSquad, ...enemySquad]);
     setPlayerTeam(playerSquad);
@@ -630,6 +726,7 @@ export default function App() {
     setIsSandbox(!!sandbox);
     setSandboxPauseChakraGen(!!sandbox && !!sandboxPauseChakraGen);
     setBattleFinished(false);
+    if (tutorialMode) setTutorialStep(5);
     startBattleMusic();
     setScreen('battle');
   };
@@ -834,6 +931,7 @@ export default function App() {
   };
 
   const handleQuit = () => {
+    if (tutorialActive) return;
     setPlayerTeam([]);
     setEnemyTeam([]);
     setOnlineParams(null);
@@ -850,7 +948,7 @@ export default function App() {
     return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
   };
 
-  const handleLoginSuccess = (profile: UserProfile, ticket?: string) => {
+  const handleLoginSuccess = (profile: UserProfile, ticket?: string, isNewAccount = false) => {
     if (profile.username.trim().toLowerCase() === 'convidado') {
       console.error('Refusing visitor account login.');
       return;
@@ -879,6 +977,26 @@ export default function App() {
     setSessionRevoked(false);
     setSessionTakeoverResult(false);
     setUser(safeProfile);
+    let hasPendingTutorial = isNewAccount;
+    try {
+      const pendingUsername = localStorage.getItem('whoosh_tutorial_pending');
+      hasPendingTutorial = hasPendingTutorial || (!!pendingUsername &&
+        pendingUsername.toLowerCase() === safeProfile.username.toLowerCase() &&
+        localStorage.getItem(`whoosh_tutorial_completed:${safeProfile.username.toLowerCase()}`) !== 'true');
+    } catch (error) {
+      console.error('Failed to check the new-account tutorial state:', error);
+    }
+    if (hasPendingTutorial) {
+      try {
+        localStorage.setItem('whoosh_tutorial_pending', safeProfile.username);
+        localStorage.removeItem('active_match_save');
+        setTutorialStep(0);
+      } catch (error) {
+        console.error('Failed to start the new-account tutorial:', error);
+      }
+    } else {
+      setTutorialStep(null);
+    }
     setScreen('lobby');
     try {
       localStorage.setItem('naruto_user_profile', JSON.stringify(safeProfile));
@@ -889,7 +1007,119 @@ export default function App() {
     // setShowArenaLoading(true);
   };
 
+  const handleTutorialCharacterSelected = (characterId: string) => {
+    const expectedCharacterByStep: Record<number, string> = {
+      1: 'naruto',
+      2: 'sakura',
+      3: 'sasuke',
+    };
+    if (tutorialStep !== null && expectedCharacterByStep[tutorialStep] === characterId) {
+      setTutorialStep(tutorialStep + 1);
+    }
+  };
+
+  const continueTutorial = () => {
+    if (tutorialStep === null) return;
+    const nextStep = FIRST_BATTLE_TUTORIAL[tutorialStep]?.continueTo;
+    if (nextStep !== undefined) setTutorialStep(nextStep);
+  };
+
+  const completeTutorial = () => {
+    if (!user) return;
+    try {
+      const username = user.username.toLowerCase();
+      localStorage.setItem(`whoosh_tutorial_completed:${username}`, 'true');
+      localStorage.removeItem('whoosh_tutorial_pending');
+      localStorage.removeItem('active_match_save');
+    } catch (error) {
+      console.error('Failed to persist tutorial completion:', error);
+    }
+    setTutorialStep(null);
+    setPlayerTeam([]);
+    setEnemyTeam([]);
+    setOnlineParams(null);
+    setIsSandbox(false);
+    setSandboxPauseChakraGen(false);
+    setRestoredState(null);
+    setBattleFinished(false);
+    setActiveQuest(null);
+    stopBattleMusic();
+    startCharacterSelectMusic();
+    setScreen('lobby');
+    setTutorialRewardError(null);
+    setTutorialCompletionStage(user.tutorialRewardClaimed ? 'reward' : 'congrats');
+  };
+
+  const replayTutorial = () => {
+    try {
+      localStorage.removeItem('active_match_save');
+    } catch (error) {
+      console.error('Failed to clear the saved battle before replaying the tutorial:', error);
+    }
+    setTutorialCompletionStage(null);
+    setTutorialRewardError(null);
+    setPlayerTeam([]);
+    setEnemyTeam([]);
+    setOnlineParams(null);
+    setIsSandbox(false);
+    setSandboxPauseChakraGen(false);
+    setRestoredState(null);
+    setBattleFinished(false);
+    setActiveQuest(null);
+    stopBattleMusic();
+    startCharacterSelectMusic();
+    setTutorialStep(0);
+    setScreen('lobby');
+  };
+
+  const claimTutorialReward = async () => {
+    if (!user || isClaimingTutorialReward) return;
+    if (user.tutorialRewardClaimed) {
+      setTutorialCompletionStage('reward');
+      return;
+    }
+
+    setIsClaimingTutorialReward(true);
+    setTutorialRewardError(null);
+    try {
+      const response = await matchFetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user.username,
+          tutorialRewardClaimed: true,
+        }),
+      });
+      const result = await response.json() as { success?: boolean; error?: string; user?: UserProfile };
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Não foi possível registrar a recompensa (HTTP ${response.status}).`);
+      }
+
+      const updatedUser = { ...user, tutorialRewardClaimed: true };
+      setUser(updatedUser);
+      try {
+        localStorage.setItem('naruto_user_profile', JSON.stringify(updatedUser));
+      } catch (error) {
+        console.error('Failed to cache the tutorial reward claim:', error);
+      }
+      setTutorialCompletionStage('reward');
+    } catch (error) {
+      console.error('Failed to claim the tutorial reward:', error);
+      setTutorialRewardError(error instanceof Error ? error.message : 'Não foi possível receber a recompensa. Tente novamente.');
+    } finally {
+      setIsClaimingTutorialReward(false);
+    }
+  };
+
+  const tutorialRewardSkins = (['naruto', 'sasuke', 'sakura'] as const).map(characterId => {
+    const skinId = GLOBAL_REQUIRED_CHARACTER_SKINS[characterId];
+    const character = getCharacters().find(candidate => candidate.id === characterId);
+    const skin = character?.skins?.find(candidate => candidate.id === skinId);
+    return skin ? { characterName: character.name, ...skin } : null;
+  }).filter((skin): skin is NonNullable<typeof skin> => skin !== null);
+
   const handleLogout = () => {
+    if (tutorialActive) return;
     playClickSound();
     if (user && sessionToken) {
       const isPendingSession = sessionStatus === 'pending';
@@ -1318,13 +1548,18 @@ export default function App() {
 
         {(screen === 'lobby' || (screen === 'admin' && user?.username.trim().toLowerCase() !== '2')) && (
           <LobbyScreen
+            tutorialMode={tutorialStep === 0}
             onStartGame={handleStartGame}
             onBattle={() => {
+              if (tutorialStep === 0) setTutorialStep(1);
+              else if (tutorialActive) return;
               setActiveQuest(null);
               startCharacterSelectMusic();
               setScreen('character-select');
             }}
-            onOpenQuests={() => setScreen('quests')}
+            onOpenQuests={() => {
+              if (!tutorialActive) setScreen('quests');
+            }}
             isMuted={isMuted}
             onToggleMute={() => setIsMuted(!isMuted)}
             playClickSound={playClickSound}
@@ -1338,6 +1573,7 @@ export default function App() {
             onLogout={handleLogout}
             audioSettings={audioSettings}
             onUpdateAudioSetting={updateAudioSetting}
+            onReplayTutorial={replayTutorial}
             onUpdateUser={(updated) => {
               const safe = autoEquipNewlyUnlockedCharacterSkins(
                 user,
@@ -1375,6 +1611,8 @@ export default function App() {
 
         {screen === 'character-select' && (
           <CharacterSelect
+            tutorialMode={tutorialStep !== null && tutorialStep >= 1 && tutorialStep <= 4}
+            onTutorialCharacterSelected={handleTutorialCharacterSelected}
             onConfirmTeams={handleConfirmTeams}
             playClickSound={playClickSound}
             playScrollSound={playScrollSound}
@@ -1384,7 +1622,9 @@ export default function App() {
             user={user}
             onUpdateUser={handleCharacterSelectProfileUpdate}
             activeQuest={activeQuest}
-            onBack={() => setScreen(activeQuest ? 'quests' : 'lobby')}
+            onBack={() => {
+              if (!tutorialActive) setScreen(activeQuest ? 'quests' : 'lobby');
+            }}
           />
         )}
 
@@ -1410,6 +1650,9 @@ export default function App() {
             onlineParams={onlineParams}
             isSandbox={isSandbox}
             sandboxPauseChakraGen={sandboxPauseChakraGen}
+            tutorialMode={tutorialStep !== null && tutorialStep >= 5 && tutorialStep <= 40}
+            tutorialStep={tutorialStep}
+            onTutorialStepChange={setTutorialStep}
             restoredState={restoredState}
             onBattleEnd={handleBattleEnd}
             sessionRevoked={sessionRevoked}
@@ -1426,6 +1669,152 @@ export default function App() {
           />
         )}
       </Suspense>
+      {tutorialStep !== null && sessionStatus === 'active' && FIRST_BATTLE_TUTORIAL[tutorialStep] && (
+        <FirstBattleTutorial
+          targetSelector={FIRST_BATTLE_TUTORIAL[tutorialStep].target}
+          instruction={FIRST_BATTLE_TUTORIAL[tutorialStep].instruction}
+          allowTargetClick={FIRST_BATTLE_TUTORIAL[tutorialStep].allowTargetClick}
+          allowClicksWithin={FIRST_BATTLE_TUTORIAL[tutorialStep].allowClicksWithin}
+          centered={FIRST_BATTLE_TUTORIAL[tutorialStep].centered}
+          topAligned={FIRST_BATTLE_TUTORIAL[tutorialStep].topAligned}
+          lowerAligned={FIRST_BATTLE_TUTORIAL[tutorialStep].lowerAligned}
+          extraLowerAligned={FIRST_BATTLE_TUTORIAL[tutorialStep].extraLowerAligned}
+          onContinue={FIRST_BATTLE_TUTORIAL[tutorialStep].complete
+            ? completeTutorial
+            : FIRST_BATTLE_TUTORIAL[tutorialStep].continueTo !== undefined
+              ? continueTutorial
+              : undefined}
+        />
+      )}
+      <AnimatePresence>
+        {tutorialCompletionStage && (
+          <motion.div
+            className="fixed inset-0 z-[2147483647] flex items-center justify-center overflow-y-auto bg-slate-950/90 p-3 backdrop-blur-md sm:p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            aria-live="polite"
+          >
+            <motion.section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="tutorial-completion-title"
+              className="battle-wood-modal relative my-auto w-full max-w-5xl overflow-hidden p-5 text-center text-white sm:p-8"
+              initial={{ opacity: 0, scale: 0.88, y: 28 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 180 }}
+            >
+              <div className="pointer-events-none !absolute inset-0 overflow-hidden" aria-hidden="true">
+                {Array.from({ length: 14 }, (_, index) => (
+                  <motion.span
+                    key={index}
+                    className="absolute h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.9)]"
+                    style={{ left: `${(index * 37 + 9) % 100}%`, top: `${(index * 61 + 5) % 100}%` }}
+                    animate={{ y: [0, -18, 0], opacity: [0.2, 1, 0.2], scale: [0.6, 1.2, 0.6] }}
+                    transition={{ duration: 2 + (index % 4) * 0.35, repeat: Infinity, delay: index * 0.12 }}
+                  />
+                ))}
+              </div>
+
+              {tutorialCompletionStage !== 'reward' ? (
+                <div className="relative mx-auto flex max-w-3xl flex-col items-center">
+                  <motion.img
+                    src="/static/img/ui/kakashi_tutorial.webp"
+                    alt="Kakashi, instrutor do tutorial"
+                    className="mb-2 h-56 w-auto object-contain drop-shadow-[0_0_28px_rgba(251,191,36,0.35)] sm:h-80"
+                    animate={{ y: [0, -8, 0] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                  <p className="mb-2 text-xs font-black uppercase tracking-[0.3em] text-amber-300">Kakashi · Instrutor</p>
+                  <h2 id="tutorial-completion-title" className="text-3xl font-black text-amber-100 sm:text-5xl">
+                    Parabéns por completar o tutorial!
+                  </h2>
+                  <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-200 sm:text-lg">
+                    Obrigado por se juntar à versão beta do <span className="font-black text-orange-300 drop-shadow-[0_0_10px_rgba(251,146,60,0.5)]">Naruto Arena Mobile</span>!
+                    Estamos construindo este projeto com carinho. Tenha paciência com as novidades e, se puder,
+                    <span className="font-black text-amber-300"> apoie o projeto</span> durante essa jornada.
+                  </p>
+                  {tutorialRewardError && (
+                    <p role="alert" className="mt-4 rounded-xl border border-red-400/40 bg-red-950/60 px-4 py-2 text-sm text-red-200">
+                      {tutorialRewardError}
+                    </p>
+                  )}
+                  {tutorialCompletionStage === 'claim' ? (
+                    <motion.button
+                      type="button"
+                      onClick={() => { void claimTutorialReward(); }}
+                      disabled={isClaimingTutorialReward}
+                      className="mt-7 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-400 to-yellow-300 px-8 py-4 text-base font-black uppercase tracking-wider text-amber-950 shadow-[0_0_30px_rgba(251,191,36,0.4)] transition hover:scale-105 disabled:cursor-wait disabled:opacity-70 sm:text-lg"
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      {isClaimingTutorialReward ? 'Preparando recompensa...' : 'Receber recompensa'}
+                    </motion.button>
+                  ) : (
+                    <p className="mt-7 animate-pulse text-xs font-bold uppercase tracking-[0.2em] text-amber-200/80">
+                      Sua recompensa está quase pronta...
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="tutorial-reward-trophy mb-2 flex justify-center" aria-hidden="true">
+                    <img
+                      src="/static/img/ui/trophy.webp"
+                      alt=""
+                      className="h-14 w-14 object-contain"
+                    />
+                  </div>
+                  <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-300">Recompensa do tutorial</p>
+                  <h2 id="tutorial-completion-title" className="mt-2 text-3xl font-black text-amber-100 sm:text-5xl">
+                    Três skins para sua coleção!
+                  </h2>
+                  <div className="mt-7 grid grid-cols-1 gap-5 sm:grid-cols-3 sm:gap-4">
+                    {tutorialRewardSkins.map((skin, index) => (
+                      <motion.article
+                        key={skin.id}
+                        className="relative flex min-h-[300px] flex-col items-center justify-end overflow-hidden rounded-2xl border border-amber-300/40 bg-gradient-to-b from-amber-200/10 to-slate-950/80 p-4 shadow-[0_0_28px_rgba(251,191,36,0.12)] sm:min-h-[390px]"
+                        initial={{ opacity: 0, y: 45, scale: 0.82, rotate: index % 2 === 0 ? -5 : 5 }}
+                        animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+                        transition={{ type: 'spring', damping: 16, stiffness: 150, delay: index * 0.22 }}
+                      >
+                        <motion.div
+                          className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.2),transparent_65%)]"
+                          animate={{ opacity: [0.35, 0.9, 0.35], scale: [0.9, 1.08, 0.9] }}
+                          transition={{ duration: 2.4, repeat: Infinity, delay: index * 0.2 }}
+                        />
+                        <SkinMedia
+                          src={skin.image}
+                          alt={`Skin ${skin.characterName}`}
+                          autoPlay
+                          className="relative z-10 h-64 w-full object-contain drop-shadow-[0_0_24px_rgba(251,191,36,0.35)] sm:h-80"
+                        />
+                        <div className="relative z-10 mt-2 rounded-full border border-amber-300/40 bg-slate-950/80 px-5 py-2">
+                          <p className="text-lg font-black uppercase tracking-widest text-amber-100">{skin.characterName}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-300">Skin comum</p>
+                        </div>
+                      </motion.article>
+                    ))}
+                  </div>
+                  {tutorialRewardSkins.length !== 3 && (
+                    <p role="alert" className="mt-4 text-sm text-red-200">
+                      Algumas imagens de recompensa ainda não foram carregadas. Atualize o catálogo e tente novamente.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setTutorialCompletionStage(null)}
+                    disabled={tutorialRewardSkins.length !== 3}
+                    className="mt-7 rounded-xl border border-amber-300/50 bg-amber-500 px-8 py-3 text-sm font-black uppercase tracking-wider text-slate-950 shadow-lg transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Continuar para o lobby
+                  </button>
+                </div>
+              )}
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

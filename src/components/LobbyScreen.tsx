@@ -35,6 +35,8 @@ import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { isCharacterUnlocked } from '../lib/characterUnlocks';
 import {
+  GLOBAL_REQUIRED_CHARACTER_SKINS,
+  getSkinFragmentCount,
   isSkinUnlocked,
   normalizeSkinRarity,
   SKIN_FRAGMENT_UNLOCK_TARGET,
@@ -80,6 +82,8 @@ interface LobbyScreenProps {
   onUpdateUser: (updatedUser: UserProfile) => void;
   audioSettings: { master: number; effects: number; music: number };
   onUpdateAudioSetting: (key: 'master' | 'effects' | 'music', value: number) => void;
+  onReplayTutorial?: () => void;
+  tutorialMode?: boolean;
 }
 
 type LobbyModal = 'characters' | 'clan' | 'shop' | 'events' | 'profile' | 'cards' | 'audio' | 'help' | 'mail' | 'recurring-quests' | 'skin-bag' | null;
@@ -100,6 +104,8 @@ export default function LobbyScreen({
   onUpdateUser,
   audioSettings,
   onUpdateAudioSetting,
+  onReplayTutorial,
+  tutorialMode = false,
 }: LobbyScreenProps) {
   const { t } = useLanguage();
   const [modal, setModal] = useState<LobbyModal>(null);
@@ -405,6 +411,8 @@ export default function LobbyScreen({
   };
   const equipCharacterSkin = (skinId: string) => {
     if (!user || !detailsCharacter || !isSkinUnlocked(user, skinId)) return;
+    const requiredSkinId = GLOBAL_REQUIRED_CHARACTER_SKINS[detailsCharacter.id as keyof typeof GLOBAL_REQUIRED_CHARACTER_SKINS];
+    if (requiredSkinId && skinId !== requiredSkinId) return;
     playUahSound();
     updateUser({
       ...user,
@@ -712,6 +720,7 @@ export default function LobbyScreen({
             type="button"
             key={label}
             onClick={action}
+            data-tutorial-target={tutorialMode && primary ? 'lobby-battle' : undefined}
             className={`lobby-nav-item${primary ? ' lobby-nav-primary' : ''}${label === t('Eventos', 'Events') ? ' lobby-nav-events' : ''}`}
           >
             {label === t('Eventos', 'Events') && availableEventRewardCount > 0 && (
@@ -995,22 +1004,22 @@ export default function LobbyScreen({
                 <div className="lobby-character-skin-grid">
                   {(detailsCharacter.skins || []).map(skin => {
                     const unlocked = !!user && isSkinUnlocked(user, skin.id);
-                    const isEquipped = unlocked && user?.equippedCharacterSkins?.[detailsCharacter.id] === skin.id;
-                    const fragmentCount = Math.max(0, Math.min(
-                      SKIN_FRAGMENT_UNLOCK_TARGET,
-                      Number.isSafeInteger(user?.skinFragments?.[skin.id])
-                        ? Number(user?.skinFragments?.[skin.id])
-                        : 0,
-                    ));
+                    const requiredSkinId = GLOBAL_REQUIRED_CHARACTER_SKINS[detailsCharacter.id as keyof typeof GLOBAL_REQUIRED_CHARACTER_SKINS];
+                    const canEquip = unlocked && (!requiredSkinId || skin.id === requiredSkinId);
+                    const isEquipped = unlocked && (requiredSkinId === skin.id || user?.equippedCharacterSkins?.[detailsCharacter.id] === skin.id);
+                    const fragmentCount = getSkinFragmentCount(user?.skinFragments, skin.id);
                     const rarity = SKIN_RARITY_META[normalizeSkinRarity(skin.rarity)];
                     return (
                       <button
                         type="button"
                         key={skin.id}
-                        className={`lobby-character-skin-card${isEquipped ? ' is-equipped' : ''}${unlocked ? '' : ' is-locked'}`}
-                        disabled={!unlocked}
+                        className={`lobby-character-skin-card${isEquipped ? ' is-equipped' : ''}${canEquip ? '' : ' is-locked'}`}
+                        disabled={!canEquip}
                         onClick={() => equipCharacterSkin(skin.id)}
                         aria-pressed={isEquipped}
+                        title={!canEquip && unlocked
+                          ? t('A skin comum é obrigatória para este personagem.', 'The common skin is required for this character.')
+                          : undefined}
                       >
                         <SkinMedia src={skin.image} alt="" className="lobby-character-skin-image" />
                         <span className={`lobby-character-skin-rarity ${rarity.className}`}>
@@ -1018,9 +1027,11 @@ export default function LobbyScreen({
                         </span>
                         <strong>{skin.name}</strong>
                         {isEquipped && <span className="lobby-character-skin-equipped">{t('Equipada', 'Equipped')}</span>}
-                        {!unlocked && (
+                        {!canEquip && (
                           <span className="lobby-character-skin-lock">
-                            {user
+                            {unlocked
+                              ? t('Skin obrigatória', 'Required skin')
+                              : user
                               ? `${fragmentCount}/${SKIN_FRAGMENT_UNLOCK_TARGET} ${t('fragmentos', 'fragments')}`
                               : t('Faça login para equipar', 'Log in to equip')}
                           </span>
@@ -1266,7 +1277,12 @@ export default function LobbyScreen({
         </div>
       )}
 
-      <GameManualModal isOpen={modal === 'help'} onClose={() => setModal(null)} playClickSound={playClickSound} />
+      <GameManualModal
+        isOpen={modal === 'help'}
+        onClose={() => setModal(null)}
+        playClickSound={playClickSound}
+        onReplayTutorial={onReplayTutorial}
+      />
       {user && modal === 'skin-bag' && (
         <SkinBagModal
           user={user}
