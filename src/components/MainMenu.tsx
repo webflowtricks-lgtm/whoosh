@@ -3,23 +3,39 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, HelpCircle, Shield, Award, LogOut, Calendar, ShoppingBag, Sparkles, User, Images, Settings, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
-import EventsModal from './EventsModal';
-import ShopModal from './ShopModal';
-import ProfileModal from './ProfileModal';
-import ProfileCardModal from './ProfileCardModal';
-import CardGalleryModal from './CardGalleryModal';
 import MangekyoLoader from './MangekyoLoader';
-import GameManualModal from './GameManualModal';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { getCurrentVillageId } from '../lib/villages';
 import { useLanguage } from '../lib/i18n';
 import { fetchCharactersFromServer, getCharacters } from '../lib/characterStorage';
 import { getNewCardIds, markCardAsViewed, markNewCardIds } from '../lib/cardStorage';
+
+const EventsModal = React.lazy(() => import('./EventsModal'));
+const ShopModal = React.lazy(() => import('./ShopModal'));
+const ProfileModal = React.lazy(() => import('./ProfileModal'));
+const ProfileCardModal = React.lazy(() => import('./ProfileCardModal'));
+const CardGalleryModal = React.lazy(() => import('./CardGalleryModal'));
+const GameManualModal = React.lazy(() => import('./GameManualModal'));
+
+const SPIRAL_PATH_POINTS = (() => {
+  const points: { progress: number; cos: number; sin: number }[] = [];
+  const spiralLength = Math.PI * 3.5;
+
+  for (let angle = 0; angle < spiralLength; angle += 0.15) {
+    points.push({
+      progress: angle / spiralLength,
+      cos: Math.cos(angle),
+      sin: Math.sin(angle),
+    });
+  }
+
+  return points;
+})();
 
 declare const __WHOOSH_BUILD_VERSION__: string;
 
@@ -78,8 +94,10 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
     const context = canvas?.getContext('2d');
     if (!button || !canvas || !context) return;
 
-    canvas.width = 160;
-    canvas.height = 160;
+    const canvasScale = Math.min(0.75, (window.devicePixelRatio || 1) * 0.6);
+    canvas.width = Math.round(160 * canvasScale);
+    canvas.height = Math.round(160 * canvasScale);
+    context.scale(canvasScale, canvasScale);
     let frame = 0;
     let hovering = false;
     let animationFrame = 0;
@@ -90,9 +108,9 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
     button.addEventListener('mouseleave', onMouseLeave);
 
     const animate = () => {
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      context.clearRect(0, 0, canvas.width, canvas.height);
+      const centerX = 80;
+      const centerY = 80;
+      context.clearRect(0, 0, 160, 160);
       frame += hovering ? 2.2 : 1;
 
       const auraRadius = 60 + Math.sin(frame * 0.1) * (hovering ? 6 : 3);
@@ -109,36 +127,44 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
       context.save();
       context.translate(centerX, centerY);
       const spiralLayerCount = 14;
-      for (let i = 0; i < spiralLayerCount; i++) {
-        context.save();
-        const direction = i % 2 === 0 ? 1 : -1.4;
-        context.rotate(frame * 0.08 * direction + (i * Math.PI * 2) / spiralLayerCount);
+      for (let colorIndex = 0; colorIndex < 2; colorIndex++) {
         context.beginPath();
-        const maxRadius = 48 * (0.6 + Math.sin(frame * 0.04 + i) * 0.25);
-        for (let angle = 0; angle < Math.PI * 3.5; angle += 0.15) {
-          const radius = (angle / (Math.PI * 3.5)) * maxRadius;
-          const x = radius * Math.cos(angle);
-          const y = radius * Math.sin(angle);
-          if (angle === 0) context.moveTo(x, y);
-          else context.lineTo(x, y);
+        for (let i = colorIndex; i < spiralLayerCount; i += 2) {
+          context.save();
+          const direction = i % 2 === 0 ? 1 : -1.4;
+          context.rotate(frame * 0.08 * direction + (i * Math.PI * 2) / spiralLayerCount);
+          const maxRadius = 48 * (0.6 + Math.sin(frame * 0.04 + i) * 0.25);
+          for (const point of SPIRAL_PATH_POINTS) {
+            const radius = point.progress * maxRadius;
+            const x = radius * point.cos;
+            const y = radius * point.sin;
+            if (point.progress === 0) context.moveTo(x, y);
+            else context.lineTo(x, y);
+          }
+          context.restore();
         }
-        context.strokeStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 240, 255, 0.85)';
+        context.strokeStyle = colorIndex === 0 ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 240, 255, 0.85)';
         context.lineWidth = hovering ? 2.5 : 1.8;
         context.shadowColor = '#00f0ff';
-        context.shadowBlur = 12;
+        context.shadowBlur = 12 * canvasScale;
         context.stroke();
-        context.restore();
       }
 
       const particleCount = hovering ? 30 : 16;
-      for (let i = 0; i < particleCount; i++) {
-        const angle = frame * 0.15 * (i % 2 === 0 ? 1 : -1) + (i * 137.5 * Math.PI) / 180;
-        const distance = (Math.sin(frame * 0.06 + i) * 0.4 + 0.5) * 55;
+      for (let colorIndex = 0; colorIndex < 2; colorIndex++) {
         context.beginPath();
-        context.arc(Math.cos(angle) * distance, Math.sin(angle) * distance, Math.random() * 2 + 1, 0, Math.PI * 2);
-        context.fillStyle = i % 2 === 0 ? '#fff' : '#80f4ff';
+        for (let i = colorIndex; i < particleCount; i += 2) {
+          const angle = frame * 0.15 * (i % 2 === 0 ? 1 : -1) + (i * 137.5 * Math.PI) / 180;
+          const distance = (Math.sin(frame * 0.06 + i) * 0.4 + 0.5) * 55;
+          const x = Math.cos(angle) * distance;
+          const y = Math.sin(angle) * distance;
+          const radius = Math.random() * 2 + 1;
+          context.moveTo(x + radius, y);
+          context.arc(x, y, radius, 0, Math.PI * 2);
+        }
+        context.fillStyle = colorIndex === 0 ? '#fff' : '#80f4ff';
         context.shadowColor = '#00f0ff';
-        context.shadowBlur = 10;
+        context.shadowBlur = 10 * canvasScale;
         context.fill();
       }
       context.restore();
@@ -152,15 +178,26 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
       context.arc(centerX, centerY, coreRadius, 0, Math.PI * 2);
       context.fillStyle = core;
       context.shadowColor = '#fff';
-      context.shadowBlur = 25;
+      context.shadowBlur = 25 * canvasScale;
       context.fill();
 
       animationFrame = requestAnimationFrame(animate);
     };
 
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+      } else if (animationFrame === 0) {
+        animationFrame = requestAnimationFrame(animate);
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
     animationFrame = requestAnimationFrame(animate);
     return () => {
       cancelAnimationFrame(animationFrame);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       button.removeEventListener('mouseenter', onMouseEnter);
       button.removeEventListener('mouseleave', onMouseLeave);
       context.clearRect(0, 0, canvas.width, canvas.height);
@@ -504,71 +541,79 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
         )}
 
         {user && showProfileCardModal && (
-          <ProfileCardModal
-            profile={{
-              name: user.name,
-              username: user.username,
-              photoUrl: user.photoUrl,
-              createdAt: user.createdAt,
-              title: user.title,
-              equippedFrame: user.equippedFrame,
-              equippedFrameUrl: user.equippedFrameUrl,
-              equippedBannerUrl: user.equippedBannerUrl,
-              equippedBannerPositionY: user.equippedBannerPositionY,
-              equippedBannerPositionX: user.equippedBannerPositionX,
-              equippedShowcaseSkinUrl: user.equippedShowcaseSkinUrl,
-              xp: user.xp || 0,
-              rank: rankProgress.currentRank.name,
-              wins: user.wins || 0,
-              losses: user.losses || 0,
-              village: getCurrentVillageId(user.village),
-              collectedCardIds: user.collectedCardIds || [],
-            }}
-            isSelf={true}
-            onClose={() => setShowProfileCardModal(false)}
-            playClickSound={playClickSound}
-            playScrollSound={playScrollSound}
-            onOpenEditModal={() => {
-              setShowProfileCardModal(false);
-              setShowProfileModal(true);
-            }}
-          />
+          <Suspense fallback={null}>
+            <ProfileCardModal
+              profile={{
+                name: user.name,
+                username: user.username,
+                photoUrl: user.photoUrl,
+                createdAt: user.createdAt,
+                title: user.title,
+                equippedFrame: user.equippedFrame,
+                equippedFrameUrl: user.equippedFrameUrl,
+                equippedBannerUrl: user.equippedBannerUrl,
+                equippedBannerPositionY: user.equippedBannerPositionY,
+                equippedBannerPositionX: user.equippedBannerPositionX,
+                equippedShowcaseSkinUrl: user.equippedShowcaseSkinUrl,
+                xp: user.xp || 0,
+                rank: rankProgress.currentRank.name,
+                wins: user.wins || 0,
+                losses: user.losses || 0,
+                village: getCurrentVillageId(user.village),
+                collectedCardIds: user.collectedCardIds || [],
+              }}
+              isSelf={true}
+              onClose={() => setShowProfileCardModal(false)}
+              playClickSound={playClickSound}
+              playScrollSound={playScrollSound}
+              onOpenEditModal={() => {
+                setShowProfileCardModal(false);
+                setShowProfileModal(true);
+              }}
+            />
+          </Suspense>
         )}
 
         {user && showProfileModal && (
-          <ProfileModal
-            user={user}
-            onClose={() => setShowProfileModal(false)}
-            onUpdateUser={handleUserUpdate}
-            playClickSound={playClickSound}
-            playUahSound={playUahSound}
-            playScrollSound={playScrollSound}
-          />
+          <Suspense fallback={null}>
+            <ProfileModal
+              user={user}
+              onClose={() => setShowProfileModal(false)}
+              onUpdateUser={handleUserUpdate}
+              playClickSound={playClickSound}
+              playUahSound={playUahSound}
+              playScrollSound={playScrollSound}
+            />
+          </Suspense>
         )}
 
         {user && showGalleryModal && (
-          <CardGalleryModal
-            user={user}
-            newCardIds={newCardIds}
-            onCardViewed={handleCardViewed}
-            onClose={() => setShowGalleryModal(false)}
-            playClickSound={playClickSound}
-            onOpenShopPacks={() => {
-              setShowGalleryModal(false);
-              setShowShopModal(true);
-            }}
-          />
+          <Suspense fallback={null}>
+            <CardGalleryModal
+              user={user}
+              newCardIds={newCardIds}
+              onCardViewed={handleCardViewed}
+              onClose={() => setShowGalleryModal(false)}
+              playClickSound={playClickSound}
+              onOpenShopPacks={() => {
+                setShowGalleryModal(false);
+                setShowShopModal(true);
+              }}
+            />
+          </Suspense>
         )}
         {user && showShopModal && (
-          <ShopModal
-            user={user}
-            initialTab="bundle"
-            onClose={() => setShowShopModal(false)}
-            onUpdateUser={handleUserUpdate}
-            playClickSound={playClickSound}
-            playScrollSound={playScrollSound}
-            playWinSound={playWinSound}
-          />
+          <Suspense fallback={null}>
+            <ShopModal
+              user={user}
+              initialTab="bundle"
+              onClose={() => setShowShopModal(false)}
+              onUpdateUser={handleUserUpdate}
+              playClickSound={playClickSound}
+              playScrollSound={playScrollSound}
+              playWinSound={playWinSound}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
@@ -676,7 +721,9 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
 
       </div>
 
-      <GameManualModal isOpen={showRules} onClose={() => setShowRules(false)} playClickSound={playClickSound} />
+      <Suspense fallback={null}>
+        <GameManualModal isOpen={showRules} onClose={() => setShowRules(false)} playClickSound={playClickSound} />
+      </Suspense>
 
       {/* Footer Info */}
       <div className="main-menu-footer pt-4 max-w-7xl w-full mx-auto flex flex-col md:flex-row justify-between items-center text-xs text-[#bebebe] font-mono z-10 gap-4">

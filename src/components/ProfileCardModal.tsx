@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Shield, Sparkles, User, Trophy, Flame, CheckCircle2, CircleX, Calendar, ChevronLeft, ChevronRight, Images, Pencil } from 'lucide-react';
 import { UserProfile, NinjaCard } from '../types';
@@ -22,6 +22,78 @@ export const CARD_RARITY_GLOW: Record<NinjaCard['rarity'], { background: string;
   lendario: { background: 'linear-gradient(135deg, #b45309, #fbbf24)', shadow: 'rgba(251,191,36,0.95)' },
   secreto: { background: 'linear-gradient(135deg, #b91c1c, #fb7185)', shadow: 'rgba(248,113,113,1)' },
 };
+
+interface NumberedOwnedCard {
+  card: NinjaCard;
+  num: number;
+  copies: number;
+}
+
+function getCardImage(card: NinjaCard) {
+  return card.imageUrl || `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${card.slug || ''}/icon.jpg`;
+}
+
+const ProfileCardCollectionGrid = React.memo(function ProfileCardCollectionGrid({
+  cards,
+  isLandscape,
+  onSelectCard,
+}: {
+  cards: NumberedOwnedCard[];
+  isLandscape: boolean;
+  onSelectCard: (card: NinjaCard) => void;
+}) {
+  const rarityBadgeBackground: Record<NinjaCard['rarity'], string> = {
+    comum: 'bg-slate-500 text-white',
+    raro: 'bg-sky-600 text-white',
+    epico: 'bg-fuchsia-600 text-white',
+    lendario: 'bg-amber-500 text-slate-950',
+    secreto: 'bg-red-600 text-white',
+  };
+
+  return (
+    <div className={`${isLandscape ? 'grid-cols-3' : 'grid-cols-5'} grid gap-1.5`}>
+      {cards.map(({ card, num, copies }) => {
+        const fx = rarityFx(card.rarity);
+        const isPremium = card.rarity === 'lendario' || card.rarity === 'secreto';
+        const cardTitle = `#${String(num).padStart(3, '0')} — ${card.characterName} (${card.title}) ×${copies}`;
+        const cardClass = `profile-card-wood-figure relative aspect-[3/4] rounded-md border ${CARD_RARITY_META[card.rarity].border} ${CARD_RARITY_META[card.rarity].glow} bg-slate-900 cursor-pointer group shadow-lg flex-shrink-0 w-full overflow-hidden ${fx?.frame || ''}`;
+        const cardContent = (
+          <>
+            <img src={getCardImage(card)} alt={card.characterName} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+            {fx && <span className={fx.sweep} />}
+            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-0.5 px-1 pb-1">
+              <span className="min-w-0 truncate text-[7px] font-mono font-black leading-none text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">
+                #{String(num).padStart(3, '0')}
+              </span>
+              <span className={`shrink-0 rounded px-1 py-0.5 text-[6px] font-mono font-black uppercase leading-none ${rarityBadgeBackground[card.rarity]}`}>
+                {CARD_RARITY_META[card.rarity].label}
+              </span>
+            </div>
+          </>
+        );
+
+        return (
+          <div key={card.id} className="relative min-w-0 overflow-visible">
+            {isPremium ? (
+              <TiltCard className={cardClass} onClick={() => onSelectCard(card)} title={cardTitle}>
+                {cardContent}
+              </TiltCard>
+            ) : (
+              <button className={cardClass} onClick={() => onSelectCard(card)} title={cardTitle}>
+                {cardContent}
+              </button>
+            )}
+            {copies > 1 && (
+              <span className="profile-card-wood-copy-count pointer-events-none absolute -left-1.5 -top-1.5 z-20 flex h-5 min-w-5 items-center justify-center rounded-full border-2 px-0.5 text-[11px] font-mono font-black leading-none shadow-[0_1px_5px_rgba(0,0,0,0.7)]">
+                {copies}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+});
 
 interface OnlineBattleHistoryRecord {
   roomId: string;
@@ -91,22 +163,31 @@ export function Tilt3D({ children, className, glareRadius = 'rounded-md', enable
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const glareRef = useRef<HTMLSpanElement>(null);
+  const pointerPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const tiltFrameRef = useRef(0);
 
   const applyTilt = useCallback((clientX: number, clientY: number) => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const x = (clientX - rect.left) / rect.width;   // 0..1
-    const y = (clientY - rect.top) / rect.height;    // 0..1
-    const rotY = (x - 0.5) * 24;   // ±12°
-    const rotX = (0.5 - y) * 24;   // ±12°
-    el.style.transform = `perspective(500px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale3d(1.12,1.12,1.12)`;
-    el.style.transition = 'transform 0.06s ease-out';
-    const g = glareRef.current;
-    if (g) {
-      g.style.background = `radial-gradient(circle at ${x * 100}% ${y * 100}%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.12) 30%, transparent 60%)`;
-      g.style.opacity = '1';
-    }
+    pointerPositionRef.current = { x: clientX, y: clientY };
+    if (tiltFrameRef.current) return;
+    tiltFrameRef.current = requestAnimationFrame(() => {
+      tiltFrameRef.current = 0;
+      const el = wrapRef.current;
+      const pointer = pointerPositionRef.current;
+      if (!el || !pointer) return;
+      const rect = el.getBoundingClientRect();
+      const x = (pointer.x - rect.left) / rect.width;
+      const y = (pointer.y - rect.top) / rect.height;
+      const rotY = (x - 0.5) * 24;
+      const rotX = (0.5 - y) * 24;
+      el.style.transform = `perspective(500px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale3d(1.12,1.12,1.12)`;
+      el.style.transition = 'transform 0.06s ease-out';
+      el.style.willChange = 'transform';
+      const g = glareRef.current;
+      if (g) {
+        g.style.background = `radial-gradient(circle at ${x * 100}% ${y * 100}%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.12) 30%, transparent 60%)`;
+        g.style.opacity = '1';
+      }
+    });
   }, []);
 
   // Encostou (mouse OU dedo) em qualquer ponto da carta → anima imediatamente.
@@ -119,15 +200,25 @@ export function Tilt3D({ children, className, glareRadius = 'rounded-md', enable
   }, [applyTilt]);
 
   const resetTilt = useCallback(() => {
+    if (tiltFrameRef.current) {
+      cancelAnimationFrame(tiltFrameRef.current);
+      tiltFrameRef.current = 0;
+    }
+    pointerPositionRef.current = null;
     const el = wrapRef.current;
     if (!el) return;
     el.style.transform = 'perspective(500px) rotateX(0deg) rotateY(0deg) scale3d(1,1,1)';
     el.style.transition = 'transform 0.45s ease-out';
+    el.style.removeProperty('will-change');
     const g = glareRef.current;
     if (g) {
       g.style.opacity = '0';
       g.style.transition = 'opacity 0.35s ease';
     }
+  }, []);
+
+  useEffect(() => () => {
+    if (tiltFrameRef.current) cancelAnimationFrame(tiltFrameRef.current);
   }, []);
 
   // Mouse: ao sair/dedo solto em DESKTOP, reseta (hover clássico).
@@ -146,7 +237,6 @@ export function Tilt3D({ children, className, glareRadius = 'rounded-md', enable
       ref={wrapRef}
       style={enabled ? {
         transformStyle: 'preserve-3d',
-        willChange: 'transform',
         touchAction: 'pan-y',
         userSelect: 'none',
         WebkitTouchCallout: 'none',
@@ -336,24 +426,29 @@ export default function ProfileCardModal({
   const rankR = rankProgress.currentRank;
 
   // Figurinhas do jogador (coleção) + paginação
-  const cardImage = (c: NinjaCard) => c.imageUrl || `https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/${c.slug || ''}/icon.jpg`;
-  const cardCopies = new Map<string, number>();
-  (profile.collectedCardIds || []).forEach(id => cardCopies.set(id, (cardCopies.get(id) || 0) + 1));
-  const ownedCards = Array.from(cardCopies.keys())
-    .map(id => allCards.find(c => c.id === id))
-    .filter((c): c is NinjaCard => !!c)
+  const cardCopies = useMemo(() => {
+    const copies = new Map<string, number>();
+    (profile.collectedCardIds || []).forEach(id => copies.set(id, (copies.get(id) || 0) + 1));
+    return copies;
+  }, [profile.collectedCardIds]);
+  const cardsById = useMemo(() => new Map(allCards.map(card => [card.id, card])), [allCards]);
+  const ownedCards = useMemo(() => Array.from(cardCopies.keys())
+    .map(id => cardsById.get(id))
+    .filter((card): card is NinjaCard => !!card)
     .sort((a, b) => {
-      // Raridade maior primeiro e, dentro da mesma raridade, por numeração (id numérico)
       const rarityDiff = RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity);
       if (rarityDiff !== 0) return rarityDiff;
       return String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
-    });
-  // Numeração global (renumeradas em ordem sequencial)
-  const numberedOwned = ownedCards.map((card, i) => ({
+    }), [cardCopies, cardsById]);
+  const numberedOwned = useMemo(() => ownedCards.map((card, i) => ({
     card,
     num: i + 1,
     copies: cardCopies.get(card.id) || 1,
-  }));
+  })), [ownedCards, cardCopies]);
+  const selectOwnedCard = useCallback((card: NinjaCard) => {
+    if (playClickSound) playClickSound();
+    setLightboxCard(card);
+  }, [playClickSound]);
 
   // Histórico da Arena — bloco reutilizável:
   // - mobile landscape → abaixo das curtidas do perfil (coluna esquerda)
@@ -668,55 +763,11 @@ export default function ProfileCardModal({
             {ownedCards.length === 0 ? (
               <p className="text-[9px] text-slate-500 font-mono text-center py-3">{t('Nenhuma figurinha ainda. Abra pacotes para colecionar!', 'No cards yet. Open packs to collect!')}</p>
             ) : (
-              <div className={`${isLandscape ? 'grid-cols-3' : 'grid-cols-5'} grid gap-1.5`}>
-                {numberedOwned.map(({ card: c, num, copies }) => {
-                  const fx = rarityFx(c.rarity);
-                  const isPremium = c.rarity === 'lendario' || c.rarity === 'secreto';
-                  const cardTitle = `#${String(num).padStart(3, '0')} — ${c.characterName} (${c.title}) ×${copies}`;
-                  const rarityBadgeBackground: Record<NinjaCard['rarity'], string> = {
-                    comum: 'bg-slate-500 text-white',
-                    raro: 'bg-sky-600 text-white',
-                    epico: 'bg-fuchsia-600 text-white',
-                    lendario: 'bg-amber-500 text-slate-950',
-                    secreto: 'bg-red-600 text-white',
-                  };
-                  const cardContent = (
-                    <>
-                      <img src={cardImage(c)} alt={c.characterName} className="w-full h-full object-cover" />
-                      {fx && <span className={fx.sweep} />}
-                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-0.5 px-1 pb-1">
-                        <span className="min-w-0 truncate text-[7px] font-mono font-black leading-none text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">
-                          #{String(num).padStart(3, '0')}
-                        </span>
-                        <span className={`shrink-0 rounded px-1 py-0.5 text-[6px] font-mono font-black uppercase leading-none ${rarityBadgeBackground[c.rarity]}`}>
-                          {CARD_RARITY_META[c.rarity].label}
-                        </span>
-                      </div>
-                    </>
-                  );
-                  const cardClass = `profile-card-wood-figure relative aspect-[3/4] rounded-md border ${CARD_RARITY_META[c.rarity].border} ${CARD_RARITY_META[c.rarity].glow} bg-slate-900 cursor-pointer group shadow-lg flex-shrink-0 w-full overflow-hidden ${fx?.frame || ''}`;
-                  const cardClick = () => { if (playClickSound) playClickSound(); setLightboxCard(c); };
-
-                  return (
-                    <div key={c.id} className="relative min-w-0 overflow-visible">
-                      {isPremium ? (
-                        <TiltCard className={cardClass} onClick={cardClick} title={cardTitle}>
-                          {cardContent}
-                        </TiltCard>
-                      ) : (
-                        <button className={cardClass} onClick={cardClick} title={cardTitle}>
-                          {cardContent}
-                        </button>
-                      )}
-                      {copies > 1 && (
-                        <span className="profile-card-wood-copy-count pointer-events-none absolute -left-1.5 -top-1.5 z-20 flex h-5 min-w-5 items-center justify-center rounded-full border-2 px-0.5 text-[11px] font-mono font-black leading-none shadow-[0_1px_5px_rgba(0,0,0,0.7)]">
-                          {copies}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <ProfileCardCollectionGrid
+                cards={numberedOwned}
+                isLandscape={isLandscape}
+                onSelectCard={selectOwnedCard}
+              />
             )}
           </div>
         </motion.div>
@@ -779,7 +830,7 @@ export default function ProfileCardModal({
                 {(lightboxCard.rarity === 'lendario' || lightboxCard.rarity === 'secreto') ? (
                   <Tilt3D key={lightboxCard.id} className="relative" glareRadius="rounded-2xl">
                     <div className={`relative ${isLandscape ? 'w-[min(52vh,360px)]' : 'w-[min(82vw,520px)]'} max-h-[78dvh] aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
-                      <img src={cardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
+                      <img src={getCardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
                       <span
                         aria-hidden="true"
                         className={`pointer-events-none absolute inset-0 ${rarityFx(lightboxCard.rarity)?.sweep}`}
@@ -788,7 +839,7 @@ export default function ProfileCardModal({
                   </Tilt3D>
                 ) : (
                   <div className={`relative ${isLandscape ? 'w-[min(52vh,360px)]' : 'w-[min(82vw,520px)]'} max-h-[78dvh] aspect-[3/4] rounded-2xl overflow-hidden border-4 bg-slate-950 shadow-2xl ${CARD_RARITY_META[lightboxCard.rarity].border} ${CARD_RARITY_META[lightboxCard.rarity].glow}`}>
-                    <img src={cardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
+                    <img src={getCardImage(lightboxCard)} alt={lightboxCard.characterName} className="absolute inset-0 w-full h-full object-cover" />
                   </div>
                 )}
               </div>

@@ -29,16 +29,16 @@ import {
   type AssetDownloadProgress,
 } from './lib/assetDownload';
 
-import MainMenu from './components/MainMenu';
-import LobbyScreen from './components/LobbyScreen';
-import CharacterSelect from './components/CharacterSelect';
-import BattleBoard from './components/BattleBoard';
-import ArenaLoading from './components/ArenaLoading';
-import AdminDashboard from './components/AdminDashboard';
-import AuthScreen from './components/AuthScreen';
-import FirstBattleTutorial from './components/FirstBattleTutorial';
-import SkinMedia from './components/SkinMedia';
-import QuestBoard from './components/QuestBoard';
+const MainMenu = React.lazy(() => import('./components/MainMenu'));
+const LobbyScreen = React.lazy(() => import('./components/LobbyScreen'));
+const CharacterSelect = React.lazy(() => import('./components/CharacterSelect'));
+const BattleBoard = React.lazy(() => import('./components/BattleBoard'));
+const ArenaLoading = React.lazy(() => import('./components/ArenaLoading'));
+const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
+const AuthScreen = React.lazy(() => import('./components/AuthScreen'));
+const FirstBattleTutorial = React.lazy(() => import('./components/FirstBattleTutorial'));
+const SkinMedia = React.lazy(() => import('./components/SkinMedia'));
+const QuestBoard = React.lazy(() => import('./components/QuestBoard'));
 // import RotateOverlay from './components/RotateOverlay'; // DESABILITADO temporariamente — reativar quando necessário
 
 function ScreenLoadingFallback() {
@@ -364,6 +364,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    void import('./components/MainMenu').catch((error: unknown) => {
+      console.error('Não foi possível carregar o menu principal em segundo plano:', error);
+    });
     if (!assetPreparationComplete && !assetDownloadStartedRef.current) {
       void prepareGameAssets();
     }

@@ -2173,7 +2173,7 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
     if (!start || !target) return;
 
     const resizeCanvas = () => {
-      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
       canvas.width = Math.round(window.innerWidth * pixelRatio);
       canvas.height = Math.round(window.innerHeight * pixelRatio);
       canvas.style.width = `${window.innerWidth}px`;
