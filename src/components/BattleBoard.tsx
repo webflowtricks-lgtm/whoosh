@@ -2706,9 +2706,10 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
     }
   };
 
-function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
+function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = false): CombatCharacter[] {
   if (!combatants || !Array.isArray(combatants)) return [];
   const allKnownChars = getCharacters();
+  const shopItems = restoreUserSkins ? getShopItems() : [];
   return combatants.map(c => {
     if (!c || !c.character) return c;
     const baseChar = allKnownChars.find(
@@ -2722,10 +2723,37 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
       const savedSkin = savedSkins.find(skin => skin.id === baseSkin.id);
       return { ...baseSkin, ...savedSkin, image: savedSkin?.image || baseSkin.image };
     });
-    const selectedSkinId = c.character.selectedSkinId;
-    const selectedSkin = restoredSkins.find(skin => skin.id === selectedSkinId);
-    const selectedSkinUrl = c.character.selectedSkinUrl ||
-      (selectedSkinId === 'default' ? baseChar.portrait : selectedSkin?.image) ||
+    const savedSkinId = c.character.selectedSkinId;
+    const savedCharacterSkin = restoredSkins.find(skin => skin.id === savedSkinId);
+    const savedShopSkin = shopItems.find(item =>
+      item.id === savedSkinId &&
+      item.category === 'skin' &&
+      !!item.skinImageUrl &&
+      item.characterName?.trim().toLowerCase() === baseChar.name.trim().toLowerCase(),
+    );
+    const hasSavedSkinSelection = savedSkinId === 'default' || !!savedCharacterSkin || !!savedShopSkin;
+    const equippedCharacterSkin = restoreUserSkins && !hasSavedSkinSelection
+      ? restoredSkins.find(skin => skin.id === user.equippedCharacterSkins?.[baseChar.id])
+      : undefined;
+    const equippedShopSkinId = restoreUserSkins && !hasSavedSkinSelection && !equippedCharacterSkin
+      ? user.equippedShopSkins?.[baseChar.id]
+      : undefined;
+    const equippedShopSkin = equippedShopSkinId && (user.unlockedSkins || []).includes(equippedShopSkinId)
+      ? shopItems.find(item =>
+        item.id === equippedShopSkinId &&
+        item.category === 'skin' &&
+        !!item.skinImageUrl &&
+        item.characterName?.trim().toLowerCase() === baseChar.name.trim().toLowerCase(),
+      )
+      : undefined;
+    const selectedSkinId = savedSkinId === 'default'
+      ? 'default'
+      : savedCharacterSkin?.id || savedShopSkin?.id || equippedCharacterSkin?.id || equippedShopSkin?.id || savedSkinId;
+    const selectedSkinUrl = selectedSkinId === 'default'
+      ? baseChar.portrait
+      : restoredSkins.find(skin => skin.id === selectedSkinId)?.image ||
+      shopItems.find(item => item.id === selectedSkinId && item.category === 'skin')?.skinImageUrl ||
+      c.character.selectedSkinUrl ||
       baseChar.selectedSkinUrl ||
       restoredSkins[0]?.image ||
       baseChar.portrait;
@@ -2755,6 +2783,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
         ...baseChar,
         ...c.character,
         skins: restoredSkins.length > 0 ? restoredSkins : savedSkins,
+        selectedSkinId,
         selectedSkinUrl,
         skills: fullSkills
       }
@@ -2775,7 +2804,7 @@ function hydrateCombatants(combatants: CombatCharacter[]): CombatCharacter[] {
           ? (iGoFirstOnTurn(1) ? 'player' : 'enemy')
           : (Math.random() < 0.5 ? 'player' : 'enemy');
       }
-      const hydratedPlayer = hydrateCombatants(restoredState.playerCombatants);
+      const hydratedPlayer = hydrateCombatants(restoredState.playerCombatants, true);
       const hydratedEnemy = hydrateCombatants(restoredState.enemyCombatants);
       setPlayerCombatants(hydratedPlayer);
       setEnemyCombatants(hydratedEnemy);
@@ -8616,7 +8645,11 @@ splashOnlyTargets = splashPool.filter(c =>
                 newSkills.push(copiedSkill);
               }
               source.character.skills = newSkills;
-              if (action.isPlayer && source.character.id === 'kakashi' && skill.name === 'Copied Sharingan') {
+              if (
+                source.character.id === 'kakashi' &&
+                skill.name === 'Copied Sharingan' &&
+                (!onlineParams?.isOnline || action.isPlayer)
+              ) {
                 playCustomSound('kakashi/kakashi_jutsucopiado');
               }
               newLogs.push({

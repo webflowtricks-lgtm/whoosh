@@ -10,7 +10,7 @@ import {
   isSkinUnlocked,
   normalizeSkinRarity,
 } from '../src/lib/skinFragments';
-import type { Character } from '../src/types';
+import type { Character, UserProfile } from '../src/types';
 
 test('skin fragment catalog keeps unique, usable skin entries', () => {
   const skins = getSkinFragmentCatalog([
@@ -37,12 +37,15 @@ test('skin fragment catalog keeps unique, usable skin entries', () => {
   assert.equal(isSkinUnlocked({ skinFragments: { 'naruto-sage': 49 } }, 'naruto-sage'), false);
 });
 
-test('skin fragment pack roll is weighted toward one fragment and always yields 1-3', () => {
+test('skin fragment pack roll yields a uniform quantity from 1 to 10', () => {
   assert.equal(rollSkinFragmentQuantity(0), 1);
-  assert.equal(rollSkinFragmentQuantity(0.7999), 1);
-  assert.equal(rollSkinFragmentQuantity(0.8), 2);
-  assert.equal(rollSkinFragmentQuantity(0.9799), 2);
-  assert.equal(rollSkinFragmentQuantity(0.98), 3);
+  assert.equal(rollSkinFragmentQuantity(0.0999), 1);
+  assert.equal(rollSkinFragmentQuantity(0.1), 2);
+  assert.equal(rollSkinFragmentQuantity(0.2999), 3);
+  assert.equal(rollSkinFragmentQuantity(0.3), 4);
+  assert.equal(rollSkinFragmentQuantity(0.8999), 9);
+  assert.equal(rollSkinFragmentQuantity(0.9), 10);
+  assert.equal(rollSkinFragmentQuantity(0.9999), 10);
   assert.throws(() => rollSkinFragmentQuantity(1), RangeError);
   assert.equal(SKIN_FRAGMENT_PACK_COST, 75_000);
   assert.equal(SKIN_FRAGMENT_UNLOCK_TARGET, 50);
@@ -63,7 +66,7 @@ test('newly unlocked character skins are equipped without changing prior unlocks
     unlockedSkins: ['naruto-sage'],
     equippedCharacterSkins: { naruto: 'naruto-sage' },
   };
-  const updatedUser = {
+  const updatedUser: UserProfile = {
     username: 'test',
     name: 'Test',
     photoUrl: '',
@@ -81,16 +84,43 @@ test('skin unlock evaluation also auto-equips when fragments reach the threshold
     name: 'Sasuke',
     skins: [{ id: 'sasuke-hebi', name: 'Hebi', image: '/hebi.png' }],
   }] as Character[];
+  const updatedUser: UserProfile = {
+    username: 'test',
+    name: 'Test',
+    photoUrl: '',
+    skinFragments: { 'sasuke-hebi': 50 },
+  };
   const result = autoEquipNewlyUnlockedCharacterSkins(
     { skinFragments: { 'sasuke-hebi': 49 } },
-    {
-      username: 'test',
-      name: 'Test',
-      photoUrl: '',
-      skinFragments: { 'sasuke-hebi': 50 },
-    },
+    updatedUser,
     characters,
   );
 
   assert.equal(result.equippedCharacterSkins?.sasuke, 'sasuke-hebi');
+});
+
+test('newly unlocked skill skins are equipped on their character and skill', () => {
+  const shopItems = [{
+    id: 'skill-skin-rasengan-perfect',
+    name: 'Rasengan Perfeito',
+    category: 'skill_skin',
+    description: '',
+    currency: 'ryos',
+    price: 1500,
+    skillCharacterId: 'naruto',
+    skillName: 'Rasengan',
+  }] as const;
+  const result = autoEquipNewlyUnlockedCharacterSkins(
+    { unlockedSkillSkins: [] },
+    {
+      username: 'test',
+      name: 'Test',
+      photoUrl: '',
+      unlockedSkillSkins: ['skill-skin-rasengan-perfect'],
+    },
+    [],
+    [...shopItems],
+  );
+
+  assert.equal(result.equippedSkillSkins?.['naruto:Rasengan'], 'skill-skin-rasengan-perfect');
 });

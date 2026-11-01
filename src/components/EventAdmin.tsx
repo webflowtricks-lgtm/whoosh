@@ -9,13 +9,14 @@ import {
   CheckCircle, AlertTriangle, Search, Trophy, Gift, 
   Clock, Sparkles, Tag, Eye, Star, Target, Shield, Upload, ImageIcon, Shirt, User
 } from 'lucide-react';
-import { NinjaEvent, NinjaEventObjective, Character, CharacterSkin, ShopItem } from '../types';
+import { NinjaEvent, NinjaEventObjective, Character, CharacterSkin, ShopItem, SkinRarity } from '../types';
 import { getEvents, saveEvents, resetToDefaultEvents, fetchEventsFromServer } from '../lib/eventStorage';
 import { UCHIHA_EVENT_ID } from '../lib/uchihaEvent';
 import { EVENT_THEMES, getDefaultEventTheme, getEventThemeStyle } from '../lib/eventThemes';
 import { getPngFrames, addPngFrame, deletePngFrame, PngFrameItem, resetToDefaultPngFrames, fetchPngFramesFromServer } from '../lib/frameStorage';
 import { getCustomBanners, addCustomBanner, deleteCustomBanner, resetToDefaultCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
 import { getCharacters, saveCharacters, fetchCharactersFromServer } from '../lib/characterStorage';
+import { normalizeSkinRarity, SKIN_RARITY_META, SKIN_RARITY_ORDER } from '../lib/skinFragments';
 import { motion, AnimatePresence } from 'motion/react';
 import SkinMedia from './SkinMedia';
 import { getSkinUploadError } from '../lib/skinMedia';
@@ -64,7 +65,8 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
   const [newSkinCharId, setNewSkinCharId] = useState<string>('');
   const [newSkinName, setNewSkinName] = useState<string>('');
   const [newSkinImage, setNewSkinImage] = useState<string>('');
-  const [editingSkinInfo, setEditingSkinInfo] = useState<{ charId: string; skinIdx: number; name: string; image: string } | null>(null);
+  const [newSkinRarity, setNewSkinRarity] = useState<SkinRarity>('comum');
+  const [editingSkinInfo, setEditingSkinInfo] = useState<{ charId: string; skinIdx: number; name: string; image: string; rarity: SkinRarity } | null>(null);
 
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -327,7 +329,8 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
           updatedSkins[skinIdx] = {
             ...updatedSkins[skinIdx],
             name: newSkinName.trim(),
-            image: newSkinImage.trim()
+            image: newSkinImage.trim(),
+            rarity: newSkinRarity,
           };
           return { ...char, skins: updatedSkins };
         }
@@ -340,6 +343,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
         setEditingSkinInfo(null);
         setNewSkinName('');
         setNewSkinImage('');
+        setNewSkinRarity('comum');
         showSuccess('Skin do personagem atualizada com sucesso!');
       } catch (error) {
         showError(error instanceof Error ? error.message : 'Falha ao salvar a skin global.');
@@ -352,7 +356,8 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
           const newSkinItem: CharacterSkin = {
             id: `${char.id}-skin-${Date.now().toString().slice(-4)}`,
             name: newSkinName.trim(),
-            image: newSkinImage.trim()
+            image: newSkinImage.trim(),
+            rarity: newSkinRarity,
           };
           return { ...char, skins: [...currentSkins, newSkinItem] };
         }
@@ -364,6 +369,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
         setCharactersList(updatedChars);
         setNewSkinName('');
         setNewSkinImage('');
+        setNewSkinRarity('comum');
         showSuccess(`Nova skin adicionada para ${targetChar?.name || 'Ninja'}!`);
       } catch (error) {
         showError(error instanceof Error ? error.message : 'Falha ao adicionar a skin global.');
@@ -373,10 +379,12 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
 
   const handleEditSkin = (charId: string, skinIdx: number, skin: CharacterSkin) => {
     playClickSound();
-    setEditingSkinInfo({ charId, skinIdx, name: skin.name, image: skin.image });
+    const rarity = normalizeSkinRarity(skin.rarity);
+    setEditingSkinInfo({ charId, skinIdx, name: skin.name, image: skin.image, rarity });
     setNewSkinCharId(charId);
     setNewSkinName(skin.name);
     setNewSkinImage(skin.image);
+    setNewSkinRarity(rarity);
   };
 
   const handleCancelEditSkin = () => {
@@ -384,6 +392,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
     setEditingSkinInfo(null);
     setNewSkinName('');
     setNewSkinImage('');
+    setNewSkinRarity('comum');
   };
 
   const handleDeleteSkin = async (charId: string, skinIdx: number, skinName: string) => {
@@ -1838,6 +1847,23 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
 
               <div>
                 <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">
+                  Raridade da Skin
+                </label>
+                <select
+                  value={newSkinRarity}
+                  onChange={e => setNewSkinRarity(e.target.value as SkinRarity)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none font-mono"
+                >
+                  {SKIN_RARITY_ORDER.map(rarity => (
+                    <option key={rarity} value={rarity}>
+                      {SKIN_RARITY_META[rarity].labelPt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">
                   Skin PNG ou vídeo WebM (URL ou Arquivo) *
                 </label>
                 <div className="space-y-2">
@@ -1975,6 +2001,10 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                       <h4 className="text-xs font-mono font-bold text-slate-100 truncate uppercase">
                         {skin.name}
                       </h4>
+
+                      <span className={`inline-flex rounded border px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase ${SKIN_RARITY_META[normalizeSkinRarity(skin.rarity)].className}`}>
+                        {SKIN_RARITY_META[normalizeSkinRarity(skin.rarity)].labelPt}
+                      </span>
 
                       <p className="text-[9px] font-mono text-slate-500 truncate">
                         ID: {skin.id || `skin-${skinIdx}`}

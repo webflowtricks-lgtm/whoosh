@@ -36,7 +36,7 @@ const SKIN_FRAGMENT_PACK: ShopItem = {
   id: SKIN_FRAGMENT_PACK_ID,
   name: 'Pacote de Fragmentos de Skin',
   category: 'bundle',
-  description: 'Receba fragmentos de uma skin aleatória. 80% de chance de 1, 18% de 2 e 2% de 3 fragmentos.',
+  description: 'Receba de 1 a 10 fragmentos de uma skin aleatória.',
   currency: 'ryos',
   price: SKIN_FRAGMENT_PACK_COST,
   icon: '/static/img/pacote.webp',
@@ -499,8 +499,8 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         </AnimatePresence>
 
         {/* Categories Tab Navigation */}
-        <div className="shop-modal-tabs flex items-center gap-2 border-b border-slate-200 bg-slate-50 p-3">
-          <div ref={tabsContainerRef} className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
+        <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 p-3">
+          <div ref={tabsContainerRef} className="shop-modal-tabs flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
             {[
               { id: 'all' as const, label: 'TODOS', icon: ShoppingBag },
               ...shopTabOrder.map(id => {
@@ -574,7 +574,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                     className="h-full w-full object-contain p-3"
                   />
                   <span className="absolute left-1 top-1 rounded border border-sky-200 bg-sky-900/90 px-1.5 py-0.5 text-[7px] font-mono font-black uppercase tracking-wider text-sky-100 sm:text-[9px]">
-                    {t('1 a 3 fragmentos', '1 to 3 fragments')}
+                    {t('1 a 10 fragmentos', '1 to 10 fragments')}
                   </span>
                 </div>
                 <div className="mt-1 min-w-0">
@@ -582,7 +582,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                     {SKIN_FRAGMENT_PACK.name}
                   </h3>
                   <p className="mt-1 line-clamp-2 min-h-8 text-[8px] leading-tight text-slate-600 sm:text-[10px]">
-                    {t('Skin aleatória. Chance: 80% de 1, 18% de 2 e 2% de 3 fragmentos.', 'Random skin. Odds: 80% for 1, 18% for 2, and 2% for 3 fragments.')}
+                    {t('Skin aleatória com quantidade de 1 a 10 fragmentos.', 'Random skin with 1 to 10 fragments.')}
                   </p>
                 </div>
                 <div className="mt-1.5 flex items-center justify-between gap-1 border-t border-sky-200 pt-1.5 sm:mt-2 sm:pt-2">

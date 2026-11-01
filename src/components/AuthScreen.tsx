@@ -888,7 +888,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
                   disabled={loading}
                   onMouseEnter={event => event.currentTarget.parentElement?.classList.add('auth-chidori-shake')}
                   onMouseLeave={event => event.currentTarget.parentElement?.classList.remove('auth-chidori-shake')}
-                  className="auth-chidori-button group relative z-10 flex w-full items-center justify-center gap-4 rounded-2xl px-3 py-2 text-center text-white disabled:cursor-wait disabled:opacity-60 sm:px-4 sm:py-2.5"
+                  className="auth-chidori-button group relative z-10 flex w-full items-center justify-center gap-2 rounded-2xl px-1.5 py-1 text-center text-white disabled:cursor-wait disabled:opacity-60 sm:px-2 sm:py-1.5"
                 >
                   <span className="auth-chidori-inner" aria-hidden="true">
                     <span className="auth-chidori-hover-flash" />

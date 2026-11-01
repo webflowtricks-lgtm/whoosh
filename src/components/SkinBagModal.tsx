@@ -1,5 +1,5 @@
 import React from 'react';
-import { Backpack, Lock, Sparkles, X } from 'lucide-react';
+import { Backpack, Lock, X } from 'lucide-react';
 import type { Character, UserProfile } from '../types';
 import {
   getSkinFragmentCatalog,
@@ -87,14 +87,12 @@ export default function SkinBagModal({ user, characters, onClose, playClickSound
                     alt={`${skin.name} - ${skin.characterName}`}
                     className="h-full w-full object-contain"
                   />
-                  <span className={`absolute right-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide ${
-                    isUnlocked
-                      ? 'border border-orange-200 bg-orange-50 text-orange-800'
-                      : 'border border-blue-200 bg-white/95 text-blue-700'
-                  }`}>
-                    {isUnlocked ? <Sparkles className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                    {isUnlocked ? t('Desbloqueada', 'Unlocked') : t('Em coleta', 'Collecting')}
-                  </span>
+                  {!isUnlocked && (
+                    <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full border border-blue-200 bg-white/95 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-blue-700">
+                      <Lock className="h-3 w-3" />
+                      {t('Em coleta', 'Collecting')}
+                    </span>
+                  )}
                 </div>
                 <div className="space-y-2 p-3">
                   <div className="min-w-0">

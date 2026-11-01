@@ -1,4 +1,4 @@
-import type { Character, SkinRarity, UserProfile } from '../types';
+import type { Character, ShopItem, SkinRarity, UserProfile } from '../types';
 
 export const SKIN_FRAGMENT_PACK_COST = 75_000;
 export const SKIN_FRAGMENT_UNLOCK_TARGET = 50;
@@ -24,13 +24,15 @@ export function isSkinUnlocked(user: Pick<UserProfile, 'unlockedSkins' | 'skinFr
 }
 
 export function autoEquipNewlyUnlockedCharacterSkins(
-  previousUser: Pick<UserProfile, 'unlockedSkins' | 'skinFragments' | 'equippedCharacterSkins'> | null,
+  previousUser: Pick<UserProfile, 'unlockedSkins' | 'skinFragments' | 'equippedCharacterSkins' | 'unlockedSkillSkins'> | null,
   updatedUser: UserProfile,
   characters: Character[],
+  shopItems: ShopItem[] = [],
 ): UserProfile {
   if (!previousUser) return updatedUser;
 
   const newlyUnlockedByCharacter = new Map<string, string>();
+  const newlyUnlockedSkillSkins = new Map<string, string>();
   for (const character of characters) {
     for (const skin of character.skins || []) {
       if (!isSkinUnlocked(previousUser, skin.id) && isSkinUnlocked(updatedUser, skin.id)) {
@@ -38,13 +40,33 @@ export function autoEquipNewlyUnlockedCharacterSkins(
       }
     }
   }
-  if (newlyUnlockedByCharacter.size === 0) return updatedUser;
+  const previousSkillSkins = new Set(previousUser.unlockedSkillSkins || []);
+  const unlockedSkillSkins = new Set(updatedUser.unlockedSkillSkins || []);
+  for (const item of shopItems) {
+    if (
+      item.category === 'skill_skin' &&
+      item.skillCharacterId &&
+      item.skillName &&
+      !previousSkillSkins.has(item.id) &&
+      unlockedSkillSkins.has(item.id)
+    ) {
+      newlyUnlockedSkillSkins.set(
+        `${item.skillCharacterId}:${item.skillName}`,
+        item.id,
+      );
+    }
+  }
+  if (newlyUnlockedByCharacter.size === 0 && newlyUnlockedSkillSkins.size === 0) return updatedUser;
 
   const equippedCharacterSkins = { ...updatedUser.equippedCharacterSkins };
   for (const [characterId, skinId] of newlyUnlockedByCharacter) {
     equippedCharacterSkins[characterId] = skinId;
   }
-  return { ...updatedUser, equippedCharacterSkins };
+  const equippedSkillSkins = { ...updatedUser.equippedSkillSkins };
+  for (const [equipKey, skinId] of newlyUnlockedSkillSkins) {
+    equippedSkillSkins[equipKey] = skinId;
+  }
+  return { ...updatedUser, equippedCharacterSkins, equippedSkillSkins };
 }
 
 export interface SkinFragmentCatalogEntry {
@@ -88,7 +110,5 @@ export function rollSkinFragmentQuantity(randomValue: number): number {
   if (!Number.isFinite(randomValue) || randomValue < 0 || randomValue >= 1) {
     throw new RangeError('O sorteio de fragmentos deve estar entre 0 e 1.');
   }
-  if (randomValue < 0.8) return 1;
-  if (randomValue < 0.98) return 2;
-  return 3;
+  return Math.floor(randomValue * 10) + 1;
 }

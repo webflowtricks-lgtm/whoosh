@@ -10,7 +10,7 @@ import { matchFetch } from './lib/matchFetch';
 import { fetchCharactersFromServer, getCharacters } from './lib/characterStorage';
 import { autoEquipNewlyUnlockedCharacterSkins } from './lib/skinFragments';
 import { fetchRanksFromServer } from './lib/rankStorage';
-import { fetchShopItemsFromServer } from './lib/shopStorage';
+import { fetchShopItemsFromServer, getShopItems } from './lib/shopStorage';
 import { fetchEventsFromServer } from './lib/eventStorage';
 import { fetchCustomBannersFromServer } from './lib/bannerStorage';
 import { fetchPngFramesFromServer } from './lib/frameStorage';
@@ -631,6 +631,15 @@ export default function App() {
     setBattleFinished(false);
     startBattleMusic();
     setScreen('battle');
+  };
+
+  const handleCharacterSelectProfileUpdate = (updatedUser: UserProfile) => {
+    setUser(updatedUser);
+    try {
+      localStorage.setItem('naruto_user_profile', JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error('Failed to save equipped skins to the local profile:', error);
+    }
   };
 
   const handleBattleEnd = async (
@@ -1277,6 +1286,7 @@ export default function App() {
                 user,
                 { ...updated, xp: Math.max(0, updated.xp ?? 0) },
                 getCharacters(),
+                getShopItems(),
               );
               setUser(safe);
               localStorage.setItem('naruto_user_profile', JSON.stringify(safe));
@@ -1311,6 +1321,7 @@ export default function App() {
                 user,
                 { ...updated, xp: Math.max(0, updated.xp ?? 0) },
                 getCharacters(),
+                getShopItems(),
               );
               setUser(safe);
               localStorage.setItem('naruto_user_profile', JSON.stringify(safe));
@@ -1326,6 +1337,7 @@ export default function App() {
                 user,
                 { ...updated, xp: Math.max(0, updated.xp ?? 0) },
                 getCharacters(),
+                getShopItems(),
               );
               setUser(safe);
               localStorage.setItem('naruto_user_profile', JSON.stringify(safe));
@@ -1348,6 +1360,7 @@ export default function App() {
             playTargetSound={playTargetSound}
             onProcessingChange={setIsProcessing}
             user={user}
+            onUpdateUser={handleCharacterSelectProfileUpdate}
             activeQuest={activeQuest}
             onBack={() => setScreen(activeQuest ? 'quests' : 'lobby')}
           />

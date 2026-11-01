@@ -44,11 +44,12 @@ interface CharacterSelectProps {
   playTargetSound: () => void;
   onProcessingChange: (processing: boolean) => void;
   user: UserProfile;
+  onUpdateUser: (updatedUser: UserProfile) => void;
   activeQuest?: Quest | null;
   onBack?: () => void;
 }
 
-export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, playUahSound, playTargetSound, onProcessingChange, user, activeQuest, onBack }: CharacterSelectProps) {
+export default function CharacterSelect({ onConfirmTeams, playClickSound, playScrollSound, playUahSound, playTargetSound, onProcessingChange, user, onUpdateUser, activeQuest, onBack }: CharacterSelectProps) {
   const { t, language } = useLanguage();
   const [charList, setCharList] = useState<Character[]>(() => getCharacters());
   const [catalogStatus, setCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -349,23 +350,40 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const [equippedSkillSkins, setEquippedSkillSkins] = useState<Record<string, string>>(() => user.equippedSkillSkins || {});
   const [shopItems, setShopItems] = useState<ShopItem[]>(() => getShopItems());
   const skillSkinItems = shopItems.filter(item => item.category === 'skill_skin');
+  const equipCharacterSkin = (characterId: string, skinId: string) => {
+    const next = { ...equippedSkins, [characterId]: skinId };
+    setEquippedSkins(next);
+    onUpdateUser({ ...user, equippedCharacterSkins: next });
+  };
+  const toggleSkillSkin = (equipKey: string, skinId: string) => {
+    const next = { ...equippedSkillSkins };
+    if (next[equipKey] === skinId) delete next[equipKey];
+    else next[equipKey] = skinId;
+    setEquippedSkillSkins(next);
+    onUpdateUser({ ...user, equippedSkillSkins: next });
+  };
   useEffect(() => {
     fetchShopItemsFromServer().then(items => {
       setShopItems(items);
     });
   }, []);
 
-  const attachSkinsToTeam = (team: Character[], includeSkillSkins = false) => {
+  const attachSkinsToTeam = (team: Character[], includeSkillSkins = false, useAiCosmetics = false) => {
     return (team || []).map(char => {
       if (!char) return char;
       const charSkins = Array.isArray(char.skins) ? char.skins : [];
-      const requestedSkinId = equippedSkins[char.id];
-      const skinId = requestedSkinId && isSkinUnlocked(user, requestedSkinId) &&
-        charSkins.some(skin => skin.id === requestedSkinId)
-        ? requestedSkinId
+      const aiCommonSkin = useAiCosmetics
+        ? charSkins.find(skin => normalizeSkinRarity(skin.rarity) === 'comum')
         : undefined;
+      const requestedSkinId = useAiCosmetics ? undefined : equippedSkins[char.id];
+      const skinId = aiCommonSkin?.id || (
+        requestedSkinId && isSkinUnlocked(user, requestedSkinId) &&
+        charSkins.some(skin => skin.id === requestedSkinId)
+          ? requestedSkinId
+          : undefined
+      );
       const unlockedShopSkinIds = new Set(user.unlockedSkins || []);
-      const equippedShopSkin = shopItems.find(item =>
+      const equippedShopSkin = useAiCosmetics ? undefined : shopItems.find(item =>
         item.id === user.equippedShopSkins?.[char.id] &&
         item.category === 'skin' &&
         !!item.skinImageUrl &&
@@ -375,12 +393,18 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       const unlockedSkillSkinIds = new Set(user.unlockedSkillSkins || []);
       const skills = (Array.isArray(char.skills) ? char.skills : []).map(skill => {
         if (!includeSkillSkins) return skill;
-        const equippedId = equippedSkillSkins[`${char.id}:${skill.name}`];
+        const equippedId = useAiCosmetics
+          ? skillSkinItems.find(candidate =>
+            candidate.skillCharacterId === char.id &&
+            candidate.skillName === skill.name &&
+            !!candidate.skillVisualEffect,
+          )?.id
+          : equippedSkillSkins[`${char.id}:${skill.name}`];
         const item = skillSkinItems.find(candidate =>
           candidate.id === equippedId &&
           candidate.skillCharacterId === char.id &&
           candidate.skillName === skill.name &&
-          unlockedSkillSkinIds.has(candidate.id),
+          (useAiCosmetics || unlockedSkillSkinIds.has(candidate.id)),
         );
         return item?.skillVisualEffect
           ? { ...skill, skillSkinId: item.id, skillVisualEffect: item.skillVisualEffect }
@@ -426,7 +450,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       const otherIndex = Math.floor(Math.random() * (index + 1));
       [remaining[index], remaining[otherIndex]] = [remaining[otherIndex], remaining[index]];
     }
-    const enemyTeam = attachSkinsToTeam(remaining.slice(0, 3));
+    const enemyTeam = attachSkinsToTeam(remaining.slice(0, 3), true, true);
 
     onConfirmTeams(playerTeam, enemyTeam);
   };
@@ -1653,19 +1677,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                             aria-disabled={!isUnlocked}
                             onClick={isUnlocked ? () => {
                               playUahSound();
-                              setEquippedSkins(prev => ({
-                                ...prev,
-                                [previewCharacter.id]: skin.id
-                              }));
+                              equipCharacterSkin(previewCharacter.id, skin.id);
                             } : undefined}
                             onKeyDown={isUnlocked ? event => {
                               if (event.key === 'Enter' || event.key === ' ') {
                                 event.preventDefault();
                                 playUahSound();
-                                setEquippedSkins(prev => ({
-                                  ...prev,
-                                  [previewCharacter.id]: skin.id
-                                }));
+                                equipCharacterSkin(previewCharacter.id, skin.id);
                               }
                             } : undefined}
                             data-sound="uah"
@@ -1750,12 +1768,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                                 type="button"
                                 onClick={() => {
                                   playUahSound();
-                                  setEquippedSkillSkins(current => {
-                                    const next = { ...current };
-                                    if (next[equipKey] === item.id) delete next[equipKey];
-                                    else next[equipKey] = item.id;
-                                    return next;
-                                  });
+                                  toggleSkillSkin(equipKey, item.id);
                                 }}
                                 className={`flex min-w-40 items-center gap-2 rounded-xl border px-3 py-2 text-left transition ${
                                   isEquipped
