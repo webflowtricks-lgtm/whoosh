@@ -8,5 +8,7 @@ coverage/
 !.env.example
 .dev.vars
 .wrangler/
+android/keystore.properties
+android/app/*.jks
 /src/data/account_sessions.json
 /src/data/online_battle_history.json

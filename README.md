@@ -27,6 +27,15 @@ The debug APK is written to
 Android Studio, run `npm run android:open`. The APK loads the production game and
 therefore requires internet access; it does not bundle an offline copy of the game.
 
+For a signed APK suitable for direct download, configure a local
+`android\keystore.properties` file and keep its keystore backed up. Never publish the
+keystore or its passwords. Increment `versionCode` and `versionName` in
+`android\app\build.gradle`, then run `npm run android:publish` to build the signed APK,
+update the lobby's latest-version notice and APK download, and publish the site and
+Worker assets. The release APK is written to
+`android\app\build\outputs\apk\release\app-release.apk`. Updates must use the same
+signing key as the previously distributed APK.
+
 ## Run Locally
 
 **Prerequisites:**  Node.js

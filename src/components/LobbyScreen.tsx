@@ -9,6 +9,7 @@ import {
   CircleHelp,
   Diamond,
   Dices,
+  Download,
   Filter,
   Mail,
   LogOut,
@@ -53,7 +54,7 @@ import {
   isRecurringChestUnlocked,
 } from '../lib/recurringQuests';
 import { getEventTimeRemaining } from '../lib/uchihaEvent';
-import { useLanguage } from '../lib/i18n';
+import { getLanguage, useLanguage } from '../lib/i18n';
 import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
 import ProfileModal from './ProfileModal';
@@ -86,7 +87,25 @@ interface LobbyScreenProps {
   tutorialMode?: boolean;
 }
 
+interface AppReleaseInfo {
+  version: string;
+  publishedAt: string;
+  releaseNotes: string;
+  downloadUrl: string;
+}
+
 type LobbyModal = 'characters' | 'clan' | 'shop' | 'events' | 'profile' | 'cards' | 'audio' | 'help' | 'mail' | 'recurring-quests' | 'skin-bag' | null;
+
+const SEEN_APP_VERSION_KEY = 'whoosh_seen_app_version';
+
+function getSeenAppVersion(): string {
+  try {
+    return localStorage.getItem(SEEN_APP_VERSION_KEY) || '';
+  } catch (error) {
+    console.error('Could not read the last viewed app version:', error);
+    return '';
+  }
+}
 
 export default function LobbyScreen({
   onStartGame,
@@ -134,12 +153,50 @@ export default function LobbyScreen({
   const [maintenanceMailError, setMaintenanceMailError] = useState('');
   const [rouletteReveal, setRouletteReveal] = useState<{ cards: NinjaCard[]; catalog: NinjaCard[] } | null>(null);
   const [newCardIds, setNewCardIds] = useState<string[]>(() => user ? getNewCardIds(user.username) : []);
+  const [appRelease, setAppRelease] = useState<AppReleaseInfo | null>(null);
+  const [seenAppVersion, setSeenAppVersion] = useState(getSeenAppVersion);
+  const [appUpdateModalOpen, setAppUpdateModalOpen] = useState(false);
   const eventSwipeStartX = useRef<number | null>(null);
   const suppressEventClick = useRef(false);
 
   useEffect(() => {
     setNewCardIds(user ? getNewCardIds(user.username) : []);
   }, [user?.username]);
+
+  useEffect(() => {
+    let active = true;
+    const loadLatestAppRelease = async () => {
+      try {
+        const response = await fetch(`/app-version.json?check=${Date.now()}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`App version request failed with HTTP ${response.status}.`);
+        const release = await response.json() as Partial<AppReleaseInfo>;
+        if (
+          typeof release.version !== 'string' ||
+          typeof release.publishedAt !== 'string' ||
+          typeof release.releaseNotes !== 'string' ||
+          typeof release.downloadUrl !== 'string' ||
+          !release.downloadUrl.startsWith('/')
+        ) {
+          throw new Error('The published app version manifest is invalid.');
+        }
+        if (active) setAppRelease(release as AppReleaseInfo);
+      } catch (error) {
+        if (active) console.error('Failed to check for a new Android app version:', error);
+      }
+    };
+
+    void loadLatestAppRelease();
+    const interval = window.setInterval(loadLatestAppRelease, 15 * 60 * 1000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void loadLatestAppRelease();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -624,6 +681,29 @@ export default function LobbyScreen({
             )}
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => {
+            playClickSound();
+            setAppUpdateModalOpen(true);
+            if (appRelease) {
+              try {
+                localStorage.setItem(SEEN_APP_VERSION_KEY, appRelease.version);
+              } catch (error) {
+                console.error('Could not save the last viewed app version:', error);
+              }
+              setSeenAppVersion(appRelease.version);
+            }
+          }}
+          className={`lobby-mission-button${appRelease && appRelease.version !== seenAppVersion ? ' has-notification' : ''}`}
+          aria-label={t('Baixar versão mais recente do aplicativo', 'Download the latest app version')}
+          title={t('Atualização do aplicativo', 'App update')}
+        >
+          <Download className="lobby-mission-icon lobby-app-update-icon" aria-hidden="true" />
+          {appRelease && appRelease.version !== seenAppVersion && (
+            <span className="new-card-diamond absolute -right-1 -top-1 z-20 text-2xl leading-none text-sky-400" aria-label={t('Nova versão disponível', 'New version available')}>!</span>
+          )}
+        </button>
       </aside>
 
       {featuredEvent && (
@@ -1363,6 +1443,42 @@ export default function LobbyScreen({
             setModal('shop');
           }}
         />
+      )}
+      {appUpdateModalOpen && (
+        <div className="lobby-modal-backdrop lobby-app-update-backdrop" role="presentation" onClick={() => setAppUpdateModalOpen(false)}>
+          <section
+            className="lobby-app-update-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lobby-app-update-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <button type="button" className="lobby-app-update-close" onClick={() => setAppUpdateModalOpen(false)} aria-label={t('Fechar', 'Close')}>
+              <X aria-hidden="true" />
+            </button>
+            <span className="lobby-app-update-mark"><Download aria-hidden="true" /></span>
+            <p className="lobby-app-update-eyebrow">{t('NARUTO ARENA MOBILE', 'NARUTO ARENA MOBILE')}</p>
+            <h2 id="lobby-app-update-title">{t('Versão mais recente', 'Latest version')}</h2>
+            {appRelease ? (
+              <>
+                <p className="lobby-app-update-version">v{appRelease.version}</p>
+                <p className="lobby-app-update-notes">{appRelease.releaseNotes}</p>
+                <a className="lobby-app-update-download" href={appRelease.downloadUrl}>
+                  <Download aria-hidden="true" />
+                  <span>{t('Baixar APK', 'Download APK')}</span>
+                </a>
+                <p className="lobby-app-update-date">
+                  {t('Disponível desde', 'Available since')}{' '}
+                  {new Date(appRelease.publishedAt).toLocaleDateString(getLanguage() === 'en' ? 'en-US' : 'pt-BR')}
+                </p>
+              </>
+            ) : (
+              <p className="lobby-app-update-notes" role="status">
+                {t('Não foi possível carregar as informações da versão. Tente novamente mais tarde.', 'Could not load version information. Please try again later.')}
+              </p>
+            )}
+          </section>
+        </div>
       )}
       {rouletteReveal && (
         <CardPackRouletteModal
