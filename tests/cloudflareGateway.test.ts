@@ -80,6 +80,82 @@ test('serves non-API requests from Workers Static Assets', async () => {
   assert.equal(assetRequest, request);
 });
 
+test('streams the latest Android APK from validated static release parts', async () => {
+  const partOne = new Uint8Array([1, 2]);
+  const partTwo = new Uint8Array([3, 4, 5]);
+  const release = {
+    version: '1.2.0',
+    apkSizeBytes: 5,
+    parts: [
+      { path: '/downloads/app/1.2.0/part-000', size: partOne.length },
+      { path: '/downloads/app/1.2.0/part-001', size: partTwo.length },
+    ],
+  };
+  const assetPaths: string[] = [];
+  const env = {
+    ASSETS: {
+      async fetch(request: Request) {
+        const path = new URL(request.url).pathname;
+        assetPaths.push(path);
+        if (path === '/app-version.json') return Response.json(release);
+        if (path === release.parts[0].path) return new Response(partOne);
+        if (path === release.parts[1].path) return new Response(partTwo);
+        return new Response('Not found', { status: 404 });
+      },
+    },
+    MATCHMAKER: namespace().value,
+    MATCH_ROOM: namespace().value,
+  };
+
+  const response = await worker.fetch(new Request('https://game.example/api/app/download'), env);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/vnd.android.package-archive');
+  assert.equal(response.headers.get('content-length'), '5');
+  assert.equal(response.headers.get('content-disposition'), 'attachment; filename="naruto-arena-mobile-1.2.0.apk"');
+  assert.deepEqual(Array.from(new Uint8Array(await response.arrayBuffer())), [1, 2, 3, 4, 5]);
+  assert.deepEqual(assetPaths, ['/app-version.json', ...release.parts.map(part => part.path)]);
+});
+
+test('rejects invalid Android release manifests instead of downloading arbitrary assets', async () => {
+  const env = {
+    ASSETS: { async fetch() { return Response.json({
+      version: '1.2.0',
+      apkSizeBytes: 2,
+      parts: [{ path: '/users/private-data', size: 2 }],
+    }); } },
+    MATCHMAKER: namespace().value,
+    MATCH_ROOM: namespace().value,
+  };
+  const response = await worker.fetch(new Request('https://game.example/api/app/download'), env);
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: 'A versão para download está configurada incorretamente.' });
+});
+
+test('does not fetch Android APK parts for HEAD requests', async () => {
+  let requestedPart = false;
+  const env = {
+    ASSETS: {
+      async fetch(request: Request) {
+        if (new URL(request.url).pathname === '/app-version.json') {
+          return Response.json({
+            version: '1.2.0',
+            apkSizeBytes: 2,
+            parts: [{ path: '/downloads/app/1.2.0/part-000', size: 2 }],
+          });
+        }
+        requestedPart = true;
+        return new Response(new Uint8Array([1, 2]));
+      },
+    },
+    MATCHMAKER: namespace().value,
+    MATCH_ROOM: namespace().value,
+  };
+  const response = await worker.fetch(new Request('https://game.example/api/app/download', { method: 'HEAD' }), env);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-length'), '2');
+  assert.equal(requestedPart, false);
+});
+
 test('requires an active account session before routing match HTTP requests', async () => {
   const matchmaker = namespace();
   const env = {

@@ -18,11 +18,98 @@ interface WorkerEnv {
   MATCH_ROOM: DurableObjectNamespace;
 }
 
+interface AndroidAppRelease {
+  version: string;
+  apkSizeBytes: number;
+  parts: Array<{ path: string; size: number }>;
+}
+
 function apiError(status: number, message: string): Response {
   return Response.json(
     { error: message },
     { status, headers: { 'Cache-Control': 'no-store' } },
   );
+}
+
+async function handleAndroidAppDownload(request: Request, env: WorkerEnv): Promise<Response> {
+  const manifestRequest = new Request(new URL('/app-version.json', request.url), {
+    headers: { 'Cache-Control': 'no-cache' },
+  });
+  const manifestResponse = await env.ASSETS.fetch(manifestRequest);
+  if (!manifestResponse.ok) return apiError(503, 'A versão para download não está disponível.');
+
+  let release: AndroidAppRelease;
+  try {
+    release = await manifestResponse.json() as AndroidAppRelease;
+  } catch (error) {
+    console.error('[app-download] Manifesto de versão inválido.', error);
+    return apiError(503, 'Não foi possível carregar a versão para download.');
+  }
+  if (
+    !/^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(release.version) ||
+    !Number.isSafeInteger(release.apkSizeBytes) ||
+    release.apkSizeBytes <= 0 ||
+    !Array.isArray(release.parts) ||
+    release.parts.length === 0 ||
+    release.parts.some(part =>
+      typeof part.path !== 'string' ||
+      !part.path.startsWith(`/downloads/app/${release.version}/part-`) ||
+      !Number.isSafeInteger(part.size) ||
+      part.size <= 0
+    ) ||
+    release.parts.reduce((total, part) => total + part.size, 0) !== release.apkSizeBytes
+  ) {
+    console.error('[app-download] O manifesto da versão contém dados inválidos.');
+    return apiError(503, 'A versão para download está configurada incorretamente.');
+  }
+
+  const headers = {
+    'Cache-Control': 'no-store',
+    'Content-Disposition': `attachment; filename="naruto-arena-mobile-${release.version}.apk"`,
+    'Content-Length': String(release.apkSizeBytes),
+    'Content-Type': 'application/vnd.android.package-archive',
+    'X-Content-Type-Options': 'nosniff',
+  };
+  if (request.method === 'HEAD') return new Response(null, { headers });
+
+  let partIndex = 0;
+  let currentReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        while (partIndex < release.parts.length) {
+          if (currentReader) {
+            const result = await currentReader.read();
+            if (!result.done) {
+              controller.enqueue(result.value);
+              return;
+            }
+            currentReader.releaseLock();
+            currentReader = null;
+            partIndex++;
+            continue;
+          }
+
+          const partUrl = new URL(release.parts[partIndex].path, request.url);
+          const partResponse = await env.ASSETS.fetch(new Request(partUrl, {
+            headers: { 'Cache-Control': 'no-cache' },
+          }));
+          if (!partResponse.ok || !partResponse.body) {
+            throw new Error(`Could not load Android APK part ${partIndex + 1}.`);
+          }
+          currentReader = partResponse.body.getReader();
+        }
+        controller.close();
+      } catch (error) {
+        console.error('[app-download] Falha ao transmitir o APK.', error);
+        controller.error(error);
+      }
+    },
+    async cancel(reason) {
+      await currentReader?.cancel(reason);
+    },
+  });
+  return new Response(body, { headers });
 }
 
 const MATCH_ROUTES = [
@@ -51,6 +138,9 @@ async function readUsername(request: Request): Promise<string | null> {
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === '/api/app/download' && (request.method === 'GET' || request.method === 'HEAD')) {
+      return handleAndroidAppDownload(request, env);
+    }
     if (!url.pathname.startsWith('/api/') && url.pathname !== '/ws') {
       return env.ASSETS.fetch(request);
     }
