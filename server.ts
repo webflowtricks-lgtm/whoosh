@@ -981,6 +981,21 @@ async function startServer() {
     if (equippedFrame) users[userIdx].equippedFrame = equippedFrame;
     if (equippedFrameUrl !== undefined) users[userIdx].equippedFrameUrl = equippedFrameUrl;
     if (equippedBannerUrl !== undefined) users[userIdx].equippedBannerUrl = equippedBannerUrl;
+    for (const field of ["equippedCharacterSkins", "equippedShopSkins", "equippedSkillSkins"] as const) {
+      const value = req.body[field];
+      if (value === undefined) continue;
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return res.status(400).json({ error: `O mapa de skins equipadas (${field}) é inválido.` });
+      }
+      const entries = Object.entries(value);
+      if (entries.length > 500 || entries.some(([key, skinId]) =>
+        !key || key.length > 200 || ["__proto__", "constructor", "prototype"].includes(key) ||
+        typeof skinId !== "string" || !skinId || skinId.length > 200
+      )) {
+        return res.status(400).json({ error: `O mapa de skins equipadas (${field}) é inválido.` });
+      }
+      users[userIdx][field] = Object.fromEntries(entries);
+    }
     if (typeof equippedBannerPositionX === 'number' && Number.isFinite(equippedBannerPositionX) && equippedBannerPositionX >= 0 && equippedBannerPositionX <= 100) {
       users[userIdx].equippedBannerPositionX = equippedBannerPositionX;
     }
@@ -989,7 +1004,9 @@ async function startServer() {
     }
     if (Array.isArray(req.body.collectedCardIds)) users[userIdx].collectedCardIds = req.body.collectedCardIds;
 
-    writeJSON(USERS_FILE, users);
+    if (!persistAccountUsers(users)) {
+      return res.status(500).json({ error: "Não foi possível salvar as skins e os dados da conta." });
+    }
 
     const { password: _password, googleId: _googleId, email: _email, ...publicUser } = users[userIdx];
     res.json({ success: true, user: publicUser });

@@ -19345,7 +19345,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                    encosta na altura do card e cresce junto com ele.
                                    w-auto + object-contain preservam a proporção
                                    (sem distorcer) e max-w-full evita vazar o container. */
-                                className="h-full w-auto max-w-full object-contain"
+                                className={`h-full w-auto max-w-full object-contain ${
+                                  combatant.character.id === 'waraji-zori' &&
+                                  combatant.character.selectedSkinId === 'waraji-zori-skin-0749'
+                                    ? 'mv-waraji-zori-common-skin'
+                                    : ''
+                                }`}
                                 autoPlay
                                 onImageError={e => { e.currentTarget.style.display = 'none'; }}
                               />
@@ -21490,7 +21495,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             <SkinMedia
                               src={skinImg}
                               alt={combatant.character.name}
-                              className="h-full w-auto max-w-full object-contain scale-x-[-1]"
+                              className={`h-full w-auto max-w-full object-contain scale-x-[-1] ${
+                                combatant.character.id === 'waraji-zori' &&
+                                combatant.character.selectedSkinId === 'waraji-zori-skin-0749'
+                                  ? 'mv-waraji-zori-common-skin-opponent'
+                                  : ''
+                              }`}
                               autoPlay
                             />
                           </span>

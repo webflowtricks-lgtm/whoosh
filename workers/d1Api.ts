@@ -104,7 +104,11 @@ interface FirebaseJwk extends JsonWebKey {
 }
 const ACCOUNT_FIELDS = new Set([
   'name', 'photoUrl', 'title', 'equippedFrame', 'equippedFrameUrl', 'equippedBannerUrl',
-  'equippedBannerPositionX', 'equippedBannerPositionY',
+  'equippedBannerPositionX', 'equippedBannerPositionY', 'equippedCharacterSkins',
+  'equippedShopSkins', 'equippedSkillSkins',
+]);
+const EQUIPPED_SKIN_MAP_FIELDS = new Set([
+  'equippedCharacterSkins', 'equippedShopSkins', 'equippedSkillSkins',
 ]);
 const SERVER_OWNED_PROFILE_FIELDS = new Set([
   'xp', 'rank', 'wins', 'losses', 'ryos', 'gems', 'collectedCardIds', 'village', 'villageChangeCount',
@@ -114,6 +118,19 @@ const SERVER_OWNED_PROFILE_FIELDS = new Set([
 ]);
 const VILLAGE_CHANGE_COST = 100;
 let firebaseJwksCache: { keys: FirebaseJwk[]; expiresAt: number } | null = null;
+
+function isValidEquippedSkinMap(value: unknown): value is Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const entries = Object.entries(value);
+  return entries.length <= 500 && entries.every(([key, skinId]) =>
+    key.length > 0 &&
+    key.length <= 200 &&
+    !['__proto__', 'constructor', 'prototype'].includes(key) &&
+    typeof skinId === 'string' &&
+    skinId.length > 0 &&
+    skinId.length <= 200,
+  );
+}
 
 const json = (body: unknown, status = 200): Response => Response.json(body, {
   status,
@@ -685,7 +702,15 @@ async function profileRoute(request: Request, env: D1Env, pathname: string): Pro
       continue;
     }
     if (!ACCOUNT_FIELDS.has(key)) continue;
-    if (key === 'name' && typeof value === 'string' && value.trim()) {
+    if (EQUIPPED_SKIN_MAP_FIELDS.has(key)) {
+      if (!isValidEquippedSkinMap(value)) {
+        return error(400, `O mapa de skins equipadas (${key}) é inválido.`);
+      }
+      if (JSON.stringify(profile[key]) !== JSON.stringify(value)) {
+        profile[key] = value;
+        changed = true;
+      }
+    } else if (key === 'name' && typeof value === 'string' && value.trim()) {
       const nextValue = value.trim().slice(0, 60);
       if (profile[key] !== nextValue) {
         profile[key] = nextValue;

@@ -2288,6 +2288,16 @@ body.processing-cursor * {
   animation: mv-battle-skin-levitate 3.6s ease-in-out infinite;
 }
 
+.mv-player-roster .mv-waraji-zori-common-skin {
+  transform: translateY(24px) scale(1.25);
+  transform-origin: bottom center;
+}
+
+.mv-waraji-zori-common-skin-opponent {
+  transform: translateY(24px) scaleX(-1) scale(1.25);
+  transform-origin: bottom center;
+}
+
 .mv-battle-skin-stretch.is-damage-animation {
   animation: mv-battle-skin-damage-stretch 480ms cubic-bezier(.2, .75, .25, 1) both;
 }

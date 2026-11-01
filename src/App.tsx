@@ -147,6 +147,7 @@ export default function App() {
   const [screen, setScreen] = useState<GameScreen>('main-menu');
   const screenRef = useRef(screen);
   screenRef.current = screen;
+  const equippedSkinSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [battleFinished, setBattleFinished] = useState(false);
   const [playerTeam, setPlayerTeam] = useState<Character[]>([]);
   const [enemyTeam, setEnemyTeam] = useState<Character[]>([]);
@@ -640,6 +641,27 @@ export default function App() {
     } catch (error) {
       console.error('Failed to save equipped skins to the local profile:', error);
     }
+
+    equippedSkinSaveQueueRef.current = equippedSkinSaveQueueRef.current
+      .then(async () => {
+        const response = await matchFetch('/api/user/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: updatedUser.username,
+            equippedCharacterSkins: updatedUser.equippedCharacterSkins || {},
+            equippedShopSkins: updatedUser.equippedShopSkins || {},
+            equippedSkillSkins: updatedUser.equippedSkillSkins || {},
+          }),
+        });
+        const result = await response.json() as { error?: string };
+        if (!response.ok) {
+          throw new Error(result.error || `Falha ao salvar as skins equipadas (HTTP ${response.status}).`);
+        }
+      })
+      .catch(error => {
+        console.error('Failed to persist equipped skins to the account:', error);
+      });
   };
 
   const handleBattleEnd = async (

@@ -1542,6 +1542,9 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
     equippedBannerUrl: '/banners/profile.png',
     equippedBannerPositionX: 35,
     equippedBannerPositionY: 72,
+    equippedCharacterSkins: { naruto: 'naruto-skin-1' },
+    equippedShopSkins: { sasuke: 'sasuke-skin-1' },
+    equippedSkillSkins: { 'naruto:Rasengan': 'rasengan-skin-1' },
   }, headers), env);
   assert.equal(cosmeticUpdate?.status, 200);
   const profile = JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json));
@@ -1550,6 +1553,9 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
   assert.equal(profile.equippedBannerUrl, '/banners/profile.png');
   assert.equal(profile.equippedBannerPositionX, 35);
   assert.equal(profile.equippedBannerPositionY, 72);
+  assert.deepEqual(profile.equippedCharacterSkins, { naruto: 'naruto-skin-1' });
+  assert.deepEqual(profile.equippedShopSkins, { sasuke: 'sasuke-skin-1' });
+  assert.deepEqual(profile.equippedSkillSkins, { 'naruto:Rasengan': 'rasengan-skin-1' });
   assert.equal(profile.xp, undefined);
   assert.equal(env.DB.profileUpdateCount, 1);
 
@@ -1560,6 +1566,9 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
     equippedBannerUrl: '/banners/profile.png',
     equippedBannerPositionX: 35,
     equippedBannerPositionY: 72,
+    equippedCharacterSkins: { naruto: 'naruto-skin-1' },
+    equippedShopSkins: { sasuke: 'sasuke-skin-1' },
+    equippedSkillSkins: { 'naruto:Rasengan': 'rasengan-skin-1' },
   }, headers), env);
   assert.equal(unchangedCosmetics?.status, 200);
   assert.equal(env.DB.profileUpdateCount, 1);
@@ -1571,6 +1580,13 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
   assert.equal(invalidBannerPosition?.status, 200);
   const profileAfterInvalidPosition = JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json));
   assert.equal(profileAfterInvalidPosition.equippedBannerPositionX, 35);
+  assert.equal(env.DB.profileUpdateCount, 1);
+
+  const invalidSkinMap = await handleD1Request(request('/api/user/profile', 'PUT', {
+    username: 'profile_user',
+    equippedCharacterSkins: { naruto: 123 },
+  }, headers), env);
+  assert.equal(invalidSkinMap?.status, 400);
   assert.equal(env.DB.profileUpdateCount, 1);
 });
 
