@@ -2,10 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   getSkinFragmentCatalog,
+  addSkinFragments,
+  getSkinFragmentCount,
   rollSkinFragmentQuantity,
   SKIN_FRAGMENT_PACK_COST,
   SKIN_FRAGMENT_UNLOCK_TARGET,
   SKIN_RARITY_ORDER,
+  GLOBAL_REQUIRED_CHARACTER_SKINS,
+  applyGlobalRequiredCharacterSkins,
   autoEquipNewlyUnlockedCharacterSkins,
   isSkinUnlocked,
   normalizeSkinRarity,
@@ -35,6 +39,30 @@ test('skin fragment catalog keeps unique, usable skin entries', () => {
   assert.equal(isSkinUnlocked({ unlockedSkins: ['naruto-sage'] }, 'naruto-sage'), true);
   assert.equal(isSkinUnlocked({ skinFragments: { 'naruto-sage': 50 } }, 'naruto-sage'), true);
   assert.equal(isSkinUnlocked({ skinFragments: { 'naruto-sage': 49 } }, 'naruto-sage'), false);
+  assert.equal(getSkinFragmentCount({ 'naruto-sage': 59 }, 'naruto-sage'), 59);
+  assert.equal(addSkinFragments(49, 10), 59);
+  assert.equal(addSkinFragments(50, 7), 57);
+  assert.throws(() => addSkinFragments(-1, 1), RangeError);
+  for (const skinId of Object.values(GLOBAL_REQUIRED_CHARACTER_SKINS)) {
+    assert.equal(isSkinUnlocked({}, skinId), true);
+  }
+});
+
+test('globally required common character skins override account equipment', () => {
+  const team = [{
+    id: 'sasuke',
+    name: 'Sasuke',
+    skins: [
+      { id: 'sasuke-skin-3412', name: 'Sasuke comum', image: '/common.png' },
+      { id: 'sasuke-alternate', name: 'Sasuke alternativo', image: '/alternate.png' },
+    ],
+    selectedSkinId: 'sasuke-alternate',
+    selectedSkinUrl: '/alternate.png',
+  }] as Character[];
+
+  const [sasuke] = applyGlobalRequiredCharacterSkins(team);
+  assert.equal(sasuke.selectedSkinId, GLOBAL_REQUIRED_CHARACTER_SKINS.sasuke);
+  assert.equal(sasuke.selectedSkinUrl, '/common.png');
 });
 
 test('skin fragment pack roll yields a uniform quantity from 1 to 10', () => {

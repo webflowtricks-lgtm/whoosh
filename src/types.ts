@@ -1244,6 +1244,8 @@ export interface UserProfile {
   equippedShowcaseSkinUrl?: string;
   claimedEventRewardIds?: string[];
   collectedCardIds?: string[];
+  tutorialRewardClaimed?: boolean;
+  characterSelectSkinGuideSeen?: boolean;
   questMaintenanceInbox?: QuestMaintenanceMail[];
 }
 

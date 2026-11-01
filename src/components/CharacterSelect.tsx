@@ -30,6 +30,7 @@ import { getCharacterLockReason, isCharacterUnlocked } from '../lib/characterUnl
 import MangekyoLoader from './MangekyoLoader';
 import SkinMedia from './SkinMedia';
 import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
+import FirstBattleTutorial from './FirstBattleTutorial';
 
 const MATCHMAKING_TIMEOUT_MS = 90_000;
 
@@ -121,6 +122,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     }
   });
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const showSkinGuide = isMobilePortrait &&
+    !tutorialMode &&
+    user.tutorialRewardClaimed === true &&
+    user.characterSelectSkinGuideSeen !== true;
   const [previewSkillsPage, setPreviewSkillsPage] = useState(0);
   const skillEffectSwipeStartRef = useRef<number | null>(null);
   const characterPageSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -2186,10 +2191,14 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           type="button"
           onClick={() => {
             playScrollSound();
+            if (showSkinGuide) {
+              onUpdateUser({ ...user, characterSelectSkinGuideSeen: true });
+            }
             setShowCharacterDetails(true);
           }}
           className="character-select-details-trigger"
           aria-label={`${t('Ver detalhes de', 'View details for')} ${previewCharacter.name}`}
+          data-tutorial-target={showSkinGuide ? 'character-skin-guide-eye' : undefined}
         >
           <Eye className="h-4 w-4 shrink-0" />
           <span className="truncate">{previewCharacter.name}</span>
@@ -2371,6 +2380,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           </motion.div>
         )}
       </AnimatePresence>
+      {showSkinGuide && (
+        <FirstBattleTutorial
+          targetSelector='[data-tutorial-target="character-skin-guide-eye"]'
+          instruction="Você pode saber mais detalhes dos personagens e equipar suas skins clicando no botão do olhinho no canto inferior direito."
+          centered
+        />
+      )}
     </div>
   );
 }

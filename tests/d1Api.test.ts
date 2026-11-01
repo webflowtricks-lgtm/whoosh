@@ -569,7 +569,7 @@ test('skin fragment pack charges currency and grants server-selected skin fragme
   const user = result.user as Row;
   const fragmentsAdded = Number(result.fragmentsAdded);
   assert.ok(['naruto-sage', 'sasuke-hebi'].includes(String(skin.id)));
-  assert.ok(fragmentsAdded >= 1 && fragmentsAdded <= 3);
+  assert.ok(fragmentsAdded >= 1 && fragmentsAdded <= 10);
   assert.equal(result.fragmentCount, fragmentsAdded);
   assert.equal(user.ryos, 125_000);
   assert.equal((user.skinFragments as Row)[String(skin.id)], fragmentsAdded);
@@ -585,8 +585,9 @@ test('skin fragment pack charges currency and grants server-selected skin fragme
   assert.equal(finalFragmentResponse?.status, 200);
   const finalResult = await responseBody(finalFragmentResponse!);
   assert.equal(finalResult.skin && (finalResult.skin as Row).id, skin.id);
-  assert.equal(finalResult.fragmentsAdded, 1);
-  assert.equal(finalResult.fragmentCount, 50);
+  const finalFragmentsAdded = Number(finalResult.fragmentsAdded);
+  assert.ok(finalFragmentsAdded >= 1 && finalFragmentsAdded <= 10);
+  assert.equal(finalResult.fragmentCount, 49 + finalFragmentsAdded);
   assert.equal(finalResult.unlocked, true);
   assert.ok(((finalResult.user as Row).unlockedSkins as string[]).includes(String(skin.id)));
 });
@@ -1588,6 +1589,36 @@ test('rejects client-owned progression writes while persisting cosmetic profile 
   }, headers), env);
   assert.equal(invalidSkinMap?.status, 400);
   assert.equal(env.DB.profileUpdateCount, 1);
+
+  const tutorialRewardClaim = await handleD1Request(request('/api/user/profile', 'PUT', {
+    username: 'profile_user',
+    tutorialRewardClaimed: true,
+  }, headers), env);
+  assert.equal(tutorialRewardClaim?.status, 200);
+  assert.equal(JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json)).tutorialRewardClaimed, true);
+  assert.equal(env.DB.profileUpdateCount, 2);
+
+  await handleD1Request(request('/api/user/profile', 'PUT', {
+    username: 'profile_user',
+    tutorialRewardClaimed: false,
+  }, headers), env);
+  assert.equal(JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json)).tutorialRewardClaimed, true);
+  assert.equal(env.DB.profileUpdateCount, 2);
+
+  const skinGuideSeen = await handleD1Request(request('/api/user/profile', 'PUT', {
+    username: 'profile_user',
+    characterSelectSkinGuideSeen: true,
+  }, headers), env);
+  assert.equal(skinGuideSeen?.status, 200);
+  assert.equal(JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json)).characterSelectSkinGuideSeen, true);
+  assert.equal(env.DB.profileUpdateCount, 3);
+
+  await handleD1Request(request('/api/user/profile', 'PUT', {
+    username: 'profile_user',
+    characterSelectSkinGuideSeen: false,
+  }, headers), env);
+  assert.equal(JSON.parse(String(env.DB.accounts.get('profile_user')?.profile_json)).characterSelectSkinGuideSeen, true);
+  assert.equal(env.DB.profileUpdateCount, 3);
 });
 
 test('changes villages with one free change and server-authoritative 100 Ryos charges', async () => {

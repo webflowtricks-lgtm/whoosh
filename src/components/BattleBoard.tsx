@@ -2670,6 +2670,7 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
   const [showBattleSettings, setShowBattleSettings] = useState(false);
   const [showVolumeControls, setShowVolumeControls] = useState(false);
   const [showGameManual, setShowGameManual] = useState(false);
+  const canViewBattleLog = user?.username.trim().toLowerCase() === '2';
   // Log da Batalha (overlay no canto inferior esquerdo) — configurável nas
   // Configurações da Batalha e persistido localmente.
   const [showBattleLog, setShowBattleLog] = useState<boolean>(() => {
@@ -19225,27 +19226,28 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     </div>
                   )}
 
-                  {/* Log da Batalha */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      playClickSound();
-                      setShowBattleLog(prev => {
-                        const next = !prev;
-                        try {
-                          localStorage.setItem('ninja_show_battle_log', next ? '1' : '0');
-                        } catch {}
-                        return next;
-                      });
-                    }}
-                    className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
-                  >
-                    <Info className={`w-3.5 h-3.5 ${showBattleLog ? 'text-amber-400' : 'text-slate-500'}`} />
-                    <span className="flex-1">{t("Log da Batalha", "Battle Log")}</span>
-                    <span className={`relative inline-flex h-4 w-8 shrink-0 items-center rounded-full transition-colors ${showBattleLog ? 'bg-amber-500' : 'bg-slate-700'}`}>
-                      <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${showBattleLog ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                    </span>
-                  </button>
+                  {canViewBattleLog && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        playClickSound();
+                        setShowBattleLog(prev => {
+                          const next = !prev;
+                          try {
+                            localStorage.setItem('ninja_show_battle_log', next ? '1' : '0');
+                          } catch {}
+                          return next;
+                        });
+                      }}
+                      className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
+                    >
+                      <Info className={`w-3.5 h-3.5 ${showBattleLog ? 'text-amber-400' : 'text-slate-500'}`} />
+                      <span className="flex-1">{t("Log da Batalha", "Battle Log")}</span>
+                      <span className={`relative inline-flex h-4 w-8 shrink-0 items-center rounded-full transition-colors ${showBattleLog ? 'bg-amber-500' : 'bg-slate-700'}`}>
+                        <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${showBattleLog ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </span>
+                    </button>
+                  )}
 
                   {/* Recarregar */}
                   {!gameOver && !onlineParams?.isOnline && (
@@ -22823,7 +22825,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       {/* 🧪 OVERLAY DE DIAGNÓSTICO (temporário) — log de combate visível no canto.
           Mostra as últimas mensagens de sistema (⏳ watchdog, 🛑 anti-loop, iniciativa).
           Pode ser ocultado via Configurações da Batalha → "Log da Batalha". */}
-      {showBattleLog && !tutorialMode && (
+      {canViewBattleLog && showBattleLog && !tutorialMode && (
         <div className="fixed bottom-2 left-2 z-[90] max-w-[280px] pointer-events-none select-none">
           <div className="bg-black/75 border border-orange-900/60 rounded-lg px-2 py-1.5 font-mono text-[9px] leading-snug text-slate-200 shadow-lg">
             <div className="text-orange-400 font-bold uppercase tracking-wider mb-0.5">🧪 Log v7</div>

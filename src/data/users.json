@@ -5214,5 +5214,546 @@
     "village": "takumi",
     "villageChangeCount": 0,
     "ryos": 1500
+  },
+  {
+    "username": "1111",
+    "password": "1111",
+    "name": "1111",
+    "photoUrl": "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/sakura-haruno/icon.jpg",
+    "createdAt": "2026-11-01T19:23:34.572Z",
+    "village": "tsukigakure",
+    "villageChangeCount": 0,
+    "ryos": 1775,
+    "questProgress": {
+      "quest_1784869393005": [
+        {
+          "id": "goal_1784869393005_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040155794_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786039551209": [
+        {
+          "id": "goal_1786039551209_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786039716489_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786040199522": [
+        {
+          "id": "goal_1786040199522_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040464755_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040480786_3",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040518996_4",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040662748_5",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786040694186_6",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786041548484": [
+        {
+          "id": "goal_1786041548484_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786041652644_2",
+          "currentValue": 0,
+          "currentStreak": 0
+        },
+        {
+          "id": "goal_1786041662283_3",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "quest_1786041796915": [
+        {
+          "id": "goal_1786041796915_1",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-11-01-daily-victory": [
+        {
+          "id": "daily-2026-11-01-daily-victory-win",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-11-01-daily-technique": [
+        {
+          "id": "daily-2026-11-01-daily-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-11-01-daily-squad": [
+        {
+          "id": "daily-2026-11-01-daily-squad-characters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-11-01-daily-damage": [
+        {
+          "id": "daily-2026-11-01-daily-damage-damage",
+          "currentValue": 60,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-wins": [
+        {
+          "id": "weekly-2026-W44-weekly-wins-wins",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-technique": [
+        {
+          "id": "weekly-2026-W44-weekly-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-damage": [
+        {
+          "id": "weekly-2026-W44-weekly-damage-damage",
+          "currentValue": 60,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-shield": [
+        {
+          "id": "weekly-2026-W44-weekly-shield-shield",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-healing": [
+        {
+          "id": "weekly-2026-W44-weekly-healing-healing",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-stuns": [
+        {
+          "id": "weekly-2026-W44-weekly-stuns-stuns",
+          "currentValue": 1,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-kills": [
+        {
+          "id": "weekly-2026-W44-weekly-kills-kills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W44-weekly-counters": [
+        {
+          "id": "weekly-2026-W44-weekly-counters-counters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ]
+    },
+    "eventProgress": {
+      "lacos-uchiha-sasuke-itachi": {
+        "uchiha-sasuke-wins": 0,
+        "uchiha-itachi-wins": 0,
+        "uchiha-sasuke-skills": 0,
+        "uchiha-itachi-skills": 0,
+        "uchiha-sasuke-damage": 0,
+        "uchiha-itachi-damage": 0,
+        "uchiha-sasuke-team-damage": 30
+      }
+    },
+    "questAiBattleIds": [
+      "1793561205330-gf6qvbvtzp7"
+    ],
+    "rewardRouletteSpinCount": 4,
+    "unlockedSkins": [
+      "ebisu-skin-4611",
+      "sakura-skin-5341",
+      "yamanaka-inoichi-skin-6683",
+      "yoroi-akado-skin-8083"
+    ],
+    "collectedCardIds": [
+      "jiraiya-(s)-base",
+      "kazekage-gaara-(s)-base",
+      "sasori-(s)-base",
+      "hinata-base",
+      "hiruzen-sarutobi-base",
+      "yoroi-akado-base",
+      "hinata-base",
+      "utakata-(s)-base",
+      "ginkaku-(r)-base",
+      "shino-base",
+      "tayuya-base",
+      "haku-base"
+    ],
+    "rewardRouletteHistory": [
+      {
+        "id": "5444fe88e1dd67e1c16e447cc92466bb-1",
+        "createdAt": "2026-11-01T19:32:17.064Z",
+        "draw": {
+          "prize": {
+            "id": "skin-yamanaka-inoichi-skin-6683",
+            "kind": "skin",
+            "rarity": "comum",
+            "name": "Yamanaka Inoichi",
+            "skinId": "yamanaka-inoichi-skin-6683",
+            "characterName": "Yamanaka Inoichi"
+          },
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 9
+        }
+      },
+      {
+        "id": "5444fe88e1dd67e1c16e447cc92466bb-2",
+        "createdAt": "2026-11-01T19:32:17.064Z",
+        "draw": {
+          "prize": {
+            "id": "skin-yoroi-akado-skin-8083",
+            "kind": "skin",
+            "rarity": "comum",
+            "name": "Yoroi",
+            "skinId": "yoroi-akado-skin-8083",
+            "characterName": "Yoroi Akado"
+          },
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 8
+        }
+      },
+      {
+        "id": "5444fe88e1dd67e1c16e447cc92466bb-3",
+        "createdAt": "2026-11-01T19:32:17.064Z",
+        "draw": {
+          "prize": {
+            "id": "card-hinata-base",
+            "kind": "card",
+            "rarity": "rara",
+            "name": "Hinata Hyuga",
+            "cardId": "hinata-base",
+            "characterName": "Hinata Hyuga"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 7
+        }
+      },
+      {
+        "id": "5444fe88e1dd67e1c16e447cc92466bb-4",
+        "createdAt": "2026-11-01T19:32:17.064Z",
+        "draw": {
+          "prize": {
+            "id": "card-utakata-(s)-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Utakata (S)",
+            "cardId": "utakata-(s)-base",
+            "characterName": "Utakata (S)"
+          },
+          "duplicate": false,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 6
+        }
+      },
+      {
+        "id": "5444fe88e1dd67e1c16e447cc92466bb-5",
+        "createdAt": "2026-11-01T19:32:17.064Z",
+        "draw": {
+          "prize": {
+            "id": "card-ginkaku-(r)-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Ginkaku (R)",
+            "cardId": "ginkaku-(r)-base",
+            "characterName": "Ginkaku (R)"
+          },
+          "duplicate": false,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 5
+        }
+      },
+      {
+        "id": "5444fe88e1dd67e1c16e447cc92466bb-6",
+        "createdAt": "2026-11-01T19:32:17.064Z",
+        "draw": {
+          "prize": {
+            "id": "ryos-300-legendary",
+            "kind": "ryos",
+            "rarity": "lendaria",
+            "name": "300 Ryos",
+            "amount": 300
+          },
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 10
+        }
+      },
+      {
+        "id": "5444fe88e1dd67e1c16e447cc92466bb-7",
+        "createdAt": "2026-11-01T19:32:17.064Z",
+        "draw": {
+          "prize": {
+            "id": "ryos-100",
+            "kind": "ryos",
+            "rarity": "rara",
+            "name": "100 Ryos",
+            "amount": 100
+          },
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 9
+        }
+      },
+      {
+        "id": "5444fe88e1dd67e1c16e447cc92466bb-8",
+        "createdAt": "2026-11-01T19:32:17.064Z",
+        "draw": {
+          "prize": {
+            "id": "card-shino-base",
+            "kind": "card",
+            "rarity": "rara",
+            "name": "Shino Aburame",
+            "cardId": "shino-base",
+            "characterName": "Shino Aburame"
+          },
+          "duplicate": false,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 8
+        }
+      },
+      {
+        "id": "5444fe88e1dd67e1c16e447cc92466bb-9",
+        "createdAt": "2026-11-01T19:32:17.064Z",
+        "draw": {
+          "prize": {
+            "id": "card-tayuya-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Tayuya",
+            "cardId": "tayuya-base",
+            "characterName": "Tayuya"
+          },
+          "duplicate": false,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 7
+        }
+      },
+      {
+        "id": "5444fe88e1dd67e1c16e447cc92466bb-10",
+        "createdAt": "2026-11-01T19:32:17.064Z",
+        "draw": {
+          "prize": {
+            "id": "card-haku-base",
+            "kind": "card",
+            "rarity": "rara",
+            "name": "Haku",
+            "cardId": "haku-base",
+            "characterName": "Haku"
+          },
+          "duplicate": false,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 6
+        }
+      },
+      {
+        "id": "3e342fa9b7c93d3a9ed48f5d4dd2974f-1",
+        "createdAt": "2026-11-01T19:31:50.139Z",
+        "draw": {
+          "prize": {
+            "id": "ryos-75",
+            "kind": "ryos",
+            "rarity": "rara",
+            "name": "75 Ryos",
+            "amount": 75
+          },
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 9
+        }
+      },
+      {
+        "id": "3e342fa9b7c93d3a9ed48f5d4dd2974f-2",
+        "createdAt": "2026-11-01T19:31:50.139Z",
+        "draw": {
+          "prize": {
+            "id": "skin-ebisu-skin-4611",
+            "kind": "skin",
+            "rarity": "comum",
+            "name": "Ebisu",
+            "skinId": "ebisu-skin-4611",
+            "characterName": "Ebisu"
+          },
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 8
+        }
+      },
+      {
+        "id": "3e342fa9b7c93d3a9ed48f5d4dd2974f-3",
+        "createdAt": "2026-11-01T19:31:50.139Z",
+        "draw": {
+          "prize": {
+            "id": "card-jiraiya-(s)-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Jiraiya (S)",
+            "cardId": "jiraiya-(s)-base",
+            "characterName": "Jiraiya (S)"
+          },
+          "duplicate": false,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 7
+        }
+      },
+      {
+        "id": "3e342fa9b7c93d3a9ed48f5d4dd2974f-4",
+        "createdAt": "2026-11-01T19:31:50.139Z",
+        "draw": {
+          "prize": {
+            "id": "card-kazekage-gaara-(s)-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Kazekage Gaara (S)",
+            "cardId": "kazekage-gaara-(s)-base",
+            "characterName": "Kazekage Gaara (S)"
+          },
+          "duplicate": false,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 6
+        }
+      },
+      {
+        "id": "3e342fa9b7c93d3a9ed48f5d4dd2974f-5",
+        "createdAt": "2026-11-01T19:31:50.139Z",
+        "draw": {
+          "prize": {
+            "id": "card-sasori-(s)-base",
+            "kind": "card",
+            "rarity": "epica",
+            "name": "Sasori (S)",
+            "cardId": "sasori-(s)-base",
+            "characterName": "Sasori (S)"
+          },
+          "duplicate": false,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 5
+        }
+      },
+      {
+        "id": "3e342fa9b7c93d3a9ed48f5d4dd2974f-6",
+        "createdAt": "2026-11-01T19:31:50.139Z",
+        "draw": {
+          "prize": {
+            "id": "card-hinata-base",
+            "kind": "card",
+            "rarity": "rara",
+            "name": "Hinata Hyuga",
+            "cardId": "hinata-base",
+            "characterName": "Hinata Hyuga"
+          },
+          "duplicate": false,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 4
+        }
+      },
+      {
+        "id": "3e342fa9b7c93d3a9ed48f5d4dd2974f-7",
+        "createdAt": "2026-11-01T19:31:50.139Z",
+        "draw": {
+          "prize": {
+            "id": "skin-sakura-skin-5341",
+            "kind": "skin",
+            "rarity": "comum",
+            "name": "Sakura",
+            "skinId": "sakura-skin-5341",
+            "characterName": "Sakura Haruno"
+          },
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 3
+        }
+      },
+      {
+        "id": "3e342fa9b7c93d3a9ed48f5d4dd2974f-8",
+        "createdAt": "2026-11-01T19:31:50.139Z",
+        "draw": {
+          "prize": {
+            "id": "card-hiruzen-sarutobi-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Hiruzen Sarutobi",
+            "cardId": "hiruzen-sarutobi-base",
+            "characterName": "Hiruzen Sarutobi"
+          },
+          "duplicate": false,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 2
+        }
+      },
+      {
+        "id": "3e342fa9b7c93d3a9ed48f5d4dd2974f-9",
+        "createdAt": "2026-11-01T19:31:50.139Z",
+        "draw": {
+          "prize": {
+            "id": "card-yoroi-akado-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Yoroi Akado",
+            "cardId": "yoroi-akado-base",
+            "characterName": "Yoroi Akado"
+          },
+          "duplicate": false,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 1
+        }
+      },
+      {
+        "id": "3e342fa9b7c93d3a9ed48f5d4dd2974f-10",
+        "createdAt": "2026-11-01T19:31:50.139Z",
+        "draw": {
+          "prize": {
+            "id": "ryos-300-legendary",
+            "kind": "ryos",
+            "rarity": "lendaria",
+            "name": "300 Ryos",
+            "amount": 300
+          },
+          "guaranteedLegendary": true,
+          "spinsUntilLegendary": 10
+        }
+      }
+    ]
   }
 ]

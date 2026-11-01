@@ -749,6 +749,7 @@ export default function App() {
             equippedCharacterSkins: updatedUser.equippedCharacterSkins || {},
             equippedShopSkins: updatedUser.equippedShopSkins || {},
             equippedSkillSkins: updatedUser.equippedSkillSkins || {},
+            characterSelectSkinGuideSeen: updatedUser.characterSelectSkinGuideSeen === true,
           }),
         });
         const result = await response.json() as { error?: string };

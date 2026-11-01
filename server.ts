@@ -1008,6 +1008,7 @@ async function startServer() {
     }
     if (Array.isArray(req.body.collectedCardIds)) users[userIdx].collectedCardIds = req.body.collectedCardIds;
     if (req.body.tutorialRewardClaimed === true) users[userIdx].tutorialRewardClaimed = true;
+    if (req.body.characterSelectSkinGuideSeen === true) users[userIdx].characterSelectSkinGuideSeen = true;
 
     if (!persistAccountUsers(users)) {
       return res.status(500).json({ error: "Não foi possível salvar as skins e os dados da conta." });

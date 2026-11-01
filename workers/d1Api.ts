@@ -106,6 +106,7 @@ interface FirebaseJwk extends JsonWebKey {
 const ACCOUNT_FIELDS = new Set([
   'name', 'photoUrl', 'title', 'equippedFrame', 'equippedFrameUrl', 'equippedBannerUrl',
   'equippedBannerPositionX', 'equippedBannerPositionY', 'equippedCharacterSkins', 'tutorialRewardClaimed',
+  'characterSelectSkinGuideSeen',
   'equippedShopSkins', 'equippedSkillSkins',
 ]);
 const EQUIPPED_SKIN_MAP_FIELDS = new Set([
@@ -715,6 +716,11 @@ async function profileRoute(request: Request, env: D1Env, pathname: string): Pro
         changed = true;
       }
     } else if (key === 'tutorialRewardClaimed') {
+      if (value === true && profile[key] !== true) {
+        profile[key] = true;
+        changed = true;
+      }
+    } else if (key === 'characterSelectSkinGuideSeen') {
       if (value === true && profile[key] !== true) {
         profile[key] = true;
         changed = true;

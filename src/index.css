@@ -4399,6 +4399,11 @@ body.processing-cursor * {
   filter: drop-shadow(0 4px 8px rgba(255, 177, 46, .68));
 }
 
+.tutorial-reward-trophy img {
+  animation: lobby-chest-mini-bounce 1.15s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(255, 177, 46, .68));
+}
+
 .lobby-chest-item.is-available .lobby-chest-threshold {
   color: #9a4b00;
 }
@@ -4421,7 +4426,8 @@ body.processing-cursor * {
 
 @media (prefers-reduced-motion: reduce) {
   .lobby-chest-item:not(.is-claimed) .lobby-chest-trigger img,
-  .lobby-chest-item.is-available .lobby-chest-trigger {
+  .lobby-chest-item.is-available .lobby-chest-trigger,
+  .tutorial-reward-trophy img {
     animation: none;
   }
 

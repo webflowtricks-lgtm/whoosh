@@ -3,6 +3,12 @@ import type { Character, ShopItem, SkinRarity, UserProfile } from '../types';
 export const SKIN_FRAGMENT_PACK_COST = 75_000;
 export const SKIN_FRAGMENT_UNLOCK_TARGET = 50;
 export const SKIN_RARITY_ORDER: readonly SkinRarity[] = ['comum', 'rara', 'epica', 'lendaria', 'mitica'];
+export const GLOBAL_REQUIRED_CHARACTER_SKINS = {
+  naruto: 'naruto-skin-1470',
+  sakura: 'sakura-skin-5341',
+  sasuke: 'sasuke-skin-3412',
+} as const;
+const GLOBAL_COMMON_SKIN_IDS = Object.values(GLOBAL_REQUIRED_CHARACTER_SKINS);
 export const SKIN_RARITY_META: Record<SkinRarity, { labelPt: string; labelEn: string; className: string }> = {
   comum: { labelPt: 'Comum', labelEn: 'Common', className: 'border-slate-300 bg-slate-100 text-slate-700' },
   rara: { labelPt: 'Rara', labelEn: 'Rare', className: 'border-sky-300 bg-sky-100 text-sky-800' },
@@ -18,9 +24,37 @@ export function normalizeSkinRarity(value: unknown): SkinRarity {
 }
 
 export function isSkinUnlocked(user: Pick<UserProfile, 'unlockedSkins' | 'skinFragments'>, skinId: string): boolean {
-  return (user.unlockedSkins || []).includes(skinId) ||
+  return GLOBAL_COMMON_SKIN_IDS.some(globalSkinId => globalSkinId === skinId) ||
+    (user.unlockedSkins || []).includes(skinId) ||
     (Number.isSafeInteger(user.skinFragments?.[skinId]) &&
       Number(user.skinFragments?.[skinId]) >= SKIN_FRAGMENT_UNLOCK_TARGET);
+}
+
+export function getSkinFragmentCount(fragments: Record<string, unknown> | undefined, skinId: string): number {
+  const count = fragments?.[skinId];
+  return Number.isSafeInteger(count) && Number(count) > 0 ? Number(count) : 0;
+}
+
+export function addSkinFragments(previousCount: number, fragmentsAdded: number): number {
+  if (!Number.isSafeInteger(previousCount) || previousCount < 0 ||
+      !Number.isSafeInteger(fragmentsAdded) || fragmentsAdded < 0) {
+    throw new RangeError('A quantidade de fragmentos deve ser um inteiro não negativo.');
+  }
+  const nextCount = previousCount + fragmentsAdded;
+  if (!Number.isSafeInteger(nextCount)) {
+    throw new RangeError('A quantidade total de fragmentos excede o limite seguro.');
+  }
+  return nextCount;
+}
+
+export function applyGlobalRequiredCharacterSkins(team: Character[]): Character[] {
+  return team.map(character => {
+    const requiredSkinId = GLOBAL_REQUIRED_CHARACTER_SKINS[character.id as keyof typeof GLOBAL_REQUIRED_CHARACTER_SKINS];
+    const requiredSkin = character.skins?.find(skin => skin.id === requiredSkinId);
+    return requiredSkin
+      ? { ...character, selectedSkinId: requiredSkin.id, selectedSkinUrl: requiredSkin.image }
+      : character;
+  });
 }
 
 export function autoEquipNewlyUnlockedCharacterSkins(

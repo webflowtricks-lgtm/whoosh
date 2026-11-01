@@ -12,12 +12,17 @@
     "migrate:d1:preview": "node scripts/migrate-json-to-d1.mjs",
     "migrate:d1:local": "node scripts/migrate-json-to-d1.mjs --local --apply",
     "build:cf": "vite build --outDir dist/client",
+    "android:sync": "npm run build:cf && cap sync android",
+    "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug",
+    "android:open": "cap open android",
     "cf:dev": "wrangler dev --local --ip 127.0.0.1 --port 8788",
     "cf:deploy": "npm run build:cf && wrangler deploy",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/core": "^7.6.10",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
@@ -32,6 +37,7 @@
     "ws": "^8.17.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.10",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.17",

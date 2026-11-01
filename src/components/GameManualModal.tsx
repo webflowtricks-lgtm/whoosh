@@ -1,14 +1,15 @@
 import React from 'react';
-import { Sword, X } from 'lucide-react';
+import { RotateCcw, Sword, X } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
 interface GameManualModalProps {
   isOpen: boolean;
   onClose: () => void;
   playClickSound: () => void;
+  onReplayTutorial?: () => void;
 }
 
-export default function GameManualModal({ isOpen, onClose, playClickSound }: GameManualModalProps) {
+export default function GameManualModal({ isOpen, onClose, playClickSound, onReplayTutorial }: GameManualModalProps) {
   const { t } = useLanguage();
 
   if (!isOpen) return null;
@@ -151,6 +152,22 @@ export default function GameManualModal({ isOpen, onClose, playClickSound }: Gam
                 <span className="font-bold text-emerald-200">{t('Planeje o gasto total antes de finalizar.', 'Plan your total spend before ending the turn.')}</span>{' '}
                 {t('Combine habilidades de preparação com finalizadores e mantenha ninjas vivos para gerar mais chakra nos próximos turnos.', 'Pair setup skills with finishers, and keep ninjas alive to generate more chakra on future turns.')}
               </p>
+              {onReplayTutorial && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playClickSound();
+                      onClose();
+                      onReplayTutorial();
+                    }}
+                    className="flex items-center gap-2 rounded-xl border border-amber-300/70 bg-gradient-to-b from-amber-600 to-amber-800 px-5 py-3 text-xs font-black uppercase tracking-wide text-amber-50 shadow-lg transition hover:from-amber-500 hover:to-amber-700"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    {t('Jogar tutorial novamente', 'Play tutorial again')}
+                  </button>
+                </div>
+              )}
             </div>
           </section>
         </div>

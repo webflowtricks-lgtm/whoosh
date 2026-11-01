@@ -8,6 +8,25 @@ This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/8522cf8c-35ea-4988-a803-d48e12ccc968
 
+## Android APK
+
+The Android app is an online Capacitor wrapper for the production game at
+`https://whoosh.robertosouzasouza999.workers.dev`. It requires an internet connection
+and uses the same API and multiplayer WebSocket as the website.
+
+Prerequisites on Windows: Node.js, Android Studio with the Android SDK, and a Java 21
+JDK (select the bundled JDK in Android Studio or set `JAVA_HOME`).
+
+```powershell
+npm install
+npm run android:apk
+```
+
+The debug APK is written to
+`android\app\build\outputs\apk\debug\app-debug.apk`. To open the Android project in
+Android Studio, run `npm run android:open`. The APK loads the production game and
+therefore requires internet access; it does not bundle an offline copy of the game.
+
 ## Run Locally
 
 **Prerequisites:**  Node.js

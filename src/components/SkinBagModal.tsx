@@ -2,6 +2,7 @@ import React from 'react';
 import { Backpack, Lock, X } from 'lucide-react';
 import type { Character, UserProfile } from '../types';
 import {
+  getSkinFragmentCount,
   getSkinFragmentCatalog,
   SKIN_FRAGMENT_UNLOCK_TARGET,
   SKIN_RARITY_META,
@@ -24,12 +25,7 @@ export default function SkinBagModal({ user, characters, onClose, playClickSound
   const skins = getSkinFragmentCatalog(characters)
     .map(skin => ({
       ...skin,
-      count: unlockedSkins.has(skin.id)
-        ? SKIN_FRAGMENT_UNLOCK_TARGET
-        : Math.max(0, Math.min(
-          SKIN_FRAGMENT_UNLOCK_TARGET,
-          Number.isSafeInteger(fragments[skin.id]) ? Number(fragments[skin.id]) : 0,
-        )),
+      count: getSkinFragmentCount(fragments, skin.id),
     }))
     .sort((left, right) =>
       SKIN_RARITY_ORDER.indexOf(right.rarity) - SKIN_RARITY_ORDER.indexOf(left.rarity) ||
@@ -105,7 +101,7 @@ export default function SkinBagModal({ user, characters, onClose, playClickSound
                   <div className="space-y-1">
                     <div className="flex items-center justify-between font-mono text-xs font-bold">
                       <span className={isUnlocked ? 'text-orange-700' : 'text-blue-700'}>
-                        {isUnlocked ? SKIN_FRAGMENT_UNLOCK_TARGET : skin.count}/{SKIN_FRAGMENT_UNLOCK_TARGET}
+                        {skin.count}/{SKIN_FRAGMENT_UNLOCK_TARGET}
                       </span>
                       <span className="text-slate-500">{t('fragmentos', 'fragments')}</span>
                     </div>
@@ -114,12 +110,12 @@ export default function SkinBagModal({ user, characters, onClose, playClickSound
                       role="progressbar"
                       aria-valuemin={0}
                       aria-valuemax={SKIN_FRAGMENT_UNLOCK_TARGET}
-                      aria-valuenow={isUnlocked ? SKIN_FRAGMENT_UNLOCK_TARGET : skin.count}
-                      aria-label={`${skin.name}: ${isUnlocked ? SKIN_FRAGMENT_UNLOCK_TARGET : skin.count}/${SKIN_FRAGMENT_UNLOCK_TARGET}`}
+                      aria-valuenow={Math.min(SKIN_FRAGMENT_UNLOCK_TARGET, skin.count)}
+                      aria-label={`${skin.name}: ${skin.count}/${SKIN_FRAGMENT_UNLOCK_TARGET}`}
                     >
                       <div
                         className={`h-full rounded-full transition-all ${isUnlocked ? 'bg-gradient-to-r from-orange-400 to-amber-500' : 'bg-gradient-to-r from-blue-500 to-sky-400'}`}
-                        style={{ width: `${(isUnlocked ? SKIN_FRAGMENT_UNLOCK_TARGET : skin.count) / SKIN_FRAGMENT_UNLOCK_TARGET * 100}%` }}
+                        style={{ width: `${Math.min(100, skin.count / SKIN_FRAGMENT_UNLOCK_TARGET * 100)}%` }}
                       />
                     </div>
                   </div>
