@@ -2134,6 +2134,7 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
   // Floating text animations
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const [rasenganAnimation, setRasenganAnimation] = useState<{ sourceId: string; targetId: string; token: number } | null>(null);
+  const [rasenganTargetShake, setRasenganTargetShake] = useState<{ targetId: string; token: number } | null>(null);
   const rasenganAnimationTokenRef = useRef(0);
   const rasenganCanvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -2257,6 +2258,7 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
 
     let animationFrame = 0;
     let startedAt: number | null = null;
+    let targetShakeStarted = false;
     const chargeDuration = 780;
     const flightDuration = 420;
     const grindDuration = 1600;
@@ -2280,6 +2282,13 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
         drawRasengan(x, y, 56, elapsed * 0.04);
       } else if (elapsed < chargeDuration + flightDuration + grindDuration) {
         const grindElapsed = elapsed - chargeDuration - flightDuration;
+        if (!targetShakeStarted) {
+          targetShakeStarted = true;
+          setRasenganTargetShake({
+            targetId: rasenganAnimation.targetId,
+            token: rasenganAnimation.token,
+          });
+        }
         const shakeX = Math.sin(grindElapsed * 0.025) * 0.7;
         const shakeY = Math.cos(grindElapsed * 0.029) * 0.7;
         const orbX = target.x + shakeX;
@@ -2343,6 +2352,7 @@ const chakraTradeTypes: Array<{ type: keyof ChakraPool; label: string }> = [
       cancelAnimationFrame(animationFrame);
       window.removeEventListener('resize', resizeCanvas);
       context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      setRasenganTargetShake(current => current?.token === rasenganAnimation.token ? null : current);
     };
   }, [rasenganAnimation]);
   // 🎯 Sistema de floating texts agrupados por tipo: textos com o mesmo conteúdo aparecem
@@ -18907,11 +18917,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   playClickSound();
                   setShowBattleSettings(prev => !prev);
                 }}
-                className={`p-2 rounded-xl border transition-all cursor-pointer active:scale-95 shadow-lg ${
-                  showBattleSettings
-                    ? 'bg-orange-600 border-orange-500 text-white shadow-orange-500/30'
-                    : 'bg-slate-800/90 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-orange-400 hover:border-orange-500/50 shadow-slate-950/40'
-                }`}
+                className={`battle-wood-gear p-2 rounded-xl border transition-all cursor-pointer active:scale-95 shadow-lg${showBattleSettings ? ' is-open' : ''}`}
+                aria-expanded={showBattleSettings}
                 title="Configurações da Batalha"
               >
                 <Settings className="w-4 h-4" />
@@ -18919,7 +18926,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
               {/* Settings Dropdown (opens upward) */}
               {showBattleSettings && (
-                <div className="absolute bottom-full mb-2 left-0 z-50 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl shadow-slate-950/60 p-2 min-w-[160px] flex flex-col gap-1 max-h-[70vh] overflow-y-auto overscroll-contain" data-battle-settings>
+                <div className="battle-wood-modal battle-wood-settings-menu absolute bottom-full mb-2 left-0 z-50 rounded-xl p-2 min-w-[160px] flex flex-col gap-1 max-h-[70vh] overflow-y-auto overscroll-contain" data-battle-settings>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -18927,7 +18934,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       setShowGameManual(true);
                       setShowBattleSettings(false);
                     }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                    className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
                   >
                     <Scroll className="w-3.5 h-3.5 text-amber-400" />
                     <span>Manual</span>
@@ -18940,14 +18947,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       playClickSound();
                       setShowVolumeControls(prev => !prev);
                     }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                    className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
                   >
                     {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
                     <span>Volume</span>
                   </button>
 
                   {showVolumeControls && (
-                    <div className="mt-1 space-y-3 rounded-lg border border-slate-700 bg-slate-950/90 p-3">
+                    <div className="battle-wood-menu-inset mt-1 space-y-3 rounded-lg p-3">
                       {([
                         ['master', 'Volume geral'],
                         ['effects', 'Efeitos'],
@@ -18976,7 +18983,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           playClickSound();
                           onToggleMute();
                         }}
-                        className="flex w-full items-center gap-2 border-t border-slate-800 pt-3 text-left text-[10px] font-bold text-slate-300 transition hover:text-white cursor-pointer"
+                        className="battle-wood-menu-inset-toggle flex w-full items-center gap-2 border-t pt-3 text-left text-[10px] font-bold cursor-pointer"
                       >
                         {isMuted ? <Volume2 className="h-3.5 w-3.5 text-emerald-400" /> : <VolumeX className="h-3.5 w-3.5 text-red-400" />}
                         <span>{isMuted ? 'Ativar todos os sons' : 'Mutar todos os sons'}</span>
@@ -18997,7 +19004,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         return next;
                       });
                     }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                    className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
                   >
                     <Info className={`w-3.5 h-3.5 ${showBattleLog ? 'text-amber-400' : 'text-slate-500'}`} />
                     <span className="flex-1">{t("Log da Batalha", "Battle Log")}</span>
@@ -19015,7 +19022,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         handleReloadBattle();
                         setShowBattleSettings(false);
                       }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                      className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
                       <span>Recarregar</span>
@@ -19031,7 +19038,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         handleSurrender();
                         setShowBattleSettings(false);
                       }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-red-900/60 text-slate-300 hover:text-red-300 transition-all text-xs font-bold cursor-pointer"
+                      className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:text-red-200"
                     >
                       <Flag className="w-3.5 h-3.5 text-red-400" />
                       <span>Render-se</span>
@@ -19047,7 +19054,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       setIsQuestModalOpen(true);
                       setShowBattleSettings(false);
                     }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                    className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
                   >
                     <Scroll className="w-3.5 h-3.5 text-amber-400" />
                     <span>Missões</span>
@@ -19273,6 +19280,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           isSkillTargetable(combatant, false) ? 'mv-skill-targetable' : ''
                         }`}
                       >
+                        <span className={`relative grid h-full w-full max-w-full place-items-center ${
+                          rasenganTargetShake?.targetId === combatant.id && rasenganTargetShake.token === rasenganAnimation?.token ? 'mv-rasengan-target-shake' : ''
+                        }`}>
                         {invulnerabilityIcon ? (
                           <img
                             src={invulnerabilityIcon}
@@ -19321,6 +19331,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             </span>
                           </>
                         )}
+                        </span>
                       </button>
                     );
                   })()}
@@ -21418,6 +21429,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         isSkillTargetable(combatant, true) ? 'mv-skill-targetable' : ''
                       }`}
                     >
+                      <span className={`relative grid h-full w-full max-w-full place-items-center ${
+                        rasenganTargetShake?.targetId === combatant.id && rasenganTargetShake.token === rasenganAnimation?.token ? 'mv-rasengan-target-shake' : ''
+                      }`}>
                       {invulnerabilityIcon ? (
                         <img
                           src={invulnerabilityIcon}
@@ -21461,6 +21475,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           </span>
                         </>
                       )}
+                      </span>
                     </button>
                   );
                 })()}
@@ -21587,10 +21602,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.85, opacity: 0, y: 15 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="chakra-trade-modal relative w-full max-w-xl max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-emerald-400/25 bg-slate-950 text-white shadow-2xl shadow-black/50"
+              className="battle-wood-modal chakra-trade-modal relative w-full max-w-xl max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl text-white"
             >
-              <div className="p-4 sm:p-6">
-                <header className="mb-5 flex items-start justify-between gap-3">
+              <div className="battle-wood-modal-content p-4 sm:p-6">
+                <header className="battle-wood-modal-header mb-5 flex items-start justify-between gap-3">
                   <div>
                     <div className="mb-1 flex items-center gap-2">
                       <h2 className="text-lg font-black tracking-wide text-white sm:text-xl">Troca de chakra</h2>
@@ -21606,7 +21621,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       setTradeSelection({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
                       setTradeTarget(null);
                     }}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-lg text-slate-300 hover:border-emerald-400/50 hover:text-white"
+                    className="battle-wood-modal-close flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg"
                   >
                     ×
                   </button>
@@ -21650,7 +21665,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       return (
                         <div
                           key={type}
-                          className={`flex min-w-0 flex-col items-center gap-2 rounded-xl border p-3 ${isSelected ? selectedCardColors[type] : 'border-white/10 bg-white/[0.03]'}`}
+                          data-selected={isSelected}
+                          className={`battle-wood-chakra-card flex min-w-0 flex-col items-center gap-2 rounded-xl border p-3 ${isSelected ? selectedCardColors[type] : 'border-white/10 bg-white/[0.03]'}`}
                         >
                           {renderChakraIcon(type, 'h-7 w-7')}
                           <span className="text-center text-[11px] font-semibold leading-tight text-white">{label}</span>
@@ -21697,7 +21713,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           key={type}
                           aria-pressed={tradeTarget === type}
                           onClick={() => setTradeTarget(type)}
-                          className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${tradeTarget === type ? targetColors[type] : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]'}`}
+                          className={`battle-wood-chakra-target flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${tradeTarget === type ? targetColors[type] : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]'}`}
                         >
                           {renderChakraIcon(type, 'h-5 w-5')}
                           <span>{label}</span>
@@ -21878,9 +21894,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 10 }}
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-              className="relative bg-slate-900 border-2 border-amber-600/50 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-slate-100 space-y-4"
+              className="battle-wood-modal battle-wood-turn-confirm relative rounded-2xl p-6 max-w-sm w-full text-slate-100 space-y-4"
             >
-              <div className="flex items-start justify-between border-b border-amber-900/40 pb-3">
+              <div className="battle-wood-modal-header flex items-start justify-between border-b border-amber-900/40 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className={`p-2 rounded-xl ${
                     activePlanner === 'player'
@@ -21899,11 +21915,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => {
                     playClickSound();
                     setShowSandboxConfirmModal(false);
                   }}
-                  className="text-slate-400 hover:text-amber-200 transition p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+                  aria-label="Fechar confirmação de turno"
+                  className="battle-wood-modal-close p-1 rounded-lg cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -22066,10 +22084,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         {showRandChakraModal && randModalData && (
           <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-md select-none">
             <div
-              className="relative bg-slate-950 border border-emerald-400/25 rounded-2xl p-5 max-w-xl w-full shadow-2xl shadow-black/50 text-white space-y-4"
+              className="battle-wood-modal relative rounded-2xl p-5 max-w-xl w-full text-white space-y-4"
               data-rand-modal
             >
-              <div className="flex items-start justify-between border-b border-white/10 pb-3" data-rand-header>
+              <div className="battle-wood-modal-header flex items-start justify-between border-b border-white/10 pb-3" data-rand-header>
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-400/20 bg-orange-400/[0.07]">
                     {renderChakraIcon('Rand', 'w-5 h-5')}
@@ -22078,9 +22096,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     <h3 className="font-extrabold text-sm sm:text-base text-white">
                       Complete o custo das habilidades
                     </h3>
-                    <p className="text-[11px] font-medium text-slate-400" data-rand-sub>
-                      Cada chakra aleatório pode ser pago com qualquer tipo disponível.
-                    </p>
                   </div>
                 </div>
                 <button
@@ -22089,7 +22104,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     playClickSound();
                     setShowRandChakraModal(false);
                   }}
-                  className="text-slate-400 hover:text-white transition p-1 rounded-lg hover:bg-white/[0.06] cursor-pointer"
+                  className="battle-wood-modal-close flex items-center justify-center p-1 rounded-lg cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -22134,7 +22149,6 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     <div className="flex items-center justify-between gap-2" data-rand-progress>
                       <div>
                         <h4 className="text-xs font-bold text-white">Escolha os chakras para usar</h4>
-                        <p className="mt-0.5 text-[10px] text-slate-400">Os custos fixos já foram descontados.</p>
                       </div>
                       <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
                         isComplete ? 'bg-emerald-400/10 text-emerald-300' : 'bg-orange-400/10 text-orange-200'
@@ -22183,7 +22197,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         };
 
                         return (
-                          <div key={key} data-rand-card className={`flex min-w-0 flex-col items-center gap-2 rounded-xl border p-2.5 text-center ${
+                          <div key={key} data-rand-card data-selected={allocated > 0} className={`battle-wood-chakra-card flex min-w-0 flex-col items-center gap-2 rounded-xl border p-2.5 text-center ${
                             allocated > 0
                               ? selectedCardColors[key]
                                 : 'border-white/10 bg-white/[0.03]'

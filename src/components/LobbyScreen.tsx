@@ -757,7 +757,7 @@ export default function LobbyScreen({
       <div className="lobby-quick-actions">
         <button
           type="button"
-          className="lobby-quick-actions-toggle"
+          className={`lobby-quick-actions-toggle${quickActionsOpen ? ' is-open' : ''}`}
           onClick={() => { playClickSound(); setQuickActionsOpen(open => !open); }}
           aria-label={t('Abrir atalhos', 'Open shortcuts')}
           aria-expanded={quickActionsOpen}

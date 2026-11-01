@@ -594,7 +594,11 @@ export default function RewardRoulettePage({
       </div>
 
       <header className="reward-roulette-heading">
-        <h1 id="reward-roulette-title">{t('Roleta de Recompensas', 'Reward Roulette')}</h1>
+        <h1 id="reward-roulette-title">
+          {t('Roleta de', 'Reward')}
+          <br />
+          {t('Recompensas', 'Roulette')}
+        </h1>
       </header>
 
       <section className={`reward-roulette-board${spinning ? ' is-spinning' : ''}`} aria-label={t('Prêmios disponíveis', 'Available prizes')}>
@@ -657,7 +661,6 @@ export default function RewardRoulettePage({
             <rect x="2" y="2" width="386" height="92" rx="20" fill="url(#roulette-silver-frame)" stroke="#111822" strokeWidth="2.5" />
             <rect x="7" y="7" width="376" height="82" rx="15" fill="url(#roulette-blue-wood)" />
             <rect x="8" y="8" width="374" height="80" rx="14" fill="url(#roulette-blue-grain)" />
-            <path d="M16 22Q16 16 26 16Q20 20 20 24M16 22Q20 28 26 28M374 22Q374 16 364 16Q370 20 370 24M374 22Q370 28 364 28M16 74Q16 80 26 80Q20 76 20 72M374 74Q374 80 364 80Q370 76 370 72" fill="none" stroke="#dbeafe" strokeWidth="2" opacity=".8" />
             <circle cx="55" cy="49" r="36" fill="#0c141d" />
             <circle cx="55" cy="49" r="33" fill="none" stroke="url(#roulette-silver-frame)" strokeWidth="4" />
             <circle cx="55" cy="49" r="28" fill="#1b2836" />
@@ -693,7 +696,6 @@ export default function RewardRoulettePage({
             <rect x="2" y="2" width="386" height="92" rx="20" fill="url(#roulette-gold-frame)" stroke="#451a03" strokeWidth="2.5" />
             <rect x="7" y="7" width="376" height="82" rx="15" fill="url(#roulette-red-wood)" />
             <rect x="8" y="8" width="374" height="80" rx="14" fill="url(#roulette-red-grain)" />
-            <path d="M16 22Q16 16 26 16Q20 20 20 24M16 22Q20 28 26 28M374 22Q374 16 364 16Q370 20 370 24M374 22Q370 28 364 28M16 74Q16 80 26 80Q20 76 20 72M374 74Q374 80 364 80Q370 76 370 72" fill="none" stroke="#fde047" strokeWidth="2" opacity=".9" />
             <circle cx="55" cy="49" r="36" fill="#300705" />
             <circle cx="55" cy="49" r="33" fill="none" stroke="url(#roulette-gold-frame)" strokeWidth="4" />
             <circle cx="55" cy="49" r="28" fill="#5c1108" />

@@ -23,6 +23,30 @@ export function isSkinUnlocked(user: Pick<UserProfile, 'unlockedSkins' | 'skinFr
       Number(user.skinFragments?.[skinId]) >= SKIN_FRAGMENT_UNLOCK_TARGET);
 }
 
+export function autoEquipNewlyUnlockedCharacterSkins(
+  previousUser: Pick<UserProfile, 'unlockedSkins' | 'skinFragments' | 'equippedCharacterSkins'> | null,
+  updatedUser: UserProfile,
+  characters: Character[],
+): UserProfile {
+  if (!previousUser) return updatedUser;
+
+  const newlyUnlockedByCharacter = new Map<string, string>();
+  for (const character of characters) {
+    for (const skin of character.skins || []) {
+      if (!isSkinUnlocked(previousUser, skin.id) && isSkinUnlocked(updatedUser, skin.id)) {
+        newlyUnlockedByCharacter.set(character.id, skin.id);
+      }
+    }
+  }
+  if (newlyUnlockedByCharacter.size === 0) return updatedUser;
+
+  const equippedCharacterSkins = { ...updatedUser.equippedCharacterSkins };
+  for (const [characterId, skinId] of newlyUnlockedByCharacter) {
+    equippedCharacterSkins[characterId] = skinId;
+  }
+  return { ...updatedUser, equippedCharacterSkins };
+}
+
 export interface SkinFragmentCatalogEntry {
   id: string;
   name: string;

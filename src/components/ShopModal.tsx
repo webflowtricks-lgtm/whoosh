@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, ShoppingBag, ShoppingCart, Sparkles, Check, Award, Shield, CircleDollarSign, UserCheck, Shirt, Dices, LoaderCircle } from 'lucide-react';
 import { UserProfile, ShopItem, NinjaCard } from '../types';
 import { getShopItems, fetchShopItemsFromServer, isShopItemNew, sortShopItemsByAddedAt } from '../lib/shopStorage';
+import { getCharacters } from '../lib/characterStorage';
 import { getTitleThemeClass, isTitleUnlocked } from '../lib/titleThemes';
 import { playGlobalSound } from '../lib/soundUtils';
 import { fetchCardsFromServer, getCards, CARD_RARITY_META } from '../lib/cardStorage';
@@ -288,13 +289,26 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
 
       const newRyos = item.currency === 'ryos' ? ryos - item.price : ryos;
       const newGems = item.currency === 'gems' ? gems - item.price : gems;
-      const newSkins = [...unlockedSkins, item.name];
+      const newSkins = [...new Set([...unlockedSkins, item.name, item.id])];
+      const shopCharacter = item.characterName
+        ? getCharacters().find(character =>
+          character.name.trim().toLowerCase() === item.characterName?.trim().toLowerCase(),
+        )
+        : undefined;
+      const equippedShopSkins = { ...user.equippedShopSkins };
+      const equippedCharacterSkins = { ...user.equippedCharacterSkins };
+      if (shopCharacter && item.skinImageUrl) {
+        equippedShopSkins[shopCharacter.id] = item.id;
+        delete equippedCharacterSkins[shopCharacter.id];
+      }
 
       onUpdateUser({
         ...user,
         ryos: newRyos,
         gems: newGems,
-        unlockedSkins: newSkins
+        unlockedSkins: newSkins,
+        equippedShopSkins,
+        equippedCharacterSkins,
       });
 
       setPurchaseToast(`Skin "${item.name}" adquirida com sucesso!`);

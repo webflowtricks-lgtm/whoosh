@@ -1230,6 +1230,7 @@ export interface UserProfile {
   rewardRouletteSpinCount?: number;
   rewardRouletteHistory?: RewardRouletteHistoryEntry[];
   equippedCharacterSkins?: Record<string, string>;
+  equippedShopSkins?: Record<string, string>;
   equippedSkillSkins?: Record<string, string>;
   unlockedFrames?: string[];
   unlockedFrameUrls?: string[];

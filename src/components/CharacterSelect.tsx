@@ -347,12 +347,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const [showSkinsTab, setShowSkinsTab] = useState(false);
   const [equippedSkins, setEquippedSkins] = useState<Record<string, string>>(() => user.equippedCharacterSkins || {});
   const [equippedSkillSkins, setEquippedSkillSkins] = useState<Record<string, string>>(() => user.equippedSkillSkins || {});
-  const [skillSkinItems, setSkillSkinItems] = useState<ShopItem[]>(() =>
-    getShopItems().filter(item => item.category === 'skill_skin')
-  );
+  const [shopItems, setShopItems] = useState<ShopItem[]>(() => getShopItems());
+  const skillSkinItems = shopItems.filter(item => item.category === 'skill_skin');
   useEffect(() => {
     fetchShopItemsFromServer().then(items => {
-      setSkillSkinItems(items.filter(item => item.category === 'skill_skin'));
+      setShopItems(items);
     });
   }, []);
 
@@ -365,6 +364,14 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         charSkins.some(skin => skin.id === requestedSkinId)
         ? requestedSkinId
         : undefined;
+      const unlockedShopSkinIds = new Set(user.unlockedSkins || []);
+      const equippedShopSkin = shopItems.find(item =>
+        item.id === user.equippedShopSkins?.[char.id] &&
+        item.category === 'skin' &&
+        !!item.skinImageUrl &&
+        unlockedShopSkinIds.has(item.id) &&
+        item.characterName?.trim().toLowerCase() === char.name.trim().toLowerCase(),
+      );
       const unlockedSkillSkinIds = new Set(user.unlockedSkillSkins || []);
       const skills = (Array.isArray(char.skills) ? char.skills : []).map(skill => {
         if (!includeSkillSkins) return skill;
@@ -383,13 +390,15 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
       if (skinId) {
         selectedSkinUrl = charSkins.find(skin => skin.id === skinId)?.image || char.portrait;
+      } else if (equippedShopSkin?.skinImageUrl) {
+        selectedSkinUrl = equippedShopSkin.skinImageUrl;
       }
 
       return {
         ...char,
         skins: charSkins,
         skills,
-        selectedSkinId: skinId || 'default',
+        selectedSkinId: skinId || equippedShopSkin?.id || 'default',
         selectedSkinUrl: selectedSkinUrl
       };
     });

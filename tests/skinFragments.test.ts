@@ -6,9 +6,11 @@ import {
   SKIN_FRAGMENT_PACK_COST,
   SKIN_FRAGMENT_UNLOCK_TARGET,
   SKIN_RARITY_ORDER,
+  autoEquipNewlyUnlockedCharacterSkins,
   isSkinUnlocked,
   normalizeSkinRarity,
 } from '../src/lib/skinFragments';
+import type { Character } from '../src/types';
 
 test('skin fragment catalog keeps unique, usable skin entries', () => {
   const skins = getSkinFragmentCatalog([
@@ -44,4 +46,51 @@ test('skin fragment pack roll is weighted toward one fragment and always yields 
   assert.throws(() => rollSkinFragmentQuantity(1), RangeError);
   assert.equal(SKIN_FRAGMENT_PACK_COST, 75_000);
   assert.equal(SKIN_FRAGMENT_UNLOCK_TARGET, 50);
+});
+
+test('newly unlocked character skins are equipped without changing prior unlocks', () => {
+  const characters = [
+    {
+      id: 'naruto',
+      name: 'Naruto',
+      skins: [
+        { id: 'naruto-sage', name: 'Modo Sábio', image: '/sage.png' },
+        { id: 'naruto-kurama', name: 'Kurama', image: '/kurama.png' },
+      ],
+    },
+  ] as Character[];
+  const previousUser = {
+    unlockedSkins: ['naruto-sage'],
+    equippedCharacterSkins: { naruto: 'naruto-sage' },
+  };
+  const updatedUser = {
+    username: 'test',
+    name: 'Test',
+    photoUrl: '',
+    unlockedSkins: ['naruto-sage', 'naruto-kurama'],
+  };
+
+  const result = autoEquipNewlyUnlockedCharacterSkins(previousUser, updatedUser, characters);
+  assert.equal(result.equippedCharacterSkins?.naruto, 'naruto-kurama');
+  assert.deepEqual(updatedUser.equippedCharacterSkins, undefined);
+});
+
+test('skin unlock evaluation also auto-equips when fragments reach the threshold', () => {
+  const characters = [{
+    id: 'sasuke',
+    name: 'Sasuke',
+    skins: [{ id: 'sasuke-hebi', name: 'Hebi', image: '/hebi.png' }],
+  }] as Character[];
+  const result = autoEquipNewlyUnlockedCharacterSkins(
+    { skinFragments: { 'sasuke-hebi': 49 } },
+    {
+      username: 'test',
+      name: 'Test',
+      photoUrl: '',
+      skinFragments: { 'sasuke-hebi': 50 },
+    },
+    characters,
+  );
+
+  assert.equal(result.equippedCharacterSkins?.sasuke, 'sasuke-hebi');
 });

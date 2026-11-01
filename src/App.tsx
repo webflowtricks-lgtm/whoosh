@@ -7,7 +7,8 @@ import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react
 import { GameScreen, Character, UserProfile, Quest } from './types';
 import { safeFetchJson } from './lib/api';
 import { matchFetch } from './lib/matchFetch';
-import { fetchCharactersFromServer } from './lib/characterStorage';
+import { fetchCharactersFromServer, getCharacters } from './lib/characterStorage';
+import { autoEquipNewlyUnlockedCharacterSkins } from './lib/skinFragments';
 import { fetchRanksFromServer } from './lib/rankStorage';
 import { fetchShopItemsFromServer } from './lib/shopStorage';
 import { fetchEventsFromServer } from './lib/eventStorage';
@@ -1272,7 +1273,11 @@ export default function App() {
             audioSettings={audioSettings}
             onUpdateAudioSetting={updateAudioSetting}
             onUpdateUser={(updated) => {
-              const safe = { ...updated, xp: Math.max(0, updated.xp ?? 0) };
+              const safe = autoEquipNewlyUnlockedCharacterSkins(
+                user,
+                { ...updated, xp: Math.max(0, updated.xp ?? 0) },
+                getCharacters(),
+              );
               setUser(safe);
               localStorage.setItem('naruto_user_profile', JSON.stringify(safe));
             }}
@@ -1302,7 +1307,11 @@ export default function App() {
             audioSettings={audioSettings}
             onUpdateAudioSetting={updateAudioSetting}
             onUpdateUser={(updated) => {
-              const safe = { ...updated, xp: Math.max(0, updated.xp ?? 0) };
+              const safe = autoEquipNewlyUnlockedCharacterSkins(
+                user,
+                { ...updated, xp: Math.max(0, updated.xp ?? 0) },
+                getCharacters(),
+              );
               setUser(safe);
               localStorage.setItem('naruto_user_profile', JSON.stringify(safe));
             }}
@@ -1313,7 +1322,11 @@ export default function App() {
           <QuestBoard
             user={user}
             onUpdateUser={(updated) => {
-              const safe = { ...updated, xp: Math.max(0, updated.xp ?? 0) };
+              const safe = autoEquipNewlyUnlockedCharacterSkins(
+                user,
+                { ...updated, xp: Math.max(0, updated.xp ?? 0) },
+                getCharacters(),
+              );
               setUser(safe);
               localStorage.setItem('naruto_user_profile', JSON.stringify(safe));
             }}

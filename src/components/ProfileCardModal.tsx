@@ -425,7 +425,7 @@ export default function ProfileCardModal({
   return (
     <AnimatePresence>
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center ${isLandscape ? 'p-2' : 'p-4'} bg-slate-950/80 backdrop-blur-md`}
+        className={`fixed inset-0 z-50 flex items-center justify-center ${isLandscape ? 'p-2' : 'p-4'} bg-transparent backdrop-blur-md`}
         onClick={closeModal}
         data-no-uah
       >
@@ -650,21 +650,21 @@ export default function ProfileCardModal({
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className={`ml-figurinhas-panel mv-profile-glass-collection ${isLandscape ? 'flex-1 max-h-[78vh]' : 'w-[230px] sm:w-[335px]'} border border-white/20 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col`}
+          className={`ml-figurinhas-panel profile-card-wood-collection mv-profile-glass-collection ${isLandscape ? 'flex-1 max-h-[78vh]' : 'w-[230px] sm:w-[335px]'} border border-white/20 rounded-3xl overflow-hidden shadow-2xl relative flex flex-col`}
         >
-          <div className={`${isLandscape ? 'px-2 py-1.5' : 'px-3 py-2'} flex-shrink-0 bg-gradient-to-r from-green-700 via-green-600 to-emerald-500 border-b border-green-300/40 flex items-center gap-2`}>
+          <div className={`profile-card-wood-header ${isLandscape ? 'px-2 py-1.5' : 'px-3 py-2'} flex-shrink-0 border-b flex items-center gap-2`}>
             <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
               <img src="/static/img/icon/card-album.svg" alt="" className="w-7 h-7 object-contain brightness-0 invert" />
             </div>
             <div className="min-w-0 flex-1">
               <span className="block text-base font-black uppercase tracking-wide leading-none text-white">{t('NINJA CARDS', 'NINJA CARDS')}</span>
             </div>
-            <span className="shrink-0 rounded-lg border border-green-200/40 bg-gradient-to-r from-green-800 to-emerald-900 px-2 py-1 text-sm font-mono font-black leading-none text-white">
+            <span className="profile-card-wood-counter shrink-0 rounded-lg border px-2 py-1 text-sm font-mono font-black leading-none text-white">
               {ownedCards.length}/{allCards.length}
             </span>
           </div>
 
-          <div className="mv-profile-glass-collection-body flex-1 overflow-y-auto p-2.5 custom-scrollbar green-scrollbar">
+          <div className="profile-card-wood-body mv-profile-glass-collection-body flex-1 overflow-y-auto p-2.5 custom-scrollbar green-scrollbar">
             {ownedCards.length === 0 ? (
               <p className="text-[9px] text-slate-500 font-mono text-center py-3">{t('Nenhuma figurinha ainda. Abra pacotes para colecionar!', 'No cards yet. Open packs to collect!')}</p>
             ) : (
@@ -694,7 +694,7 @@ export default function ProfileCardModal({
                       </div>
                     </>
                   );
-                  const cardClass = `relative aspect-[3/4] rounded-md border ${CARD_RARITY_META[c.rarity].border} ${CARD_RARITY_META[c.rarity].glow} bg-slate-900 cursor-pointer group shadow-lg flex-shrink-0 w-full overflow-hidden ${fx?.frame || ''}`;
+                  const cardClass = `profile-card-wood-figure relative aspect-[3/4] rounded-md border ${CARD_RARITY_META[c.rarity].border} ${CARD_RARITY_META[c.rarity].glow} bg-slate-900 cursor-pointer group shadow-lg flex-shrink-0 w-full overflow-hidden ${fx?.frame || ''}`;
                   const cardClick = () => { if (playClickSound) playClickSound(); setLightboxCard(c); };
 
                   return (
@@ -709,7 +709,7 @@ export default function ProfileCardModal({
                         </button>
                       )}
                       {copies > 1 && (
-                        <span className="pointer-events-none absolute -left-1.5 -top-1.5 z-20 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-green-100 bg-gradient-to-br from-green-300 to-green-600 px-0.5 text-[11px] font-mono font-black leading-none text-green-950 shadow-[0_1px_5px_rgba(0,0,0,0.7),0_0_6px_rgba(34,197,94,0.65)] ring-1 ring-green-900/50">
+                        <span className="profile-card-wood-copy-count pointer-events-none absolute -left-1.5 -top-1.5 z-20 flex h-5 min-w-5 items-center justify-center rounded-full border-2 px-0.5 text-[11px] font-mono font-black leading-none shadow-[0_1px_5px_rgba(0,0,0,0.7)]">
                           {copies}
                         </span>
                       )}
