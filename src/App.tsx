@@ -21,13 +21,7 @@ import { preloadCommonUI, preloadCharacters } from './lib/imagePreloader';
 import { isVillageId } from './lib/villages';
 import { playGlobalSound, bindGlobalClickSound, bindGlobalModalSound, preloadGlobalSounds, setEffectsVolumeMultiplier } from './lib/soundUtils';
 import { motion, AnimatePresence } from 'motion/react';
-import { Swords, Flag, Smartphone, ShieldAlert, LogOut, Download, LoaderCircle, RefreshCw } from 'lucide-react';
-import {
-  cacheGameAssets,
-  GAME_ASSET_VERSION,
-  GAME_ASSETS,
-  type AssetDownloadProgress,
-} from './lib/assetDownload';
+import { Swords, Flag, Smartphone, ShieldAlert, LogOut } from 'lucide-react';
 
 const MainMenu = React.lazy(() => import('./components/MainMenu'));
 const LobbyScreen = React.lazy(() => import('./components/LobbyScreen'));
@@ -43,125 +37,24 @@ const QuestBoard = React.lazy(() => import('./components/QuestBoard'));
 
 function ScreenLoadingFallback() {
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-100 select-none gpu-accelerated">
-      <div className="relative flex items-center justify-center mb-6">
+    <div className="screen-loading-backdrop">
+      <section className="screen-loading-card" role="status" aria-live="polite">
         <img
           src="/static/img/icon/mangeky.svg"
-          alt="Loading"
-          className="w-16 h-16 animate-spin object-contain"
-          style={{
-            filter: 'hue-rotate(-25deg) saturate(2) brightness(1.1) drop-shadow(0 0 10px rgba(239, 68, 68, 0.8))',
-            animationDuration: '900ms',
-            animationTimingFunction: 'linear',
-          }}
+          alt=""
+          aria-hidden="true"
+          className="screen-loading-icon animate-spin"
         />
-      </div>
-      <div className="flex flex-col items-center gap-2">
-        <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-orange-400 animate-pulse">
-          Concentrando Chakra...
-        </h3>
-        <p className="text-xs text-slate-400 font-sans">Carregando modulo do jogo...</p>
-      </div>
-    </div>
-  );
-}
-
-function formatAssetSize(bytes: number): string {
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function AssetPreparationScreen({
-  progress,
-  status,
-  error,
-  failedCount,
-  onRetry,
-  onContinue,
-}: {
-  progress: AssetDownloadProgress;
-  status: 'downloading' | 'error';
-  error: string | null;
-  failedCount: number;
-  onRetry: () => void;
-  onContinue: () => void;
-}) {
-  const percent = progress.total > 0
-    ? Math.min(100, Math.round((progress.completed / progress.total) * 100))
-    : 0;
-
-  return (
-    <main className="fixed inset-0 z-[1000001] flex min-h-screen items-center justify-center overflow-y-auto bg-slate-950 px-5 py-10 text-slate-100">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,rgba(234,88,12,0.2),transparent_55%),linear-gradient(180deg,rgba(15,23,42,0.4),#020617)]" />
-      <section className="relative w-full max-w-lg rounded-3xl border border-amber-500/30 bg-slate-900/90 p-7 text-center shadow-[0_0_80px_rgba(234,88,12,0.12)] backdrop-blur-xl sm:p-10">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-400/30 bg-amber-500/10 text-amber-300">
-          {status === 'downloading'
-            ? <LoaderCircle className="h-9 w-9 animate-spin" />
-            : <Download className="h-9 w-9" />}
+        <h2>Carregando jogo</h2>
+        <p>Estamos preparando a próxima tela.</p>
+        <div className="screen-loading-progress">
+          <span>Carregando</span>
+          <div className="screen-loading-track" aria-hidden="true">
+            <div className="screen-loading-indicator" />
+          </div>
         </div>
-        <p className="mb-2 text-xs font-bold uppercase tracking-[0.3em] text-amber-400">Whoosh</p>
-        <h1 className="text-2xl font-black text-white sm:text-3xl">Obrigado por estar conosco!</h1>
-        <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-slate-300">
-          Estamos preparando as imagens e os sons do jogo para deixar sua experiência mais rápida.
-          Aguarde pacientemente: este download é feito uma vez neste aparelho.
-        </p>
-
-        <div className="mt-8">
-          <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-300">
-            <span>{progress.completed.toLocaleString('pt-BR')} de {progress.total.toLocaleString('pt-BR')} arquivos</span>
-            <span>Arquivos do jogo: {formatAssetSize(Math.min(progress.processedBytes, progress.totalBytes))} / {formatAssetSize(progress.totalBytes)}</span>
-          </div>
-          <div
-            className="h-3 overflow-hidden rounded-full border border-slate-700 bg-slate-950"
-            role="progressbar"
-            aria-label="Download dos arquivos do jogo"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={percent}
-          >
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-orange-600 via-amber-400 to-yellow-200 transition-[width] duration-300"
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-          <p className="mt-2 text-right text-xs font-bold tabular-nums text-amber-300">{percent}%</p>
-        </div>
-
-        {status === 'error' && (
-          <div className="mt-5 rounded-xl border border-red-500/30 bg-red-950/40 p-4 text-left">
-            <p role="alert" className="text-sm font-bold text-red-200">
-              {failedCount > 0
-                ? `Não foi possível baixar ${failedCount} arquivo(s).`
-                : 'Não foi possível concluir a preparação do jogo.'}
-            </p>
-            <p className="mt-1 text-xs leading-5 text-red-100/80">{error}</p>
-          </div>
-        )}
-
-        <p className="mt-5 text-xs leading-5 text-slate-400">
-          Depois de concluído, os arquivos ficam salvos no cache do navegador. Limpar os dados do navegador
-          ou usar outro aparelho pode exigir um novo download.
-        </p>
-        {status === 'error' && (
-          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={onRetry}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-300"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Tentar novamente
-            </button>
-            <button
-              type="button"
-              onClick={onContinue}
-              className="rounded-xl border border-slate-600 px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-slate-800"
-            >
-              Entrar sem concluir
-            </button>
-          </div>
-        )}
       </section>
-    </main>
+    </div>
   );
 }
 
@@ -311,66 +204,11 @@ function SessionTakeoverResult({ onDismiss }: { onDismiss: () => void }) {
 }
 
 export default function App() {
-  const [assetPreparationComplete, setAssetPreparationComplete] = useState(() => {
-    if (!import.meta.env.PROD) return true;
-    try {
-      return localStorage.getItem('whoosh_asset_cache_version') === GAME_ASSET_VERSION;
-    } catch {
-      return false;
-    }
-  });
-  const [assetDownloadStatus, setAssetDownloadStatus] = useState<'downloading' | 'error'>('downloading');
-  const [assetDownloadError, setAssetDownloadError] = useState<string | null>(null);
-  const [assetDownloadFailures, setAssetDownloadFailures] = useState<string[]>([]);
-  const [assetDownloadProgress, setAssetDownloadProgress] = useState<AssetDownloadProgress>(() => ({
-    completed: 0,
-    total: GAME_ASSETS.length,
-    processedBytes: 0,
-    totalBytes: GAME_ASSETS.reduce((total, asset) => total + asset.size, 0),
-  }));
-  const assetDownloadStartedRef = useRef(false);
-  const prepareGameAssets = useCallback(async () => {
-    assetDownloadStartedRef.current = true;
-    setAssetDownloadStatus('downloading');
-    setAssetDownloadError(null);
-    setAssetDownloadFailures([]);
-    setAssetDownloadProgress({
-      completed: 0,
-      total: GAME_ASSETS.length,
-      processedBytes: 0,
-      totalBytes: GAME_ASSETS.reduce((total, asset) => total + asset.size, 0),
-    });
-
-    try {
-      const result = await cacheGameAssets(setAssetDownloadProgress);
-      if (result.failures.length > 0) {
-        setAssetDownloadFailures(result.failures);
-        setAssetDownloadError('Verifique sua conexão com a internet e tente novamente.');
-        setAssetDownloadStatus('error');
-        return;
-      }
-
-      try {
-        localStorage.setItem('whoosh_asset_cache_version', GAME_ASSET_VERSION);
-      } catch (error) {
-        console.error('Não foi possível salvar a versão do cache de arquivos:', error);
-      }
-      setAssetPreparationComplete(true);
-    } catch (error) {
-      console.error('Não foi possível preparar os arquivos do jogo:', error);
-      setAssetDownloadError(error instanceof Error ? error.message : 'Ocorreu um erro ao preparar os arquivos.');
-      setAssetDownloadStatus('error');
-    }
-  }, []);
-
   useEffect(() => {
     void import('./components/MainMenu').catch((error: unknown) => {
       console.error('Não foi possível carregar o menu principal em segundo plano:', error);
     });
-    if (!assetPreparationComplete && !assetDownloadStartedRef.current) {
-      void prepareGameAssets();
-    }
-  }, [assetPreparationComplete, prepareGameAssets]);
+  }, []);
 
   const [screen, setScreen] = useState<GameScreen>('main-menu');
   const screenRef = useRef(screen);
@@ -1526,19 +1364,6 @@ export default function App() {
     sessionStatus === 'error'
     ? sessionStatus
     : null;
-
-  if (!assetPreparationComplete) {
-    return (
-      <AssetPreparationScreen
-        progress={assetDownloadProgress}
-        status={assetDownloadStatus}
-        error={assetDownloadError}
-        failedCount={assetDownloadFailures.length}
-        onRetry={() => void prepareGameAssets()}
-        onContinue={() => setAssetPreparationComplete(true)}
-      />
-    );
-  }
 
   // If not logged in, only ask for login when the user wants to enter the arena
   if (!user && showAuth) {

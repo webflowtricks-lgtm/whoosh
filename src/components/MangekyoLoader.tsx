@@ -17,6 +17,8 @@ interface MangekyoLoaderProps {
   noPlaceholder?: boolean;
   /** Atributo title da imagem */
   title?: string;
+  /** Define se o navegador deve adiar o download até a imagem se aproximar da tela */
+  loading?: 'eager' | 'lazy';
 }
 
 /**
@@ -33,6 +35,7 @@ export function MangekyoLoader({
   iconScale = 0.5,
   noPlaceholder = false,
   title,
+  loading = 'eager',
 }: MangekyoLoaderProps) {
   const [loaded, setLoaded] = useState(false);
   const [srcUrl, setSrcUrl] = useState<string | null>(src);
@@ -70,7 +73,7 @@ export function MangekyoLoader({
         src={srcUrl || undefined}
         alt={alt}
         title={title}
-        loading="eager"
+        loading={loading}
         decoding="async"
         referrerPolicy="no-referrer"
         className={imgClassName}
@@ -104,7 +107,7 @@ export function MangekyoLoader({
         src={srcUrl || undefined}
         alt={alt}
         title={title}
-        loading="eager"
+        loading={loading}
         decoding="async"
         referrerPolicy="no-referrer"
         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 ${loaded ? 'opacity-100' : 'opacity-0'} ${imgClassName}`}

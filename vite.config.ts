@@ -6,8 +6,6 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
-const GAME_ASSET_MODULE_ID = 'virtual:whoosh-game-assets';
-const RESOLVED_GAME_ASSET_MODULE_ID = `\0${GAME_ASSET_MODULE_ID}`;
 const GAME_ASSET_EXTENSIONS = /\.(?:avif|gif|jpe?g|mp3|ogg|png|svg|wav|webp)$/i;
 const REMOTE_ASSET_PATTERN = /https?:\/\/[^"'\\\s)]+/g;
 const EXTERNAL_IMAGE_HOSTS = new Set([
@@ -84,7 +82,7 @@ function getGameAssetManifest() {
 }
 
 function gameAssetManifestPlugin() {
-  let manifest: ReturnType<typeof getGameAssetManifest>;
+  let version = '';
   let outputDirectory = '';
   let isBuild = false;
 
@@ -93,23 +91,15 @@ function gameAssetManifestPlugin() {
     configResolved(config: { command: string; build: { outDir: string } }) {
       isBuild = config.command === 'build';
       outputDirectory = config.build.outDir;
-    },
-    resolveId(id: string) {
-      return id === GAME_ASSET_MODULE_ID ? RESOLVED_GAME_ASSET_MODULE_ID : null;
-    },
-    load(id: string) {
-      if (id !== RESOLVED_GAME_ASSET_MODULE_ID) return null;
-      manifest = getGameAssetManifest();
-      const serializedManifest = JSON.stringify(manifest);
-      return `const manifest = ${serializedManifest}; export const version = manifest.version; export const assets = manifest.assets; export default manifest;`;
+      if (isBuild) version = getGameAssetManifest().version;
     },
     closeBundle() {
-      if (!isBuild || !manifest) return;
+      if (!isBuild || !version) return;
       const serviceWorkerPath = path.join(outputDirectory, 'sw.js');
       const serviceWorker = readFileSync(serviceWorkerPath, 'utf8');
       writeFileSync(
         serviceWorkerPath,
-        serviceWorker.replaceAll('__WHOOSH_ASSET_VERSION__', manifest.version),
+        serviceWorker.replaceAll('__WHOOSH_ASSET_VERSION__', version),
       );
     },
   };

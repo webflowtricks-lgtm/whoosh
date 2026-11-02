@@ -1199,6 +1199,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           <MangekyoLoader
                             src={char.portrait}
                             alt={char.name}
+                            loading="lazy"
                             className="w-full h-full"
                             imgClassName="transition-all group-hover:brightness-75"
                             iconScale={0.55}

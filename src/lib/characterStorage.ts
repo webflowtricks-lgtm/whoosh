@@ -5,7 +5,6 @@
 
 import { Character } from '../types';
 import { CHARACTERS as DEFAULT_CHARACTERS } from '../data/characters';
-import { preloadCharacters } from './imagePreloader';
 import { saveGlobalConfig } from './api';
 
 const STORAGE_KEY = 'naruto_combat_characters';
@@ -47,9 +46,6 @@ export function enrichCharacters(characters: Character[]): Character[] {
       return s;
     }),
   })) as Character[];
-
-  // Trigger background image preloading for fast rendering
-  preloadCharacters(enriched);
 
   return enriched;
 }
