@@ -8002,15 +8002,6 @@ e-squad-name {
     z-index: 2;
   }
 
-  .character-select-main.character-select-filter-closed {
-    padding-top: 145px !important;
-    padding-bottom: .5rem !important;
-  }
-
-  .character-select-main.character-select-filter-closed .character-select-roster-column > :not(:first-child) {
-    margin-top: .5rem;
-  }
-
   .character-select-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -8105,25 +8096,6 @@ e-squad-name {
 
   .character-select-filter-open .mv-filtro {
     display: flex !important;
-  }
-
-  .character-select-filter-trigger {
-    position: fixed;
-    left: calc(50% - 0.5rem);
-    bottom: max(0.75rem, env(safe-area-inset-bottom));
-    z-index: 90;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 3rem;
-    height: 3rem;
-    transform: none;
-    border: 1px solid rgba(236, 228, 204, 0.75);
-    border-radius: 9999px;
-    background: rgba(120, 53, 15, 0.95);
-    color: #ece4cc;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
-    cursor: pointer;
   }
 
   .character-select-favorites-trigger {
@@ -8850,7 +8822,7 @@ e-squad-name {
     align-items: center;
     column-gap: 0.5rem;
     row-gap: 0.5rem;
-    transform: translateY(8px);
+    transform: translateY(32px);
   }
 
   .top-items-battle > div:first-child {

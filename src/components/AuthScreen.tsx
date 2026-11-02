@@ -3,7 +3,7 @@ import { User, Lock, Sparkles, UserPlus, LogIn, Cloud, Leaf, ScrollText, Check, 
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import { useLanguage } from '../lib/i18n';
-import { getGoogleRedirectUser, signInWithGoogle, signInWithGoogleRedirect } from '../lib/firebase';
+import { getGoogleRedirectUser, signInWithGoogle } from '../lib/firebase';
 import { VillageId, VILLAGES } from '../lib/villages';
 import LanguageSelector from './LanguageSelector';
 
@@ -526,20 +526,8 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
       const googleUser = await signInWithGoogle();
       await completeGoogleLogin(googleUser);
     } catch (err: unknown) {
-      if (
-        err &&
-        typeof err === 'object' &&
-        'code' in err &&
-        err.code === 'auth/popup-closed-by-user'
-      ) {
-        try {
-          await signInWithGoogleRedirect();
-          return;
-        } catch (redirectError: unknown) {
-          console.error('Google redirect sign-in failed:', redirectError);
-          setError(redirectError instanceof Error ? redirectError.message : t('Falha ao entrar com Google.', 'Google sign-in failed.'));
-          return;
-        }
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'auth/popup-closed-by-user') {
+        return;
       }
       console.error('Google login failed:', err);
       setError(err instanceof Error ? err.message : t('Falha ao entrar com Google.', 'Google sign-in failed.'));
@@ -670,7 +658,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
   }
 
   return (
-    <div className={`relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden bg-[#f4f6fb] px-0 font-sans text-slate-800 select-none md:px-4 ${
+    <div className={`relative flex min-h-[100dvh] flex-col items-center justify-center overflow-x-hidden bg-[#f4f6fb] px-0 font-sans text-slate-800 select-none md:px-4 ${
       isAkatsuki
         ? 'bg-[radial-gradient(circle_at_top,#fff1f2_0%,#f4f6fb_65%,#edf0f7_100%)]'
         : 'bg-[radial-gradient(circle_at_top,#f8fdff_0%,#f4f6fb_65%,#edf0f7_100%)]'
@@ -697,7 +685,7 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`relative z-10 my-auto flex h-screen w-full max-w-md flex-col justify-start overflow-x-hidden overflow-y-auto border border-white/85 bg-[rgba(255,255,255,0.82)] p-6 shadow-[0_20px_50px_rgba(0,10,30,0.08),0_2px_10px_rgba(0,0,0,0.03)] backdrop-blur-2xl transition-colors md:h-auto md:max-h-[96vh] md:rounded-[40px] sm:p-7 ${
+        className={`relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col justify-start overflow-x-hidden overflow-y-auto border border-white/85 bg-[rgba(255,255,255,0.82)] p-6 shadow-[0_20px_50px_rgba(0,10,30,0.08),0_2px_10px_rgba(0,0,0,0.03)] backdrop-blur-2xl transition-colors md:max-h-[96vh] md:rounded-[40px] sm:p-7 ${
           isAkatsuki ? 'ring-1 ring-red-100' : ''
         }`}
       >
@@ -1080,9 +1068,6 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
           )}
         </AnimatePresence>
 
-        <div className="relative z-10 mt-5 pt-2 text-center text-[10px] font-medium text-slate-400">
-          {t('Vila da Folha • Arena Ninja', 'Hidden Leaf • Ninja Arena')}
-        </div>
       </motion.div>
     </div>
   );

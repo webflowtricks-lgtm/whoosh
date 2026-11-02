@@ -108,7 +108,6 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     typeof window !== 'undefined' && window.matchMedia('(orientation: portrait) and (max-width: 500px)').matches
   );
   const [showCharacterDetails, setShowCharacterDetails] = useState(false);
-  const [showCharacterFilters, setShowCharacterFilters] = useState(false);
   const [favoriteCharacterIds, setFavoriteCharacterIds] = useState<string[]>(() => {
     try {
       const savedFavorites = localStorage.getItem('naruto_favorite_characters');
@@ -1318,7 +1317,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       </header>
 
       {/* Main Draft Area */}
-      <main className={`character-select-main max-w-[1400px] w-full mx-auto px-0 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform ${showCharacterFilters ? 'character-select-filter-open' : 'character-select-filter-closed'}`}>
+      <main className="character-select-main character-select-filter-open max-w-[1400px] w-full mx-auto px-0 pt-20 sm:pt-24 pb-6 grid lg:grid-cols-12 gap-6 flex-1 items-start scale-[0.95] sm:scale-[0.92] lg:scale-[0.90] xl:scale-[0.92] origin-top transition-transform">
         {/* Roster Grid (Left Side) */}
         <div className="character-select-roster-column lg:col-span-6 space-y-6">
           <div className="mv-filtro flex flex-col gap-4">
@@ -2203,21 +2202,6 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
         >
           <Eye className="h-4 w-4 shrink-0" />
           <span className="truncate">{previewCharacter.name}</span>
-        </button>
-      )}
-
-      {isMobilePortrait && !showCharacterDetails && (
-        <button
-          type="button"
-          onClick={() => {
-            playScrollSound();
-            setShowCharacterFilters(open => !open);
-          }}
-          className="character-select-filter-trigger"
-          aria-label={showCharacterFilters ? t('Ocultar filtros', 'Hide filters') : t('Mostrar filtros', 'Show filters')}
-          aria-expanded={showCharacterFilters}
-        >
-          <Filter className="h-5 w-5" />
         </button>
       )}
 
