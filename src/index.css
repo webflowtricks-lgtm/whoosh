@@ -8103,7 +8103,7 @@ e-squad-name {
   }
 
   .character-select-pagination {
-    margin-top: clamp(3rem, 10dvh, 6rem) !important;
+    margin-top: 0.5rem !important;
   }
 
   .character-select-favorites-trigger {
