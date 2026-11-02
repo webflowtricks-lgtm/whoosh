@@ -41,6 +41,7 @@ import {
 } from '../src/lib/cardRoulette';
 import {
   addSkinFragments,
+  grantBattleSkinFragments,
   getSkinFragmentCatalog,
   rollSkinFragmentQuantity,
   SKIN_FRAGMENT_PACK_COST,
@@ -1227,9 +1228,10 @@ async function recordAiQuestProgress(request: Request, env: D1Env): Promise<Resp
     return error(401, 'Sessão inválida ou revogada. Entre novamente.');
   }
 
-  const [quests, ranks] = await Promise.all([
+  const [quests, ranks, configuredCharacters] = await Promise.all([
     getD1Config(env.DB, 'quests'),
     getD1Config(env.DB, 'ranks'),
+    getD1Config(env.DB, 'characters'),
   ]);
   if (!quests) return error(503, 'As missões ainda não estão disponíveis no servidor.');
   const settings = await loadRecurringQuestSettings(env.DB);
@@ -1305,13 +1307,23 @@ async function recordAiQuestProgress(request: Request, env: D1Env): Promise<Resp
       body.victory,
       configuredEvent,
     );
+    const fragmentRewards = body.victory
+      ? grantBattleSkinFragments(
+          profile,
+          stats.playerTeamCharacters.map(character => character.name),
+          configuredCharacters || DEFAULT_CHARACTERS,
+        )
+      : null;
+    if (fragmentRewards) Object.assign(profile, fragmentRewards.profile);
     profile.questAiBattleIds = [...processedBattleIds.slice(-999), battleId];
 
     const updated = await env.DB.prepare(`
       UPDATE accounts SET profile_json = ?, updated_at = CURRENT_TIMESTAMP
       WHERE username = ? AND profile_json = ?
     `).bind(JSON.stringify(profile), username, row.profile_json).run();
-    if (updated.meta?.changes === 1) return json({ success: true, progressedQuestIds, user: profile });
+    if (updated.meta?.changes === 1) {
+      return json({ success: true, progressedQuestIds, fragmentRewards: fragmentRewards?.rewards || [], user: profile });
+    }
     if (attempt === 2) return error(409, 'O perfil mudou durante o registro. Tente novamente.');
   }
   return error(409, 'Não foi possível confirmar o progresso da missão contra IA.');
@@ -1499,7 +1511,7 @@ export interface AuthoritativeMatchRewardInput {
     damageDealt: number;
     activeQuestId?: string;
     questStats?: QuestBattleStats;
-    playerTeamCharacters?: QuestBattleStats['playerTeamCharacters'];
+    playerTeamCharacters?: Array<{ name: string }>;
   }>;
 }
 
@@ -1543,6 +1555,7 @@ export async function awardD1MatchRewards(
   const statements: D1PreparedStatement[] = [];
   const progressByUsername = new Map<string, string>();
   const eventProgressByUsername = new Map<string, string>();
+  const fragmentStateByUsername = new Map<string, { fragments: string; unlockedSkins: string }>();
   const rewards: AuthoritativeMatchReward[] = match.players.map(player => ({
     username: player.username.trim().toLowerCase(),
     xpGained: calculateBattleXp(
@@ -1553,6 +1566,28 @@ export async function awardD1MatchRewards(
     ),
     user: null,
   }));
+
+  const winningPlayer = match.players.find(player =>
+    player.username.trim().toLowerCase() === match.winnerUsername.trim().toLowerCase(),
+  );
+  if (winningPlayer?.playerTeamCharacters?.length) {
+    const username = winningPlayer.username.trim().toLowerCase();
+    const row = await env.DB.prepare(
+      'SELECT profile_json FROM accounts WHERE username = ?',
+    ).bind(username).first<{ profile_json: string }>();
+    if (!row) throw new Error(`Conta ausente ao conceder fragmentos de batalha: ${username}.`);
+    const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+    const catalog = await getD1Config(env.DB, 'characters') || DEFAULT_CHARACTERS;
+    const granted = grantBattleSkinFragments(
+      profile,
+      winningPlayer.playerTeamCharacters.map(character => character.name),
+      catalog,
+    );
+    fragmentStateByUsername.set(username, {
+      fragments: JSON.stringify(granted.profile.skinFragments || {}),
+      unlockedSkins: JSON.stringify(granted.profile.unlockedSkins || []),
+    });
+  }
 
   for (const player of match.players) {
     if (!player.questStats || player.username.trim().toLowerCase() === 'convidado') continue;
@@ -1622,8 +1657,10 @@ export async function awardD1MatchRewards(
     `).bind(match.roomId, reward.username, reward.xpGained));
     const progressJson = progressByUsername.get(reward.username);
     const eventProgressJson = eventProgressByUsername.get(reward.username);
+    const fragmentState = fragmentStateByUsername.get(reward.username);
     const progressClause = progressJson ? `, '$.questProgress', json(?)` : '';
     const eventProgressClause = eventProgressJson ? `, '$.eventProgress', json(?)` : '';
+    const fragmentClause = fragmentState ? `, '$.skinFragments', json(?), '$.unlockedSkins', json(?)` : '';
     const values: unknown[] = [
       reward.xpGained,
       victory ? 1 : 0,
@@ -1631,6 +1668,7 @@ export async function awardD1MatchRewards(
     ];
     if (progressJson) values.push(progressJson);
     if (eventProgressJson) values.push(eventProgressJson);
+    if (fragmentState) values.push(fragmentState.fragments, fragmentState.unlockedSkins);
     values.push(reward.username);
     statements.push(env.DB.prepare(`
       UPDATE accounts
@@ -1641,6 +1679,7 @@ export async function awardD1MatchRewards(
         '$.losses', CAST(COALESCE(json_extract(profile_json, '$.losses'), 0) AS INTEGER) + ?
         ${progressClause}
         ${eventProgressClause}
+        ${fragmentClause}
       ), updated_at = CURRENT_TIMESTAMP
       WHERE username = ? AND changes() = 1
     `).bind(...values));

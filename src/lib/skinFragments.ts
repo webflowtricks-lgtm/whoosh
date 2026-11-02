@@ -47,6 +47,62 @@ export function addSkinFragments(previousCount: number, fragmentsAdded: number):
   return nextCount;
 }
 
+export interface BattleSkinFragmentReward {
+  characterName: string;
+  skinId: string;
+}
+
+export function grantBattleSkinFragments(
+  profile: Record<string, unknown>,
+  characterNames: string[],
+  characters: unknown,
+): { profile: Record<string, unknown>; rewards: BattleSkinFragmentReward[] } {
+  const catalog = getSkinFragmentCatalog(characters);
+  const fragments = profile.skinFragments && typeof profile.skinFragments === 'object'
+    ? { ...(profile.skinFragments as Record<string, unknown>) }
+    : {};
+  const unlockedSkins = new Set(
+    Array.isArray(profile.unlockedSkins)
+      ? profile.unlockedSkins.filter((skinId): skinId is string => typeof skinId === 'string')
+      : [],
+  );
+  const rewards: BattleSkinFragmentReward[] = [];
+
+  for (const characterName of characterNames.slice(0, 3)) {
+    const characterSkins = catalog.filter(skin =>
+      skin.characterName.trim().toLocaleLowerCase() === characterName.trim().toLocaleLowerCase(),
+    );
+    if (characterSkins.length === 0) continue;
+
+    const collectibleSkins = characterSkins.filter(skin =>
+      !GLOBAL_COMMON_SKIN_IDS.some(globalSkinId => globalSkinId === skin.id),
+    );
+    if (collectibleSkins.length === 0) continue;
+    const eligibleSkins = collectibleSkins.filter(skin =>
+      !unlockedSkins.has(skin.id) && getSkinFragmentCount(fragments, skin.id) < SKIN_FRAGMENT_UNLOCK_TARGET,
+    );
+    const candidates = eligibleSkins.length > 0 ? eligibleSkins : collectibleSkins;
+    const skin = candidates.reduce((leastProgressed, candidate) =>
+      getSkinFragmentCount(fragments, candidate.id) < getSkinFragmentCount(fragments, leastProgressed.id)
+        ? candidate
+        : leastProgressed,
+    );
+    const nextCount = addSkinFragments(getSkinFragmentCount(fragments, skin.id), 1);
+    fragments[skin.id] = nextCount;
+    if (nextCount >= SKIN_FRAGMENT_UNLOCK_TARGET) unlockedSkins.add(skin.id);
+    rewards.push({ characterName: skin.characterName, skinId: skin.id });
+  }
+
+  return {
+    profile: {
+      ...profile,
+      skinFragments: fragments,
+      unlockedSkins: [...unlockedSkins],
+    },
+    rewards,
+  };
+}
+
 export function applyGlobalRequiredCharacterSkins(team: Character[]): Character[] {
   return team.map(character => {
     const requiredSkinId = GLOBAL_REQUIRED_CHARACTER_SKINS[character.id as keyof typeof GLOBAL_REQUIRED_CHARACTER_SKINS];

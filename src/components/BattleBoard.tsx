@@ -1215,6 +1215,16 @@ function GameOverOverlay({
   });
 
   const { actualXpChange, oldRankProgress, newRankProgress, rankChangeInfo, newXp } = xpSnapshot;
+  const fragmentRewardMessage = isVictory ? (
+    <>
+      Você recebeu {playerCombatants.slice(0, 3).map((combatant, index) => (
+        <React.Fragment key={`${combatant.id}-${index}`}>
+          {index > 0 ? (index === playerCombatants.slice(0, 3).length - 1 ? ' e ' : ', ') : ''}
+          x1 fragmento de <span className="font-black text-orange-600">{combatant.character.name}</span>
+        </React.Fragment>
+      ))}.
+    </>
+  ) : null;
 
   // 🎉 Modal de SUBIU DE RANK (abre sozinho se o jogador subiu de posto)
   const [showRankUpModal, setShowRankUpModal] = useState(rankChangeInfo.rankedUp);
@@ -1763,6 +1773,9 @@ function GameOverOverlay({
                 Parabéns! Você alcançou o posto de{' '}
                 <span className="text-amber-700 underline font-extrabold">{newRankProgress.currentRank.name}</span>!
               </p>
+              {fragmentRewardMessage && (
+                <p className="text-sm sm:text-base font-bold text-slate-900 max-w-md">{fragmentRewardMessage}</p>
+              )}
               <button onClick={() => setShowRankUpModal(false)} data-sound="uah" className="btn-red-image mt-1">
                 <span className="font-brush text-[13px] sm:text-[15px]">Continuar</span>
               </button>
@@ -1836,7 +1849,7 @@ function GameOverOverlay({
 
               <p className="text-sm sm:text-base font-bold text-slate-900 max-w-md">
                 {isVictory
-                  ? 'Parabéns! Você venceu a batalha com sua estratégia ninja.'
+                  ? fragmentRewardMessage
                   : 'Você perdeu a batalha, mas ainda pode voltar mais forte.'}
               </p>
 
@@ -3347,7 +3360,7 @@ function hydrateCombatants(combatants: CombatCharacter[], restoreUserSkins = fal
   }, [gameOver, onBattleFinished, playWinSound, playLoseSound]);
 
   useEffect(() => {
-    if (!gameOver || !activeQuest || onlineParams?.isOnline || isSandbox || sessionRevoked) return;
+    if (!gameOver || onlineParams?.isOnline || isSandbox || sessionRevoked) return;
     void syncBattleEnd().catch(error => {
       console.error('[BattleBoard] Falha ao sincronizar missão da batalha contra IA:', error);
     });
@@ -13695,7 +13708,7 @@ splashOnlyTargets = splashPool.filter(c =>
         console.log('[WS] conectado:', wsUrl);
         try {
           let sessionToken: string | null = null;
-          try { sessionToken = sessionStorage.getItem('naruto_account_session_token'); } catch (error) {
+          try { sessionToken = localStorage.getItem('naruto_account_session_token'); } catch (error) {
             console.error('Could not read the active account session for the battle WebSocket:', error);
           }
           ws?.send(JSON.stringify({ type: 'join', roomId: onlineParams.roomId, username: user.username, sessionToken }));

@@ -52,6 +52,7 @@ import {
 } from "./src/lib/cardRoulette";
 import {
   addSkinFragments,
+  grantBattleSkinFragments,
   getSkinFragmentCatalog,
   rollSkinFragmentQuantity,
   SKIN_FRAGMENT_PACK_COST,
@@ -1729,6 +1730,29 @@ async function startServer() {
     }
 
     const cleanUsername = username.trim().toLowerCase();
+    const grantWinnerFragments = (winningRoom: MatchRoom, winnerUsername: string) => {
+      const winner = winnerUsername.trim().toLowerCase();
+      const winningSlot = slotOf(winningRoom, winner);
+      if (winningSlot === -1) return null;
+      const users = readJSON<Array<Record<string, any>>>(USERS_FILE, []);
+      const profile = users.find(item => item.username?.toLowerCase() === winner);
+      if (!profile) return null;
+      const processedRooms = Array.isArray(profile.skinFragmentBattleRoomIds)
+        ? profile.skinFragmentBattleRoomIds.filter((id: unknown): id is string => typeof id === 'string')
+        : [];
+      if (!processedRooms.includes(winningRoom.id)) {
+        const grant = grantBattleSkinFragments(
+          profile,
+          winningRoom.players[winningSlot].team.map(character => character.name).filter(Boolean),
+          readJSON<unknown[]>(CHARACTERS_FILE, DEFAULT_CHARACTERS),
+        );
+        Object.assign(profile, grant.profile);
+        profile.skinFragmentBattleRoomIds = [...processedRooms.slice(-999), winningRoom.id];
+        if (!persistAccountUsers(users)) return null;
+      }
+      const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
+      return publicUser;
+    };
     const room = activeRooms[roomId];
     const existing = onlineBattleHistory.get(roomId);
     if (!room) {
@@ -1743,7 +1767,8 @@ async function startServer() {
       return res.status(403).json({ error: "Você não faz parte desta sala." });
     }
     if (existing) {
-      return res.json({ success: true, record: existing });
+      const rewardUser = grantWinnerFragments(room, existing.winnerUsername);
+      return res.json({ success: true, record: existing, reward: { user: rewardUser } });
     }
 
     if (room.surrenderedBy) {
@@ -1757,7 +1782,8 @@ async function startServer() {
         storedReason === 'disconnect' || storedReason === 'timeout' ? storedReason : 'manual';
       const record = recordOnlineBattle(room, winner.username, reason);
       if (!record) return res.status(500).json({ error: "Não foi possível salvar o histórico da batalha." });
-      return res.json({ success: true, record });
+      const rewardUser = grantWinnerFragments(room, record.winnerUsername);
+      return res.json({ success: true, record, reward: { user: rewardUser } });
     }
 
     const winnerUsername = victory
@@ -1771,7 +1797,8 @@ async function startServer() {
     for (const player of room.players) delete userMatches[player.username];
     markRoomsDirty();
     try { broadcastRoomState(roomId); } catch {}
-    res.json({ success: true, record });
+    const rewardUser = grantWinnerFragments(room, record.winnerUsername);
+    res.json({ success: true, record, reward: { user: rewardUser } });
   });
 
   app.get("/api/user/online-battle-history", (req, res) => {
@@ -2849,12 +2876,20 @@ async function startServer() {
     const configuredEvent = withUchihaEvent(readJSON<NinjaEvent[]>(EVENTS_FILE, []))
       .find(event => event.id === UCHIHA_EVENT_ID) || UCHIHA_EVENT;
     profile.eventProgress = updateTrackedEventProgress(savedEventProgress, stats, req.body.victory, configuredEvent);
+    const fragmentRewards = req.body.victory
+      ? grantBattleSkinFragments(
+          profile,
+          stats.playerTeamCharacters.map(character => character.name),
+          readJSON<unknown[]>(CHARACTERS_FILE, DEFAULT_CHARACTERS),
+        )
+      : null;
+    if (fragmentRewards) Object.assign(profile, fragmentRewards.profile);
     profile.questAiBattleIds = [...processedBattleIds.slice(-999), battleId];
     if (!persistAccountUsers(users)) {
       return res.status(500).json({ error: "Não foi possível salvar o progresso da missão contra IA." });
     }
     const { password: _password, googleId: _googleId, email: _email, ...publicUser } = profile;
-    return res.json({ success: true, progressedQuestIds, user: publicUser });
+    return res.json({ success: true, progressedQuestIds, fragmentRewards: fragmentRewards?.rewards || [], user: publicUser });
   });
 
   app.get("/api/quests", (req, res) => {

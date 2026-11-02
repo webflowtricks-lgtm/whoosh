@@ -1184,6 +1184,7 @@ export class MatchRoomDurableObject {
         damageDealt: room.combatState!.damageDealt?.[slot === 0 ? 'player' : 'enemy'] || 0,
         activeQuestId: player.activeQuestId,
         questStats: player.questStats,
+        playerTeamCharacters: player.team.map(character => ({ name: character.name })),
       })),
     });
   }

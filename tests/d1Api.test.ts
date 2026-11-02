@@ -185,8 +185,14 @@ class MemoryStatement implements D1PreparedStatement {
         profile.xp = Math.max(0, (Number(profile.xp) || 0) + Number(xpDelta));
         profile.wins = (Number(profile.wins) || 0) + Number(winsDelta);
         profile.losses = (Number(profile.losses) || 0) + Number(lossesDelta);
-        if (q.includes('$.questprogress')) {
-          profile.questProgress = JSON.parse(String(this.values[3]));
+        let valueIndex = 3;
+        for (const [field, key] of [
+          ['$.questprogress', 'questProgress'],
+          ['$.eventprogress', 'eventProgress'],
+          ['$.skinfragments', 'skinFragments'],
+          ['$.unlockedskins', 'unlockedSkins'],
+        ]) {
+          if (q.includes(field)) profile[key] = JSON.parse(String(this.values[valueIndex++]));
         }
         row.profile_json = JSON.stringify(profile);
       }
@@ -334,6 +340,10 @@ test('awards server-derived online rewards idempotently and updates rank', async
     password_hash: null,
     profile_json: JSON.stringify({ username: 'loser', name: 'Loser', xp: 500, wins: 1, losses: 4 }),
   });
+  seedD1Config(db, 'characters', [{
+    name: 'Naruto Uzumaki',
+    skins: [{ id: 'naruto-battle-skin', name: 'Skin de batalha', image: '/naruto.png' }],
+  }]);
   db.configHeads.set('ranks', { config_key: 'ranks', version_id: 'rank-v1', item_count: 3 });
   db.configItems.push(
     { config_key: 'ranks', version_id: 'rank-v1', ordinal: 0, chunk_number: 0, value_part: JSON.stringify({ id: 'academy', name: 'Academia', requiredXp: 0 }) },
@@ -350,6 +360,7 @@ test('awards server-derived online rewards idempotently and updates rank', async
         username: 'winner',
         aliveCount: 2,
         damageDealt: 200,
+        playerTeamCharacters: [{ name: 'Naruto Uzumaki' }],
         questStats: {
           damageDealt: 200,
           damageReceived: 50,
@@ -405,6 +416,8 @@ test('awards server-derived online rewards idempotently and updates rank', async
   assert.equal(winnerAfterFirst.rank.id, 'genin');
   assert.equal(winnerAfterFirst.questProgress[getCurrentRecurringQuests()[0].id][0].currentValue, 1);
   assert.equal(winnerAfterFirst.questProgress[getCurrentRecurringQuests()[1].id][0].currentValue, 2);
+  assert.equal(winnerAfterFirst.skinFragments['naruto-battle-skin'], 1);
+  assert.equal(loserAfterFirst.skinFragments, undefined);
   assert.equal(loserAfterFirst.xp, 79);
   assert.equal(loserAfterFirst.losses, 5);
   assert.equal(loserAfterFirst.rank.id, 'academy');
@@ -412,6 +425,7 @@ test('awards server-derived online rewards idempotently and updates rank', async
 
   await awardD1MatchRewards({ DB: db }, match);
   assert.equal(JSON.parse(String(db.accounts.get('winner')?.profile_json)).xp, 525);
+  assert.equal(JSON.parse(String(db.accounts.get('winner')?.profile_json)).skinFragments['naruto-battle-skin'], 1);
   assert.equal(JSON.parse(String(db.accounts.get('loser')?.profile_json)).xp, 79);
   assert.equal(db.rewardClaims.size, 2);
 });

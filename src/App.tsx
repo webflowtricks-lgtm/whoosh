@@ -108,7 +108,7 @@ const getInitialTutorialStep = (): number | null => {
     const storedProfile = JSON.parse(localStorage.getItem('naruto_user_profile') || 'null') as UserProfile | null;
     if (
       pendingUsername &&
-      sessionStorage.getItem('naruto_account_session_token') &&
+      localStorage.getItem('naruto_account_session_token') &&
       storedProfile?.username?.toLowerCase() === pendingUsername.toLowerCase() &&
       localStorage.getItem(`whoosh_tutorial_completed:${pendingUsername.toLowerCase()}`) !== 'true'
     ) return 0;
@@ -260,7 +260,16 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [showArenaLoading, setShowArenaLoading] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(() => {
-    try { return sessionStorage.getItem('naruto_account_session_token'); } catch { return null; }
+    try {
+      const savedToken = localStorage.getItem('naruto_account_session_token');
+      if (savedToken) return savedToken;
+      const legacyToken = sessionStorage.getItem('naruto_account_session_token');
+      if (legacyToken) {
+        localStorage.setItem('naruto_account_session_token', legacyToken);
+        sessionStorage.removeItem('naruto_account_session_token');
+      }
+      return legacyToken;
+    } catch { return null; }
   });
   const [sessionTicket, setSessionTicket] = useState<string | null>(null);
   const sessionClaimPromiseRef = useRef<{
@@ -288,10 +297,10 @@ export default function App() {
           if (typeof parsed.username !== 'string' || parsed.username.trim().toLowerCase() === 'convidado') {
             localStorage.removeItem('naruto_user_profile');
             localStorage.removeItem('active_match_save');
-            sessionStorage.removeItem('naruto_account_session_token');
+            localStorage.removeItem('naruto_account_session_token');
             return null;
           }
-          if (!sessionStorage.getItem('naruto_account_session_token')) return null;
+          if (!localStorage.getItem('naruto_account_session_token')) return null;
           if (typeof parsed.xp === 'number' && parsed.xp < 0) {
             parsed.xp = 0;
             try {
@@ -835,6 +844,8 @@ export default function App() {
           ...updatedUser,
           questProgress: result.user.questProgress,
           completedQuestIds: result.user.completedQuestIds,
+          skinFragments: result.user.skinFragments,
+          unlockedSkins: result.user.unlockedSkins,
         };
       }
     }
@@ -929,7 +940,7 @@ export default function App() {
     try {
       localStorage.removeItem('naruto_user_profile');
       localStorage.removeItem('active_match_save');
-      sessionStorage.removeItem('naruto_account_session_token');
+      localStorage.removeItem('naruto_account_session_token');
     } catch (error) {
       console.error('Failed to clear local account session data:', error);
     }
@@ -969,7 +980,7 @@ export default function App() {
     const token = createAccountSessionToken();
     if (token) {
       try {
-        sessionStorage.setItem('naruto_account_session_token', token);
+        localStorage.setItem('naruto_account_session_token', token);
       } catch (error) {
         console.error('Failed to save this device session:', error);
       }
@@ -1143,7 +1154,7 @@ export default function App() {
     sessionRevocationHandledRef.current = false;
     try {
       localStorage.removeItem('naruto_user_profile');
-      sessionStorage.removeItem('naruto_account_session_token');
+      localStorage.removeItem('naruto_account_session_token');
     } catch {}
     setScreen('main-menu');
   };
@@ -1217,7 +1228,7 @@ export default function App() {
         setShowAuth(true);
         try {
           localStorage.removeItem('naruto_user_profile');
-          sessionStorage.removeItem('naruto_account_session_token');
+          localStorage.removeItem('naruto_account_session_token');
         } catch (error) {
           console.error('Failed to clear cancelled login data:', error);
         }
@@ -1352,7 +1363,7 @@ export default function App() {
     setSessionStatus('idle');
     try {
       localStorage.removeItem('naruto_user_profile');
-      sessionStorage.removeItem('naruto_account_session_token');
+      localStorage.removeItem('naruto_account_session_token');
     } catch (error) {
       console.error('Failed to clear the legacy account session:', error);
     }

@@ -11,6 +11,7 @@ import {
   GLOBAL_REQUIRED_CHARACTER_SKINS,
   applyGlobalRequiredCharacterSkins,
   autoEquipNewlyUnlockedCharacterSkins,
+  grantBattleSkinFragments,
   isSkinUnlocked,
   normalizeSkinRarity,
 } from '../src/lib/skinFragments';
@@ -77,6 +78,22 @@ test('skin fragment pack roll yields a uniform quantity from 1 to 10', () => {
   assert.throws(() => rollSkinFragmentQuantity(1), RangeError);
   assert.equal(SKIN_FRAGMENT_PACK_COST, 75_000);
   assert.equal(SKIN_FRAGMENT_UNLOCK_TARGET, 50);
+});
+
+test('battle victory grants one fragment to each winning character skin', () => {
+  const characters = [
+    { name: 'Naruto', skins: [{ id: 'naruto-sage', name: 'Sábio', image: '/sage.png' }] },
+    { name: 'Sakura', skins: [{ id: 'sakura-war', name: 'Guerra', image: '/war.png' }] },
+    { name: 'Sasuke', skins: [{ id: 'sasuke-hebi', name: 'Hebi', image: '/hebi.png' }] },
+  ];
+  const result = grantBattleSkinFragments({}, ['Naruto', 'Sakura', 'Sasuke'], characters);
+
+  assert.deepEqual(result.rewards.map(reward => reward.characterName), ['Naruto', 'Sakura', 'Sasuke']);
+  assert.deepEqual(result.profile.skinFragments, {
+    'naruto-sage': 1,
+    'sakura-war': 1,
+    'sasuke-hebi': 1,
+  });
 });
 
 test('newly unlocked character skins are equipped without changing prior unlocks', () => {
