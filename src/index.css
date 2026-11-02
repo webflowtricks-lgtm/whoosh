@@ -7997,6 +7997,10 @@ e-squad-name {
     display: none !important;
   }
 
+  .character-select-topbar {
+    overflow: visible !important;
+  }
+
   .character-select-main {
     position: relative;
     z-index: 2;
@@ -8096,6 +8100,10 @@ e-squad-name {
 
   .character-select-filter-open .mv-filtro {
     display: flex !important;
+  }
+
+  .character-select-pagination {
+    margin-top: clamp(3rem, 10dvh, 6rem) !important;
   }
 
   .character-select-favorites-trigger {
@@ -8822,7 +8830,7 @@ e-squad-name {
     align-items: center;
     column-gap: 0.5rem;
     row-gap: 0.5rem;
-    transform: translateY(32px);
+    transform: translateY(16px);
   }
 
   .top-items-battle > div:first-child {

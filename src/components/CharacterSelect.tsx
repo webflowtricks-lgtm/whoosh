@@ -1526,7 +1526,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
           </div>
 
           {/* Pagination Controls - Embedded inside public/static/img/paginação.webp pergaminho */}
-          <div className="relative w-full rounded-xl overflow-hidden flex items-center mt-4 group">
+          <div className="character-select-pagination relative w-full rounded-xl overflow-hidden flex items-center mt-4 group">
             {/* Background Parchment for Pagination */}
             <img 
               src="/static/img/paginação.webp" 
