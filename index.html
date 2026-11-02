@@ -37,11 +37,13 @@
       @keyframes startup-spin { to { transform: rotate(360deg); } }
     </style>
     <script>
-      function showStartupError() {
+      function showStartupError(event) {
         var fallback = document.getElementById('startup-fallback');
         if (!fallback) return;
-        fallback.querySelector('p').textContent =
-          'Não foi possível iniciar o jogo. Confira sua conexão e tente novamente.';
+        var detail = event && (event.message || (event.reason && (event.reason.message || event.reason)));
+        fallback.querySelector('p').textContent = detail
+          ? 'Falha ao carregar o jogo: ' + String(detail).slice(0, 160)
+          : 'Não foi possível iniciar o jogo. Confira sua conexão e tente novamente.';
         document.getElementById('startup-retry').hidden = false;
       }
       window.addEventListener('error', showStartupError, true);
@@ -50,7 +52,29 @@
         showStartupError();
       }, 15000);
       document.getElementById('startup-retry').addEventListener('click', function () {
-        window.location.reload();
+        var cleanup = [];
+        if ('serviceWorker' in navigator) {
+          cleanup.push(navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            return Promise.all(registrations.map(function (registration) {
+              return registration.unregister();
+            }));
+          }));
+        }
+        if ('caches' in window) {
+          cleanup.push(caches.keys().then(function (keys) {
+            return Promise.all(keys.filter(function (key) {
+              return key.indexOf('whoosh-') === 0;
+            }).map(function (key) {
+              return caches.delete(key);
+            }));
+          }));
+        }
+        document.getElementById('startup-retry').disabled = true;
+        Promise.all(cleanup.map(function (task) {
+          return task.catch(function () {});
+        })).then(function () {
+          window.location.reload();
+        });
       });
     </script>
     <script type="module" src="/src/main.tsx"></script>
