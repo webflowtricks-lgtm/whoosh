@@ -6,8 +6,53 @@
     <title>Naruto Arena </title>
   </head>
   <body class="custom-cursor">
-    <div id="root"></div>
+    <div id="root">
+      <main id="startup-fallback" role="status" aria-live="polite">
+        <div class="startup-spinner" aria-hidden="true"></div>
+        <h1>Preparando o jogo</h1>
+        <p>Conectando ao servidor. Aguarde um instante.</p>
+        <button id="startup-retry" type="button" hidden>Recarregar jogo</button>
+      </main>
+    </div>
+    <style>
+      html, body, #root { width: 100%; min-height: 100%; margin: 0; }
+      #startup-fallback {
+        position: fixed; inset: 0; z-index: 1000002; display: grid;
+        align-content: center; justify-items: center; gap: .75rem;
+        padding: 1.25rem; box-sizing: border-box;
+        background: radial-gradient(ellipse at center, #123f70, #07172b 72%);
+        color: #f8fafc; font: 700 1rem system-ui, sans-serif; text-align: center;
+      }
+      #startup-fallback h1 { margin: 0; font-size: 1.2rem; }
+      #startup-fallback p { max-width: 22rem; margin: 0; color: #dbeafe; font-size: .9rem; }
+      .startup-spinner {
+        width: 2rem; height: 2rem; border: 3px solid #ffffff50;
+        border-top-color: #60a5fa; border-radius: 50%;
+        animation: startup-spin .8s linear infinite;
+      }
+      #startup-retry {
+        margin-top: .5rem; padding: .7rem 1rem; border: 1px solid #93c5fd;
+        border-radius: .7rem; background: #1d4ed8; color: white; font-weight: 800;
+      }
+      @keyframes startup-spin { to { transform: rotate(360deg); } }
+    </style>
+    <script>
+      function showStartupError() {
+        var fallback = document.getElementById('startup-fallback');
+        if (!fallback) return;
+        fallback.querySelector('p').textContent =
+          'Não foi possível iniciar o jogo. Confira sua conexão e tente novamente.';
+        document.getElementById('startup-retry').hidden = false;
+      }
+      window.addEventListener('error', showStartupError, true);
+      window.addEventListener('unhandledrejection', showStartupError);
+      window.setTimeout(function () {
+        showStartupError();
+      }, 15000);
+      document.getElementById('startup-retry').addEventListener('click', function () {
+        window.location.reload();
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

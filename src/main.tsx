@@ -18,15 +18,18 @@ createRoot(document.getElementById('root')!).render(
 if ('serviceWorker' in navigator) {
   if (import.meta.env.PROD) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      navigator.serviceWorker.register('/sw.js').catch(error => {
+        console.error('Failed to register the service worker:', error);
+      });
     });
   } else {
     // Em desenvolvimento o service worker intercepta os módulos do Vite (/@vite, /src, HMR)
     // e causa tela branca. Garante que qualquer SW antigo seja removido.
     navigator.serviceWorker.getRegistrations().then(regs => {
       regs.forEach(reg => reg.unregister());
-    }).catch(() => {});
+    }).catch(error => {
+      console.error('Failed to remove development service workers:', error);
+    });
   }
 }
-
 

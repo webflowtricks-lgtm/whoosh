@@ -1,29 +1,29 @@
 {
-  "version": "1.2.0",
-  "publishedAt": "2026-11-01T23:47:56.144Z",
+  "version": "1.3.0",
+  "publishedAt": "2026-11-02T00:55:02.936Z",
   "releaseNotes": "Melhorias de desempenho, estabilidade e experiência no jogo.",
   "downloadUrl": "/api/app/download",
-  "apkSizeBytes": 87764943,
+  "apkSizeBytes": 87737401,
   "parts": [
     {
-      "path": "/downloads/app/1.2.0/part-000",
+      "path": "/downloads/app/1.3.0/part-000",
       "size": 20971520
     },
     {
-      "path": "/downloads/app/1.2.0/part-001",
+      "path": "/downloads/app/1.3.0/part-001",
       "size": 20971520
     },
     {
-      "path": "/downloads/app/1.2.0/part-002",
+      "path": "/downloads/app/1.3.0/part-002",
       "size": 20971520
     },
     {
-      "path": "/downloads/app/1.2.0/part-003",
+      "path": "/downloads/app/1.3.0/part-003",
       "size": 20971520
     },
     {
-      "path": "/downloads/app/1.2.0/part-004",
-      "size": 3878863
+      "path": "/downloads/app/1.3.0/part-004",
+      "size": 3851321
     }
   ]
 }

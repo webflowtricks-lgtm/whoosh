@@ -816,6 +816,29 @@ body.processing-cursor * {
   object-fit: contain;
 }
 
+@media (max-width: 520px) {
+  .lobby-screen .lobby-bandana {
+    left: 0;
+    width: 8.5rem;
+    height: 3.8rem;
+  }
+
+  .lobby-screen .lobby-currencies {
+    gap: .25rem;
+  }
+
+  .lobby-screen .lobby-currencies > span {
+    gap: .25rem;
+    padding: .35rem .5rem;
+    font-size: .68rem;
+  }
+
+  .lobby-screen .lobby-profile-wrap {
+    top: calc(max(.6rem, env(safe-area-inset-top)) + 5.25rem);
+    width: min(88%, 360px);
+  }
+}
+
 .lobby-profile-wrap {
   position: absolute;
   z-index: 1;
@@ -1135,11 +1158,15 @@ body.processing-cursor * {
 .screen-loading-backdrop {
   position: fixed;
   z-index: 1000001;
+  inset: 0;
   display: grid;
+  width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
   place-items: center;
-  padding: 1rem;
+  box-sizing: border-box;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
   background:
     radial-gradient(ellipse at 50% 50%, rgba(30, 106, 151, .2), transparent 68%),
     #07172b;
@@ -1213,6 +1240,17 @@ body.processing-cursor * {
   }
   to {
     transform: translateX(290%);
+  }
+}
+
+@media (max-width: 520px) {
+  .screen-loading-backdrop {
+    padding: max(.75rem, env(safe-area-inset-top)) max(.75rem, env(safe-area-inset-right))
+      max(.75rem, env(safe-area-inset-bottom)) max(.75rem, env(safe-area-inset-left));
+  }
+
+  .screen-loading-card {
+    padding: 1.15rem;
   }
 }
 
@@ -7966,6 +8004,11 @@ e-squad-name {
 
   .character-select-main.character-select-filter-closed {
     padding-top: 145px !important;
+    padding-bottom: .5rem !important;
+  }
+
+  .character-select-main.character-select-filter-closed .character-select-roster-column > :not(:first-child) {
+    margin-top: .5rem;
   }
 
   .character-select-grid {
