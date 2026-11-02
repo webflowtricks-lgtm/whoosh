@@ -753,6 +753,13 @@ test('records authenticated AI battle progress across eligible quests once per b
     name: 'Genin',
     requiredXp: 1000,
   }]);
+  seedD1Config(env.DB, 'characters', [{
+    name: 'Naruto Uzumaki (S)',
+    skins: [{ id: 'ai-naruto-skin', name: 'Skin IA', image: '/naruto.png' }],
+  }, {
+    name: 'Sasuke Uchiha (S)',
+    skins: [{ id: 'ai-sasuke-skin', name: 'Skin IA', image: '/sasuke.png' }],
+  }]);
   seedD1Config(env.DB, 'events', [{
     ...UCHIHA_EVENT,
     objectives: UCHIHA_EVENT.objectives.map(objective =>
@@ -796,6 +803,14 @@ test('records authenticated AI battle progress across eligible quests once per b
   const first = await report();
   assert.equal(first?.status, 200);
   const firstBody = await responseBody(first!);
+  assert.deepEqual(firstBody.fragmentRewards, [
+    { characterName: 'Naruto Uzumaki (S)', skinId: 'ai-naruto-skin' },
+    { characterName: 'Sasuke Uchiha (S)', skinId: 'ai-sasuke-skin' },
+  ]);
+  assert.deepEqual((firstBody.user as Row).skinFragments, {
+    'ai-naruto-skin': 1,
+    'ai-sasuke-skin': 1,
+  });
   assert.equal((firstBody.user as Row).questProgress instanceof Object, true);
   assert.equal(((firstBody.user as Row).questProgress as Row)['ai-quest'] instanceof Array, true);
   assert.equal((((firstBody.user as Row).questProgress as Row)['ai-quest'] as Row[])[0].currentValue, 2);
@@ -822,7 +837,12 @@ test('records authenticated AI battle progress across eligible quests once per b
 
   const duplicate = await report();
   assert.equal(duplicate?.status, 200);
-  assert.equal((await responseBody(duplicate!)).alreadyProcessed, true);
+  const duplicateBody = await responseBody(duplicate!);
+  assert.equal(duplicateBody.alreadyProcessed, true);
+  assert.deepEqual((duplicateBody.user as Row).skinFragments, {
+    'ai-naruto-skin': 1,
+    'ai-sasuke-skin': 1,
+  });
   assert.equal(env.DB.profileUpdateCount, 1);
 });
 
