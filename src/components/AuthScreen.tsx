@@ -3,7 +3,7 @@ import { User, Lock, Sparkles, UserPlus, LogIn, Cloud, Leaf, ScrollText, Check, 
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import { useLanguage } from '../lib/i18n';
-import { getGoogleRedirectUser, signInWithGoogle } from '../lib/firebase';
+import { signInWithGoogle } from '../lib/firebase';
 import { VillageId, VILLAGES } from '../lib/villages';
 import LanguageSelector from './LanguageSelector';
 
@@ -409,24 +409,6 @@ export default function AuthScreen({ onLoginSuccess, playClickSound, playScrollS
       photoUrl: googleUser.photoUrl || data.user.photoUrl,
     }, data.sessionTicket, 'google', data.isNewAccount === true);
   };
-
-  useEffect(() => {
-    let active = true;
-    void getGoogleRedirectUser()
-      .then(async googleUser => {
-        if (!active || !googleUser) return;
-        setLoading(true);
-        await completeGoogleLogin(googleUser);
-      })
-      .catch((err: unknown) => {
-        console.error('Google redirect login failed:', err);
-        if (active) setError(err instanceof Error ? err.message : t('Falha ao entrar com Google.', 'Google sign-in failed.'));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => { active = false; };
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

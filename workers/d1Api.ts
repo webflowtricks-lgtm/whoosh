@@ -344,45 +344,38 @@ async function googleLogin(request: Request, env: D1Env): Promise<Response> {
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(claims.email)) {
     return error(401, 'A identidade Google não pôde ser confirmada.');
   }
+  const googleSubject = `${env.FIREBASE_PROJECT_ID}:${claims.sub}`;
   const identity = await env.DB.prepare(`
     SELECT a.username, a.password_salt, a.password_hash, a.profile_json, a.created_at
     FROM account_google_identities g JOIN accounts a ON a.username = g.username
     WHERE g.google_subject = ?
-  `).bind(claims.sub).first<AccountRow>();
+  `).bind(googleSubject).first<AccountRow>();
   let account = identity;
   let isNewAccount = false;
   if (!account) {
-    const existingByEmail = await env.DB.prepare(`
-      SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts
-      WHERE lower(json_extract(profile_json, '$.email')) = lower(?) LIMIT 1
-    `).bind(claims.email).first<AccountRow>();
-    if (existingByEmail) {
-      account = existingByEmail;
-    } else {
-      const emailUsername = claims.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 80) || 'google_user';
-      const base = emailUsername === 'convidado' ? 'google_user' : emailUsername;
-      let candidate = base;
-      for (let suffix = 1; suffix <= 10; suffix++) {
-        const exists = await env.DB.prepare('SELECT username FROM accounts WHERE username = ?')
-          .bind(candidate).first<{ username: string }>();
-        if (!exists) break;
-        candidate = `${base.slice(0, 90)}_${suffix}`;
-      }
-      const profile = {
-        username: candidate,
-        name: typeof claims.name === 'string' ? claims.name.slice(0, 100) : candidate,
-        photoUrl: typeof claims.picture === 'string' ? claims.picture.slice(0, 2048) : DEFAULT_AVATAR,
-        email: claims.email,
-      };
-      await env.DB.prepare(`
-        INSERT INTO accounts (username, password_salt, password_hash, profile_json)
-        VALUES (?, NULL, NULL, ?)
-      `).bind(candidate, JSON.stringify(profile)).run();
-      account = await env.DB.prepare(
-        'SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts WHERE username = ?',
-      ).bind(candidate).first<AccountRow>();
-      isNewAccount = true;
+    const emailUsername = claims.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 80) || 'google_user';
+    const base = emailUsername === 'convidado' ? 'google_user' : emailUsername;
+    let candidate = base;
+    for (let suffix = 1; suffix <= 10; suffix++) {
+      const exists = await env.DB.prepare('SELECT username FROM accounts WHERE username = ?')
+        .bind(candidate).first<{ username: string }>();
+      if (!exists) break;
+      candidate = `${base.slice(0, 90)}_${suffix}`;
     }
+    const profile = {
+      username: candidate,
+      name: typeof claims.name === 'string' ? claims.name.slice(0, 100) : candidate,
+      photoUrl: typeof claims.picture === 'string' ? claims.picture.slice(0, 2048) : DEFAULT_AVATAR,
+      email: claims.email,
+    };
+    await env.DB.prepare(`
+      INSERT INTO accounts (username, password_salt, password_hash, profile_json)
+      VALUES (?, NULL, NULL, ?)
+    `).bind(candidate, JSON.stringify(profile)).run();
+    account = await env.DB.prepare(
+      'SELECT username, password_salt, password_hash, profile_json, created_at FROM accounts WHERE username = ?',
+    ).bind(candidate).first<AccountRow>();
+    isNewAccount = true;
   }
   if (!account) return error(500, 'Não foi possível carregar a conta Google.');
   if (account.username === 'convidado') {
@@ -399,7 +392,7 @@ async function googleLogin(request: Request, env: D1Env): Promise<Response> {
     INSERT INTO account_google_identities (google_subject, username, email)
     VALUES (?, ?, ?)
     ON CONFLICT(google_subject) DO UPDATE SET username = excluded.username, email = excluded.email
-  `).bind(claims.sub, account.username, claims.email).run();
+  `).bind(googleSubject, account.username, claims.email).run();
   return json({
     success: true,
     isNewAccount,

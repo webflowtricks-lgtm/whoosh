@@ -1,12 +1,11 @@
 {
-  "projectId": "secret-sunrise-pgtt6",
-  "appId": "1:817470103921:web:d61b7f991777c9d1b8d6d0",
-  "apiKey": "AIzaSyCSwRKVkwLa1u5xWyoLwk0VNVr3s3FBNDk",
-  "authDomain": "secret-sunrise-pgtt6.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-narutounison-8522cf8c-35ea-4988-a803-d48e12ccc968",
-  "storageBucket": "secret-sunrise-pgtt6.firebasestorage.app",
-  "messagingSenderId": "817470103921",
-  "measurementId": "",
-  "oAuthClientId": "817470103921-13afe75kctb81ate7mt2apie9bo68qdg.apps.googleusercontent.com",
+  "projectId": "naruto-arena-mobile-6d949",
+  "appId": "1:919576930157:web:4a6d5d33a5e20439cc5c64",
+  "apiKey": "AIzaSyCmXEpDOcFqO-CbG8kM8cQtkqX2uV-y3UY",
+  "authDomain": "naruto-arena-mobile-6d949.firebaseapp.com",
+  "storageBucket": "naruto-arena-mobile-6d949.firebasestorage.app",
+  "messagingSenderId": "919576930157",
+  "measurementId": "G-M7YHJ0Y24X",
+  "oAuthClientId": "919576930157-ipjbr15f1tm9d05s83uk4j7al57nhf0i.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

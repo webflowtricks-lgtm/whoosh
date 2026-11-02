@@ -634,6 +634,7 @@ async function startServer() {
       return res.status(401).json({ error: "A identidade Google não pôde ser confirmada." });
     }
 
+    const googleSubject = `${FIREBASE_PROJECT_ID}:${claims.sub}`;
     const users = readJSON<Array<{
       username: string;
       password?: string;
@@ -643,8 +644,7 @@ async function startServer() {
       photoUrl?: string;
       createdAt?: string;
     }>>(USERS_FILE, []);
-    let user = users.find(account => account.googleId === claims.sub) ||
-      users.find(account => account.email?.toLowerCase() === claims.email?.toLowerCase());
+    let user = users.find(account => account.googleId === googleSubject);
     let isNewAccount = false;
 
     if (!user) {
@@ -659,7 +659,7 @@ async function startServer() {
       user = {
         username,
         password: "",
-        googleId: claims.sub,
+        googleId: googleSubject,
         email: claims.email,
         name: claims.name?.slice(0, 100) || username,
         photoUrl: claims.picture?.slice(0, 2048) || "https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/naruto-uzumaki/icon.jpg",
@@ -668,7 +668,7 @@ async function startServer() {
       users.push(user);
       isNewAccount = true;
     } else {
-      user.googleId = claims.sub;
+      user.googleId = googleSubject;
       user.email = claims.email;
       if (claims.name) user.name = claims.name.slice(0, 100);
       if (claims.picture) user.photoUrl = claims.picture.slice(0, 2048);

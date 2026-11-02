@@ -24,6 +24,14 @@ allprojects {
     }
 }
 
+subprojects {
+    if (name == 'capgo-capacitor-social-login') {
+        configurations.configureEach {
+            resolutionStrategy.force 'androidx.browser:browser:1.4.0'
+        }
+    }
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }

@@ -5,7 +5,7 @@
   "compatibility_date": "2026-10-12",
   "workers_dev": true,
   "vars": {
-    "FIREBASE_PROJECT_ID": "secret-sunrise-pgtt6"
+    "FIREBASE_PROJECT_ID": "naruto-arena-mobile-6d949"
   },
   "durable_objects": {
     "bindings": [
