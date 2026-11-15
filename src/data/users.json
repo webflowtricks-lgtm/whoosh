@@ -403,9 +403,19 @@
       "sakura-base",
       "madara-uchiha-(s)-base",
       "asuma-sarutobi-base",
-      "kabuto-yakushi-base"
+      "kabuto-yakushi-base",
+      "kiba-base",
+      "inoichi-yamanaka-base",
+      "konohamaru-sarutobi-(s)-base",
+      "chiyo-(s)-base",
+      "jinpachi-munashi-(r)-base",
+      "madara-uchiha-(s)-base",
+      "human-path-pain-(s)-base",
+      "oboro-base",
+      "shino-aburame-(s)-base",
+      "neji-base"
     ],
-    "ryos": 59444,
+    "ryos": 59194,
     "gems": 30000,
     "village": "konoha",
     "villageChangeCount": 1,
@@ -1116,11 +1126,197 @@
       "naruto:Rasengan": "skill-skin-rasengan-perfeito",
       "young-nagato:Air Bullets": "shop-item-2614"
     },
-    "rewardRouletteSpinCount": 3,
+    "rewardRouletteSpinCount": 4,
     "unlockedVoiceIds": [
       "kakashi-jutsucopiado"
     ],
     "rewardRouletteHistory": [
+      {
+        "id": "3f74f56e73a7736d542d49461a11ff48-1",
+        "createdAt": "2026-11-15T19:00:12.540Z",
+        "draw": {
+          "prize": {
+            "id": "card-neji-base",
+            "kind": "card",
+            "rarity": "rara",
+            "name": "Neji Hyuga",
+            "cardId": "neji-base",
+            "characterName": "Neji Hyuga"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 6
+        }
+      },
+      {
+        "id": "2e0abddeee4d0ca7b381e30daa6ef040-1",
+        "createdAt": "2026-11-15T18:10:14.589Z",
+        "draw": {
+          "prize": {
+            "id": "duplicate-skin-ryos",
+            "kind": "ryos",
+            "rarity": "comum",
+            "name": "25 Ryos",
+            "amount": 25
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 6
+        }
+      },
+      {
+        "id": "2e0abddeee4d0ca7b381e30daa6ef040-2",
+        "createdAt": "2026-11-15T18:10:14.589Z",
+        "draw": {
+          "prize": {
+            "id": "card-kiba-base",
+            "kind": "card",
+            "rarity": "rara",
+            "name": "Kiba Inuzuka",
+            "cardId": "kiba-base",
+            "characterName": "Kiba Inuzuka"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 5
+        }
+      },
+      {
+        "id": "2e0abddeee4d0ca7b381e30daa6ef040-3",
+        "createdAt": "2026-11-15T18:10:14.589Z",
+        "draw": {
+          "prize": {
+            "id": "card-inoichi-yamanaka-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Inoichi Yamanaka",
+            "cardId": "inoichi-yamanaka-base",
+            "characterName": "Inoichi Yamanaka"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 4
+        }
+      },
+      {
+        "id": "2e0abddeee4d0ca7b381e30daa6ef040-4",
+        "createdAt": "2026-11-15T18:10:14.589Z",
+        "draw": {
+          "prize": {
+            "id": "card-konohamaru-sarutobi-(s)-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Konohamaru Sarutobi (S)",
+            "cardId": "konohamaru-sarutobi-(s)-base",
+            "characterName": "Konohamaru Sarutobi (S)"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 3
+        }
+      },
+      {
+        "id": "2e0abddeee4d0ca7b381e30daa6ef040-5",
+        "createdAt": "2026-11-15T18:10:14.589Z",
+        "draw": {
+          "prize": {
+            "id": "card-chiyo-(s)-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Chiyo (S)",
+            "cardId": "chiyo-(s)-base",
+            "characterName": "Chiyo (S)"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 2
+        }
+      },
+      {
+        "id": "2e0abddeee4d0ca7b381e30daa6ef040-6",
+        "createdAt": "2026-11-15T18:10:14.589Z",
+        "draw": {
+          "prize": {
+            "id": "card-jinpachi-munashi-(r)-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Jinpachi Munashi (R)",
+            "cardId": "jinpachi-munashi-(r)-base",
+            "characterName": "Jinpachi Munashi (R)"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 1
+        }
+      },
+      {
+        "id": "2e0abddeee4d0ca7b381e30daa6ef040-7",
+        "createdAt": "2026-11-15T18:10:14.589Z",
+        "draw": {
+          "prize": {
+            "id": "card-madara-uchiha-(s)-base",
+            "kind": "card",
+            "rarity": "lendaria",
+            "name": "Madara Uchiha (S)",
+            "cardId": "madara-uchiha-(s)-base",
+            "characterName": "Madara Uchiha (S)"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": true,
+          "spinsUntilLegendary": 10
+        }
+      },
+      {
+        "id": "2e0abddeee4d0ca7b381e30daa6ef040-8",
+        "createdAt": "2026-11-15T18:10:14.589Z",
+        "draw": {
+          "prize": {
+            "id": "card-human-path-pain-(s)-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Human Path Pain (S)",
+            "cardId": "human-path-pain-(s)-base",
+            "characterName": "Human Path Pain (S)"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 9
+        }
+      },
+      {
+        "id": "2e0abddeee4d0ca7b381e30daa6ef040-9",
+        "createdAt": "2026-11-15T18:10:14.589Z",
+        "draw": {
+          "prize": {
+            "id": "card-oboro-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Oboro",
+            "cardId": "oboro-base",
+            "characterName": "Oboro"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 8
+        }
+      },
+      {
+        "id": "2e0abddeee4d0ca7b381e30daa6ef040-10",
+        "createdAt": "2026-11-15T18:10:14.589Z",
+        "draw": {
+          "prize": {
+            "id": "card-shino-aburame-(s)-base",
+            "kind": "card",
+            "rarity": "comum",
+            "name": "Shino Aburame (S)",
+            "cardId": "shino-aburame-(s)-base",
+            "characterName": "Shino Aburame (S)"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 7
+        }
+      },
       {
         "id": "56faef18156f72ad80ec0049e84dd234-1",
         "createdAt": "2026-11-01T03:17:01.829Z",

@@ -54,7 +54,7 @@ import {
   isRecurringChestUnlocked,
 } from '../lib/recurringQuests';
 import { getEventTimeRemaining } from '../lib/uchihaEvent';
-import { getLanguage, useLanguage } from '../lib/i18n';
+import { getLanguage, localizeContentText, useLanguage } from '../lib/i18n';
 import EventsModal from './EventsModal';
 import ShopModal from './ShopModal';
 import ProfileModal from './ProfileModal';
@@ -126,7 +126,7 @@ export default function LobbyScreen({
   onReplayTutorial,
   tutorialMode = false,
 }: LobbyScreenProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [modal, setModal] = useState<LobbyModal>(null);
   const [shopInitialTab, setShopInitialTab] = useState<'all' | 'bundle'>('all');
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
@@ -734,7 +734,7 @@ export default function LobbyScreen({
               setEventsModalInitialEventId(featuredEvent.id);
               openAuthenticated('events');
             }}
-            aria-label={`${featuredEvent.title} — ${t('Ver evento', 'View event')}`}
+            aria-label={`${localizeContentText(featuredEvent.title, featuredEvent.titleEn, language)} — ${t('Ver evento', 'View event')}`}
           >
             <img
               src={featuredEvent.bannerUrl}
@@ -752,7 +752,7 @@ export default function LobbyScreen({
             />
             <span className="lobby-event-copy">
               <small>{featuredEvent.badge || t('EVENTO', 'EVENT')}</small>
-              <strong>{featuredEvent.title}</strong>
+              <strong>{localizeContentText(featuredEvent.title, featuredEvent.titleEn, language)}</strong>
               <span>
                 {eventCountdown ? (
                   <>
@@ -784,7 +784,7 @@ export default function LobbyScreen({
                     key={event.id}
                     className={index === activeEventIndex ? 'is-active' : ''}
                     onClick={() => setActiveEventIndex(index)}
-                    aria-label={t(`Ver evento ${index + 1}: ${event.title}`, `View event ${index + 1}: ${event.title}`)}
+                    aria-label={`${t('Ver evento', 'View event')} ${index + 1}: ${localizeContentText(event.title, event.titleEn, language)}`}
                     aria-current={index === activeEventIndex ? 'true' : undefined}
                   />
                 ))}

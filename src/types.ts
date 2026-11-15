@@ -358,7 +358,9 @@ export interface SkillShieldPerStackRule {
 
 export interface Skill {
   name: string;
+  nameEn?: string;
   desc: string;
+  descEn?: string;
   icon: string;
   cost: ChakraType[];
   skillSkinId?: string;
@@ -833,6 +835,7 @@ cannotBeReflected?: boolean;
    stackable?: boolean;
    /** Nome do tipo de stack para agrupar (ex: 'Marca', 'Veneno', 'Cortes') */
    stackType?: string;
+   stackTypeEn?: string;
    /** Duração da stack em turnos no oponente (padrão: 999 = praticamente permanente) */
    stackDuration?: number;
    /** Onde aplicar as stacks quando a skill é usada (padrão: 'Target') */
@@ -916,6 +919,7 @@ export type SkinRarity = 'comum' | 'rara' | 'epica' | 'lendaria' | 'mitica';
 export interface CharacterSkin {
   id: string;
   name: string;
+  nameEn?: string;
   image: string; // Transparent PNG artwork or WebM video URL/data URL
   rarity?: SkinRarity;
 }
@@ -923,8 +927,11 @@ export interface CharacterSkin {
 export interface Character {
   id: string;
   name: string;
+  nameEn?: string;
   description: string;
+  descriptionEn?: string;
   tags: string[];
+  tagsEn?: string[];
   skills: Skill[];
   portrait: string;
   folder: string; // original folder name in public/static/img/ninja/
@@ -1293,8 +1300,10 @@ export interface NinjaPack {
 export interface ShopItem {
   id: string;
   name: string;
+  nameEn?: string;
   category: 'title' | 'skin' | 'skill_skin' | 'frame' | 'bundle';
   description: string;
+  descriptionEn?: string;
   currency: 'ryos' | 'gems';
   price: number;
   icon?: string;
@@ -1305,11 +1314,14 @@ export interface ShopItem {
   frameImageUrl?: string;
   skinImageUrl?: string;
   characterName?: string;
+  characterNameEn?: string;
   skillCharacterId?: string;
   skillName?: string;
+  skillNameEn?: string;
   skillVisualEffect?: 'rasengan';
   addedAt?: string;
   badge?: string;
+  badgeEn?: string;
   bundleGrant?: {
     type: 'ryos' | 'gems';
     amount: number;
@@ -1345,15 +1357,17 @@ export type TitleTheme =
 export interface NinjaEventObjective {
   id: string;
   description: string;
+  descriptionEn?: string;
   current: number;
   target: number;
   rewardType: 'ryos' | 'gems' | 'title' | 'frame' | 'skin' | 'skill_skin' | 'banner';
   rewardValue: string | number;
   rewardLabel: string;
+  rewardLabelEn?: string;
   rewardFrameImageUrl?: string;
   tracker?: 'win_with_character' | 'skills_with_character' | 'damage_with_character' | 'damage_received_with_character';
   characterId?: string;
-  rewardOptions?: Array<{ type: 'ryos' | 'gems'; value: number; label: string }>;
+  rewardOptions?: Array<{ type: 'ryos' | 'gems'; value: number; label: string; labelEn?: string }>;
 }
 
 export type NinjaEventTheme =
@@ -1454,11 +1468,16 @@ export type NinjaEventTheme =
 export interface NinjaEvent {
   id: string;
   title: string;
+  titleEn?: string;
   subtitle: string;
+  subtitleEn?: string;
   description: string;
+  descriptionEn?: string;
   bannerUrl: string;
   badge: string;
+  badgeEn?: string;
   timeLeft: string;
+  timeLeftEn?: string;
   durationDays?: number;
   startedAt?: string;
   theme?: NinjaEventTheme;

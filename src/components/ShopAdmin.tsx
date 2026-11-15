@@ -435,6 +435,15 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none"
                 />
               </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Nome de Exibição (English)</label>
+                <input
+                  type="text"
+                  value={editingItem.nameEn || ''}
+                  onChange={e => setEditingItem({ ...editingItem, nameEn: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none"
+                />
+              </div>
 
               <div>
                 <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Categoria do Item</label>
@@ -459,6 +468,15 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                   value={editingItem.badge || ''}
                   onChange={e => setEditingItem({ ...editingItem, badge: e.target.value })}
                   placeholder="Ex: TÍTULO, LENDÁRIO, RARO, ANBU, OFERTA"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Selo / Tag de Destaque (English)</label>
+                <input
+                  type="text"
+                  value={editingItem.badgeEn || ''}
+                  onChange={e => setEditingItem({ ...editingItem, badgeEn: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none"
                 />
               </div>
@@ -494,6 +512,15 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none"
                 />
               </div>
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Descrição (English)</label>
+                <textarea
+                  rows={2}
+                  value={editingItem.descriptionEn || ''}
+                  onChange={e => setEditingItem({ ...editingItem, descriptionEn: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-amber-500 text-slate-100 rounded-xl text-xs outline-none"
+                />
+              </div>
 
               {/* Dynamic Category Specific Inputs */}
               {editingItem.category === 'skin' && (
@@ -516,6 +543,16 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                       value={editingItem.characterName || ''}
                       onChange={e => setEditingItem({ ...editingItem, characterName: e.target.value })}
                       placeholder="Ex: Naruto Uzumaki, Sasuke Uchiha..."
+                      className="w-full px-3 py-2 bg-slate-950 border border-amber-500/40 text-slate-100 rounded-xl text-xs outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-amber-400 mb-1">Nome do Personagem Alvo (English)</label>
+                    <input
+                      type="text"
+                      value={editingItem.characterNameEn || ''}
+                      onChange={e => setEditingItem({ ...editingItem, characterNameEn: e.target.value })}
+                      placeholder="English character name"
                       className="w-full px-3 py-2 bg-slate-950 border border-amber-500/40 text-slate-100 rounded-xl text-xs outline-none"
                     />
                   </div>
@@ -561,6 +598,16 @@ export default function ShopAdmin({ playClickSound }: ShopAdminProps) {
                         <option key={skillName} value={skillName}>{skillName}</option>
                       ))}
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-sky-400 mb-1">Nome Exato da Habilidade (English)</label>
+                    <input
+                      type="text"
+                      value={editingItem.skillNameEn || ''}
+                      onChange={e => setEditingItem({ ...editingItem, skillNameEn: e.target.value })}
+                      placeholder="English skill name"
+                      className="w-full px-3 py-2 bg-slate-950 border border-sky-500/40 text-slate-100 rounded-xl text-xs outline-none"
+                    />
                   </div>
                   <div>
                     <label className="block text-[10px] font-mono uppercase font-bold text-sky-400 mb-1">Efeito Visual</label>

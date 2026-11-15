@@ -14,7 +14,7 @@ import {
 } from '../lib/aiMatchSettings';
 import { safeFetchJson } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
-import { useLanguage, translateGameText, translateSkillName, translateTargetType } from '../lib/i18n';
+import { useLanguage, localizeContentText, translateSkillName, translateTargetType } from '../lib/i18n';
 import { playGlobalSound } from '../lib/soundUtils';
 import { matchFetch } from '../lib/matchFetch';
 import {
@@ -944,13 +944,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
     if (skill.stackable && skill.stackType) {
       addEffect(
         t('Acúmulo de Stack', 'Stack Gain'),
-        `${t('Adiciona +1 stack de', 'Adds +1 stack of')} [${skill.stackType}] ${t('por', 'for')} ${duration(skill.stackDuration)}`,
+        `${t('Adiciona +1 stack de', 'Adds +1 stack of')} [${localizeContentText(skill.stackType, skill.stackTypeEn, language)}] ${t('por', 'for')} ${duration(skill.stackDuration)}`,
         skill.stackTarget || 'Self'
       );
     } else if (skill.stackType && skill.stackUseEffectRules?.length) {
       addEffect(
         t('Progressão de Combo', 'Combo Progression'),
-        `${t('Contribui para o combo de stacks', 'Contributes to the stack combo')} [${skill.stackType}]`,
+        `${t('Contribui para o combo de stacks', 'Contributes to the stack combo')} [${localizeContentText(skill.stackType, skill.stackTypeEn, language)}]`,
         skill.stackTarget || 'Self'
       );
     }
@@ -964,7 +964,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       if (effects.length > 0) {
         addEffect(
           `${t('Combo por Stacks', 'Stack Combo')} (${conditions} ${t('stacks', 'stacks')})`,
-          `${t('Ao usar com', 'When used with')} ${conditions} ${rule.stackType || skill.stackType || t('stacks', 'stacks')}: ${effects.join(' + ')}`,
+          `${t('Ao usar com', 'When used with')} ${conditions} ${localizeContentText(rule.stackType || skill.stackType, skill.stackTypeEn, language) || t('stacks', 'stacks')}: ${effects.join(' + ')}`,
           'Target'
         );
       }
@@ -1342,7 +1342,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   <Search className="absolute left-3 w-4 h-4 text-amber-950/70" />
                   <input
                     type="text"
-                    placeholder="Buscar ninja..."
+                    placeholder={t('Buscar ninja...', 'Search ninja...')}
                     value={searchTerm}
                     onChange={(e) => handleSearchChange(e.target.value)}
                     className="w-full  rounded-lg pl-9 pr-3 py-1.5 text-xs text-amber-950   font-sans font-medium focus:outline-none transition-all"
@@ -1359,7 +1359,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   >
                     {FILTER_TAGS.map(tag => (
                       <option key={tag} value={tag} className="bg-amber-50 text-amber-950 font-sans font-medium">
-                        {tag}
+                        {tag === 'Todos' ? t('Todos', 'All') : localizeContentText(tag, undefined, language)}
                       </option>
                     ))}
                   </select>
@@ -1439,6 +1439,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 const isLocked = !isCharacterUnlocked(char, user, questsList);
                 const reason = getCharacterLockReason(char, user, questsList);
                 const villageTag = char.tags.find(t => t.includes('Vila')) || char.tags[0];
+                const villageTagIndex = char.tags.indexOf(villageTag);
 
                 return (
                   <motion.div
@@ -1497,10 +1498,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     {/* Character Name and Village */}
                     <div className="character-select-card-info w-full text-center px-1 py-0.5 min-h-[32px] flex flex-col justify-center">
                       <h4 className={`ninja-name-tag font-black font-mono tracking-tight text-xs sm:text-[13px] leading-tight truncate uppercase ${isLocked ? 'text-red-950 font-bold' : isSelected ? 'text-amber-900 font-extrabold' : 'text-amber-950'}`}>
-                        {char.name}
+                        {localizeContentText(char.name, char.nameEn, language)}
                       </h4>
                       <p className="ninja-village-tag text-[9px] sm:text-[10px] font-mono font-bold text-amber-900/90 truncate mt-0.5">
-                        {isLocked ? 'Bloqueado' : villageTag}
+                        {isLocked ? t('Bloqueado', 'Locked') : localizeContentText(villageTag, char.tagsEn?.[villageTagIndex], language)}
                       </p>
                     </div>
                   </div>
@@ -1629,7 +1630,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               }`}
               role={isMobilePortrait && showCharacterDetails ? 'dialog' : undefined}
               aria-modal={isMobilePortrait && showCharacterDetails ? true : undefined}
-              aria-label={isMobilePortrait && showCharacterDetails ? `${previewCharacter.name} - ${t('Detalhes do personagem', 'Character details')}` : undefined}
+              aria-label={isMobilePortrait && showCharacterDetails ? `$              {localizeContentText(previewCharacter.name, previewCharacter.nameEn, language)} - ${t('Detalhes do personagem', 'Character details')}` : undefined}
               onClick={event => {
                 if (event.target === event.currentTarget) {
                   playScrollSound();
@@ -1688,7 +1689,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                         key={idx}
                         className="text-[9px] font-mono font-bold px-2 py-0.5 bg-amber-950/15 border border-amber-900/30 text-amber-950 rounded-md shadow-xs"
                       >
-                        {tag}
+                        {localizeContentText(tag, previewCharacter.tagsEn?.[idx], language)}
                       </span>
                     ))}
                   </div>
@@ -1782,7 +1783,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                             </div>
 
                             <span className="text-[10px] font-bold text-amber-950 truncate w-full text-center font-mono uppercase tracking-tight">
-                              {skin.name}
+                              {localizeContentText(skin.name, skin.nameEn, language)}
                             </span>
                             {!canEquip && (
                               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 bg-slate-950/75 text-center font-mono text-[9px] font-black uppercase tracking-wide text-slate-100">
@@ -1867,7 +1868,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 </div>
               ) : (
                 <p className="text-amber-950 text-xs leading-relaxed mb-[15px] font-medium p-1" >
-                  {translateGameText(previewCharacter.description, language)}
+                  {localizeContentText(previewCharacter.description, previewCharacter.descriptionEn, language)}
                 </p>
               )}
 
@@ -1903,7 +1904,11 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     const paginated = previewCharacter.skills.slice(previewSkillsPage * skillsPerPage, (previewSkillsPage + 1) * skillsPerPage);
                     return paginated.map((skill, sIdx) => {
                       const skillEffects = getSkillAttributeEffects(skill);
-                      const translatedSkillName = translateSkillName(skill.name, language);
+                      const translatedSkillName = localizeContentText(
+                        skill.name,
+                        skill.nameEn || (translateSkillName(skill.name, language) !== skill.name ? translateSkillName(skill.name, language) : undefined),
+                        language,
+                      );
                       const skillEffectPageSize = 2;
                       const effectPageCount = Math.max(1, Math.ceil(skillEffects.length / skillEffectPageSize));
                       const skillEffectKey = `${previewCharacter.id}:${skill.name}`;

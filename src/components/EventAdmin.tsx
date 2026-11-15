@@ -1270,6 +1270,15 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none font-bold"
                     />
                   </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Título do Evento (English)</label>
+                    <input
+                      type="text"
+                      value={editingEvent.titleEn || ''}
+                      onChange={e => setEditingEvent({ ...editingEvent, titleEn: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none font-bold"
+                    />
+                  </div>
 
                   <div>
                     <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Subtítulo do Evento</label>
@@ -1277,6 +1286,15 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                       type="text"
                       value={editingEvent.subtitle}
                       onChange={e => setEditingEvent({ ...editingEvent, subtitle: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Subtítulo do Evento (English)</label>
+                    <input
+                      type="text"
+                      value={editingEvent.subtitleEn || ''}
+                      onChange={e => setEditingEvent({ ...editingEvent, subtitleEn: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
                     />
                   </div>
@@ -1292,6 +1310,15 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                     />
                     <p className="mt-1 text-[9px] text-slate-500">Ex.: EVENTO UCHIHA</p>
                   </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Texto do banner (English)</label>
+                    <input
+                      type="text"
+                      value={editingEvent.badgeEn || ''}
+                      onChange={e => setEditingEvent({ ...editingEvent, badgeEn: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
+                    />
+                  </div>
 
                   <div>
                     <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Texto antes do tempo restante</label>
@@ -1300,6 +1327,15 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                       value={editingEvent.timeLeft}
                       onChange={e => setEditingEvent({ ...editingEvent, timeLeft: e.target.value })}
                       placeholder="Ex: Evento especial"
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Texto do tempo restante (English)</label>
+                    <input
+                      type="text"
+                      value={editingEvent.timeLeftEn || ''}
+                      onChange={e => setEditingEvent({ ...editingEvent, timeLeftEn: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none font-mono"
                     />
                   </div>
@@ -1410,6 +1446,15 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                       rows={2}
                       value={editingEvent.description}
                       onChange={e => setEditingEvent({ ...editingEvent, description: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Descrição do Evento (English)</label>
+                    <textarea
+                      rows={2}
+                      value={editingEvent.descriptionEn || ''}
+                      onChange={e => setEditingEvent({ ...editingEvent, descriptionEn: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
                     />
                   </div>
@@ -1528,6 +1573,15 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                             value={editingObjective.description}
                             onChange={e => setEditingObjective({ ...editingObjective, description: e.target.value })}
                             placeholder="Ex: Vença 3 partidas na Arena..."
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Descrição do Objetivo (English)</label>
+                          <input
+                            type="text"
+                            value={editingObjective.descriptionEn || ''}
+                            onChange={e => setEditingObjective({ ...editingObjective, descriptionEn: e.target.value })}
                             className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
                           />
                         </div>
@@ -1723,6 +1777,15 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                             className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
                           />
                         </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-[10px] font-mono uppercase font-bold text-slate-400 mb-1">Rótulo da Recompensa (English)</label>
+                          <input
+                            type="text"
+                            value={editingObjective.rewardLabelEn || ''}
+                            onChange={e => setEditingObjective({ ...editingObjective, rewardLabelEn: e.target.value })}
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-xs outline-none"
+                          />
+                        </div>
 
                         {editingEvent.id === UCHIHA_EVENT_ID && (
                           <div className="md:col-span-2 rounded-xl border border-amber-500/30 bg-slate-900 p-3 space-y-3">
@@ -1743,7 +1806,7 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                               </button>
                             </div>
                             {(editingObjective.rewardOptions || []).map((option, optionIndex) => (
-                              <div key={`${optionIndex}-${option.label}`} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_2fr_auto]">
+                              <div key={`${optionIndex}-${option.label}`} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1.5fr_1.5fr_auto]">
                                 <select
                                   value={option.type}
                                   onChange={e => updateObjectiveRewardOption(optionIndex, { type: e.target.value as 'ryos' | 'gems' })}
@@ -1769,6 +1832,14 @@ export default function EventAdmin({ playClickSound, playScrollSound }: EventAdm
                                   placeholder="Rótulo do prêmio"
                                   className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-xs text-slate-100"
                                   aria-label={`Rótulo do prêmio ${optionIndex + 1}`}
+                                />
+                                <input
+                                  type="text"
+                                  value={option.labelEn || ''}
+                                  onChange={e => updateObjectiveRewardOption(optionIndex, { labelEn: e.target.value })}
+                                  placeholder="Reward label (English)"
+                                  className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-xs text-slate-100"
+                                  aria-label={`Reward label in English ${optionIndex + 1}`}
                                 />
                                 <button
                                   type="button"

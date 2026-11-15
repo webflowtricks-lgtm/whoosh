@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Calendar, Gift, CheckCircle, Clock, Sparkles, Target, ArrowUpRight } from 'lucide-react';
 import { UserProfile, NinjaEvent } from '../types';
+import { localizeContentText, useLanguage } from '../lib/i18n';
 import { getEvents, fetchEventsFromServer } from '../lib/eventStorage';
 import { playGlobalSound } from '../lib/soundUtils';
 import { configFetch } from '../lib/api';
@@ -28,6 +29,7 @@ export default function EventsModal({
   playClickSound,
   initialEventId,
 }: EventsModalProps) {
+  const { language, t } = useLanguage();
   const [events, setEvents] = useState<NinjaEvent[]>(() => getEvents());
   const [selectedEventId, setSelectedEventId] = useState<string>(() => {
     const loaded = getEvents();
@@ -117,14 +119,14 @@ export default function EventsModal({
           reward?: { label?: string };
         } | null;
         if (!response.ok || !result?.success || !result.user) {
-          throw new Error(result?.error || 'Não foi possível resgatar o prêmio.');
+          throw new Error(language === 'en' ? t('Não foi possível resgatar o prêmio.', 'Unable to claim the reward.') : result?.error || 'Não foi possível resgatar o prêmio.');
         }
         playGlobalSound('claim-2');
         onUpdateUser(result.user);
-        setClaimToast(`Prêmio surpresa: ${result.reward?.label || 'resgatado!'}`);
+        setClaimToast(`${t('Prêmio surpresa:', 'Surprise reward:')} ${localizeContentText(result.reward?.label || 'resgatado!', undefined, language)}`);
         setTimeout(() => setClaimToast(null), 3000);
       } catch (error) {
-        setClaimToast(error instanceof Error ? error.message : 'Não foi possível resgatar o prêmio.');
+        setClaimToast(language === 'en' ? t('Não foi possível resgatar o prêmio.', 'Unable to claim the reward.') : error instanceof Error ? error.message : 'Não foi possível resgatar o prêmio.');
         setTimeout(() => setClaimToast(null), 4000);
       } finally {
         setClaimingObjectiveId(null);
@@ -181,7 +183,7 @@ export default function EventsModal({
     };
 
     onUpdateUser(updatedUser);
-    setClaimToast('Recompensa resgatada!');
+    setClaimToast(t('Recompensa resgatada!', 'Reward claimed!'));
     setTimeout(() => setClaimToast(null), 3000);
   };
 
@@ -244,17 +246,17 @@ export default function EventsModal({
                     </span>
                     <div className="flex items-center justify-between gap-2">
                       <span className="events-modal-event-badge truncate text-[9px] font-black uppercase tracking-[.14em]">
-                        {ev.badge || 'EVENTO'}
+                        {localizeContentText(ev.badge || 'EVENTO', ev.badgeEn, language)}
                       </span>
-                      {unclaimedCount > 0 && <span className="events-modal-ready">{unclaimedCount} PRONTO</span>}
+                      {unclaimedCount > 0 && <span className="events-modal-ready">{unclaimedCount} {t('PRONTO', 'READY')}</span>}
                     </div>
-                    <strong className="mt-1 block truncate text-xs text-slate-100">{ev.title}</strong>
+                    <strong className="mt-1 block truncate text-xs text-slate-100">{localizeContentText(ev.title, ev.titleEn, language)}</strong>
                     <div className="mt-2 flex items-center justify-between gap-2 text-[9px] font-mono text-slate-400">
                       <span className="flex min-w-0 items-center gap-1 truncate">
                         <Clock className="events-modal-event-clock h-3 w-3 flex-none" />
-                        {ev.timeLeft || 'Ativo'}
+                        {localizeContentText(ev.timeLeft || 'Ativo', ev.timeLeftEn, language)}
                       </span>
-                      <span className="flex-none">{completedCount}/{totalObjectives} metas</span>
+                      <span className="flex-none">{completedCount}/{totalObjectives} {t('metas', 'goals')}</span>
                     </div>
                     <div className="events-modal-card-progress">
                       <span style={{ width: `${totalObjectives ? completedCount / totalObjectives * 100 : 0}%` }} />
@@ -276,20 +278,20 @@ export default function EventsModal({
                     <img src={selectedEvent.bannerUrl} alt="" draggable={false} />
                   )}
                   <span className="lobby-event-copy">
-                    <small>{selectedEvent.badge || 'EVENTO'}</small>
-                    <strong>{selectedEvent.title || 'Evento Ninja'}</strong>
+                    <small>{localizeContentText(selectedEvent.badge || 'EVENTO', selectedEvent.badgeEn, language)}</small>
+                    <strong>{localizeContentText(selectedEvent.title || 'Evento Ninja', selectedEvent.titleEn, language)}</strong>
                     <span>
                       {eventCountdown ? (
                         <>
-                          {selectedEvent.timeLeft} •{' '}
+                          {localizeContentText(selectedEvent.timeLeft, selectedEvent.timeLeftEn, language)} •{' '}
                           <span className="lobby-event-time-remaining">
                             <Clock aria-hidden="true" />
                             {eventCountdown.expired
-                              ? 'Evento encerrado'
-                              : `${eventCountdown.days} dias e ${eventCountdown.hours} horas restantes`}
+                              ? t('Evento encerrado', 'Event ended')
+                              : `${eventCountdown.days} ${t('dias e', 'days and')} ${eventCountdown.hours} ${t('horas restantes', 'hours remaining')}`}
                           </span>
                         </>
-                      ) : selectedEvent.timeLeft || 'Evento ativo'}
+                      ) : localizeContentText(selectedEvent.timeLeft || 'Evento ativo', selectedEvent.timeLeftEn, language)}
                     </span>
                   </span>
                   <span className="lobby-event-cta">
@@ -304,11 +306,11 @@ export default function EventsModal({
                   <div className="min-w-0">
                     <span className="events-modal-kicker">
                       <span className="events-modal-kicker-star" aria-hidden="true" />
-                      {selectedEvent.subtitle || 'DESAFIO ESPECIAL'}
+                      {localizeContentText(selectedEvent.subtitle || 'DESAFIO ESPECIAL', selectedEvent.subtitleEn, language)}
                     </span>
-                    <h3 className="mt-1 text-lg font-black leading-tight text-white sm:text-xl">{selectedEvent.title}</h3>
+                    <h3 className="mt-1 text-lg font-black leading-tight text-white sm:text-xl">{localizeContentText(selectedEvent.title, selectedEvent.titleEn, language)}</h3>
                   </div>
-                  <div className="events-modal-summary" aria-label={`${selectedCompletion}% das metas completas`}>
+                  <div className="events-modal-summary" aria-label={t(`${selectedCompletion}% das metas completas`, `${selectedCompletion}% of goals completed`)}>
                     <span
                       className="events-modal-summary-ring"
                       style={{
@@ -318,15 +320,15 @@ export default function EventsModal({
                       <span>{selectedCompletedCount}</span>
                     </span>
                     <span className="events-modal-summary-label">
-                      <small>METAS</small>
+                      <small>{t('METAS', 'GOALS')}</small>
                       <strong>/{selectedObjectiveCount}</strong>
-                      <small>COMPLETAS</small>
+                      <small>{t('COMPLETAS', 'COMPLETED')}</small>
                     </span>
                   </div>
                 </div>
                 {selectedEvent.description && (
                   <p className="mt-3 max-w-3xl text-xs leading-relaxed text-slate-300 sm:text-sm">
-                    {selectedEvent.description}
+                    {localizeContentText(selectedEvent.description, selectedEvent.descriptionEn, language)}
                   </p>
                 )}
               </section>
@@ -335,9 +337,9 @@ export default function EventsModal({
                 <div className="events-modal-section-heading">
                   <div className="flex items-center gap-2">
                     <Target className="h-4 w-4 text-orange-300" />
-                    <h3>Metas e recompensas</h3>
+                    <h3>{t('Metas e recompensas', 'Goals and rewards')}</h3>
                   </div>
-                  <span>Seu progresso</span>
+                  <span>{t('Seu progresso', 'Your progress')}</span>
                 </div>
 
                 <div className="grid gap-3">
@@ -356,7 +358,7 @@ export default function EventsModal({
                         <div className="events-modal-objective-index">{isCompleted ? <CheckCircle className="h-4 w-4" /> : String(index + 1).padStart(2, '0')}</div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-                            <h4 className="text-xs font-bold leading-snug text-slate-100 sm:text-sm">{objective.description}</h4>
+                            <h4 className="text-xs font-bold leading-snug text-slate-100 sm:text-sm">{localizeContentText(objective.description, objective.descriptionEn, language)}</h4>
                             <span className="whitespace-nowrap text-[10px] font-mono font-bold text-slate-300">
                               {currentProgress.toLocaleString()} <span className="text-slate-500">/ {objective.target.toLocaleString()}</span>
                             </span>
@@ -366,13 +368,13 @@ export default function EventsModal({
                           </div>
                           <div className="events-modal-reward-line flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] text-slate-400">
                             <Gift className="h-3.5 w-3.5 text-amber-300" />
-                            <span>Recompensa:</span>
+                            <span>{t('Recompensa:', 'Reward:')}</span>
                             {objective.rewardOptions?.length ? (
-                              <strong className="font-bold text-amber-200">Prêmio surpresa</strong>
+                              <strong className="font-bold text-amber-200">{t('Prêmio surpresa', 'Surprise reward')}</strong>
                             ) : objective.rewardType === 'ryos' ? (
                               <>
-                                <img src="/static/img/icon/gold.webp" alt="Moedas" className="h-4 w-4 object-contain" />
-                                <strong className="font-bold text-amber-200">{Number(objective.rewardValue).toLocaleString()} Moedas</strong>
+                                <img src="/static/img/icon/gold.webp" alt={t('Moedas', 'Coins')} className="h-4 w-4 object-contain" />
+                                <strong className="font-bold text-amber-200">{Number(objective.rewardValue).toLocaleString()} {t('Moedas', 'Coins')}</strong>
                               </>
                             ) : objective.rewardType === 'gems' ? (
                               <>
@@ -380,13 +382,13 @@ export default function EventsModal({
                                 <strong className="font-bold text-amber-200">{Number(objective.rewardValue).toLocaleString()} Gems</strong>
                               </>
                             ) : (
-                              <strong className="font-bold text-amber-200">{objective.rewardLabel}</strong>
+                              <strong className="font-bold text-amber-200">{localizeContentText(objective.rewardLabel, objective.rewardLabelEn, language)}</strong>
                             )}
                           </div>
                         </div>
                         <div className="events-modal-objective-action">
                           {isClaimed ? (
-                            <span className="events-modal-claimed"><CheckCircle className="h-3.5 w-3.5" /> Resgatado</span>
+                            <span className="events-modal-claimed"><CheckCircle className="h-3.5 w-3.5" /> {t('Resgatado', 'Claimed')}</span>
                           ) : isCompleted ? (
                             <button
                               type="button"
@@ -398,11 +400,11 @@ export default function EventsModal({
                               className="events-modal-claim"
                             >
                               <Gift className="h-3.5 w-3.5" />
-                              {claimingObjectiveId === objective.id ? 'Resgatando…' : 'Resgatar'}
+                              {claimingObjectiveId === objective.id ? t('Resgatando…', 'Claiming…') : t('Resgatar', 'Claim')}
                               <ArrowUpRight className="h-3.5 w-3.5" />
                             </button>
                           ) : (
-                            <span className="events-modal-in-progress">Em andamento</span>
+                            <span className="events-modal-in-progress">{t('Em andamento', 'In progress')}</span>
                           )}
                         </div>
                       </article>
@@ -414,7 +416,7 @@ export default function EventsModal({
           ) : (
             <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-slate-400">
               <Calendar className="h-10 w-10 text-slate-600" />
-              <p className="text-sm">Nenhum evento selecionado ou disponível no momento.</p>
+              <p className="text-sm">{t('Nenhum evento selecionado ou disponível no momento.', 'No event is currently selected or available.')}</p>
             </main>
           )}
         </div>
@@ -424,7 +426,7 @@ export default function EventsModal({
             playClickSound();
             onClose();
           }}
-          aria-label="Fechar eventos"
+          aria-label={t('Fechar eventos', 'Close events')}
           className="events-modal-close events-modal-close-fixed"
         >
           <X className="h-5 w-5" />

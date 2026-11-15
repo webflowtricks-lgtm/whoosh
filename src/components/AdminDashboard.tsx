@@ -2073,6 +2073,16 @@ const newSkill: Skill = {
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-semibold"
                   />
                 </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">Nome de Exibição (English)</label>
+                  <input
+                    type="text"
+                    value={editingChar.nameEn || ''}
+                    onChange={(e) => handleUpdateCharDetails('nameEn', e.target.value)}
+                    placeholder="English character name"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-semibold"
+                  />
+                </div>
 
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">Pasta de Imagens</label>
@@ -2166,6 +2176,16 @@ const newSkill: Skill = {
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
                   />
                 </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">Tags / Afiliações (English, separadas por vírgula)</label>
+                  <input
+                    type="text"
+                    value={editingChar.tagsEn?.join(', ') || ''}
+                    onChange={(e) => handleUpdateCharDetails('tagsEn', e.target.value.split(',').map(s => s.trim()).filter(s => s !== ''))}
+                    placeholder="E.g. Leaf Village, Team 7, Jinchuriki"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all font-mono"
+                  />
+                </div>
 
                 <div className="md:col-span-2">
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">Biografia / Descrição Curta</label>
@@ -2174,6 +2194,16 @@ const newSkill: Skill = {
                     value={editingChar.description}
                     onChange={(e) => handleUpdateCharDetails('description', e.target.value)}
                     placeholder="Escreva sobre o histórico do ninja..."
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all leading-normal"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">Biografia / Descrição Curta (English)</label>
+                  <textarea
+                    rows={2}
+                    value={editingChar.descriptionEn || ''}
+                    onChange={(e) => handleUpdateCharDetails('descriptionEn', e.target.value)}
+                    placeholder="Write the character bio in English..."
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all leading-normal"
                   />
                 </div>
@@ -2343,6 +2373,20 @@ const newSkill: Skill = {
                                 handleUpdateCharDetails('skins', updatedSkins);
                               }}
                               placeholder="Ex: Sasuke Hebi"
+                              className="w-full px-2 py-1 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded text-xs text-white outline-none font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[8px] font-mono text-slate-400 uppercase">Nome da Skin (English)</label>
+                            <input
+                              type="text"
+                              value={skin.nameEn || ''}
+                              onChange={(e) => {
+                                const updatedSkins = [...(editingChar.skins || [])];
+                                updatedSkins[skinIdx] = { ...updatedSkins[skinIdx], nameEn: e.target.value };
+                                handleUpdateCharDetails('skins', updatedSkins);
+                              }}
+                              placeholder="English skin name"
                               className="w-full px-2 py-1 bg-slate-950 border border-slate-800 focus:border-amber-500 rounded text-xs text-white outline-none font-mono"
                             />
                           </div>
@@ -2697,6 +2741,16 @@ const newSkill: Skill = {
                           value={editingSkill.name}
                           onChange={(e) => handleUpdateSkillField('name', e.target.value)}
                           placeholder="E.g. Rasengan"
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1 font-mono">Nome da Habilidade (English)</label>
+                        <input
+                          type="text"
+                          value={editingSkill.nameEn || ''}
+                          onChange={(e) => handleUpdateSkillField('nameEn', e.target.value)}
+                          placeholder="English skill name"
                           className="w-full px-3 py-2 bg-slate-900 border border-slate-800 focus:border-orange-500 rounded-xl text-white outline-none text-xs transition-all"
                         />
                       </div>
@@ -10400,6 +10454,16 @@ placeholder="Tipo (ex: Marca) — vazio usa o nome da skill"
                                        className="w-full px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-purple-300 focus:border-purple-500 outline-none"
                                     />
                                     <span className="text-[10px] text-slate-500 font-mono shrink-0">Tipo de Stack</span>
+            </div>
+            <div className="flex items-center gap-2 mt-1.5">
+                                    <input
+                                       type="text"
+                                       value={editingSkill.stackTypeEn || ''}
+                                       onChange={(e) => handleUpdateSkillField('stackTypeEn', e.target.value)}
+                                       placeholder="English stack label"
+                                       className="w-full px-2 py-1 bg-slate-900 border border-purple-800/60 rounded text-center text-xs font-mono text-purple-300 focus:border-purple-500 outline-none"
+                                    />
+                                    <span className="text-[10px] text-slate-500 font-mono shrink-0">Stack Type (English)</span>
                                   </div>
                                    <div className="flex items-center gap-2 mt-1.5">
                                      <input

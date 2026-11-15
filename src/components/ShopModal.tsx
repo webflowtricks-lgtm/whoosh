@@ -26,7 +26,7 @@ import {
 import { matchFetch } from '../lib/matchFetch';
 import { DEFAULT_SHOP_TAB_ORDER, fetchShopTabOrder, ShopTabId } from '../lib/shopTabOrder';
 import { SKIN_FRAGMENT_PACK_COST } from '../lib/skinFragments';
-import { useLanguage } from '../lib/i18n';
+import { localizeContentText, useLanguage } from '../lib/i18n';
 
 type ShopTab = 'all' | ShopTabId;
 
@@ -35,8 +35,10 @@ const SKIN_FRAGMENT_PACK_ID = 'skin-fragment-pack';
 const SKIN_FRAGMENT_PACK: ShopItem = {
   id: SKIN_FRAGMENT_PACK_ID,
   name: 'Pacote de Fragmentos de Skin',
+  nameEn: 'Skin Fragment Pack',
   category: 'bundle',
   description: 'Receba de 1 a 10 fragmentos de uma skin aleatória.',
+  descriptionEn: 'Receive 1 to 10 fragments of a random skin.',
   currency: 'ryos',
   price: SKIN_FRAGMENT_PACK_COST,
   icon: '/static/img/pacote.webp',
@@ -56,7 +58,10 @@ interface ShopModalProps {
 }
 
 export default function ShopModal({ user, onClose, onUpdateUser, playClickSound, playScrollSound, playWinSound, initialTab = 'all' }: ShopModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const displayText = (portugueseText: string | undefined, englishText?: string) =>
+    localizeContentText(portugueseText, englishText, language);
+  const displayItemName = (item: ShopItem) => displayText(item.name, item.nameEn);
   const [items, setItems] = useState<ShopItem[]>(() => getShopItems());
   const [activeTab, setActiveTab] = useState<ShopTab>(initialTab);
   const [shopTabOrder, setShopTabOrder] = useState<ShopTabId[]>(DEFAULT_SHOP_TAB_ORDER);
@@ -134,7 +139,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
   const equippedFrame = user.equippedFrame || 'Padrão';
   const currentTitle = user.title || unlockedTitles[0] || 'Estudante';
   const rouletteChances = getCardRouletteChances(cards, rouletteSettings);
-  const rouletteCostLabel = `${rouletteCost.toLocaleString('pt-BR')} ${rouletteCost === 1 ? 'moeda' : 'moedas'} por giro`;
+  const rouletteCostLabel = `${rouletteCost.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')} ${rouletteCost === 1 ? t('moeda', 'coin') : t('moedas', 'coins')} ${t('por giro', 'per spin')}`;
 
   const filteredItems = activeTab === 'roulette'
     ? []
@@ -177,22 +182,22 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
       };
       if (!response.ok || !result.success || !result.skin || !result.user ||
           !Number.isSafeInteger(result.fragmentsAdded) || !Number.isSafeInteger(result.fragmentCount)) {
-        throw new Error(result.error || `Não foi possível abrir o pacote (HTTP ${response.status}).`);
+        throw new Error(language === 'en' ? t('Não foi possível abrir o pacote.', 'Unable to open the pack.') : result.error || `Não foi possível abrir o pacote (HTTP ${response.status}).`);
       }
 
       onUpdateUser({ ...user, ...result.user });
       const rewardMessage = result.unlocked
-        ? t(`Skin ${result.skin.name} desbloqueada!`, `${result.skin.name} skin unlocked!`)
+        ? t(`Skin ${result.skin.name} desbloqueada!`, `${displayText(result.skin.name)} skin unlocked!`)
         : t(
           `+${result.fragmentsAdded} fragmento(s) de ${result.skin.name} — ${result.fragmentCount}/50`,
-          `+${result.fragmentsAdded} ${result.skin.name} fragment(s) — ${result.fragmentCount}/50`,
+          `+${result.fragmentsAdded} ${displayText(result.skin.name)} fragment(s) — ${result.fragmentCount}/50`,
         );
       setPurchaseToast(rewardMessage);
       if (result.unlocked) playWinSound();
       window.setTimeout(() => setPurchaseToast(null), 4500);
     } catch (error) {
       console.error('Falha ao abrir pacote de fragmentos de skin:', error);
-      setPurchaseToast(error instanceof Error ? error.message : 'Não foi possível abrir o pacote.');
+      setPurchaseToast(language === 'en' ? t('Não foi possível abrir o pacote.', 'Unable to open the pack.') : error instanceof Error ? error.message : 'Não foi possível abrir o pacote.');
       window.setTimeout(() => setPurchaseToast(null), 4500);
     } finally {
       setIsOpeningSkinFragmentPack(false);
@@ -202,7 +207,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
   const startRouletteDraw = async () => {
     if (ryos < rouletteCost) {
       playGlobalSound('denied');
-      setPurchaseToast('Moedas insuficientes!');
+      setPurchaseToast(t('Moedas insuficientes!', 'Not enough coins!'));
       setTimeout(() => setPurchaseToast(null), 3000);
       return;
     }
@@ -228,7 +233,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
       };
 
       if (!response.ok || !result.success || !result.card || !result.user) {
-        throw new Error(result.error || `Não foi possível girar a roleta (HTTP ${response.status}).`);
+        throw new Error(language === 'en' ? t('Não foi possível girar a roleta.', 'Unable to spin the roulette.') : result.error || `Não foi possível girar a roleta (HTTP ${response.status}).`);
       }
       onUpdateUser({ ...user, ...result.user });
       setRouletteWinner(result.card);
@@ -242,7 +247,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
       setRouletteSequence([...fillers, result.card]);
     } catch (error) {
       console.error('Falha ao girar a roleta de Ninja Cards:', error);
-      setRouletteError(error instanceof Error ? error.message : 'Não foi possível girar a roleta.');
+      setRouletteError(language === 'en' ? t('Não foi possível girar a roleta.', 'Unable to spin the roulette.') : error instanceof Error ? error.message : 'Não foi possível girar a roleta.');
       setRoulettePhase(null);
       setRouletteInfoOpen(true);
     }
@@ -271,18 +276,18 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
     if (item.category === 'skin') {
       const isUnlocked = unlockedSkins.includes(item.name) || unlockedSkins.includes(item.id);
       if (isUnlocked) {
-        setPurchaseToast(`Skin "${item.name}" já está desbloqueada!`);
+        setPurchaseToast(t(`Skin "${item.name}" já está desbloqueada!`, `${displayItemName(item)} skin is already unlocked!`));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
 
       if (item.currency === 'ryos' && ryos < item.price) {
-        setPurchaseToast('Moedas insuficientes!');
+        setPurchaseToast(t('Moedas insuficientes!', 'Not enough coins!'));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
       if (item.currency === 'gems' && gems < item.price) {
-        setPurchaseToast('Ryos insuficientes!');
+        setPurchaseToast(t('Ryos insuficientes!', 'Not enough Ryos!'));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
@@ -311,24 +316,24 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         equippedCharacterSkins,
       });
 
-      setPurchaseToast(`Skin "${item.name}" adquirida com sucesso!`);
+      setPurchaseToast(t(`Skin "${item.name}" adquirida com sucesso!`, `${displayItemName(item)} skin purchased successfully!`));
       setTimeout(() => setPurchaseToast(null), 3000);
       return;
     }
 
     if (item.category === 'skill_skin') {
       if (unlockedSkillSkins.includes(item.id)) {
-        setPurchaseToast(`Skin de habilidade "${item.name}" já está desbloqueada!`);
+        setPurchaseToast(t(`Skin de habilidade "${item.name}" já está desbloqueada!`, `${displayItemName(item)} skill skin is already unlocked!`));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
       if (item.currency === 'ryos' && ryos < item.price) {
-        setPurchaseToast('Moedas insuficientes!');
+        setPurchaseToast(t('Moedas insuficientes!', 'Not enough coins!'));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
       if (item.currency === 'gems' && gems < item.price) {
-        setPurchaseToast('Ryos insuficientes!');
+        setPurchaseToast(t('Ryos insuficientes!', 'Not enough Ryos!'));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
@@ -338,7 +343,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         gems: item.currency === 'gems' ? gems - item.price : gems,
         unlockedSkillSkins: [...unlockedSkillSkins, item.id],
       });
-      setPurchaseToast(`Skin de habilidade "${item.name}" adquirida com sucesso!`);
+      setPurchaseToast(t(`Skin de habilidade "${item.name}" adquirida com sucesso!`, `${displayItemName(item)} skill skin purchased successfully!`));
       setTimeout(() => setPurchaseToast(null), 3000);
       return;
     }
@@ -350,18 +355,18 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
           ...user,
           equippedFrame: item.name
         });
-        setPurchaseToast(`Moldura "${item.name}" equipada!`);
+        setPurchaseToast(t(`Moldura "${item.name}" equipada!`, `Frame "${displayItemName(item)}" equipped!`));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
 
       if (item.currency === 'ryos' && ryos < item.price) {
-        setPurchaseToast('Moedas insuficientes!');
+        setPurchaseToast(t('Moedas insuficientes!', 'Not enough coins!'));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
       if (item.currency === 'gems' && gems < item.price) {
-        setPurchaseToast('Ryos insuficientes!');
+        setPurchaseToast(t('Ryos insuficientes!', 'Not enough Ryos!'));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
@@ -378,7 +383,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         equippedFrame: item.name
       });
 
-      setPurchaseToast(`Moldura "${item.name}" adquirida e equipada!`);
+      setPurchaseToast(t(`Moldura "${item.name}" adquirida e equipada!`, `Frame "${displayItemName(item)}" purchased and equipped!`));
       setTimeout(() => setPurchaseToast(null), 3000);
     } else if (item.category === 'title') {
       const isUnlocked = isTitleUnlocked(unlockedTitles, item);
@@ -390,18 +395,18 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
           ))),
           title: item.name
         });
-        setPurchaseToast(`Título "${item.name}" equipado!`);
+        setPurchaseToast(t(`Título "${item.name}" equipado!`, `Title "${displayItemName(item)}" equipped!`));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
 
       if (item.currency === 'ryos' && ryos < item.price) {
-        setPurchaseToast('Moedas insuficientes!');
+        setPurchaseToast(t('Moedas insuficientes!', 'Not enough coins!'));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
       if (item.currency === 'gems' && gems < item.price) {
-        setPurchaseToast('Ryos insuficientes!');
+        setPurchaseToast(t('Ryos insuficientes!', 'Not enough Ryos!'));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
@@ -418,11 +423,11 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         title: item.name
       });
 
-      setPurchaseToast(`Título "${item.name}" adquirido e equipado!`);
+      setPurchaseToast(t(`Título "${item.name}" adquirido e equipado!`, `Title "${displayItemName(item)}" purchased and equipped!`));
       setTimeout(() => setPurchaseToast(null), 3000);
     } else if (item.category === 'bundle' && item.bundleGrant) {
       if (item.currency === 'gems' && gems < item.price) {
-        setPurchaseToast('Ryos insuficientes!');
+        setPurchaseToast(t('Ryos insuficientes!', 'Not enough Ryos!'));
         setTimeout(() => setPurchaseToast(null), 3000);
         return;
       }
@@ -436,7 +441,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         gems: newGems
       });
 
-      setPurchaseToast(`Comprado com sucesso: +${item.bundleGrant.amount} moedas!`);
+      setPurchaseToast(t(`Comprado com sucesso: +${item.bundleGrant.amount} moedas!`, `Purchased: +${item.bundleGrant.amount} coins!`));
       setTimeout(() => setPurchaseToast(null), 3000);
     }
   };
@@ -457,12 +462,12 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
             </div>
             <div>
               <h2 className="text-lg sm:text-xl font-extrabold font-display uppercase tracking-wider text-slate-900 flex items-center gap-2">
-                Loja Shinobi
+                {t('Loja Shinobi', 'Shinobi Shop')}
                 <span className="text-[10px] font-mono bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full font-bold">
                   SHOP
                 </span>
               </h2>
-              <p className="text-xs text-slate-500">Adquira molduras de perfil, títulos honrosos e pacotes de moedas!</p>
+              <p className="text-xs text-slate-500">{t('Adquira molduras de perfil, títulos honrosos e pacotes de moedas!', 'Get profile frames, prestigious titles, and coin packs!')}</p>
             </div>
           </div>
 
@@ -471,12 +476,12 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
             <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
               <span className="text-xs font-mono text-orange-700 font-extrabold flex items-center gap-1.5">
                 <img src="/static/img/icon/gold.webp" alt="" className="h-4 w-4 object-contain" />
-                {ryos.toLocaleString()} <span className="text-[10px] text-slate-500">Moedas</span>
+                {ryos.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')} <span className="text-[10px] text-slate-500">{t('Moedas', 'Coins')}</span>
               </span>
               <div className="h-4 w-px bg-slate-200" />
               <span className="text-xs font-mono text-blue-700 font-extrabold flex items-center gap-1.5">
                 <img src="/static/img/icon/ryo.webp" alt="" className="h-4 w-4 object-contain" />
-                {gems.toLocaleString()} <span className="text-[10px] text-slate-500">Ryos</span>
+                {gems.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')} <span className="text-[10px] text-slate-500">Ryos</span>
               </span>
             </div>
 
@@ -502,13 +507,13 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
         <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 p-3">
           <div ref={tabsContainerRef} className="shop-modal-tabs flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
             {[
-              { id: 'all' as const, label: 'TODOS', icon: ShoppingBag },
+              { id: 'all' as const, label: t('TODOS', 'ALL'), icon: ShoppingBag },
               ...shopTabOrder.map(id => {
                 const tabs: Record<ShopTabId, { label: string; icon: typeof Award }> = {
-                  title: { label: 'Títulos', icon: Award },
+                  title: { label: t('Títulos', 'Titles'), icon: Award },
                   skin: { label: 'Skins', icon: Shirt },
-                  frame: { label: 'Molduras de Perfil', icon: Shield },
-                  bundle: { label: 'Pacotes & Moedas', icon: CircleDollarSign },
+                  frame: { label: t('Molduras de Perfil', 'Profile Frames'), icon: Shield },
+                  bundle: { label: t('Pacotes & Moedas', 'Packs & Coins'), icon: CircleDollarSign },
                   roulette: { label: 'Roleta', icon: Dices },
                 };
                 return { id, ...tabs[id] };
@@ -544,7 +549,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
               onClick={() => { playClickSound(); setRouletteInfoOpen(true); }}
               data-sound="Click"
               className="group w-full max-w-xl text-left transition hover:-translate-y-1"
-              aria-label="Abrir detalhes da roleta"
+              aria-label={t('Abrir detalhes da roleta', 'Open roulette details')}
             >
               <div className="relative flex flex-col items-center text-center">
                 <div className="relative w-full">
@@ -557,7 +562,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                   </div>
                 </div>
                 <p className="mt-2 max-w-sm text-xs font-semibold leading-relaxed text-slate-600">
-                  Toque para ver as figurinhas disponíveis e as chances de cada raridade.
+                  {t('Toque para ver as figurinhas disponíveis e as chances de cada raridade.', 'Tap to see the available cards and the odds for each rarity.')}
                 </p>
               </div>
             </button>
@@ -579,16 +584,16 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                 </div>
                 <div className="mt-1 min-w-0">
                   <h3 className="truncate text-[9px] font-extrabold tracking-tight text-slate-800 sm:text-sm">
-                    {SKIN_FRAGMENT_PACK.name}
+                    {displayItemName(SKIN_FRAGMENT_PACK)}
                   </h3>
                   <p className="mt-1 line-clamp-2 min-h-8 text-[8px] leading-tight text-slate-600 sm:text-[10px]">
-                    {t('Skin aleatória com quantidade de 1 a 10 fragmentos.', 'Random skin with 1 to 10 fragments.')}
+                    {displayText(SKIN_FRAGMENT_PACK.description, SKIN_FRAGMENT_PACK.descriptionEn)}
                   </p>
                 </div>
                 <div className="mt-1.5 flex items-center justify-between gap-1 border-t border-sky-200 pt-1.5 sm:mt-2 sm:pt-2">
                   <span className={`flex min-w-0 items-center gap-1 whitespace-nowrap text-xs font-mono font-extrabold sm:gap-1.5 sm:text-sm ${ryos >= SKIN_FRAGMENT_PACK_COST ? 'text-blue-700' : 'text-red-600'}`}>
                     <img src="/static/img/icon/gold.webp" alt="" className="h-[18px] w-[18px] shrink-0 object-contain sm:h-5 sm:w-5" />
-                    <span className="truncate">{SKIN_FRAGMENT_PACK_COST.toLocaleString('pt-BR')}</span>
+                    <span className="truncate">{SKIN_FRAGMENT_PACK_COST.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</span>
                   </span>
                   <button
                     type="button"
@@ -631,7 +636,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                   <div className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:rounded-xl">
                     {isShopItemNew(item) && (
                       <span className="absolute left-1 top-1 z-10 max-w-[80%] truncate rounded border border-orange-300 bg-gradient-to-r from-amber-300 via-orange-400 to-orange-500 px-1.5 py-0.5 text-[7px] font-mono font-black uppercase tracking-wider text-orange-950 shadow-[0_0_12px_rgba(249,115,22,0.75)] ring-1 ring-amber-200/80 sm:text-[9px]">
-                        NOVO
+                        {t('NOVO', 'NEW')}
                       </span>
                     )}
                     <div className="flex h-full items-center justify-center p-1.5 sm:p-3">
@@ -640,7 +645,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                           {item.skinImageUrl ? (
                             <img
                               src={item.skinImageUrl || null}
-                              alt={item.name}
+                              alt={displayItemName(item)}
                               className="h-full w-full rounded-lg object-cover"
                             />
                           ) : (
@@ -648,7 +653,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                           )}
                           {item.characterName && (
                             <span className="absolute bottom-0.5 left-0.5 max-w-full truncate rounded border border-blue-200 bg-white/95 px-1 py-0.5 font-mono text-[7px] font-bold text-blue-700 sm:bottom-1 sm:left-1 sm:px-1.5 sm:text-[9px]">
-                              {item.characterName}
+                              {displayText(item.characterName, item.characterNameEn)}
                             </span>
                           )}
                         </div>
@@ -662,10 +667,10 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                             <Sparkles className="h-9 w-9 text-blue-600 sm:h-12 sm:w-12" />
                           )}
                           <span className="line-clamp-2 text-[8px] font-black uppercase text-blue-800 sm:text-[10px]">
-                            {item.skillName || 'Habilidade'}
+                            {displayText(item.skillName || 'Habilidade', item.skillNameEn)}
                           </span>
                           <span className="max-w-full truncate text-[7px] font-mono font-bold text-blue-600 sm:text-[9px]">
-                            {item.skillCharacterId || 'Personagem'}
+                            {displayText(item.skillCharacterId || 'Personagem')}
                           </span>
                         </div>
                       )}
@@ -697,7 +702,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                             <Award className="mx-auto h-7 w-7 text-orange-500 sm:h-8 sm:w-8" />
                           )}
                           <p className={`title-theme-preview line-clamp-2 px-1 py-0.5 text-[8px] font-mono font-black uppercase tracking-wider sm:px-2 sm:py-1 sm:text-xs ${getTitleThemeClass(item.titleTheme)}`}>
-                            {item.name}
+                            {displayItemName(item)}
                           </p>
                         </div>
                       )}
@@ -710,7 +715,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                             <CircleDollarSign className="mx-auto h-8 w-8 text-blue-500 sm:h-10 sm:w-10" />
                           )}
                           <p className="text-[8px] font-mono font-bold text-blue-700 sm:text-xs">
-                            +{item.bundleGrant?.amount} moedas
+                            +{item.bundleGrant?.amount} {t('moedas', 'coins')}
                           </p>
                         </div>
                       )}
@@ -718,8 +723,8 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                   </div>
 
                   <div className="mt-1 min-w-0">
-                    <h3 className="truncate text-[9px] font-extrabold tracking-tight text-slate-800 sm:text-sm" title={item.name}>
-                      {item.name}
+                    <h3 className="truncate text-[9px] font-extrabold tracking-tight text-slate-800 sm:text-sm" title={displayItemName(item)}>
+                      {displayItemName(item)}
                     </h3>
                   </div>
 
@@ -733,18 +738,18 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                       <span className="truncate">{item.price.toLocaleString()}</span>
                     </span>
                     {isEquipped ? (
-                      <span className="p-1 text-emerald-400" title="Equipado" aria-label="Equipado">
+                      <span className="p-1 text-emerald-400" title={t('Equipado', 'Equipped')} aria-label={t('Equipado', 'Equipped')}>
                         <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </span>
                     ) : isUnlockedSkillSkin ? (
                       <span className="rounded-md border border-blue-200 bg-blue-50 px-1.5 py-1 text-[8px] font-black uppercase text-blue-700 sm:text-[9px]">
-                        Desbloqueada
+                        {t('Desbloqueada', 'Unlocked')}
                       </span>
                     ) : isOwned ? (
                       <button
                         onClick={() => handleBuyOrEquip(item)}
-                        aria-label={`Equipar ${item.name}`}
-                        title="Equipar"
+                        aria-label={t(`Equipar ${item.name}`, `Equip ${displayItemName(item)}`)}
+                        title={t('Equipar', 'Equip')}
                         className="rounded-lg border border-blue-200 bg-blue-50 p-1 text-blue-700 transition hover:bg-blue-100"
                       >
                         <UserCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -758,8 +763,8 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                           setPendingPurchase(item);
                         }}
                         data-sound="cash"
-                        aria-label={`Comprar ${item.name}`}
-                        title="Comprar"
+                        aria-label={t(`Comprar ${item.name}`, `Buy ${displayItemName(item)}`)}
+                        title={t('Comprar', 'Buy')}
                         className="rounded-lg border border-blue-700 bg-blue-600 p-1 text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 active:scale-95"
                       >
                         <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -781,8 +786,8 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
           onClose();
         }}
         className="fixed bottom-4 left-4 z-[55] rounded-xl border border-slate-200 bg-white p-3 text-slate-600 shadow-xl transition hover:bg-slate-100 hover:text-slate-900"
-        aria-label="Fechar loja"
-        title="Fechar"
+        aria-label={t('Fechar loja', 'Close shop')}
+        title={t('Fechar', 'Close')}
       >
         <X className="h-5 w-5" />
       </button>
