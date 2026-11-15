@@ -11,11 +11,11 @@ import { getPngFrames, PngFrameItem, fetchPngFramesFromServer } from '../lib/fra
 import { getCustomBanners, CustomBannerItem, fetchCustomBannersFromServer } from '../lib/bannerStorage';
 import { getCharacters } from '../lib/characterStorage';
 import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
-import { getCanonicalTitleName } from '../lib/titleThemes';
+import { findTitleItem, getCanonicalTitleName } from '../lib/titleThemes';
 import { fetchEventsFromServer } from '../lib/eventStorage';
 import { configFetch, safeFetchJson } from '../lib/api';
 import { getCurrentVillageId, getVillageById, VILLAGES } from '../lib/villages';
-import { useLanguage } from '../lib/i18n';
+import { localizeContentText, useLanguage } from '../lib/i18n';
 import MangekyoLoader from './MangekyoLoader';
 import SkinMedia from './SkinMedia';
 
@@ -324,6 +324,12 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
   const currentPreset = PRESET_STYLED_FRAMES.find(f => f.name === equippedFrame);
   const selectedVillage = getVillageById(village);
   const confirmedVillage = getVillageById(villageToConfirm || undefined);
+  const canonicalTitle = getCanonicalTitleName(title, titleItems);
+  const displayedTitle = localizeContentText(
+    canonicalTitle,
+    findTitleItem(titleItems, title)?.nameEn,
+    language,
+  );
   const freeVillageChange = (user.villageChangeCount ?? 0) === 0;
   const accountCreatedAt = accountCreatedAtValue ? new Date(accountCreatedAtValue) : null;
   const formattedAccountCreatedAt = accountCreatedAt && Number.isFinite(accountCreatedAt.getTime())
@@ -433,7 +439,7 @@ export default function ProfileModal({ user, onClose, onUpdateUser, playClickSou
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-slate-950/40 text-amber-300 border border-amber-300/30">
-                  {title}
+                  {displayedTitle}
                 </span>
                 <span className="text-[10px] font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-slate-950/40 text-slate-100">
                   @{user.username}
@@ -1031,14 +1037,20 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
               </div>
 
               <div>
-                <label className="block text-xs font-mono uppercase font-bold text-slate-400 mb-1">Título Shinobi Equipado</label>
+                <label className="block text-xs font-mono uppercase font-bold text-slate-400 mb-1">{t('Título Shinobi Equipado', 'Equipped Shinobi Title')}</label>
                 <select
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-orange-500 text-slate-100 rounded-xl text-sm outline-none"
                 >
-                  {unlockedTitles.map(t => (
-                    <option key={t} value={t}>{t}</option>
+                  {unlockedTitles.map(unlockedTitle => (
+                    <option key={unlockedTitle} value={unlockedTitle}>
+                      {localizeContentText(
+                        getCanonicalTitleName(unlockedTitle, titleItems),
+                        findTitleItem(titleItems, unlockedTitle)?.nameEn,
+                        language,
+                      )}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1057,7 +1069,9 @@ m717 -992 c337 -84 618 -219 892 -428 109 -83 145 -96 214 -77 57 15 66 9 178
                         {t('Vila', 'Village')}
                         </label>
                         <div className="profile-village-name">
-                          {selectedVillage ? t(selectedVillage.name, selectedVillage.englishName) : village}
+                          {selectedVillage
+                            ? t(selectedVillage.name, selectedVillage.englishName)
+                            : localizeContentText(village, undefined, language)}
                         </div>
                       </div>
                     </div>

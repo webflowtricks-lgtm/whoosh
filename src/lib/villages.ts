@@ -35,8 +35,20 @@ export const VILLAGES: Array<{
   { id: 'yugakure', name: 'Yugakure', englishName: 'Hidden Hot Water', icon: '/static/img/icon/vilas/Yugakure_Symbol.webp' },
 ];
 
+const LEGACY_VILLAGE_NAMES: Partial<Record<VillageId, string[]>> = {
+  konoha: ['Vila da Folha', 'Vila da Folha (Konoha)', 'Leaf Village'],
+  otogakure: ['Vila do Som', 'Vila Oculta do Som', 'Sound Village'],
+};
+
 export function getVillageById(id: string | undefined) {
-  return VILLAGES.find(village => village.id === id);
+  const value = id?.trim().toLocaleLowerCase();
+  if (!value) return undefined;
+  return VILLAGES.find(village =>
+    village.id.toLocaleLowerCase() === value ||
+    village.name.toLocaleLowerCase() === value ||
+    village.englishName.toLocaleLowerCase() === value ||
+    LEGACY_VILLAGE_NAMES[village.id]?.some(name => name.toLocaleLowerCase() === value),
+  );
 }
 
 export function isVillageId(id: unknown): id is VillageId {
@@ -44,9 +56,10 @@ export function isVillageId(id: unknown): id is VillageId {
 }
 
 export function getCurrentVillageId(profileVillage?: string): string {
-  if (profileVillage) return profileVillage;
+  if (profileVillage) return getVillageById(profileVillage)?.id || profileVillage;
   try {
-    return localStorage.getItem('naruto_ninja_affiliation') || 'konoha';
+    const savedVillage = localStorage.getItem('naruto_ninja_affiliation');
+    return getVillageById(savedVillage || undefined)?.id || savedVillage || 'konoha';
   } catch (error) {
     console.error('Failed to load selected ninja affiliation:', error);
     return 'konoha';

@@ -1,5 +1,5 @@
 import { QuestGoal, Character } from '../types';
-import { getLanguage, translateGameText } from './i18n';
+import { getLanguage, localizeContentText, type Language } from './i18n';
 
 export interface BattleStats {
   damageDealt: number;
@@ -22,17 +22,19 @@ export interface BattleStats {
   skillUseRecords?: Array<{ charName: string; tags: string[]; skillName: string }>;
 }
 
-export function getGoalDescription(goal: QuestGoal): string {
-  const lang = getLanguage();
+export function getGoalDescription(goal: QuestGoal, lang: Language = getLanguage()): string {
   const charsText = goal.targetCharacters && goal.targetCharacters.length > 0 
-    ? goal.targetCharacters.join(', ') 
+    ? goal.targetCharacters.map(name => localizeContentText(name, undefined, lang)).join(', ')
     : '';
   
   const isMultiChar = goal.targetCharacters && goal.targetCharacters.length > 1;
   const sameTeamNote = isMultiChar ? (lang === 'en' ? ' (on the same team)' : ' (no mesmo time)') : '';
-  const skillNote = goal.targetSkill ? (lang === 'en' ? ` with [${goal.targetSkill}]` : ` com [${goal.targetSkill}]`) : '';
+  const targetSkill = goal.targetSkill ? localizeContentText(goal.targetSkill, undefined, lang) : '';
+  const skillNote = targetSkill ? (lang === 'en' ? ` with [${targetSkill}]` : ` com [${targetSkill}]`) : '';
   
-  const rawTags = goal.targetTags && goal.targetTags.length > 0 ? goal.targetTags.map(t => translateGameText(t, lang)).join(', ') : '';
+  const rawTags = goal.targetTags && goal.targetTags.length > 0
+    ? goal.targetTags.map(tag => localizeContentText(tag, undefined, lang)).join(', ')
+    : '';
   const tagsNote = rawTags ? ` (tag: ${rawTags})` : '';
   const singleNote = goal.singleMatch ? (lang === 'en' ? ' [In 1 match]' : ' [Em 1 partida]') : '';
 
@@ -49,9 +51,9 @@ export function getGoalDescription(goal: QuestGoal): string {
 
       case 'use_skill':
         if (goal.distinctCharacters) {
-          return `Use habilidades com ${goal.targetValue} personagens diferentes${singleNote}`;
+          return `Use skills with ${goal.targetValue} different characters${singleNote}`;
         }
-        return `Use ${goal.targetSkill ? `[${goal.targetSkill}]` : 'skill'}${charsText ? ` with ${charsText}` : ''}${tagsNote} ${goal.targetValue}x${singleNote}`;
+        return `Use ${targetSkill ? `[${targetSkill}]` : 'skill'}${charsText ? ` with ${charsText}` : ''}${tagsNote} ${goal.targetValue}x${singleNote}`;
 
       case 'heal':
         return `Heal ${goal.targetValue} HP${charsText ? ` with ${charsText}` : ''}${skillNote}${tagsNote}${singleNote}`;
@@ -87,7 +89,7 @@ export function getGoalDescription(goal: QuestGoal): string {
       return `Ganhar batalhas seguidas usando ${charsText || 'personagens específicos'}${sameTeamNote}${tagsNote}`;
 
     case 'win_battles_with_tag':
-      return `Ganhar batalhas com um time completo (3 ninjas) da tag ${goal.targetTags?.join(', ') || 'especificada'}${singleNote}`;
+      return `Ganhar batalhas com um time completo (3 ninjas) da tag ${rawTags || 'especificada'}${singleNote}`;
 
     case 'use_skill':
       if (goal.distinctCharacters) {

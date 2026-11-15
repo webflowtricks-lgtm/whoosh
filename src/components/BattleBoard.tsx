@@ -17,7 +17,7 @@ import { getRanks } from '../lib/rankStorage';
 import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
 import { findTitleItem, getCanonicalTitleName, getTitleThemeClass } from '../lib/titleThemes';
 import { getCharacters } from '../lib/characterStorage';
-import { useLanguage, translateGameText, translateSkillName, translateTargetType, getLanguage } from '../lib/i18n';
+import { useLanguage, translateGameText, translateSkillName, translateTargetType, getLanguage, localizeContentText } from '../lib/i18n';
 import { getGoalDescription } from '../lib/questUtils';
 import { safeFetchJson } from '../lib/api';
 import { RichText } from '../lib/richText';
@@ -161,6 +161,12 @@ function getFloatingTextClass(floatingText: FloatingText): string {
   return 'text-red-500 shadow-red-500/5';
 }
 
+function localizeFloatingText(text: string, language: 'pt' | 'en'): string {
+  if (language === 'pt') return text;
+  const localized = localizeContentText(text, undefined, language);
+  return localized === 'English translation missing' ? text : localized;
+}
+
 function getActiveInvulnerabilityEffect(combatant: CombatCharacter): ActiveEffect | undefined {
   if (
     combatant.activeEffects.some(effect => effect.type === 'cannot_be_invulnerable') ||
@@ -242,6 +248,7 @@ function EffectBadges({
   mobilePlacement?: 'inline' | 'below';
   onMobileTargetClick?: () => void;
 }) {
+  const { t, language } = useLanguage();
   const isMobileLandscape = useIsMobileLandscape();
   const isMobileVertical = useIsMobileVertical();
   const [page, setPage] = useState(0);
@@ -278,14 +285,15 @@ function EffectBadges({
   const goPrev = () => { onPlaySound(); setPage(p => Math.max(0, Math.min(p, totalPages - 1) - 1)); };
   const goNext = () => { onPlaySound(); setPage(p => Math.min(totalPages - 1, Math.min(p, totalPages - 1) + 1)); };
   const renderEffectDescription = (description: string) => {
-    const afflictionPrefix = description.match(/^aflição:/i)?.[0];
+    const localizedDescription = localizeContentText(description, undefined, language);
+    const afflictionPrefix = localizedDescription.match(/^(?:aflição|affliction):/i)?.[0];
     return afflictionPrefix ? (
       <>
         <span className="text-purple-400">{afflictionPrefix}</span>
-        <RichText text={description.slice(afflictionPrefix.length)} />
+        <RichText text={localizedDescription.slice(afflictionPrefix.length)} />
       </>
     ) : (
-      <RichText text={description} />
+      <RichText text={localizedDescription} />
     );
   };
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -362,7 +370,7 @@ function EffectBadges({
                 {eff.icon ? (
                   <img
                     src={eff.icon || null}
-                    alt={item.skillName || eff.name}
+                    alt={localizeContentText(item.skillName || eff.name, undefined, language)}
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover rounded-lg"
                     onError={(e) => {
@@ -376,7 +384,7 @@ function EffectBadges({
                   <span className="absolute top-0 right-0 bg-slate-950/80 rounded text-[8px] p-0.5">🔒</span>
                 )}
                 {(eff.isInvisible || eff.type === 'invisible') && (
-                  <span className="absolute top-0 left-0 bg-pink-950/90 text-pink-300 rounded text-[8px] p-0.5 border border-pink-700/80" title="Invisível para o oponente">👁️</span>
+                  <span className="absolute top-0 left-0 bg-pink-950/90 text-pink-300 rounded text-[8px] p-0.5 border border-pink-700/80" title={t('Invisível para o oponente', 'Invisible to opponent')}>👁️</span>
                 )}
               </div>
               {/* Overlay stack badge ONLY if stacks > 1 */}
@@ -402,7 +410,7 @@ function EffectBadges({
                     }`}>
                       {isDebuff ? 'DEBUFF' : 'BUFF'}
                     </span>
-                    <span className="font-extrabold text-xs text-orange-300 truncate">{item.skillName || eff.name}</span>
+                    <span className="font-extrabold text-xs text-orange-300 truncate">{localizeContentText(item.skillName || eff.name, undefined, language)}</span>
                   </div>
 
                   {(opponentView && (eff.isInvisible || eff.type === 'invisible')) && (
@@ -420,10 +428,10 @@ function EffectBadges({
                         <div key={sIdx} className="text-xs text-slate-200 font-sans leading-snug bg-slate-900/80 p-1.5 rounded border border-slate-800/80">
                           <div className="flex items-center justify-between gap-1 mb-0.5">
                             <span className="font-extrabold text-[11px] text-amber-300 truncate">
-                              {sub.effect.name}
+                              {localizeContentText(sub.effect.name, undefined, language)}
                             </span>
                             <span className="text-[9px] font-sans text-amber-400 font-bold bg-amber-950/80 px-1 rounded border border-amber-800/60 shrink-0">
-                              {sub.effect.duration >= 99999 ? '♾️ Permanente' : sub.effect.duration + 'T'}
+                              {sub.effect.duration >= 99999 ? `♾️ ${t('Permanente', 'Permanent')}` : sub.effect.duration + 'T'}
                             </span>
                           </div>
                           <p className="flex items-start gap-1.5 text-[11px] text-slate-300 leading-tight">
@@ -436,7 +444,7 @@ function EffectBadges({
                                 referrerPolicy="no-referrer"
                               />
                             )}
-                            <span><RichText text={sub.description} /></span>
+                            <span>{renderEffectDescription(sub.description)}</span>
                           </p>
                         </div>
                       ))}
@@ -452,14 +460,14 @@ function EffectBadges({
                           referrerPolicy="no-referrer"
                         />
                       )}
-                      <span><RichText text={item.description} /></span>
+                      <span>{renderEffectDescription(item.description)}</span>
                     </p>
                   )}
 
                   <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/80 text-[10px] font-sans text-slate-400 mt-1">
-                    <span>Duração: <strong className="text-amber-400">{eff.duration >= 99999 ? '♾️ Permanente' : eff.duration + 'T'}</strong></span>
+                    <span>{t('Duração:', 'Duration:')} <strong className="text-amber-400">{eff.duration >= 99999 ? `♾️ ${t('Permanente', 'Permanent')}` : eff.duration + 'T'}</strong></span>
                     {item.stacks > 1 && (
-                      <span>• Acúmulos: <strong className="text-amber-400">{item.stacks}x</strong></span>
+                      <span>• {t('Acúmulos:', 'Stacks:')} <strong className="text-amber-400">{item.stacks}x</strong></span>
                     )}
                   </div>
                 </div>
@@ -481,7 +489,7 @@ function EffectBadges({
             className={`p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 transition-all ${
               safePage === 0 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
             }`}
-            title="Anterior"
+            title={t('Anterior', 'Previous')}
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
@@ -493,7 +501,7 @@ function EffectBadges({
             className={`p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 transition-all ${
               safePage >= totalPages - 1 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
             }`}
-            title="Próximo"
+            title={t('Próximo', 'Next')}
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
@@ -515,14 +523,14 @@ function EffectBadges({
             <header className="mv-effect-detail-header">
               <div className="min-w-0">
                 <h2 id="mv-effect-detail-title" className="text-sm font-bold text-amber-300 leading-tight">
-                  Buffs e Debuffs
+                  {t('Buffs e Debuffs', 'Buffs and Debuffs')}
                 </h2>
-                <p className="text-[10px] text-slate-400">Todos os efeitos ativos deste personagem</p>
+                <p className="text-[10px] text-slate-400">{t('Todos os efeitos ativos deste personagem', 'All active effects on this character')}</p>
               </div>
               <button
                 type="button"
                 className="mv-effect-detail-close"
-                aria-label="Fechar características"
+                aria-label={t('Fechar características', 'Close details')}
                 onClick={() => setMobileEffectDetailsOpen(false)}
               >
                 <X className="w-4 h-4" />
@@ -538,7 +546,7 @@ function EffectBadges({
                     {section.label} <span>({section.items.length})</span>
                   </h3>
                   {section.items.length === 0 ? (
-                    <p className="mv-effect-detail-empty">Nenhum {section.isDebuff ? 'debuff' : 'buff'} ativo.</p>
+                    <p className="mv-effect-detail-empty">{section.isDebuff ? t('Nenhum debuff ativo.', 'No active debuffs.') : t('Nenhum buff ativo.', 'No active buffs.')}</p>
                   ) : (
                     <div className="space-y-2">
                       {section.items.map((item, itemIdx) => (
@@ -553,14 +561,14 @@ function EffectBadges({
                               />
                             )}
                             <h4 className="mv-effect-detail-item-title">
-                              {item.skillName || item.effect.name}
+                              {localizeContentText(item.skillName || item.effect.name, undefined, language)}
                             </h4>
                           </div>
                           <div className="space-y-1.5">
                             {item.subEffects.map((sub, subIdx) => (
                               <div key={`${sub.effect.type}:${sub.effect.name}:${subIdx}`} className="mv-effect-detail-subitem">
                                 <div className="flex items-start justify-between gap-2 mb-1">
-                                  <span className="text-[11px] font-semibold text-slate-100">{sub.effect.name}</span>
+                                  <span className="text-[11px] font-semibold text-slate-100">{localizeContentText(sub.effect.name, undefined, language)}</span>
                                   <span className="text-[10px] text-amber-400 whitespace-nowrap">
                                     {sub.effect.duration >= 99999 ? 'Permanente' : `${sub.effect.duration}T`}
                                   </span>
@@ -807,10 +815,236 @@ export function targetHasActiveSkillRuleMatch(t: CombatCharacter | null | undefi
   });
 }
 
+function getEnglishEffectDescription(effect: ActiveEffect, duration: string, value: number): string {
+  const categories: Record<string, string> = {
+    physical: 'Physical',
+    mental: 'Mental',
+    affliction: 'Affliction',
+    chakra: 'Chakra',
+    ranged: 'Ranged',
+    friendly: 'Friendly',
+  };
+  const categoryList = (types?: string[]) => types?.map(type => categories[type] || type).join(', ') || 'all classes';
+  const damageTypes: Record<string, string> = {
+    damage: 'normal damage',
+    direct_damage: 'direct damage',
+    piercing: 'piercing damage',
+    true: 'true damage',
+    affliction: 'affliction damage',
+    bleeding: 'bleeding damage',
+    dot: 'burn damage',
+    physical: 'physical damage',
+    mental: 'mental damage',
+    chakra: 'chakra damage',
+  };
+  const statusTypes: Record<string, string> = {
+    physical: 'Physical (Melee/Attack)',
+    mental: 'Mental (Genjutsu/Illusion)',
+    affliction: 'Affliction (Bleeding/Poison/Effect)',
+    chakra: 'Chakra (Ninjutsu/Energy/Ranged)',
+  };
+  const getSkill = (name?: string) => {
+    if (!name) return 'a skill';
+    const translated = localizeContentText(translateSkillName(name, 'en'), undefined, 'en');
+    return translated === 'English translation missing' ? 'a skill' : translated;
+  };
+
+  switch (effect.type) {
+    case 'stun': {
+      if (effect.blocksOffensiveSkills) {
+        return `🛑 Offensive block: Only offensive skills are blocked for ${duration}. Friendly and self-targeted skills work normally.`;
+      }
+      const types = !effect.stunType?.length || effect.stunType.length >= 4
+        ? Object.keys(statusTypes)
+        : effect.stunType;
+      return types.length >= 4
+        ? `🚫 Full stun: Cannot use any skills for ${duration}.`
+        : `🚫 Partial stun: Cannot use skills in these categories (${types.map(type => statusTypes[type] || type).join(', ')}) for ${duration}.`;
+    }
+    case 'damage_debuff':
+      return value > 0 ? `Fragility: Reduces the target's damage by ${value} for ${duration}.` : `Weakness for ${duration}.`;
+    case 'damage_vulnerability':
+      return value > 0
+        ? `Vulnerability: The target takes +${value} extra damage from ${categoryList(effect.vulnerabilityTypes as string[])} skills for ${duration}.`
+        : `Vulnerability for ${duration}.`;
+    case 'damage_buff': {
+      const types = effect.buffTypes as string[] | undefined;
+      const classText = types?.length ? ` for ${categoryList(types)} skills` : '';
+      return value > 0
+        ? `Increases the attack${classText} of your skills by ${value} for ${duration}.`
+        : `Increases the attack of skills for ${duration}.`;
+    }
+    case 'damage_reduction':
+      return value > 0 ? `Reduces incoming damage by ${value} for ${duration}.` : `Reduces incoming damage for ${duration}.`;
+    case 'damage_reduction_pierce':
+      return value > 0
+        ? `Reduces incoming damage by ${value}, including direct damage, and is immune to piercing for ${duration}.`
+        : `Reduces incoming damage and is immune to piercing for ${duration}.`;
+    case 'skill_copy': {
+      const copiedName = (effect.name.match(/\(Cópia:\s*([^)]+)\)/) || [])[1] || effect.sourceSkillName;
+      return `🪞 Your skills are replaced with ${getSkill(copiedName?.trim())}'s skills for ${duration}.`;
+    }
+    case 'shield':
+      return value > 0 ? `Protective shield absorbs ${value} damage for ${duration}.` : `Protective shield for ${duration}.`;
+    case 'damage_to_shield': {
+      const shieldDuration = (effect as any).shieldDurationTurns;
+      const types = (effect as any).shieldDamageTypes as string[] | undefined;
+      const typesText = types?.length ? ` (types: ${types.map(type => damageTypes[type] || type).join(', ')})` : ' (all types)';
+      const firstHitText = (effect as any).shieldFirstHitOnly ? ' — only the first instance of damage received' : '';
+      const shieldDurationText = shieldDuration && shieldDuration !== 99999 ? ` for ${shieldDuration} ${shieldDuration === 1 ? 'turn' : 'turns'}` : ' indefinitely';
+      return `Converts damage into a shield${typesText}${firstHitText}. Damage received becomes a shield${shieldDurationText} while this effect lasts (${duration}).`;
+    }
+    case 'dot':
+    case 'damage':
+      return value > 0 ? `Takes ${value} continuous damage per turn for ${duration}.` : `Continuous damage for ${duration}.`;
+    case 'bleeding':
+    case 'affliction': {
+      const label = effect.type === 'bleeding' ? 'Bleeding' : 'Affliction';
+      const delay = (effect.delayTurns || 0) > 0
+        ? ` (starts dealing damage in ${effect.delayTurns} ${effect.delayTurns === 1 ? 'turn' : 'turns'})`
+        : '';
+      return value > 0 ? `${label}: Takes ${value} damage per turn for ${duration}${delay}.` : `${label} for ${duration}.`;
+    }
+    case 'direct_damage':
+      return value > 0 ? `Direct damage: Takes ${value} damage per turn for ${duration}.` : `Direct damage for ${duration}.`;
+    case 'life_steal':
+      return value > 0 ? `Life steal: Deals ${value} damage to the opponent (lifesteal) for ${duration}.` : `Life steal for ${duration}.`;
+    case 'heal':
+    case 'heal_over_time':
+      return value > 0 ? `Regenerates ${value} health per turn for ${duration}.` : `Healing effect for ${duration}.`;
+    case 'invulnerable': {
+      const types = effect.invulnerableTypes;
+      const summary = !types?.length || types.includes('all')
+        ? 'all damage and effects'
+        : types.map(type => damageTypes[type] || categories[type] || type).join(', ');
+      const classes = effect.invulnerableClasses?.length
+        ? ` (only against classes: ${effect.invulnerableClasses.map(type => categories[type] || type).join(', ')})`
+        : '';
+      return `Invulnerable: Immune to ${summary}${classes} for ${duration}.`;
+    }
+    case 'counter':
+    case 'counter_attack':
+      return effect.counterAttackUntilTriggered
+        ? 'Marked: The next skill will be countered (persists until triggered).'
+        : `Ready to counterattack for ${duration}${effect.counterAttackMode === 'all' ? ' (counters all skills during this effect)' : ' (counters only the first skill)'}.`;
+    case 'reflect':
+      return `Reflects the opponent's skills for ${duration}.`;
+    case 'no_counter_reflect': {
+      const protectedActions = [
+        effect.noCounterProtect !== false ? 'countered' : '',
+        effect.noReflectProtect !== false ? 'reflected' : '',
+      ].filter(Boolean);
+      return `🛡️ Low-Health Protection: This character's skills cannot be ${protectedActions.join(' or ') || 'countered or reflected'} for ${duration}.`;
+    }
+    case 'redirect_offensive':
+      return `Bodyguard: Offensive skills used against ${effect.redirectOffensiveScope === 'team' ? 'the team' : 'this ally'} are redirected to the caster for ${duration}.`;
+    case 'paralyze_cooldown':
+      return `Skill cooldowns are paralyzed for ${duration}.`;
+    case 'cooldown_increase':
+      return `Increased cooldown: Each skill used by this character gains +${effect.value || 1} cooldown for ${duration}.`;
+    case 'invisible':
+      return `Invisible effect [${getSkill(effect.sourceSkillName || effect.name)}] (invisible to the opponent) for ${duration}.`;
+    case 'reveal_invisible':
+      return `Reveals this character's invisible skills and effects for ${duration}.`;
+    case 'cannot_reduce_damage':
+      return `Cannot reduce damage: Damage-reduction bonuses are ignored for ${duration}.`;
+    case 'cannot_be_invulnerable':
+      return `Cannot become invulnerable: Invulnerability is blocked for ${duration}.`;
+    case 'ignore_stun':
+      return `Stun immunity: Stuns are ignored for ${duration}.`;
+    case 'damage_immunity': {
+      const types = (effect as any).immunityTypes as string[] | undefined;
+      const typeText = types?.length ? ` to ${types.map(type => damageTypes[type] || categories[type] || type).join(', ')}` : ' to all damage';
+      return `Immune${typeText} for ${duration}${effect.firstHitOnly ? ' (only the first hit; consumed after blocking)' : ''}.`;
+    }
+    case 'gain_chakra': {
+      const types = effect.gainChakraTypes?.length
+        ? ` (${effect.gainChakraTypes.map(type => type === 'Rand' ? 'random' : type).join(', ')})`
+        : '';
+      return `Chakra gain: Gains ${value} chakra${types} per turn for ${duration}.`;
+    }
+    case 'drain_chakra':
+      return `Chakra drain: Removes ${value} chakra from the target per turn for ${duration}.`;
+    case 'remove_chakra':
+      return `Chakra removed: Removes ${value} chakra from the target per turn for ${duration}.`;
+    case 'steal_chakra':
+      return `Chakra steal: Steals ${value} chakra from the target per turn for ${duration}.`;
+    case 'immortal':
+      return `Immortal: Cannot die while this effect is active for ${duration}.`;
+    case 'revive_on_death':
+      return `Revival (passive): Returns with ${value > 0 ? value : 'X'} health upon death (${effect.stacks || 1} use(s) remaining).`;
+    case 'cannot_receive_friendly':
+      return `Friendly-skill block: Cannot receive skills from allies for ${duration}.`;
+    case 'negate_friendly_effects':
+      return `Friendly-effect negation: All friendly effects (buffs, invulnerability, damage reduction, healing) are ignored for ${duration}.`;
+    case 'on_skill_use_damage':
+      return value > 0
+        ? `Skill-use penalty: Takes ${value} damage each time a skill is used for ${duration}.`
+        : `Skill-use penalty for ${duration}.`;
+    case 'capture_arrest_trap':
+      return 'Capture and Arrest trap (invisible): Using an offensive skill deals 40 damage and adds 15 physical/chakra damage for 1 turn.';
+    case 'capture_arrest_debuff':
+      return `Vulnerability (Capture and Arrest): Takes +15 damage from Physical and Chakra skills for ${duration}.`;
+    case 'chakra_cost_increase':
+    case 'chakra_cost_reduce': {
+      const isIncrease = effect.type === 'chakra_cost_increase';
+      const chakraLabels: Record<string, string> = { Tai: 'Taijutsu', Nin: 'Ninjutsu', Gen: 'Genjutsu', Blood: 'Kekkei Genkai', Rand: 'Random' };
+      const skillTypes = (isIncrease ? effect.costIncreaseSkillTypes : effect.costReduceSkillTypes) || [];
+      const chakraTypes = (isIncrease ? effect.costIncreaseChakraTypes : effect.costReduceChakraTypes) || [];
+      const amount = Math.abs(effect.value || 1);
+      const skillLabel = skillTypes.length ? ` ${skillTypes.map(type => categories[type] || type).join(' + ')}` : '';
+      const chakraLabel = chakraTypes.map(type => chakraLabels[type] || type).join(' + ') || 'chakra';
+      return `${isIncrease ? 'Increased cost' : 'Reduced cost'}: ${skillLabel ? `${skillLabel} ` : ''}skills cost ${isIncrease ? '+' : '-'}${amount} ${chakraLabel} for ${duration}.`;
+    }
+    case 'retaliate_damage': {
+      const damage = (effect.retaliateDamageVal || value || 0) * ((effect as any).stacks || 1);
+      const scope = effect.retaliateTargetScope || 'self';
+      const scopeText = scope === 'self' ? 'this character' : scope === 'ally' ? 'an ally' : scope === 'self_or_ally' ? 'this character or an ally' : 'the team';
+      const triggerText = effect.retaliateTriggerMode === 'first_only' ? ' (only the first enemy)' : '';
+      const stackText = ((effect as any).stacks || 1) > 1 ? ` (${(effect as any).stacks} stacks = ${damage} damage)` : '';
+      const classesText = effect.retaliateClasses?.length ? ` (only for ${effect.retaliateClasses.map(type => categories[type] || type).join(' / ')} skills)` : '';
+      return `Retaliation: If the opponent uses a skill on ${scopeText}, they take ${damage} damage${triggerText}${stackText}${classesText} for ${duration}.`;
+    }
+    case 'countdown_bomb': {
+      const bombType = damageTypes[(effect as any).damageType] || 'damage';
+      return value > 0
+        ? `Countdown: This character takes ${value} ${bombType} in ${duration}.`
+        : `Countdown: Explodes in ${duration}.`;
+    }
+    case 'death_link':
+      return `💞 Death link: If this character or the linked character dies, the other dies too (${duration}).`;
+    case 'pending_invulnerable': {
+      const turns = (effect as any).pendingInvulnDuration || 1;
+      return `⏭️ Delayed invulnerability: Becomes invulnerable for ${turns} ${turns === 1 ? 'turn' : 'turns'}, starting next turn.`;
+    }
+    case 'custom': {
+      const name = effect.name.toLowerCase();
+      if (name.startsWith('remoção de chakra')) {
+        return `Chakra removal: Removes ${value} chakra from the target per turn for ${duration}.`;
+      }
+      if (name.startsWith('dreno de chakra')) {
+        return `Chakra drain: Removes ${value} chakra from the target per turn for ${duration}.`;
+      }
+      if (name.startsWith('roubo de chakra')) {
+        return `Chakra steal: Steals ${value} chakra from the target per turn for ${duration}.`;
+      }
+      const translatedName = localizeContentText(translateSkillName(effect.name, 'en'), undefined, 'en');
+      return `${translatedName === 'English translation missing' ? 'Active effect' : translatedName}: ${value > 0 ? `value ${value}` : 'active'} for ${duration}.`;
+    }
+    default: {
+      const name = localizeContentText(translateSkillName(effect.name, 'en'), undefined, 'en');
+      return `${name === 'English translation missing' ? 'Active effect' : name}: ${value > 0 ? `value ${value}` : 'active'} for ${duration}.`;
+    }
+  }
+}
+
 export function getSingleEffectDescription(effect: ActiveEffect): string {
   const lang = getLanguage();
-  let desc = (effect as any).description || '';
-  if (desc && desc !== 'Efeito invisível ativo') return translateGameText(desc, lang);
+  const desc = (effect as any).description || '';
+  if (desc && desc !== 'Efeito invisível ativo') {
+    const localized = localizeContentText(desc, undefined, lang);
+    if (lang === 'pt' || localized !== 'English translation missing') return localized;
+  }
 
   const durText = effect.duration >= 99999
     ? (lang === 'en' ? 'infinite' : 'Infinito')
@@ -818,6 +1052,8 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       ? (lang === 'en' ? '1 turn' : '1 turno')
       : `${effect.duration} ${lang === 'en' ? 'turns' : 'turnos'}`;
   const val = effect.value || 0;
+
+  if (lang === 'en') return getEnglishEffectDescription(effect, durText, val);
 
   let rawPt = '';
 
@@ -1040,7 +1276,7 @@ export function getSingleEffectDescription(effect: ActiveEffect): string {
       break;
   }
 
-  return translateGameText(rawPt, lang);
+  return localizeContentText(rawPt, undefined, lang);
 }
 
 function getGroupedActiveEffects(
@@ -1184,7 +1420,7 @@ function GameOverOverlay({
   playClickSound,
   playScrollSound,
 }: GameOverOverlayProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isMobileVertical = useIsMobileVertical();
   const isVictory = gameOver === 'victory';
   const showcaseTeam = isVictory ? playerCombatants : enemyCombatants;
@@ -1217,10 +1453,10 @@ function GameOverOverlay({
   const { actualXpChange, oldRankProgress, newRankProgress, rankChangeInfo, newXp } = xpSnapshot;
   const fragmentRewardMessage = isVictory ? (
     <>
-      Você recebeu {playerCombatants.slice(0, 3).map((combatant, index) => (
+      {t('Você recebeu', 'You received')} {playerCombatants.slice(0, 3).map((combatant, index) => (
         <React.Fragment key={`${combatant.id}-${index}`}>
-          {index > 0 ? (index === playerCombatants.slice(0, 3).length - 1 ? ' e ' : ', ') : ''}
-          x1 fragmento de <span className="font-black text-orange-600">{combatant.character.name}</span>
+          {index > 0 ? (index === playerCombatants.slice(0, 3).length - 1 ? t(' e ', ' and ') : ', ') : ''}
+          {t('x1 fragmento de', 'x1 fragment for')} <span className="font-black text-orange-600">{localizeContentText(combatant.character.name, combatant.character.nameEn, language)}</span>
         </React.Fragment>
       ))}.
     </>
@@ -1372,7 +1608,7 @@ function GameOverOverlay({
                 }
               }}
               className="relative overflow-hidden bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 sm:p-5 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer w-full z-10"
-              title="Clique para ver o Card do Perfil"
+              title={t('Clique para ver o Card do Perfil', 'Click to view profile card')}
             >
               {user.equippedBannerUrl && (
                 <img
@@ -1407,7 +1643,7 @@ function GameOverOverlay({
 
               <div className="relative z-10 flex-1 text-left min-w-0">
                 <p className="text-[11px] font-mono text-orange-400 font-black uppercase tracking-wider mb-0.5 drop-shadow truncate">
-                  {user.title || 'Shinobi'}
+                  {localizeContentText(user.title || 'Shinobi', undefined, language)}
                 </p>
                 <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center gap-1 font-display group-hover:text-orange-400 transition-colors drop-shadow">
                   {user.name}
@@ -1425,7 +1661,7 @@ function GameOverOverlay({
                           color: r.fontColor || '#ffffff',
                         }}
                       >
-                        {r.name}
+                        {localizeContentText(r.name, undefined, language)}
                       </span>
                     );
                   })()}
@@ -1501,7 +1737,7 @@ function GameOverOverlay({
                 <div
                   className="h-2 overflow-hidden rounded-full border border-white/10 bg-slate-900 shadow-inner"
                   role="progressbar"
-                  aria-label="Progresso para o próximo posto"
+                  aria-label={t('Progresso para o próximo posto', 'Progress to next rank')}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={newRankProgress.progressPercent}
@@ -1531,11 +1767,11 @@ function GameOverOverlay({
                   {newRankProgress.isMaxRank ? (
                     <span className="flex min-w-0 items-center justify-end gap-1 font-bold text-amber-300">
                       <Trophy className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-                      <span className="truncate">Posto máximo</span>
+                      <span className="truncate">{t('Posto máximo', 'Max rank')}</span>
                     </span>
                   ) : (
                     <span className="truncate text-right">
-                      Próximo: {newRankProgress.nextRank?.name} · {newRankProgress.nextRank?.requiredXp.toLocaleString()} XP
+                      {t('Próximo:', 'Next:')} {localizeContentText(newRankProgress.nextRank?.name, undefined, language)} · {newRankProgress.nextRank?.requiredXp.toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')} XP
                     </span>
                   )}
                 </div>
@@ -1553,7 +1789,7 @@ function GameOverOverlay({
                     name: opp?.name || 'I.A. Kakashi',
                     username: opp?.username || 'ia_kakashi',
                     photoUrl: opp?.photoUrl || 'https://raw.githubusercontent.com/naruto-unison/naruto-unison/master/static/img/ninja/kakashi-hatake/icon.jpg',
-                    title: opp?.title || (isOnline ? 'Oponente' : 'Renegado S-Rank'),
+                    title: opp?.title || (isOnline ? t('Oponente', 'Opponent') : t('Renegado S-Rank', 'S-Rank Rogue')),
                     equippedFrame: opp?.equippedFrame,
                     equippedFrameUrl: opp?.equippedFrameUrl,
                     equippedBannerUrl: opp?.equippedBannerUrl,
@@ -1565,13 +1801,13 @@ function GameOverOverlay({
                     rank: opp?.rank || 'Anbu',
                     wins: opp?.wins || 35,
                     losses: opp?.losses || 12,
-                    village: isOnline ? 'Vila Oponente' : 'Vila do Som',
+                    village: isOnline ? t('Vila Oponente', 'Opponent Village') : t('Vila do Som', 'Sound Village'),
                     collectedCardIds: opp?.collectedCardIds || [],
                   }, false);
                 }
               }}
               className="relative overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 sm:p-5 flex items-center gap-4 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer w-full z-10"
-              title="Clique para ver o Card do Perfil do Oponente"
+              title={t('Clique para ver o Card do Perfil do Oponente', 'Click to view opponent profile card')}
             >
               {isOnline && opp?.equippedBannerUrl && (
                 <img
@@ -1599,7 +1835,7 @@ function GameOverOverlay({
                 {isOnline && opp?.equippedFrameUrl && (
                   <img
                     src={opp.equippedFrameUrl || undefined}
-                    alt="Moldura Oponente"
+                    alt={t('Moldura Oponente', 'Opponent Frame')}
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[135%] h-[135%] max-w-none pointer-events-none object-contain z-10"
                   />
                 )}
@@ -1610,7 +1846,11 @@ function GameOverOverlay({
 
               <div className="relative z-10 flex-1 text-right min-w-0">
                 <p className="text-[11px] font-mono text-red-400 font-black uppercase tracking-wider mb-0.5 drop-shadow truncate">
-                  {isOnline && opp ? (opp.title || 'Oponente') : 'Renegado S-Rank'}
+                  {localizeContentText(
+                    isOnline && opp ? (opp.title || t('Oponente', 'Opponent')) : 'Renegado S-Rank',
+                    undefined,
+                    language,
+                  )}
                 </p>
                 <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center justify-end gap-1 font-display group-hover:text-red-400 transition-colors drop-shadow">
                   {isOnline && opp ? opp.name : 'I.A. Kakashi'}
@@ -1628,7 +1868,7 @@ function GameOverOverlay({
                           color: r.fontColor || '#ffffff',
                         }}
                       >
-                        {r.name}
+                        {localizeContentText(r.name, undefined, language)}
                       </span>
                     );
                   })()}
@@ -1744,7 +1984,7 @@ function GameOverOverlay({
       </motion.div>
 
       {surrenderReason && (
-        <p className="gameover-surrender-pill">{surrenderReason}</p>
+        <p className="gameover-surrender-pill">{localizeContentText(surrenderReason, undefined, language)}</p>
       )}
 
       {/* Modais ficam fora do stacking context do conteúdo para sobrepor Naruto. */}
@@ -1766,18 +2006,18 @@ function GameOverOverlay({
             <img src="/static/img/ui/pergaminho.webp" alt="" className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none" />
             <div className="relative z-10 flex flex-col items-center gap-3 py-1">
               <h2 className="font-brush text-3xl sm:text-4xl md:text-5xl font-black uppercase text-amber-500 drop-shadow-[0_3px_0_rgba(120,53,15,0.9)] flex items-center justify-center gap-3">
-                <img src="/static/img/ui/trophy.webp" alt="Troféu" className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain animate-bounce" />
-                SUBIU DE RANK!
+                <img src="/static/img/ui/trophy.webp" alt={t('Troféu', 'Trophy')} className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain animate-bounce" />
+                {t('SUBIU DE RANK!', 'RANK UP!')}
               </h2>
               <p className="text-sm sm:text-base font-bold text-slate-900 max-w-md">
-                Parabéns! Você alcançou o posto de{' '}
-                <span className="text-amber-700 underline font-extrabold">{newRankProgress.currentRank.name}</span>!
+                {t('Parabéns! Você alcançou o posto de', 'Congratulations! You reached the rank of')}{' '}
+                <span className="text-amber-700 underline font-extrabold">{localizeContentText(newRankProgress.currentRank.name, undefined, language)}</span>!
               </p>
               {fragmentRewardMessage && (
                 <p className="text-sm sm:text-base font-bold text-slate-900 max-w-md">{fragmentRewardMessage}</p>
               )}
               <button onClick={() => setShowRankUpModal(false)} data-sound="uah" className="btn-red-image mt-1">
-                <span className="font-brush text-[13px] sm:text-[15px]">Continuar</span>
+                <span className="font-brush text-[13px] sm:text-[15px]">{t('Continuar', 'Continue')}</span>
               </button>
             </div>
           </motion.div>
@@ -1803,14 +2043,14 @@ function GameOverOverlay({
             <div className="relative z-10 flex flex-col items-center gap-3 py-1">
               <h2 className="font-brush text-3xl sm:text-4xl md:text-5xl font-black uppercase text-red-600 drop-shadow-[0_3px_0_rgba(127,29,29,0.9)] flex items-center justify-center gap-3">
                 <img src="/static/img/ui/naruto-meme.webp" alt="Naruto meme" className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain animate-bounce" />
-                DESCEU DE RANK!
+                {t('DESCEU DE RANK!', 'RANK DOWN!')}
               </h2>
               <p className="text-sm sm:text-base font-bold text-slate-900 max-w-md">
-                A perda de XP rebaixou seu posto para{' '}
-                <span className="text-rose-700 underline font-extrabold">{newRankProgress.currentRank.name}</span>.
+                {t('A perda de XP rebaixou seu posto para', 'The XP loss lowered your rank to')}{' '}
+                <span className="text-rose-700 underline font-extrabold">{localizeContentText(newRankProgress.currentRank.name, undefined, language)}</span>.
               </p>
               <button onClick={() => setShowRankDownModal(false)} data-sound="uah" className="btn-red-image mt-1">
-                <span className="font-brush text-[13px] sm:text-[15px]">Continuar</span>
+                <span className="font-brush text-[13px] sm:text-[15px]">{t('Continuar', 'Continue')}</span>
               </button>
             </div>
           </motion.div>
@@ -1841,20 +2081,20 @@ function GameOverOverlay({
               <h2 className={`font-brush text-3xl sm:text-4xl md:text-5xl font-black uppercase flex items-center justify-center gap-3 ${isVictory ? 'text-amber-500 drop-shadow-[0_3px_0_rgba(120,53,15,0.9)]' : 'text-red-600 drop-shadow-[0_3px_0_rgba(127,29,29,0.9)]'}`}>
                 <img
                   src={isVictory ? '/static/img/ui/trophy.webp' : '/static/img/ui/naruto-meme.webp'}
-                  alt={isVictory ? 'Troféu' : 'Naruto meme'}
+                  alt={isVictory ? t('Troféu', 'Trophy') : 'Naruto meme'}
                   className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 object-contain animate-bounce"
                 />
-                {isVictory ? 'VOCÊ VENCEU!' : 'VOCÊ PERDEU!'}
+                {isVictory ? t('VOCÊ VENCEU!', 'YOU WON!') : t('VOCÊ PERDEU!', 'YOU LOST!')}
               </h2>
 
               <p className="text-sm sm:text-base font-bold text-slate-900 max-w-md">
                 {isVictory
                   ? fragmentRewardMessage
-                  : 'Você perdeu a batalha, mas ainda pode voltar mais forte.'}
+                  : t('Você perdeu a batalha, mas ainda pode voltar mais forte.', 'You lost the battle, but you can come back stronger.')}
               </p>
 
               <button onClick={() => setShowBattleResultModal(false)} data-sound="uah" className="btn-red-image mt-1">
-                <span className="font-brush text-[13px] sm:text-[15px]">Continuar</span>
+                <span className="font-brush text-[13px] sm:text-[15px]">{t('Continuar', 'Continue')}</span>
               </button>
             </div>
           </motion.div>
@@ -1910,11 +2150,13 @@ export default function BattleBoard({
   const opponentXp = onlineParams?.isOnline ? (onlineParams.opponentProfile?.xp || 0) : 0;
   const opponentRankProgress = useMemo(() => getRankProgress(opponentXp, ranksList), [opponentXp, ranksList]);
   const opponentCurrentRank = opponentRankProgress.currentRank;
-  const playerTitle = getCanonicalTitleName(user.title || 'Shinobi', titleShopItems);
+  const playerTitle = getCanonicalTitleName(user.title || t('Shinobi', 'Shinobi'), titleShopItems);
+  const playerTitleDisplay = localizeContentText(playerTitle, findTitleItem(titleShopItems, playerTitle)?.nameEn, language);
   const playerTitleTheme = getTitleThemeClass(findTitleItem(titleShopItems, playerTitle)?.titleTheme);
   const opponentTitle = onlineParams?.isOnline
-    ? getCanonicalTitleName(onlineParams.opponentProfile.title || 'Oponente', titleShopItems)
+    ? getCanonicalTitleName(onlineParams.opponentProfile.title || t('Oponente', 'Opponent'), titleShopItems)
     : 'Renegado S-Rank';
+  const opponentTitleDisplay = localizeContentText(opponentTitle, findTitleItem(titleShopItems, opponentTitle)?.nameEn, language);
   const opponentTitleTheme = getTitleThemeClass(findTitleItem(titleShopItems, opponentTitle)?.titleTheme);
 
   // 🔑 ONLINE INITIATIVE — single source of truth, server-authoritative.
@@ -18920,7 +19162,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     return (
       <div className={compact ? 'mv-skill-detail-effects' : 'mt-2.5 pt-2 border-t border-amber-900/30 space-y-1.5 text-[10px] font-sans text-left'}>
         <p className="text-[10px] text-amber-950 font-extrabold uppercase tracking-wider mb-1 flex items-center gap-1">
-          <span>Efeitos da Habilidade</span>
+          <span>{t('Efeitos da Habilidade', 'Skill Effects')}</span>
           <span className="bg-amber-900/30 text-amber-950 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold">{effects.length}</span>
         </p>
         <div className={compact ? 'mv-skill-detail-effect-list' : 'grid grid-cols-1 gap-1.5'}>
@@ -18932,15 +19174,15 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 : 'flex flex-col gap-1 bg-amber-100/70 border border-amber-900/30 p-2 rounded-lg text-[10px] font-sans shadow-sm'}
             >
               <div className="flex items-center justify-between">
-                <span className={`${eff.color} font-extrabold text-[10px]`}>{eff.label}</span>
+                <span className={`${eff.color} font-extrabold text-[10px]`}>{localizeContentText(eff.label, undefined, language)}</span>
               </div>
               <p className="text-slate-900 font-semibold text-[10px] leading-tight">
-                {eff.value}
+                {localizeContentText(eff.value, undefined, language)}
               </p>
               {eff.targetLabel && (
                 <div className="pt-1 border-t border-amber-900/15 flex items-center justify-end">
                   <span className="text-[8px] text-amber-900/80 font-extrabold bg-amber-900/10 px-1.5 py-0.5 rounded border border-amber-900/20 whitespace-nowrap">
-                    🎯 <span className="text-amber-950 font-black">{eff.targetLabel}</span>
+                    🎯 <span className="text-amber-950 font-black">{localizeContentText(eff.targetLabel, undefined, language)}</span>
                   </span>
                 </div>
               )}
@@ -18962,9 +19204,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
     const effectiveCost = getEffectiveSkillCost(skill, combatant, allCombatants);
     const effectiveCooldown = getEffectiveCooldown(skill, combatant, allCombatants);
     const skillRequirements = [
-      skill.requireEffect && `Requer ${translateGameText(skill.requireEffect, language)}`,
-      skill.requirePreviousSkill && `Após ${translateSkillName(skill.requirePreviousSkill, language)}`,
-      skill.requireTargetEffect && `Alvo requer ${translateGameText(skill.requireTargetEffect, language)}`,
+      skill.requireEffect && `${t('Requer', 'Requires')} ${localizeContentText(skill.requireEffect, undefined, language)}`,
+      skill.requirePreviousSkill && `${t('Após', 'After')} ${localizeContentText(translateSkillName(skill.requirePreviousSkill, language), undefined, language)}`,
+      skill.requireTargetEffect && `${t('Alvo requer', 'Target requires')} ${localizeContentText(skill.requireTargetEffect, undefined, language)}`,
     ].filter((requirement): requirement is string => !!requirement);
 
     return (
@@ -18972,7 +19214,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         className="mv-skill-detail-panel"
         data-tutorial-target={tutorialMode && [8, 16].includes(tutorialStep ?? -1) ? 'skill-inspector' : undefined}
         role="region"
-        aria-label={`Características de ${translateSkillName(skill.name, language)}`}
+        aria-label={`${t('Características de', 'Details for')} ${localizeContentText(translateSkillName(skill.name, language), undefined, language)}`}
         onClick={event => {
           event.stopPropagation();
           if (selectedSkill && !isTutorialSkillSelectionLocked()) setSelectedSkill(null);
@@ -18991,40 +19233,40 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             />
             <div className="min-w-0">
               <span className="mv-skill-detail-owner">{ownerName}</span>
-              <h3>{translateSkillName(skill.name, language)}</h3>
+              <h3>{localizeContentText(translateSkillName(skill.name, language), undefined, language)}</h3>
             </div>
           </div>
 
           <div className="mv-skill-detail-stats">
             <div className="mv-skill-detail-stat">
-              <span>Custo</span>
+              <span>{t('Custo', 'Cost')}</span>
               <div>
                 {skill.noChakraCost || effectiveCost.length === 0
-                  ? <b>Grátis</b>
+                  ? <b>{t('Grátis', 'Free')}</b>
                   : effectiveCost.map((chakra, index) => (
                     <span key={`${chakra}-${index}`}>{renderChakraIcon(chakra, 'w-3.5 h-3.5')}</span>
                   ))}
               </div>
             </div>
             <div className="mv-skill-detail-stat">
-              <span>Recarga</span>
-              <b>{skill.permanent ? 'Permanente' : effectiveCooldown === 0 ? 'Sem recarga' : `${effectiveCooldown} turno${effectiveCooldown === 1 ? '' : 's'}`}</b>
+              <span>{t('Recarga', 'Cooldown')}</span>
+              <b>{skill.permanent ? t('Permanente', 'Permanent') : effectiveCooldown === 0 ? t('Sem recarga', 'No cooldown') : t(`${effectiveCooldown} turno${effectiveCooldown === 1 ? '' : 's'}`, `${effectiveCooldown} turn${effectiveCooldown === 1 ? '' : 's'}`)}</b>
             </div>
             <div className="mv-skill-detail-stat">
-              <span>Alvo</span>
-              <b>{translateTargetType(skill.targetType)}</b>
+              <span>{t('Alvo', 'Target')}</span>
+              <b>{translateTargetType(skill.targetType, language)}</b>
             </div>
           </div>
 
           {(!!skill.classes?.length || !!skillRequirements.length) && (
             <div className="mv-skill-detail-labels">
               {!!skill.classes?.length && (
-                <div className="mv-skill-detail-classes" aria-label="Classes da habilidade">
-                  {skill.classes.map(skillClass => <span key={skillClass}>{skillClass}</span>)}
+                <div className="mv-skill-detail-classes" aria-label={t('Classes da habilidade', 'Skill classes')}>
+                  {skill.classes.map(skillClass => <span key={skillClass}>{localizeContentText(skillClass, undefined, language)}</span>)}
                 </div>
               )}
               {!!skillRequirements.length && (
-                <div className="mv-skill-detail-requirements" aria-label="Requisitos da habilidade">
+                <div className="mv-skill-detail-requirements" aria-label={t('Requisitos da habilidade', 'Skill requirements')}>
                   {skillRequirements.map(requirement => (
                     <span key={requirement} title={requirement}>{requirement}</span>
                   ))}
@@ -19053,14 +19295,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       )}
       {questSyncError && gameOver && (
         <div role="alert" className="fixed left-1/2 top-4 z-[100] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 rounded-xl border border-red-400/50 bg-red-950/95 p-4 text-sm text-red-100 shadow-2xl">
-          <p className="font-bold">Não foi possível salvar o progresso da missão.</p>
-          <p className="mt-1 text-xs">{questSyncError}</p>
+          <p className="font-bold">{t('Não foi possível salvar o progresso da missão.', 'Could not save mission progress.')}</p>
+          <p className="mt-1 text-xs">{localizeContentText(questSyncError, undefined, language)}</p>
           <button
             type="button"
             onClick={() => { void syncBattleEnd().catch(error => console.error('[BattleBoard] Nova tentativa de sincronização falhou:', error)); }}
             className="mt-3 min-h-10 rounded-lg bg-red-700 px-4 py-2 text-xs font-bold text-white hover:bg-red-600"
           >
-            Tentar novamente
+            {t('Tentar novamente', 'Try again')}
           </button>
         </div>
       )}
@@ -19076,11 +19318,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         <button
           type="button"
           onClick={() => { playClickSound(); onOpenAdmin(); }}
-          title="Painel de Controle (atalho temporário)"
+          title={t('Painel de Controle (atalho temporário)', 'Developer Dashboard (temporary shortcut)')}
           className="fixed bottom-2 left-2 z-40 flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900/70 hover:bg-slate-800/90 text-slate-400 hover:text-orange-300 border border-slate-700/60 hover:border-orange-500/50 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider transition-all opacity-40 hover:opacity-100 cursor-pointer"
         >
           <SlidersHorizontal className="w-3.5 h-3.5" />
-          Admin
+          {t('Admin', 'Admin')}
         </button>
       )}
 
@@ -19112,9 +19354,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               </div>
               <div className="relative min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white">Chakra gerado</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white">{t('Chakra gerado', 'Chakra generated')}</p>
                   <span className="rounded-full border border-white/30 bg-white/10 px-2 py-0.5 text-[9px] font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]">
-                    Turno {turn}
+                    {t(`Turno ${turn}`, `Turn ${turn}`)}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
@@ -19151,7 +19393,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               <button
                 onClick={handleQuit}
                 className="p-2 hover:bg-[#c49a5d] bg-[#d3ad75]/90 rounded-xl border border-[#7a4e25] text-stone-950 transition-all cursor-pointer shadow pointer-events-auto"
-                title="Sair do Combate"
+                title={t('Sair do Combate', 'Leave battle')}
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
@@ -19167,7 +19409,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 }}
                 className={`battle-wood-gear p-2 rounded-xl border transition-all cursor-pointer active:scale-95 shadow-lg${showBattleSettings ? ' is-open' : ''}`}
                 aria-expanded={showBattleSettings}
-                title="Configurações da Batalha"
+                title={t('Configurações da Batalha', 'Battle Settings')}
               >
                 <Settings className="w-4 h-4" />
               </button>
@@ -19185,7 +19427,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
                   >
                     <Scroll className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Manual</span>
+                    <span>{t('Manual', 'Manual')}</span>
                   </button>
 
                   {/* Volume Toggle */}
@@ -19198,15 +19440,15 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
                   >
                     {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
-                    <span>Volume</span>
+                    <span>{t('Volume', 'Volume')}</span>
                   </button>
 
                   {showVolumeControls && (
                     <div className="battle-wood-menu-inset mt-1 space-y-3 rounded-lg p-3">
                       {([
-                        ['master', 'Volume geral'],
-                        ['effects', 'Efeitos'],
-                        ['music', 'Música'],
+                        ['master', t('Volume geral', 'Master volume')],
+                        ['effects', t('Efeitos', 'Effects')],
+                        ['music', t('Música', 'Music')],
                       ] as const).map(([key, label]) => (
                         <label key={key} className="block space-y-1">
                           <span className="flex items-center justify-between gap-3 text-[10px] font-bold text-slate-300">
@@ -19234,7 +19476,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         className="battle-wood-menu-inset-toggle flex w-full items-center gap-2 border-t pt-3 text-left text-[10px] font-bold cursor-pointer"
                       >
                         {isMuted ? <Volume2 className="h-3.5 w-3.5 text-emerald-400" /> : <VolumeX className="h-3.5 w-3.5 text-red-400" />}
-                        <span>{isMuted ? 'Ativar todos os sons' : 'Mutar todos os sons'}</span>
+                        <span>{isMuted ? t('Ativar todos os sons', 'Enable all sounds') : t('Mutar todos os sons', 'Mute all sounds')}</span>
                       </button>
                     </div>
                   )}
@@ -19274,7 +19516,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Recarregar</span>
+                      <span>{t('Recarregar', 'Reload')}</span>
                     </button>
                   )}
 
@@ -19290,7 +19532,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:text-red-200"
                     >
                       <Flag className="w-3.5 h-3.5 text-red-400" />
-                      <span>Render-se</span>
+                      <span>{t('Render-se', 'Surrender')}</span>
                     </button>
                   )}
 
@@ -19306,7 +19548,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
                   >
                     <Scroll className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Missões</span>
+                    <span>{t('Missões', 'Missions')}</span>
                   </button>
                 </div>
               )}
@@ -19333,24 +19575,24 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             >
               {isEndingTurn ? (
                 <>
-                  <img src="/static/img/ui/gold-shuriken.webp" alt="Calculando" className="w-4 h-4 animate-spin object-contain" />
-                  <span className="normal-case font-bold">(calculando...)</span>
+                  <img src="/static/img/ui/gold-shuriken.webp" alt={t('Calculando', 'Calculating')} className="w-4 h-4 animate-spin object-contain" />
+                  <span className="normal-case font-bold">({t('calculando...', 'calculating...')})</span>
                 </>
               ) : (
                 <>
                   <Swords className="w-4 h-4" />
                   <span>
                     {turnCooldownRemaining > 0
-                      ? `Aguardar ${Math.ceil(turnCooldownRemaining / 1000)}s...`
+                      ? t(`Aguardar ${Math.ceil(turnCooldownRemaining / 1000)}s...`, `Wait ${Math.ceil(turnCooldownRemaining / 1000)}s...`)
                       : isWaitingForOpponent
-                        ? 'Aguardando...'
+                        ? t('Aguardando...', 'Waiting...')
                         : isSandbox
                           ? activePlanner === 'player'
-                            ? 'Terminar Turno Jogador'
-                            : 'Terminar Turno Oponente'
+                            ? t('Terminar Turno Jogador', 'End Player Turn')
+                            : t('Terminar Turno Oponente', 'End Opponent Turn')
                           : activePlanner === 'player'
-                            ? 'Finalizar Turno'
-                            : 'Aguardando...'}
+                            ? t('Finalizar Turno', 'End Turn')
+                            : t('Aguardando...', 'Waiting...')}
                   </span>
                 </>
               )}
@@ -19402,7 +19644,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   )}
                   <span className="relative z-10">{r.name}</span>
                   <span className={`battle-player-title-badge battle-title-badge title-theme-preview ${playerTitleTheme} max-w-[120px] truncate px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider`}>
-                    {playerTitle}
+                    {playerTitleDisplay}
                   </span>
                 </span>
               );
@@ -19433,7 +19675,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 });
               }}
               className="mv-profile-card mv-player-profile-card relative z-10 overflow-visible bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-slate-950/80 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-2xl group transition-all duration-300 hover:border-orange-500/80 cursor-pointer flex-1"
-              title="Clique para ver o Card do Perfil & Curtidas"
+              title={t('Clique para ver o Card do Perfil & Curtidas', 'Click to view profile card and likes')}
             >
             {/* Profile Banner Background */}
             {user.equippedBannerUrl && (
@@ -19583,7 +19825,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               referrerPolicy="no-referrer"
                             />
                             <span className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wider text-white/25">
-                              Sem skin
+                              {t('Sem skin', 'No skin')}
                             </span>
                           </>
                         )}
@@ -19643,7 +19885,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                 referrerPolicy="no-referrer"
                               />
                             )}
-                            {f.text}
+                            {localizeFloatingText(f.text, language)}
                           </span>
                         );
                       })}
@@ -19697,8 +19939,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         }`}>
                           <MangekyoLoader
                             src={displayPortrait}
-                            alt={combatant.character.name}
-                            title={isInvul ? `Invulnerável por ${invulnEff?.name || 'Skill'}` : combatant.character.name}
+                            alt={localizeContentText(combatant.character.name, combatant.character.nameEn, language)}
+                            title={isInvul
+                              ? t(`Invulnerável por ${invulnEff?.name || 'Habilidade'}`, `Invulnerable for ${translateSkillName(invulnEff?.name || 'Skill', language)}`)
+                              : localizeContentText(combatant.character.name, combatant.character.nameEn, language)}
                             className="w-full h-full"
                             iconScale={0.55}
                           />
@@ -19709,8 +19953,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               <div className="absolute inset-0 bg-red-950/85 border border-red-500/80 flex flex-col items-center justify-center p-0.5 font-mono text-[8px] font-black text-red-300 tracking-tighter text-center leading-none uppercase animate-pulse">
                                 {hasOffensiveBlockOnly && !hasNormalStun ? (
                                   <>
-                                    <span>OFENSIVAS</span>
-                                    <span className="text-[7px] text-red-400">BLOQUEADAS</span>
+                                    <span>{t('OFENSIVAS', 'OFFENSIVE')}</span>
+                                    <span className="text-[7px] text-red-400">{t('BLOQUEADAS', 'BLOCKED')}</span>
                                   </>
                                 ) : (
                                   <span>STUN</span>
@@ -19728,7 +19972,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     <div className="flex-1 space-y-2">
                       <div className="flex justify-between items-start">
                         <h4 className={`font-bold tracking-tight text-[#823500] flex items-center gap-1.5 whitespace-nowrap ${combatant.character.name.length > 28 ? 'text-[13px]' : combatant.character.name.length > 18 ? 'text-xs' : combatant.character.name.length > 12 ? 'text-sm' : 'text-base'}`}>
-                          <span className="mv-combatant-name">{combatant.character.name}</span>
+                          <span className="mv-combatant-name">{localizeContentText(combatant.character.name, combatant.character.nameEn, language)}</span>
                         </h4>
                         {combatant.shield > 0 && (() => {
                           const shieldRemaining = combatant.shieldExpiresTurn ? combatant.shieldExpiresTurn - turn : null;
@@ -19773,7 +20017,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           return (
                             <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
                               <p className="text-[9px] text-red-300/90 font-sans leading-tight">
-                                🚫 <strong>Impedido:</strong> Apenas habilidades ofensivas no oponente estão bloqueadas. Habilidades em si mesmo ou amigáveis continuam ativas.
+                                🚫 <strong>{t('Impedido:', 'Blocked:')}</strong> {t('Apenas habilidades ofensivas no oponente estão bloqueadas. Habilidades em si mesmo ou amigáveis continuam ativas.', 'Only offensive skills targeting the opponent are blocked. Self-targeted and friendly skills remain available.')}
                               </p>
                             </div>
                           );
@@ -19794,7 +20038,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         return (
                           <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
                             <p className="text-[9px] text-red-300/90 font-sans leading-tight">
-                              🚫 <strong>Impedido:</strong> {stunTypesStr}
+                              🚫 <strong>{t('Impedido:', 'Blocked:')}</strong> {localizeContentText(stunTypesStr, undefined, language)}
                             </p>
                           </div>
                         );
@@ -19886,7 +20130,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               setSkillsModalCharacterId(null);
                               setMobileSkillDetailsCharacterId(null);
                             }}
-                            aria-label="Fechar habilidades"
+                            aria-label={t('Fechar habilidades', 'Close skills')}
                             className="mv-skill-parchment-close"
                           >
                             <X className="w-4 h-4" />
@@ -19907,7 +20151,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             className={`absolute -left-2 top-1/2 -translate-y-1/2 z-40 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
                               skillsPage === 0 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
                             }`}
-                            title="Anterior"
+                            title={t('Anterior', 'Previous')}
                           >
                             <ChevronLeft className="w-3.5 h-3.5" />
                           </button>
@@ -20149,7 +20393,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                     }`}
                                     role="alert"
                                   >
-                                    {mobileBlockedSkill.message}
+                                    {localizeContentText(mobileBlockedSkill.message, undefined, language)}
                                   </div>
                                 )}
 
@@ -20160,53 +20404,55 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                   {(skill.cannotBeCountered || skill.cannotBeReflected) && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono">
                                       {skill.cannotBeCountered && (
-                                        <span className="text-red-400 font-bold">🚫 Incontra-atacável</span>
+                                        <span className="text-red-400 font-bold">{t('🚫 Incontra-atacável', '🚫 Uncounterable')}</span>
                                       )}
                                       {skill.cannotBeReflected && (
-                                        <span className="text-cyan-400 font-bold">🚫 Irrefletível</span>
+                                        <span className="text-cyan-400 font-bold">{t('🚫 Irrefletível', '🚫 Unreflectable')}</span>
                                       )}
                                     </div>
                                   )}
                                   
                                   {isStunBlocked && (
                                     <p className="text-[9px] font-bold mt-1.5 font-mono text-red-400 bg-red-950/90 p-1 rounded border border-red-800">
-                                      ⚡ BLOQUEADA POR ATORDOAMENTO (STUN)!
+                                      {t('⚡ BLOQUEADA POR ATORDOAMENTO (STUN)!', '⚡ BLOCKED BY STUN!')}
                                     </p>
                                   )}
 
                                   {skill.requireEffect && (
                                     <p className={`text-[9px] font-bold mt-1.5 font-mono ${isRequiredEffectLocked ? 'text-red-500' : 'text-emerald-500'}`}>
-                                      {isRequiredEffectLocked ? '🔒 Requer: ' : '🔓 Ativo: '} {skill.requireEffect}
+                                      {isRequiredEffectLocked ? `🔒 ${t('Requer:', 'Requires:')}` : `🔓 ${t('Ativo:', 'Active:')}`} {localizeContentText(skill.requireEffect, undefined, language)}
                                     </p>
                                   )}
                                   {skill.requirePreviousSkill && (
                                     <p className={`text-[9px] font-bold mt-1 font-mono ${isPrevSkillLocked ? 'text-cyan-500' : 'text-emerald-500'}`}>
-                                      {isPrevSkillLocked ? '🔒 Anterior: ' : '🔓 Anterior: '} {skill.requirePreviousSkill}
+                                      {isPrevSkillLocked ? `🔒 ${t('Anterior:', 'Previous:')}` : `🔓 ${t('Anterior:', 'Previous:')}`} {localizeContentText(translateSkillName(skill.requirePreviousSkill, language), undefined, language)}
                                     </p>
                                   )}
                                   {skill.requireHpBelow && skill.requireHpBelow > 0 && (
                                     <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.health > skill.requireHpBelow ? 'text-red-500' : 'text-emerald-500'}`}>
-                                      {combatant.health > skill.requireHpBelow ? `🔒 HP ≤ ${skill.requireHpBelow}` : `🔓 HP ≤ ${skill.requireHpBelow}`}
+                                      {combatant.health > skill.requireHpBelow
+                                        ? `🔒 ${t('Requer HP ≤', 'Requires HP ≤')} ${skill.requireHpBelow}`
+                                        : `🔓 ${t('Requer HP ≤', 'Requires HP ≤')} ${skill.requireHpBelow}`}
                                     </p>
                                   )}
                                   {skill.requireRevived && (
                                     <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-emerald-500' : 'text-red-500'}`}>
-                                      {combatant.hasRevived ? '🔓 Ressurreição: Sim' : '🔒 Requer ter ressuscitado'}
+                                      {combatant.hasRevived ? `🔓 ${t('Ressurreição: Sim', 'Revived: Yes')}` : `🔒 ${t('Requer ter ressuscitado', 'Requires resurrection')}`}
                                     </p>
                                   )}
                                   {skill.blockIfRevived && (
                                     <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-red-500' : 'text-emerald-500'}`}>
-                                      {combatant.hasRevived ? '🔒 Bloqueada após ressuscitar' : '🔓 Bloqueada após ressuscitar'}
+                                      {combatant.hasRevived ? `🔒 ${t('Bloqueada após ressuscitar', 'Blocked after resurrection')}` : `🔓 ${t('Bloqueada após ressuscitar', 'Blocked after resurrection')}`}
                                     </p>
                                   )}
 
                                   {skill.blocksOffensiveSkills && (
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-red-300 bg-red-950/90 p-1 rounded border border-red-800/80">
                                       <span className="font-bold flex items-center gap-1">
-                                        🛑 STUN OFENSIVO ({skill.stunTurns || 1}T)
+                                        🛑 {t('STUN OFENSIVO', 'OFFENSIVE STUN')} ({skill.stunTurns || 1}T)
                                       </span>
                                       <span className="text-[7.5px] text-red-200/90 leading-tight">
-                                        Bloqueia apenas habilidades ofensivas contra o oponente.
+                                        {t('Bloqueia apenas habilidades ofensivas contra o oponente.', 'Only offensive skills targeting the opponent are blocked.')}
                                       </span>
                                     </div>
                                   )}
@@ -20215,7 +20461,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-amber-300 bg-amber-950/80 p-1 rounded border border-amber-800/80">
                                       {skill.selfStackDamageRules.map((rule, idx) => (
                                         <span key={idx} className="font-bold">
-                                          ⚡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Mim
+                                          ⚡ +{rule.damagePerStack} {t('Dano/stack', 'Damage/stack')} ({rule.stackType}) {t('em Mim', 'on Me')}
                                         </span>
                                       ))}
                                     </div>
@@ -20224,7 +20470,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-emerald-300 bg-emerald-950/80 p-1 rounded border border-emerald-800/80">
                                       {skill.selfStackReductionRules.map((rule, idx) => (
                                         <span key={idx} className="font-bold">
-                                          🛡️ -{rule.reductionValue} Redução/stack ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? 'AntiPerfuração' : 'Guard'} em Mim
+                                          🛡️ -{rule.reductionValue} {t('Redução/stack', 'Reduction/stack')} ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? t('AntiPerfuração', 'Anti-Piercing') : 'Guard'} {t('em Mim', 'on Me')}
                                         </span>
                                       ))}
                                     </div>
@@ -20233,20 +20479,20 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                     <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-rose-300 bg-rose-950/80 p-1 rounded border border-rose-800/80">
                                       {skill.stackDamageRules.map((rule, idx) => (
                                         <span key={idx} className="font-bold">
-                                          💥 +{rule.damagePerStack} Dano/stack ({rule.stackType}) {rule.stackSource === 'self' ? 'em Mim' : 'no Alvo'}
+                                          💥 +{rule.damagePerStack} {t('Dano/stack', 'Damage/stack')} ({rule.stackType}) {rule.stackSource === 'self' ? t('em Mim', 'on Me') : t('no Alvo', 'on Target')}
                                         </span>
                                       ))}
                                     </div>
                                   )}
 
                                     <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-2">
-                                      <span>Cooldown: {skill.permanent ? '♾️ Permanente' : skill.cooldown}</span>
+                                      <span>{t('Recarga:', 'Cooldown:')} {skill.permanent ? `♾️ ${t('Permanente', 'Permanent')}` : skill.cooldown}</span>
                                       <div className="flex gap-0.5 items-center">
                                         {effectiveCost.map((c, costIdx) => (
                                           <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
                                         ))}
                                         {effectiveCost.length < skill.cost.length && (
-                                          <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title="Custo de Chakra Reduzido por Regra">⚡</span>
+                                          <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title={t('Custo de Chakra Reduzido por Regra', 'Chakra cost reduced by rule')}>⚡</span>
                                         )}
                                       </div>
                                     </div>
@@ -20274,7 +20520,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             className={`absolute -right-2 top-1/2 -translate-y-1/2 z-40 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
                               skillsPage === totalSkillPages - 1 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
                             }`}
-                            title="Próximo"
+                            title={t('Próximo', 'Next')}
                           >
                             <ChevronRight className="w-3.5 h-3.5" />
                           </button>
@@ -20308,7 +20554,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
         </div>
       </section>
 
-      <div className="mv-center-status" aria-label="Status da batalha">
+      <div className="mv-center-status" aria-label={t('Status da batalha', 'Battle status')}>
         <div className="mv-center-status-main">
           <button
             type="button"
@@ -20319,7 +20565,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               playScrollSound();
               setShowChakraTrade(true);
             }}
-            aria-label="Trocar quatro chakras por um: abrir troca de chakra"
+            aria-label={t('Trocar quatro chakras por um: abrir troca de chakra', 'Trade four chakra for one: open chakra trade')}
           >
             {(['Tai', 'Nin', 'Gen', 'Blood'] as (keyof ChakraPool)[]).map((type) => (
               <span key={type} className="mv-center-status-chakra-item">
@@ -20337,15 +20583,15 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   : 'is-opponent-turn'
             }`}
           >
-            <span className="mv-center-status-round">Turno {turn}</span>
+            <span className="mv-center-status-round">{t(`Turno ${turn}`, `Turn ${turn}`)}</span>
             <span className="mv-center-status-label">
               {gameOver
-                ? 'Batalha encerrada'
+                ? t('Batalha encerrada', 'Battle over')
                 : isWaitingForOpponent
-                  ? 'Aguardando...'
+                  ? t('Aguardando...', 'Waiting...')
                   : activePlanner === 'player'
-                    ? 'Seu turno'
-                    : 'Vez do oponente'}
+                    ? t('Seu turno', 'Your turn')
+                    : t('Vez do oponente', "Opponent's turn")}
             </span>
           </div>
           <div className={`mv-center-status-timer ${timeLeft <= 10 && !gameOver ? 'is-low' : ''}`}>
@@ -20361,9 +20607,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             playScrollSound();
             setShowChakraTrade(true);
           }}
-          aria-label="Trocar quatro chakras por um"
+          aria-label={t('Trocar quatro chakras por um', 'Trade four chakra for one')}
         >
-          trocar 4 por 1
+          {t('Trocar 4 por 1', 'Trade 4 for 1')}
         </button>
       </div>
 
@@ -20546,7 +20792,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                       {(() => {
                         const effectiveCost = getEffectiveSkillCost(inspectedSkill.skill, inspectedSkill.combatant, [...playerCombatants, ...enemyCombatants]);
                         if (inspectedSkill.skill.noChakraCost || effectiveCost.length === 0) {
-                          return <span className="text-emerald-950 text-[10px] whitespace-normal text-center font-extrabold uppercase leading-none">Sem<br />Custo</span>;
+                          return <span className="text-emerald-950 text-[10px] whitespace-normal text-center font-extrabold uppercase leading-none">{t('Sem custo', 'No cost')}</span>;
                         }
                         return (
                           <>
@@ -20554,7 +20800,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               <div key={idx} className="scale-100">{renderChakraIcon(c, 'w-4 h-4')}</div>
                             ))}
                             {effectiveCost.length < inspectedSkill.skill.cost.length && (
-                              <span className="w-full text-center text-[7.5px] font-black text-emerald-950 font-mono leading-none mt-0.5">Reduzido</span>
+                              <span className="w-full text-center text-[7.5px] font-black text-emerald-950 font-mono leading-none mt-0.5">{t('Reduzido', 'Reduced')}</span>
                             )}
                           </>
                         );
@@ -20565,25 +20811,30 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   {/* Paper 2: Recarga */}
                   <div className="h-12 flex flex-col justify-center items-center text-center p-1.5 min-w-0 bg-amber-100/70 border border-amber-900/30 rounded-lg shadow-sm">
                     <p className="flex items-center justify-center font-extrabold text-amber-950 text-[10.5px] leading-[1.1] whitespace-normal break-words text-center uppercase">
-                      {inspectedSkill.skill.cooldown === 0 ? <span>Sem<br />Recarga</span> : <span>{inspectedSkill.skill.cooldown}<br />turnos</span>}
+                      {inspectedSkill.skill.cooldown === 0
+                        ? <span>{t('Sem recarga', 'No cooldown')}</span>
+                        : <span>{t(
+                            `${inspectedSkill.skill.cooldown} ${inspectedSkill.skill.cooldown === 1 ? 'turno' : 'turnos'}`,
+                            `${inspectedSkill.skill.cooldown} ${inspectedSkill.skill.cooldown === 1 ? 'turn' : 'turns'}`
+                          )}</span>}
                     </p>
                   </div>
 
                   {/* Paper 3: Alvo */}
                   <div className={`flex flex-col justify-center items-center text-center p-1.5 min-w-0 bg-amber-100/70 border border-amber-900/30 rounded-lg shadow-sm ${inspectedSkill.skill.invisible || (inspectedSkill.skill.invisibleDuration || 0) > 0 ? 'min-h-12 gap-1' : 'h-12'}`}>
                     <p className="flex items-center justify-center font-extrabold text-amber-950 text-[10.5px] leading-[1.1] whitespace-normal break-words text-center max-w-full px-0.5 uppercase">
-                      {inspectedSkill.skill.targetType === 'Enemy' && <span>Inimigo<br />Único</span>}
-                      {inspectedSkill.skill.targetType === 'Self' && 'Próprio'}
-                      {inspectedSkill.skill.targetType === 'Ally' && <span>Aliado<br />Único</span>}
-                      {inspectedSkill.skill.targetType === 'SelfAndAlly' && <span>Próprio e<br />Aliado</span>}
-                      {inspectedSkill.skill.targetType === 'AllEnemies' && <span>Todos<br />Inimigos</span>}
-                      {inspectedSkill.skill.targetType === 'AllAllies' && <span>Todos<br />Aliados</span>}
-                      {inspectedSkill.skill.targetType === 'AnyLiving' && <span>Qualquer<br />Vivo</span>}
+                      {inspectedSkill.skill.targetType === 'Enemy' && <span>{t('Inimigo Único', 'Single Enemy')}</span>}
+                      {inspectedSkill.skill.targetType === 'Self' && t('Próprio', 'Self')}
+                      {inspectedSkill.skill.targetType === 'Ally' && <span>{t('Aliado Único', 'Single Ally')}</span>}
+                      {inspectedSkill.skill.targetType === 'SelfAndAlly' && <span>{t('Próprio e Aliado', 'Self and Ally')}</span>}
+                      {inspectedSkill.skill.targetType === 'AllEnemies' && <span>{t('Todos os Inimigos', 'All Enemies')}</span>}
+                      {inspectedSkill.skill.targetType === 'AllAllies' && <span>{t('Todos os Aliados', 'All Allies')}</span>}
+                      {inspectedSkill.skill.targetType === 'AnyLiving' && <span>{t('Qualquer Vivo', 'Any Living Character')}</span>}
                     </p>
                     {(inspectedSkill.skill.invisible || (inspectedSkill.skill.invisibleDuration || 0) > 0) && (
                       <span className="inline-flex items-center justify-center gap-0.5 text-[7px] font-extrabold leading-tight text-violet-900">
                         <Eye className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-                        <span>Invisível para o oponente</span>
+                        <span>{t('Invisível para o oponente', 'Invisible to opponent')}</span>
                       </span>
                     )}
                   </div>
@@ -20596,7 +20847,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     <div className="flex flex-wrap gap-1">
                       {inspectedSkill.skill.classes.map((cls, idx) => (
                         <span key={idx} className="text-[9px] font-mono bg-amber-900/25 text-amber-950 font-extrabold px-2 py-0.5 rounded border border-amber-900/30">
-                          {cls}
+                          {translateGameText(cls, language)}
                         </span>
                       ))}
                     </div>
@@ -20607,12 +20858,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     <div className="flex flex-wrap gap-1">
                       {inspectedSkill.skill.cannotBeCountered && (
                         <span className="text-[9px] font-mono bg-red-900/20 text-red-950 px-2 py-0.5 rounded border border-red-900/30 font-bold uppercase">
-                          🚫 Incontra-atacável
+                          {t('🚫 Incontra-atacável', '🚫 Uncounterable')}
                         </span>
                       )}
                       {inspectedSkill.skill.cannotBeReflected && (
                         <span className="text-[9px] font-mono bg-cyan-900/20 text-cyan-950 px-2 py-0.5 rounded border border-cyan-900/30 font-bold uppercase">
-                          🚫 Irrefletível
+                          {t('🚫 Irrefletível', '🚫 Unreflectable')}
                         </span>
                       )}
                     </div>
@@ -20621,25 +20872,25 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   {/* Requirements Warnings */}
                   {inspectedSkill.skill.requireEffect && (
                     <div className="bg-amber-500/20 border border-amber-700/30 p-1.5 rounded text-[9px] font-mono text-amber-950 font-bold flex items-center gap-1">
-                      <span>⚠️ Requer efeito ativo:</span>
-                      <span className="underline">{inspectedSkill.skill.requireEffect}</span>
+                      <span>⚠️ {t('Requer efeito ativo:', 'Requires active effect:')}</span>
+                      <span className="underline">{localizeContentText(inspectedSkill.skill.requireEffect, undefined, language)}</span>
                     </div>
                   )}
                   {inspectedSkill.skill.requirePreviousSkill && (
                     <div className="bg-cyan-500/20 border border-cyan-700/30 p-1.5 rounded text-[9px] font-mono text-cyan-950 font-bold flex items-center gap-1">
-                      <span>⚠️ Requer no turno anterior:</span>
-                      <span className="underline">{inspectedSkill.skill.requirePreviousSkill}</span>
+                      <span>⚠️ {t('Requer no turno anterior:', 'Requires in previous turn:')}</span>
+                      <span className="underline">{localizeContentText(translateSkillName(inspectedSkill.skill.requirePreviousSkill, language), undefined, language)}</span>
                     </div>
                   )}
                   {inspectedSkill.skill.requireTargetEffect && (
                     <div className="bg-amber-500/20 border border-amber-700/30 p-1.5 rounded text-[9px] font-mono text-amber-950 font-bold flex items-center gap-1">
-                      <span>⚠️ Requer efeito no alvo:</span>
-                      <span className="underline">{inspectedSkill.skill.requireTargetEffect}</span>
+                      <span>⚠️ {t('Requer efeito no alvo:', 'Requires effect on target:')}</span>
+                      <span className="underline">{localizeContentText(inspectedSkill.skill.requireTargetEffect, undefined, language)}</span>
                     </div>
                   )}
                   {inspectedSkill.skill.requireHpBelow && inspectedSkill.skill.requireHpBelow > 0 && (
                     <div className="bg-red-500/20 border border-red-700/30 p-1.5 rounded text-[9px] font-mono text-red-950 font-bold flex items-center gap-1">
-                      <span>⚠️ Requer HP ≤</span>
+                      <span>⚠️ {t('Requer HP ≤', 'Requires HP ≤')}</span>
                       <span className="underline">{inspectedSkill.skill.requireHpBelow}</span>
                     </div>
                   )}
@@ -20650,9 +20901,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             ) : (
               <div className="flex flex-col items-center justify-center text-center p-6 my-auto space-y-2">
                 <Info className="w-8 h-8 text-amber-950/70 animate-pulse" />
-                <p className="text-xs font-mono text-amber-950 font-extrabold">Inspecione uma Habilidade</p>
+                <p className="text-xs font-mono text-amber-950 font-extrabold">{t('Inspecione uma Habilidade', 'Inspect a Skill')}</p>
                 <p className="text-[10px] text-amber-900 font-semibold max-w-xs">
-                  Clique em qualquer ícone de habilidade dos seus aliados ou dos oponentes para ver as estatísticas, custos e descrições aqui.
+                  {t('Clique em qualquer ícone de habilidade dos seus aliados ou dos oponentes para ver as estatísticas, custos e descrições aqui.', 'Click any skill icon on your allies or opponents to view its stats, costs, and descriptions here.')}
                 </p>
               </div>
             )}
@@ -20671,13 +20922,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             }}
           >
             <h3 className="text-xs font-mono uppercase tracking-wider text-slate-900 font-extrabold pb-1.5 border-b border-black/20 flex items-center justify-between">
-              <span>Suas Ações Preparadas</span>
+              <span>{t('Suas Ações Preparadas', 'Your Prepared Actions')}</span>
               <span className="bg-amber-900/30 text-amber-950 px-2 py-0.5 rounded-full text-[10px] font-extrabold">{cuedActions.length}</span>
             </h3>
 
             {cuedActions.length === 0 ? (
               <p className="text-xs text-slate-800 text-center py-3 italic font-mono font-bold">
-                Nenhuma ação preparada. Selecione habilidades e alvos.
+                {t('Nenhuma ação preparada. Selecione habilidades e alvos.', 'No actions prepared. Select skills and targets.')}
               </p>
             ) : (
               <div className="space-y-1.5 max-h-32 overflow-y-auto mt-2 pr-1 scrollbar-thin scrollbar-thumb-amber-800/40">
@@ -20746,7 +20997,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 )}
                 <span className="relative z-10">{r.name}</span>
                 <span className={`battle-enemy-title-badge battle-title-badge title-theme-preview ${opponentTitleTheme} max-w-[120px] truncate px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-wider`}>
-                  {opponentTitle}
+                  {opponentTitleDisplay}
                 </span>
               </span>
             );
@@ -20773,14 +21024,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   rank: opp?.rank || 'Anbu',
                   wins: opp?.wins || 35,
                   losses: opp?.losses || 12,
-                  village: isOnline ? 'Vila Oponente' : 'Vila do Som',
+                  village: isOnline ? t('Vila Oponente', 'Opponent Village') : t('Vila do Som', 'Sound Village'),
                   collectedCardIds: opp?.collectedCardIds || [],
                 },
                 isSelf: false,
               });
             }}
             className="mv-profile-card mv-opponent-profile-card relative z-10 overflow-hidden bg-gradient-to-r from-slate-950/80 via-slate-900/70 to-slate-900/95 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 flex-row-reverse text-right shadow-2xl group transition-all duration-300 hover:border-red-500/80 cursor-pointer"
-            title="Clique para ver o perfil do oponente"
+            title={t('Clique para ver o perfil do oponente', 'Click to view opponent profile')}
           >
             {/* Profile Banner Background */}
             {onlineParams?.isOnline && onlineParams.opponentProfile?.equippedBannerUrl && (
@@ -20811,7 +21062,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               {onlineParams?.isOnline && onlineParams.opponentProfile.equippedFrameUrl && (
                 <img
                   src={onlineParams.opponentProfile.equippedFrameUrl || null}
-                  alt="Moldura Oponente"
+                  alt={t('Moldura Oponente', 'Opponent Frame')}
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[135%] h-[135%] max-w-none pointer-events-none object-contain z-10"
                 />
               )}
@@ -20823,7 +21074,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
             {/* Profile Info details (Foreground z-10 above banner) */}
             <div className="mv-profile-info relative z-10 flex-1 text-right">
               <p className="text-xs font-mono text-red-400 font-black uppercase tracking-wider mb-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-                {onlineParams?.isOnline ? (onlineParams.opponentProfile.title || 'Oponente') : 'Renegado S-Rank'}
+                {opponentTitleDisplay}
               </p>
               <h4 className="text-base font-black tracking-tight text-white uppercase truncate flex items-center justify-end gap-1.5 font-display group-hover:text-red-400 transition-colors drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)]">
                 {onlineParams?.isOnline ? onlineParams.opponentProfile.name : 'I.A. Kakashi'}
@@ -20905,7 +21156,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                 referrerPolicy="no-referrer"
                               />
                             )}
-                            {f.text}
+                            {localizeFloatingText(f.text, language)}
                           </span>
                         );
                       })}
@@ -20970,8 +21221,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         >
                           <MangekyoLoader
                             src={displayPortrait}
-                            alt={combatant.character.name}
-                            title={isInvul ? `Invulnerável por ${invulnEff?.name || 'Skill'}` : combatant.character.name}
+                            alt={localizeContentText(combatant.character.name, combatant.character.nameEn, language)}
+                            title={isInvul
+                              ? t(`Invulnerável por ${invulnEff?.name || 'Habilidade'}`, `Invulnerable for ${translateSkillName(invulnEff?.name || 'Skill', language)}`)
+                              : localizeContentText(combatant.character.name, combatant.character.nameEn, language)}
                             className="w-full h-full"
                             imgClassName={isInvul ? '' : 'scale-x-[-1]'}
                             iconScale={0.55}
@@ -20983,8 +21236,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               <div className="absolute inset-0 bg-red-950/85 border border-red-500/80 flex flex-col items-center justify-center p-0.5 font-mono text-[8px] font-black text-red-300 tracking-tighter text-center leading-none uppercase animate-pulse">
                                 {hasOffensiveBlockOnly && !hasNormalStun ? (
                                   <>
-                                    <span>🛑 OFENSIVAS</span>
-                                    <span className="text-[7px] text-red-400">BLOQUEADAS</span>
+                                    <span>🛑 {t('OFENSIVAS', 'OFFENSIVE')}</span>
+                                    <span className="text-[7px] text-red-400">{t('BLOQUEADAS', 'BLOCKED')}</span>
                                   </>
                                 ) : (
                                   <span>STUN</span>
@@ -21002,7 +21255,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     <div className="flex-1 space-y-2">
                       <div className="flex items-start gap-2 flex-row-reverse">
                         <h4 className={`font-bold tracking-tight text-[#823500] flex items-center gap-1.5 whitespace-nowrap justify-end text-right ${combatant.character.name.length > 28 ? 'text-[13px]' : combatant.character.name.length > 18 ? 'text-xs' : combatant.character.name.length > 12 ? 'text-sm' : 'text-base'}`}>
-                          <span className="mv-combatant-name">{combatant.character.name}</span>
+                          <span className="mv-combatant-name">{localizeContentText(combatant.character.name, combatant.character.nameEn, language)}</span>
                         </h4>
                         {combatant.shield > 0 && (() => {
                           const shieldRemaining = combatant.shieldExpiresTurn ? combatant.shieldExpiresTurn - turn : null;
@@ -21047,7 +21300,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           return (
                             <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
                               <p className="text-[9px] text-red-300/90 font-sans leading-tight">
-                                🚫 <strong>Impedido:</strong> Apenas habilidades ofensivas no oponente estão bloqueadas.
+                                🚫 <strong>{t('Impedido:', 'Blocked:')}</strong> {t('Apenas habilidades ofensivas no oponente estão bloqueadas.', 'Only offensive skills targeting the opponent are blocked.')}
                               </p>
                             </div>
                           );
@@ -21068,7 +21321,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         return (
                           <div className="mt-1.5 p-1.5 rounded-lg bg-red-950/90 border border-red-600/80 text-red-200 font-mono text-[10px] space-y-0.5 shadow-md shadow-red-950/50 animate-pulse">
                             <p className="text-[9px] text-red-300/90 font-sans leading-tight">
-                              🚫 <strong>Impedido:</strong> {stunTypesStr}
+                              🚫 <strong>{t('Impedido:', 'Blocked:')}</strong> {localizeContentText(stunTypesStr, undefined, language)}
                             </p>
                           </div>
                         );
@@ -21151,7 +21404,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                         onClick={skillsModalCharacterId === combatant.id ? event => event.stopPropagation() : undefined}
                       >
                         <div className="mv-skill-parchment-header">
-                          <span id={`skills-modal-title-${combatant.id}`}>Habilidades — {combatant.character.name}</span>
+                          <span id={`skills-modal-title-${combatant.id}`}>{t('Habilidades', 'Skills')} — {localizeContentText(combatant.character.name, combatant.character.nameEn, language)}</span>
                           <button
                             type="button"
                             onClick={() => {
@@ -21159,7 +21412,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               setSkillsModalCharacterId(null);
                               setMobileSkillDetailsCharacterId(null);
                             }}
-                            aria-label="Fechar habilidades"
+                            aria-label={t('Fechar habilidades', 'Close skills')}
                             className="mv-skill-parchment-close"
                           >
                             <X className="w-4 h-4" />
@@ -21180,7 +21433,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             className={`absolute -left-2 top-1/2 -translate-y-1/2 z-40 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
                               skillsPage === 0 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
                             }`}
-                            title="Anterior"
+                            title={t('Anterior', 'Previous')}
                           >
                             <ChevronLeft className="w-3.5 h-3.5" />
                           </button>
@@ -21275,8 +21528,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
                                   {/* Hover Details tooltip card */}
                                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-900 border border-slate-850 p-2.5 rounded-lg shadow-xl z-30 pointer-events-none text-left">
-                                    <p className="font-bold text-xs text-pink-400 pb-1 border-b border-slate-800">Habilidade Oculta</p>
-                                    <p className="text-[10px] text-slate-400 leading-normal pt-1">Esta é uma habilidade secreta configurada para ser invisível ao oponente.</p>
+                                    <p className="font-bold text-xs text-pink-400 pb-1 border-b border-slate-800">{t('Habilidade Oculta', 'Hidden Skill')}</p>
+                                    <p className="text-[10px] text-slate-400 leading-normal pt-1">{t('Esta é uma habilidade secreta configurada para ser invisível ao oponente.', 'This is a secret skill configured to be invisible to the opponent.')}</p>
                                   </div>
                                 </div>
                               );
@@ -21412,7 +21665,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                     {/* 🌀 Habilidade Passiva badge */}
                                     {skill.isPassive && (
                                       <div className="absolute bottom-0 inset-x-0 bg-violet-950/85 border-t border-violet-500/60 flex items-center justify-center z-10">
-                                        <span className="text-[7px] font-mono font-black uppercase text-violet-300 tracking-wider">🌀 Passiva</span>
+                                        <span className="text-[7px] font-mono font-black uppercase text-violet-300 tracking-wider">🌀 {t('Passiva', 'Passive')}</span>
                                       </div>
                                     )}
 
@@ -21421,7 +21674,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                     <div className="absolute inset-0 bg-amber-950/90 flex flex-col items-center justify-center p-1 text-center z-20 animate-pulse">
                                         <span className="text-amber-300 text-[9px] sm:text-[11px] font-mono font-black uppercase tracking-tight leading-none drop-shadow-md flex items-center gap-1.5">
                                           <span>🎯</span>
-                                          SELECIONE O ALVO
+                                          {t('SELECIONE O ALVO', 'SELECT A TARGET')}
                                           <span>🎯</span>
                                         </span>
                                       </div>
@@ -21444,18 +21697,18 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                     
                                     {isStunBlocked && (
                                       <p className="text-[9px] font-bold mt-1.5 font-mono text-red-400 bg-red-950/90 p-1 rounded border border-red-800">
-                                        ⚡ BLOQUEADA POR ATORDOAMENTO (STUN)!
+                                        {t('⚡ BLOQUEADA POR ATORDOAMENTO (STUN)!', '⚡ BLOCKED BY STUN!')}
                                       </p>
                                     )}
 
                                     {skill.requireEffect && (
                                       <p className={`text-[9px] font-bold mt-1.5 font-mono ${isRequiredEffectLocked ? 'text-red-500' : 'text-emerald-500'}`}>
-                                        {isRequiredEffectLocked ? '🔒 Requer: ' : '🔓 Ativo: '} {skill.requireEffect}
+                                        {isRequiredEffectLocked ? `🔒 ${t('Requer:', 'Requires:')}` : `🔓 ${t('Ativo:', 'Active:')}`} {localizeContentText(skill.requireEffect, undefined, language)}
                                       </p>
                                     )}
                                     {skill.requirePreviousSkill && (
                                       <p className={`text-[9px] font-bold mt-1 font-mono ${isPrevSkillLocked ? 'text-cyan-500' : 'text-emerald-500'}`}>
-                                        {isPrevSkillLocked ? '🔒 Anterior: ' : '🔓 Anterior: '} {skill.requirePreviousSkill}
+                                        🔒 {t('Habilidade anterior:', 'Previous skill:')} {localizeContentText(translateSkillName(skill.requirePreviousSkill, language), undefined, language)}
                                       </p>
                                     )}
                                     {skill.requireHpBelow && skill.requireHpBelow > 0 && (
@@ -21465,22 +21718,22 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                     )}
                                     {skill.requireRevived && (
                                       <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-emerald-500' : 'text-red-500'}`}>
-                                        {combatant.hasRevived ? '🔓 Ressurreição: Sim' : '🔒 Requer ter ressuscitado'}
+                                        {combatant.hasRevived ? `🔓 ${t('Ressurreição: Sim', 'Revived: Yes')}` : `🔒 ${t('Requer ter ressuscitado', 'Requires resurrection')}`}
                                       </p>
                                     )}
                                     {skill.blockIfRevived && (
                                       <p className={`text-[9px] font-bold mt-1 font-mono ${combatant.hasRevived ? 'text-red-500' : 'text-emerald-500'}`}>
-                                        {combatant.hasRevived ? '🔒 Bloqueada após ressuscitar' : '🔓 Bloqueada após ressuscitar'}
+                                        {combatant.hasRevived ? `🔒 ${t('Bloqueada após ressuscitar', 'Blocked after resurrection')}` : `🔓 ${t('Bloqueada após ressuscitar', 'Blocked after resurrection')}`}
                                       </p>
                                     )}
 
                                     {skill.blocksOffensiveSkills && (
                                      <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-red-300 bg-red-950/90 p-1 rounded border border-red-800/80">
                                        <span className="font-bold flex items-center gap-1">
-                                         🛑 STUN OFENSIVO ({skill.stunTurns || 1}T)
+                                         🛑 {t('STUN OFENSIVO', 'OFFENSIVE STUN')} ({skill.stunTurns || 1}T)
                                        </span>
                                        <span className="text-[7.5px] text-red-200/90 leading-tight">
-                                         Bloqueia apenas habilidades ofensivas contra o oponente.
+                                         {t('Bloqueia apenas habilidades ofensivas contra o oponente.', 'Only offensive skills targeting the opponent are blocked.')}
                                        </span>
                                      </div>
                                    )}
@@ -21489,7 +21742,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                        <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-amber-300 bg-amber-950/80 p-1 rounded border border-amber-800/80">
                                          {skill.selfStackDamageRules.map((rule, idx) => (
                                            <span key={idx} className="font-bold">
-                                             ⚡ +{rule.damagePerStack} Dano/stack ({rule.stackType}) em Si
+                                             ⚡ +{rule.damagePerStack} {t('Dano/stack', 'Damage/stack')} ({rule.stackType}) {t('em Si', 'on Self')}
                                            </span>
                                          ))}
                                        </div>
@@ -21498,7 +21751,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                        <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-emerald-300 bg-emerald-950/80 p-1 rounded border border-emerald-800/80">
                                          {skill.selfStackReductionRules.map((rule, idx) => (
                                            <span key={idx} className="font-bold">
-                                             🛡️ -{rule.reductionValue} Redução/stack ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? 'AntiPerfuração' : 'Guard'} em Si
+                                             🛡️ -{rule.reductionValue} {t('Redução/stack', 'Reduction/stack')} ({rule.stackType}) {rule.reductionType === 'damage_reduction_pierce' ? t('AntiPerfuração', 'Anti-Piercing') : 'Guard'} {t('em Si', 'on Self')}
                                            </span>
                                          ))}
                                        </div>
@@ -21507,20 +21760,20 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                       <div className="flex flex-col gap-0.5 mt-1 text-[8px] font-mono text-rose-300 bg-rose-950/80 p-1 rounded border border-rose-800/80">
                                         {skill.stackDamageRules.map((rule, idx) => (
                                           <span key={idx} className="font-bold">
-                                            💥 +{rule.damagePerStack} Dano/stack ({rule.stackType}) {rule.stackSource === 'self' ? 'em Si' : 'no Alvo'}
+                                            💥 +{rule.damagePerStack} {t('Dano/stack', 'Damage/stack')} ({rule.stackType}) {rule.stackSource === 'self' ? t('em Si', 'on Self') : t('no Alvo', 'on Target')}
                                           </span>
                                         ))}
                                       </div>
                                     )}
 
                                     <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pt-1.5 border-t border-slate-800/60 mt-2">
-                                      <span>Recarga: {skill.permanent ? '♾️ Permanente' : skill.cooldown}</span>
+                                      <span>{t('Recarga:', 'Cooldown:')} {skill.permanent ? `♾️ ${t('Permanente', 'Permanent')}` : skill.cooldown}</span>
                                       <div className="flex gap-0.5 items-center">
                                         {effectiveCost.map((c, costIdx) => (
                                           <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
                                         ))}
                                         {effectiveCost.length < skill.cost.length && (
-                                          <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title="Custo de Chakra Reduzido por Regra">⚡</span>
+                                          <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title={t('Custo de Chakra Reduzido por Regra', 'Chakra cost reduced by rule')}>⚡</span>
                                         )}
                                       </div>
                                     </div>
@@ -21623,7 +21876,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                                         <div key={costIdx} className="scale-75">{renderChakraIcon(c as keyof ChakraPool)}</div>
                                       ))}
                                       {effectiveCost.length < skill.cost.length && (
-                                        <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title="Custo de Chakra Reduzido por Regra">⚡</span>
+                                        <span className="text-[8px] font-bold text-emerald-400 font-mono ml-0.5" title={t('Custo de Chakra Reduzido por Regra', 'Chakra cost reduced by rule')}>⚡</span>
                                       )}
                                     </div>
                                   </div>
@@ -21651,7 +21904,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             className={`absolute -right-2 top-1/2 -translate-y-1/2 z-40 p-1 rounded-full bg-slate-950/90 border border-slate-700/80 text-slate-300 hover:text-orange-400 hover:border-orange-500 shadow-md transition-all ${
                               skillsPage === totalSkillPages - 1 ? 'opacity-20 cursor-not-allowed border-slate-900' : 'cursor-pointer hover:scale-110 active:scale-95'
                             }`}
-                            title="Próximo"
+                            title={t('Próximo', 'Next')}
                           >
                             <ChevronRight className="w-3.5 h-3.5" />
                           </button>
@@ -21752,7 +22005,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             referrerPolicy="no-referrer"
                           />
                           <span className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wider text-white/25">
-                            Sem skin
+                            {t('Sem skin', 'No skin')}
                           </span>
                         </>
                       )}
@@ -21779,7 +22032,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       <div className="fixed bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 backdrop-blur-md border border-slate-800/80 px-4 py-2.5 rounded-full flex items-center gap-3.5 shadow-[0_12px_40px_-8px_rgba(0,0,0,0.8)] select-none">
         <div className="flex items-center gap-1.5 border-r border-slate-800/80 pr-3.5 text-[9px] font-mono font-black text-slate-400 tracking-wider">
           <Sparkles className="w-3.5 h-3.5 text-orange-400 animate-pulse" />
-          <span>REAGIR</span>
+          <span>{t('REAGIR', 'REACT')}</span>
         </div>
         
         <div className="flex items-center gap-2">
@@ -21889,14 +22142,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 <header className="battle-wood-modal-header mb-5 flex items-start justify-between gap-3">
                   <div>
                     <div className="mb-1 flex items-center gap-2">
-                      <h2 className="text-lg font-black tracking-wide text-white sm:text-xl">Troca de chakra</h2>
+                      <h2 className="text-lg font-black tracking-wide text-white sm:text-xl">{t('Troca de chakra', 'Chakra Trade')}</h2>
                       <span className="rounded-md border border-orange-400/25 bg-orange-400/10 px-2 py-0.5 text-xs font-black text-orange-200">4 → 1</span>
                     </div>
-                    <p className="text-xs text-slate-400 sm:text-sm">Escolha 4 chakras para gastar e 1 tipo para receber.</p>
+                    <p className="text-xs text-slate-400 sm:text-sm">{t('Escolha 4 chakras para gastar e 1 tipo para receber.', 'Choose 4 chakra points to spend and 1 type to receive.')}</p>
                   </div>
                   <button
                     type="button"
-                    aria-label="Fechar troca de chakra"
+                    aria-label={t('Fechar troca de chakra', 'Close chakra trade')}
                     onClick={() => {
                       setShowChakraTrade(false);
                       setTradeSelection({ Tai: 0, Nin: 0, Gen: 0, Blood: 0 });
@@ -21910,7 +22163,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
                 <section className="mb-5">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-bold text-white">1. Escolha o que vai gastar</h3>
+                    <h3 className="text-sm font-bold text-white">{t('1. Escolha o que vai gastar', '1. Choose what to spend')}</h3>
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${tradeSelectedTotal === 4 ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300' : 'border-orange-400/20 bg-orange-400/10 text-orange-200'}`}>
                       {tradeSelectedTotal} / 4
                     </span>
@@ -21950,14 +22203,14 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           className={`battle-wood-chakra-card flex min-w-0 flex-col items-center gap-2 rounded-xl border p-3 ${isSelected ? selectedCardColors[type] : 'border-white/10 bg-white/[0.03]'}`}
                         >
                           {renderChakraIcon(type, 'h-7 w-7')}
-                          <span className="text-center text-[11px] font-semibold leading-tight text-white">{label}</span>
+                          <span className="text-center text-[11px] font-semibold leading-tight text-white">{translateGameText(label, language)}</span>
                           <span className="font-mono text-xs text-slate-400">
-                            Disponível: <span className={chakraTextColors[type]}>{playerChakra[type]}</span>
+                            {t('Disponível:', 'Available:')} <span className={chakraTextColors[type]}>{playerChakra[type]}</span>
                           </span>
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              aria-label={`Remover um chakra ${label}`}
+                              aria-label={t(`Remover um chakra ${label}`, `Remove one ${translateGameText(label, 'en')} chakra`)}
                               disabled={tradeSelection[type] === 0}
                               onClick={() => setTradeSelection(prev => ({ ...prev, [type]: Math.max(0, prev[type] - 1) }))}
                               className="h-8 w-8 rounded-lg border border-white/10 bg-white/5 text-lg font-bold text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35"
@@ -21965,7 +22218,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             <span className={`min-w-5 text-center font-mono text-sm font-bold ${chakraTextColors[type]}`}>{tradeSelection[type]}</span>
                             <button
                               type="button"
-                              aria-label={`Adicionar um chakra ${label}`}
+                              aria-label={t(`Adicionar um chakra ${label}`, `Add one ${translateGameText(label, 'en')} chakra`)}
                               disabled={!canAdd}
                               onClick={() => setTradeSelection(prev => ({ ...prev, [type]: prev[type] + 1 }))}
                               data-sound="Click"
@@ -21979,7 +22232,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 </section>
 
                 <section className="mb-5">
-                  <h3 className="mb-2 text-sm font-bold text-white">2. Escolha o que vai receber</h3>
+                  <h3 className="mb-2 text-sm font-bold text-white">{t('2. Escolha o que vai receber', '2. Choose what to receive')}</h3>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {chakraTradeTypes.map(({ type, label }) => {
                       const targetColors: Record<keyof ChakraPool, string> = {
@@ -21997,7 +22250,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           className={`battle-wood-chakra-target flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${tradeTarget === type ? targetColors[type] : 'border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]'}`}
                         >
                           {renderChakraIcon(type, 'h-5 w-5')}
-                          <span>{label}</span>
+                          <span>{translateGameText(label, language)}</span>
                         </button>
                       );
                     })}
@@ -22010,7 +22263,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     data-sound="Click"
                     className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/[0.06] hover:text-white"
                   >
-                    Cancelar
+                    {t('Cancelar', 'Cancel')}
                   </button>
                   <button
                     onClick={handleTradeChakra}
@@ -22019,7 +22272,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-emerald-950/30 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
-                    Trocar chakras
+                    {t('Trocar chakras', 'Trade Chakra')}
                   </button>
                 </div>
               </div>
@@ -22032,8 +22285,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
       <AnimatePresence>
         {isPreparing && (
           <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-full px-4 py-2 shadow-lg backdrop-blur-sm select-none">
-            <img src="/static/img/icon/star.svg" alt="Loading" className="w-4 h-4 animate-spin object-contain" />
-            <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">Preparando...</span>
+            <img src="/static/img/icon/star.svg" alt={t('Carregando', 'Loading')} className="w-4 h-4 animate-spin object-contain" />
+            <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">{t('Preparando...', 'Preparing...')}</span>
           </div>
         )}
 
@@ -22046,7 +22299,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
           >
             <span className="w-2.5 h-2.5 bg-amber-400 rounded-full animate-ping" />
             <span className="text-xs font-mono font-black tracking-wider text-amber-300 uppercase">
-              Aguardando Oponente Escolher Habilidades...
+              {t('Aguardando Oponente Escolher Habilidades...', 'Waiting for opponent to choose skills...')}
             </span>
           </motion.div>
         )}
@@ -22066,7 +22319,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               {/* Background Pergaminho Image */}
               <img
                 src="/static/img/ui/pergaminho.webp"
-                alt="Pergaminho Shinobi"
+                alt={t('Pergaminho Shinobi', 'Shinobi Scroll')}
                 className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
               />
 
@@ -22076,11 +22329,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   <div className="flex items-center justify-center gap-2">
                     <Flag className="w-6 h-6 text-red-700 fill-red-600 animate-bounce" />
                     <h3 className="text-xl font-black uppercase tracking-tight text-stone-950 font-sans">
-                      Render-se da Batalha?
+                      {t('Render-se da Batalha?', 'Surrender the Battle?')}
                     </h3>
                   </div>
                   <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                    Você realmente deseja se render e declarar derrota nesta partida?
+                    {t('Você realmente deseja se render e declarar derrota nesta partida?', 'Are you sure you want to surrender and forfeit this match?')}
                   </p>
                 </div>
 
@@ -22091,7 +22344,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     className="inline-flex w-full items-center justify-center gap-2 sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95"
                   >
                     <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
-                    Sim, Render-me
+                    {t('Sim, Render-me', 'Yes, Surrender')}
                   </button>
                   <button
                     onClick={() => {
@@ -22100,7 +22353,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     }}
                     className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-[#d3ad75]/90 hover:bg-[#c49a5d] text-stone-950 font-black text-xs uppercase tracking-wider border-2 border-[#7a4e25] shadow-md transition cursor-pointer active:scale-95"
                   >
-                    Cancelar
+                    {t('Cancelar', 'Cancel')}
                   </button>
                 </div>
               </div>
@@ -22123,7 +22376,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               {/* Background Pergaminho Image */}
               <img
                 src="/static/img/ui/pergaminho.webp"
-                alt="Pergaminho Shinobi"
+                alt={t('Pergaminho Shinobi', 'Shinobi Scroll')}
                 className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
               />
 
@@ -22133,11 +22386,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   <div className="flex items-center justify-center gap-2">
                     <RefreshCw className="w-6 h-6 text-slate-800 animate-spin" />
                     <h3 className="text-xl font-black uppercase tracking-tight text-stone-950 font-sans">
-                      Recarregar Batalha?
+                      {t('Recarregar Batalha?', 'Reload Battle?')}
                     </h3>
                   </div>
                   <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                    Recarregue a página para corrigir travamentos ou bugs. Seu progresso nesta batalha será mantido automaticamente.
+                    {t('Recarregue a página para corrigir travamentos ou bugs. Seu progresso nesta batalha será mantido automaticamente.', 'Reload the page to fix freezes or bugs. Your progress in this battle will be saved automatically.')}
                   </p>
                 </div>
 
@@ -22148,7 +22401,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     className="inline-flex w-full items-center justify-center gap-2 sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-slate-950/40 border border-slate-500/50 transition cursor-pointer active:scale-95"
                   >
                     <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
-                    Sim, Recarregar
+                    {t('Sim, Recarregar', 'Yes, Reload')}
                   </button>
                   <button
                     onClick={() => {
@@ -22157,7 +22410,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     }}
                     className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-[#d3ad75]/90 hover:bg-[#c49a5d] text-stone-950 font-black text-xs uppercase tracking-wider border-2 border-[#7a4e25] shadow-md transition cursor-pointer active:scale-95"
                   >
-                    Cancelar
+                    {t('Cancelar', 'Cancel')}
                   </button>
                 </div>
               </div>
@@ -22188,10 +22441,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   </div>
                   <div>
                     <h3 className="font-extrabold text-sm sm:text-base text-amber-100 uppercase tracking-wide">
-                      Confirmar Pulo de Turno
+                      {t('Confirmar Pulo de Turno', 'Confirm Turn Skip')}
                     </h3>
                     <p className="text-[11px] font-semibold text-slate-400">
-                      Modo Sandbox
+                      {t('Modo Sandbox', 'Sandbox Mode')}
                     </p>
                   </div>
                 </div>
@@ -22201,7 +22454,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     playClickSound();
                     setShowSandboxConfirmModal(false);
                   }}
-                  aria-label="Fechar confirmação de turno"
+                  aria-label={t('Fechar confirmação de turno', 'Close turn confirmation')}
                   className="battle-wood-modal-close p-1 rounded-lg cursor-pointer"
                 >
                   <X className="w-4 h-4" />
@@ -22210,11 +22463,11 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
 
               <div className="space-y-3">
                 <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                  Você está prestes a finalizar o turno do{' '}
+                  {t('Você está prestes a finalizar o turno do', 'You are about to end the turn for')}{' '}
                   <span className={`font-bold uppercase ${
                     activePlanner === 'player' ? 'text-amber-400' : 'text-red-400'
                   }`}>
-                    {activePlanner === 'player' ? 'Jogador' : 'Oponente'}
+                    {activePlanner === 'player' ? t('Jogador', 'Player') : t('Oponente', 'Opponent')}
                   </span>.
                 </p>
 
@@ -22226,8 +22479,8 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
                   <span>
                     {cuedActions.length > 0
-                      ? `${cuedActions.length} habilidade(s) enfileirada(s) será(ão) executada(s).`
-                      : 'Nenhuma habilidade selecionada. O turno será passado sem ações.'}
+                      ? t(`${cuedActions.length} habilidade(s) enfileirada(s) será(ão) executada(s).`, `${cuedActions.length} queued skill(s) will be used.`)
+                      : t('Nenhuma habilidade selecionada. O turno será passado sem ações.', 'No skills selected. The turn will be passed without actions.')}
                   </span>
                 </div>
 
@@ -22238,7 +22491,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     onChange={(e) => setDontShowSandboxConfirmAgain(e.target.checked)}
                     className="rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-500/50 w-3.5 h-3.5 cursor-pointer"
                   />
-                  <span>Não perguntar novamente nesta sessão</span>
+                  <span>{t('Não perguntar novamente nesta sessão', "Don't ask again this session")}</span>
                 </label>
               </div>
 
@@ -22251,7 +22504,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   }}
                   className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition active:scale-95 border border-slate-700 cursor-pointer"
                 >
-                  Cancelar
+                  {t('Cancelar', 'Cancel')}
                 </button>
                 <button
                   disabled={isEndingTurn}
@@ -22269,7 +22522,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   }`}
                 >
                   <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
-                  Passar Turno
+                  {t('Passar Turno', 'End Turn')}
                 </button>
               </div>
             </motion.div>
@@ -22291,10 +22544,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 📡
               </div>
               <h3 className="text-lg font-black text-white uppercase tracking-wider mb-2">
-                Conexão com a Internet Necessária
+                {t('Conexão com a Internet Necessária', 'Internet Connection Required')}
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed mb-5">
-                Para passar o turno e garantir o cálculo correto da partida sem erros ou manipulação de jogadas, é necessário estar conectado à internet. Por favor, conecte-se à internet e tente novamente.
+                {t('Para passar o turno e garantir o cálculo correto da partida sem erros ou manipulação de jogadas, é necessário estar conectado à internet. Por favor, conecte-se à internet e tente novamente.', 'You must be connected to the internet to end your turn and ensure the match is calculated correctly without errors or manipulated moves. Please connect to the internet and try again.')}
               </p>
               <button
                 onClick={() => {
@@ -22304,7 +22557,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 data-sound="uah"
                 className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white font-extrabold text-xs uppercase tracking-wider border border-red-500/50 shadow-md transition active:scale-95 cursor-pointer"
               >
-                Conectar-se à Internet
+                {t('Conectar-se à Internet', 'Connect to the Internet')}
               </button>
             </motion.div>
           </div>
@@ -22322,10 +22575,10 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 ⚠️
               </div>
               <h3 className="text-lg font-black text-white uppercase tracking-wider mb-2">
-                Conexão com a Sala Perdida
+                {t('Conexão com a Sala Perdida', 'Connection to Match Room Lost')}
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed mb-5">
-                Não estamos conseguindo falar com o servidor da partida. A conexão pode ter oscilado ou a sala pode ter caído. Você pode continuar tentando ou encerrar a partida (contará como derrota).
+                {t('Não estamos conseguindo falar com o servidor da partida. A conexão pode ter oscilado ou a sala pode ter caído. Você pode continuar tentando ou encerrar a partida (contará como derrota).', 'We cannot reach the match server. Your connection may have dropped or the room may be unavailable. You can keep trying or end the match (this counts as a defeat).')}
               </p>
               <div className="flex flex-col gap-2">
                 <button
@@ -22339,7 +22592,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   data-sound="uah"
                   className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white font-extrabold text-xs uppercase tracking-wider border border-emerald-500/50 shadow-md transition active:scale-95 cursor-pointer"
                 >
-                  Continuar Tentando
+                  {t('Continuar Tentando', 'Keep Trying')}
                 </button>
                 <button
                   onClick={() => {
@@ -22352,7 +22605,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   data-sound="uah"
                   className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white font-extrabold text-xs uppercase tracking-wider border border-red-500/50 shadow-md transition active:scale-95 cursor-pointer"
                 >
-                  Encerrar Partida (Derrota)
+                  {t('Encerrar Partida (Derrota)', 'End Match (Defeat)')}
                 </button>
               </div>
             </motion.div>
@@ -22378,7 +22631,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   </div>
                   <div>
                     <h3 className="font-extrabold text-sm sm:text-base text-white">
-                      Complete o custo das habilidades
+                      {t('Complete o custo das habilidades', 'Complete the skill costs')}
                     </h3>
                   </div>
                 </div>
@@ -22401,7 +22654,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               <section className="rounded-xl border border-amber-900/50 bg-gradient-to-br from-amber-100/95 to-amber-200/90 p-3 shadow-inner" data-rand-skills>
                 <div className="mb-2 flex items-center gap-2 text-[11px] font-bold text-amber-950">
                   <Zap className="h-3.5 w-3.5 text-orange-800" />
-                  Habilidades selecionadas
+                  {t('Habilidades selecionadas', 'Selected Skills')}
                 </div>
                 <div className="max-h-28 space-y-1.5 overflow-y-auto pr-1" data-rand-list>
                   {randModalData.queuedSkillsWithRand.map((item, idx) => (
@@ -22411,9 +22664,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                           <img src={item.icon} alt="" className="h-7 w-7 shrink-0 rounded-md border border-amber-900/20 object-cover" />
                         )}
                         <span className="min-w-0 truncate font-semibold text-amber-950">
-                          <span className="text-orange-800">{item.charName}</span>
+                          <span className="text-orange-800">{localizeContentText(item.charName, undefined, language)}</span>
                           <span className="text-amber-900/50"> · </span>
-                          {item.skillName}
+                          {translateSkillName(item.skillName, language)}
                         </span>
                       </div>
                       <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-orange-200/70 px-2 py-1 font-mono text-[10px] font-bold text-orange-950">
@@ -22435,12 +22688,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   <section className="space-y-2.5" data-rand-selection>
                     <div className="flex items-center justify-between gap-2" data-rand-progress>
                       <div>
-                        <h4 className="text-xs font-bold text-white">Escolha os chakras para usar</h4>
+                        <h4 className="text-xs font-bold text-white">{t('Escolha os chakras para usar', 'Choose the chakra to use')}</h4>
                       </div>
                       <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
                         isComplete ? 'bg-emerald-400/10 text-emerald-300' : 'bg-orange-400/10 text-orange-200'
                       }`}>
-                        {isComplete ? 'Pronto' : `Faltam ${remaining}`}
+                        {isComplete ? t('Pronto', 'Ready') : t(`Faltam ${remaining}`, `${remaining} remaining`)}
                         <span className="ml-1 font-mono">{currentSelected}/{randModalData.totalRandRequired}</span>
                       </span>
                     </div>
@@ -22492,7 +22745,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                             {renderChakraIcon(key, 'h-6 w-6')}
                             <span className="min-h-7 text-[10px] font-semibold leading-tight text-white">{chakraLabel}</span>
                             <span className="text-[10px] text-slate-400">
-                              Disponível: <span className={chakraTextColors[key]}>{available}</span>
+                              {t('Disponível:', 'Available:')} <span className={chakraTextColors[key]}>{available}</span>
                             </span>
                             <div className="flex w-full items-center justify-center gap-2">
                               <button
@@ -22543,7 +22796,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                               </button>
                             </div>
                             <span className="sr-only">
-                              {elemLabel}: selecionado {allocated} de {available} disponíveis
+                              {t(`${elemLabel}: selecionado ${allocated} de ${available} disponíveis`, `${translateGameText(elemLabel, 'en')}: selected ${allocated} of ${available} available`)}
                             </span>
                           </div>
                         );
@@ -22567,7 +22820,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   data-sound="Click"
                   className="flex-1 py-2 px-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 font-bold text-xs transition active:scale-95 border border-white/10 cursor-pointer"
                 >
-                  Cancelar
+                  {t('Cancelar', 'Cancel')}
                 </button>
                 <button
                   type="button"
@@ -22590,7 +22843,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                   className="flex flex-1 items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/30 shadow-md shadow-emerald-950/30 transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
-                  Finalizar
+                  {t('Finalizar', 'Finish')}
                 </button>
               </div>
             </div>
@@ -22633,7 +22886,7 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               </div>
               <div className="flex-1">
                 <p className="text-xs sm:text-sm font-extrabold tracking-wide drop-shadow">
-                  {chakraToast.message}
+                  {localizeContentText(chakraToast.message, undefined, language)}
                 </p>
               </div>
             </div>
@@ -22846,9 +23099,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
               <div
                 key={l.id}
                 className={`truncate ${l.message.startsWith('🧪') || l.message.includes('⏳') || l.message.includes('🛑') || l.message.includes('⚠️') ? 'text-amber-300' : 'text-slate-300'}`}
-                title={l.message}
+                title={localizeContentText(l.message, undefined, language)}
               >
-                {l.message}
+                {localizeContentText(l.message, undefined, language)}
               </div>
             ))}
             <div ref={logsEndRef} />

@@ -62,6 +62,20 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
   const displayText = (portugueseText: string | undefined, englishText?: string) =>
     localizeContentText(portugueseText, englishText, language);
   const displayItemName = (item: ShopItem) => displayText(item.name, item.nameEn);
+  const displayCardCharacterName = (card: NinjaCard) => {
+    const character = getCharacters().find(candidate => candidate.id === card.characterId);
+    return displayText(card.characterName, character?.nameEn || character?.name);
+  };
+  const displayRarity = (rarity: NinjaCard['rarity']) => {
+    const englishLabels: Record<NinjaCard['rarity'], string> = {
+      comum: 'Common',
+      raro: 'Rare',
+      epico: 'Epic',
+      lendario: 'Legendary',
+      secreto: 'Mythic',
+    };
+    return t(CARD_RARITY_META[rarity].label, englishLabels[rarity]);
+  };
   const [items, setItems] = useState<ShopItem[]>(() => getShopItems());
   const [activeTab, setActiveTab] = useState<ShopTab>(initialTab);
   const [shopTabOrder, setShopTabOrder] = useState<ShopTabId[]>(DEFAULT_SHOP_TAB_ORDER);
@@ -514,7 +528,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                   skin: { label: 'Skins', icon: Shirt },
                   frame: { label: t('Molduras de Perfil', 'Profile Frames'), icon: Shield },
                   bundle: { label: t('Pacotes & Moedas', 'Packs & Coins'), icon: CircleDollarSign },
-                  roulette: { label: 'Roleta', icon: Dices },
+                  roulette: { label: t('Roleta', 'Roulette'), icon: Dices },
                 };
                 return { id, ...tabs[id] };
               }),
@@ -670,7 +684,10 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                             {displayText(item.skillName || 'Habilidade', item.skillNameEn)}
                           </span>
                           <span className="max-w-full truncate text-[7px] font-mono font-bold text-blue-600 sm:text-[9px]">
-                            {displayText(item.skillCharacterId || 'Personagem')}
+                            {displayText(
+                              getCharacters().find(character => character.id === item.skillCharacterId)?.name || item.skillCharacterId || 'Personagem',
+                              getCharacters().find(character => character.id === item.skillCharacterId)?.nameEn,
+                            )}
                           </span>
                         </div>
                       )}
@@ -680,7 +697,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                           {item.frameImageUrl ? (
                             <img
                               src={item.frameImageUrl}
-                              alt={item.name}
+                              alt={displayItemName(item)}
                               className="w-full h-full rounded-full object-cover"
                             />
                           ) : (
@@ -735,7 +752,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                         alt=""
                         className="h-[18px] w-[18px] shrink-0 object-contain sm:h-5 sm:w-5"
                       />
-                      <span className="truncate">{item.price.toLocaleString()}</span>
+                      <span className="truncate">{item.price.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}</span>
                     </span>
                     {isEquipped ? (
                       <span className="p-1 text-emerald-400" title={t('Equipado', 'Equipped')} aria-label={t('Equipado', 'Equipped')}>
@@ -813,15 +830,18 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                 <div>
                   <h2 id="roulette-odds-title" className="flex items-center gap-2 text-lg font-black uppercase tracking-wide text-blue-950 sm:text-xl">
                     <Dices className="h-5 w-5 text-orange-600" />
-                    Chances da Roleta
+                    {t('Chances da Roleta', 'Roulette Odds')}
                   </h2>
-                  <p className="mt-1 text-xs text-slate-600">As chances das raridades sem figuras no catálogo são redistribuídas entre as demais.</p>
+                  <p className="mt-1 text-xs text-slate-600">{t(
+                    'As chances das raridades sem figuras no catálogo são redistribuídas entre as demais.',
+                    'Odds for rarities with no cards in the catalog are redistributed among the remaining rarities.',
+                  )}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setRouletteInfoOpen(false)}
                   className="rounded-lg p-2 text-slate-500 transition hover:bg-white hover:text-slate-900"
-                  aria-label="Fechar chances"
+                  aria-label={t('Fechar chances', 'Close odds')}
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -848,22 +868,22 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                     <section key={rarity} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                       <header className="sticky top-0 z-10 flex items-center justify-between gap-1 border-b border-slate-200 bg-white px-2 py-2">
                         <span className={`truncate text-[10px] font-black uppercase tracking-wide sm:text-xs ${meta.text}`}>
-                          {meta.label}
+                          {displayRarity(rarity)}
                         </span>
                         <span className={`shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-mono font-black ${chanceBadgeColors[rarity]}`}>
-                          {chance.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%
+                          {chance.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR', { maximumFractionDigits: 1 })}%
                         </span>
                       </header>
                       <div className="grid grid-cols-3 content-start gap-1.5 overflow-y-auto p-2">
                         {rarityCards.length > 0 ? rarityCards.map(card => (
-                          <div key={card.id} className={`relative aspect-[3/4] overflow-hidden rounded-md border ${meta.border} bg-slate-900`} title={`${card.characterName}${card.variant ? ` — ${card.variant}` : ''}`}>
-                            <img src={cardImage(card)} alt={card.characterName} loading="lazy" className="h-full w-full object-cover" />
+                          <div key={card.id} className={`relative aspect-[3/4] overflow-hidden rounded-md border ${meta.border} bg-slate-900`} title={`${displayCardCharacterName(card)}${card.variant ? ` — ${displayText(card.variant)}` : ''}`}>
+                            <img src={cardImage(card)} alt={displayCardCharacterName(card)} loading="lazy" className="h-full w-full object-cover" />
                             <span className="absolute inset-x-0 bottom-0 truncate bg-slate-950/80 px-1 py-0.5 text-center text-[7px] font-bold text-white">
-                              {card.characterName}
+                              {displayCardCharacterName(card)}
                             </span>
                           </div>
                         )) : (
-                          <p className="col-span-3 py-4 text-center text-[10px] font-semibold text-slate-400">Nenhuma figurinha</p>
+                          <p className="col-span-3 py-4 text-center text-[10px] font-semibold text-slate-400">{t('Nenhuma figurinha', 'No cards available')}</p>
                         )}
                       </div>
                     </section>
@@ -872,13 +892,16 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
               </div>
 
               <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 p-3 sm:p-4">
-                <span className="text-xs font-semibold text-slate-600">{cards.length} figurinhas disponíveis no catálogo</span>
+                <span className="text-xs font-semibold text-slate-600">{t(
+                  `${cards.length} figurinhas disponíveis no catálogo`,
+                  `${cards.length} cards available in the catalog`,
+                )}</span>
                 <button
                   type="button"
                   onClick={() => {
                     if (ryos < rouletteCost) {
                       playGlobalSound('denied');
-                      setPurchaseToast('Moedas insuficientes!');
+                      setPurchaseToast(t('Moedas insuficientes!', 'Not enough coins!'));
                       setTimeout(() => setPurchaseToast(null), 3000);
                       return;
                     }
@@ -887,8 +910,10 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                     setPendingPurchase({
                       id: ROULETTE_ITEM_ID,
                       name: 'Giro da roleta',
+                      nameEn: 'Roulette Spin',
                       category: 'bundle',
                       description: 'Gire a roleta e ganhe uma figurinha aleatória.',
+                      descriptionEn: 'Spin the roulette to win a random card.',
                       currency: 'ryos',
                       price: rouletteCost,
                     });
@@ -918,7 +943,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
             className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-5 bg-blue-950/95 p-4 text-white backdrop-blur-md"
           >
             <div className="text-center">
-              <h2 className="mt-2 text-xl font-black sm:text-2xl">Sua figurinha está chegando...</h2>
+              <h2 className="mt-2 text-xl font-black sm:text-2xl">{t('Sua figurinha está chegando...', 'Your card is on its way...')}</h2>
             </div>
             <div ref={rouletteTrackRef} className="relative w-full max-w-4xl overflow-hidden rounded-2xl border-2 border-sky-300/70 bg-slate-950/80 py-4 shadow-[0_0_40px_rgba(56,189,248,0.3)]">
               <div className="pointer-events-none absolute bottom-0 left-1/2 top-0 z-20 w-1 -translate-x-1/2 bg-orange-300 shadow-[0_0_18px_rgba(253,186,116,0.9)]" />
@@ -938,9 +963,9 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                 >
                   {rouletteSequence.map((card, index) => (
                     <div key={`${card.id}-${index}`} className={`relative h-32 w-24 shrink-0 overflow-hidden rounded-lg border-2 ${CARD_RARITY_META[card.rarity].border}`}>
-                      <img src={cardImage(card)} alt={card.characterName} className="h-full w-full object-cover" />
+                      <img src={cardImage(card)} alt={displayCardCharacterName(card)} className="h-full w-full object-cover" />
                       <span className={`absolute inset-x-0 bottom-0 truncate bg-slate-950/85 px-1 py-1 text-center text-[8px] font-black ${CARD_RARITY_META[card.rarity].text}`}>
-                        {card.characterName}
+                        {displayCardCharacterName(card)}
                       </span>
                     </div>
                   ))}
@@ -948,7 +973,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
               ) : (
                 <div className="flex h-40 items-center justify-center gap-3 text-sm font-bold text-sky-100">
                   <LoaderCircle className="h-6 w-6 animate-spin" />
-                  Preparando o sorteio...
+                  {t('Preparando o sorteio...', 'Preparing the draw...')}
                 </div>
               )}
             </div>
@@ -962,7 +987,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                 }}
                 className="rounded-full px-3 py-1.5 text-xs font-semibold text-sky-100/80 underline decoration-sky-300/50 underline-offset-4 transition hover:text-white"
               >
-                Pular animação e ir direto para o prêmio
+                {t('Pular animação e ir direto para o prêmio', 'Skip animation and go straight to the prize')}
               </button>
             )}
           </motion.div>
@@ -1029,16 +1054,16 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                     }`
               }`}>
                 {rouletteWinner.rarity === 'lendario'
-                  ? 'LENDÁRIO!!!'
+                  ? t('LENDÁRIO!!!', 'LEGENDARY!!!')
                   : rouletteWinner.rarity === 'secreto'
-                    ? 'MÍTICO!!!'
-                    : rouletteIsDuplicate ? 'FIGURINHA OBTIDA' : 'NOVA FIGURINHA'}
+                    ? t('MÍTICO!!!', 'MYTHIC!!!')
+                    : rouletteIsDuplicate ? t('FIGURINHA OBTIDA', 'CARD OBTAINED') : t('NOVA FIGURINHA', 'NEW CARD')}
               </p>
               <div
                 id="roulette-result-title"
                 className={`relative min-h-0 w-full flex-1 overflow-hidden rounded-xl border-2 bg-slate-950 shadow-[0_0_70px_rgba(37,99,235,0.3)] ${CARD_RARITY_META[rouletteWinner.rarity].border}`}
               >
-                <img src={cardImage(rouletteWinner)} alt={rouletteWinner.characterName} className="h-full w-full object-contain" />
+                <img src={cardImage(rouletteWinner)} alt={displayCardCharacterName(rouletteWinner)} className="h-full w-full object-contain" />
                 {rouletteWinner.rarity === 'secreto' && (
                   <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
                     {Array.from({ length: 10 }, (_, index) => (
@@ -1069,7 +1094,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                 )}
                 <div className="absolute inset-x-0 bottom-0 z-20 h-20 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-transparent" />
                 <span className={`absolute left-2 top-2 z-50 rounded-md border px-2.5 py-1 text-[11px] font-mono font-black uppercase tracking-wider shadow-lg ${CARD_RARITY_META[rouletteWinner.rarity].chip}`}>
-                  ◆ {CARD_RARITY_META[rouletteWinner.rarity].label}
+                  ◆ {displayRarity(rouletteWinner.rarity)}
                 </span>
                 <div className="absolute bottom-2 left-2 right-2 z-50 text-center">
                   <p className={`text-sm font-mono font-black uppercase tracking-wider ${CARD_RARITY_META[rouletteWinner.rarity].text}`}>
@@ -1090,7 +1115,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
               className="fixed bottom-[max(3.5rem,env(safe-area-inset-bottom))] left-1/2 z-[81] flex w-[min(280px,calc(100vw-2rem))] -translate-x-1/2 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-700 via-sky-600 to-blue-700 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-xl shadow-blue-500/25 transition hover:brightness-110 active:scale-95"
             >
               <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-6 w-6 object-contain" />
-              <span>RESGATAR</span>
+              <span>{t('RESGATAR', 'CLAIM')}</span>
             </button>
           </motion.div>
         )}
@@ -1116,21 +1141,21 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
             />
             <div className="absolute inset-x-[12%] bottom-[9%] top-[42%] flex flex-col items-center justify-center gap-3 text-center sm:gap-4">
               <p className="text-base font-bold leading-snug text-amber-950 sm:text-lg">
-                Você tem certeza que
+                {t('Você tem certeza que', 'Are you sure you')}
                 <br />
-                deseja gastar{' '}
+                {t('deseja gastar', 'want to spend')}{' '}
                 <span className="inline-flex items-center gap-1 whitespace-nowrap font-black text-orange-700">
                   <img
                     src={pendingPurchase.currency === 'ryos' ? '/static/img/icon/gold.webp' : '/static/img/icon/ryo.webp'}
                     alt=""
                     className="h-5 w-5 object-contain"
                   />
-                  {pendingPurchase.price.toLocaleString()}
+                  {pendingPurchase.price.toLocaleString(language === 'en' ? 'en-US' : 'pt-BR')}
                 </span>
-                {' '}em
+                {' '}{t('em', 'on')}
               </p>
               <h3 id="shop-purchase-title" className="max-w-full break-words text-2xl font-black leading-tight text-orange-700 sm:text-3xl">
-                {pendingPurchase.name}?
+                {displayItemName(pendingPurchase)}?
               </h3>
               <div className="mt-1 flex w-full justify-center gap-3">
                 <button
@@ -1141,7 +1166,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                   }}
                   className="rounded-lg border border-orange-600 bg-white px-4 py-2 text-xs font-black uppercase tracking-wide text-orange-700 transition hover:bg-orange-50 sm:text-sm"
                 >
-                  Cancelar
+                  {t('Cancelar', 'Cancel')}
                 </button>
                 <button
                   type="button"
@@ -1152,7 +1177,7 @@ export default function ShopModal({ user, onClose, onUpdateUser, playClickSound,
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-700 bg-blue-600 px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 sm:text-sm"
                 >
                   <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-4 w-4 object-contain" />
-                  Confirmar
+                  {t('Confirmar', 'Confirm')}
                 </button>
               </div>
             </div>

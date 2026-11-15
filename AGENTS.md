@@ -72,6 +72,7 @@ Online battle results are persisted in `src/data/online_battle_history.json`. `P
 - A área administrativa não deve reproduzir efeitos sonoros nem música. Exceções futuras só podem existir para prévias de áudio disponibilizadas aos jogadores; essas prévias devem ser explicitamente marcadas e não devem alterar o áudio global do painel.
 - **Before building any new feature/option, check if it already exists** (grep the codebase for related flags/fields). If it does, STOP and tell the user it already exists (name + location) instead of duplicating it. Ex.: `removedOnTargetSkillUse` already removes an effect when the affected target uses any skill (AdminDashboard "🧹 Removida do alvo quando ele usar uma habilidade", engine at BattleBoard `executeSideActions` ~line 7247).
 - UI text is PT-BR; use `t()` for UI strings needing EN support.
+- **English parity is required for all new content added at the user's request**: provide an English version alongside Portuguese for UI copy, character/skill descriptions, names, tags, events, rewards, and other user-facing content. Use existing bilingual fields (such as `nameEn`/`descEn`) or `t()` as appropriate, and verify the affected screen in English before finishing; never leave requested content Portuguese-only.
 - Language: `'pt' | 'en'`, persisted in localStorage key `ninja_app_language`.
 - User profile persisted in localStorage key `naruto_user_profile`.
 - Characters cache: localStorage key `naruto_combat_characters`.

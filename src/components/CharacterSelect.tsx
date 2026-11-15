@@ -219,7 +219,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   const [matchmakingError, setMatchmakingError] = useState('');
   const [opponent, setOpponent] = useState<UserProfile | null>(null);
   const [countdown, setCountdown] = useState(5);
-  const [lobbyTip, setLobbyTip] = useState('Dica: Acumule chakra de linhagem (Blood) para liberar jutsus supremos.');
+  const [lobbyTip, setLobbyTip] = useState(t('Dica: Acumule chakra de linhagem (Blood) para liberar jutsus supremos.', 'Tip: Build up Blood chakra to unlock ultimate jutsu.'));
 
   const matchmakingPollRef = useRef<any | null>(null);
   const timeIntervalRef = useRef<any | null>(null);
@@ -258,14 +258,14 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
   }, [matchmakingStatus]);
 
   const tips = [
-    'Dica: Acumule chakra de linhagem (Blood) para liberar os jutsus supremos.',
-    'Dica: Mantenha seus oponentes atordoados para controlar o ritmo de batalha.',
-    'Dica: Habilidades de fuga te deixam totalmente invulnerável por alguns turnos.',
-    'Dica: Converta 4 chakras quaisquer em 1 chakra de sua escolha no painel inferior.',
-    'Dica: Os efeitos de Sangramento causam dano constante a cada final de turno.',
-    'Dica: Purifique seus aliados usando habilidades de suporte para remover efeitos negativos.',
-    'Dica: Personagens invisíveis não podem ser alvos diretos de ataques inimigos.',
-    'Dica: O escudo protege sua vida, mas pode ser desfeito por habilidades destruidoras de escudo.'
+    t('Dica: Acumule chakra de linhagem (Blood) para liberar os jutsus supremos.', 'Tip: Build up Blood chakra to unlock ultimate jutsu.'),
+    t('Dica: Mantenha seus oponentes atordoados para controlar o ritmo de batalha.', 'Tip: Keep your opponents stunned to control the pace of battle.'),
+    t('Dica: Habilidades de fuga te deixam totalmente invulnerável por alguns turnos.', 'Tip: Escape abilities make you completely invulnerable for a few turns.'),
+    t('Dica: Converta 4 chakras quaisquer em 1 chakra de sua escolha no painel inferior.', 'Tip: Convert any 4 chakra into 1 chakra of your choice in the bottom panel.'),
+    t('Dica: Os efeitos de Sangramento causam dano constante a cada final de turno.', 'Tip: Bleeding effects deal continuous damage at the end of each turn.'),
+    t('Dica: Purifique seus aliados usando habilidades de suporte para remover efeitos negativos.', 'Tip: Cleanse your allies with support abilities to remove negative effects.'),
+    t('Dica: Personagens invisíveis não podem ser alvos diretos de ataques inimigos.', 'Tip: Invisible characters cannot be directly targeted by enemy attacks.'),
+    t('Dica: O escudo protege sua vida, mas pode ser desfeito por habilidades destruidoras de escudo.', 'Tip: Shields protect your health, but shield-breaking abilities can destroy them.')
   ];
 
   // Rotate tips
@@ -276,7 +276,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       setLobbyTip(randTip);
     }, 4500);
     return () => clearInterval(interval);
-  }, [isMatchmaking]);
+  }, [isMatchmaking, language]);
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -1379,7 +1379,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                 className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-red-950/90 border border-red-500/60 text-red-200 px-4 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-3 font-mono text-xs max-w-md"
               >
                 <Lock className="w-4 h-4 text-red-400 flex-shrink-0" />
-                <span className="flex-1 font-semibold">{lockedNotice}</span>
+                <span className="flex-1 font-semibold">{localizeContentText(lockedNotice, undefined, language)}</span>
                 <button onClick={() => setLockedNotice(null)} className="text-red-400 hover:text-white p-0.5 cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
@@ -1552,10 +1552,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     ? 'border-amber-900/20 bg-amber-950/10 text-amber-900/40 cursor-not-allowed'
                     : 'border-amber-800 bg-amber-900/60 hover:bg-amber-800 text-amber-100 shadow'
                 }`}
-                title="Página Anterior"
+                title={t('Página Anterior', 'Previous page')}
               >
                 <ChevronLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Anterior</span>
+                <span className="hidden sm:inline">{t('Anterior', 'Previous')}</span>
               </button>
 
               <div className="flex items-center gap-2">
@@ -1612,9 +1612,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     ? 'border-amber-900/20 bg-amber-950/10 text-amber-900/40 cursor-not-allowed'
                     : 'border-amber-800 bg-amber-900/60 hover:bg-amber-800 text-amber-100 shadow'
                 }`}
-                title="Próxima Página"
+                title={t('Próxima Página', 'Next page')}
               >
-                <span className="hidden sm:inline">Próxima</span>
+                <span className="hidden sm:inline">{t('Próxima', 'Next')}</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -1664,7 +1664,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
 
                 <div className="space-y-1.5 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-xl font-black tracking-tight text-amber-950 uppercase font-mono drop-shadow-sm">{previewCharacter.name}</h3>
+                    <h3 className="text-xl font-black tracking-tight text-amber-950 uppercase font-mono drop-shadow-sm">{localizeContentText(previewCharacter.name, previewCharacter.nameEn, language)}</h3>
                     <button
                       onClick={() => {
                         playClickSound();
@@ -1676,7 +1676,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           ? 'bg-amber-600 text-amber-950 ring-2 ring-amber-500 scale-105 font-black'
                           : 'bg-gradient-to-r from-amber-700 to-amber-600 text-amber-950 hover:brightness-110 font-black'
                       }`}
-                      title="Galeria de Skins"
+                      title={t('Galeria de Skins', 'Skin Gallery')}
                     >
                       <Shirt className="w-3.5 h-3.5 stroke-[2.5]" />
                       SKINS
@@ -1701,10 +1701,10 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   <div className="flex justify-between items-center border-b border-amber-900/20 pb-2">
                     <span className="text-xs font-mono font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
                       <Shirt className="w-4 h-4 text-amber-800" />
-                      GALERIA DE SKINS
+                      {t('GALERIA DE SKINS', 'SKIN GALLERY')}
                     </span>
                     <span className="text-[10px] text-amber-900/90 font-mono font-semibold">
-                      50 fragmentos por skin; equipe as desbloqueadas
+                      {t('50 fragmentos por skin; equipe as desbloqueadas', '50 fragments per skin; equip unlocked skins')}
                     </span>
                   </div>
 
@@ -1718,7 +1718,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                         return (
                           <div className="flex flex-col items-center justify-center gap-2 text-amber-900/60 py-4">
                             <Shirt className="w-8 h-8 opacity-30" />
-                            <span className="text-xs font-mono font-bold uppercase tracking-wider">Sem skins disponíveis</span>
+                            <span className="text-xs font-mono font-bold uppercase tracking-wider">{t('Sem skins disponíveis', 'No skins available')}</span>
                           </div>
                         );
                       }
@@ -1762,7 +1762,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                           >
                             {isEquipped && (
                               <div className="absolute top-1.5 right-1.5 bg-amber-600 text-amber-950 text-[8px] font-black font-mono px-1.5 py-0.5 rounded shadow z-10 uppercase tracking-wider">
-                                EQUIPADA
+                                {t('EQUIPADA', 'EQUIPPED')}
                               </div>
                             )}
 
@@ -1792,7 +1792,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                                   : (
                                     <>
                                       <Lock className="h-5 w-5 text-sky-300" />
-                                      <span>{fragmentCount}/{SKIN_FRAGMENT_UNLOCK_TARGET} FRAGMENTOS</span>
+                                      <span>{fragmentCount}/{SKIN_FRAGMENT_UNLOCK_TARGET} {t('FRAGMENTOS', 'FRAGMENTS')}</span>
                                     </>
                                   )}
                               </div>
@@ -1811,7 +1811,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                         <path fillRule="evenodd" clipRule="evenodd" d="M13.4142 11.9999L17.6568 16.2425L21.8995 11.9999L17.6568 7.75726L13.4142 11.9999ZM17.6568 10.5857L16.2426 11.9999L17.6568 13.4141L19.071 11.9999L17.6568 10.5857Z" fill="currentColor" />
                         <path fillRule="evenodd" clipRule="evenodd" d="M7.7572 17.6569L11.9998 13.4142L16.2425 17.6569L11.9998 21.8995L7.7572 17.6569ZM10.5856 17.6569L11.9998 16.2427L13.4141 17.6569L11.9998 19.0711L10.5856 17.6569Z" fill="currentColor" />
                       </svg>
-                      SKINS DE HABILIDADE
+                      {t('SKINS DE HABILIDADE', 'SKILL SKINS')}
                     </div>
                     {(() => {
                       const ownedSkillSkins = skillSkinItems.filter(item =>
@@ -1823,7 +1823,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       if (ownedSkillSkins.length === 0) {
                         return (
                           <p className="rounded-lg border border-amber-900/20 bg-amber-950/10 px-3 py-2 text-[10px] font-mono text-amber-900/70">
-                            Nenhuma skin de habilidade desbloqueada para este personagem.
+                            {t('Nenhuma skin de habilidade desbloqueada para este personagem.', 'No skill skins unlocked for this character.')}
                           </p>
                         );
                       }
@@ -1854,9 +1854,9 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                                   <path fillRule="evenodd" clipRule="evenodd" d="M7.7572 17.6569L11.9998 13.4142L16.2425 17.6569L11.9998 21.8995L7.7572 17.6569ZM10.5856 17.6569L11.9998 16.2427L13.4141 17.6569L11.9998 19.0711L10.5856 17.6569Z" fill="currentColor" />
                                 </svg>
                                 <span className="min-w-0">
-                                  <span className="block truncate text-[10px] font-black uppercase">{item.name}</span>
-                                  <span className="block truncate text-[9px] font-mono">{item.skillName}</span>
-                                  {isEquipped && <span className="block text-[8px] font-black uppercase text-amber-800">Equipado</span>}
+                                  <span className="block truncate text-[10px] font-black uppercase">{localizeContentText(item.name, item.nameEn, language)}</span>
+                                  <span className="block truncate text-[9px] font-mono">{localizeContentText(item.skillName || '', item.skillNameEn, language)}</span>
+                                  {isEquipped && <span className="block text-[8px] font-black uppercase text-amber-800">{t('Equipado', 'Equipped')}</span>}
                                 </span>
                               </button>
                             );
@@ -2071,7 +2071,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                             ? 'border-amber-900/10 bg-amber-950/5 text-amber-900/30 cursor-not-allowed'
                             : 'border-amber-900/30 bg-amber-950/15 hover:bg-amber-950/25 text-amber-950 font-bold'
                         }`}
-                        title="Habilidades Anteriores"
+                        title={t('Habilidades Anteriores', 'Previous skills')}
                       >
                         <ChevronLeft className="w-3.5 h-3.5" />
                       </button>
@@ -2108,7 +2108,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                             ? 'border-amber-900/10 bg-amber-950/5 text-amber-900/30 cursor-not-allowed'
                             : 'border-amber-900/30 bg-amber-950/15 hover:bg-amber-950/25 text-amber-950 font-bold'
                         }`}
-                        title="Próximas Habilidades"
+                        title={t('Próximas Habilidades', 'Next skills')}
                       >
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
@@ -2229,7 +2229,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                   <img
                     ref={matchmakingLogoRef}
                     src="/static/img/icon/mangeky.svg"
-                    alt="Processando"
+                    alt={t('Processando', 'Processing')}
                     className="w-24 h-24 animate-spin"
                   />
                 </div>
@@ -2238,19 +2238,21 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
               {/* Status Header */}
               <div className="space-y-2">
                 <h3 className="text-2xl font-black tracking-tight text-white uppercase">
-                  {matchmakingStatus === 'error' ? 'Erro no Matchmaking' : matchmakingStatus === 'matched' ? 'Oponente Encontrado!' : 'Procurando Oponente...'}
+                  {matchmakingStatus === 'error' ? t('Erro no Matchmaking', 'Matchmaking Error') : matchmakingStatus === 'matched' ? t('Oponente Encontrado!', 'Opponent Found!') : t('Procurando Oponente...', 'Searching for Opponent...')}
                 </h3>
                 {matchmakingStatus === 'error' ? (
                   <p className="text-xs font-mono text-red-400">
-                    {matchmakingError || 'Não foi possível encontrar um oponente. Tente novamente.'}
+                    {matchmakingError
+                      ? localizeContentText(matchmakingError, undefined, language)
+                      : t('Não foi possível encontrar um oponente. Tente novamente.', 'Could not find an opponent. Please try again.')}
                   </p>
                 ) : matchmakingStatus === 'searching' ? (
                   <p className="text-xs font-mono text-slate-400">
-                    Tempo de espera: <span className="text-orange-400 font-bold">{matchmakingTime}s</span>
+                    {t('Tempo de espera:', 'Wait time:')} <span className="text-orange-400 font-bold">{matchmakingTime}s</span>
                   </p>
                 ) : (
                   <p className="text-sm font-mono text-emerald-400 font-black tracking-wide animate-pulse">
-                    INICIANDO COMBATE EM {countdown}s...
+                    {t(`INICIANDO COMBATE EM ${countdown}s...`, `BATTLE STARTING IN ${countdown}s...`)}
                   </p>
                 )}
               </div>
@@ -2263,7 +2265,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     <img src={user.photoUrl || null} alt={user.name} className="w-full h-full object-cover" />
                   </div>
                   <div className="text-xs font-black truncate text-orange-400 uppercase font-mono">{user.name}</div>
-                  <div className="text-[9px] font-mono text-slate-500">SEU TIME</div>
+                  <div className="text-[9px] font-mono text-slate-500">{t('SEU TIME', 'YOUR TEAM')}</div>
                 </div>
 
                 {/* VS Badge */}
@@ -2279,13 +2281,13 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                     {opponent ? (
                       <img src={opponent.photoUrl || null} alt={opponent.name} className="w-full h-full object-cover scale-x-[-1]" />
                     ) : (
-                      <img src="/static/img/icon/star.svg" alt="Loading" className="w-6 h-6 animate-spin object-contain" />
+                      <img src="/static/img/icon/star.svg" alt={t('Carregando', 'Loading')} className="w-6 h-6 animate-spin object-contain" />
                     )}
                   </div>
                   <div className="text-xs font-black truncate text-slate-300 uppercase font-mono">
-                    {opponent ? opponent.name : 'PROCURANDO...'}
+                    {opponent ? opponent.name : t('PROCURANDO...', 'SEARCHING...')}
                   </div>
-                  <div className="text-[9px] font-mono text-slate-500">OPONENTE</div>
+                  <div className="text-[9px] font-mono text-slate-500">{t('OPONENTE', 'OPPONENT')}</div>
                 </div>
               </div>
 
@@ -2306,7 +2308,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
                       : 'bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800'
                   }`}
                 >
-                  {matchmakingStatus === 'error' ? 'Voltar' : 'Cancelar Matchmaking'}
+                  {matchmakingStatus === 'error' ? t('Voltar', 'Go back') : t('Cancelar Matchmaking', 'Cancel Matchmaking')}
                 </button>
               )}
             </div>
@@ -2373,7 +2375,7 @@ export default function CharacterSelect({ onConfirmTeams, playClickSound, playSc
       {showSkinGuide && (
         <FirstBattleTutorial
           targetSelector='[data-tutorial-target="character-skin-guide-eye"]'
-          instruction="Você pode saber mais detalhes dos personagens e equipar suas skins clicando no botão do olhinho no canto inferior direito."
+          instruction={t('Você pode saber mais detalhes dos personagens e equipar suas skins clicando no botão do olhinho no canto inferior direito.', 'You can learn more about characters and equip their skins by clicking the eye button in the bottom-right corner.')}
           centered
         />
       )}

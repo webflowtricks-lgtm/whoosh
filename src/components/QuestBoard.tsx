@@ -41,11 +41,14 @@ import { RankConfig, getRanks, getUserRankFromConfig, fetchRanksFromServer } fro
 import { getCharacters } from '../lib/characterStorage';
 import { CARD_RARITY_META, fetchCardsFromServer, getCards } from '../lib/cardStorage';
 import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
-import { useLanguage } from '../lib/i18n';
+import { localizeContentText, useLanguage } from '../lib/i18n';
 
-function renderHighlightedGoalDescription(goal: QuestGoal) {
-  const description = getGoalDescription(goal);
-  const terms = [...new Set([...(goal.targetCharacters || []), goal.targetSkill || '']
+function renderHighlightedGoalDescription(goal: QuestGoal, language: 'pt' | 'en') {
+  const description = getGoalDescription(goal, language);
+  const terms = [...new Set([
+    ...(goal.targetCharacters || []).map(name => localizeContentText(name, undefined, language)),
+    goal.targetSkill ? localizeContentText(goal.targetSkill, undefined, language) : '',
+  ]
     .map(term => term.trim())
     .filter(Boolean))]
     .sort((a, b) => b.length - a.length);
@@ -105,7 +108,7 @@ export default function QuestBoard({
   playUahSound,
   playWinSound,
 }: QuestBoardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [quests, setQuests] = useState<Quest[]>([]);
   const [allCards, setAllCards] = useState<NinjaCard[]>(() => getCards());
   const [skillSkinItems, setSkillSkinItems] = useState<ShopItem[]>(() =>
@@ -224,6 +227,9 @@ export default function QuestBoard({
   };
 
   const currentRank = getUserRankFromConfig(user.xp || 0, ranksList);
+  const localizedQuestTitle = (quest: Quest) => localizeContentText(quest.title, undefined, language);
+  const localizedQuestDescription = (quest: Quest) => localizeContentText(quest.desc, undefined, language);
+  const localizedRankName = (rank: string) => localizeContentText(rank, undefined, language);
 
   // Compute which quests are locked for the current user (rank + required quests)
   const computeLockedQuestIds = (qList: Quest[], u: UserProfile, rList: RankConfig[]): Set<string> => {
@@ -267,9 +273,9 @@ export default function QuestBoard({
     const userXp = Math.max(0, user.xp || 0);
 
     if (requiredRankObj && userXp < requiredRankObj.requiredXp) {
-      return { locked: true, reason: `Requer Rank: ${quest.minRank}` };
+      return { locked: true, reason: `${t('Requer Rank:', 'Requires rank:')} ${localizedRankName(quest.minRank)}` };
     } else if (requiredRankIdx !== -1 && playerRankIdx !== -1 && playerRankIdx < requiredRankIdx) {
-      return { locked: true, reason: `Requer Rank: ${quest.minRank}` };
+      return { locked: true, reason: `${t('Requer Rank:', 'Requires rank:')} ${localizedRankName(quest.minRank)}` };
     }
 
     const completedIds = user.completedQuestIds || [];
@@ -278,7 +284,7 @@ export default function QuestBoard({
         const reqQuest = quests.find(q => q.id === reqId);
         return { 
           locked: true, 
-          reason: `Requer conclusão de: ${reqQuest?.title || 'Missão Anterior'}` 
+          reason: `${t('Requer conclusão de:', 'Requires completion of:')} ${reqQuest ? localizedQuestTitle(reqQuest) : t('Missão Anterior', 'Previous Mission')}`
         };
       }
     }
@@ -339,7 +345,7 @@ export default function QuestBoard({
           });
         }
         setRewardModalData({
-          questTitle: quest.title,
+          questTitle: localizedQuestTitle(quest),
           unlockedCharacters,
           otherRewards,
         });
@@ -401,7 +407,7 @@ export default function QuestBoard({
     });
 
     setRewardModalData({
-      questTitle: quest.title,
+      questTitle: localizedQuestTitle(quest),
       unlockedCharacters: unlockedChars,
       otherRewards: otherRewardsList
     });
@@ -416,7 +422,7 @@ export default function QuestBoard({
   };
 
   // Filter lists
-  const RANK_LIST = ranksList.map(r => r.name);
+  const RANK_LIST = ranksList;
   const filteredQuests = quests.filter(quest => {
     const isCompleted = user.completedQuestIds?.includes(quest.id) || quest.completed;
     if (activeTab === 'completed') return isCompleted;
@@ -426,7 +432,7 @@ export default function QuestBoard({
     if (!rankFilter) return true;
     return (quest.minRank || '').toLowerCase() === rankFilter.toLowerCase();
   }).filter(quest => {
-    const normalizedTitle = quest.title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const normalizedTitle = localizedQuestTitle(quest).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const normalizedSearch = questSearch.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
     return normalizedTitle.includes(normalizedSearch);
   });
@@ -510,7 +516,7 @@ export default function QuestBoard({
                   setRewardModalData(null);
                 }}
                 className="absolute top-4 right-4 p-2 text-blue-500 hover:text-orange-600 hover:bg-sky-50 rounded-full transition cursor-pointer z-20"
-                title="Fechar"
+                title={t('Fechar', 'Close')}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -520,8 +526,8 @@ export default function QuestBoard({
                 <img src="/static/img/icon/star.svg" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 font-sans">
                   {rewardModalData.unlockedCharacters.length > 0
-                    ? 'NOVO PERSONAGEM'
-                    : 'RECOMPENSA RESGATADA!'}
+                    ? t('NOVO PERSONAGEM', 'NEW CHARACTER')
+                    : t('RECOMPENSA RESGATADA!', 'REWARD CLAIMED!')}
                 </span>
                 <img src="/static/img/icon/star.svg" alt="Loading" className="w-3 h-3 animate-spin object-contain" />
               </div>
@@ -556,7 +562,7 @@ export default function QuestBoard({
                           >
                             <SkinMedia
                               src={displayImg}
-                              alt={char.name}
+                              alt={localizeContentText(char.name, char.nameEn, language)}
                               className="w-full h-full object-contain p-2 filter drop-shadow-[0_12px_28px_rgba(37,99,235,0.45)]"
                               autoPlay
                               onImageError={e => {
@@ -571,7 +577,7 @@ export default function QuestBoard({
                           {/* Character Name Label over Image */}
                           <div className="absolute bottom-2 left-0 right-0 z-40 px-2 text-center">
                             <h2 className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-sky-100 to-orange-300 font-sans tracking-wider uppercase drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)]">
-                              {char.name}
+                              {localizeContentText(char.name, char.nameEn, language)}
                             </h2>
                           </div>
                         </div>
@@ -584,7 +590,7 @@ export default function QuestBoard({
                                 key={tIdx}
                                 className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-50 text-blue-700 border border-sky-200 uppercase tracking-wider shadow-sm"
                               >
-                                {tag}
+                                {localizeContentText(tag, char.tagsEn?.[tIdx], language)}
                               </span>
                             ))}
                           </div>
@@ -592,7 +598,7 @@ export default function QuestBoard({
 
                         {/* Character Description */}
                         <p className="text-xs text-blue-950 leading-relaxed max-w-md font-sans line-clamp-3">
-                          {char.description}
+                          {localizeContentText(char.description, char.descriptionEn, language)}
                         </p>
 
                         {/* Skills Showcase */}
@@ -600,14 +606,14 @@ export default function QuestBoard({
                           <div className="w-full bg-sky-50 p-2.5 rounded-xl border border-sky-200 space-y-1.5 text-left">
                             <div className="text-[9px] font-mono uppercase tracking-widest text-blue-700 font-bold flex items-center gap-1 justify-center">
                               <Zap className="w-3 h-3 text-orange-500" />
-                              <span>Habilidades</span>
+                              <span>{t('Habilidades', 'Skills')}</span>
                             </div>
                             <div className="grid grid-cols-4 gap-1.5">
                               {char.skills.slice(0, 4).map((sk, skIdx) => (
                                 <img
                                   key={skIdx}
                                   src={sk.icon || null}
-                                  alt={sk.name}
+                                  alt={localizeContentText(sk.name, sk.nameEn, language)}
                                   className="w-full aspect-square rounded-lg object-cover border border-sky-200 bg-white"
                                 />
                               ))}
@@ -627,10 +633,10 @@ export default function QuestBoard({
                     </div>
                   </div>
                   <h2 className="text-lg font-black text-blue-800 uppercase font-sans">
-                    Recompensas Obtidas
+                    {t('Recompensas Obtidas', 'Rewards Earned')}
                   </h2>
                   <p className="text-[11px] text-blue-900">
-                    Parabéns por completar os objetivos da missão!
+                    {t('Parabéns por completar os objetivos da missão!', 'Congratulations on completing the mission objectives!')}
                   </p>
                 </div>
               )}
@@ -644,7 +650,7 @@ export default function QuestBoard({
                   className="w-full py-2.5 bg-gradient-to-r from-blue-700 via-sky-600 to-blue-700 hover:brightness-110 active:scale-95 text-white font-black rounded-xl text-xs uppercase tracking-wider shadow-xl shadow-blue-500/25 transition cursor-pointer flex items-center justify-center gap-2"
                 >
                   <img src="/static/img/icon/confirm-cloud.svg" alt="" className="w-6 h-6 object-contain" />
-                  <span>INCRÍVEL! EXCELENTE</span>
+                  <span>{t('INCRÍVEL! EXCELENTE', 'AMAZING! EXCELLENT')}</span>
                 </button>
               </div>
               </div>
@@ -669,12 +675,12 @@ export default function QuestBoard({
                       {artUrl ? (
                         <img
                           src={artUrl}
-                          alt={`${card?.characterName || 'Figura colecionável'}${card?.title ? ` — ${card.title}` : ''}`}
+                          alt={`${card?.characterName || t('Figura colecionável', 'Collectible figure')}${card?.title ? ` — ${localizeContentText(card.title, undefined, language)}` : ''}`}
                           className="h-full w-full object-contain"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <img src="/static/img/icon/ninja-card-icon.svg" alt="Figura colecionável" className="h-20 w-20 object-contain" />
+                          <img src="/static/img/icon/ninja-card-icon.svg" alt={t('Figura colecionável', 'Collectible figure')} className="h-20 w-20 object-contain" />
                         </div>
                       )}
                       {rarity === 'secreto' && (
@@ -727,11 +733,11 @@ export default function QuestBoard({
                             : rarityMeta?.chip || 'border-sky-300/60 bg-slate-950/65 text-sky-100'
                         }`}
                       >
-                        ◆ {rarityMeta?.label || 'Figura'}
+                        ◆ {rarityMeta ? t(rarityMeta.label, rarityMeta.labelEn) : t('Figura', 'Figure')}
                       </motion.span>
                       <div className="absolute bottom-2 left-2 right-2 z-50 text-center">
                         <p className="truncate text-sm font-black text-white">
-                          {card?.characterName || 'Figura colecionável'}
+                          {card ? localizeContentText(card.characterName, undefined, language) : t('Figura colecionável', 'Collectible figure')}
                         </p>
                         <p className={`text-sm font-mono font-black uppercase tracking-wider ${rarityMeta?.text || 'text-sky-200'}`}>
                           #{cardIndex >= 0 ? String(cardIndex + 1).padStart(3, '0') : 'NOVA'}
@@ -750,10 +756,10 @@ export default function QuestBoard({
                     </div>
                     <div className="min-w-0">
                       <h3 className="text-xs font-black uppercase tracking-wider text-blue-800">
-                        Outras recompensas
+                        {t('Outras recompensas', 'Other rewards')}
                       </h3>
                       <p className="mt-0.5 text-[10px] font-medium text-blue-500">
-                        {modalOtherRewards.length} item{modalOtherRewards.length === 1 ? '' : 's'} desbloqueado{modalOtherRewards.length === 1 ? '' : 's'}
+                        {modalOtherRewards.length} {modalOtherRewards.length === 1 ? t('item desbloqueado', 'item unlocked') : t('itens desbloqueados', 'items unlocked')}
                       </p>
                     </div>
                   </div>
@@ -763,19 +769,19 @@ export default function QuestBoard({
                       const foundSkillSkin = r.type === 'skill_skin'
                         ? skillSkinItems.find(item => item.id === r.value)
                         : undefined;
-                      const rewardName = r.type === 'title' ? 'Título' :
-                        r.type === 'banner' ? 'Banner' :
-                        r.type === 'card' ? 'Figura colecionável' :
-                        r.type === 'skill_skin' ? 'Skin de habilidade' :
-                        r.type === 'ryos' ? 'Moedas' :
-                        r.type === 'gems' ? 'Ryos' : 'Moldura';
+                      const rewardName = r.type === 'title' ? t('Título', 'Title') :
+                        r.type === 'banner' ? t('Banner', 'Banner') :
+                        r.type === 'card' ? t('Figura colecionável', 'Collectible figure') :
+                        r.type === 'skill_skin' ? t('Skin de habilidade', 'Skill skin') :
+                        r.type === 'ryos' ? t('Moedas', 'Coins') :
+                        r.type === 'gems' ? t('Ryos', 'Ryos') : t('Moldura', 'Frame');
                       const rewardValue = r.type === 'card' && foundCard
-                        ? `${foundCard.characterName} — ${foundCard.title}`
+                        ? `${localizeContentText(foundCard.characterName, undefined, language)} — ${localizeContentText(foundCard.title, undefined, language)}`
                         : r.type === 'skill_skin'
-                          ? foundSkillSkin?.name || r.value
+                          ? localizeContentText(foundSkillSkin?.name || r.value, foundSkillSkin?.nameEn, language)
                           : r.type === 'ryos' || r.type === 'gems'
-                          ? `${Number(r.value).toLocaleString('pt-BR')} ${rewardName}`
-                          : r.value;
+                          ? `${Number(r.value).toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')} ${rewardName}`
+                          : localizeContentText(r.value, undefined, language);
 
                       return (
                         <div
@@ -798,12 +804,12 @@ export default function QuestBoard({
                             {r.type === 'banner' && r.imageUrl ? (
                               <img
                                 src={r.imageUrl}
-                                alt={r.value || 'Banner da recompensa'}
+                                alt={r.value || t('Banner da recompensa', 'Reward banner')}
                                 className="mt-1 h-10 w-full max-w-36 rounded-md border border-sky-200 object-cover"
                               />
                             ) : (
                               <p className="break-words text-xs font-bold leading-snug text-blue-950">
-                                {rewardValue || 'Recompensa desbloqueada'}
+                                {rewardValue || t('Recompensa desbloqueada', 'Reward unlocked')}
                               </p>
                             )}
                           </div>
@@ -822,7 +828,7 @@ export default function QuestBoard({
               className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[60] flex w-[min(280px,calc(100vw-2rem))] -translate-x-1/2 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-700 via-sky-600 to-blue-700 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-xl shadow-blue-500/25 transition hover:brightness-110 active:scale-95 cursor-pointer"
             >
               <img src="/static/img/icon/confirm-cloud.svg" alt="" className="h-6 w-6 object-contain" />
-              <span>RESGATAR</span>
+              <span>{t('RESGATAR', 'CLAIM')}</span>
             </button>
           </div>
         )}
@@ -877,7 +883,7 @@ export default function QuestBoard({
                 className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 text-xs font-semibold text-slate-100 outline-none focus:border-orange-500"
               >
                 <option value="">{t('Todos os ranks', 'All ranks')}</option>
-                {RANK_LIST.map(rank => <option key={rank} value={rank}>{rank}</option>)}
+                {RANK_LIST.map(rank => <option key={rank.id} value={rank.name}>{localizedRankName(rank.name)}</option>)}
               </select>
             </label>
 
@@ -888,7 +894,7 @@ export default function QuestBoard({
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center space-y-3">
               <img src="/static/img/icon/star.svg" alt="Loading" className="w-8 h-8 animate-spin object-contain" />
-              <p className="text-slate-400 text-xs font-mono">Buscando missões secretas na névoa...</p>
+              <p className="text-slate-400 text-xs font-mono">{t('Buscando missões secretas na névoa...', 'Searching for secret missions in the mist...')}</p>
             </div>
 ) : filteredQuests.length > 0 ? (
             <>
@@ -901,6 +907,8 @@ export default function QuestBoard({
                 <AnimatePresence>
                   {paginatedQuests.map((quest) => {
                     const lockCheck = isQuestLocked(quest);
+                  const questTitle = localizedQuestTitle(quest);
+                  const questDescription = localizedQuestDescription(quest);
                   const isCompleted = user.completedQuestIds?.includes(quest.id) || quest.completed;
                   const allGoalsMet = quest.goals.every(g => g.currentValue >= g.targetValue);
 
@@ -929,7 +937,7 @@ export default function QuestBoard({
                       <div className="h-40 w-full relative overflow-hidden rounded-t-2xl group">
                         <img
                           src={quest.coverUrl || '/static/img/ui/pergaminho.webp'}
-                          alt={quest.title}
+                          alt={questTitle}
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-blue-950/80 via-blue-950/20 to-transparent" />
@@ -939,12 +947,12 @@ export default function QuestBoard({
                           {isCompleted ? (
                             <div className="flex items-center gap-1 bg-white/95 border border-sky-200 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono uppercase shadow-md">
                               <CheckCircle className="w-3.5 h-3.5" />
-                              <span>Concluída</span>
+                              <span>{t('Concluída', 'Completed')}</span>
                             </div>
                           ) : lockCheck.locked ? (
                             <div className="flex items-center gap-1 bg-white/95 border border-blue-100 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] font-mono shadow-md">
                               <Lock className="w-3.5 h-3.5 text-blue-500" />
-                              <span>Bloqueada</span>
+                              <span>{t('Bloqueada', 'Locked')}</span>
                             </div>
                           ) : null}
                         </div>
@@ -952,7 +960,7 @@ export default function QuestBoard({
                         {/* Quest Title over cover */}
                         <div className="absolute bottom-3 left-4 right-4">
                           <h3 className="font-extrabold text-lg text-white leading-snug drop-shadow-md">
-                            {quest.title}
+                            {questTitle}
                           </h3>
                         </div>
                       </div>
@@ -962,14 +970,14 @@ export default function QuestBoard({
                         <div className="space-y-4">
                           <div>
                             <p className={`text-xs text-blue-950 leading-relaxed font-sans ${!expandedDesc[quest.id] ? 'line-clamp-2' : ''}`}>
-                              {quest.desc}
+                              {questDescription}
                             </p>
-                            {quest.desc.length > 200 && (
+                            {questDescription.length > 200 && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setExpandedDesc(prev => ({ ...prev, [quest.id]: !prev[quest.id] })); }}
                                 className="text-[10px] font-mono uppercase tracking-wider text-orange-600 hover:text-orange-700 transition-colors cursor-pointer -mt-0.5"
                               >
-                                {expandedDesc[quest.id] ? 'Ver menos' : 'Ler tudo'}
+                                {expandedDesc[quest.id] ? t('Ver menos', 'Show less') : t('Ler tudo', 'Read more')}
                               </button>
                             )}
                           </div>
@@ -977,7 +985,7 @@ export default function QuestBoard({
                           {/* Goals Checklist */}
                           <div className="space-y-3">
                             <div className="text-[10px] font-mono uppercase tracking-wider text-blue-700 font-bold border-b border-sky-100 pb-1.5 flex justify-between items-center">
-                              <span>Metas da Missão</span>
+                              <span>{t('Metas da Missão', 'Mission Goals')}</span>
                               {(() => {
                                 if (!quest.minRank) return null;
                                 const qRankLower = quest.minRank.trim().toLowerCase();
@@ -1003,7 +1011,7 @@ export default function QuestBoard({
                                     ) : (
                                       <Award className="w-3.5 h-3.5 relative z-10" />
                                     )}
-                                    <span className="relative z-10">{r?.name || quest.minRank}</span>
+                                    <span className="relative z-10">{localizedRankName(r?.name || quest.minRank)}</span>
                                   </div>
                                 );
                               })()}
@@ -1016,7 +1024,7 @@ export default function QuestBoard({
                                 <div key={goal.id} className="space-y-1.5">
                                   <div className="flex justify-between items-start text-xs">
                                     <span className="text-blue-950 font-medium">
-                                      {renderHighlightedGoalDescription(goal)}
+                                      {renderHighlightedGoalDescription(goal, language)}
                                     </span>
                                     <span className={`font-mono font-bold text-[11px] ${met ? 'text-blue-700' : 'text-orange-600'}`}>
                                       {goal.currentValue} / {goal.targetValue}
@@ -1045,12 +1053,12 @@ export default function QuestBoard({
                                 {expandedGoals[quest.id] ? (
                                   <>
                                     <ChevronUp className="h-3.5 w-3.5" />
-                                    <span>Mostrar menos metas</span>
+                                    <span>{t('Mostrar menos metas', 'Show fewer goals')}</span>
                                   </>
                                 ) : (
                                   <>
                                     <ChevronDown className="h-3.5 w-3.5" />
-                                    <span>Ver todas as metas ({quest.goals.length})</span>
+                                    <span>{t(`Ver todas as metas (${quest.goals.length})`, `Show all goals (${quest.goals.length})`)}</span>
                                   </>
                                 )}
                               </button>
@@ -1061,14 +1069,16 @@ export default function QuestBoard({
                           {quest.rewards && quest.rewards.length > 0 && (
                             <div className="space-y-2 pt-2 border-t border-sky-100">
                               <div className="text-[10px] font-mono uppercase tracking-wider text-blue-700">
-                                Recompensas
+                                {t('Recompensas', 'Rewards')}
                               </div>
                               {quest.rewards.some(reward => reward.type === 'unlock_character') && (
                                 <div className="grid grid-cols-2 gap-2">
                                   {quest.rewards.map((r, rIdx) => {
                                     if (r.type !== 'unlock_character') return null;
                                     const ch = getCharacters().find(c => c.name === r.value || c.id === r.value);
-                                    const characterName = ch?.name || r.value;
+                                    const characterName = ch
+                                      ? localizeContentText(ch.name, ch.nameEn, language)
+                                      : localizeContentText(r.value, undefined, language);
 
                                     return (
                                       <div
@@ -1098,8 +1108,8 @@ export default function QuestBoard({
                                       .map(({ reward, index }) => (
                                         <div
                                           key={`${type}-${index}`}
-                                          title={type === 'gems' ? 'Ryos' : 'Moedas'}
-                                          aria-label={`${type === 'gems' ? 'Ryos' : 'Moedas'}: ${Number(reward.value).toLocaleString('pt-BR')}`}
+                                          title={type === 'gems' ? t('Ryos', 'Ryos') : t('Moedas', 'Coins')}
+                                          aria-label={`${type === 'gems' ? t('Ryos', 'Ryos') : t('Moedas', 'Coins')}: ${Number(reward.value).toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')}`}
                                           className={`flex min-h-12 min-w-0 items-center gap-2 rounded-lg border px-2 py-2 shadow-sm ${
                                             type === 'gems'
                                               ? 'border-violet-200 bg-violet-50 text-violet-950'
@@ -1112,7 +1122,7 @@ export default function QuestBoard({
                                             className="h-8 w-8 flex-shrink-0 object-contain drop-shadow-sm"
                                           />
                                           <span className="text-sm font-black tabular-nums">
-                                            {Number(reward.value).toLocaleString('pt-BR')}
+                                            {Number(reward.value).toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')}
                                           </span>
                                         </div>
                                       ))
@@ -1136,12 +1146,12 @@ export default function QuestBoard({
                                         <Award className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
                                       )}
                                       <span className="min-w-0 truncate">
-                                        {r.type === 'title' ? `Título: « ${r.value} »` :
-                                          r.type === 'banner' ? 'Banner' :
-                                            r.type === 'card' ? 'Figura colecionável' :
-                                                r.type === 'skill_skin' ? `Skin de habilidade: ${skillSkinItems.find(item => item.id === r.value)?.name || r.value}` :
-                                                r.type === 'frame' ? `Moldura: ${r.value}` :
-                                                `Recompensa: ${r.value}`}
+                                        {r.type === 'title' ? `${t('Título', 'Title')}: « ${localizeContentText(r.value, undefined, language)} »` :
+                                          r.type === 'banner' ? t('Banner', 'Banner') :
+                                            r.type === 'card' ? t('Figura colecionável', 'Collectible figure') :
+                                                r.type === 'skill_skin' ? `${t('Skin de habilidade', 'Skill skin')}: ${localizeContentText(skillSkinItems.find(item => item.id === r.value)?.name || r.value, skillSkinItems.find(item => item.id === r.value)?.nameEn, language)}` :
+                                                r.type === 'frame' ? `${t('Moldura', 'Frame')}: ${localizeContentText(r.value, undefined, language)}` :
+                                                `${t('Recompensa', 'Reward')}: ${localizeContentText(r.value, undefined, language)}`}
                                       </span>
                                     </div>
                                   ))}
@@ -1159,7 +1169,7 @@ export default function QuestBoard({
                               className="w-full py-2.5 bg-emerald-600 border border-emerald-400 text-white hover:bg-emerald-500 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans uppercase tracking-wider shadow-md shadow-emerald-950/20 transition cursor-pointer active:scale-95"
                             >
                               <Eye className="w-4 h-4" />
-                              <span>Missão Concluída</span>
+                              <span>{t('Missão Concluída', 'Mission Completed')}</span>
                             </button>
                           ) : lockCheck.locked ? (
                             <div className="w-full py-2.5 bg-slate-950 border border-slate-800 text-slate-500 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans uppercase tracking-wider" title={lockCheck.reason}>
@@ -1178,7 +1188,7 @@ export default function QuestBoard({
                               ) : (
                                 <Sparkles className="w-4 h-4 fill-white text-white" />
                               )}
-                              <span>Resgatar Recompensa</span>
+                              <span>{t('Resgatar Recompensa', 'Claim Reward')}</span>
                             </button>
                           ) : (
                             <button
@@ -1186,7 +1196,7 @@ export default function QuestBoard({
                               className="w-full py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:brightness-110 active:scale-95 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer font-sans uppercase tracking-wider shadow-lg shadow-orange-500/20"
                             >
                               <img src="/static/img/icon/cloud.svg" alt="" className="w-7 h-7 brightness-0 invert" />
-                              <span>Iniciar Missão</span>
+                              <span>{t('Iniciar Missão', 'Start Mission')}</span>
                             </button>
                           )}
                         </div>
@@ -1245,7 +1255,7 @@ export default function QuestBoard({
           ) : (
             <div className="py-20 border border-dashed border-slate-800 rounded-2xl text-center space-y-3">
               <ShieldAlert className="w-8 h-8 text-slate-600 mx-auto" />
-              <p className="text-slate-400 text-xs font-mono">Nenhuma missão encontrada para esta categoria.</p>
+              <p className="text-slate-400 text-xs font-mono">{t('Nenhuma missão encontrada para esta categoria.', 'No missions found in this category.')}</p>
             </div>
           )}
         </div>
@@ -1286,11 +1296,11 @@ export default function QuestBoard({
                   
                   {user.title ? (
                     <p className="text-xs text-amber-900 font-bold tracking-wide">
-                      « {user.title} »
+                      « {localizeContentText(user.title, undefined, language)} »
                     </p>
                   ) : (
                     <p className="text-[11px] text-stone-700 font-semibold">
-                      Sem titulo equipado
+                      {t('Sem título equipado', 'No title equipped')}
                     </p>
                   )}
                   
@@ -1323,12 +1333,12 @@ export default function QuestBoard({
                         ) : (
                           <Award className="w-3.5 h-3.5 relative z-10 text-amber-400" />
                         )}
-                        <span className="relative z-10">{currentRank}</span>
+                        <span className="relative z-10">{localizedRankName(currentRank)}</span>
                       </div>
                     );
                   })()}
                   <span className="text-xs font-bold text-stone-800 tracking-wide">
-                    Rank Atual
+                    {t('Rank Atual', 'Current Rank')}
                   </span>
                 </div>
               </div>
@@ -1337,11 +1347,11 @@ export default function QuestBoard({
               <div className="pt-2 border-t border-stone-900/20 flex items-center justify-between text-stone-950 font-sans">
                 <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm">
                   <Star className="w-4 h-4 text-amber-600 fill-amber-500" />
-                  <span>{completedCount} Missões Feitas</span>
+                  <span>{t(`${completedCount} Missões Feitas`, `${completedCount} Missions Completed`)}</span>
                 </div>
                 
                 <div className="font-black text-xs sm:text-sm text-stone-950">
-                  Nível {completedCount + 1}
+                  {t(`Nível ${completedCount + 1}`, `Level ${completedCount + 1}`)}
                 </div>
               </div>
             </div>
@@ -1354,10 +1364,10 @@ export default function QuestBoard({
             <div className="space-y-3">
               <h3 className="font-bold text-slate-200 text-sm uppercase tracking-wider flex items-center gap-2">
                 <Award className="w-4 h-4 text-orange-400" />
-                <span>Seus Títulos Desbloqueados</span>
+                <span>{t('Seus Títulos Desbloqueados', 'Your Unlocked Titles')}</span>
               </h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Conclua missões de rank alto para destravar títulos honorários. Clique em um título abaixo para equipá-lo no seu cartão.
+                {t('Conclua missões de rank alto para destravar títulos honorários. Clique em um título abaixo para equipá-lo no seu cartão.', 'Complete high-rank missions to unlock honorary titles. Click a title below to equip it on your profile card.')}
               </p>
 
               <div className="flex flex-wrap gap-2 pt-2">
@@ -1374,14 +1384,14 @@ export default function QuestBoard({
                             : 'bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700/60'
                         }`}
                       >
-                        <span>{tName}</span>
+                        <span>{localizeContentText(tName, undefined, language)}</span>
                         {isEquipped && <Sparkles className="w-3 h-3 fill-slate-950 text-slate-950" />}
                       </button>
                     );
                   })
                 ) : (
                   <div className="text-xs text-slate-500 italic py-2">
-                    Nenhum título desbloqueado ainda. Conclua missões na aba "Missões" para ganhar títulos!
+                    {t('Nenhum título desbloqueado ainda. Conclua missões na aba "Missões" para ganhar títulos!', 'No titles unlocked yet. Complete missions in the "Missions" tab to earn titles!')}
                   </div>
                 )}
               </div>
@@ -1389,7 +1399,7 @@ export default function QuestBoard({
 
             <div className="text-[10px] text-slate-500 font-mono pt-4 border-t border-slate-800/40 flex items-center gap-1.5">
               <Compass className="w-3.5 h-3.5 text-blue-500" />
-              <span>Títulos equipados aparecem no menu principal e na arena de combate.</span>
+              <span>{t('Títulos equipados aparecem no menu principal e na arena de combate.', 'Equipped titles appear in the main menu and battle arena.')}</span>
             </div>
           </div>
         </div>

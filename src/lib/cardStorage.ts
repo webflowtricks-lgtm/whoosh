@@ -46,6 +46,7 @@ export function markCardAsViewed(username: string, cardId: string): string[] {
 // Raridades (metadados usados na galeria): cor da borda/brilho e pontos.
 export const CARD_RARITY_META: Record<CardRarity, {
   label: string;
+  labelEn: string;
   points: number;
   border: string;
   glow: string;
@@ -54,6 +55,7 @@ export const CARD_RARITY_META: Record<CardRarity, {
 }> = {
   comum: {
     label: 'Comum',
+    labelEn: 'Common',
     points: 1,
     border: 'border-slate-500',
     glow: 'shadow-slate-900/40',
@@ -62,6 +64,7 @@ export const CARD_RARITY_META: Record<CardRarity, {
   },
   raro: {
     label: 'Raro',
+    labelEn: 'Rare',
     points: 3,
     border: 'border-sky-500',
     glow: 'shadow-sky-500/20',
@@ -70,6 +73,7 @@ export const CARD_RARITY_META: Record<CardRarity, {
   },
   epico: {
     label: 'Épico',
+    labelEn: 'Epic',
     points: 8,
     border: 'border-fuchsia-500',
     glow: 'shadow-fuchsia-500/25',
@@ -78,6 +82,7 @@ export const CARD_RARITY_META: Record<CardRarity, {
   },
   lendario: {
     label: 'Lendário',
+    labelEn: 'Legendary',
     points: 20,
     border: 'border-amber-400',
     glow: 'shadow-amber-400/30',
@@ -86,6 +91,7 @@ export const CARD_RARITY_META: Record<CardRarity, {
   },
   secreto: {
     label: 'Mítico',
+    labelEn: 'Mythic',
     points: 50,
     border: 'border-red-500',
     glow: 'shadow-red-500/40',

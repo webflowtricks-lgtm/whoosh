@@ -9,7 +9,7 @@ import { UserProfile, NinjaCard } from '../types';
 import { getCards, fetchCardsFromServer, CARD_RARITY_META, rarityFx, RARITY_ORDER } from '../lib/cardStorage';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
-import { getLanguage, useLanguage } from '../lib/i18n';
+import { getLanguage, localizeContentText, useLanguage } from '../lib/i18n';
 import { fetchShopItemsFromServer, getShopItems } from '../lib/shopStorage';
 import { findTitleItem, getCanonicalTitleName, getTitleThemeClass } from '../lib/titleThemes';
 import { getVillageById } from '../lib/villages';
@@ -42,6 +42,7 @@ const ProfileCardCollectionGrid = React.memo(function ProfileCardCollectionGrid(
   isLandscape: boolean;
   onSelectCard: (card: NinjaCard) => void;
 }) {
+  const { t } = useLanguage();
   const rarityBadgeBackground: Record<NinjaCard['rarity'], string> = {
     comum: 'bg-slate-500 text-white',
     raro: 'bg-sky-600 text-white',
@@ -66,7 +67,7 @@ const ProfileCardCollectionGrid = React.memo(function ProfileCardCollectionGrid(
                 #{String(num).padStart(3, '0')}
               </span>
               <span className={`shrink-0 rounded px-1 py-0.5 text-[6px] font-mono font-black uppercase leading-none ${rarityBadgeBackground[card.rarity]}`}>
-                {CARD_RARITY_META[card.rarity].label}
+                {t(CARD_RARITY_META[card.rarity].label, CARD_RARITY_META[card.rarity].labelEn)}
               </span>
             </div>
           </>
@@ -405,11 +406,17 @@ export default function ProfileCardModal({
   const wins = profile.wins !== undefined ? profile.wins : 24;
   const losses = profile.losses !== undefined ? profile.losses : 5;
   const selectedVillage = getVillageById(profile.village);
-  const displayedTitle = getCanonicalTitleName(profile.title || t('ESTUDANTE', 'STUDENT'), titleItems);
+  const rawTitle = profile.title || t('ESTUDANTE', 'STUDENT');
+  const displayedTitle = getCanonicalTitleName(rawTitle, titleItems);
+  const localizedTitle = localizeContentText(
+    displayedTitle,
+    findTitleItem(titleItems, rawTitle)?.nameEn,
+    getLanguage(),
+  );
   const displayedTitleTheme = getTitleThemeClass(findTitleItem(titleItems, displayedTitle)?.titleTheme);
   const village = selectedVillage
     ? t(selectedVillage.name, selectedVillage.englishName)
-    : profile.village || t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)');
+    : localizeContentText(profile.village || t('Vila da Folha (Konoha)', 'Leaf Village (Konoha)'), undefined, getLanguage());
   const villageIcon = selectedVillage?.icon || '/static/img/icon/vilas/Konohagakure_Symbol.webp';
   const accountCreatedDate = accountCreatedAt ? new Date(accountCreatedAt) : null;
   const formattedAccountCreatedAt = accountCreatedDate && Number.isFinite(accountCreatedDate.getTime())
@@ -609,7 +616,7 @@ export default function ProfileCardModal({
                 {/* Título do jogador + @username abaixo do nome */}
                 <div className={`${isLandscape ? 'gap-1 mt-0.5' : 'gap-1.5 sm:gap-2 mt-0.5 sm:mt-1'} flex flex-wrap items-center`}>
                   <span className={`title-theme-preview ${displayedTitleTheme} text-[9px] sm:text-[10px] font-mono font-black uppercase px-1.5 sm:px-2.5 py-px sm:py-0.5`}>
-                    {displayedTitle}
+                    {localizedTitle}
                   </span>
                   <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase px-1.5 sm:px-2 py-px sm:py-0.5 rounded bg-slate-950/60 text-slate-300 border border-slate-800">
                     @{profile.username || profile.name}
@@ -858,7 +865,7 @@ export default function ProfileCardModal({
                       : `0 0 8px ${CARD_RARITY_GLOW[lightboxCard.rarity].shadow}`,
                   }}
                 >
-                  #{(ownedCards.findIndex(x => x.id === lightboxCard.id) + 1).toString().padStart(3, '0')} • {CARD_RARITY_META[lightboxCard.rarity].label}
+                  #{(ownedCards.findIndex(x => x.id === lightboxCard.id) + 1).toString().padStart(3, '0')} • {t(CARD_RARITY_META[lightboxCard.rarity].label, CARD_RARITY_META[lightboxCard.rarity].labelEn)}
                 </span>
                 <div className="flex items-center justify-center gap-2">
                   <p className="truncate text-white text-base font-extrabold leading-tight">{lightboxCard.characterName}</p>

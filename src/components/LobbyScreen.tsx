@@ -751,12 +751,14 @@ export default function LobbyScreen({
               }}
             />
             <span className="lobby-event-copy">
-              <small>{featuredEvent.badge || t('EVENTO', 'EVENT')}</small>
+              <small>{featuredEvent.badge
+                ? localizeContentText(featuredEvent.badge, featuredEvent.badgeEn, language)
+                : t('EVENTO', 'EVENT')}</small>
               <strong>{localizeContentText(featuredEvent.title, featuredEvent.titleEn, language)}</strong>
               <span>
                 {eventCountdown ? (
                   <>
-                    {featuredEvent.timeLeft} •{' '}
+                    {localizeContentText(featuredEvent.timeLeft, featuredEvent.timeLeftEn, language)} •{' '}
                     <span className="lobby-event-time-remaining">
                       <Clock aria-hidden="true" />
                       {eventCountdown.expired
@@ -767,7 +769,7 @@ export default function LobbyScreen({
                         )}
                     </span>
                   </>
-                ) : featuredEvent.timeLeft}
+                ) : localizeContentText(featuredEvent.timeLeft, featuredEvent.timeLeftEn, language)}
               </span>
             </span>
             <span className="lobby-event-cta">
@@ -971,7 +973,9 @@ export default function LobbyScreen({
                   <span>{t('Vila / categoria', 'Village / category')}</span>
                   <select value={rosterTag} onChange={event => setRosterTag(event.target.value)}>
                     <option value="">{t('Todas', 'All')}</option>
-                    {rosterTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                    {rosterTags.map(tag => (
+                      <option key={tag} value={tag}>{localizeContentText(tag, undefined, language)}</option>
+                    ))}
                   </select>
                 </label>
               </div>
@@ -984,8 +988,11 @@ export default function LobbyScreen({
                     type="button"
                     className={`lobby-roster-character${unlocked ? '' : ' is-locked'}`}
                     key={character.id}
-                    title={!unlocked ? t('Bloqueado por missão', 'Locked by a mission') : character.name}
-                    aria-label={t(`Ver habilidades e detalhes de ${character.name}`, `View ${character.name} skills and details`)}
+                    title={!unlocked ? t('Bloqueado por missão', 'Locked by a mission') : localizeContentText(character.name, character.nameEn, language)}
+                    aria-label={t(
+                      `Ver habilidades e detalhes de ${character.name}`,
+                      `View ${localizeContentText(character.name, character.nameEn, language)} skills and details`,
+                    )}
                     onClick={() => {
                       playClickSound();
                       setShowCharacterSkins(false);
@@ -1011,7 +1018,7 @@ export default function LobbyScreen({
                         <img src="/static/img/icon/selo.svg" alt={t('Bloqueado', 'Locked')} />
                       </span>
                     )}
-                    <span>{character.name}</span>
+                    <span>{localizeContentText(character.name, character.nameEn, language)}</span>
                   </button>
                 );
               })}
@@ -1066,13 +1073,21 @@ export default function LobbyScreen({
                 }}
               />
               <div>
-                <h2 id="lobby-character-details-title">{detailsCharacter.name}</h2>
-                <p>{detailsCharacter.description || t('Sem descrição cadastrada.', 'No description available.')}</p>
+                <h2 id="lobby-character-details-title">
+                  {localizeContentText(detailsCharacter.name, detailsCharacter.nameEn, language)}
+                </h2>
+                <p>{detailsCharacter.description
+                  ? localizeContentText(detailsCharacter.description, detailsCharacter.descriptionEn, language)
+                  : t('Sem descrição cadastrada.', 'No description available.')}</p>
               </div>
             </header>
             {!!detailsCharacter.tags?.length && (
               <div className="lobby-character-detail-tags" aria-label={t('Características', 'Attributes')}>
-                {detailsCharacter.tags.map(tag => <span key={tag}>{tag}</span>)}
+                {detailsCharacter.tags.map((tag, index) => (
+                  <span key={tag}>
+                    {localizeContentText(tag, detailsCharacter.tagsEn?.[index], language)}
+                  </span>
+                ))}
               </div>
             )}
             {showCharacterSkins ? (
@@ -1168,7 +1183,11 @@ export default function LobbyScreen({
                     return (
                       <article className="lobby-character-skill" key={`${skill.name}-${index}`}>
                         <header className="lobby-character-skill-header">
-                          <h4>{skill.name}</h4>
+                          <h4>{localizeContentText(
+                            skill.name,
+                            skill.nameEn,
+                            language,
+                          )}</h4>
                           <div className="lobby-character-skill-cost" aria-label={t('Custo de chakra', 'Chakra cost')}>
                             {(skill.cost || []).map((type, costIndex) => (
                               <span
@@ -1201,7 +1220,9 @@ export default function LobbyScreen({
                             {effects.length === 0 && (
                               <article className="lobby-character-skill-effect">
                                 <strong>{t('Habilidade', 'Skill')}</strong>
-                                <p>{skill.desc || t('Sem efeitos especificados.', 'No effects specified.')}</p>
+                                <p>{skill.desc
+                                  ? localizeContentText(skill.desc, skill.descEn, language)
+                                  : t('Sem efeitos especificados.', 'No effects specified.')}</p>
                                 <span className="lobby-character-skill-effect-target">
                                   {targetLabels[skill.targetType] || skill.targetType}
                                 </span>

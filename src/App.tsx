@@ -22,6 +22,7 @@ import { isVillageId } from './lib/villages';
 import { playGlobalSound, bindGlobalClickSound, bindGlobalModalSound, preloadGlobalSounds, setEffectsVolumeMultiplier } from './lib/soundUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Swords, Flag, Smartphone, ShieldAlert, LogOut } from 'lucide-react';
+import { useLanguage } from './lib/i18n';
 
 const MainMenu = React.lazy(() => import('./components/MainMenu'));
 const LobbyScreen = React.lazy(() => import('./components/LobbyScreen'));
@@ -36,6 +37,8 @@ const QuestBoard = React.lazy(() => import('./components/QuestBoard'));
 // import RotateOverlay from './components/RotateOverlay'; // DESABILITADO temporariamente — reativar quando necessário
 
 function ScreenLoadingFallback() {
+  const { t } = useLanguage();
+
   return (
     <div className="screen-loading-backdrop">
       <section className="screen-loading-card" role="status" aria-live="polite">
@@ -45,10 +48,10 @@ function ScreenLoadingFallback() {
           aria-hidden="true"
           className="screen-loading-icon animate-spin"
         />
-        <h2>Carregando jogo</h2>
-        <p>Estamos preparando a próxima tela.</p>
+        <h2>{t('Carregando jogo', 'Loading game')}</h2>
+        <p>{t('Estamos preparando a próxima tela.', 'Preparing the next screen.')}</p>
         <div className="screen-loading-progress">
-          <span>Carregando</span>
+          <span>{t('Carregando', 'Loading')}</span>
           <div className="screen-loading-track" aria-hidden="true">
             <div className="screen-loading-indicator" />
           </div>
@@ -131,6 +134,7 @@ function AccountSessionPrompt({
   onTakeover: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useLanguage();
   const isRequester = status === 'pending';
   const isWaiting = status === 'initializing';
   const hasError = status === 'error';
@@ -142,16 +146,20 @@ function AccountSessionPrompt({
           {isRequester ? <Smartphone className="h-7 w-7" /> : <ShieldAlert className="h-7 w-7" />}
         </div>
         <h2 className="text-xl font-black uppercase tracking-wide text-amber-300">
-          {isWaiting ? 'Verificando sessão' : hasError ? 'Não foi possível verificar a sessão' : 'Conta conectada em outro aparelho'}
+          {isWaiting
+            ? t('Verificando sessão', 'Checking session')
+            : hasError
+              ? t('Não foi possível verificar a sessão', 'Could not verify session')
+              : t('Conta conectada em outro aparelho', 'Account connected on another device')}
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-300">
           {isWaiting
-            ? 'Estamos confirmando sua sessão com o servidor. Aguarde um instante.'
+            ? t('Estamos confirmando sua sessão com o servidor. Aguarde um instante.', 'We are confirming your session with the server. Please wait.')
             : hasError
-              ? 'A conexão com o servidor falhou. Tente verificar sua sessão novamente.'
+              ? t('A conexão com o servidor falhou. Tente verificar sua sessão novamente.', 'The connection to the server failed. Please try verifying your session again.')
               : isRequester
-              ? 'Esta conta já está aberta em outro aparelho. Deseja desconectá-lo para continuar neste?'
-              : 'Alguém tentou entrar nesta conta por outro aparelho. Deseja desconectá-lo e continuar aqui?'}
+                ? t('Esta conta já está aberta em outro aparelho. Deseja desconectá-lo para continuar neste?', 'This account is already open on another device. Disconnect it to continue here?')
+                : t('Alguém tentou entrar nesta conta por outro aparelho. Deseja desconectá-lo e continuar aqui?', 'Someone tried to sign in to this account on another device. Disconnect it and continue here?')}
         </p>
         {status === 'error' && error && (
           <p role="alert" className="mt-3 text-sm font-semibold text-rose-300">{error}</p>
@@ -164,7 +172,9 @@ function AccountSessionPrompt({
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-red-700 px-4 py-3 text-sm font-black uppercase tracking-wide text-white transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
           >
             <LogOut className="h-4 w-4" />
-            {hasError ? 'Tentar novamente' : 'Desconectar outro aparelho e continuar aqui'}
+            {hasError
+              ? t('Tentar novamente', 'Try again')
+              : t('Desconectar outro aparelho e continuar aqui', 'Disconnect the other device and continue here')}
           </button>
           <button
             type="button"
@@ -204,6 +214,8 @@ function SessionTakeoverResult({ onDismiss }: { onDismiss: () => void }) {
 }
 
 export default function App() {
+  const { t } = useLanguage();
+
   useEffect(() => {
     void import('./components/MainMenu').catch((error: unknown) => {
       console.error('Não foi possível carregar o menu principal em segundo plano:', error);
@@ -1403,7 +1415,7 @@ export default function App() {
           className="pointer-events-none fixed z-[1000000] -translate-x-1/2 -translate-y-1/2"
           style={{ left: cursorPosition.x, top: cursorPosition.y }}
         > 
-          <img src="/static/img/icon/mangeky.svg" alt="Processando" className="h-16 w-16 animate-spin object-contain drop-shadow-lg" />
+          <img src="/static/img/icon/mangeky.svg" alt={t('Processando', 'Processing')} className="h-16 w-16 animate-spin object-contain drop-shadow-lg" />
         </div>
       )}
       {user && sessionToken && sessionPromptStatus && (
@@ -1432,7 +1444,7 @@ export default function App() {
               {/* Background Pergaminho Image */}
               <img
                 src="/static/img/ui/pergaminho.webp"
-                alt="Pergaminho Shinobi"
+                alt={t('Pergaminho Shinobi', 'Shinobi Scroll')}
                 className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none filter drop-shadow-xl"
               />
 
@@ -1441,24 +1453,55 @@ export default function App() {
                   <div className="flex items-center justify-center gap-2">
                     <Swords className="w-6 h-6 text-orange-800 animate-pulse" />
                     <h2 className="text-xl font-black uppercase tracking-tight text-stone-950 font-sans">
-                      {reconnectChecking ? 'Verificando Sala...' : reconnectSurrender ? (['timeout', 'inactivity'].includes(reconnectSurrender.reason) ? (reconnectSurrender.isVictory ? 'Vitória por Inatividade!' : 'Derrota por Inatividade') : reconnectSurrender.reason === 'disconnect' ? (reconnectSurrender.isVictory ? 'Vitória por Desconexão!' : 'Derrota por Desconexão') : (reconnectSurrender.isVictory ? 'Vitória por Rendição!' : 'Derrota por Rendição')) : reconnectRoomLost ? 'Sala Perdida' : 'Combate Encontrado!'}
+                      {reconnectChecking
+                        ? t('Verificando Sala...', 'Checking room...')
+                        : reconnectSurrender
+                          ? ['timeout', 'inactivity'].includes(reconnectSurrender.reason)
+                            ? reconnectSurrender.isVictory
+                              ? t('Vitória por Inatividade!', 'Victory by Inactivity!')
+                              : t('Derrota por Inatividade', 'Defeat by Inactivity')
+                            : reconnectSurrender.reason === 'disconnect'
+                              ? reconnectSurrender.isVictory
+                                ? t('Vitória por Desconexão!', 'Victory by Disconnection!')
+                                : t('Derrota por Desconexão', 'Defeat by Disconnection')
+                              : reconnectSurrender.isVictory
+                                ? t('Vitória por Rendição!', 'Victory by Surrender!')
+                                : t('Derrota por Rendição', 'Defeat by Surrender')
+                          : reconnectRoomLost
+                            ? t('Sala Perdida', 'Room Lost')
+                            : t('Combate Encontrado!', 'Battle Found!')}
                     </h2>
                   </div>
                   {reconnectChecking ? (
                     <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                      Sua batalha em andamento foi encontrada. Verificando a sala no servidor...
+                      {t('Sua batalha em andamento foi encontrada. Verificando a sala no servidor...', 'Your ongoing battle was found. Checking the room with the server...')}
                     </p>
                   ) : reconnectSurrender ? (
                     <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                      {reconnectSurrender.reason === 'inactivity' ? (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} ficou 120 segundos sem interagir com a batalha. Você venceu!` : `Você perdeu por ficar 120 segundos sem interagir com a batalha.`) : reconnectSurrender.reason === 'timeout' ? (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} perdeu por falta de conexão (2 turnos offline)! Você venceu.` : `Você perdeu por falta de conexão (2 turnos sem jogar).`) : reconnectSurrender.reason === 'disconnect' ? (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} desconectou! Você venceu.` : `Você desconectou e perdeu.`) : (reconnectSurrender.isVictory ? `O oponente ${reconnectSurrender.surrenderedBy} se rendeu! Você venceu por rendição.` : `Você se rendeu para ${reconnectSurrender.surrenderedBy}. Derrota por rendição.`)} A partida foi encerrada.
+                      {reconnectSurrender.reason === 'inactivity'
+                        ? reconnectSurrender.isVictory
+                          ? t(`O oponente ${reconnectSurrender.surrenderedBy} ficou 120 segundos sem interagir com a batalha. Você venceu!`, `Opponent ${reconnectSurrender.surrenderedBy} was inactive for 120 seconds. You won!`)
+                          : t('Você perdeu por ficar 120 segundos sem interagir com a batalha.', 'You lost after being inactive for 120 seconds.')
+                        : reconnectSurrender.reason === 'timeout'
+                          ? reconnectSurrender.isVictory
+                            ? t(`O oponente ${reconnectSurrender.surrenderedBy} perdeu por falta de conexão (2 turnos offline)! Você venceu.`, `Opponent ${reconnectSurrender.surrenderedBy} lost their connection for 2 turns. You won!`)
+                            : t('Você perdeu por falta de conexão (2 turnos sem jogar).', 'You lost after being disconnected for 2 turns.')
+                          : reconnectSurrender.reason === 'disconnect'
+                            ? reconnectSurrender.isVictory
+                              ? t(`O oponente ${reconnectSurrender.surrenderedBy} desconectou! Você venceu.`, `Opponent ${reconnectSurrender.surrenderedBy} disconnected. You won!`)
+                              : t('Você desconectou e perdeu.', 'You disconnected and lost.')
+                            : reconnectSurrender.isVictory
+                              ? t(`O oponente ${reconnectSurrender.surrenderedBy} se rendeu! Você venceu por rendição.`, `Opponent ${reconnectSurrender.surrenderedBy} surrendered. You won!`)
+                              : t(`Você se rendeu para ${reconnectSurrender.surrenderedBy}. Derrota por rendição.`, `You surrendered to ${reconnectSurrender.surrenderedBy}. You were defeated.`)}
+                      {' '}{t('A partida foi encerrada.', 'The match has ended.')}
                     </p>
                   ) : reconnectRoomLost ? (
                     <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                      A sala desta batalha no existe mais no servidor, ento o combate ser encerrado.
+                      {t('A sala desta batalha não existe mais no servidor, então o combate será encerrado.', 'This battle room no longer exists on the server, so the match will be ended.')}
                     </p>
                   ) : (
                     <p className="text-xs sm:text-sm text-stone-800 font-bold leading-relaxed max-w-xs mx-auto">
-                      Voc possui uma batalha em andamento na Arena. Deseja retornar ao confronto ou declarar rendio?
+                      {t('Você possui uma batalha em andamento na Arena. Deseja retornar ao confronto ou declarar rendição?', 'You have an ongoing Arena battle. Would you like to return to the fight or surrender?')}
                     </p>
                   )}
                 </div>
@@ -1466,8 +1509,8 @@ export default function App() {
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full pt-1">
                   {reconnectChecking ? (
                     <div className="flex items-center justify-center gap-3 py-1 w-full">
-                      <img src="/static/img/icon/star.svg" alt="Verificando" className="w-8 h-8 animate-spin object-contain" />
-                      <span className="text-xs text-stone-700 font-mono font-bold uppercase tracking-wider">Aguarde...</span>
+                      <img src="/static/img/icon/star.svg" alt={t('Verificando', 'Checking')} className="w-8 h-8 animate-spin object-contain" />
+                      <span className="text-xs text-stone-700 font-mono font-bold uppercase tracking-wider">{t('Aguarde...', 'Please wait...')}</span>
                     </div>
                   ) : reconnectSurrender ? (
                     <button
@@ -1481,7 +1524,7 @@ export default function App() {
                       className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-700 to-emerald-800 hover:from-emerald-600 hover:to-emerald-700 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg border border-emerald-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
                     >
                       <Flag className="w-4 h-4" />
-                      <span>{reconnectSurrender.isVictory ? 'Coletar Vitória' : 'Encerrar'}</span>
+                      <span>{reconnectSurrender.isVictory ? t('Coletar Vitória', 'Claim Victory') : t('Encerrar', 'Close')}</span>
                     </button>
                   ) : reconnectRoomLost ? (
                     <button
@@ -1490,7 +1533,7 @@ export default function App() {
                       className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-600 hover:to-slate-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-slate-950/40 border border-slate-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
                     >
                       <Flag className="w-4 h-4" />
-                      <span>Encerrar Batalha</span>
+                      <span>{t('Encerrar Batalha', 'End Battle')}</span>
                     </button>
                   ) : (
                     <>
@@ -1500,7 +1543,7 @@ export default function App() {
                         className="sm:w-auto sm:flex-none w-full py-2.5 px-5 rounded-xl bg-gradient-to-r from-green-800 to-emerald-700 hover:from-green-700 hover:to-emerald-600 text-green-50 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-green-950/40 border border-green-500/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
                       >
                         <Swords className="w-4 h-4" />
-                        <span>Continuar</span>
+                        <span>{t('Continuar', 'Continue')}</span>
                       </button>
 
                       <button
@@ -1509,7 +1552,7 @@ export default function App() {
                         className="sm:w-auto sm:flex-none w-full py-2.5 px-5 rounded-xl bg-gradient-to-r from-red-800 to-rose-900 hover:from-red-700 hover:to-rose-800 text-amber-100 font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-950/40 border border-red-600/50 transition cursor-pointer active:scale-95 flex items-center justify-center gap-2"
                       >
                         <Flag className="w-4 h-4" />
-                        <span>Render-se</span>
+                        <span>{t('Render-se', 'Surrender')}</span>
                       </button>
                     </>
                   )}
@@ -1764,7 +1807,9 @@ export default function App() {
                       initial={{ opacity: 0, y: 14 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
-                      {isClaimingTutorialReward ? 'Preparando recompensa...' : 'Receber recompensa'}
+                      {isClaimingTutorialReward
+                        ? t('Preparando recompensa...', 'Preparing reward...')
+                        : t('Receber recompensa', 'Claim reward')}
                     </motion.button>
                   ) : (
                     <p className="mt-7 animate-pulse text-xs font-bold uppercase tracking-[0.2em] text-amber-200/80">

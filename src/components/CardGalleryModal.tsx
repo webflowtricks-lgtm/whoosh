@@ -153,7 +153,7 @@ export default function CardGalleryModal({ user, newCardIds, onCardViewed, onClo
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-mono font-bold uppercase tracking-wider transition cursor-pointer whitespace-nowrap ${rarityFilterColors[rarity]}`}
               >
                 <span className="flex items-center gap-1.5">
-                  {meta.label}
+                  {t(meta.label, meta.labelEn)}
                   {isActive && <Check className="w-3 h-3" />}
                 </span>
                 <span className={`text-[10px] font-mono font-bold ${isActive ? 'text-blue-300' : 'text-blue-600'}`}>
@@ -232,11 +232,11 @@ export default function CardGalleryModal({ user, newCardIds, onCardViewed, onClo
 
                     {/* Rarity badge */}
                     <div className={`absolute left-1.5 top-1.5 rounded px-1.5 py-0.5 text-[8px] font-mono font-black uppercase tracking-wider border ${meta.chip}`}>
-                      ◆ {meta.label}
+                      ◆ {t(meta.label, meta.labelEn)}
                     </div>
                     {!isOwned && (
                       <div className="absolute top-1.5 right-1.5 text-[9px] font-mono text-slate-500 px-1.5 py-0.5 rounded bg-slate-950/70 border border-slate-800">
-                        Fig.
+                        {t('Fig.', 'Card')}
                       </div>
                     )}
                     {isOwned && (
@@ -344,7 +344,7 @@ export default function CardGalleryModal({ user, newCardIds, onCardViewed, onClo
                         : `0 0 8px ${CARD_RARITY_GLOW[selectedCard.rarity].shadow}`,
                     }}
                   >
-                    #{cardNumber(selectedCard.id)} • {CARD_RARITY_META[selectedCard.rarity].label}
+                    #{cardNumber(selectedCard.id)} • {t(CARD_RARITY_META[selectedCard.rarity].label, CARD_RARITY_META[selectedCard.rarity].labelEn)}
                   </span>
                   <div className="flex items-center justify-center gap-2">
                     <h3 className="min-w-0 truncate text-xl font-black leading-tight text-white">

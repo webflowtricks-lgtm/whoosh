@@ -751,6 +751,90 @@
           "currentValue": 290,
           "currentStreak": 0
         }
+      ],
+      "daily-2026-11-15-daily-victory": [
+        {
+          "id": "daily-2026-11-15-daily-victory-win",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-11-15-daily-technique": [
+        {
+          "id": "daily-2026-11-15-daily-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-11-15-daily-squad": [
+        {
+          "id": "daily-2026-11-15-daily-squad-characters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-11-15-daily-damage": [
+        {
+          "id": "daily-2026-11-15-daily-damage-damage",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W46-weekly-wins": [
+        {
+          "id": "weekly-2026-W46-weekly-wins-wins",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W46-weekly-technique": [
+        {
+          "id": "weekly-2026-W46-weekly-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W46-weekly-damage": [
+        {
+          "id": "weekly-2026-W46-weekly-damage-damage",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W46-weekly-shield": [
+        {
+          "id": "weekly-2026-W46-weekly-shield-shield",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W46-weekly-healing": [
+        {
+          "id": "weekly-2026-W46-weekly-healing-healing",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W46-weekly-stuns": [
+        {
+          "id": "weekly-2026-W46-weekly-stuns-stuns",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W46-weekly-kills": [
+        {
+          "id": "weekly-2026-W46-weekly-kills-kills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W46-weekly-counters": [
+        {
+          "id": "weekly-2026-W46-weekly-counters-counters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
       ]
     },
     "questAiBattleIds": [
@@ -809,7 +893,10 @@
       "1793545908249-omf3mvyg0l",
       "1793545960602-bpwjixyown",
       "1793546014515-dcddkkpkyav",
-      "1793546451924-00xm43l7thc3q"
+      "1793546451924-00xm43l7thc3q",
+      "9cc50767-d73c-4965-b91c-c9054708a072",
+      "84373ac3-78ed-44bf-8dc4-a15487c1b93d",
+      "afc271c7-1135-4b1f-b2b5-be275b240cf0"
     ],
     "questMaintenanceInbox": [
       {

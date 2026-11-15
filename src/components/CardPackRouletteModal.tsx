@@ -128,7 +128,11 @@ export default function CardPackRouletteModal({
         {!spinning && (
           <div className="flex flex-col items-center gap-4 text-center">
             <p className={`font-black uppercase tracking-[.18em] ${rarePrize ? 'text-2xl' : 'text-lg'} ${CARD_RARITY_META[winner.rarity].text}`}>
-              {winner.rarity === 'lendario' ? 'LENDÁRIO!!!' : winner.rarity === 'secreto' ? 'MÍTICO!!!' : CARD_RARITY_META[winner.rarity].label}
+              {winner.rarity === 'lendario'
+                ? t('LENDÁRIO!!!', 'LEGENDARY!!!')
+                : winner.rarity === 'secreto'
+                  ? t('MÍTICO!!!', 'MYTHIC!!!')
+                  : t(CARD_RARITY_META[winner.rarity].label, CARD_RARITY_META[winner.rarity].labelEn)}
             </p>
             <div className={`h-48 w-36 overflow-hidden rounded-xl border-2 bg-slate-950 shadow-xl ${CARD_RARITY_META[winner.rarity].border}`}>
               <img src={cardImage(winner)} alt={winner.characterName} className="h-full w-full object-cover" />
