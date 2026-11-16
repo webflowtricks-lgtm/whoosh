@@ -28,6 +28,7 @@ import ShopAdmin from './ShopAdmin';
 import EventAdmin from './EventAdmin';
 import CardAdmin from './CardAdmin';
 import AdminMailCenter from './AdminMailCenter';
+import AccountAdmin from './AccountAdmin';
 import { useLanguage } from '../lib/i18n';
 import { RICH_TEXT_COLOR_PALETTE, htmlToRichMarkup, parseRichTextToHtml } from '../lib/richText';
 
@@ -105,7 +106,7 @@ interface AdminDashboardProps {
 export default function AdminDashboard({ onBack, playClickSound, playScrollSound }: AdminDashboardProps) {
   const { t } = useLanguage();
   const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'recurring-quests' | 'shop' | 'events' | 'ranks' | 'ai' | 'cards' | 'mail' | 'backup'>('ninjas');
+  const [activeTab, setActiveTab] = useState<'ninjas' | 'quests' | 'recurring-quests' | 'shop' | 'events' | 'ranks' | 'ai' | 'cards' | 'mail' | 'accounts' | 'backup'>('ninjas');
 
   useEffect(() => {
     if (!['quests', 'recurring-quests', 'events', 'ranks'].includes(activeTab)) return;
@@ -879,6 +880,7 @@ const newSkill: Skill = {
               <option value="ai">{t('Batalha contra IA', 'AI Battle')}</option>
               <option value="cards">{t('Cards & Pacotes', 'Cards & Packs')}</option>
               <option value="mail">{t('Mensagens', 'Messages')}</option>
+              <option value="accounts">{t('Contas', 'Accounts')}</option>
               <option value="backup">{t('Backup & Ambientes', 'Backup & Environments')}</option>
             </select>
             <div className="hidden lg:flex bg-slate-950 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto">
@@ -984,6 +986,16 @@ const newSkill: Skill = {
               >
                 {t('Mensagens', 'Messages')}
               </button>
+              <button
+                onClick={() => { playClickSound(); setActiveTab('accounts'); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'accounts'
+                    ? 'bg-gradient-to-r from-sky-600 to-blue-500 text-white shadow-md font-extrabold'
+                    : 'text-sky-400/90 hover:text-sky-300 font-bold'
+                }`}
+              >
+                {t('Contas', 'Accounts')}
+              </button>
             </div>
           </div>
 
@@ -1008,7 +1020,9 @@ const newSkill: Skill = {
       </header>
 
       {/* Main dashboard work area */}
-      {activeTab === 'quests' ? (
+      {activeTab === 'accounts' ? (
+        <AccountAdmin />
+      ) : activeTab === 'quests' ? (
         <div id="admin-tab-quests">
           <QuestAdmin onBack={onBack} playClickSound={playClickSound} />
         </div>

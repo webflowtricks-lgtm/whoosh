@@ -25,6 +25,7 @@ React 19 + Vite 6 + Tailwind 4 + Express. All UI text is Portuguese (PT-BR).
 ## Backend API Endpoints (server.ts)
 - Auth: `POST /api/auth/register`, `/api/auth/login`, `/api/auth/google`; exclusive device sessions: `/api/auth/session/claim`, `/api/auth/session/status`, `/api/auth/session/takeover`, `/api/auth/session/cancel`, `/api/auth/session/release`
 - Profile: `PUT /api/user/profile`
+- Admin accounts: `GET/PATCH/DELETE /api/admin/accounts` in `server.ts` and `workers/d1Api.ts`; requires the active session for account `2`, omits credentials from listings, and reports password-login/Google-link status. The editable account email is administrative and does not change the verified Google identity email. ID/password changes revoke sessions; ID changes, password resets, and deletion are blocked while an account is queued or in a match; the administrator ID cannot be renamed or deleted.
 - Multiplayer (in-memory, HTTP polling): `/api/matchmaking/join`, `/api/matchmaking/status`, `/api/matchmaking/quit`, `/api/match/submit-turn`, `/api/match/room-state`, `/api/match/surrender`, `/api/match/emoji`, `/api/match/emojis`, `/api/match/chat/send`, `/api/match/chat/messages`
 - Config CRUD: `/api/characters`, `/api/ranks`, `/api/shop`, `/api/events`, `/api/banners`, `/api/frames`, `/api/quests`, `/api/ai-settings` (AI random-enemy roster cutoff, defaults to position 69)
 - Backup: `/api/config/export`, `/api/config/import`
@@ -42,7 +43,7 @@ Online battle results are persisted in `src/data/online_battle_history.json`. `P
 - `src/App.tsx` orchestrates screens: `main-menu` → `quests` → `character-select` → `battle`, plus `admin`. Also handles reconnection modal (`active_match_save` in localStorage) and battle-end XP/quest sync.
 - Key components (`src/components/`):
   - `BattleBoard.tsx` — battle engine (very large; handles online polling, chakra trade, emojis/chat, game over overlay)
-  - `AdminDashboard.tsx` (~5700 lines) — tabs: ninjas / quests / shop / events / ranks / backup; CRUD editors for everything
+  - `AdminDashboard.tsx` — tabs include ninjas / quests / shop / events / ranks / accounts / backup; `AccountAdmin.tsx` manages login IDs, display names, password resets, deletions, registration dates, and a newest-20 users view.
   - `CharacterSelect.tsx`, `QuestBoard.tsx`, `MainMenu.tsx`, `AuthScreen.tsx`
   - Modals: `ProfileModal`, `ProfileCardModal`, `ShopModal`, `EventsModal`
   - Admins: `QuestAdmin`, `ShopAdmin`, `EventAdmin`

@@ -8,6 +8,7 @@ import { Volume2, VolumeX, HelpCircle, Shield, Award, LogOut, Calendar, Shopping
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import MangekyoLoader from './MangekyoLoader';
+import LanguageSelector from './LanguageSelector';
 import { getRanks } from '../lib/rankStorage';
 import { getRankProgress } from '../lib/xpSystem';
 import { getCurrentVillageId } from '../lib/villages';
@@ -465,7 +466,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               setShowAudioSettings(true);
             }}
             className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-orange-500 hover:bg-slate-800 transition-all cursor-pointer text-slate-300 shadow"
-            title={t('Configurações de volume', 'Volume settings')}
+            title={t('Configurações', 'Settings')}
           >
             <Settings className="w-5 h-5 text-orange-400" />
           </button>
@@ -502,7 +503,7 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               <div className="mb-6 flex items-center justify-between border-b border-slate-800 pb-4">
                 <h2 className="flex items-center gap-2 text-lg font-black uppercase tracking-wider text-orange-300">
                   <Settings className="h-5 w-5" />
-                  {t('Configurações de Volume', 'Volume Settings')}
+                  {t('Configurações', 'Settings')}
                 </h2>
                 <button
                   onClick={() => setShowAudioSettings(false)}
@@ -514,27 +515,39 @@ export default function MainMenu({ onStartGame, isMuted, onToggleMute, playClick
               </div>
 
               <div className="space-y-5">
-                {([
-                  ['master', t('Volume geral', 'Master volume')],
-                  ['effects', t('Efeitos sonoros', 'Sound effects')],
-                  ['music', t('Música', 'Music')],
-                ] as const).map(([key, label]) => (
-                  <label key={key} className="block space-y-2">
-                    <span className="flex items-center justify-between text-sm font-bold text-slate-200">
-                      <span>{label}</span>
-                      <span className="font-mono text-orange-300">{Math.round(audioSettings[key] * 100)}%</span>
-                    </span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={audioSettings[key]}
-                      onChange={e => onUpdateAudioSetting(key, Number(e.target.value))}
-                      className="h-2 w-full cursor-pointer accent-orange-500"
-                    />
-                  </label>
-                ))}
+                <section>
+                  <h3 className="mb-3 text-xs font-black uppercase tracking-wider text-orange-300">{t('Áudio', 'Audio')}</h3>
+                  <div className="space-y-5">
+                    {([
+                      ['master', t('Volume geral', 'Master volume')],
+                      ['effects', t('Efeitos sonoros', 'Sound effects')],
+                      ['music', t('Música', 'Music')],
+                    ] as const).map(([key, label]) => (
+                      <label key={key} className="block space-y-2">
+                        <span className="flex items-center justify-between text-sm font-bold text-slate-200">
+                          <span>{label}</span>
+                          <span className="font-mono text-orange-300">{Math.round(audioSettings[key] * 100)}%</span>
+                        </span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={audioSettings[key]}
+                          onChange={e => onUpdateAudioSetting(key, Number(e.target.value))}
+                          className="h-2 w-full cursor-pointer accent-orange-500"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </section>
+                <section className="border-t border-slate-800 pt-4">
+                  <LanguageSelector
+                    className="w-full"
+                    playClickSound={playClickSound}
+                    variant="accordion"
+                  />
+                </section>
               </div>
             </motion.div>
           </motion.div>

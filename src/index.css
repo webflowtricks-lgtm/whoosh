@@ -2820,20 +2820,10 @@ body.processing-cursor * {
   filter: drop-shadow(0 0 8px rgba(14, 165, 233, .55));
 }
 
-.lobby-quick-actions > button.lobby-skin-bag-button svg {
-  width: 1.6rem;
-  height: 1.6rem;
-}
-
 .lobby-quick-actions > button.lobby-reward-roulette-button {
   margin-top: -.2rem;
   color: #ff6b5e;
   filter: drop-shadow(0 0 9px rgba(255, 54, 45, .8));
-}
-
-.lobby-quick-actions > button.lobby-reward-roulette-button svg {
-  width: 1.7rem;
-  height: 1.7rem;
 }
 
 .lobby-quick-actions > button.lobby-quick-recurring-button:hover {

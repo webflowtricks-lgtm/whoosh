@@ -183,6 +183,16 @@ export default {
       const response = await handleD1Request(request, {
         DB: env.DB,
         FIREBASE_PROJECT_ID: env.FIREBASE_PROJECT_ID,
+        isUsernameInMatch: async username => {
+          const statusUrl = new URL('/internal/account-status', request.url);
+          statusUrl.searchParams.set('username', username);
+          const statusResponse = await env.MATCHMAKER
+            .get(env.MATCHMAKER.idFromName('global-matchmaker'))
+            .fetch(new Request(statusUrl));
+          if (!statusResponse.ok) throw new Error('Could not verify the account matchmaking status.');
+          const status = await statusResponse.json() as { queuedOrInMatch?: unknown };
+          return status.queuedOrInMatch === true;
+        },
       });
       if (response) return response;
     } catch (error) {

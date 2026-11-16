@@ -79,6 +79,7 @@ export interface D1Database {
 export interface D1Env {
   DB: D1Database;
   FIREBASE_PROJECT_ID?: string;
+  isUsernameInMatch?: (username: string) => Promise<boolean>;
 }
 
 interface AccountRow {
@@ -1402,6 +1403,174 @@ async function sendAdminMail(request: Request, env: D1Env): Promise<Response> {
   return json({ success: true, sentCount });
 }
 
+async function adminAccountsRoute(request: Request, env: D1Env): Promise<Response> {
+  const adminUsername = normalizedUsername(request.headers.get('X-Account-Username'));
+  if (adminUsername !== '2' ||
+      !await isD1SessionActive(env, '2', request.headers.get('X-Account-Session'))) {
+    return error(403, 'Apenas o administrador autenticado pode gerenciar contas.');
+  }
+
+  if (request.method === 'GET') {
+    const result = await env.DB.prepare(`
+      SELECT a.username, a.profile_json, a.password_salt, a.password_hash, a.created_at,
+        g.username AS google_username, g.email AS google_email
+      FROM accounts a
+      LEFT JOIN account_google_identities g ON g.username = a.username
+      WHERE a.username != 'convidado'
+      ORDER BY a.created_at DESC, a.username
+    `).all<{
+      username: string;
+      profile_json: string;
+      password_salt: string | null;
+      password_hash: string | null;
+      created_at?: string;
+      google_username?: string | null;
+      google_email?: string | null;
+    }>();
+    const accounts = (result.results || []).map(row => {
+      const profile = JSON.parse(row.profile_json) as Record<string, unknown>;
+      return {
+        username: row.username,
+        name: typeof profile.name === 'string' ? profile.name : '',
+        email: typeof profile.email === 'string'
+          ? profile.email
+          : typeof row.google_email === 'string' ? row.google_email : '',
+        passwordLoginEnabled: Boolean(row.password_salt && row.password_hash),
+        googleLinked: typeof row.google_username === 'string',
+        ...(row.created_at ? { createdAt: `${row.created_at.replace(' ', 'T')}Z` } : {}),
+      };
+    });
+    return json({ success: true, accounts });
+  }
+
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (!body) return error(400, 'Dados da conta inválidos.');
+  const username = normalizedUsername(body.username);
+  if (!username || username === 'convidado') return error(400, 'ID da conta inválido.');
+  if (request.method === 'DELETE') {
+    if (username === '2') return error(409, 'A conta administradora não pode ser apagada.');
+    const account = await env.DB.prepare('SELECT username FROM accounts WHERE username = ?')
+      .bind(username).first<{ username: string }>();
+    if (!account) return error(404, 'Conta não encontrada.');
+    if (env.isUsernameInMatch && await env.isUsernameInMatch(username)) {
+      return error(409, 'Saia da fila ou finalize a batalha desta conta antes de apagá-la.');
+    }
+    const result = await env.DB.prepare('DELETE FROM accounts WHERE username = ?')
+      .bind(username).run();
+    return result.meta?.changes === 1
+      ? json({ success: true })
+      : error(404, 'Conta não encontrada.');
+  }
+  if (request.method !== 'PATCH') return error(405, 'Método não permitido.');
+
+  const newUsername = normalizedUsername(body.newUsername);
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const hasEmailField = body.email !== undefined;
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  const hasPasswordField = body.password !== undefined;
+  const password = typeof body.password === 'string' ? body.password : '';
+  const hasPasswordChange = password.length > 0;
+  if (!newUsername || newUsername === 'convidado' ||
+      !/^[a-z0-9_][a-z0-9_.-]*$/i.test(newUsername) ||
+      !name || name.length > 100 || /[\u0000-\u001f\u007f]/.test(name) ||
+      (hasEmailField && (typeof body.email !== 'string' || email.length > 254 ||
+        (email.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))) ||
+      (hasPasswordField && typeof body.password !== 'string') ||
+      password.length > 256) {
+    return error(400, 'ID, nome de usuário, e-mail ou senha inválidos.');
+  }
+  if (username === '2' && newUsername !== '2') {
+    return error(409, 'O ID da conta administradora não pode ser alterado.');
+  }
+
+  const account = await env.DB.prepare(`
+    SELECT username, password_salt, password_hash, profile_json, created_at
+    FROM accounts WHERE username = ?
+  `).bind(username).first<AccountRow>();
+  if (!account) return error(404, 'Conta não encontrada.');
+  if (newUsername !== username) {
+    const existing = await env.DB.prepare('SELECT username FROM accounts WHERE username = ?')
+      .bind(newUsername).first<{ username: string }>();
+    if (existing) return error(409, 'Este ID já está sendo usado por outra conta.');
+  }
+
+  const profile = JSON.parse(account.profile_json) as Record<string, unknown>;
+  profile.username = newUsername;
+  profile.name = name;
+  if (hasEmailField) profile.email = email;
+  const profileJson = JSON.stringify(profile);
+  const identityChanged = newUsername !== username;
+  if ((identityChanged || hasPasswordChange) && env.isUsernameInMatch &&
+      await env.isUsernameInMatch(username)) {
+    return error(409, 'Saia da fila ou finalize a batalha desta conta antes de alterar o ID ou a senha.');
+  }
+  let passwordSalt = account.password_salt;
+  let passwordHash = account.password_hash;
+  if (hasPasswordChange) {
+    passwordSalt = randomHex(16);
+    passwordHash = await derivePassword(password, passwordSalt);
+  }
+  const statements: D1PreparedStatement[] = [];
+
+  if (identityChanged) {
+    statements.push(env.DB.prepare(`
+      INSERT INTO accounts (
+        username, password_salt, password_hash, profile_json, created_at, updated_at
+      )
+      SELECT ?, ?, ?, ?, ?, CURRENT_TIMESTAMP
+      WHERE EXISTS (SELECT 1 FROM accounts WHERE username = ?)
+    `).bind(newUsername, passwordSalt, passwordHash, profileJson, account.created_at, username));
+    statements.push(env.DB.prepare(`
+      UPDATE account_google_identities
+      SET username = ?
+      WHERE username = ? AND EXISTS (SELECT 1 FROM accounts WHERE username = ?)
+    `).bind(newUsername, username, newUsername));
+    statements.push(env.DB.prepare(`
+      UPDATE archived_online_battle_history
+      SET players_json = (
+        SELECT json_group_array(json(
+          CASE WHEN json_extract(player.value, '$.username') = ?
+            THEN json_set(player.value, '$.username', ?)
+            ELSE player.value
+          END
+        ))
+        FROM json_each(archived_online_battle_history.players_json) AS player
+      ),
+      winner_username = CASE WHEN winner_username = ? THEN ? ELSE winner_username END
+      WHERE winner_username = ?
+        OR EXISTS (
+          SELECT 1 FROM json_each(archived_online_battle_history.players_json) AS player
+          WHERE json_extract(player.value, '$.username') = ?
+        )
+    `).bind(username, newUsername, username, newUsername, username, username));
+    statements.push(env.DB.prepare(
+      'DELETE FROM session_tickets WHERE username = ? AND EXISTS (SELECT 1 FROM accounts WHERE username = ?)',
+    ).bind(username, newUsername));
+    statements.push(env.DB.prepare(
+      'DELETE FROM account_sessions WHERE username = ? AND EXISTS (SELECT 1 FROM accounts WHERE username = ?)',
+    ).bind(username, newUsername));
+    statements.push(env.DB.prepare(
+      'DELETE FROM accounts WHERE username = ? AND EXISTS (SELECT 1 FROM accounts WHERE username = ?)',
+    ).bind(username, newUsername));
+  } else {
+    statements.push(env.DB.prepare(`
+      UPDATE accounts
+      SET password_salt = ?, password_hash = ?, profile_json = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE username = ?
+    `).bind(passwordSalt, passwordHash, profileJson, username));
+    if (hasPasswordChange) {
+      statements.push(env.DB.prepare('DELETE FROM session_tickets WHERE username = ?').bind(username));
+      statements.push(env.DB.prepare('DELETE FROM account_sessions WHERE username = ?').bind(username));
+    }
+  }
+
+  const results = await env.DB.batch(statements);
+  if (identityChanged && results[0]?.meta?.changes !== 1) {
+    return error(409, 'Este ID já está sendo usado por outra conta.');
+  }
+  return json({ success: true });
+}
+
 async function maintenanceInboxRoute(
   request: Request,
   env: D1Env,
@@ -2471,6 +2640,9 @@ export async function handleD1Request(request: Request, env: D1Env): Promise<Res
   }
   if (pathname === '/api/admin/mail/send' && request.method === 'POST') {
     return sendAdminMail(request, env);
+  }
+  if (pathname === '/api/admin/accounts') {
+    return adminAccountsRoute(request, env);
   }
   if (pathname === '/api/cards/roulette-settings') {
     return cardRouletteSettingsRoute(request, env);

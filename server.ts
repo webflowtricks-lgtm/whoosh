@@ -670,7 +670,7 @@ async function startServer() {
       isNewAccount = true;
     } else {
       user.googleId = googleSubject;
-      user.email = claims.email;
+      if (typeof user.email !== "string") user.email = claims.email;
       if (claims.name) user.name = claims.name.slice(0, 100);
       if (claims.picture) user.photoUrl = claims.picture.slice(0, 2048);
     }
@@ -1090,6 +1090,141 @@ async function startServer() {
   // maps a username -> which room they are in and their slot index (0 or 1)
   const userMatches: { [username: string]: { roomId: string; myIndex: 0 | 1 } } = {};
 
+  app.get("/api/admin/accounts", requireAdminAccountSession, (_req, res) => {
+    const accounts = readJSON<Array<Record<string, unknown>>>(USERS_FILE, [])
+      .filter(account => typeof account.username === "string" &&
+        account.username.trim().toLowerCase() !== "convidado")
+      .map(account => ({
+        username: String(account.username).trim().toLowerCase(),
+        name: typeof account.name === "string" ? account.name : "",
+        email: typeof account.email === "string" ? account.email : "",
+        passwordLoginEnabled: typeof account.password === "string" && account.password.length > 0,
+        googleLinked: typeof account.googleId === "string" && account.googleId.length > 0,
+        ...(typeof account.createdAt === "string" ? { createdAt: account.createdAt } : {}),
+      }))
+      .sort((left, right) => Date.parse(right.createdAt || "") - Date.parse(left.createdAt || ""));
+    res.set("Cache-Control", "no-store").json({ success: true, accounts });
+  });
+
+  app.patch("/api/admin/accounts", requireAdminAccountSession, (req, res) => {
+    const rawUsername = req.body?.username;
+    const rawNewUsername = req.body?.newUsername;
+    const rawName = req.body?.name;
+    const rawEmail = req.body?.email;
+    const hasEmailField = rawEmail !== undefined;
+    const username = typeof rawUsername === "string" ? rawUsername.trim().toLowerCase() : "";
+    const newUsername = typeof rawNewUsername === "string" ? rawNewUsername.trim().toLowerCase() : "";
+    const name = typeof rawName === "string" ? rawName.trim() : "";
+    const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
+    const hasPasswordField = req.body?.password !== undefined;
+    const hasPasswordChange = typeof req.body?.password === "string" && req.body.password.length > 0;
+    if (!username || username.length > 100 || !newUsername || newUsername.length > 100 ||
+        !/^[a-z0-9_][a-z0-9_.-]*$/i.test(newUsername) || newUsername === "convidado" ||
+        !name || name.length > 100 || /[\u0000-\u001f\u007f]/.test(name) ||
+        (hasEmailField && (typeof rawEmail !== "string" || email.length > 254 ||
+          (email.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))) ||
+        (hasPasswordField && typeof req.body.password !== "string") ||
+        (hasPasswordChange && req.body.password.length > 256)) {
+      return res.status(400).json({ error: "ID, nome de usuário, e-mail ou senha inválidos." });
+    }
+
+    const users = readJSON<Array<Record<string, any>>>(USERS_FILE, []);
+    const account = users.find(user => typeof user.username === "string" &&
+      user.username.trim().toLowerCase() === username);
+    if (!account) return res.status(404).json({ error: "Conta não encontrada." });
+    if (username === "2" && newUsername !== "2") {
+      return res.status(409).json({ error: "O ID da conta administradora não pode ser alterado." });
+    }
+    if (newUsername !== username && users.some(user =>
+      typeof user.username === "string" && user.username.trim().toLowerCase() === newUsername)) {
+      return res.status(409).json({ error: "Este ID já está sendo usado por outra conta." });
+    }
+
+    const identityChanged = newUsername !== username;
+    const queuedOrPlaying = waitingQueue.some(player => player.username === username) ||
+      Object.values(activeRooms).some(room => room.players.some(player => player.username === username));
+    if ((identityChanged || hasPasswordChange) && queuedOrPlaying) {
+      return res.status(409).json({ error: "Saia da fila ou finalize a batalha desta conta antes de alterar o ID ou a senha." });
+    }
+
+    const originalUsers = JSON.parse(JSON.stringify(users)) as Array<Record<string, any>>;
+    const previousSession = accountSessions[username];
+    const previousHistory = identityChanged
+      ? new Map(Array.from(onlineBattleHistory, ([roomId, record]) => [
+        roomId,
+        JSON.parse(JSON.stringify(record)) as OnlineBattleHistoryRecord,
+      ]))
+      : null;
+    account.username = newUsername;
+    account.name = name;
+    if (hasEmailField) account.email = email;
+    if (hasPasswordChange) account.password = req.body.password;
+    if (!persistAccountUsers(users)) {
+      return res.status(500).json({ error: "Não foi possível salvar as alterações da conta." });
+    }
+
+    if (identityChanged || hasPasswordChange) {
+      delete accountSessions[username];
+      if (!saveAccountSessions()) {
+        if (previousSession) accountSessions[username] = previousSession;
+        persistAccountUsers(originalUsers);
+        return res.status(500).json({ error: "Não foi possível encerrar as sessões da conta." });
+      }
+    }
+
+    if (identityChanged) {
+      for (const record of onlineBattleHistory.values()) {
+        for (const player of record.players) {
+          if (player.username === username) player.username = newUsername;
+        }
+        if (record.winnerUsername === username) record.winnerUsername = newUsername;
+      }
+      if (!saveOnlineBattleHistory()) {
+        onlineBattleHistory.clear();
+        previousHistory?.forEach((record, roomId) => onlineBattleHistory.set(roomId, record));
+        if (previousSession) accountSessions[username] = previousSession;
+        saveAccountSessions();
+        persistAccountUsers(originalUsers);
+        return res.status(500).json({ error: "Não foi possível atualizar o histórico de batalhas da conta." });
+      }
+    }
+    res.json({ success: true });
+  });
+
+  app.delete("/api/admin/accounts", requireAdminAccountSession, (req, res) => {
+    const username = typeof req.body?.username === "string"
+      ? req.body.username.trim().toLowerCase()
+      : "";
+    if (!username || username.length > 100 || username === "convidado") {
+      return res.status(400).json({ error: "ID da conta inválido." });
+    }
+    if (username === "2") {
+      return res.status(409).json({ error: "A conta administradora não pode ser apagada." });
+    }
+    if (waitingQueue.some(player => player.username === username) ||
+        Object.values(activeRooms).some(room => room.players.some(player => player.username === username))) {
+      return res.status(409).json({ error: "Saia da fila ou finalize a batalha desta conta antes de apagá-la." });
+    }
+
+    const users = readJSON<Array<Record<string, unknown>>>(USERS_FILE, []);
+    const userIndex = users.findIndex(user => typeof user.username === "string" &&
+      user.username.trim().toLowerCase() === username);
+    if (userIndex < 0) return res.status(404).json({ error: "Conta não encontrada." });
+    const originalUsers = [...users];
+    const previousSession = accountSessions[username];
+    users.splice(userIndex, 1);
+    if (!persistAccountUsers(users)) {
+      return res.status(500).json({ error: "Não foi possível apagar a conta." });
+    }
+    delete accountSessions[username];
+    if (!saveAccountSessions()) {
+      if (previousSession) accountSessions[username] = previousSession;
+      persistAccountUsers(originalUsers);
+      return res.status(500).json({ error: "Não foi possível encerrar as sessões da conta apagada." });
+    }
+    res.json({ success: true });
+  });
+
   // 💾 PERSISTÊNCIA DE SALAS — sem isso, um restart do servidor (deploy/spin-down
   // do Render) apagava TODAS as partidas ativas da memória e ambos os clientes
   // ficavam eternamente em "Aguardando oponente" + erros de conexão (404 de sala).
@@ -1262,6 +1397,14 @@ async function startServer() {
       validSessionInput(username, sessionToken) &&
       !!account &&
       account.activeTokenHash === hashSessionToken(sessionToken));
+
+  function requireAdminAccountSession(req: express.Request, res: express.Response, next: express.NextFunction) {
+    const username = String(req.get("X-Account-Username") || "").trim().toLowerCase();
+    if (username !== "2" || !hasActiveAccountSession(username, req.get("X-Account-Session"))) {
+      return res.status(403).json({ error: "Apenas o administrador autenticado pode gerenciar contas." });
+    }
+    next();
+  }
 
   const globalConfigWritePaths = new Set([
     "/api/characters", "/api/ranks", "/api/shop", "/api/shop/tab-order", "/api/events",

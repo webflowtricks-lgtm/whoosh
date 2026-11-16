@@ -1,15 +1,16 @@
-import React from 'react';
-import { useLanguage, Language } from '../lib/i18n';
-import { Globe } from 'lucide-react';
+import React, { useState } from 'react';
+import { useLanguage, type Language } from '../lib/i18n';
+import { ChevronDown, Globe } from 'lucide-react';
 
 interface LanguageSelectorProps {
   className?: string;
-  variant?: 'compact' | 'full' | 'pills';
+  variant?: 'compact' | 'full' | 'pills' | 'accordion';
   playClickSound?: () => void;
 }
 
 export default function LanguageSelector({ className = '', variant = 'compact', playClickSound }: LanguageSelectorProps) {
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleSelect = (lang: Language) => {
     if (playClickSound) playClickSound();
@@ -45,6 +46,51 @@ export default function LanguageSelector({ className = '', variant = 'compact', 
           <span className="text-sm">🇺🇸</span>
           <span>EN</span>
         </button>
+      </div>
+    );
+  }
+
+  if (variant === 'accordion') {
+    return (
+      <div className={`relative ${className}`}>
+        <button
+          type="button"
+          onClick={() => setIsOpen(open => !open)}
+          aria-expanded={isOpen}
+          aria-label={t('Idioma', 'Language')}
+          className="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-slate-700 bg-slate-900/90 px-3 text-xs font-bold text-slate-200 shadow-md transition hover:border-orange-400/60 hover:text-white"
+        >
+          <span className="flex items-center gap-2">
+            <Globe className="h-3.5 w-3.5 text-orange-400" />
+            {t('Idioma', 'Language')}
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="font-mono text-[10px] text-slate-400">{language === 'pt' ? 'PT' : 'EN'}</span>
+            <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          </span>
+        </button>
+        {isOpen && (
+          <div role="group" aria-label={t('Selecione o idioma', 'Choose a language')} className="mt-1 grid grid-cols-2 gap-1 rounded-xl border border-slate-700 bg-slate-950/95 p-1 shadow-lg">
+            <button
+              type="button"
+              onClick={() => { handleSelect('pt'); setIsOpen(false); }}
+              aria-pressed={language === 'pt'}
+              className={`min-h-8 rounded-lg px-2 text-[11px] font-bold transition ${language === 'pt' ? 'bg-orange-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800'}`}
+              title="Português (Brasil)"
+            >
+              🇧🇷 PT
+            </button>
+            <button
+              type="button"
+              onClick={() => { handleSelect('en'); setIsOpen(false); }}
+              aria-pressed={language === 'en'}
+              className={`min-h-8 rounded-lg px-2 text-[11px] font-bold transition ${language === 'en' ? 'bg-orange-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800'}`}
+              title="English (US)"
+            >
+              🇺🇸 EN
+            </button>
+          </div>
+        )}
       </div>
     );
   }

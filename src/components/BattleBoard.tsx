@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import ProfileCardModal, { ProfileCardData } from './ProfileCardModal';
 import GameManualModal from './GameManualModal';
 import MangekyoLoader from './MangekyoLoader';
+import LanguageSelector from './LanguageSelector';
 import SkinMedia from './SkinMedia';
 import { calculateBattleXp, getRankProgress, checkRankChange } from '../lib/xpSystem';
 import { getRanks } from '../lib/rankStorage';
@@ -19421,6 +19422,20 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     onClick={(e) => {
                       e.stopPropagation();
                       playClickSound();
+                      playScrollSound();
+                      setIsQuestModalOpen(true);
+                      setShowBattleSettings(false);
+                    }}
+                    className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
+                  >
+                    <Scroll className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{t('Missões', 'Missions')}</span>
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      playClickSound();
                       setShowGameManual(true);
                       setShowBattleSettings(false);
                     }}
@@ -19536,20 +19551,13 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     </button>
                   )}
 
-                  {/* Missões */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      playClickSound();
-                      playScrollSound();
-                      setIsQuestModalOpen(true);
-                      setShowBattleSettings(false);
-                    }}
-                    className="battle-wood-menu-item flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer"
-                  >
-                    <Scroll className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{t('Missões', 'Missions')}</span>
-                  </button>
+                  <div className="battle-wood-menu-inset mt-1 rounded-lg p-2">
+                    <LanguageSelector
+                      className="w-full"
+                      playClickSound={playClickSound}
+                      variant="accordion"
+                    />
+                  </div>
                 </div>
               )}
             </div>

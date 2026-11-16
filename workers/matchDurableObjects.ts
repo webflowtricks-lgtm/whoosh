@@ -314,6 +314,17 @@ export class MatchmakerDurableObject {
     if (url.pathname === '/internal/history' && request.method === 'POST') {
       return this.saveHistory(await request.json() as HistoryRecord);
     }
+    if (url.pathname === '/internal/account-status' && request.method === 'GET') {
+      const username = canonicalUsername(url.searchParams.get('username'));
+      if (!username) return fail(400, 'Nome de usuário inválido.');
+      const active = this.state.storage.sql.exec<{ username: string }>(`
+        SELECT username FROM matches WHERE username = ?
+        UNION ALL
+        SELECT username FROM queue WHERE username = ?
+        LIMIT 1
+      `, username, username).toArray().length > 0;
+      return json({ queuedOrInMatch: active });
+    }
     if (url.pathname === '/api/matchmaking/join' && request.method === 'POST') {
       return this.join(request);
     }

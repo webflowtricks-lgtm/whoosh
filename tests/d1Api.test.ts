@@ -19,6 +19,7 @@ type Row = Record<string, unknown>;
 
 class MemoryD1 implements D1Database {
   accounts = new Map<string, Row>();
+  googleIdentities = new Map<string, Row>();
   tickets = new Map<string, Row>();
   sessions = new Map<string, Row>();
   configHeads = new Map<string, Row>();
@@ -56,6 +57,7 @@ class MemoryStatement implements D1PreparedStatement {
       if (this.db.accounts.has(String(username))) return { success: true, meta: { changes: 0 } };
       this.db.accounts.set(String(username), {
         username, password_salt, password_hash, profile_json,
+        ...(this.values.length > 4 ? { created_at: this.values[4] } : {}),
       });
       return { success: true, meta: { changes: 1 } };
     }
@@ -120,8 +122,43 @@ class MemoryStatement implements D1PreparedStatement {
     if (q.startsWith('delete from account_sessions')) {
       const [username, active] = this.values;
       const row = this.db.sessions.get(String(username));
+      if (this.values.length === 1 && row) {
+        this.db.sessions.delete(String(username));
+        return { success: true, meta: { changes: 1 } };
+      }
+      if (q.includes('exists (select 1 from accounts') && row &&
+          this.db.accounts.has(String(this.values[1]))) {
+        this.db.sessions.delete(String(username));
+        return { success: true, meta: { changes: 1 } };
+      }
       if (row?.active_token_hash === active) this.db.sessions.delete(String(username));
       return { success: true, meta: { changes: row?.active_token_hash === active ? 1 : 0 } };
+    }
+    if (q.startsWith('delete from session_tickets where username =')) {
+      const username = String(this.values[0]);
+      let changes = 0;
+      for (const [ticketHash, ticket] of this.db.tickets) {
+        if (ticket.username === username) {
+          this.db.tickets.delete(ticketHash);
+          changes++;
+        }
+      }
+      return { success: true, meta: { changes } };
+    }
+    if (q.startsWith('delete from accounts where username =')) {
+      const username = String(this.values[0]);
+      const changes = this.db.accounts.delete(username) ? 1 : 0;
+      this.db.sessions.delete(username);
+      for (const [ticketHash, ticket] of this.db.tickets) {
+        if (ticket.username === username) this.db.tickets.delete(ticketHash);
+      }
+      return { success: true, meta: { changes } };
+    }
+    if (q.startsWith('update account_google_identities')) {
+      return { success: true, meta: { changes: 0 } };
+    }
+    if (q.startsWith('update archived_online_battle_history')) {
+      return { success: true, meta: { changes: 0 } };
     }
     if (q.startsWith('insert or ignore into online_battle_rewards')) {
       const [roomId, username] = this.values;
@@ -141,6 +178,15 @@ class MemoryStatement implements D1PreparedStatement {
       }
       this.db.lastChanges = matches ? 1 : 0;
       return { success: true, meta: { changes: matches ? 1 : 0 } };
+    }
+    if (q.startsWith('update accounts set password_salt =')) {
+      const [password_salt, password_hash, profile_json, username] = this.values;
+      const row = this.db.accounts.get(String(username));
+      if (!row) return { success: true, meta: { changes: 0 } };
+      row.password_salt = password_salt;
+      row.password_hash = password_hash;
+      row.profile_json = profile_json;
+      return { success: true, meta: { changes: 1 } };
     }
     if (q.startsWith('update accounts set profile_json = json_set(') &&
         q.includes('json_insert')) {
@@ -251,6 +297,10 @@ class MemoryStatement implements D1PreparedStatement {
 
   async first<T = Row>(): Promise<T | null> {
     const q = this.query.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (q.startsWith('select username from accounts where username =')) {
+      const row = this.db.accounts.get(String(this.values[0]));
+      return row ? { username: row.username } as T : null;
+    }
     if (q.startsWith('select username, password_salt, password_hash, profile_json')) {
       return (this.db.accounts.get(String(this.values[0])) as T) || null;
     }
@@ -297,6 +347,22 @@ class MemoryStatement implements D1PreparedStatement {
 
   async all<T = Row>() {
     const q = this.query.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (q.startsWith('select a.username, a.profile_json, a.password_salt')) {
+      return {
+        success: true,
+        results: [...this.db.accounts.values()]
+          .filter(row => row.username !== 'convidado')
+          .map(row => ({
+            username: row.username,
+            profile_json: row.profile_json,
+            password_salt: row.password_salt,
+            password_hash: row.password_hash,
+            created_at: row.created_at,
+            google_username: this.db.googleIdentities.get(String(row.username))?.username,
+            google_email: this.db.googleIdentities.get(String(row.username))?.email,
+          })) as T[],
+      };
+    }
     if (q.startsWith('select username, profile_json from accounts')) {
       return {
         success: true,
@@ -999,6 +1065,122 @@ test('registers accounts with hashed passwords, rejects duplicates, and verifies
     password: 'correct horse',
   }), env);
   assert.equal(login?.status, 200);
+});
+
+test('admin account management lists safe data, renames, resets passwords, and deletes accounts', async () => {
+  const env: {
+    DB: MemoryD1;
+    isUsernameInMatch?: (username: string) => Promise<boolean>;
+  } = { DB: new MemoryD1() };
+  const register = async (username: string, password: string) => {
+    const response = await handleD1Request(request('/api/auth/register', 'POST', {
+      username,
+      password,
+      name: username,
+    }), env);
+    assert.equal(response?.status, 200);
+    return responseBody(response!);
+  };
+  const adminSignup = await register('2', 'admin-password');
+  const adminToken = 'a'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: '2',
+    sessionToken: adminToken,
+    sessionTicket: adminSignup.sessionTicket,
+  }), env);
+  const userSignup = await register('managed_user', 'old-password');
+  env.DB.googleIdentities.set('google_user', {
+    username: 'google_user',
+    email: 'google@example.com',
+  });
+  env.DB.accounts.set('google_user', {
+    username: 'google_user',
+    password_salt: null,
+    password_hash: null,
+    profile_json: JSON.stringify({ username: 'google_user', name: 'Google User', email: 'google@example.com' }),
+    created_at: '2025-01-02 00:00:00',
+  });
+  const userToken = 'b'.repeat(64);
+  await handleD1Request(request('/api/auth/session/claim', 'POST', {
+    username: 'managed_user',
+    sessionToken: userToken,
+    sessionTicket: userSignup.sessionTicket,
+  }), env);
+
+  const unauthorized = await handleD1Request(request('/api/admin/accounts', 'GET'), env);
+  assert.equal(unauthorized?.status, 403);
+  const headers = { 'X-Account-Username': '2', 'X-Account-Session': adminToken };
+  const listing = await handleD1Request(request('/api/admin/accounts', 'GET', undefined, headers), env);
+  assert.equal(listing?.status, 200);
+  const listingBody = await responseBody(listing!);
+  const listedAccounts = listingBody.accounts as Row[];
+  assert.equal(JSON.stringify(listingBody).includes('password_hash'), false);
+  const listedPasswordAccount = listedAccounts.find(account => account.username === 'managed_user');
+  assert.ok(listedPasswordAccount);
+  assert.equal(listedPasswordAccount.passwordLoginEnabled, true);
+  assert.equal(listedPasswordAccount.googleLinked, false);
+  const listedGoogleAccount = listedAccounts.find(account => account.username === 'google_user');
+  assert.ok(listedGoogleAccount);
+  assert.equal(listedGoogleAccount.email, 'google@example.com');
+  assert.equal(listedGoogleAccount.passwordLoginEnabled, false);
+  assert.equal(listedGoogleAccount.googleLinked, true);
+
+  const invalidEmail = await handleD1Request(request('/api/admin/accounts', 'PATCH', {
+    username: 'managed_user',
+    newUsername: 'managed_user',
+    name: 'Managed User',
+    email: 'not-an-email',
+  }, headers), env);
+  assert.equal(invalidEmail?.status, 400);
+
+  env.isUsernameInMatch = async username => username === 'managed_user';
+  const blockedUpdate = await handleD1Request(request('/api/admin/accounts', 'PATCH', {
+    username: 'managed_user',
+    newUsername: 'renamed_user',
+    name: 'Updated Display Name',
+  }, headers), env);
+  assert.equal(blockedUpdate?.status, 409);
+  assert.equal(env.DB.accounts.has('managed_user'), true);
+  env.isUsernameInMatch = undefined;
+
+  const update = await handleD1Request(request('/api/admin/accounts', 'PATCH', {
+    username: 'managed_user',
+    newUsername: 'renamed_user',
+    name: 'Updated Display Name',
+    email: 'updated@example.com',
+    password: 'new-password',
+  }, headers), env);
+  assert.equal(update?.status, 200);
+  assert.equal(env.DB.accounts.has('managed_user'), false);
+  assert.equal(env.DB.accounts.has('renamed_user'), true);
+  assert.equal(env.DB.sessions.has('managed_user'), false);
+  assert.notEqual(env.DB.accounts.get('renamed_user')?.password_hash, 'new-password');
+  assert.equal(
+    (JSON.parse(String(env.DB.accounts.get('renamed_user')?.profile_json)) as Row).email,
+    'updated@example.com',
+  );
+  const updatedListing = await handleD1Request(
+    request('/api/admin/accounts', 'GET', undefined, headers),
+    env,
+  );
+  const renamedAccount = ((await responseBody(updatedListing!)).accounts as Row[])
+    .find(account => account.username === 'renamed_user');
+  assert.equal(renamedAccount?.email, 'updated@example.com');
+
+  const login = await handleD1Request(request('/api/auth/login', 'POST', {
+    username: 'renamed_user',
+    password: 'new-password',
+  }), env);
+  assert.equal(login?.status, 200);
+  const deleteResponse = await handleD1Request(request('/api/admin/accounts', 'DELETE', {
+    username: 'renamed_user',
+  }, headers), env);
+  assert.equal(deleteResponse?.status, 200);
+  assert.equal(env.DB.accounts.has('renamed_user'), false);
+  const protectedAdminDelete = await handleD1Request(request('/api/admin/accounts', 'DELETE', {
+    username: '2',
+  }, headers), env);
+  assert.equal(protectedAdminDelete?.status, 409);
 });
 
 test('claims sessions, reports takeover, and revokes the prior device', async () => {

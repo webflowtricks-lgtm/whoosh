@@ -413,9 +413,10 @@
       "human-path-pain-(s)-base",
       "oboro-base",
       "shino-aburame-(s)-base",
-      "neji-base"
+      "neji-base",
+      "deidara-(s)-base"
     ],
-    "ryos": 59194,
+    "ryos": 59169,
     "gems": 30000,
     "village": "konoha",
     "villageChangeCount": 1,
@@ -835,6 +836,90 @@
           "currentValue": 0,
           "currentStreak": 0
         }
+      ],
+      "daily-2026-11-16-daily-victory": [
+        {
+          "id": "daily-2026-11-16-daily-victory-win",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-11-16-daily-technique": [
+        {
+          "id": "daily-2026-11-16-daily-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-11-16-daily-squad": [
+        {
+          "id": "daily-2026-11-16-daily-squad-characters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "daily-2026-11-16-daily-damage": [
+        {
+          "id": "daily-2026-11-16-daily-damage-damage",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W47-weekly-wins": [
+        {
+          "id": "weekly-2026-W47-weekly-wins-wins",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W47-weekly-technique": [
+        {
+          "id": "weekly-2026-W47-weekly-technique-skills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W47-weekly-damage": [
+        {
+          "id": "weekly-2026-W47-weekly-damage-damage",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W47-weekly-shield": [
+        {
+          "id": "weekly-2026-W47-weekly-shield-shield",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W47-weekly-healing": [
+        {
+          "id": "weekly-2026-W47-weekly-healing-healing",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W47-weekly-stuns": [
+        {
+          "id": "weekly-2026-W47-weekly-stuns-stuns",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W47-weekly-kills": [
+        {
+          "id": "weekly-2026-W47-weekly-kills-kills",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
+      ],
+      "weekly-2026-W47-weekly-counters": [
+        {
+          "id": "weekly-2026-W47-weekly-counters-counters",
+          "currentValue": 0,
+          "currentStreak": 0
+        }
       ]
     },
     "questAiBattleIds": [
@@ -898,7 +983,8 @@
       "84373ac3-78ed-44bf-8dc4-a15487c1b93d",
       "afc271c7-1135-4b1f-b2b5-be275b240cf0",
       "51f5b5db-5a83-4d24-9c30-633601e01105",
-      "72a937ec-9e4a-472e-8c6d-b50d7bb9c387"
+      "72a937ec-9e4a-472e-8c6d-b50d7bb9c387",
+      "5e72034c-06dd-4dae-8de6-bf90e2a2834a"
     ],
     "questMaintenanceInbox": [
       {
@@ -1215,11 +1301,28 @@
       "naruto:Rasengan": "skill-skin-rasengan-perfeito",
       "young-nagato:Air Bullets": "shop-item-2614"
     },
-    "rewardRouletteSpinCount": 4,
+    "rewardRouletteSpinCount": 5,
     "unlockedVoiceIds": [
       "kakashi-jutsucopiado"
     ],
     "rewardRouletteHistory": [
+      {
+        "id": "2842e059a777a96dec657f8aceee8694-1",
+        "createdAt": "2026-11-16T00:46:39.319Z",
+        "draw": {
+          "prize": {
+            "id": "card-deidara-(s)-base",
+            "kind": "card",
+            "rarity": "epica",
+            "name": "Deidara (S)",
+            "cardId": "deidara-(s)-base",
+            "characterName": "Deidara (S)"
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 5
+        }
+      },
       {
         "id": "3f74f56e73a7736d542d49461a11ff48-1",
         "createdAt": "2026-11-15T19:00:12.540Z",

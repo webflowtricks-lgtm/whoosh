@@ -2,13 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Award,
   ArrowLeft,
-  Backpack,
   CalendarDays,
   ChevronDown,
   Clock,
   CircleHelp,
   Diamond,
-  Dices,
   Download,
   Filter,
   Mail,
@@ -66,6 +64,7 @@ import RecurringQuestsModal from './RecurringQuestsModal';
 import SkinBagModal from './SkinBagModal';
 import SkinMedia from './SkinMedia';
 import RewardRoulettePage from './RewardRoulettePage';
+import LanguageSelector from './LanguageSelector';
 
 interface LobbyScreenProps {
   onStartGame: () => void;
@@ -903,7 +902,12 @@ export default function LobbyScreen({
             aria-label={t('Mochila de fragmentos de skin', 'Skin fragment bag')}
             title={t('Mochila de fragmentos de skin', 'Skin fragment bag')}
           >
-            <Backpack aria-hidden="true" />
+            <img
+              className="lobby-quick-recurring-icon"
+              src="/static/img/icon/bag_icon.webp"
+              alt=""
+              aria-hidden="true"
+            />
           </button>
         )}
         {user && (
@@ -919,7 +923,12 @@ export default function LobbyScreen({
             aria-label={t('Roleta de recompensas', 'Reward roulette')}
             title={t('Roleta de recompensas', 'Reward roulette')}
           >
-            <Dices aria-hidden="true" />
+            <img
+              className="lobby-quick-recurring-icon"
+              src="/static/img/icon/roulette_icon.webp"
+              alt=""
+              aria-hidden="true"
+            />
           </button>
         )}
         {quickActionsOpen && (
@@ -931,7 +940,7 @@ export default function LobbyScreen({
             <button type="button" onClick={() => { playClickSound(); onToggleMute(); }} aria-label={isMuted ? t('Ativar som', 'Unmute') : t('Silenciar', 'Mute')}>
               {isMuted ? <VolumeX /> : <Volume2 />}
             </button>
-            <button type="button" onClick={() => { playClickSound(); setQuickActionsOpen(false); setModal('audio'); }} aria-label={t('Configurações de áudio', 'Audio settings')}><Volume2 /></button>
+            <button type="button" onClick={() => { playClickSound(); setQuickActionsOpen(false); setModal('audio'); }} aria-label={t('Configurações', 'Settings')}><Settings /></button>
             {user && <button type="button" onClick={() => { setQuickActionsOpen(false); onLogout(); }} aria-label={t('Sair da conta', 'Log out')}><LogOut /></button>}
           </div>
         )}
@@ -1363,7 +1372,8 @@ export default function LobbyScreen({
         <div className="lobby-modal-backdrop" role="presentation" onClick={() => setModal(null)}>
           <section className="lobby-simple-modal lobby-audio-modal" role="dialog" aria-modal="true" onClick={event => event.stopPropagation()}>
             <button type="button" className="lobby-modal-close" onClick={() => setModal(null)} aria-label={t('Fechar', 'Close')}><X /></button>
-            <h2>{t('Configurações de volume', 'Volume settings')}</h2>
+            <h2>{t('Configurações', 'Settings')}</h2>
+            <h3 className="text-xs font-black uppercase tracking-wider text-orange-300">{t('Áudio', 'Audio')}</h3>
             {([
               ['master', t('Volume geral', 'Master volume')],
               ['effects', t('Efeitos sonoros', 'Sound effects')],
@@ -1374,6 +1384,13 @@ export default function LobbyScreen({
                 <input type="range" min="0" max="1" step="0.01" value={audioSettings[key]} onChange={event => onUpdateAudioSetting(key, Number(event.target.value))} />
               </label>
             ))}
+            <div className="mt-6 border-t border-orange-500/30 pt-4">
+              <LanguageSelector
+                className="w-full"
+                playClickSound={playClickSound}
+                variant="accordion"
+              />
+            </div>
           </section>
         </div>
       )}
