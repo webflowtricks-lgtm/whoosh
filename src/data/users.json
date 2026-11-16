@@ -776,7 +776,7 @@
       "daily-2026-11-15-daily-damage": [
         {
           "id": "daily-2026-11-15-daily-damage-damage",
-          "currentValue": 0,
+          "currentValue": 305,
           "currentStreak": 0
         }
       ],
@@ -797,7 +797,7 @@
       "weekly-2026-W46-weekly-damage": [
         {
           "id": "weekly-2026-W46-weekly-damage-damage",
-          "currentValue": 0,
+          "currentValue": 305,
           "currentStreak": 0
         }
       ],
@@ -896,7 +896,9 @@
       "1793546451924-00xm43l7thc3q",
       "9cc50767-d73c-4965-b91c-c9054708a072",
       "84373ac3-78ed-44bf-8dc4-a15487c1b93d",
-      "afc271c7-1135-4b1f-b2b5-be275b240cf0"
+      "afc271c7-1135-4b1f-b2b5-be275b240cf0",
+      "51f5b5db-5a83-4d24-9c30-633601e01105",
+      "72a937ec-9e4a-472e-8c6d-b50d7bb9c387"
     ],
     "questMaintenanceInbox": [
       {

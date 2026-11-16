@@ -22882,7 +22882,9 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                 chakraToast.type === 'removed' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
                 chakraToast.type === 'lost' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-slate-800 text-slate-300'
               }`}>
-                <Sparkles className="w-5 h-5 animate-pulse" />
+                {chakraToast.type === 'removed'
+                  ? <Zap aria-hidden="true" className="w-5 h-5 animate-pulse" />
+                  : <Sparkles aria-hidden="true" className="w-5 h-5 animate-pulse" />}
               </div>
               <div className="flex-1">
                 <p className="text-xs sm:text-sm font-extrabold tracking-wide drop-shadow">
