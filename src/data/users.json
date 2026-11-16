@@ -1301,11 +1301,27 @@
       "naruto:Rasengan": "skill-skin-rasengan-perfeito",
       "young-nagato:Air Bullets": "shop-item-2614"
     },
-    "rewardRouletteSpinCount": 5,
+    "rewardRouletteSpinCount": 6,
     "unlockedVoiceIds": [
       "kakashi-jutsucopiado"
     ],
     "rewardRouletteHistory": [
+      {
+        "id": "c6c90c4db807d4b0d12c8aecd74f88d5-1",
+        "createdAt": "2026-11-16T05:01:01.720Z",
+        "draw": {
+          "prize": {
+            "id": "duplicate-skin-ryos",
+            "kind": "ryos",
+            "rarity": "comum",
+            "name": "25 Ryos",
+            "amount": 25
+          },
+          "duplicate": true,
+          "guaranteedLegendary": false,
+          "spinsUntilLegendary": 4
+        }
+      },
       {
         "id": "2842e059a777a96dec657f8aceee8694-1",
         "createdAt": "2026-11-16T00:46:39.319Z",

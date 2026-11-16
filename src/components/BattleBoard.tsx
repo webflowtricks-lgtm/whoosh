@@ -19551,13 +19551,12 @@ const shieldDurText = fmtDur(skill.shieldDuration || 99999);
                     </button>
                   )}
 
-                  <div className="battle-wood-menu-inset mt-1 rounded-lg p-2">
-                    <LanguageSelector
-                      className="w-full"
-                      playClickSound={playClickSound}
-                      variant="accordion"
-                    />
-                  </div>
+                  <LanguageSelector
+                    className="w-full"
+                    playClickSound={playClickSound}
+                    theme="battle"
+                    variant="accordion"
+                  />
                 </div>
               )}
             </div>
