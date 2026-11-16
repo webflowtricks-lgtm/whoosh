@@ -6,9 +6,15 @@ interface LanguageSelectorProps {
   className?: string;
   variant?: 'compact' | 'full' | 'pills' | 'accordion';
   playClickSound?: () => void;
+  theme?: 'default' | 'battle';
 }
 
-export default function LanguageSelector({ className = '', variant = 'compact', playClickSound }: LanguageSelectorProps) {
+export default function LanguageSelector({
+  className = '',
+  variant = 'compact',
+  playClickSound,
+  theme = 'default',
+}: LanguageSelectorProps) {
   const { language, setLanguage, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -51,6 +57,7 @@ export default function LanguageSelector({ className = '', variant = 'compact', 
   }
 
   if (variant === 'accordion') {
+    const battleTheme = theme === 'battle';
     return (
       <div className={`relative ${className}`}>
         <button
@@ -58,7 +65,9 @@ export default function LanguageSelector({ className = '', variant = 'compact', 
           onClick={() => setIsOpen(open => !open)}
           aria-expanded={isOpen}
           aria-label={t('Idioma', 'Language')}
-          className="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-slate-700 bg-slate-900/90 px-3 text-xs font-bold text-slate-200 shadow-md transition hover:border-orange-400/60 hover:text-white"
+          className={battleTheme
+            ? 'battle-wood-menu-item flex min-h-9 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs font-bold cursor-pointer'
+            : 'flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-orange-500/30 bg-orange-950/40 px-3 text-xs font-bold text-amber-100 shadow-md transition hover:border-orange-400/70 hover:bg-orange-900/50 hover:text-white'}
         >
           <span className="flex items-center gap-2">
             <Globe className="h-3.5 w-3.5 text-orange-400" />
@@ -70,12 +79,20 @@ export default function LanguageSelector({ className = '', variant = 'compact', 
           </span>
         </button>
         {isOpen && (
-          <div role="group" aria-label={t('Selecione o idioma', 'Choose a language')} className="mt-1 grid grid-cols-2 gap-1 rounded-xl border border-slate-700 bg-slate-950/95 p-1 shadow-lg">
+          <div
+            role="group"
+            aria-label={t('Selecione o idioma', 'Choose a language')}
+            className={battleTheme
+              ? 'battle-wood-menu-inset mt-1 grid grid-cols-2 gap-1 rounded-lg p-1'
+              : 'mt-1 grid grid-cols-2 gap-1 rounded-xl border border-orange-500/30 bg-orange-950/65 p-1'}
+          >
             <button
               type="button"
               onClick={() => { handleSelect('pt'); setIsOpen(false); }}
               aria-pressed={language === 'pt'}
-              className={`min-h-8 rounded-lg px-2 text-[11px] font-bold transition ${language === 'pt' ? 'bg-orange-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800'}`}
+              className={`min-h-8 rounded-lg border px-2 text-[11px] font-bold transition ${language === 'pt'
+                ? battleTheme ? 'border-[#7a4e25] bg-[#d3ad75] text-stone-950' : 'border-orange-400 bg-orange-500 text-slate-950'
+                : battleTheme ? 'border-[#7a4e25] bg-[#4a2d1b] text-[#f4d3a3] hover:bg-[#5c371f]' : 'border-orange-500/25 bg-orange-950/40 text-amber-100 hover:bg-orange-900/60'}`}
               title="Português (Brasil)"
             >
               🇧🇷 PT
@@ -84,7 +101,9 @@ export default function LanguageSelector({ className = '', variant = 'compact', 
               type="button"
               onClick={() => { handleSelect('en'); setIsOpen(false); }}
               aria-pressed={language === 'en'}
-              className={`min-h-8 rounded-lg px-2 text-[11px] font-bold transition ${language === 'en' ? 'bg-orange-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800'}`}
+              className={`min-h-8 rounded-lg border px-2 text-[11px] font-bold transition ${language === 'en'
+                ? battleTheme ? 'border-[#7a4e25] bg-[#d3ad75] text-stone-950' : 'border-orange-400 bg-orange-500 text-slate-950'
+                : battleTheme ? 'border-[#7a4e25] bg-[#4a2d1b] text-[#f4d3a3] hover:bg-[#5c371f]' : 'border-orange-500/25 bg-orange-950/40 text-amber-100 hover:bg-orange-900/60'}`}
               title="English (US)"
             >
               🇺🇸 EN
